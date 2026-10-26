@@ -1,0 +1,31 @@
+# @marktiderman/genesis-notifications
+
+## 0.1.1
+
+### Patch Changes
+
+- 79ead0d: `@marktiderman/genesis-notifications`, v1: one notifier for every domain. A domain says who and what; the notifier decides how and when.
+
+  - **`/core`**: `defineNotifications` registers the types (category, channels and their defaults, `critical`, `transactional`, an email delay, a device action category, `secretLink`, a `render`), the device categories (`MESSAGE_ACTIONS`: Reply with a text field, Mark as read) and the Android channels; `toTypeRows()` is mirrored into `notification_types`.
+  - **`/runner`**: `createRunner`, the one outbox runner (claim, grouped sends, settle, `maxDeferrals`, jittered backoff, `disable` on 410). No dependencies.
+  - **`/server`**: `cancelNotification({ type, idempotencyKey, tenantId?, recipients?, archive? })` takes back what hasn't gone out (pending jobs cancelled and never claimed, one being sent never retried, sent ones untouched, feed rows archived if asked); `notify()` over the security-definer `genesis_notify` (unique per recipient, type, tenant and idempotency key, thread and collapse keys, a caller's badge, a tenant, email-only recipients); `createNotificationRunner` sending Expo push (batches of 100, `threadId`, `categoryId`, `badge`, `collapseId`, private previews, receipts, dead tokens pruned) and Resend email (rendered once at first claim for byte-identical retries; a 409 `invalid_idempotent_request` fails loudly; paced under Resend's rate limit; tenant sender identities on a shared or verified domain (ownership TXT challenge, one tenant per domain, never the shared one); transactional and other mail from separate domains; RFC 8058 one-click unsubscribe); `createNotificationsHandler` (cron, Resend webhooks feeding a suppression list, the unsubscribe page); `resolveSecretLink`; `checkSenderDomain` (ownership, SPF, DKIM, DMARC).
+  - **`/email`**: React Email `BrandLayout`, `reactEmailTemplate`.
+  - **`/supabase`**: migration `0001_genesis_notifications.sql` with a pgTAP test, and `notificationsClient`. Preferences by category and channel with tenant defaults, quiet hours across daylight saving, delay-then-skip-if-read, erasure of people with or without a login, a short delivery log. It adopts genesis-supabase's 0005 tables in place, and registers tokens so that one moves to another login only from the same phone (audited), with a forget that reveals nothing.
+  - **`/react`**, **`/web`**, **`/native`**, **`/blocks`**: `useNotifications`, `useUnreadCount`, `usePreferences`; a bell, a feed, a preferences matrix and admin views (delivery log, suppression list, send a test) on genesis-ui; a feed on genesis-ui-native's `NotificationsPage`, channel switches for `NotificationSettings`, and `notificationsPushBackend` for the push block; `notificationsBlock`.
+
+  Features: notifications, notifications-email
+
+- 41f93eb: A type's `render` can return `push: { ids, display, mutableContent }`: `ids` always reach the push's `data` (a Reply action needs the conversation and message), `display` values and `mutableContent` (for iOS rich push, genesis-native's Notification Service Extension) only when previews are shown. Flat values only, and the notifier's own `data` keys win. `PushMessage` gains `mutableContent`.
+- 377d186: Review fixes before the first release:
+
+  - A tenant's sender domain verifies only with an ownership TXT record holding that tenant's own token (`_genesis-notifications.<domain>`, `senderOwnershipRecord`), for one tenant at most (a unique index on verified domains), and never as the app's shared domain or one under it (`checkSenderDomain({ token, reservedDomains })`, and the runner refuses one too). `genesis_notifications_set_sender_dns` takes the domain it checked.
+  - A cancel that lands while a job is being sent sticks: the job is never retried, and an expired lease ends it cancelled.
+  - Idempotency keys (and cancel, and collapse) are per type and tenant: tenant A's key never finds tenant B's notification. `cancelNotification` takes `type` and `tenantId`.
+  - A token registered before install ids (genesis-supabase's 0005, or the three-argument register) is adopted by the first register that brings one, audited, so upgrading strands no phone.
+  - The secret backstop also refuses relative links, fragments, and any key or parameter ending in token, code, secret, key, otp or password.
+  - An email whose secret won't decrypt fails alone (`secret_unreadable`); the rest of the claim goes out.
+  - Resend's 409 `invalid_idempotent_request` fails loudly instead of counting as sent; secret link builders must be deterministic. Requests are paced (`perSecond`, default 5) under Resend's limit.
+  - Push settles each Expo batch on its own and starts none once its lease is about to run out; with `runBudgetMs` a run claims again until the time left is under the lease.
+  - Erasing a login also erases rows addressed to its email; unsubscribe tokens carry the address's hash, never the address, and unsubscribe from the sending tenant only; only a `Permanent` bounce suppresses; the provider's id is kept before the job settles.
+  - The sender function template's `genesis.test` stays critical; push and email links must be paths on the app's own origin.
+  - Preferences: an old 0005 switch left on no longer turns on opt-in email; clearing a choice for a category with none no longer fails; the web and native screens read choices back after a save; the feed header shares the feed's query; the push block's switch for a category with no notifier push type is kept, not refused.
