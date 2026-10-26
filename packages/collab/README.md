@@ -12,8 +12,12 @@ in your tables and this package decides who reads them.
 ## What's here
 
 - `migrations/0001_genesis_collab.sql`: the `genesis_collab` schema and its rules, for your
-  Supabase. Register your audiences and subject types, then call `genesis_collab.can_see(id)`
-  from your own row level security. It only narrows what your own rules allow.
+  Supabase. Register your audiences, subject types and contribution kinds. A contribution kind
+  names your function that says whose row a ref is, so a contribution is always recorded for
+  the row's author. Then, in your own row level security, use
+  `id::text in (select genesis_collab.visible_refs('answer'))` for lists (worked out once per
+  statement) or `genesis_collab.can_see_ref('answer', id::text)` for one row. It only narrows
+  what your own rules allow.
 - `migrations/tests/0001_genesis_collab.test.sql`: the pgTAP contract (who sees what, for every
   level, reveal rule, private flag and role).
 - The core (`import { gateOf, canSee, mayAggregate, showsNames, describePolicy } from

@@ -17,13 +17,21 @@
 -- The package never stores contents. The app keeps its rows (answers, posts) in its own
 -- tables and lets this file decide who reads them, from its own row level security:
 --
+--   create function public.collab_answer_author(ref text) returns uuid
+--   language sql stable security definer set search_path = '' as $$
+--     select a.person_id from public.answers a where a.id::text = ref
+--   $$;
+--   select genesis_collab.register_contribution_kind('answer', 'Answer', 'public.collab_answer_author(text)');
+--
 --   create policy "space members read shared answers" on public.answers for select
 --   to authenticated using (
 --     person_id = (select auth.uid())
---     or exists (select 1 from genesis_collab.contributions c
---                where c.kind = 'answer' and c.ref_id = answers.id::text
---                  and genesis_collab.can_see(c.id))
+--     or id::text in (select genesis_collab.visible_refs('answer'))
 --   );
+--
+-- A contribution is always recorded for its row's author (the kind's author function), so
+-- nobody can point a space at someone else's row. For one row, can_see_ref(kind, ref) answers
+-- the same question; visible_refs works it out once per statement, for lists.
 --
 -- These rules only narrow what the app's own rules allow: an app that has a wider access
 -- model (who may read a team's work at all) ANDs it with can_see, never ORs around it.
@@ -77,6 +85,15 @@ create table genesis_collab.audience_kinds (
   members regprocedure not null
 );
 
+-- What a contribution points at (an answer, a post), with the app's function that says whose
+-- row it is: (ref_id text) returns uuid. A contribution is always recorded for that person, so
+-- nobody can point a space at someone else's row.
+create table genesis_collab.contribution_kinds (
+  kind text primary key check (kind ~ '^[a-z][a-z0-9_]{0,39}$'),
+  label text not null check (char_length(label) between 1 and 80),
+  author_of regprocedure not null
+);
+
 create table genesis_collab.subject_types (
   subject_type text primary key check (subject_type ~ '^[a-z][a-z0-9_]{0,39}$'),
   label text not null check (char_length(label) between 1 and 80),
@@ -127,7 +144,7 @@ create index members_person on genesis_collab.members (member_id) where member_k
 create table genesis_collab.contributions (
   id uuid primary key default gen_random_uuid(),
   space_id uuid not null references genesis_collab.spaces (id) on delete cascade,
-  kind text not null check (kind ~ '^[a-z][a-z0-9_]{0,39}$'),
+  kind text not null references genesis_collab.contribution_kinds (kind),
   ref_id text not null check (char_length(ref_id) between 1 and 200),
   author_id uuid not null references auth.users (id) on delete cascade,
   -- Who it's about: a manager's review of a report is the manager's, about the report.
@@ -140,6 +157,8 @@ create table genesis_collab.contributions (
 );
 
 create index contributions_space_period on genesis_collab.contributions (space_id, period);
+create index contributions_ref on genesis_collab.contributions (kind, ref_id);
+create index contributions_author on genesis_collab.contributions (author_id, kind);
 
 create table genesis_collab.events (
   id bigint generated always as identity primary key,
@@ -155,6 +174,7 @@ create index events_space on genesis_collab.events (space_id, at);
 -- Everything goes through the functions below: row level security on, no policies, no grants.
 alter table genesis_collab.audience_kinds enable row level security;
 alter table genesis_collab.subject_types enable row level security;
+alter table genesis_collab.contribution_kinds enable row level security;
 alter table genesis_collab.spaces enable row level security;
 alter table genesis_collab.members enable row level security;
 alter table genesis_collab.contributions enable row level security;
@@ -197,7 +217,23 @@ begin
   on conflict (subject_type) do update set label = excluded.label, create_check = excluded.create_check;
 end $$;
 
+create function genesis_collab.register_contribution_kind(p_kind text, p_label text, p_author_of regprocedure)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  f record;
+begin
+  select pg_catalog.oidvectortypes(p.proargtypes) as args, p.prorettype, p.proretset into f
+  from pg_catalog.pg_proc p where p.oid = p_author_of;
+  if f.args <> 'text' or f.prorettype <> 'uuid'::regtype or f.proretset then
+    raise exception 'a contribution kind''s author function must be (text) returns uuid'
+      using errcode = '22023';
+  end if;
+  insert into genesis_collab.contribution_kinds (kind, label, author_of) values (p_kind, p_label, p_author_of)
+  on conflict (kind) do update set label = excluded.label, author_of = excluded.author_of;
+end $$;
+
 revoke execute on function genesis_collab.register_audience(text, text, regprocedure) from public, anon, authenticated;
+revoke execute on function genesis_collab.register_contribution_kind(text, text, regprocedure) from public, anon, authenticated;
 revoke execute on function genesis_collab.register_subject(text, text, regprocedure) from public, anon, authenticated;
 
 -- ── Membership ────────────────────────────────────────────────────────────────
@@ -236,19 +272,29 @@ end $$;
 
 revoke execute on function genesis_collab._people(uuid) from public, anon, authenticated;
 
+-- The server: the service role, or database code (a migration, a trigger, a job) running as a
+-- role that isn't one of the API's. A request with no claims as authenticated or anon is not.
+create function genesis_collab._is_server()
+returns boolean language sql stable set search_path = '' as $$
+  select coalesce(auth.role(), '') = 'service_role'
+    or (coalesce(auth.role(), '') = ''
+        and coalesce(nullif(current_setting('role', true), ''), 'none') not in ('authenticated', 'anon'))
+$$;
+revoke execute on function genesis_collab._is_server() from public, anon, authenticated;
+
 -- A signed-in person may ask the rules about themselves only, never probe someone else's
--- access. The server, and database code running with no signed-in person, may ask about anyone.
+-- access. Only the server may ask about anyone. Fails closed.
 create function genesis_collab._only_self(p_person uuid)
 returns void language plpgsql stable set search_path = '' as $$
 begin
-  if coalesce(auth.role(), '') in ('authenticated', 'anon') and p_person is distinct from auth.uid() then
-    raise exception 'you can only ask about yourself' using errcode = '42501';
-  end if;
+  if p_person is not distinct from auth.uid() and auth.uid() is not null then return; end if;
+  if genesis_collab._is_server() then return; end if;
+  raise exception 'you can only ask about yourself' using errcode = '42501';
 end $$;
 revoke execute on function genesis_collab._only_self(uuid) from public, anon, authenticated;
 
--- A person's role in a space (null: not in it).
-create function genesis_collab.role_of(p_space uuid, p_person uuid default auth.uid())
+-- A person's role in a space (null: not in it). Internal: role_of below is the public one.
+create function genesis_collab._role(p_space uuid, p_person uuid)
 returns text language plpgsql stable security definer set search_path = '' as $$
 declare
   r text;
@@ -256,7 +302,6 @@ declare
   found_role text;
   rank_of constant jsonb := '{"owner":4,"facilitator":3,"participant":2,"viewer":1}';
 begin
-  perform genesis_collab._only_self(p_person);
   if p_person is null then return null; end if;
   select mm.role into r from genesis_collab.members mm
   where mm.space_id = p_space and mm.member_kind = 'person' and mm.member_id = p_person;
@@ -274,6 +319,16 @@ begin
     found_role := null;
   end loop;
   return r;
+end $$;
+
+revoke execute on function genesis_collab._role(uuid, uuid) from public, anon, authenticated;
+
+-- A person's role in a space (null: not in it). People may ask about themselves only.
+create function genesis_collab.role_of(p_space uuid, p_person uuid default auth.uid())
+returns text language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform genesis_collab._only_self(p_person);
+  return genesis_collab._role(p_space, p_person);
 end $$;
 
 -- ── The rules ─────────────────────────────────────────────────────────────────
@@ -344,6 +399,70 @@ begin
   if role_ in ('owner', 'facilitator') then return true; end if;
   select * into s from genesis_collab.spaces where id = c.space_id;
   return s.visibility = 'full' and genesis_collab.gate(c.space_id, c.period, p_person) = 'open';
+end $$;
+
+-- Whether the signed-in person may read the app's row `ref_id` of a contribution kind: theirs,
+-- or shown to them in any space it was contributed to. For a single row; for a list, use
+-- visible_refs, which works once per statement.
+create function genesis_collab.can_see_ref(p_kind text, p_ref_id text)
+returns boolean language sql stable security definer set search_path = '' as $$
+  select exists (
+    select 1 from genesis_collab.contributions c
+    where c.kind = p_kind and c.ref_id = p_ref_id and genesis_collab.can_see(c.id)
+  )
+$$;
+
+-- Every ref of a contribution kind the signed-in person may read, other people's included,
+-- worked out once: their own, then per space they're in, per period whose gate is open.
+-- Use it in row level security as `id::text in (select genesis_collab.visible_refs('answer'))`.
+create function genesis_collab.visible_refs(p_kind text)
+returns setof text language plpgsql stable security definer set search_path = '' as $$
+declare
+  me uuid := auth.uid();
+  spaces_ uuid[];
+  a record;
+  sp record;
+  per record;
+  is_member boolean;
+  role_ text;
+begin
+  if me is null then return; end if;
+  return query select c.ref_id from genesis_collab.contributions c where c.author_id = me and c.kind = p_kind;
+
+  select coalesce(array_agg(distinct m.space_id), '{}') into spaces_
+  from genesis_collab.members m where m.member_kind = 'person' and m.member_id = me;
+  for a in
+    select distinct m.member_kind, m.member_id, ak.members
+    from genesis_collab.members m join genesis_collab.audience_kinds ak on ak.kind = m.member_kind
+  loop
+    execute format('select $2 in (select x from %s($1) x)', a.members::oid::regproc)
+      into is_member using a.member_id, me;
+    if is_member then
+      spaces_ := spaces_ || array(select m.space_id from genesis_collab.members m
+                                  where m.member_kind = a.member_kind and m.member_id = a.member_id);
+    end if;
+  end loop;
+
+  for sp in
+    select s.id, s.visibility from genesis_collab.spaces s
+    where s.id = any (spaces_)
+      and exists (select 1 from genesis_collab.contributions c where c.space_id = s.id and c.kind = p_kind)
+  loop
+    role_ := genesis_collab._role(sp.id, me);
+    if role_ in ('owner', 'facilitator') then
+      return query select c.ref_id from genesis_collab.contributions c
+        where c.space_id = sp.id and c.kind = p_kind and c.author_id <> me
+          and c.sent_at is not null and not c.private;
+    elsif role_ is not null and sp.visibility = 'full' then
+      for per in select distinct c.period from genesis_collab.contributions c where c.space_id = sp.id and c.kind = p_kind loop
+        if genesis_collab.gate(sp.id, per.period, me) = 'open' then
+          return query select c.ref_id from genesis_collab.contributions c
+            where c.space_id = sp.id and c.kind = p_kind and c.period = per.period and c.author_id <> me
+              and c.sent_at is not null and not c.private;
+        end if;
+      end loop;
+    end if;
+  end loop;
 end $$;
 
 -- Whether a person may see combined results (counts, averages, spread) of a period.
@@ -472,8 +591,8 @@ revoke execute on function genesis_collab._log(uuid, text, jsonb) from public, a
 -- Whether the caller may change a space: its owner, or the server.
 create function genesis_collab._may_run(p_space uuid, p_roles text[])
 returns boolean language sql stable security definer set search_path = '' as $$
-  select coalesce(auth.role(), '') = 'service_role'
-    or genesis_collab.role_of(p_space, auth.uid()) = any (p_roles)
+  select genesis_collab._is_server()
+    or (auth.uid() is not null and genesis_collab.role_of(p_space, auth.uid()) = any (p_roles))
 $$;
 revoke execute on function genesis_collab._may_run(uuid, text[]) from public, anon, authenticated;
 
@@ -488,7 +607,7 @@ create function genesis_collab.create_space(
 declare
   t genesis_collab.subject_types;
   me uuid := auth.uid();
-  allowed boolean := coalesce(auth.role(), '') = 'service_role';
+  allowed boolean := genesis_collab._is_server();
   new_id uuid;
 begin
   select * into t from genesis_collab.subject_types where subject_type = p_subject_type;
@@ -596,19 +715,32 @@ begin
   perform genesis_collab._log(p_space, case when p_locked then 'lock' else 'reopen' end);
 end $$;
 
--- Record (or update) the caller's contribution: a pointer to the app's own row. Participants
--- and those who run the space contribute; viewers don't. Refused when the space is locked,
--- not open yet, or closed. A ref already recorded by someone else is refused.
+-- Record (or update) a contribution: a pointer to the app's own row. It's recorded for the
+-- row's author, as the contribution kind's author function says, never for the caller: a
+-- signed-in person can record only their own rows, and the server (an app's trigger, a job)
+-- records anyone's. The author must take part (participants and those who run the space;
+-- viewers don't). Refused when the space is locked, not open yet, or closed.
 create function genesis_collab.contribute(
   p_space uuid, p_kind text, p_ref_id text, p_period text default '', p_sent boolean default false,
   p_private boolean default false, p_subject_person uuid default null
 ) returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   me uuid := auth.uid();
+  server boolean := genesis_collab._is_server();
+  k genesis_collab.contribution_kinds;
+  author uuid;
   s genesis_collab.spaces;
   c_id uuid;
 begin
-  if me is null or coalesce(genesis_collab.role_of(p_space, me), 'viewer') = 'viewer' then
+  select * into k from genesis_collab.contribution_kinds where kind = p_kind;
+  if k.kind is null then
+    raise exception 'unknown contribution kind %', p_kind using errcode = '22023';
+  end if;
+  execute format('select %s($1)', k.author_of::oid::regproc) into author using p_ref_id;
+  if author is null or (not server and author is distinct from me) then
+    raise exception 'that isn''t yours to add' using errcode = '42501';
+  end if;
+  if coalesce(genesis_collab._role(p_space, author), 'viewer') = 'viewer' then
     raise exception 'you can''t add to this space' using errcode = '42501';
   end if;
   select * into s from genesis_collab.spaces where id = p_space;
@@ -617,16 +749,17 @@ begin
     raise exception 'this space isn''t taking answers right now' using errcode = '55000';
   end if;
   insert into genesis_collab.contributions as c (space_id, kind, ref_id, author_id, subject_person_id, period, private, sent_at)
-  values (p_space, p_kind, p_ref_id, me, coalesce(p_subject_person, me), coalesce(p_period, ''), p_private,
+  values (p_space, p_kind, p_ref_id, author, coalesce(p_subject_person, author), coalesce(p_period, ''), p_private,
     case when p_sent then now() end)
   on conflict (space_id, kind, ref_id) do update set
     private = excluded.private,
+    period = excluded.period,
     sent_at = case when p_sent then coalesce(c.sent_at, now()) end,
     subject_person_id = coalesce(p_subject_person, c.subject_person_id)
-  where c.author_id = me
+  where c.author_id = author
   returning c.id into c_id;
   if c_id is null then
-    raise exception 'that belongs to someone else' using errcode = '42501';
+    raise exception 'that isn''t yours to add' using errcode = '42501';
   end if;
   return c_id;
 end $$;
@@ -649,6 +782,8 @@ grant execute on function
   genesis_collab.role_of(uuid, uuid),
   genesis_collab.gate(uuid, text, uuid),
   genesis_collab.can_see(uuid, uuid),
+  genesis_collab.can_see_ref(text, text),
+  genesis_collab.visible_refs(text),
   genesis_collab.may_aggregate(uuid, text, uuid),
   genesis_collab.shows_names(uuid, text, uuid),
   genesis_collab.space(uuid, text),

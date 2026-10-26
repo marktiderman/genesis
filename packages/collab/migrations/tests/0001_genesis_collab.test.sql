@@ -7,7 +7,7 @@
 -- takes part; f6 is a facilitator; 07 views; 08 is in nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(65);
+select plan(74);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c1' || n)::uuid, 'authenticated', 'authenticated', 'genesis-collab-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -52,6 +52,16 @@ returns boolean language sql stable set search_path = '' as $$
   select person = '00000000-0000-4000-8000-00000000c101'::uuid
 $$;
 create function public.genesis_collab_test_bad(audience uuid) returns uuid language sql as $$ select audience $$;
+-- The app's answers, and whose each one is.
+create table public.genesis_collab_test_answers (id text primary key, person_id uuid);
+insert into public.genesis_collab_test_answers values
+  ('ans-a', pg_temp.person('a2')), ('ans-b', pg_temp.person('b3')), ('ans-c', pg_temp.person('c4')),
+  ('ans-d', pg_temp.person('d5')), ('ans-b2', pg_temp.person('b3')), ('ans-v', pg_temp.person('07')),
+  ('ans-srv', pg_temp.person('c4'));
+create function public.genesis_collab_test_author(ref text) returns uuid
+language sql stable security definer set search_path = '' as $$
+  select a.person_id from public.genesis_collab_test_answers a where a.id = ref
+$$;
 
 select throws_ok($$ select genesis_collab.register_audience('group', 'Group', 'public.genesis_collab_test_bad(uuid)') $$,
   '22023', null, 'an audience''s members function must return setof uuid');
@@ -61,6 +71,10 @@ select throws_ok($$ select genesis_collab.register_subject('worksheet', 'Workshe
   '22023', null, 'a create check must be (uuid, text, text, uuid) returns boolean');
 select lives_ok($$ select genesis_collab.register_subject('worksheet', 'Worksheet', 'public.genesis_collab_test_may_start(uuid, text, text, uuid)') $$,
   'an app registers a subject type with its create check');
+select throws_ok($$ select genesis_collab.register_contribution_kind('answer', 'Answer', 'public.genesis_collab_test_members(uuid)') $$,
+  '22023', null, 'a contribution kind''s author function must be (text) returns uuid');
+select lives_ok($$ select genesis_collab.register_contribution_kind('answer', 'Answer', 'public.genesis_collab_test_author(text)') $$,
+  'an app registers a contribution kind with whose rows they are');
 
 -- ── Starting a space ──────────────────────────────────────────────────────────
 
@@ -114,13 +128,21 @@ select ok(not genesis_collab.can_see(pg_temp.v('a')), 'so b3 can''t read a2''s')
 select ok(genesis_collab.can_see(pg_temp.v('b')), 'but reads their own draft');
 select throws_ok($$ select genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-a', '2026-W44') $$,
   '42501', null, 'nobody can claim someone else''s answer');
+select throws_ok($$ select genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-c', '2026-W44') $$,
+  '42501', null, 'nor point the space at someone else''s row before they do');
+select throws_ok($$ select genesis_collab.contribute(pg_temp.v('space'), 'post', 'p1', '2026-W44') $$,
+  '22023', null, 'an unknown contribution kind is refused');
 select genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-b', '2026-W44', p_sent => true);
 select is(genesis_collab.gate(pg_temp.v('space'), '2026-W44'), 'open', 'sending theirs opens it');
 select ok(genesis_collab.can_see(pg_temp.v('a')), 'and b3 reads a2''s answer');
+select ok(genesis_collab.can_see_ref('answer', 'ans-a'), 'by its ref too');
+select is(array(select genesis_collab.visible_refs('answer') order by 1), array['ans-a', 'ans-b'],
+  'and lists both refs at once');
 select is(genesis_collab.gate(pg_temp.v('space'), '2026-W45'), 'contribute_first', 'each period has its own gate');
 
 select pg_temp.sign_in('c4');
 select ok(not genesis_collab.can_see(pg_temp.v('a')), 'c4 hasn''t sent, so can''t read it');
+select is(array(select genesis_collab.visible_refs('answer')), '{}'::text[], 'nor list it');
 select pg_temp.sign_in('07');
 select is(genesis_collab.gate(pg_temp.v('space'), '2026-W44'), 'open', 'a viewer doesn''t have to answer first');
 select throws_ok($$ select genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-v', '2026-W44') $$,
@@ -129,6 +151,14 @@ select pg_temp.sign_in('08');
 select ok(not genesis_collab.can_see(pg_temp.v('a')), 'someone outside the space reads nothing');
 select throws_ok($$ select genesis_collab.can_see(pg_temp.v('a'), '00000000-0000-4000-8000-00000000c1b3') $$,
   '42501', null, 'nor asks whether someone else can');
+-- A request with no claims is not the server.
+select set_config('request.jwt.claims', '', true), set_config('request.jwt.claim.sub', '', true), set_config('role', 'authenticated', true);
+select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-0000-4000-8000-00000000c1a2') $$,
+  '42501', null, 'a request without claims can''t ask about anyone');
+select pg_temp.as_server();
+insert into t select 'srv', genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-srv', '2026-W46');
+select is((select author_id from genesis_collab.contributions where id = pg_temp.v('srv')), pg_temp.person('c4'),
+  'the server records a row for its author');
 
 select pg_temp.sign_in('b3');
 select is((select count(*)::int from genesis_collab.contributions(pg_temp.v('space'), '2026-W44')), 2, 'b3 lists both answers');
