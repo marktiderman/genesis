@@ -61,7 +61,7 @@ that:
 
 The provider config holds the data-side facts. These are owned by the data layer, not views:
 
-- `source`: a table, a `security_invoker` view, or a set-returning function;
+- `source`: a table, a `security_invoker` view, or a set-returning function (`{ rpc, args }`), including `security definer` functions that mask values by policy;
 - `select` and `writeColumns`: the read fields come from the source and the write fields from the
   table. ResourceView passes `writeColumns` automatically, so a form built from a joined row never
   sends a joined column;
@@ -104,6 +104,18 @@ export const brandsView = defineView(resources.brands, {
 - **Grouping:** `groupBy: "owner_id"`, with group headers and counts.
 - **Manual order:** `orderBy: { field: "rank", manual: true }` turns on drag to reorder, plus keyboard pick-up and the Move menu, on SortableList's engine (one drag engine). The rank is written through the provider.
 - **Footer totals:** `totals: (rows) => ...` for a figure such as a week's completion %.
+- **Dates are days or instants, never confused.** The `date` hint formats a calendar day
+  (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
+  with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "practice"` (or
+  a field) renders it in another zone, for example class times. "Today" and "this week" filters
+  are person-days from the scope (`personDay`, `startOfWeek`, `dayRangeIn`), so no view or screen
+  computes "today" itself, and Genesis code never slices an ISO string to get a date.
+- **Columns shown only when the data allows.** A function source can mask a value by policy (an
+  anonymous author, a hidden name) and return `null` with a flag column. `fields.author.when:
+  (row) => row.author_visible` shows the column or cell only when the server says so. The masking
+  itself is the server's.
+- **Rollups:** `totals` can be per group as well as overall (an average and spread per team,
+  then a combined row), for assessment-style lists.
 - **`summary(row)`** gives a one-line title and chips for pickers, notifications, extension page
   bars and other non-list surfaces. It defaults to `labelField` plus a few columns.
 
@@ -269,6 +281,11 @@ The defaults are chosen for large data:
   `select`. They load lazily on first open.
 - **References** become bounded PostgREST embeds (`brand:brands(name)`), with no N+1. A filtered
   child count never goes through embeds: it comes from a `source` view.
+- **Big exports, imports and pastes run as jobs.** Above a threshold (about 500 rows, or past the
+  provider's `bulkWrites` limit), CSV export, import and multi-row paste go to
+  `genesis-supabase/jobs` (`enqueueJob(admin, "resource.export", { resource, filters, viewer })`)
+  through an app server function, with an idempotency key so a double click is one job. The
+  browser watches the job instead of looping writes. Below the threshold they stay synchronous.
 - **Identity:** views are module constants. Derived columns and options are memoised. The
   messages provider is given a stable object.
 
