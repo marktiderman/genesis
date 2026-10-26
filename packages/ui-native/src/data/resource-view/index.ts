@@ -3,6 +3,7 @@ export { NativeResourceView, type NativeResourceViewProps, type NativeResourceSw
 export {
   useNativeResourceView,
   SEARCH_DEBOUNCE_MS,
+  screenValues,
   type NativeResourceViewOptions,
   type SaveResult,
   type UseNativeResourceViewReturn,

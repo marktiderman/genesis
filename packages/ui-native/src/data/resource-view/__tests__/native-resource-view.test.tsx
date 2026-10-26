@@ -38,6 +38,7 @@ import {
   NativeResourceView,
   openableUrl,
   rowItem,
+  screenValues,
   sectionsFor,
   swipeActionsFor,
   useNativeResourceView,
@@ -328,6 +329,56 @@ describe("form sheet", () => {
     const sent = (p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { id: string; data: Record<string, unknown> };
     expect(sent.id).toBe("b2");
     expect(Object.keys(sent.data).sort()).toEqual(["launched_on", "name", "status", "website"]);
+  });
+});
+
+describe("links and the screen's filter", () => {
+  type Question = { id: string; form_id: string; prompt: string };
+  // A required link, read-only as core marks references (writable() leaves it out).
+  const questions = defineResource<Question>()({
+    name: "questions",
+    key: "id",
+    labelField: "prompt",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "form_id", type: "string", references: { resource: "forms", field: "id" }, readOnly: true },
+      { name: "prompt", type: "string" },
+    ],
+  });
+  const questionsView = defineView(questions, { form: ["form_id", "prompt"] });
+  const QUESTION: Question = { id: "q1", form_id: "f1", prompt: "How was it?" };
+  const questionProvider = () =>
+    provider({ getList: vi.fn(async () => ({ data: [QUESTION], total: 1 })) as unknown as DataProvider["getList"] });
+
+  it("shows a read-only link as its label and raw id, never an input", async () => {
+    render(<NativeResourceView view={questionsView} filter={{ form_id: "f1" }} />, { wrapper: wrap(questionProvider()) });
+    const row = await screen.findByTestId("native-resource-view-row-q1");
+    act(() => {
+      row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "edit" }));
+    });
+    const field = await screen.findByTestId("native-resource-view-form-field-form_id");
+    expect(field.querySelector("input")).toBeNull();
+    expect(field.textContent).toContain("Form");
+    expect(screen.getByTestId("native-resource-view-form-field-form_id-value").textContent).toBe("f1");
+    expect(formFieldsFor(questionsView, "create").map((f) => f.key)).toEqual(["prompt"]);
+  });
+
+  it("sends the filter's link on create although it's read-only, and never on edit", async () => {
+    const p = questionProvider();
+    const { result } = renderHook(() => useNativeResourceView(questionsView, { filter: { form_id: "f1" } }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    await act(async () => {
+      expect(await result.current.save("create", { prompt: "New one", form_id: "typed" })).toEqual({ ok: true });
+    });
+    expect((p.create as ReturnType<typeof vi.fn>).mock.calls[0]![1].data).toEqual({ prompt: "New one", form_id: "f1" });
+    await act(async () => {
+      expect(await result.current.save("edit", { ...QUESTION, prompt: "Changed", form_id: "f2" }, QUESTION)).toEqual({ ok: true });
+    });
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual({ id: "q1", data: { prompt: "Changed" } });
+  });
+
+  it("takes create values from non-null filters only, the screen's over the tab's", () => {
+    expect(screenValues({ status: "draft", form_id: "a" }, { form_id: "b", owner_id: null })).toEqual({ status: "draft", form_id: "b" });
   });
 });
 

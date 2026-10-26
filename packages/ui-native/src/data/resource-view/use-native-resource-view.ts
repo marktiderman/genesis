@@ -36,7 +36,11 @@ export const SEARCH_DEBOUNCE_MS = 300;
 export interface NativeResourceViewOptions<T extends Row = Row> {
   /** A tab the view defines: its server filter. */
   preset?: string;
-  /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". */
+  /**
+   * Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". A create
+   * also saves every non-null value here (a tab's filter too), even for read-only fields such as
+   * a required link: they come from the screen, never from an input. An edit never sends them.
+   */
   filter?: Filter;
   /** Rows per page. Default 25. */
   perPage?: number;
@@ -93,6 +97,15 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
   );
 }
 
+/** The values a create takes from the screen: every non-null equality filter, the screen's over the tab's. */
+export function screenValues(...filters: (Filter | undefined)[]): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const filter of filters) {
+    for (const [field, value] of Object.entries(filter ?? {})) if (value !== null) out[field] = value;
+  }
+  return out;
+}
+
 export function useNativeResourceView<T extends Row = Row>(
   view: AnyResourceView<T>,
   options: NativeResourceViewOptions<T> = {},
@@ -105,6 +118,7 @@ export function useNativeResourceView<T extends Row = Row>(
   // ── Reads: cursor pages, server filters, server search ──────────────────
   const tabFilter = tab?.filter as Filter | undefined;
   const defaultFilters = useMemo(() => [...filterParams(tabFilter), ...filterParams(filter)], [tabFilter, filter]);
+  const createDefaults = useMemo(() => screenValues(tabFilter, filter), [tabFilter, filter]);
   const orderBy = view.definition.orderBy;
   const searchFields = useMemo(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
@@ -160,7 +174,14 @@ export function useNativeResourceView<T extends Row = Row>(
       const fields = formFieldsFor(view, mode);
       const errors = validateValues(fields, values, messages);
       if (Object.keys(errors).length) return { ok: false, fields: errors };
-      const data = writableValues(view, mode, fields, values) as Partial<T & BaseRecord>;
+      // A create is the person's writable values plus the screen's filter values, which win (the
+      // new row must land in this list). An edit sends only writable values. The server's
+      // WITH CHECK still decides.
+      const data = (
+        mode === "create"
+          ? { ...writableValues(view, mode, fields, values), ...createDefaults }
+          : writableValues(view, mode, fields, values)
+      ) as Partial<T & BaseRecord>;
       setRefusal(null);
       try {
         if (mode === "create") await create(data);
@@ -174,7 +195,7 @@ export function useNativeResourceView<T extends Row = Row>(
         };
       }
     },
-    [view, messages, create, update],
+    [view, messages, create, update, createDefaults],
   );
 
   const { remove: removeRow } = optimistic;
