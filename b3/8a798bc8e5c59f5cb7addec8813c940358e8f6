@@ -1,0 +1,25 @@
+.changeset/public-page-contrast.md
+  s_3daa86e3ae6031::t_4a91fd346ff336 1-5
+apps/sample/app/data/primitives.json
+  s_3daa86e3ae6031::t_b7a2c65b5a0c8a 6898,6903,6967,7021,7033
+packages/ui/src/components/layout/__tests__/public-layouts.test.tsx
+  s_3daa86e3ae6031::t_cde724a30d7e94 38-48,209-271,313-347
+packages/ui/src/components/layout/brand-theme.ts
+  s_3daa86e3ae6031::t_931003e7018e50 31,35-39,57-71,73,75,90-96,132-135,151-156,159,165-175,177-193,202-208,210-232,234-242,252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b38a798bc8e5c59f5cb7addec8813c940358e8f6",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
