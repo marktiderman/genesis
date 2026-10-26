@@ -16,17 +16,22 @@
     "provenance": false
   },
   "main": "./dist/index.js",
+  "react-native": "./src/index.ts",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./react": {
       "types": "./dist/react.d.ts",
-      "import": "./dist/react.js"
+      "react-native": "./src/react/index.tsx",
+      "import": "./dist/react.js",
+      "default": "./dist/react.js"
     },
     "./web": {
       "types": "./dist/web.d.ts",
@@ -34,7 +39,9 @@
     },
     "./native": {
       "types": "./dist/native.d.ts",
-      "import": "./dist/native.js"
+      "react-native": "./src/native/index.ts",
+      "import": "./dist/native.js",
+      "default": "./dist/native.js"
     },
     "./server": {
       "types": "./dist/server.d.ts",
@@ -43,6 +50,7 @@
   },
   "files": [
     "dist",
+    "src",
     "migrations",
     "README.md"
   ],
@@ -53,16 +61,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-features": "workspace:^",
+    "frimousse": "0.4.0"
   },
   "peerDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.0.0",
+    "hls.js": "^1.5.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "react-native": ">=0.76.0",
+    "react-native-safe-area-context": ">=4.0.0"
   },
   "peerDependenciesMeta": {
     "@marktiderman/genesis-core": {
@@ -71,7 +84,31 @@
     "@marktiderman/genesis-ui": {
       "optional": true
     },
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "@shopify/flash-list": {
+      "optional": true
+    },
     "@tanstack/react-query": {
+      "optional": true
+    },
+    "expo-audio": {
+      "optional": true
+    },
+    "expo-clipboard": {
+      "optional": true
+    },
+    "expo-haptics": {
+      "optional": true
+    },
+    "expo-image": {
+      "optional": true
+    },
+    "expo-image-picker": {
+      "optional": true
+    },
+    "hls.js": {
       "optional": true
     },
     "lucide-react": {
@@ -82,11 +119,22 @@
     },
     "react-dom": {
       "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-keyboard-controller": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
     }
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.75.0",
     "@testing-library/react": "^16.3.2",
@@ -94,6 +142,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "happy-dom": "^20.9.0",
+    "hls.js": "1.7.3",
     "lucide-react": "^1.28.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
@@ -131,6 +180,10 @@
           {
             "file": "migrations/0001_genesis_chat.sql",
             "test": "migrations/tests/0001_genesis_chat.test.sql"
+          },
+          {
+            "file": "migrations/0002_genesis_chat_coaching.sql",
+            "test": "migrations/tests/0002_genesis_chat_coaching.test.sql"
           }
         ],
         "install": [

@@ -31,8 +31,16 @@ export const DEFAULT_PREFERENCES: NotificationPreferences = {
 };
 
 export interface PushBackend {
-  /** Keep this device's token against the signed-in person. */
-  register(token: string, platform: string, appVersion: string | null): Promise<void>;
+  /**
+   * Keep this device's token against the signed-in person. `installationId`
+   * is this install's random id (kept on the phone across sign-ins): a
+   * backend that checks it moves a token another login holds only when the
+   * id matches (the same phone). `supabasePushBackend` (migration 0005)
+   * doesn't send it; genesis-notifications' backend does.
+   */
+  register(token: string, platform: string, appVersion: string | null, installationId?: string): Promise<void>;
+  /** Send `installationId` to `register` (the block makes and keeps one). Default false. */
+  readonly usesInstallationId?: boolean;
   /** Forget this device's token; works signed out (holding the token is the proof). */
   forget(token: string): Promise<void>;
   /** The signed-in person's preferences, or `null` before they have saved any. */

@@ -14,6 +14,6 @@ describe("tabs with a feature off", () => {
   it("hides the Notifications tab when features.notifications is off", async () => {
     await renderApp("/", "person@example.com");
     await screen.findByTestId("home");
-    expect(tabTitles()).toEqual([copy.tabs.home, copy.tabs.settings]);
+    expect(tabTitles()).toEqual([copy.tabs.home, copy.tabs.messages, copy.tabs.settings]);
   });
 });

@@ -16,7 +16,7 @@ export function tap(url: unknown, identifier = "n1", actionIdentifier = DEFAULT_
 }
 
 /** expo-notifications, faked: `emitResponse`, `emitToken` and `present` play events; `grantOnRequest` sets the answer. */
-export function fakeNotifications(options: { status?: PermissionStatusLike; token?: string; last?: NotificationResponseLike | null; answer?: PermissionStatusLike } = {}) {
+export function fakeNotifications(options: { status?: PermissionStatusLike; token?: string; last?: NotificationResponseLike | null; answer?: PermissionStatusLike; echoDeviceToken?: boolean } = {}) {
   let status = options.status ?? permission.granted;
   let last = options.last ?? null;
   const responseListeners = new Set<(r: NotificationResponseLike) => void>();
@@ -24,6 +24,7 @@ export function fakeNotifications(options: { status?: PermissionStatusLike; toke
   let handler: { handleNotification: (n: NotificationLike) => Promise<NotificationBehaviorLike> } | null = null;
   const order: string[] = [];
   let token = options.token ?? "ExponentPushToken[device-1]";
+  let deviceToken = "raw-1";
   const module = {
     DEFAULT_ACTION_IDENTIFIER: DEFAULT_ACTION,
     getPermissionsAsync: vi.fn(async () => status),
@@ -34,6 +35,9 @@ export function fakeNotifications(options: { status?: PermissionStatusLike; toke
     }),
     getExpoPushTokenAsync: vi.fn(async (_: { projectId: string }) => {
       order.push("token");
+      // As expo-notifications does: fetching the Expo token fetches the device token, which
+      // tells every push token listener, even when it hasn't changed.
+      if (options.echoDeviceToken) tokenListeners.forEach((l) => l({ type: "ios", data: deviceToken }));
       return { data: token };
     }),
     addPushTokenListener: vi.fn((listener: (t: unknown) => void) => {
@@ -63,8 +67,9 @@ export function fakeNotifications(options: { status?: PermissionStatusLike; toke
     order,
     setStatus: (next: PermissionStatusLike) => void (status = next),
     setToken: (next: string) => void (token = next),
+    setDeviceToken: (next: string) => void (deviceToken = next),
     emitResponse: (r: NotificationResponseLike) => responseListeners.forEach((l) => l(r)),
-    emitToken: () => tokenListeners.forEach((l) => l({ type: "ios", data: "raw" })),
+    emitToken: () => tokenListeners.forEach((l) => l({ type: "ios", data: deviceToken })),
     present: (data: Record<string, unknown>) => handler?.handleNotification({ request: { identifier: "f", content: { data } } }),
     handler: () => handler,
   };

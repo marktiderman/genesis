@@ -65,6 +65,20 @@ export interface PushChannel {
   importance?: ChannelImportance;
 }
 
+/** A notification category and its buttons. */
+export interface PushDeviceCategory {
+  identifier: string;
+  actions: readonly {
+    id: string;
+    title: string;
+    textInput?: { placeholder?: string; submitTitle?: string };
+    opensApp?: boolean;
+    destructive?: boolean;
+    requiresAuth?: boolean;
+  }[];
+  previewPlaceholder?: string;
+}
+
 // A type, not an interface, so it fits the slots contract's Record constraint.
 export type PushSlots = {
   /** The soft pre-prompt, shown after `usePushPrompt().offer()`. Default `PushPromptSheet`. */
@@ -86,6 +100,15 @@ export interface PushOptions {
   categories?: readonly NotificationCategory[];
   /** More Android channels. A `default` channel is always made. */
   channels?: readonly PushChannel[];
+  /**
+   * Notification categories with action buttons (Reply, Mark as read),
+   * registered on the device when the block starts. A push names one in its
+   * `categoryId`; a tap on a button reaches `onResponse` (`notificationAction`
+   * reads it). genesis-notifications' registry makes these (`deviceCategories()`).
+   */
+  deviceCategories?: readonly PushDeviceCategory[];
+  /** Makes this install's id, for a backend that uses one (`usesInstallationId`). Default `crypto.randomUUID`; pass expo-crypto's on Hermes. */
+  randomUUID?: () => string;
   /** AsyncStorage: this device's token (to forget it after sign-out), the prompt's "Not now"s. */
   storage?: PushStorageLike;
   /** `AppState`: read the permission again on coming to the front (the person may have changed it in Settings). */
@@ -195,6 +218,31 @@ export function createPush(options: PushOptions): PushBlock {
     return channelsMade;
   };
 
+  let categoriesMade = false;
+  const registerDeviceCategories = async () => {
+    const set = notifications?.setNotificationCategoryAsync;
+    if (categoriesMade || !notifications || !set || !options.deviceCategories?.length) return;
+    categoriesMade = true;
+    for (const c of options.deviceCategories) {
+      try {
+        await set.call(
+          notifications,
+          c.identifier,
+          c.actions.map((a) => ({
+            identifier: a.id,
+            buttonTitle: a.title,
+            ...(a.textInput ? { textInput: { placeholder: a.textInput.placeholder ?? "", submitButtonTitle: a.textInput.submitTitle ?? a.title } } : {}),
+            options: { opensAppToForeground: a.opensApp ?? false, isDestructive: a.destructive ?? false, isAuthenticationRequired: a.requiresAuth ?? false },
+          })),
+          c.previewPlaceholder ? { previewPlaceholder: c.previewPlaceholder } : undefined,
+        );
+      } catch (error) {
+        categoriesMade = false;
+        report(onError, error, "categories");
+      }
+    }
+  };
+
   const permission = createPermissionStore({ notifications, request: options.permissions, beforeRequest: ensureChannels, onError });
   const registration = createRegistration({
     notifications,
@@ -207,6 +255,7 @@ export function createPush(options: PushOptions): PushBlock {
     ensureChannels,
     isCurrent: (id) => userId === id,
     now,
+    randomUUID: options.randomUUID,
     onError,
   });
   const preferences = createPreferencesStore({ backend: options.backend, categories, onError });
@@ -334,9 +383,19 @@ export function createPush(options: PushOptions): PushBlock {
       });
       void registration.flush();
       void permission.refresh();
-      const tokenSubscription = notifications.addPushTokenListener(() => {
+      void registerDeviceCategories();
+      // Fetching the Expo token fetches the device token, and expo-notifications tells this listener
+      // every time, changed or not: forcing a registration on each one re-registered in a loop. The
+      // same token again is ignored; the first one seen only confirms the registration (which
+      // registers when the token differs from the saved one); a different one is a rotation.
+      let deviceToken: unknown;
+      const tokenSubscription = notifications.addPushTokenListener((token) => {
+        const next = (token as { data?: unknown } | null)?.data;
+        const seen = deviceToken;
+        deviceToken = next;
+        if (!userId || next === seen) return;
         // The OS rotated the device token: fetch the Expo token again and register it.
-        if (userId) void registration.sync(userId, { force: true });
+        void registration.sync(userId, { force: seen !== undefined });
       });
       const appSubscription = options.appState?.addEventListener("change", (state) => {
         if (state !== "active") return;

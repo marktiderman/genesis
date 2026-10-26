@@ -16,6 +16,8 @@ export default defineConfig({
     globals: false,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     setupFiles: [path.join(uiNative, "test-utils/setup.ts")],
+    // Whole forms render through several async steps; a loaded CI runner has needed more than the 5 s default.
+    testTimeout: 30_000,
   },
   resolve: {
     alias: {

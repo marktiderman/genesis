@@ -1,6 +1,6 @@
 /**
  * @feat:chat
- * The chat client: the app's own Supabase (migration 0001, the genesis_chat
+ * The chat client: the app's own Supabase (migrations 0001 and 0002, the genesis_chat
  * schema) under row level security. Reads are table selects; every write is a
  * genesis_chat function. Live updates are hints on private Realtime topics,
  * after which the client fetches again, so nothing is trusted from the wire.
@@ -8,17 +8,27 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import type {
   AttachmentInput,
+  AvailabilityInput,
   ChatActivity,
   ChatAttachment,
+  ChatAvailability,
+  ChatLinkPreview,
+  ChatSearchHit,
+  ChatTopic,
+  ScheduleInput,
+  ScheduledMessage,
+  TopicInput,
+  WorkingHours,
   ChatConversation,
   ChatInboxItem,
+  ChatKindRules,
   ChatMember,
   ChatMessage,
   ChatRole,
   ChatSignal,
   SendInput,
 } from "./types";
-import { fileExtension, isAllowedExtension } from "./media";
+import { fileExtension, isAllowedExtension, randomId } from "./media";
 
 /** Any supabase-js client; the app's generated Database types don't need to list genesis_chat. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,6 +122,7 @@ export function toMessage(r: Row): ChatMessage {
     createdAt: String(r.created_at),
     editedAt: str(r.edited_at),
     deletedAt: str(r.deleted_at),
+    moderation: r.moderation === "hidden" || r.moderation === "flagged" ? r.moderation : null,
     attachments,
     reactions,
   };
@@ -169,6 +180,87 @@ function toInboxItem(r: Row): ChatInboxItem {
   };
 }
 
+export function toTopic(r: Row): ChatTopic {
+  return {
+    conversationId: String(r.conversation_id),
+    topic: String(r.topic),
+    title: String(r.title ?? r.topic),
+    position: Number(r.position ?? 0),
+    closedAt: str(r.closed_at),
+    createdBy: str(r.created_by),
+    createdAt: String(r.created_at),
+  };
+}
+
+function fromAttachmentArg(a: Row): AttachmentInput {
+  const out: AttachmentInput = { kind: String(a.kind ?? "file") };
+  const map: [keyof AttachmentInput, string][] = [
+    ["path", "path"], ["provider", "provider"], ["providerId", "provider_id"], ["url", "url"], ["ref", "ref"],
+    ["status", "status"], ["name", "name"], ["mime", "mime"], ["bytes", "bytes"], ["width", "width"],
+    ["height", "height"], ["durationMs", "duration_ms"], ["waveform", "waveform"], ["posterPath", "poster_path"], ["thumbhash", "thumbhash"],
+  ];
+  for (const [k, col] of map) if (a[col] != null) (out as unknown as Record<string, unknown>)[k] = a[col];
+  return out;
+}
+
+export function toScheduled(r: Row): ScheduledMessage {
+  const sentMessageId = str(r.sent_message_id);
+  const cancelledAt = str(r.cancelled_at);
+  const error = str(r.error);
+  return {
+    id: String(r.id),
+    conversationId: String(r.conversation_id),
+    clientId: String(r.client_id),
+    body: String(r.body ?? ""),
+    attachments: ((r.attachments as Row[] | null) ?? []).map(fromAttachmentArg),
+    replyToId: str(r.reply_to_id),
+    topic: str(r.topic),
+    mentions: (r.mentions as string[] | null) ?? [],
+    silent: Boolean(r.silent),
+    sendAt: String(r.send_at),
+    sentMessageId,
+    cancelledAt,
+    error,
+    createdAt: String(r.created_at),
+    status: sentMessageId ? "sent" : cancelledAt ? "cancelled" : error ? "failed" : "scheduled",
+  };
+}
+
+export function toAvailability(r: Row): ChatAvailability {
+  return {
+    userId: String(r.user_id),
+    awayMessage: str(r.away_message),
+    awayUntil: str(r.away_until),
+    timeZone: str(r.time_zone),
+    hours: (r.hours as WorkingHours | null) ?? null,
+  };
+}
+
+export function toSearchHit(r: Row): ChatSearchHit {
+  return {
+    messageId: String(r.message_id),
+    conversationId: String(r.conversation_id),
+    seq: Number(r.seq),
+    senderId: str(r.sender_id),
+    createdAt: String(r.created_at),
+    snippet: String(r.snippet ?? ""),
+    inTranscript: Boolean(r.in_transcript),
+  };
+}
+
+export function toLinkPreview(r: Row): ChatLinkPreview {
+  const image = str(r.image_url);
+  return {
+    url: String(r.url),
+    status: (r.status as ChatLinkPreview["status"]) ?? "ok",
+    title: str(r.title),
+    description: str(r.description),
+    imageUrl: image && /^https:\/\//i.test(image) ? image : null,
+    siteName: str(r.site_name),
+    fetchedAt: String(r.fetched_at),
+  };
+}
+
 const MESSAGE_COLUMNS = "*, attachments(*), reactions(emoji, user_id)";
 
 export interface MessagePage {
@@ -186,6 +278,15 @@ export interface Subscription {
   unsubscribe(): void;
 }
 
+export interface ConversationHandlers {
+  onSignal: (s: ChatSignal) => void;
+  onActivity?: (a: ChatActivity) => void;
+  /** Every join, the first included: catch up on what arrived before the channel was live. */
+  onJoin?: () => void;
+  /** Re-joins only. Prefer `onJoin`. */
+  onReconnect?: () => void;
+}
+
 export interface ConversationChannel extends Subscription {
   /** Tell the others you are typing or recording (throttle to once every 3 seconds). */
   signal(activity: ChatActivity["activity"]): void;
@@ -195,6 +296,25 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
   const db = () => supabase.schema(CHAT_SCHEMA);
   const signedUrlSeconds = options.signedUrlSeconds ?? 3600;
   const signedCache = new Map<string, { url: string; until: number }>();
+
+  /**
+   * Private Realtime channels authorise with the signed-in user's token; set it before
+   * joining (supabase-js doesn't for a channel joined before the session loads), or the
+   * join is refused and no hint ever arrives. A refusal to set it still joins and retries.
+   */
+  const unsubscribed = new WeakSet<RealtimeChannel>();
+  function join(channel: RealtimeChannel, onStatus?: (status: string) => void) {
+    const realtime = (supabase as unknown as { realtime?: { setAuth?: (token?: string | null) => Promise<void> | void } }).realtime;
+    void Promise.resolve(realtime?.setAuth?.())
+      .catch(() => undefined)
+      .then(() => {
+        if (!unsubscribed.has(channel)) channel.subscribe(onStatus);
+      });
+    return () => {
+      unsubscribed.add(channel);
+      void supabase.removeChannel(channel);
+    };
+  }
 
   async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
     return must<T>(fn, await db().rpc(fn, args));
@@ -224,6 +344,22 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
     async conversation(id: string): Promise<ChatConversation | null> {
       const row = must("conversation", await db().from("conversations").select("*").eq("id", id).maybeSingle());
       return row ? toConversation(row as Row) : null;
+    },
+
+    /** A kind's rules (how many members, who posts, threads), for what the UI offers. */
+    async kind(kind: string): Promise<ChatKindRules | null> {
+      const row = must("kind", await db().from("kinds").select("kind, label, max_members, who_posts, membership, threads, observers_post").eq("kind", kind).maybeSingle()) as Row | null;
+      return row
+        ? {
+            kind: String(row.kind),
+            label: String(row.label),
+            maxMembers: row.max_members == null ? null : Number(row.max_members),
+            whoPosts: row.who_posts as ChatKindRules["whoPosts"],
+            membership: row.membership as ChatKindRules["membership"],
+            threads: Boolean(row.threads),
+            observersPost: Boolean(row.observers_post),
+          }
+        : null;
     },
 
     async myRole(id: string): Promise<ChatRole | null> {
@@ -367,6 +503,127 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return rpc<string>("report_message", { p_message_id: messageId, p_reason: reason, p_note: note ?? null });
     },
 
+    // ── Migration 0002 ──────────────────────────────────────────────────────
+
+    /** A conversation's topics, in order (position, then key). */
+    async topics(conversationId: string): Promise<ChatTopic[]> {
+      const rows = must<Row[]>(
+        "topics",
+        await db().from("topics").select("*").eq("conversation_id", conversationId).order("position", { ascending: true }).order("topic", { ascending: true }),
+      );
+      return rows.map(toTopic);
+    },
+
+    /** Adds a topic, or renames, reorders, closes (`closed: true`) or reopens it. Owners and admins. */
+    async setTopic(conversationId: string, topic: string, input: TopicInput = {}) {
+      await rpc("set_topic", {
+        p_conversation_id: conversationId,
+        p_topic: topic,
+        p_title: input.title ?? null,
+        p_position: input.position ?? null,
+        p_closed: input.closed ?? null,
+      });
+    },
+
+    /** Schedules a message (a minute to a year ahead) and returns its id. Safe to retry with the same clientId. */
+    async schedule(input: ScheduleInput): Promise<string> {
+      const sendAt = typeof input.sendAt === "string" ? input.sendAt : input.sendAt.toISOString();
+      return rpc<string>("schedule_message", {
+        p_conversation_id: input.conversationId,
+        p_client_id: input.clientId,
+        p_send_at: sendAt,
+        p_body: input.body ?? "",
+        p_attachments: (input.attachments ?? []).map(attachmentArg),
+        p_reply_to_id: input.replyToId ?? null,
+        p_topic: input.topic ?? null,
+        p_mentions: input.mentions ?? [],
+        p_silent: input.silent ?? false,
+      });
+    },
+
+    /** Your messages still waiting to go (and ones that failed when due), soonest first; in one conversation or all. */
+    async scheduled(conversationId?: string): Promise<ScheduledMessage[]> {
+      let q = db().from("scheduled").select("*").is("sent_message_id", null).is("cancelled_at", null);
+      if (conversationId) q = q.eq("conversation_id", conversationId);
+      const rows = must<Row[]>("scheduled", await q.order("send_at", { ascending: true }).limit(200));
+      return rows.map(toScheduled);
+    },
+
+    async cancelScheduled(id: string) {
+      await rpc("cancel_scheduled", { p_id: id });
+    },
+
+    /** The away message and hours of a conversation's members who set them (not observers). */
+    async availabilityFor(conversationId: string): Promise<ChatAvailability[]> {
+      const rows = await rpc<Row[]>("availability_for", { p_conversation_id: conversationId });
+      return (rows ?? []).map(toAvailability);
+    },
+
+    /** Your own away message and hours, or null when never set. */
+    async myAvailability(): Promise<ChatAvailability | null> {
+      const row = must("myAvailability", await db().from("availability").select("*").maybeSingle()) as Row | null;
+      return row ? toAvailability(row) : null;
+    },
+
+    /** Replaces your away message and hours (a field left out is cleared). */
+    async setAvailability(input: AvailabilityInput) {
+      const until = input.awayUntil ?? null;
+      await rpc("set_availability", {
+        p_away_message: input.awayMessage ?? null,
+        p_away_until: until,
+        p_time_zone: input.timeZone ?? null,
+        p_hours: input.hours ?? null,
+      });
+    },
+
+    /**
+     * Sends one text message into each of these conversations where you may post (a coach to
+     * each client's direct conversation), so replies come back privately. Text only. Safe to
+     * retry with the same clientId. Returns the ids of the messages sent.
+     */
+    async broadcast(conversationIds: string[], clientId: string, body: string, opts: { silent?: boolean } = {}): Promise<string[]> {
+      const ids = await rpc<string[] | null>("broadcast_message", {
+        p_conversation_ids: conversationIds,
+        p_client_id: clientId,
+        p_body: body,
+        p_attachments: [],
+        p_silent: opts.silent ?? false,
+      });
+      return (ids ?? []).map(String);
+    },
+
+    /** Messages (and transcripts) you can read that match, newest first: in one conversation or all of yours. Two characters at least. */
+    async search(query: string, conversationId?: string | null, opts: { limit?: number } = {}): Promise<ChatSearchHit[]> {
+      if (query.trim().length < 2) return [];
+      const rows = await rpc<Row[] | null>("search_messages", {
+        p_query: query,
+        p_conversation_id: conversationId ?? null,
+        p_limit: opts.limit ?? 30,
+      });
+      return (rows ?? []).map(toSearchHit);
+    },
+
+    /**
+     * The previews the server has fetched for the links in these messages, by message id (only
+     * `ok` ones; links not fetched yet are left out). Read through link_previews_for, one call
+     * per message (up to 6 at once), which answers only for messages you can read: the preview
+     * table itself is closed, since a URL can carry a secret.
+     */
+    async linkPreviewsFor(messageIds: string[]): Promise<Record<string, ChatLinkPreview[]>> {
+      const ids = [...new Set(messageIds.filter(Boolean))].slice(0, 200);
+      const out: Record<string, ChatLinkPreview[]> = {};
+      let next = 0;
+      const worker = async () => {
+        while (next < ids.length) {
+          const id = ids[next++]!;
+          const rows = await rpc<Row[] | null>("link_previews_for", { p_message_id: id });
+          out[id] = (rows ?? []).map(toLinkPreview).filter((p) => p.status === "ok");
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(6, ids.length) }, worker));
+      return out;
+    },
+
     /**
      * Uploads a file into the conversation's folder for the signed-in person and
      * returns its path, ready to attach. Resumable for big files is the native
@@ -375,7 +632,7 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
     async upload(conversationId: string, userId: string, file: Blob | ArrayBuffer, opts: { name: string; contentType: string; id?: string }) {
       const ext = fileExtension(opts.name, opts.contentType);
       if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
-      const id = opts.id ?? crypto.randomUUID();
+      const id = opts.id ?? randomId();
       const path = `${conversationId}/${userId}/${id}.${ext}`;
       must("upload", await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: opts.contentType, upsert: false }));
       return path;
@@ -410,19 +667,20 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         .channel(userTopic(userId), { config: { private: true } })
         .on("broadcast", { event: "inbox" }, ({ payload }) =>
           onSignal({ type: "inbox", conversationId: String(payload?.conversation_id), seq: payload?.seq }),
-        )
-        .subscribe();
-      return { unsubscribe: () => void supabase.removeChannel(channel) };
+        );
+      return { unsubscribe: join(channel) };
     },
 
     /**
-     * A conversation's live hints, plus who is typing or recording. `onReconnect`
-     * runs whenever the channel (re)joins, the moment to fetch what was missed.
+     * A conversation's live hints, plus who is typing or recording. `onJoin` runs every
+     * time the channel joins, the first time included: the moment to fetch what arrived
+     * before the subscription was live. `onReconnect` (kept for older callers) runs on
+     * re-joins only.
      */
     subscribeConversation(
       conversationId: string,
       me: string,
-      handlers: { onSignal: (s: ChatSignal) => void; onActivity?: (a: ChatActivity) => void; onReconnect?: () => void },
+      handlers: ConversationHandlers,
     ): ConversationChannel {
       let joinedOnce = false;
       const channel: RealtimeChannel = supabase
@@ -437,18 +695,24 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
         .on("broadcast", { event: "conversation" }, () => handlers.onSignal({ type: "conversation", conversationId }))
         .on("broadcast", { event: "activity" }, ({ payload }) => {
           if (payload?.userId && payload.userId !== me) handlers.onActivity?.({ userId: payload.userId, activity: payload.activity, at: Date.now() });
-        })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            if (joinedOnce) handlers.onReconnect?.();
-            joinedOnce = true;
-          }
         });
+      // Typing and recording are ephemeral: until the channel has joined, they're dropped
+      // rather than sent (supabase-js would fall back to REST and warn).
+      let joined = false;
+      const leave = join(channel, (status) => {
+        joined = status === "SUBSCRIBED";
+        if (status === "SUBSCRIBED") {
+          handlers.onJoin?.();
+          if (joinedOnce) handlers.onReconnect?.();
+          joinedOnce = true;
+        }
+      });
       return {
         signal(activity) {
+          if (!joined) return;
           void channel.send({ type: "broadcast", event: "activity", payload: { userId: me, activity } });
         },
-        unsubscribe: () => void supabase.removeChannel(channel),
+        unsubscribe: leave,
       };
     },
   };

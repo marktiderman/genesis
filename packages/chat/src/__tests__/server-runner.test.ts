@@ -35,7 +35,7 @@ describe("createChatRunner: push", () => {
     });
     const deliver = vi.fn(async (_n: ChatNotification) => {});
     const runner = createChatRunner({ supabase: sb.client, deliver, resolveName: (id) => names[id] });
-    expect(await runner.run()).toEqual({ claimed: 1, done: 1, failed: 0 });
+    expect(await runner.run()).toMatchObject({ claimed: 1, done: 1, failed: 0 });
     expect(deliver).toHaveBeenCalledTimes(1);
     expect(deliver.mock.calls[0]![0]).toEqual({
       category: "messages",
@@ -48,10 +48,9 @@ describe("createChatRunner: push", () => {
       title: "Ana",
       body: "see you at 6",
       senderId: "ana",
-      collapseKey: "chat:c1",
       threadKey: "c1",
       idempotencyKey: "push:m1",
-      data: { url: "/messages/c1", conversationId: "c1", messageId: "m1" },
+      data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: null },
     });
     // Only the kinds it handles are claimed; the effect is settled as done.
     expect(sb.rpcCalls[0]).toEqual({ fn: "claim_effects", args: { p_kinds: ["push", "transcribe", "storage.remove", "video.remove"], p_limit: 50 } });
@@ -68,10 +67,38 @@ describe("createChatRunner: push", () => {
     expect(deliver.mock.calls[0]![0]).toMatchObject({ title: "Cohort 4", body: "Ana: see you at 6" });
   });
 
+  it("sets a collapse key only when the app asks, and always carries the message id and seq", async () => {
+    const make = () =>
+      fakeSupabase({
+        rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo")] },
+        tables: { conversations: [{ id: "c1", kind: "group" }], messages: [{ id: "m1", seq: 42 }] },
+      });
+    const plain = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: make().client, deliver: plain }).run();
+    const n = plain.mock.calls[0]![0];
+    expect("collapseKey" in n).toBe(false);
+    expect(n.threadKey).toBe("c1");
+    expect(n.data).toMatchObject({ messageId: "m1", seq: 42, conversationId: "c1" });
+
+    const collapsing = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: make().client, deliver: collapsing, collapse: true }).run();
+    expect(collapsing.mock.calls[0]![0].collapseKey).toBe("chat:c1");
+  });
+
+  it("opens the app's own route when a notification is tapped", async () => {
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
+      tables: { conversations: [{ id: "c1", kind: "group" }] },
+    });
+    const deliver = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: sb.client, deliver, linkFor: (c, m) => `/inbox?c=${c}&m=${m}` }).run();
+    expect(deliver.mock.calls[0]![0].data.url).toBe("/inbox?c=c1&m=m1");
+  });
+
   it("settles a message with no targets as done without delivering", async () => {
     const sb = fakeSupabase({ rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [] } });
     const deliver = vi.fn(async () => {});
-    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toEqual({ claimed: 1, done: 1, failed: 0 });
+    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toMatchObject({ claimed: 1, done: 1, failed: 0 });
     expect(deliver).not.toHaveBeenCalled();
   });
 
@@ -85,7 +112,7 @@ describe("createChatRunner: push", () => {
     const deliver = vi.fn(async (n: ChatNotification) => {
       if (n.messageId === "m1") throw new Error("push service down");
     });
-    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toEqual({ claimed: 3, done: 2, failed: 1 });
+    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toMatchObject({ claimed: 3, done: 2, failed: 1 });
     const settled = sb.rpcCalls.filter((c) => c.fn === "complete_effect").map((c) => c.args);
     expect(settled).toContainEqual({ p_id: 1, p_error: "push service down" });
     expect(settled).toContainEqual({ p_id: 2, p_error: null });

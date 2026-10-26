@@ -5,6 +5,7 @@ import {
   createExpoDeliver,
   deadTokens,
   deepgramTranscriber,
+  chatUploadPassthrough,
   muxPlaybackUrl,
   muxVideo,
   openAiTranscriber,
@@ -42,7 +43,19 @@ describe("muxVideo", () => {
     const body = JSON.stringify(event);
     return new Request("https://app.test/api/mux", { method: "POST", body, headers: { "mux-signature": header ?? sign(body, Math.floor(NOW / 1000)) } });
   };
-  const pendingVideo = { id: "0b6f0c2e-4f1a-4c39-9a51-6f0f2b0d4a11", provider: "mux", provider_id: "upload1", playback_id: null, transcript_status: "pending" };
+  const CONV = "2d8f2e4a-6b3c-4e5b-9c73-8b2b4d2f6c33";
+  const OTHER_CONV = "4fab4a6c-8d5e-4a7d-9e95-ad4d6f4b8e55";
+  const SENDER = "5abc5b7d-9e6f-4b8e-8fa6-be5e7a5c9f66";
+  const pendingVideo = {
+    id: "0b6f0c2e-4f1a-4c39-9a51-6f0f2b0d4a11",
+    conversation_id: CONV,
+    message_id: "m1",
+    provider: "mux",
+    provider_id: "upload1",
+    playback_id: null,
+    transcript_status: "pending",
+  };
+  const bound = chatUploadPassthrough({ conversationId: CONV });
 
   it("creates a direct upload with captions and the passthrough", async () => {
     const f = fakeFetch(() => jsonResponse({ data: { id: "upload1", url: "https://storage.mux.test/u" } }, 201));
@@ -79,7 +92,7 @@ describe("muxVideo", () => {
     const res = await mux().handleWebhook(
       webhook({
         type: "video.asset.ready",
-        data: { id: "asset1", upload_id: "upload1", duration: 12.345, playback_ids: [{ id: "play1", policy: "public" }] },
+        data: { id: "asset1", upload_id: "upload1", passthrough: bound, duration: 12.345, playback_ids: [{ id: "play1", policy: "public" }] },
       }),
       { supabase: sb.client },
     );
@@ -92,10 +105,37 @@ describe("muxVideo", () => {
     ]);
   });
 
-  it("finds the attachment by passthrough, and marks it failed on video.asset.errored", async () => {
+  it("marks it failed on video.asset.errored", async () => {
     const sb = fakeSupabase({ tables: { attachments: [pendingVideo] } });
-    await mux().handleWebhook(webhook({ type: "video.asset.errored", data: { id: "asset1", passthrough: pendingVideo.id } }), { supabase: sb.client });
+    await mux().handleWebhook(webhook({ type: "video.asset.errored", data: { id: "asset1", upload_id: "upload1", passthrough: bound } }), {
+      supabase: sb.client,
+    });
     expect(sb.rpcCalls[0]!.args).toEqual({ p_attachment_id: pendingVideo.id, p_patch: { status: "failed", provider_id: "asset1" } });
+  });
+
+  it("never finds an attachment by passthrough: a passthrough naming another attachment swaps nothing", async () => {
+    // The attacker's own upload (upload2) carries the victim attachment's id as passthrough.
+    const sb = fakeSupabase({ tables: { attachments: [pendingVideo] } });
+    const ready = (data: Record<string, unknown>) =>
+      mux().handleWebhook(webhook({ type: "video.asset.ready", data: { id: "asset-evil", playback_ids: [{ id: "evil", policy: "public" }], ...data } }), {
+        supabase: sb.client,
+      });
+    expect((await ready({ upload_id: "upload2", passthrough: pendingVideo.id })).status).toBe(404);
+    expect(sb.rpcCalls).toEqual([]);
+  });
+
+  it("applies an event only when its passthrough names the attachment's conversation and sender", async () => {
+    const sb = fakeSupabase({ tables: { attachments: [pendingVideo], messages: [{ id: "m1", sender_id: SENDER }] } });
+    const ready = (passthrough: string | undefined) =>
+      mux().handleWebhook(webhook({ type: "video.asset.ready", data: { id: "asset1", upload_id: "upload1", passthrough } }), { supabase: sb.client });
+    // An upload minted for another conversation, someone else's, or not by the upload handler at all.
+    expect((await ready(chatUploadPassthrough({ conversationId: OTHER_CONV }))).status).toBe(409);
+    expect((await ready(chatUploadPassthrough({ conversationId: CONV, userId: "6bcd6c8e-af70-4c9f-9ab7-cf6f8b6daa77" }))).status).toBe(409);
+    expect((await ready(pendingVideo.id)).status).toBe(409);
+    expect((await ready(undefined)).status).toBe(409);
+    expect(sb.rpcCalls).toEqual([]);
+    expect((await ready(chatUploadPassthrough({ conversationId: CONV, userId: SENDER }))).status).toBe(200);
+    expect(sb.rpcCalls).toHaveLength(1);
   });
 
   it("answers 404 for an unknown attachment so Mux retries", async () => {
@@ -169,7 +209,7 @@ describe("createExpoDeliver", () => {
     collapseKey: "chat:c1",
     threadKey: "c1",
     idempotencyKey: "push:m1",
-    data: { url: "/messages/c1", conversationId: "c1", messageId: "m1" },
+    data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: 7 },
   };
 
   it("sends in chunks of 100 with badges, thread and collapse ids, and returns the tickets", async () => {
@@ -192,7 +232,7 @@ describe("createExpoDeliver", () => {
       threadId: "c1",
       collapseId: "chat:c1",
       channelId: "messages",
-      categoryId: "chat-message",
+      categoryId: "messages",
     });
     expect((f.calls[0]!.init!.headers as Record<string, string>).authorization).toBe("Bearer expo");
     expect(tickets).toHaveLength(250);

@@ -1,7 +1,9 @@
 // @feat:chat
 /**
  * @marktiderman/genesis-chat/server: works the chat outbox (push, transcripts,
- * storage and video cleanup) and takes Mux's webhook. No React; fetch and Web
+ * moderation, link previews, storage and video cleanup), posts scheduled
+ * messages, applies retention, takes Mux's webhook and hands out video upload
+ * URLs, and drafts AI recaps and replies (never sent by itself). No React; fetch and Web
  * Crypto only, so it runs in Node, edge functions and Deno.
  */
 export * from "./types";
@@ -19,3 +21,37 @@ export {
   type ExpoPushTicket,
 } from "./expo";
 export { chatRunnerHandler, type ChatRunnerHandlerOptions } from "./handler";
+export { openAiModerator, moderationVerdict, OPENAI_MODERATIONS_URL, OPENAI_MODERATION_CATEGORIES, type OpenAiModeratorOptions, type ModerationThresholds } from "./moderation";
+export { createLinkUnfurler, isPrivateAddress, parseOpenGraph, decodeEntities, carriesCredential, guardedLookup, type LinkUnfurlerOptions } from "./unfurl";
+export {
+  notificationsDeliver,
+  chatNotifyInput,
+  CHAT_NOTIFICATION_TYPE_ID,
+  CHAT_NOTIFICATION_TYPES,
+  CHAT_NOTIFICATION_CATEGORIES,
+  type ChatNotifyInput,
+  type NotificationsDeliverOptions,
+} from "./notifications";
+export {
+  createChatAssistant,
+  recapPrompt,
+  draftPrompt,
+  transcriptLines,
+  CHAT_ASSISTANT_MODEL,
+  ANTHROPIC_MESSAGES_URL,
+  ANTHROPIC_VERSION,
+  type AnthropicLike,
+  type AssistantMessage,
+  type AssistantResult,
+  type ChatAssistant,
+  type ChatAssistantOptions,
+  type DraftReplyInput,
+  type RecapInput,
+} from "./assistant";
+export {
+  createVideoUploadHandler,
+  chatUploadPassthrough,
+  parseChatUploadPassthrough,
+  type ChatUploadBinding,
+  type VideoUploadHandlerOptions,
+} from "./upload";

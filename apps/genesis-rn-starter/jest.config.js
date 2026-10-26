@@ -32,5 +32,6 @@ module.exports = {
   },
   transformIgnorePatterns: [extended, ...rest],
   // A file's first render loads the whole app through Babel; on a cold cache (CI) that alone can pass 5 s.
-  testTimeout: 30_000,
+  // Whole-app renders: about 2 s each here, but shared CI runners (every package testing at once) have taken 80 s a file.
+  testTimeout: 90_000,
 };

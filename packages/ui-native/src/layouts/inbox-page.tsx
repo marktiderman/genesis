@@ -16,8 +16,9 @@
  * react-native-gesture-handler, an optional peer); it receives the actions
  * and the row.
  *
- * Rows: `avatar` puts a picture of who it is between the unread dot (or
- * count) and the text; `leading` replaces the dot.
+ * Rows: `avatar` puts a picture of who it is between the unread dot and the
+ * text (an unread count shows at the end of the row, as in Mail); `leading`
+ * replaces the dot.
  *
  * Slots: `row`, `swipeable`, `header` (above the group), `footer` (below it,
  * the paging spinner by default) and `empty`. `slots` swaps a part for your
@@ -67,9 +68,13 @@ export interface InboxItem {
   leading?: ReactNode;
   /**
    * A picture of who or what it is (a `NativeAvatar`, about 40pt), between the
-   * unread dot and the text. The separator then starts at the text.
+   * unread dot and the text. The separator then starts at the text. It is hidden
+   * from screen readers; when it shows someone `title` doesn't name, say who in
+   * `avatarLabel`.
    */
   avatar?: ReactNode;
+  /** Who the avatar shows, read before the title, when `title` doesn't name them. */
+  avatarLabel?: string;
   /** Shown at the end of the row (a vote button, a badge). Replaces the chevron. */
   trailing?: ReactNode;
   /** Opens the conversation. Rows with `onPress` show a chevron unless `trailing` is set. */
@@ -320,7 +325,7 @@ function DefaultRow(row: InboxPageSlotMap["row"]) {
   const actions = row.swipeActions ?? [];
   const radius = iosGroupRadius();
   const unreadLabel = row.unreadCount && row.unreadCount > 0 ? `${row.unreadCount} unread` : row.unread ? "Unread" : null;
-  const label = [unreadLabel, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
+  const label = [unreadLabel, row.avatar ? row.avatarLabel : null, row.title, row.timeLabel, row.preview, row.meta].filter(Boolean).join(", ");
   // The separator starts at the text: the row's padding, the dot's column, and the avatar when there is one.
   const [avatarWidth, setAvatarWidth] = useState(0);
   const separatorInset = ROW_PADDING + LEADING_WIDTH + (row.avatar ? (avatarWidth || DEFAULT_AVATAR) + AVATAR_GAP : 0);

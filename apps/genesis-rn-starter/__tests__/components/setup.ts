@@ -12,6 +12,16 @@ process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
 jest.mock("@react-native-async-storage/async-storage", () => require("@react-native-async-storage/async-storage/jest/async-storage-mock"));
 jest.mock("@react-native-community/netinfo", () => require("@react-native-community/netinfo/jest/netinfo-mock.js"));
 jest.mock("react-native-keyboard-controller", () => require("react-native-keyboard-controller/jest"));
+// expo-audio (chat's voice notes) builds its classes on the native module at import; chat only
+// reaches it from the Messages screens, so the stand-in names what it exports.
+jest.mock("expo-audio", () => ({
+  useAudioRecorder: () => ({ prepareToRecordAsync: async () => {}, record: () => {}, stop: async () => {}, getStatus: () => ({ isRecording: false, durationMillis: 0, url: null }), uri: null }),
+  useAudioPlayer: () => ({ play: () => {}, pause: () => {}, seekTo: async () => {}, setPlaybackRate: () => {} }),
+  useAudioPlayerStatus: () => ({ currentTime: 0, duration: 0, playing: false, didJustFinish: false, isLoaded: false, playbackRate: 1 }),
+  RecordingPresets: { HIGH_QUALITY: {} },
+  requestRecordingPermissionsAsync: async () => ({ granted: false, canAskAgain: true }),
+  setAudioModeAsync: async () => {},
+}));
 // jest-expo's expo-notifications mock returns listener subscriptions without `remove`, which the
 // push block calls; this one is the subset the block uses, on a device that hasn't been asked yet.
 jest.mock("expo-notifications", () => {
@@ -27,6 +37,9 @@ jest.mock("expo-notifications", () => {
     getLastNotificationResponse: () => null,
     clearLastNotificationResponse: () => {},
     setBadgeCountAsync: async () => true,
+    // Chat's Reply and Mark read actions.
+    setNotificationCategoryAsync: async () => null,
+    dismissNotificationAsync: async () => {},
     getBadgeCountAsync: async () => 0,
     AndroidImportance: { DEFAULT: 3 },
   };

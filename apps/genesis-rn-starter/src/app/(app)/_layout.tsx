@@ -1,14 +1,23 @@
 import { Redirect } from "expo-router";
 import { NativeTabs } from "expo-router/native-tabs";
 import { useSession } from "@marktiderman/genesis-native";
+import { NotificationsProvider } from "@marktiderman/genesis-notifications/react";
 import starter from "../../../starter.config";
 import { copy } from "@/copy";
+import { useClearChatOnSignOut } from "@/lib/chat";
+import { notifications } from "@/lib/notifications";
+import { supabase } from "@/lib/supabase";
 
-/** Signed-in screens: the platform's own tab bar. A tab whose feature is off is hidden. */
+/**
+ * Signed-in screens: the platform's own tab bar. A tab whose feature is off is hidden. The
+ * notifier (feed, unread count, preferences) is provided to every tab, and refetches on the
+ * person's private realtime channel.
+ */
 export default function AppLayout() {
-  const { status } = useSession();
+  const { status, userId } = useSession();
+  useClearChatOnSignOut();
   if (status === "signedOut") return <Redirect href="/sign-in" />;
-  return (
+  const tabs = (
     <NativeTabs>
       <NativeTabs.Trigger name="(home)">
         <NativeTabs.Trigger.Label>{copy.tabs.home}</NativeTabs.Trigger.Label>
@@ -18,10 +27,20 @@ export default function AppLayout() {
         <NativeTabs.Trigger.Label>{copy.tabs.notifications}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "bell", selected: "bell.fill" }} md="notifications" />
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="messages" hidden={!starter.features.chat}>
+        <NativeTabs.Trigger.Label>{copy.tabs.messages}</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf={{ default: "bubble.left.and.bubble.right", selected: "bubble.left.and.bubble.right.fill" }} md="chat" />
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
         <NativeTabs.Trigger.Label>{copy.tabs.settings}</NativeTabs.Trigger.Label>
         <NativeTabs.Trigger.Icon sf={{ default: "gearshape", selected: "gearshape.fill" }} md="settings" />
       </NativeTabs.Trigger>
     </NativeTabs>
+  );
+  if (!starter.features.notifications) return tabs;
+  return (
+    <NotificationsProvider client={supabase} registry={notifications} userId={status === "signedIn" ? userId : null}>
+      {tabs}
+    </NotificationsProvider>
   );
 }

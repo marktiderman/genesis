@@ -17,7 +17,7 @@ import { brand } from "./fixtures";
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 /** A site that passes the publish checks: one page with a hero, no header or footer. */
-async function publishableSite() {
+async function publishableSite(site: { nav?: { label: string; href: string }[] } = {}) {
   const store = createMemorySiteStore();
   const doc: PageDoc = {
     schemaVersion: 1,
@@ -25,7 +25,7 @@ async function publishableSite() {
     // No variant: a publish writes the default one back, so it re-saves this draft on a new revision.
     content: [{ id: "hero1", type: "hero", v: 1, props: { heading: "Train with people who know your name" } }],
   };
-  const { siteId, pageIds } = await store.createSite({ site: { schemaVersion: 1, name: "Example Gym" }, pages: [{ path: "/", doc }] });
+  const { siteId, pageIds } = await store.createSite({ site: { schemaVersion: 1, name: "Example Gym", ...site }, pages: [{ path: "/", doc }] });
   return { store, siteId, home: pageIds[0]! };
 }
 
@@ -201,5 +201,69 @@ describe("SiteEditor publishing", () => {
     expect(saved.rev).toBe(3);
     expect(saved.doc.root.props.title).toBe("After publishing");
     expect(el.textContent).not.toMatch(/Someone else saved/);
+  });
+
+  /** Starts a publish that waits on the returned `release`. */
+  async function startPublish(el: HTMLElement, store: SiteStore) {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const realPublish = store.publish.bind(store);
+    const publish = vi.spyOn(store, "publish").mockImplementation(async (...args: Parameters<SiteStore["publish"]>) => {
+      await gate;
+      return realPublish(...args);
+    });
+    await openTab(el, "Publish");
+    const button = await waitFor(() => buttons(el, "Publish site").find((b) => !b.disabled), "the checks to pass");
+    await act(async () => button.closest("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    await waitFor(() => publish.mock.calls.length > 0, "the publish to start");
+    return release;
+  }
+
+  it("holds every control that changes the page or the menu while a publish runs", async () => {
+    const { store, siteId } = await publishableSite({ nav: [{ label: "Home", href: "/" }] });
+    const el = await mount({ siteId, store, autosaveDelay: 0 });
+    await openTab(el, "Add");
+    const add = await waitFor(() => el.querySelector<HTMLButtonElement>('button[aria-label="Add Three features"]'), "the Add picker");
+    expect(add.disabled).toBe(false);
+    await openTab(el, "Pages");
+    expect(field(el, "Label").disabled).toBe(false);
+
+    const release = await startPublish(el, store);
+    await openTab(el, "Add");
+    // The Add button dispatches to Puck directly, past its permissions: it is off too.
+    const adds = [...el.querySelectorAll<HTMLButtonElement>('button[aria-label^="Add "]')];
+    expect(adds.length).toBeGreaterThan(0);
+    for (const b of adds) expect(b.disabled, b.getAttribute("aria-label")!).toBe(true);
+    await openTab(el, "Pages");
+    expect(field(el, "Label").disabled).toBe(true);
+    expect(field(el, "Link").disabled).toBe(true);
+    expect((el.querySelector('[aria-label="Remove Home from the menu"]') as HTMLButtonElement).disabled).toBe(true);
+
+    await act(async () => release());
+    await waitFor(() => el.textContent?.includes("Published release 1"), "the publish to finish");
+    await openTab(el, "Pages");
+    await waitFor(() => findField(el, "Label")?.disabled === false, "the menu to unlock");
+  });
+
+  it("doesn't save over another editor's save that lands during the publish", async () => {
+    const { store, siteId } = await publishableSite({ nav: [{ label: "Home", href: "/" }] });
+    const el = await mount({ siteId, store, autosaveDelay: 0 });
+    await openTab(el, "Pages");
+    const label = field(el, "Label");
+    const release = await startPublish(el, store);
+
+    // Someone else saves the site while the publish waits...
+    const before = (await store.getDraft(siteId))!;
+    const theirs = await store.saveSiteDraft(siteId, before.rev, { ...before.site, name: "Their Gym" });
+    expect("conflict" in theirs).toBe(false);
+    // ...and a change reaches this editor's site autosave meanwhile (the menu is locked; this stands for any path that gets past it).
+    await type(label, "Start here");
+
+    await act(async () => release());
+    await waitFor(() => el.textContent?.includes("Published release 1"), "the publish to finish");
+    await settle(10);
+    // Their save stays; this editor's change meets the conflict instead of overwriting it.
+    expect((await store.getDraft(siteId))!.site.name).toBe("Their Gym");
+    await waitFor(() => el.querySelector('header [role="status"]')?.textContent === "Someone else saved: choose a version", "the conflict");
   });
 });
