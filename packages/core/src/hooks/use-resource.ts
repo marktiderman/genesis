@@ -26,6 +26,7 @@ import {
   type MutationModeOptions,
 } from "./mutation-mode";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
+import { resourceKeys } from "../query-keys";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -258,7 +259,7 @@ export function useResource<T extends BaseRecord = BaseRecord>(
   // -------------------------------------------------------------------------
 
   const listQueryKey = useMemo(
-    () => [resource, "list", params] as const,
+    () => resourceKeys(resource).list(params),
     [resource, params],
   );
 
