@@ -186,10 +186,14 @@
           {
             "file": "migrations/0008_genesis_feature_registry.sql",
             "test": "migrations/tests/0008_genesis_feature_registry.test.sql"
+          },
+          {
+            "file": "migrations/0014_genesis_feature_registry_hardening.sql",
+            "test": "migrations/tests/0014_genesis_feature_registry_hardening.test.sql"
           }
         ],
         "steps": [
-          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME }). Grant paid features by writing feature_entitlements from your billing webhook."
+          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME } (the build time, from a production deployment only)). Grant paid features by writing feature_entitlements from your billing webhook."
         ]
       }
     }
