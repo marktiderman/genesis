@@ -302,15 +302,16 @@
           "Needs the pursuits and metrics blocks and their hooks. For reminders, schedule a job (the jobs block) that reads update_requests_due and sends one notification per request."
         ]
       },
-      "meetings": {
+      "sessions": {
         "feature": {
-          "name": "Meetings",
-          "summary": "Meeting types with agendas, and meetings with a schedule, calendar event, the agenda copied at start, the live step, facilitator and scribe, notes and recordings; attendees with presence and a 1-to-10 rating; links to pre-work and collaboration spaces.",
+          "name": "Sessions",
+          "summary": "Sessions of any kind (a meeting, workshop, presentation, coaching call, one-on-one, class or planning day): types with agendas, a schedule and calendar event, the agenda copied at start, the live step, notes and recordings; attendees with presence and a 1-to-10 rating; links to pre-work and collaboration spaces.",
           "keywords": [
+            "sessions",
             "meetings",
+            "workshops",
+            "coaching calls",
             "agenda",
-            "weekly meeting",
-            "one-on-one",
             "rating",
             "attendance"
           ],
@@ -324,19 +325,19 @@
           "native"
         ],
         "requires": [
-          "tenant-features"
+          "pursuits"
         ],
         "migrations": [
           {
-            "file": "migrations/0012_genesis_meetings.sql",
-            "test": "migrations/tests/0012_genesis_meetings.test.sql"
+            "file": "migrations/0012_genesis_sessions.sql",
+            "test": "migrations/tests/0012_genesis_sessions.test.sql"
           }
         ],
         "install": [
           "@supabase/supabase-js@^2.118.0"
         ],
         "steps": [
-          "Uses the same owner hooks as the pursuits block. To share pre-work or a live worksheet with attendees, register private.genesis_meeting_members(meeting) as a collaboration audience."
+          "Uses 0009's owner-access contract and its app hooks. To share pre-work or a live worksheet with attendees, register private.genesis_session_members(session) as a collaboration audience."
         ]
       }
     }

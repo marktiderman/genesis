@@ -211,28 +211,30 @@ export const statusUpdatesBlock = defineBlock({
 });
 
 /**
- * The meetings block: meeting types with agendas, and meetings with a
- * schedule, the agenda copied at start, the live step, notes and recordings;
- * attendees with presence and a rating; links to pre-work and collaboration
- * spaces. Owned like pursuits, through the same app hooks.
+ * The sessions block: sessions of any kind (a meeting, workshop,
+ * presentation, coaching call, one-on-one, class or planning day), with
+ * types and agendas, a schedule, the agenda copied at start, the live step,
+ * notes and recordings; attendees with presence and a rating; links to
+ * pre-work and collaboration spaces. Uses the pursuits block's owner-access
+ * contract.
  *
  * @stability Experimental
  */
-export const meetingsBlock = defineBlock({
-  id: "meetings",
-  requires: ["tenant-features"],
+export const sessionsBlock = defineBlock({
+  id: "sessions",
+  requires: ["pursuits"],
   platforms: ["web", "native"],
   contributes: {
     migrations: [
       {
         package: PACKAGE,
-        file: "migrations/0012_genesis_meetings.sql",
-        test: "migrations/tests/0012_genesis_meetings.test.sql",
+        file: "migrations/0012_genesis_sessions.sql",
+        test: "migrations/tests/0012_genesis_sessions.test.sql",
       },
     ],
     privacy: {
       notes: [
-        "Stores meetings, who attended and each attendee's rating and note; a closed account's attendance goes with it.",
+        "Stores sessions, who attended and each attendee's rating and note; a closed account's attendance goes with it.",
       ],
     },
   },

@@ -1,0 +1,389 @@
+-- Genesis sessions: public.session_types, public.sessions, public.session_attendees and
+-- public.session_links
+--
+-- A session is any time people meet: a team meeting, a workshop, a presentation, a coaching
+-- call, a one-on-one, a class or a planning day (its kind). A session type is a reusable format:
+-- a kind, a name, a length and an agenda (steps with minutes). A session is one occurrence: when
+-- it is, its calendar event, the agenda copied from its type when it starts (so editing the type
+-- never rewrites history), which step it's on, who facilitates and takes notes, and its notes,
+-- recording and transcript. Attendees are who's invited, who was there, and each one's rating of
+-- the session (1 to 10) with a note. Links point a session at its pre-work, a live worksheet, a
+-- resource or a collaboration space.
+--
+-- Tenants and owners: as in 0009_genesis_pursuits, every type and session belongs to one tenant
+-- and has exactly one owner (a person, a team or the tenant). Attendees and links take their
+-- session's tenant and owner. This file needs 0009 and uses its owner-access contract (genesis_owner_readable and
+-- genesis_owner_allows) over the same app hooks, failing closed:
+--   private.genesis_readable_owners(viewer uuid) returns table (tenant_id uuid, owner_id uuid)
+--   private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid,
+--                             organization_id uuid, action text) returns boolean
+--
+-- Who may do what:
+--   - read a session, its attendees and links: whoever may read its owner, and its attendees;
+--   - schedule, run and edit a session, invite people, mark presence and add links: whoever may
+--     write its owner;
+--   - rate a session: each attendee, their own rating only.
+--
+-- Collaboration: private.genesis_session_members(session) lists a session's attendees, for an app
+-- to register as a collaboration audience, so a pre-work or live worksheet space follows the
+-- attendee list without copying it.
+--
+-- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
+-- (`genesis migrate` does it), after 0011. Never edit it once applied; change it with a new
+-- migration.
+--
+-- Verify: the pgTAP test beside this file (`tests/0012_genesis_sessions.test.sql`).
+
+create schema if not exists private;
+
+-- Tables ---------------------------------------------------------------------------------------
+
+create table public.session_types (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  person_id uuid,
+  team_id uuid,
+  organization_id uuid,
+  kind text not null default 'meeting'
+    constraint session_types_kind check (kind in ('meeting', 'workshop', 'presentation', 'coaching_call', 'one_on_one', 'class', 'planning', 'other')),
+  name text not null
+    constraint session_types_name_length check (char_length(btrim(name)) between 1 and 200),
+  description text,
+  default_minutes integer
+    constraint session_types_minutes check (default_minutes between 1 and 1440),
+  -- The steps: [{ "key": "segue", "title": "Check-in", "minutes": 5 }, ...].
+  agenda jsonb not null default '[]'::jsonb
+    constraint session_types_agenda_array check (jsonb_typeof(agenda) = 'array'),
+  active boolean not null default true,
+  position integer not null default 0,
+  created_by uuid default auth.uid() references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint session_types_one_owner check (num_nonnulls(person_id, team_id, organization_id) = 1),
+  constraint session_types_org_owner_is_tenant check (organization_id is null or organization_id = tenant_id)
+);
+
+comment on table public.session_types is
+  'Reusable session formats with an agenda. Genesis sessions. @genesis {"label": "Session types", "labelField": "name"}';
+
+create table public.sessions (
+  id uuid primary key default gen_random_uuid(),
+  tenant_id uuid not null,
+  person_id uuid,
+  team_id uuid,
+  organization_id uuid,
+  session_type_id uuid references public.session_types (id) on delete set null,
+  -- Taken from the type when the session has one.
+  kind text not null default 'meeting'
+    constraint sessions_kind check (kind in ('meeting', 'workshop', 'presentation', 'coaching_call', 'one_on_one', 'class', 'planning', 'other')),
+  title text not null
+    constraint sessions_title_length check (char_length(btrim(title)) between 1 and 300),
+  scheduled_at timestamptz,
+  duration_minutes integer
+    constraint sessions_minutes check (duration_minutes between 1 and 1440),
+  -- The calendar event this session is, in the calendar the app syncs with.
+  calendar_event_id text
+    constraint sessions_calendar_event_length check (calendar_event_id is null or char_length(calendar_event_id) <= 500),
+  status text not null default 'scheduled'
+    constraint sessions_status check (status in ('scheduled', 'live', 'ended', 'cancelled')),
+  -- Copied from the type when the session starts; never rewritten by editing the type.
+  agenda jsonb not null default '[]'::jsonb
+    constraint sessions_agenda_array check (jsonb_typeof(agenda) = 'array'),
+  current_step integer
+    constraint sessions_current_step check (current_step >= 0),
+  started_at timestamptz,
+  ended_at timestamptz,
+  facilitator_id uuid references auth.users (id) on delete set null,
+  scribe_id uuid references auth.users (id) on delete set null,
+  notes text,
+  recording_url text,
+  transcript_url text,
+  created_by uuid default auth.uid() references auth.users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint sessions_one_owner check (num_nonnulls(person_id, team_id, organization_id) = 1),
+  constraint sessions_org_owner_is_tenant check (organization_id is null or organization_id = tenant_id),
+  constraint sessions_ended_after_start check (ended_at is null or started_at is null or ended_at >= started_at)
+);
+
+comment on table public.sessions is
+  'Sessions: schedule, agenda, live step, notes and recordings. Genesis sessions. @genesis {"label": "Sessions", "labelField": "title"}';
+
+create table public.session_attendees (
+  session_id uuid not null references public.sessions (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  -- Copied from the session, for access; never written by the app.
+  tenant_id uuid not null,
+  person_id uuid,
+  team_id uuid,
+  organization_id uuid,
+  present boolean,
+  rating smallint
+    constraint session_attendees_rating check (rating between 1 and 10),
+  rating_note text
+    constraint session_attendees_rating_note_length check (rating_note is null or char_length(rating_note) <= 2000),
+  rated_at timestamptz,
+  created_at timestamptz not null default now(),
+  primary key (session_id, user_id)
+);
+
+comment on table public.session_attendees is
+  'Who is invited, who was there, and each one''s rating. Genesis sessions.';
+
+create table public.session_links (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.sessions (id) on delete cascade,
+  tenant_id uuid not null,
+  person_id uuid,
+  team_id uuid,
+  organization_id uuid,
+  kind text not null
+    constraint session_links_kind check (kind in ('prework', 'worksheet', 'resource', 'space', 'other')),
+  -- What it points at, in the app's terms: a form id, a resource id, a collaboration space id.
+  ref text not null
+    constraint session_links_ref_length check (char_length(ref) between 1 and 500),
+  title text,
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+comment on table public.session_links is
+  'A session''s pre-work, worksheets, resources and collaboration spaces. Genesis sessions.';
+
+create index session_types_tenant_owner_idx on public.session_types (tenant_id, coalesce(person_id, team_id, organization_id));
+create index session_types_created_by_idx on public.session_types (created_by);
+create index sessions_tenant_owner_idx on public.sessions (tenant_id, coalesce(person_id, team_id, organization_id));
+create index sessions_scheduled_idx on public.sessions (tenant_id, scheduled_at);
+create index sessions_kind_idx on public.sessions (tenant_id, kind);
+create index sessions_type_idx on public.sessions (session_type_id);
+create index sessions_facilitator_idx on public.sessions (facilitator_id);
+create index sessions_scribe_idx on public.sessions (scribe_id);
+create index sessions_created_by_idx on public.sessions (created_by);
+create index session_attendees_user_idx on public.session_attendees (user_id);
+create index session_attendees_tenant_owner_idx on public.session_attendees (tenant_id, coalesce(person_id, team_id, organization_id));
+create index session_links_session_idx on public.session_links (session_id, position);
+create index session_links_tenant_owner_idx on public.session_links (tenant_id, coalesce(person_id, team_id, organization_id));
+
+-- Access helpers -------------------------------------------------------------------------------
+
+create or replace function private.genesis_sessions_caller_is_person()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+$$;
+
+-- Whether the signed-in person is an attendee of a session.
+create or replace function private.genesis_sessions_attends(session uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.session_attendees a where a.session_id = session and a.user_id = auth.uid())
+$$;
+
+-- A session's attendees, for a collaboration audience.
+create or replace function private.genesis_session_members(session uuid)
+returns setof uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select a.user_id from public.session_attendees a where a.session_id = session
+$$;
+
+-- Guards ---------------------------------------------------------------------------------------
+
+-- Types and sessions: the fixed tenant and owner for signed-in people, who made it, updated_at,
+-- a type in the same tenant, the agenda copied at start, and the start and end times.
+create or replace function private.genesis_sessions_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  type_agenda jsonb;
+  type_kind text;
+begin
+  -- Refuse a signed-in writer who may not write here before checking anything else, so errors
+  -- reveal nothing about other tenants.
+  if private.genesis_sessions_caller_is_person()
+     and not private.genesis_owner_allows(new.tenant_id, new.person_id, new.team_id, new.organization_id, 'write') then
+    raise exception 'permission denied for table %', tg_table_name using errcode = '42501';
+  end if;
+  if tg_op = 'INSERT' then
+    if private.genesis_sessions_caller_is_person() then
+      new.created_by := auth.uid();
+    end if;
+  else
+    if private.genesis_sessions_caller_is_person() then
+      if new.tenant_id is distinct from old.tenant_id
+         or new.person_id is distinct from old.person_id
+         or new.team_id is distinct from old.team_id
+         or new.organization_id is distinct from old.organization_id then
+        raise exception 'A %''s tenant and owner never change', tg_table_name using errcode = '22023';
+      end if;
+      new.created_by := old.created_by;
+    end if;
+    new.updated_at := now();
+  end if;
+
+  if tg_table_name = 'sessions' then
+    if new.session_type_id is not null
+       and (tg_op = 'INSERT' or new.session_type_id is distinct from old.session_type_id) then
+      select t.agenda, t.kind into type_agenda, type_kind from public.session_types t
+       where t.id = new.session_type_id and t.tenant_id = new.tenant_id;
+      if not found then
+        raise exception 'A session''s type must be in the same tenant' using errcode = '22023';
+      end if;
+      new.kind := type_kind;
+    end if;
+    if new.status = 'live' and (tg_op = 'INSERT' or old.status is distinct from 'live') then
+      new.started_at := coalesce(new.started_at, now());
+      new.current_step := coalesce(new.current_step, 0);
+      if new.agenda = '[]'::jsonb and new.session_type_id is not null then
+        select t.agenda into type_agenda from public.session_types t where t.id = new.session_type_id;
+        new.agenda := coalesce(type_agenda, '[]'::jsonb);
+      end if;
+    end if;
+    if new.status = 'ended' and (tg_op = 'INSERT' or old.status is distinct from 'ended') then
+      new.ended_at := coalesce(new.ended_at, now());
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger session_types_guard
+  before insert or update on public.session_types
+  for each row execute function private.genesis_sessions_guard();
+create trigger sessions_guard
+  before insert or update on public.sessions
+  for each row execute function private.genesis_sessions_guard();
+
+-- Attendees and links take their session's tenant and owner. A signed-in attendee who can't
+-- write the session may change only their own rating and its note.
+create or replace function private.genesis_session_parts_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  t uuid; p uuid; tm uuid; o uuid;
+begin
+  if tg_op = 'UPDATE' and new.session_id is distinct from old.session_id then
+    raise exception 'A session''s part never moves to another session' using errcode = '22023';
+  end if;
+  select m.tenant_id, m.person_id, m.team_id, m.organization_id into t, p, tm, o
+    from public.sessions m where m.id = new.session_id;
+  if private.genesis_sessions_caller_is_person() and t is null then
+    raise exception 'permission denied for %', tg_table_name using errcode = '42501';
+  end if;
+  new.tenant_id := t; new.person_id := p; new.team_id := tm; new.organization_id := o;
+
+  if tg_table_name = 'session_attendees' then
+    if tg_op = 'UPDATE' and private.genesis_sessions_caller_is_person()
+       and not private.genesis_owner_allows(t, p, tm, o, 'write') then
+      if new.user_id is distinct from old.user_id or new.present is distinct from old.present then
+        raise exception 'An attendee changes only their own rating' using errcode = '42501';
+      end if;
+    end if;
+    if new.rating is distinct from (case when tg_op = 'UPDATE' then old.rating end)
+       or new.rating_note is distinct from (case when tg_op = 'UPDATE' then old.rating_note end) then
+      if private.genesis_sessions_caller_is_person() and new.user_id <> auth.uid() then
+        raise exception 'Only the attendee rates the session' using errcode = '42501';
+      end if;
+      new.rated_at := case when new.rating is null then null else now() end;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger session_attendees_guard
+  before insert or update on public.session_attendees
+  for each row execute function private.genesis_session_parts_guard();
+create trigger session_links_guard
+  before insert or update on public.session_links
+  for each row execute function private.genesis_session_parts_guard();
+
+revoke execute on function private.genesis_sessions_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_session_parts_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_sessions_caller_is_person() from public, anon, authenticated;
+revoke execute on function private.genesis_session_members(uuid) from public, anon, authenticated;
+revoke execute on function private.genesis_sessions_attends(uuid) from public, anon;
+grant execute on function private.genesis_sessions_attends(uuid) to authenticated;
+
+-- Policies -------------------------------------------------------------------------------------
+
+alter table public.session_types enable row level security;
+alter table public.sessions enable row level security;
+alter table public.session_attendees enable row level security;
+alter table public.session_links enable row level security;
+
+create policy session_types_read on public.session_types for select to authenticated
+  using (exists (select 1 from private.genesis_owner_readable() r
+                 where r.tenant_id = session_types.tenant_id
+                   and r.owner_id = coalesce(session_types.person_id, session_types.team_id, session_types.organization_id)));
+create policy session_types_write on public.session_types for all to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+
+create policy sessions_read on public.sessions for select to authenticated
+  using (exists (select 1 from private.genesis_owner_readable() r
+                 where r.tenant_id = sessions.tenant_id
+                   and r.owner_id = coalesce(sessions.person_id, sessions.team_id, sessions.organization_id))
+         or private.genesis_sessions_attends(id));
+create policy sessions_write on public.sessions for all to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+
+create policy session_attendees_read on public.session_attendees for select to authenticated
+  using (exists (select 1 from private.genesis_owner_readable() r
+                 where r.tenant_id = session_attendees.tenant_id
+                   and r.owner_id = coalesce(session_attendees.person_id, session_attendees.team_id, session_attendees.organization_id))
+         or private.genesis_sessions_attends(session_id));
+create policy session_attendees_manage on public.session_attendees for all to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_attendees_rate on public.session_attendees for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create policy session_links_read on public.session_links for select to authenticated
+  using (exists (select 1 from private.genesis_owner_readable() r
+                 where r.tenant_id = session_links.tenant_id
+                   and r.owner_id = coalesce(session_links.person_id, session_links.team_id, session_links.organization_id))
+         or private.genesis_sessions_attends(session_id));
+create policy session_links_write on public.session_links for all to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+
+revoke all on public.session_types, public.sessions, public.session_attendees, public.session_links
+  from public, anon, authenticated;
+grant select, insert, update, delete on public.session_types, public.sessions, public.session_attendees, public.session_links
+  to authenticated;
+grant all on public.session_types, public.sessions, public.session_attendees, public.session_links to service_role;
+
+-- Ratings ---------------------------------------------------------------------------------------
+
+create view public.session_ratings
+with (security_invoker = true) as
+select a.session_id,
+       count(a.rating)::int as ratings,
+       round(avg(a.rating)::numeric, 1) as average,
+       count(*) filter (where a.present)::int as present
+from public.session_attendees a
+group by a.session_id;
+
+comment on view public.session_ratings is
+  'Each session''s ratings count and average, and how many attended. Genesis sessions.';
+
+revoke all on public.session_ratings from public, anon, authenticated;
+grant select on public.session_ratings to authenticated, service_role;

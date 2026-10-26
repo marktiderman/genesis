@@ -4052,18 +4052,23 @@
       "flags": []
     },
     {
-      "id": "meetings",
-      "name": "Meetings",
-      "summary": "meeting_types, meetings, meeting_attendees and meeting_links in genesis-supabase: reusable formats with an agenda; meetings with a schedule and calendar event, the agenda copied when it starts, the live step, facilitator and scribe, notes, recording and transcript; attendees with presence and a 1-to-10 rating; links to pre-work, worksheets and collaboration spaces; meeting_ratings averages. Owned and gated like pursuits; attendees read the meetings they attend.",
+      "id": "sessions",
+      "name": "Sessions",
+      "aliases": [
+        "meetings"
+      ],
+      "summary": "session_types, sessions, session_attendees and session_links in genesis-supabase: sessions of any kind (meeting, workshop, presentation, coaching call, one-on-one, class, planning day) with reusable types and agendas, a schedule and calendar event, the agenda copied when it starts, the live step, facilitator and scribe, notes, recording and transcript; attendees with presence and a 1-to-10 rating; links to pre-work, worksheets and collaboration spaces; session_ratings averages. Owned and gated through the pursuits block's owner-access contract; attendees read the sessions they attend.",
       "category": "Productivity",
       "status": "building",
       "horizon": "now",
       "layer": "service",
       "keywords": [
+        "sessions",
         "meetings",
+        "workshops",
+        "presentations",
+        "coaching calls",
         "agenda",
-        "weekly meeting",
-        "one-on-one",
         "rating",
         "attendance",
         "facilitator",
@@ -4080,14 +4085,14 @@
       },
       "requires": [
         "supabase-kit",
-        "tenant-features"
+        "pursuits"
       ],
       "contributes": [
-        "table: meeting_types",
-        "table: meetings",
-        "table: meeting_attendees",
-        "table: meeting_links",
-        "view: meeting_ratings"
+        "table: session_types",
+        "table: sessions",
+        "table: session_attendees",
+        "table: session_links",
+        "view: session_ratings"
       ],
       "owner": "mark",
       "apps": [
@@ -4100,19 +4105,19 @@
       ],
       "visibility": "internal",
       "acceptance": [
-        "Starting a meeting copies its type's agenda, and editing the type later never changes it.",
-        "Attendees read the meetings they attend; only whoever may write the meeting invites, marks presence and adds links; each attendee rates only their own row.",
+        "A session has a kind (taken from its type when it has one); starting it copies its type's agenda, and editing the type later never changes it.",
+        "Attendees read the sessions they attend; only whoever may write the session invites, marks presence and adds links; each attendee rates only their own row.",
         "A signed-in writer who may not write the owner is refused before anything about another tenant shows.",
         "Not yet used by an app."
       ],
       "reviewedAt": "2026-10-26",
       "links": {
         "code": [
-          "packages/supabase/migrations/0012_genesis_meetings.sql",
+          "packages/supabase/migrations/0012_genesis_sessions.sql",
           "packages/supabase/src/blocks.ts"
         ],
         "docs": [
-          "packages/supabase/migrations/0012_genesis_meetings.sql"
+          "packages/supabase/migrations/0012_genesis_sessions.sql"
         ]
       },
       "access": "all",
