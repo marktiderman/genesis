@@ -62,6 +62,15 @@ describe("callRpc", () => {
     expect(err.message).not.toMatch(/duplicate key/);
   });
 
+  it("never shows an empty guard message or a missing result as raw text", async () => {
+    const empty = await failure(callRpc(rpcReturning({ error: { code: "P0001", message: "" } }), "f"));
+    expect(empty.message).toBe(RPC_FAILED);
+    const nothing = await failure(callRpc({ rpc: async () => undefined as never }, "f"));
+    expect(nothing.message).toBe(RPC_FAILED);
+    const dup = await failure(callRpc(rpcReturning({ error: { code: "23505", message: "duplicate key value" } }), "f"));
+    expect(dup.message).toBe("That already exists.");
+  });
+
   it("reports a request that never arrived plainly", async () => {
     const err = await failure(callRpc({ rpc: () => Promise.reject(new TypeError("fetch failed")) }, "f"));
     expect(err.outcome).toBe("error");
@@ -123,6 +132,36 @@ describe("createOrAdopt", () => {
       },
     } as DataProvider;
     expect((await failure(createOrAdopt(hidden, "drafts", { person_id: "p1" }, { key: ["person_id"] }))).outcome).toBe("duplicate");
+  });
+
+  it("reads at most two rows by every key field, and rethrows unless exactly one matches", async () => {
+    const twins = uniqueProvider([
+      { id: "d1", person_id: "p1", lesson_id: "l1" },
+      { id: "d2", person_id: "p1", lesson_id: "l1" },
+    ]);
+    const getList = vi.spyOn(twins, "getList");
+    expect((await failure(createOrAdopt(twins, "drafts", { person_id: "p1", lesson_id: "l1" }, { key: [...key] }))).outcome).toBe(
+      "duplicate",
+    );
+    expect(getList).toHaveBeenLastCalledWith("drafts", {
+      filters: [
+        { field: "person_id", operator: "eq", value: "p1" },
+        { field: "lesson_id", operator: "eq", value: "l1" },
+      ],
+      pagination: { page: 1, perPage: 2 },
+    });
+  });
+
+  it("rethrows a clash on another unique field instead of adopting the key's row", async () => {
+    const provider = uniqueProvider([{ id: "d1", person_id: "p1", lesson_id: "l1", slug: "a" }]);
+    const clash = {
+      ...provider,
+      create: async () => {
+        throw new DataWriteError("duplicate", "This value is already in use.", { fields: { slug: "This value is already in use." } });
+      },
+    } as DataProvider;
+    const err = await failure(createOrAdopt(clash, "drafts", { person_id: "p1", lesson_id: "l1", slug: "a" }, { key: [...key] }));
+    expect(err.fields).toEqual({ slug: "This value is already in use." });
   });
 
   it("needs a key", async () => {

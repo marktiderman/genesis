@@ -1,5 +1,5 @@
 /**
- * Named option lists a host app keeps (a practice's "Locations", "Coaches"): the model, CSV import
+ * Named option lists a host app keeps (an organization's "Locations", "Staff"): the model, CSV import
  * with a preview, upsert by value, and CSV export. Pure, so an import can be checked on a server
  * too; where a list is stored is the host's business.
  */

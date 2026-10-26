@@ -356,6 +356,7 @@ leave; asks with `window.confirm` otherwise). For other state,
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
 
+<<<<<<< HEAD
 ## One-off writes
 
 For the writes a resource page doesn't make: a database function, "one live row per key", or a few
@@ -382,3 +383,43 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 ```
 
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`).
+=======
+## Query keys
+
+Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
+one person shows to another.
+
+```ts
+import { ViewerScope, defineQueryKeys, resourceKeys } from "@marktiderman/genesis-core";
+
+export const worksheetKeys = defineQueryKeys("worksheet-items", {
+  // The fields that make one query distinct. Sort arrays: order never makes two keys.
+  lessonParts: (people: string[]) => ({ people: [...people].sort() }),
+  byEntry: (entryId: string) => ({ entryId }),
+});
+
+// Reading: keys exist only for a scope. `viewer` is required; `group` and `day` when the read depends on them.
+useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).lessonParts(people), queryFn });
+
+// Invalidating:
+queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
+queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });  // one kind
+queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));    // every key with this person, multi-person keys included
+queryClient.invalidateQueries(worksheetKeys.where({ entryId }, "byEntry"));  // narrowed to one query
+queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // what useResource / useOne cache
+
+// Once, around the signed-in app: screens mount only for a known viewer, and a sign-out or a new
+// person unmounts them and empties the cache first. (Resource keys carry no viewer; this keeps them apart.)
+<ViewerScope viewer={session === undefined ? undefined : (session?.user.id ?? null)}>
+  <App />
+</ViewerScope>
+```
+
+Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, kind?)` matches a
+field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
+value, or for an array value an array field containing every item. Never a substring.
+
+With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
+viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes.
+>>>>>>> origin/main

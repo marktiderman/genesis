@@ -19,6 +19,7 @@ export interface RpcClient {
 export const DEFAULT_RPC_MESSAGES: Readonly<Record<string, string>> = {
   "42501": "You can't do that.",
   "22023": "That request isn't valid.",
+  "23505": "That already exists.",
   "28000": "Sign in to continue.",
   PGRST202: "That action isn't available.",
   PGRST301: "Sign in to continue.",
@@ -49,13 +50,18 @@ export async function callRpc<T = unknown>(
   } catch (error) {
     throw new DataWriteError("error", RPC_FAILED, { cause: error });
   }
+  if (!result || typeof result !== "object") {
+    throw new DataWriteError("error", RPC_FAILED, { cause: new Error(`rpc ${fn} returned ${String(result)}`) });
+  }
   if (!result.error) return result.data as T;
   const mapped = toDataWriteError(result.error);
   const code = mapped.code;
   const custom = code !== undefined ? options.messages?.[code] : undefined;
+  const raw = (result.error as { message?: unknown }).message;
+  const guardWords = typeof raw === "string" && raw.trim() ? raw : undefined;
   const message =
     custom ??
-    (code === "P0001" && mapped.message ? mapped.message : undefined) ??
+    (code === "P0001" ? guardWords : undefined) ??
     (mapped.fields ? mapped.message : undefined) ??
     (code !== undefined ? DEFAULT_RPC_MESSAGES[code] : undefined) ??
     RPC_FAILED;
@@ -65,7 +71,12 @@ export async function callRpc<T = unknown>(
 export interface CreateOrAdoptOptions<T extends BaseRecord> {
   /** The fields that make a row unique (its unique index), read from `data`. */
   key: readonly (keyof T & string)[];
-  /** Changes to write over a row that was already there; return null to keep it as it is. */
+  /**
+   * Changes to write over a row that was already there; return null to keep it
+   * as it is. It runs on the row as read just now, and the update isn't
+   * conditional: two callers merging into one row at once can each overwrite
+   * the other. Where that matters, merge in a database function instead.
+   */
   merge?: (existing: T) => Partial<T> | null;
 }
 
@@ -85,6 +96,8 @@ export async function createOrAdopt<T extends BaseRecord>(
     return { row: (await provider.create<T>(resource, { data })).data, adopted: false };
   } catch (error) {
     if (!isDataWriteError(error) || error.outcome !== "duplicate") throw error;
+    // A clash on some other unique index isn't this key's row.
+    if (error.fields && Object.keys(error.fields).some((field) => !options.key.includes(field as keyof T & string))) throw error;
     const filters: FilterParam[] = options.key.map((field) => {
       const value = (data as Record<string, unknown>)[field];
       if (value === null || value === undefined) return { field, operator: "is_null" };

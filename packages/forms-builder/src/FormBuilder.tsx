@@ -123,8 +123,8 @@ export interface FormBuilderProps {
    */
   outputs?: readonly OutputTarget[] | undefined;
   /**
-   * Option lists this app fills in when the form opens, such as a practice's
-   * current coaches. A choice question's options panel then offers "Options:
+   * Option lists this app fills in when the form opens, such as an
+   * organization's current staff. A choice question's options panel then offers "Options:
    * Typed here | From the app" and a picker of these lists; choosing one sets
    * `props.optionsFrom: { source: "host", key }`. The preview and the checks
    * use each list's `sample`. Pass the real lists to `<Form hostOptions>` and

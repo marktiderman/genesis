@@ -31,6 +31,7 @@ export {
 } from "./use-infinite-resource";
 export { useCapabilities } from "./use-capabilities";
 export { useWrite, WRITE_FAILED, type UseWriteOptions, type UseWriteReturn } from "./use-write";
+export { ViewerScope, clearViewerCache, type ViewerScopeProps } from "./viewer-scope";
 export { DEFAULT_LIVE_DEBOUNCE_MS, type LiveOptions } from "./use-live";
 export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
