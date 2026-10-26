@@ -31,6 +31,12 @@ function typeName(table: IntrospectedTable): string {
   return `${/^[0-9]/.test(pascal) ? "T" : ""}${pascal}Row`;
 }
 
+/** The contract's const name for a table, e.g. `publicBrands`. */
+function constName(table: IntrospectedTable): string {
+  const row = typeName(table).replace(/Row$/, "");
+  return row[0]!.toLowerCase() + row.slice(1);
+}
+
 function tsType(column: IntrospectedColumn): string {
   const base = column.enumValues?.length ? column.enumValues.map(quote).join(" | ") : TS_TYPE[column.type];
   const element = column.array ? (base.includes("|") ? `(${base})[]` : `${base}[]`) : base;
@@ -53,6 +59,8 @@ function field(column: IntrospectedColumn): string {
   if (label) parts.push(`label: ${quote(label)}`);
   if (description) parts.push(`description: ${quote(description)}`);
   if (column.settings?.widget) parts.push(`widget: ${quote(column.settings.widget)}`);
+  if (column.settings?.readonly) parts.push("readOnly: true");
+  if (column.settings?.sensitive) parts.push("sensitive: true");
   return `      { ${parts.join(", ")} },`;
 }
 
@@ -72,31 +80,42 @@ export function emitContracts(tables: readonly IntrospectedTable[], options: Emi
     "// Labels, widgets and descriptions come from `@genesis {...}` settings in",
     "// table and column comments. Pass `contracts` to createStudioHandler: it",
     "// wins over discovery for presentation, while types, keys and every",
-    "// permission still come from the live database.",
+    "// permission still come from the live database. Each contract is checked",
+    "// against genesis-core's ResourceContract, so a bad @genesis setting fails to compile.",
     "",
-    "export const contracts = {",
+    'import type { ResourceContract } from "@marktiderman/genesis-core";',
+    "",
   ];
   for (const table of sorted) {
-    out.push(`  ${quote(table.name)}: {`);
-    out.push(`    name: ${quote(table.name)},`);
-    out.push(`    key: ${table.key.length === 1 ? quote(table.key[0]!) : `[${table.key.map(quote).join(", ")}]`},`);
-    if (table.settings?.label) out.push(`    label: ${quote(table.settings.label)},`);
-    if (table.settings?.labelField) out.push(`    labelField: ${quote(table.settings.labelField)},`);
+    const row = typeName(table);
+    out.push(`/** \`${table.name}\`. */`);
+    out.push(`export const ${constName(table)} = {`);
+    out.push(`  name: ${quote(table.name)},`);
+    out.push(`  key: ${table.key.length === 1 ? quote(table.key[0]!) : `[${table.key.map(quote).join(", ")}]`},`);
+    if (table.settings?.label) out.push(`  label: ${quote(table.settings.label)},`);
+    if (table.settings?.labelField) out.push(`  labelField: ${quote(table.settings.labelField)},`);
+    if (table.settings?.noun) out.push(`  noun: ${quote(table.settings.noun)},`);
+    if (table.settings?.nounPlural) out.push(`  nounPlural: ${quote(table.settings.nounPlural)},`);
     const description = table.settings?.description ?? table.description;
-    if (description) out.push(`    description: ${quote(description)},`);
-    out.push("    fields: [");
-    for (const column of table.columns) out.push(field(column));
-    out.push("    ],");
-    out.push("  },");
+    if (description) out.push(`  description: ${quote(description)},`);
+    out.push("  fields: [");
+    for (const column of table.columns) out.push(field(column).replace(/^      /, "    "));
+    out.push("  ],");
+    out.push(`} as const satisfies ResourceContract<${row}>;`, "");
   }
+  out.push("export const contracts = {");
+  for (const table of sorted) out.push(`  ${quote(table.name)}: ${constName(table)},`);
   out.push("} as const;", "");
   out.push("/** Every resource in this contract, `schema.table`. */");
   out.push("export type GenesisResource = keyof typeof contracts;", "");
   for (const table of sorted) {
     out.push(`/** A row of \`${table.name}\`, as the studio handler returns it. */`);
-    out.push(`export interface ${typeName(table)} {`);
+    // A type, not an interface: only a type alias fits core's `DataRow` (an index signature).
+    out.push(`export type ${typeName(table)} = {`);
     for (const column of table.columns) out.push(`  ${propKey(column.name)}: ${tsType(column)};`);
-    out.push("}", "");
+    out.push("};", "");
+    out.push(`/** The field names of \`${table.name}\`. */`);
+    out.push(`export type ${typeName(table).replace(/Row$/, "Field")} = keyof ${typeName(table)};`, "");
   }
   out.push("/** Row types by resource. */");
   out.push("export interface GenesisRows {");

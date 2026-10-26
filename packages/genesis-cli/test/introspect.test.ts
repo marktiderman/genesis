@@ -37,6 +37,23 @@ describe("@genesis comment settings", () => {
     expect(() => parseColumnComment("@genesis {nope", "public.customers.notes")).toThrow(/public\.customers\.notes/);
     expect(() => parseColumnComment('@genesis {"color": "red"}', "c")).toThrow(CommentSettingsError);
     expect(() => parseTableComment('@genesis {"label": 3}', "t")).toThrow(/must be a string/);
+    expect(() => parseColumnComment('@genesis {"readonly": "yes"}', "c")).toThrow(/must be a boolean/);
+  });
+
+  it("reads the resource facts: noun, readonly and sensitive", () => {
+    expect(parseTableComment('@genesis {"labelField": "name", "noun": "category", "nounPlural": "categories"}', "t").settings).toEqual({
+      labelField: "name",
+      noun: "category",
+      nounPlural: "categories",
+    });
+    expect(parseColumnComment('Set by the server. @genesis {"readonly": true}', "c")).toEqual({
+      description: "Set by the server.",
+      settings: { readonly: true },
+    });
+    expect(parseColumnComment('@genesis {"sensitive": true, "label": "Coach notes"}', "c").settings).toEqual({
+      sensitive: true,
+      label: "Coach notes",
+    });
   });
 });
 
@@ -94,7 +111,10 @@ describe("the emitted contract", () => {
 
   it("compiles under strict TypeScript, with row types", () => {
     expect(compileErrors(source)).toEqual([]);
-    expect(source).toContain("export interface PublicCustomersRow {");
+    expect(source).toContain("export type PublicCustomersRow = {");
+    expect(source).toContain("} as const satisfies ResourceContract<PublicCustomersRow>;");
+    expect(source).toContain('"public.customers": publicCustomers,');
+    expect(source).toContain("export type PublicCustomersField = keyof PublicCustomersRow;");
     expect(source).toContain('  status: "active" | "paused";');
     expect(source).toContain("  program_id: number | null;");
     expect(source).toContain("  tags: string[] | null;");
@@ -103,6 +123,38 @@ describe("the emitted contract", () => {
 
   it("is the same bytes on a re-run, whatever order the tables came in", () => {
     expect(emitContracts([...tables].reverse(), { source: "OpenAPI test" })).toBe(source);
+  });
+
+  it("emits the facts, and a contract that breaks ResourceContract fails to compile", () => {
+    const t: IntrospectedTable = {
+      name: "public.brands",
+      schema: "public",
+      table: "brands",
+      key: ["id"],
+      settings: { labelField: "name", noun: "brand" },
+      columns: [
+        { name: "id", dbType: "uuid", type: "string", array: false, nullable: false, hasDefault: true, generated: false },
+        { name: "name", dbType: "text", type: "string", array: false, nullable: false, hasDefault: false, generated: false },
+        {
+          name: "status", dbType: "text", type: "string", array: false, nullable: false, hasDefault: true, generated: false,
+          settings: { readonly: true },
+        },
+        {
+          name: "notes", dbType: "text", type: "string", array: false, nullable: true, hasDefault: false, generated: false,
+          settings: { sensitive: true, widget: "textarea" },
+        },
+      ],
+    };
+    const out = emitContracts([t], { source: "x" });
+    expect(compileErrors(out)).toEqual([]);
+    expect(out).toContain('  noun: "brand",');
+    expect(out).toContain("readOnly: true");
+    expect(out).toContain('widget: "textarea", sensitive: true');
+    const bad = emitContracts(
+      [{ ...t, columns: [{ ...t.columns[0]!, settings: { widget: "rainbow" } }] }],
+      { source: "x" },
+    );
+    expect(compileErrors(bad).join("\n")).toMatch(/rainbow/);
   });
 
   it("quotes names that aren't identifiers", () => {

@@ -81,6 +81,17 @@ export interface FieldSchema {
   readonly references?: FieldReference;
   /** The current user's rights on this field, when a provider reports them. */
   readonly permissions?: FieldPermissions;
+  /**
+   * The server owns this field (a status it derives, a total, an audit stamp): clients never write
+   * it, so a UI shows it read-only. Declared once (`@genesis {"readonly": true}`); the database's
+   * own guards still enforce it.
+   */
+  readonly readOnly?: boolean;
+  /**
+   * The value is sensitive (a note for staff, a health detail): a UI leaves it out of lists, exports
+   * and previews unless a screen asks for it. Hiding it from a user is the database's job.
+   */
+  readonly sensitive?: boolean;
 }
 
 /**
@@ -106,6 +117,13 @@ export interface ResourceContract<Row extends DataRow = DataRow> {
   readonly fields: readonly FieldSchema[];
   /** Optional doc string. */
   readonly description?: string;
+  /** Human label, e.g. "Clients". */
+  readonly label?: string;
+  /** The field that best names a row to a person (a name or title), for links and pickers. */
+  readonly labelField?: string;
+  /** What one row is called in sentences ("brand"), and several ("brands") when not `noun` + "s". */
+  readonly noun?: string;
+  readonly nounPlural?: string;
   /** Phantom marker so `Row` is inferable from a contract. */
   readonly __row?: Row;
 }

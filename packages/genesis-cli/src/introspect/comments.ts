@@ -11,8 +11,10 @@
 import type { FieldSettings, TableSettings } from "./model.js";
 
 const MARKER = "@genesis";
-const TABLE_KEYS = ["label", "labelField", "description"] as const;
-const FIELD_KEYS = ["label", "description", "widget"] as const;
+// Each setting and the JSON type it takes.
+const TABLE_KEYS = { label: "string", labelField: "string", description: "string", noun: "string", nounPlural: "string" } as const;
+const FIELD_KEYS = { label: "string", description: "string", widget: "string", readonly: "boolean", sensitive: "boolean" } as const;
+type Kinds = Record<string, "string" | "boolean">;
 
 export interface ParsedComment<S> {
   description?: string;
@@ -22,11 +24,11 @@ export interface ParsedComment<S> {
 /** Thrown for a malformed `@genesis` block, naming where it is. */
 export class CommentSettingsError extends Error {}
 
-function parse<K extends string>(
+function parse<S>(
   comment: string | null | undefined,
-  keys: readonly K[],
+  keys: Kinds,
   where: string,
-): ParsedComment<Partial<Record<K, string>>> {
+): ParsedComment<S> {
   if (!comment) return {};
   const at = comment.indexOf(MARKER);
   if (at < 0) return { description: comment.trim() || undefined };
@@ -41,15 +43,19 @@ function parse<K extends string>(
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     throw new CommentSettingsError(`${where}: the text after ${MARKER} must be one JSON object.`);
   }
-  const settings: Partial<Record<K, string>> = {};
+  const settings: Record<string, string | boolean> = {};
   for (const [key, v] of Object.entries(value)) {
-    if (!(keys as readonly string[]).includes(key)) {
-      throw new CommentSettingsError(`${where}: unknown ${MARKER} setting "${key}". Allowed: ${keys.join(", ")}.`);
+    const kind = keys[key];
+    if (!kind) {
+      throw new CommentSettingsError(`${where}: unknown ${MARKER} setting "${key}". Allowed: ${Object.keys(keys).join(", ")}.`);
     }
-    if (typeof v !== "string") throw new CommentSettingsError(`${where}: ${MARKER} "${key}" must be a string.`);
-    settings[key as K] = v;
+    if (typeof v !== kind) throw new CommentSettingsError(`${where}: ${MARKER} "${key}" must be a ${kind}.`);
+    settings[key] = v as string | boolean;
   }
-  return { ...(description ? { description } : {}), ...(Object.keys(settings).length ? { settings } : {}) };
+  return {
+    ...(description ? { description } : {}),
+    ...(Object.keys(settings).length ? { settings: settings as S } : {}),
+  };
 }
 
 export function parseTableComment(comment: string | null | undefined, table: string): ParsedComment<TableSettings> {
