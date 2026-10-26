@@ -1,0 +1,61 @@
+packages/supabase/src/web-handoff.ts
+  s_1f35d570c63beb::t_d494060ed24586 1-157,159-160
+  s_1f35d570c63beb::t_46b711d4a9d67b 158,161-172
+packages/native/src/__tests__/web-handoff.test.ts
+  s_1f35d570c63beb::t_0e4927db263a7d 1-74
+packages/supabase/src/web-handoff-path.ts
+  s_1f35d570c63beb::t_e5c302dd01326b 1-46
+packages/supabase/src/web-handoff-server.ts
+  s_1f35d570c63beb::t_491a798d6a18f6 1-300
+  s_1f35d570c63beb::t_99e969fefb54ee 301-306
+packages/supabase/migrations/tests/0015_genesis_web_handoff.test.sql
+  s_1f35d570c63beb::t_3b9281dc66af65 1-115
+  s_1f35d570c63beb::t_51ddc3e246f466 116-129
+packages/native/src/web-handoff.ts
+  s_1f35d570c63beb::t_e55595b36b8093 1-122
+  s_1f35d570c63beb::t_3ba8d47a95dd72 123-124
+packages/supabase/src/__tests__/web-handoff.test.ts
+  s_1f35d570c63beb::t_00c6cf04069671 1-350
+packages/supabase/migrations/0015_genesis_web_handoff.sql
+  s_1f35d570c63beb::t_4ea8d1be624644 1-133
+.changeset/web-handoff-native.md
+  s_1f35d570c63beb::t_aad310ec19d920 1-5
+.changeset/web-handoff-supabase.md
+  s_1f35d570c63beb::t_752084846522cb 1-10
+AGENTS.md
+  s_1f35d570c63beb::t_be354f6615f4b8 16
+features.json
+  s_1f35d570c63beb::t_cac68c1ee36886 4056-4126
+features.ts
+  s_1f35d570c63beb::t_0d0417ba1fc3ba 1766-1805
+packages/native/README.md
+  s_1f35d570c63beb::t_e0a6abbadc7745 686-717,784-785
+packages/native/package.json
+  s_1f35d570c63beb::t_dceaf942c0c042 7,60-64
+packages/native/tsup.config.ts
+  s_1f35d570c63beb::t_9641933b1f432e 13
+packages/supabase/README.md
+  s_1f35d570c63beb::t_369748d2c825ac 729-800
+packages/supabase/package.json
+  s_1f35d570c63beb::t_ddf7ec0df2a7b3 7,38-45,202-235
+packages/supabase/src/blocks.ts
+  s_1f35d570c63beb::t_dc06e55232c5b8 128-149
+packages/supabase/tsup.config.ts
+  s_1f35d570c63beb::t_4fc3d1ed5a55ea 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d8b719ed6b17856a041d7d0713ff95ca2fd15d0a",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
