@@ -80,7 +80,7 @@ export function attachmentPreview(body: string, attachment: string | ChatAttachm
   if (deleted || !kind || !kinds || !Object.prototype.hasOwnProperty.call(kinds, kind) || previewText(body, null)) return text;
   const a = typeof attachment === "string" ? bareAttachment(attachment) : attachment!;
   const k = kinds[kind];
-  const title = typeof k?.label === "string" && k.label ? k.label : cardTitle(k, a);
+  const title = typeof k?.label === "string" && k.label.trim() ? k.label.trim() : cardTitle(k, a);
   return title && title !== kind ? title : text;
 }
 

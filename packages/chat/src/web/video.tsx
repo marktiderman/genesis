@@ -331,8 +331,9 @@ export function ChatVideoRecorder({ open, onOpenChange, maxMs, send, extra, vide
 
 
   const recording = rec.state === "recording";
+  // It stays open while the take goes to the outbox: closing would free the preview it was handed.
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(o) => (o || !sendingNow.current) && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg" data-testid="genesis-chat-video-recorder">
         <DialogHeader>
           <DialogTitle>Record a video</DialogTitle>

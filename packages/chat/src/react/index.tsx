@@ -231,7 +231,7 @@ export function ChatProvider({
             ? (...args) => {
                 const now = live.current;
                 const video = now.videoUpload ?? videoUpload;
-                const send = now.hostedUpload ?? (video ? hostedUploadFrom(video, { readFile: now.readFile }) : hostedUpload!);
+                const send = now.hostedUpload ?? (video ? hostedUploadFrom(video, { readFile: now.readFile ?? readFile }) : hostedUpload!);
                 return send(...args);
               }
             : undefined,

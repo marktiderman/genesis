@@ -140,7 +140,7 @@ function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSel
   let preview = last ? previewText(last.body, last.attachment, last.deleted) : "";
   // A message that is only an app card reads as its kind's label ("Check-in"), not "Attachment".
   const kindLabel = last?.attachment && !last.deleted && !previewText(last.body, null) ? attachmentKindOf(kinds, last.attachment)?.label : undefined;
-  if (typeof kindLabel === "string" && kindLabel) preview = kindLabel;
+  if (typeof kindLabel === "string" && kindLabel.trim()) preview = kindLabel.trim();
   if (last && last.kind !== "system" && !last.deleted && last.senderId) {
     if (last.senderId === me) preview = `You: ${preview}`;
     else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;
