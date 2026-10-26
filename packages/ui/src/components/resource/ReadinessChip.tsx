@@ -1,7 +1,6 @@
-
 import { Check, CircleAlert, TriangleAlert } from "lucide-react";
 import { Chip } from "./chip";
-import { readinessChip, type Readiness } from "./status";
+import { readinessChip, type Readiness, type ReadinessLabels } from "./status";
 
 /**
  * "Ready to publish", or how many problems to fix: for the trailing slot of a resource
@@ -10,13 +9,16 @@ import { readinessChip, type Readiness } from "./status";
 export function ReadinessChip({
   readiness,
   onClick,
+  labels,
   className,
 }: {
   readiness: Readiness;
+  /** The chip's words; the defaults are neutral ("Nothing to publish yet" when empty). */
+  labels?: ReadinessLabels | undefined;
   onClick?: (() => void) | undefined;
   className?: string | undefined;
 }) {
-  const { label, tone } = readinessChip(readiness);
+  const { label, tone } = readinessChip(readiness, labels);
   const icon =
     readiness.state === "ready" ? <Check /> : readiness.state === "problems" ? <CircleAlert /> : readiness.state === "warnings" ? <TriangleAlert /> : null;
   const chip = (

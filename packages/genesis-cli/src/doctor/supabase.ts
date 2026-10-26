@@ -283,6 +283,25 @@ export function checkSupabasePack(ctx: DoctorContext): void {
   }
   checkRls(ctx, migrations, exposed);
   checkDefinerSearchPath(ctx, migrations);
+  checkTestingKit(ctx, migrations);
+}
+
+/**
+ * genesis-supabase's pgTAP kit (`genesis_testing`) belongs in supabase/tests only: it signs in as
+ * anyone and resets roles, which a migration must never ship to production.
+ */
+function checkTestingKit(ctx: DoctorContext, migrations: Migration[]): void {
+  for (const { file, statements } of migrations) {
+    const hit = statements.find(({ sql }) => /\bgenesis_testing\b/.test(sql));
+    if (!hit) continue;
+    ctx.report({
+      rule: "migration-testing-kit",
+      file,
+      line: hit.line,
+      subject: "genesis_testing",
+      message: "a migration uses genesis_testing, the pgTAP kit for test databases only; move it to supabase/tests/database/000_genesis_testing.test.sql",
+    });
+  }
 }
 
 /** Grantee list of a grant: `to a, b [with grant option] [granted by x]`. */

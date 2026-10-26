@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 147 components · 493 other exports · 361 standalone types across 11 packages and entry points.
+**Totals:** 148 components · 508 other exports · 372 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -237,7 +237,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (40)
+### Components (41)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -264,6 +264,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`PasswordToggleFieldInput`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldInputProps` | Experimental | PasswordToggleFieldInput — the field itself. |
 | [`PasswordToggleFieldSlot`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldSlotProps` | Experimental | PasswordToggleFieldSlot — renders one of two nodes depending on visibility. |
 | [`PasswordToggleFieldToggle`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldToggleProps` | Experimental | PasswordToggleFieldToggle — the show/hide button. |
+| [`ResourceHeader`](../packages/ui/src/components/resource/index.ts) | `ResourceHeaderProps` | — | _(no summary)_ |
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
 | [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
@@ -282,7 +283,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (245)
+### Other exports (260)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -339,6 +340,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
+| [`Chip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`Collapsible`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
 | [`CollapsibleContent`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
@@ -368,6 +370,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ContextMenuSubContent`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
 | [`ContextMenuSubTrigger`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
 | [`ContextMenuTrigger`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
+| [`dayLabel`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`Dialog`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
@@ -406,6 +409,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DropdownMenuSubContent`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`DropdownMenuSubTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`DropdownMenuTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
+| [`embedSnippet`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`FollowUpList`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`FormDescription`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormError`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormField`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
@@ -416,6 +421,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`H2`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H3`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H4`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
+| [`HeadlineNumbers`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`HoverCard`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardContent`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardTrigger`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
@@ -473,13 +479,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Popover`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
 | [`PopoverContent`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
 | [`PopoverTrigger`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
+| [`prefilledUrl`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Progress`](../packages/ui/src/components/ui/progress.tsx) | value | — | _(no summary)_ |
 | [`RadioGroup`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
 | [`RadioGroupItem`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
+| [`readinessChip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ReadinessChip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`readinessOf`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`ResizableHandle`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/ui/src/navigation.tsx) | value | — | _(no summary)_ |
+| [`ResourceSettingsPage`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ResponsesToolbar`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`SAVE_STATE_LABEL`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`ScrollArea`](../packages/ui/src/components/ui/scroll-area.tsx) | value | — | _(no summary)_ |
 | [`sectionHeadingVariants`](../packages/ui/src/components/layout/section.tsx) | value | — | _(no summary)_ |
 | [`Select`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
@@ -491,6 +504,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SelectTrigger`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
 | [`SelectValue`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
 | [`Separator`](../packages/ui/src/components/ui/separator.tsx) | value | — | _(no summary)_ |
+| [`SettingsSection`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ShareDialog`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Sheet`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
 | [`SheetClose`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
 | [`SheetContent`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
@@ -508,6 +523,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`splitVariants`](../packages/ui/src/components/layout/split.tsx) | value | — | _(no summary)_ |
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`statusBadgeVariants`](../packages/ui/src/components/patterns/status-badge.tsx) | const | — | _(no summary)_ |
+| [`SummaryCard`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Switch`](../packages/ui/src/components/ui/switch.tsx) | value | — | _(no summary)_ |
 | [`Table`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableBody`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
@@ -534,7 +550,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (18)
+### Types (29)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -542,13 +558,24 @@ Type-only exports not consumed as a component's `Props`.
 export type { ButtonAsChildProps };
 export type { CarouselApi };
 export type { ChartConfig };
+export type { ChipTone };
 export type { CommandPaletteItem };
+export type { FollowUpEntry };
 export type { GenesisLinkProps };
+export type { HeadlineNumber };
 export type { IsPathActiveOptions };
 export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { PrefillChoice };
+export type { Readiness };
+export type { ReadinessFinding };
+export type { ReadinessLabels };
+export type { ReadinessOptions };
 export type { ResolvedNavigation };
+export type { ResourceSettingsSection };
+export type { ResponsesView };
+export type { SaveState };
 export type { SearchParamsAdapter };
 export type { SettingsPageSection };
 export type { SortableListItemContext };

@@ -261,25 +261,37 @@ export function summarizeResponses(
 
     if (CHOICE_TYPES.has(field.type)) {
       const options = optionsOf(field).map((o) => ({ ...o, count: 0 }));
-      const find = (value: string, from: FieldBlock) => {
-        // Typed "Other" answers count together, under the question's Other label.
-        if (isOtherValue(from, value) && !options.some((o) => o.value === value)) {
-          value = OTHER_BUCKET;
-          let bucket = options.find((o) => o.value === OTHER_BUCKET);
-          if (!bucket) {
-            bucket = { value: OTHER_BUCKET, label: (otherOption(field) ?? otherOption(from))!.label, count: 0 };
-            options.push(bucket);
-          }
-          return bucket;
-        }
-        let option = options.find((o) => o.value === value);
-        if (!option) {
-          // An option only an older version had: its label from that version.
-          const old = optionsOf(from).find((o) => o.value === value);
-          option = { value, label: old?.label ?? value, count: 0 };
-          options.push(option);
-        }
+      // Lookups by value, not options.find per answer: option lists can hold thousands.
+      const byValue = new Map<string, (typeof options)[number]>();
+      for (const o of options) if (!byValue.has(o.value)) byValue.set(o.value, o);
+      const add = (option: (typeof options)[number]) => {
+        options.push(option);
+        byValue.set(option.value, option);
         return option;
+      };
+      const oldOptions = new Map<FieldBlock, Map<string, { label?: string }>>();
+      const oldOption = (from: FieldBlock, value: string) => {
+        let map = oldOptions.get(from);
+        if (!map) {
+          map = new Map();
+          for (const o of optionsOf(from)) if (!map.has(o.value)) map.set(o.value, o);
+          oldOptions.set(from, map);
+        }
+        return map.get(value);
+      };
+      const find = (value: string, from: FieldBlock) => {
+        const known = byValue.get(value);
+        if (known) return known;
+        // Typed "Other" answers count together, under the question's Other label. (Checked only
+        // for values not already counted: isOtherValue looks through the question's options.)
+        if (isOtherValue(from, value)) {
+          return (
+            byValue.get(OTHER_BUCKET) ??
+            add({ value: OTHER_BUCKET, label: (otherOption(field) ?? otherOption(from))!.label, count: 0 })
+          );
+        }
+        // An option only an older version had: its label from that version.
+        return add({ value, label: oldOption(from, value)?.label ?? value, count: 0 });
       };
       let count = 0;
       for (const { values } of answered) {
