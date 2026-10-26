@@ -6895,12 +6895,12 @@
       "subpath": "@marktiderman/genesis-ui/layout",
       "filePath": "packages/ui/src/components/layout/brand-theme.ts",
       "stability": "stable",
-      "summary": "Parses `#rgb`, `#rrggbb` or `rgb(r, g, b)` / `rgb(r g b)`. Anything else: `null`.",
+      "summary": "Parses `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` (commas or\nspaces, optional `/` or `,` alpha, which is ignored) and bare HSL triplets\nlike `\"160 84% 39%\"`. Anything else, including out-of-range channels: `null`.\nNever throws.",
       "primaryComponent": "parseColor",
       "components": [
         {
           "name": "parseColor",
-          "summary": "Parses `#rgb`, `#rrggbb` or `rgb(r, g, b)` / `rgb(r g b)`. Anything else: `null`.",
+          "summary": "Parses `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` (commas or\nspaces, optional `/` or `,` alpha, which is ignored) and bare HSL triplets\nlike `\"160 84% 39%\"`. Anything else, including out-of-range channels: `null`.\nNever throws.",
           "props": []
         },
         {
@@ -6964,7 +6964,7 @@
         },
         {
           "name": "hslToRgb",
-          "summary": "HSL (hue 0-360, saturation and lightness 0-100) to sRGB.",
+          "summary": "HSL (hue 0-360, saturation and lightness 0-100) to sRGB, channels rounded to 8 bits.",
           "props": [
             {
               "name": "h",
@@ -7018,7 +7018,7 @@
         },
         {
           "name": "accessibleAccent",
-          "summary": "The contrast fallback. Returns the accent unchanged when it reaches\n`minRatio` against `background` (white by default); otherwise the same hue\nand saturation at the highest lightness that does. The search walks\nlightness down in 0.5% steps, so the shade stays as close to the brand as\nthe ratio allows, and it always ends: lightness 0 is black, 21:1.",
+          "summary": "The contrast fallback. Returns the accent unchanged when its emitted\ntriplet reaches `minRatio` against `background` (white by default);\notherwise the same (rounded) hue and saturation at the highest lightness,\nto 0.1%, whose emitted triplet does. Every check runs on the value\nthat is actually emitted, after rounding. It always ends: lightness 0 is\nblack, 21:1 on white.",
           "props": []
         },
         {
@@ -7030,7 +7030,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": "Accent colour: `#rgb`, `#rrggbb` or `rgb(r, g, b)`. Invalid or absent: Genesis's own primary."
+              "description": "Accent colour: `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` or a\nbare token triplet like `\"160 84% 39%\"`. Alpha is ignored (the accent is\ntreated as opaque). Invalid or absent: Genesis's own primary."
             }
           ]
         },

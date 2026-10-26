@@ -28,11 +28,15 @@ import type * as React from "react";
 
 /** What a host knows about the brand a public page belongs to. */
 export interface PublicBrand {
-  /** Display name, shown in the header and used as the logo's alt text. */
+  /** Display name, shown in the header beside the logo (so the logo itself is decorative, `alt=""`). */
   name: string;
   /** Logo image URL. */
   logoUrl?: string;
-  /** Accent colour: `#rgb`, `#rrggbb` or `rgb(r, g, b)`. Invalid or absent: Genesis's own primary. */
+  /**
+   * Accent colour: `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` or a
+   * bare token triplet like `"160 84% 39%"`. Alpha is ignored (the accent is
+   * treated as opaque). Invalid or absent: Genesis's own primary.
+   */
   accent?: string;
   /** Optional wide cover image above the header row. Decorative. */
   headerImageUrl?: string;
@@ -50,10 +54,25 @@ export const MIN_TEXT_CONTRAST = 4.5;
 
 const WHITE: Rgb = { r: 255, g: 255, b: 255 };
 
-/** Parses `#rgb`, `#rrggbb` or `rgb(r, g, b)` / `rgb(r g b)`. Anything else: `null`. */
+const NUM = String.raw`[+-]?(?:\d+\.?\d*|\.\d+)`;
+const HUE = `(${NUM})(?:deg)?`;
+const PCT = `(${NUM})%?`;
+const ALPHA = String.raw`(?:\s*[,/]\s*${NUM}%?)?`;
+const SEP = String.raw`(?:\s*,\s*|\s+)`;
+const HSL_FN = new RegExp(String.raw`^hsla?\(\s*${HUE}${SEP}${PCT}${SEP}${PCT}${ALPHA}\s*\)$`);
+// Bare shadcn-style token triplet: percentages required so it can't be read as rgb.
+const HSL_BARE = new RegExp(String.raw`^${HUE}\s+(${NUM})%\s+(${NUM})%$`);
+
+/**
+ * Parses `#rgb`, `#rrggbb`, `rgb()`/`rgba()`, `hsl()`/`hsla()` (commas or
+ * spaces, optional `/` or `,` alpha, which is ignored) and bare HSL triplets
+ * like `"160 84% 39%"`. Anything else, including out-of-range channels: `null`.
+ * Never throws.
+ */
 export function parseColor(input: string | undefined | null): Rgb | null {
-  if (!input) return null;
+  if (typeof input !== "string") return null;
   const value = input.trim().toLowerCase();
+  if (!value) return null;
   const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/.exec(value);
   if (hex) {
     const digits = hex[1]!;
@@ -68,6 +87,13 @@ export function parseColor(input: string | undefined | null): Rgb | null {
   if (fn) {
     const [r, g, b] = [fn[1], fn[2], fn[3]].map(Number) as [number, number, number];
     if ([r, g, b].every((c) => c <= 255)) return { r, g, b };
+    return null;
+  }
+  const hsl = HSL_FN.exec(value) ?? HSL_BARE.exec(value);
+  if (hsl) {
+    const [h, sat, l] = [hsl[1], hsl[2], hsl[3]].map(Number) as [number, number, number];
+    if (![h, sat, l].every(Number.isFinite) || sat < 0 || sat > 100 || l < 0 || l > 100) return null;
+    return hslToRgb({ h, s: sat, l });
   }
   return null;
 }
@@ -103,14 +129,10 @@ export function rgbToHsl({ r, g, b }: Rgb): { h: number; s: number; l: number } 
   return { h: h * 60, s: s * 100, l: l * 100 };
 }
 
-/** HSL (hue 0-360, saturation and lightness 0-100) to sRGB. */
-export function hslToRgb({ h, s, l }: { h: number; s: number; l: number }): Rgb {
-  const sn = s / 100;
-  const ln = l / 100;
-  const k = (n: number) => (n + h / 30) % 12;
-  const a = sn * Math.min(ln, 1 - ln);
-  const f = (n: number) => ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
-  return { r: Math.round(f(0) * 255), g: Math.round(f(8) * 255), b: Math.round(f(4) * 255) };
+/** HSL (hue 0-360, saturation and lightness 0-100) to sRGB, channels rounded to 8 bits. */
+export function hslToRgb(hsl: { h: number; s: number; l: number }): Rgb {
+  const { r, g, b } = hslToRgbExact(hsl);
+  return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
 }
 
 /** The Genesis token shape: `"160 84% 39%"`, for `hsl(var(--x))`. */
@@ -126,20 +148,49 @@ export interface AccessibleAccent {
   accent: Rgb;
   /** The shade to use for text on white and for fills under white text. Equals `accent` when it already passes. */
   strong: Rgb;
+  /**
+   * `strong` as the exact HSL triplet to emit (`"H S% L%"`, 0.1 precision).
+   * The contrast check runs on this value, not on the unrounded colour, so
+   * what the browser renders is what was checked.
+   */
+  strongTriplet: string;
   /** Contrast of the given accent against the background. */
   ratio: number;
-  /** Contrast of `strong` against the background (at least `minRatio`). */
+  /** Contrast of `strongTriplet`, as rendered, against the background (at least `minRatio`). */
   strongRatio: number;
   /** True when `strong` had to be darkened from `accent`. */
   adjusted: boolean;
 }
 
+/** HSL to sRGB without rounding the channels, for checking what a browser may render. */
+function hslToRgbExact({ h, s, l }: { h: number; s: number; l: number }): Rgb {
+  const hn = ((h % 360) + 360) % 360;
+  const sn = s / 100;
+  const ln = l / 100;
+  const k = (n: number) => (n + hn / 30) % 12;
+  const a = sn * Math.min(ln, 1 - ln);
+  const f = (n: number) => ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return { r: f(0) * 255, g: f(8) * 255, b: f(4) * 255 };
+}
+
 /**
- * The contrast fallback. Returns the accent unchanged when it reaches
- * `minRatio` against `background` (white by default); otherwise the same hue
- * and saturation at the highest lightness that does. The search walks
- * lightness down in 0.5% steps, so the shade stays as close to the brand as
- * the ratio allows, and it always ends: lightness 0 is black, 21:1.
+ * Contrast of an emitted HSL triplet against `background`: the worse of the
+ * exact colour and its 8-bit rendering, so neither a float nor a quantising
+ * renderer can land under the target.
+ */
+function emittedRatio(hsl: { h: number; s: number; l: number }, background: Rgb): number {
+  return Math.min(contrastRatio(hslToRgbExact(hsl), background), contrastRatio(hslToRgb(hsl), background));
+}
+
+const tripletOf = ({ h, s, l }: { h: number; s: number; l: number }) => `${h} ${s}% ${l}%`;
+
+/**
+ * The contrast fallback. Returns the accent unchanged when its emitted
+ * triplet reaches `minRatio` against `background` (white by default);
+ * otherwise the same (rounded) hue and saturation at the highest lightness,
+ * to 0.1%, whose emitted triplet does. Every check runs on the value
+ * that is actually emitted, after rounding. It always ends: lightness 0 is
+ * black, 21:1 on white.
  */
 export function accessibleAccent(
   accent: Rgb | string,
@@ -148,20 +199,47 @@ export function accessibleAccent(
   const base = typeof accent === "string" ? parseColor(accent) : accent;
   if (!base) return null;
   const ratio = contrastRatio(base, background);
-  if (ratio >= minRatio) return { accent: base, strong: base, ratio, strongRatio: ratio, adjusted: false };
-  const { h, s, l } = rgbToHsl(base);
-  let strong = base;
-  let strongRatio = ratio;
-  for (let next = l - 0.5; next >= 0; next -= 0.5) {
-    strong = hslToRgb({ h, s, l: next });
-    strongRatio = contrastRatio(strong, background);
-    if (strongRatio >= minRatio) break;
+  const exact = rgbToHsl(base);
+  const h = round(exact.h);
+  const s = round(exact.s);
+  const l = round(exact.l);
+  const emitted = emittedRatio({ h, s, l }, background);
+  if (emitted >= minRatio) {
+    return { accent: base, strong: base, strongTriplet: tripletOf({ h, s, l }), ratio, strongRatio: emitted, adjusted: false };
   }
-  if (strongRatio < minRatio) {
-    strong = { r: 0, g: 0, b: 0 };
-    strongRatio = contrastRatio(strong, background);
+  // Lightness in integer tenths (no float drift). Walk down in whole
+  // percents to the first passing shade, then take the lightest passing
+  // tenth above it, so the result stays as close to the brand as it can.
+  const start = Math.round(l * 10);
+  const pick = (tenths: number) => {
+    const candidate = { h, s, l: tenths / 10 };
+    const strongRatio = emittedRatio(candidate, background);
+    return strongRatio >= minRatio ? { candidate, strongRatio } : null;
+  };
+  for (let coarse = start - 10; coarse > -10; coarse -= 10) {
+    const floor = Math.max(coarse, 0);
+    const passing = pick(floor);
+    if (!passing) continue;
+    let best = passing;
+    for (let fine = Math.min(floor + 9, start - 1); fine > floor; fine -= 1) {
+      const found = pick(fine);
+      if (found) {
+        best = found;
+        break;
+      }
+    }
+    const { candidate, strongRatio } = best;
+    return { accent: base, strong: hslToRgb(candidate), strongTriplet: tripletOf(candidate), ratio, strongRatio, adjusted: true };
   }
-  return { accent: base, strong, ratio, strongRatio, adjusted: true };
+  const black = { h: 0, s: 0, l: 0 };
+  return {
+    accent: base,
+    strong: { r: 0, g: 0, b: 0 },
+    strongTriplet: tripletOf(black),
+    ratio,
+    strongRatio: emittedRatio(black, background),
+    adjusted: true,
+  };
 }
 
 /**
@@ -171,7 +249,7 @@ export function accessibleAccent(
 export function brandThemeStyle(brand: Pick<PublicBrand, "accent"> | undefined): React.CSSProperties {
   const result = brand?.accent ? accessibleAccent(brand.accent) : null;
   if (!result) return {};
-  const strong = toHslTriplet(result.strong);
+  const strong = result.strongTriplet;
   const foreground = toHslTriplet(WHITE);
   return {
     "--brand-accent": toHslTriplet(result.accent),
