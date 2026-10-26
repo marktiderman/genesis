@@ -177,8 +177,9 @@ export function useResourceTableModel<
               ? col === url.sort!.field
               : col.key === url.sort!.field &&
                 col.sortable !== false &&
-                // A cursor list sorts on the server, which knows columns, not accessors.
-                !(resourceCursorPaging && (col.accessor || col.render)),
+                // A cursor list sorts on the server, which knows columns, not computed values.
+                // A `render` only draws the column's own value, so it can still sort.
+                !(resourceCursorPaging && col.accessor),
           );
     return { q: url.q, sort: sortable ? url.sort : null, page: url.page };
   });

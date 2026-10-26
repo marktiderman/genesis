@@ -8,8 +8,13 @@ import { formatDistanceToNow, format } from "date-fns";
 export function DateCell(options?: { relative?: boolean; format?: string }) {
   return (_item: unknown, value: unknown) => {
     if (!value) return "\u2014";
-    const date = new Date(String(value));
-    if (isNaN(date.getTime())) return String(value);
+    const text = String(value);
+    // A calendar day (YYYY-MM-DD) is the same day everywhere. `new Date(day)`
+    // reads it as UTC midnight, which is the day before west of UTC, so build
+    // it from its parts on the local clock instead.
+    const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+    const date = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(text);
+    if (isNaN(date.getTime())) return text;
     const relative = options?.relative !== false;
     const fmt = options?.format ?? "MMM d, yyyy";
     return relative
