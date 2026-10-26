@@ -125,6 +125,23 @@ begin
     raise exception 'No such %', new.item_kind using errcode = '23503';
   end if;
   new.tenant_id := t; new.person_id := p; new.team_id := tm; new.organization_id := o;
+
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated' then
+    if tg_op = 'INSERT' then
+      new.created_at := now();
+    else
+      new.created_at := old.created_at;
+    end if;
+    if tg_table_name = 'update_requests' and tg_op = 'INSERT' then
+      -- Ask someone else, who may read the item themselves.
+      if new.asked_of = auth.uid() then
+        raise exception 'Ask someone other than yourself' using errcode = '22023';
+      end if;
+      if not private.genesis_updates_person_can(new.asked_of, t, p, tm, o, 'read') then
+        raise exception 'The person asked must be able to read the item' using errcode = '22023';
+      end if;
+    end if;
+  end if;
   return new;
 end;
 $$;
@@ -148,7 +165,11 @@ begin
      set status = 'answered', answered_by = new.id, answered_at = new.created_at
    where r.item_kind = new.item_kind and r.item_id = new.item_id
      and r.asked_of = new.author_id and r.status = 'open';
-  if new.item_kind = 'pursuit' and new.health is not null then
+  -- Only an update from someone who may write the pursuit sets its health; an answer from
+  -- someone who was only asked is a note.
+  if new.item_kind = 'pursuit' and new.health is not null
+     and (coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') <> 'authenticated'
+          or private.genesis_updates_person_can(new.author_id, new.tenant_id, new.person_id, new.team_id, new.organization_id, 'write')) then
     update public.pursuits p set health = new.health where p.id = new.item_id;
   end if;
   return null;
@@ -231,6 +252,30 @@ exception when others then
 end;
 $$;
 
+-- The app's hook, asked about any person (not only the signed-in one). No hook, or a hook that
+-- errors, means no.
+create or replace function private.genesis_updates_person_can(viewer uuid, tenant uuid, person uuid, team uuid, organization uuid, action text)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  allowed boolean;
+begin
+  if viewer is null or tenant is null
+     or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
+    return false;
+  end if;
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
+    into allowed using tenant, viewer, person, team, organization, action;
+  return coalesce(allowed, false);
+exception when others then
+  return false;
+end;
+$$;
+
 -- Whether the signed-in person has an open request on this item.
 create or replace function private.genesis_updates_asked(kind text, item uuid)
 returns boolean
@@ -249,6 +294,7 @@ revoke execute on function private.genesis_update_requests_guard() from public, 
 revoke execute on function private.genesis_updates_readable() from public, anon;
 revoke execute on function private.genesis_updates_can(uuid, uuid, uuid, uuid, text) from public, anon;
 revoke execute on function private.genesis_updates_asked(text, uuid) from public, anon;
+revoke execute on function private.genesis_updates_person_can(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
 grant execute on function private.genesis_updates_readable() to authenticated;
 grant execute on function private.genesis_updates_can(uuid, uuid, uuid, uuid, text) to authenticated;
 grant execute on function private.genesis_updates_asked(text, uuid) to authenticated;
@@ -257,7 +303,7 @@ alter table public.status_updates enable row level security;
 alter table public.update_requests enable row level security;
 
 create policy status_updates_read on public.status_updates for select to authenticated
-  using (exists (select 1 from private.genesis_updates_readable() r
+  using (author_id = auth.uid() or exists (select 1 from private.genesis_updates_readable() r
                  where r.tenant_id = status_updates.tenant_id
                    and r.owner_id = coalesce(status_updates.person_id, status_updates.team_id, status_updates.organization_id)));
 create policy status_updates_insert on public.status_updates for insert to authenticated
