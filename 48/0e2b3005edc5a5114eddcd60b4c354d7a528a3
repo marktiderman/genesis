@@ -1,0 +1,27 @@
+.changeset/core-resource-rules.md
+  s_3daa86e3ae6031::t_cd25cfe5889dcf 1-7
+.changeset/forms-studio-pure-rules.md
+  s_3daa86e3ae6031::t_b41e38b5b4aaf6 1-9
+.changeset/ui-resource-rules-from-core.md
+  s_3daa86e3ae6031::t_2c2bd804e68216 1-7
+packages/core/README.md
+  s_3daa86e3ae6031::t_23dac962d4aafb 584-601
+packages/forms-studio/README.md
+  s_3daa86e3ae6031::t_104f4a7fd9b3bb 107-112,118-123,131-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "480e2b3005edc5a5114eddcd60b4c354d7a528a3",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
