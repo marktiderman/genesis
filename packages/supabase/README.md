@@ -668,6 +668,15 @@ const report = await runJobs(admin, {
 - **Settle failures.** If recording an outcome fails, the job is counted as `unsettled` and comes
   back when its lease runs out. The run carries on, and only a failed claim throws.
 
+**One engine.** `runJobs` runs on `createRunner` from `@marktiderman/genesis-supabase/runner`, the
+outbox engine genesis-notifications' push and email and genesis-forms' destinations also run on.
+The engine claims a batch, sends it (in groups, `concurrency` at a time), turns each result into an
+outcome (`sent`, `filtered`, `skipped`, `retry` with jittered backoff or a Retry-After deferral up
+to `maxDeferrals`, `failed`, with `disable` on a 410) and records it, never throwing for one job.
+It has no dependencies (no `@supabase/supabase-js`, no Node built-ins), so a package can bundle it,
+and it knows nothing about recipients. For `runJobs` the queue keeps the attempts and the retry
+times, as above. `@marktiderman/genesis-notifications/runner` still re-exports it, deprecated.
+
 **One job route.** `createJobsHandler` runs the job the route names, but only if the request passes
 one of two constant-time checks:
 

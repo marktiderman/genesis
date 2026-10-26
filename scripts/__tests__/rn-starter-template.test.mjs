@@ -7,7 +7,8 @@ import starter from "../../apps/genesis-rn-starter/starter.config.ts";
 describe("apps/genesis-rn-starter as a template", () => {
   it("ships with every universal feature on, except those that can't work before setup", () => {
     // googleSignIn needs Google client ids and the Universal sign-in module first (README).
-    const needsSetup = ["googleSignIn"];
+    // productDemo is a demo over sample data, off until an app opts in (README, "Product demo").
+    const needsSetup = ["googleSignIn", "productDemo"];
     const off = Object.entries(starter.features).filter(([, on]) => !on).map(([name]) => name);
     expect(off).toEqual(needsSetup);
   });

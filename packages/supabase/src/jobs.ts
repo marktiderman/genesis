@@ -27,6 +27,8 @@
  * @packageDocumentation
  */
 
+import { createRunner, type JobResult as EngineResult } from "./runner";
+
 /** The parts of a Supabase client these helpers use: a service-role `SupabaseClient` fits. */
 export interface JobsClient {
   // Loose on purpose: a client typed by an app's Database narrows `rpc`'s
@@ -156,41 +158,24 @@ function messageOf(error: unknown): string {
  * Claim due jobs of the handled kinds, run them, and settle each: done, a
  * retry after backoff, or failed. One job's failure, or a failure to record
  * it, never stops the others; only a failed claim throws. Nothing about a
- * payload is logged.
+ * payload is logged. It runs on the shared engine (`createRunner` from
+ * `/runner`): the queue's claim and settle are its store, each kind's handler
+ * its sender, and the queue itself decides when a job is out of attempts.
  *
  * @stability Beta
  */
 export async function runJobs(client: JobsClient, options: RunJobsOptions): Promise<RunJobsReport> {
   const kinds = Object.keys(options.handlers);
-  const report: RunJobsReport = { claimed: 0, done: 0, retried: 0, failed: 0, stale: 0, unsettled: 0 };
-  if (kinds.length === 0) return report;
+  const empty: RunJobsReport = { claimed: 0, done: 0, retried: 0, failed: 0, stale: 0, unsettled: 0 };
+  if (kinds.length === 0) return empty;
   const backoff = options.backoff ?? defaultBackoff;
   const log = options.log ?? ((line: string) => console.error(line));
 
   type Claimed = Job & { claim_id: string };
-  const claimed =
-    (await call<Claimed[] | null>(client, "genesis_jobs_claim", {
-      p_kinds: kinds,
-      p_limit: options.limit ?? 25,
-      p_lease_seconds: options.leaseSeconds ?? 300,
-    })) ?? [];
-  report.claimed = claimed.length;
-
-  const settle = async (job: Claimed, outcome: "done" | "retry" | "failed", retryAfter: number | null, error: string | null) => {
-    const ok = await call<boolean>(client, "genesis_jobs_settle", {
-      p_id: job.id,
-      p_claim_id: job.claim_id,
-      p_outcome: outcome,
-      p_retry_after_seconds: retryAfter,
-      p_error: error,
-    });
-    if (!ok) report.stale++;
-    else if (outcome === "done") report.done++;
-    else if (outcome === "retry") report.retried++;
-    else report.failed++;
-  };
-
   type Settle = ["done" | "retry" | "failed", number | null, string | null];
+  // The settle each job's handler asked for, exactly as the queue takes it. The engine's own
+  // outcome only decides which count it lands in; the queue keeps the attempts and backoff.
+  const settles = new WeakMap<Claimed, Settle>();
 
   // What the handler says, as a settle. Only the handler runs inside this try.
   const outcomeOf = async (job: Claimed): Promise<Settle> => {
@@ -211,24 +196,59 @@ export async function runJobs(client: JobsClient, options: RunJobsOptions): Prom
     }
   };
 
-  const runOne = async (job: Claimed) => {
-    const [outcome, retryAfter, error] = await outcomeOf(job);
-    try {
-      await settle(job, outcome, retryAfter, error);
-    } catch (failure) {
-      // The queue didn't take the outcome: the lease runs out and the job comes back as a
-      // redelivery. The other jobs in this run carry on.
-      report.unsettled++;
-      log(`[jobs] ${job.kind} ${job.id}: could not record ${outcome}: ${messageOf(failure)}`);
-    }
+  const resultOf = ([outcome, retryAfter, error]: Settle): EngineResult => {
+    if (outcome === "done") return { ok: true };
+    if (outcome === "failed") return { ok: false, retryable: false, error: error ?? "failed" };
+    // Every retry is a deferral to the engine (with no attempt or deferral cap below), so it
+    // never gives up a job or computes a backoff of its own: the queue does both.
+    return { ok: false, retryable: true, retryAfterSeconds: retryAfter ?? 0, error: error ?? "retry" };
   };
 
-  const queue = [...claimed];
-  const workers = Array.from({ length: Math.max(1, Math.min(options.concurrency ?? 4, queue.length)) }, async () => {
-    for (let job = queue.shift(); job; job = queue.shift()) await runOne(job);
+  const runner = createRunner<Claimed>({
+    claim: async ({ limit }) =>
+      (await call<Claimed[] | null>(client, "genesis_jobs_claim", {
+        p_kinds: kinds,
+        p_limit: limit,
+        p_lease_seconds: options.leaseSeconds ?? 300,
+      })) ?? [],
+    send: async ([job]) => {
+      const settle = await outcomeOf(job!);
+      settles.set(job!, settle);
+      return [resultOf(settle)];
+    },
+    record: async (job) => {
+      const [outcome, retryAfter, error] = settles.get(job)!;
+      try {
+        // Anything but true is a settle the queue refused (the lease ran out): stale.
+        const ok = await call<boolean | null>(client, "genesis_jobs_settle", {
+          p_id: job.id,
+          p_claim_id: job.claim_id,
+          p_outcome: outcome,
+          p_retry_after_seconds: retryAfter,
+          p_error: error,
+        });
+        return Boolean(ok);
+      } catch (failure) {
+        // The queue didn't take the outcome: the lease runs out and the job comes back as a
+        // redelivery. The other jobs in this run carry on.
+        log(`[jobs] ${job.kind} ${job.id}: could not record ${outcome}: ${messageOf(failure)}`);
+        throw failure;
+      }
+    },
+    concurrency: options.concurrency ?? 4,
+    maxAttempts: Number.POSITIVE_INFINITY,
+    maxDeferrals: Number.POSITIVE_INFINITY,
   });
-  await Promise.all(workers);
-  return report;
+
+  const report = await runner.run({ limit: options.limit ?? 25 });
+  return {
+    claimed: report.claimed,
+    done: report.sent,
+    retried: report.retrying + report.deferred,
+    failed: report.failed,
+    stale: report.stale,
+    unsettled: report.unrecorded,
+  };
 }
 
 const encoder = new TextEncoder();

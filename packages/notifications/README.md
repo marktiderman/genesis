@@ -18,7 +18,7 @@ for a domain are in [docs/NOTIFICATIONS.md](../../docs/NOTIFICATIONS.md).
 | Import | What |
 |---|---|
 | `@marktiderman/genesis-notifications` (`/core`) | `defineNotifications`, the shared types, `MESSAGE_ACTIONS`, `GENESIS_TEST_TYPE`. No dependencies. |
-| `/runner` | `createRunner`: the one outbox runner (claim, send in groups, settle, `maxDeferrals`, jitter, `disable` on 410). genesis-forms' destinations run on it too. No dependencies. |
+| `/runner` | **Deprecated:** the outbox engine moved to `@marktiderman/genesis-supabase/runner`. This path re-exports the same values and types for at least one more minor; import from genesis-supabase instead. |
 | `/server` | `notify()`, `syncNotificationTypes`, `createNotificationRunner`, `createNotificationsHandler`, `expoPushProvider`, `resendProvider`, `resolveSecretLink`, `checkSenderDomain`, unsubscribe tokens, webhook verification. Service role only. |
 | `/email` | React Email: `BrandLayout`, `EmailText`, `EmailButton`, `reactEmailTemplate`, `brandedDefaultTemplate`. |
 | `/supabase` | `NOTIFICATIONS_MIGRATIONS` and `notificationsClient(supabase)`, the browser and phone side under row level security. |

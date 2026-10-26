@@ -92,6 +92,49 @@ describe("runJobs", () => {
     expect(report).toMatchObject({ claimed: 2, done: 1, unsettled: 1 });
   });
 
+  it("leaves attempts and retry times to the queue: no cap, no minimum, no backoff of the engine's own", async () => {
+    const { client, calls } = fakeQueue([job("a", "now"), job("b", "throws", 50)]);
+    const backoff = vi.fn(() => 0);
+    const report = await runJobs(client, {
+      handlers: {
+        now: () => ({ retryAfterSeconds: 0.4 }),
+        throws: () => {
+          throw new Error("again");
+        },
+      },
+      backoff,
+      log: () => {},
+    });
+    expect(settles(calls).sort()).toEqual([
+      ["a", "retry", 0],
+      ["b", "retry", 0],
+    ]);
+    expect(backoff).toHaveBeenCalledTimes(1);
+    expect(report).toMatchObject({ claimed: 2, retried: 2, failed: 0 });
+  });
+
+  it("runs at most `concurrency` handlers at once, 4 by default", async () => {
+    const peak = async (concurrency?: number) => {
+      const { client } = fakeQueue(Array.from({ length: 9 }, (_, i) => job(`j${i}`, "slow")));
+      let inFlight = 0;
+      let most = 0;
+      const slow = async () => {
+        most = Math.max(most, ++inFlight);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        inFlight--;
+      };
+      expect(await runJobs(client, { handlers: { slow }, ...(concurrency ? { concurrency } : {}) })).toMatchObject({ claimed: 9, done: 9 });
+      return most;
+    };
+    expect(await peak()).toBe(4);
+    expect(await peak(2)).toBe(2);
+  });
+
+  it("counts a settle that answers anything but true as stale", async () => {
+    const rpc = vi.fn(async (fn: string) => (fn === "genesis_jobs_claim" ? { data: [job("a", "ok")], error: null } : { data: null, error: null }));
+    expect(await runJobs({ rpc } as JobsClient, { handlers: { ok: () => undefined } })).toMatchObject({ claimed: 1, done: 0, stale: 1 });
+  });
+
   it("does nothing without handlers", async () => {
     const { client, calls } = fakeQueue([job("a", "ok")]);
     expect(await runJobs(client, { handlers: {} })).toEqual({ claimed: 0, done: 0, retried: 0, failed: 0, stale: 0, unsettled: 0 });
