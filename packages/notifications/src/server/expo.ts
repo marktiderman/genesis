@@ -38,6 +38,8 @@ export interface PushMessage {
   tag?: string;
   ttl?: number;
   priority?: "default" | "normal" | "high";
+  /** iOS: lets the app's Notification Service Extension change it (rich push). */
+  mutableContent?: boolean;
 }
 
 export type PushTicket = { status: "ok"; id: string } | { status: "error"; code: string };

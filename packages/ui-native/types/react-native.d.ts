@@ -500,4 +500,11 @@ declare module "lucide-react-native" {
   export const SquarePen: ComponentType<IconProps>;
   export const Download: ComponentType<IconProps>;
   export const Smile: ComponentType<IconProps>;
+  // Chat's video messages.
+  export const Maximize2: ComponentType<IconProps>;
+  export const Square: ComponentType<IconProps>;
+  export const SwitchCamera: ComponentType<IconProps>;
+  export const Video: ComponentType<IconProps>;
+  export const Volume2: ComponentType<IconProps>;
+  export const VolumeX: ComponentType<IconProps>;
 }

@@ -5,7 +5,7 @@
  * the screen closes or moves to another thread, cleared on send. The thread screen owns it, so a swipe or the long-press
  * sheet can set what the next message replies to.
  */
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { composerReducer, createDraftSaver, draftKey, emptyComposer, loadDraft, memoryDraftStorage, toSend, type ComposerAction, type ComposerState, type ReplyTarget } from "./composer-state";
 import { useChatNative } from "./context";
 
@@ -22,9 +22,11 @@ export function useChatComposer(conversationId: string, threadRootId: string | n
   // The key the state belongs to. Another conversation in the same screen starts empty, so one
   // thread's text, reply or files never show, save or send in the next (the draft flushed for the
   // old key first, in the cleanup below).
-  const stateKey = useRef(key);
-  if (stateKey.current !== key) {
-    stateKey.current = key;
+  // Kept in state, not a ref written during render (React's "storing information from previous
+  // renders"): a render React drops would leave a ref on the new key with the reset never applied.
+  const [stateKey, setStateKey] = useState(key);
+  if (stateKey !== key) {
+    setStateKey(key);
     dispatch({ type: "reset" });
   }
 

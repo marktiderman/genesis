@@ -1,7 +1,7 @@
 /**
  * @feat:chat
  * Two cards under a message: `ChatLinkPreview`, a link's title, description, site and image
- * (all plain text from Open Graph, never HTML; the image only from an https URL), and
+ * (all plain text from Open Graph, never HTML), and
  * `ChatAttachmentCard`, the generic card apps use for their own attachment kinds (a form, a
  * check-in): a title, a subtitle and one action.
  */
@@ -12,13 +12,39 @@ import { isHttpsUrl } from "../core/extras";
 import type { ChatLinkPreview as LinkPreviewData } from "../core/types";
 import { isSafeHref } from "./markdown";
 
+/**
+ * Whether a link preview shows its image. The image lives on the linked site, so loading it
+ * straight from there tells that site each reader's IP address and when they read the message
+ * (a tracking pixel the sender controls). So:
+ * - `"off"` (the default): no image;
+ * - `"proxy"`: through your own image proxy, `proxyUrl(imageUrl)`; no image without it;
+ * - `"direct"`: from the linked site (only if you accept that).
+ */
+export type LinkPreviewImages = "off" | "proxy" | "direct";
+
+/** The image a preview may show under this setting, or null. Only https image URLs are ever considered. */
+export function linkPreviewImageSrc(imageUrl: string | null | undefined, images: LinkPreviewImages = "off", proxyUrl?: (url: string) => string | null | undefined): string | null {
+  if (!isHttpsUrl(imageUrl)) return null;
+  if (images === "direct") return imageUrl;
+  if (images !== "proxy" || !proxyUrl) return null;
+  try {
+    return proxyUrl(imageUrl) || null;
+  } catch {
+    return null;
+  }
+}
+
 export interface ChatLinkPreviewProps {
   preview: LinkPreviewData;
+  /** Whether to show its image, and how; `"off"` by default (see LinkPreviewImages). */
+  images?: LinkPreviewImages;
+  /** Your image proxy, for `images: "proxy"`: the URL to load instead of the linked site's. */
+  proxyUrl?: (url: string) => string | null | undefined;
   tone?: "default" | "primary";
   className?: string;
 }
 
-export function ChatLinkPreview({ preview, tone = "default", className }: ChatLinkPreviewProps) {
+export function ChatLinkPreview({ preview, images = "off", proxyUrl, tone = "default", className }: ChatLinkPreviewProps) {
   const [imageFailed, setImageFailed] = useState(false);
   if (preview.status !== "ok" || !isSafeHref(preview.url) || !isHttpsUrl(preview.url)) return null;
   let host = preview.url;
@@ -27,7 +53,7 @@ export function ChatLinkPreview({ preview, tone = "default", className }: ChatLi
   } catch {
     // shown as written
   }
-  const image = !imageFailed && isHttpsUrl(preview.imageUrl) ? preview.imageUrl : null;
+  const image = imageFailed ? null : linkPreviewImageSrc(preview.imageUrl, images, proxyUrl);
   const title = preview.title?.trim() || host;
   const primary = tone === "primary";
   return (

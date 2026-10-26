@@ -51,6 +51,8 @@ describe("createChatRunner: push", () => {
       threadKey: "c1",
       idempotencyKey: "push:m1",
       data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: null },
+      mutableContent: false,
+      categoryId: "messages",
     });
     // Only the kinds it handles are claimed; the effect is settled as done.
     expect(sb.rpcCalls[0]).toEqual({ fn: "claim_effects", args: { p_kinds: ["push", "transcribe", "storage.remove", "video.remove"], p_limit: 50 } });
@@ -83,6 +85,37 @@ describe("createChatRunner: push", () => {
     const collapsing = vi.fn(async (_n: ChatNotification) => {});
     await createChatRunner({ supabase: make().client, deliver: collapsing, collapse: true }).run();
     expect(collapsing.mock.calls[0]![0].collapseKey).toBe("chat:c1");
+  });
+
+  it("asks for a push badge without the kinds the app leaves out of its own", async () => {
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
+      tables: { conversations: [{ id: "c1", kind: "group" }] },
+    });
+    await createChatRunner({ supabase: sb.client, deliver: vi.fn(async () => {}), badgeExcludeKinds: ["support"] }).run();
+    expect(sb.rpcCalls.find((c) => c.fn === "push_targets")?.args).toEqual({ p_message_id: "m1", p_badge_exclude_kinds: ["support"] });
+  });
+
+  it("builds an iOS rich push: the sender's name and photo, the group, and the message ids", async () => {
+    const conv = "0a1b2c3d-0000-4000-8000-000000000001";
+    const sb = fakeSupabase({
+      rpc: {
+        claim_effects: () => [effect(1, "push", { message_id: "m1" })],
+        push_targets: () => [{ ...target("bo", { title: "Cohort 4" }), conversation_id: conv }],
+      },
+      tables: { conversations: [{ id: conv, kind: "group" }] },
+    });
+    const deliver = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({
+      supabase: sb.client,
+      deliver,
+      resolveName: (id) => names[id],
+      resolveAvatar: () => "https://cdn.example.test/ana.jpg",
+    }).run();
+    const n = deliver.mock.calls[0]![0];
+    expect(n.mutableContent).toBe(true);
+    expect(n.categoryId).toBe("messages");
+    expect(n.data).toMatchObject({ conversationId: conv, messageId: "m1", senderId: "ana", senderName: "Ana", senderAvatar: "https://cdn.example.test/ana.jpg", groupName: "Cohort 4" });
   });
 
   it("opens the app's own route when a notification is tapped", async () => {

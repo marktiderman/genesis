@@ -5,7 +5,8 @@
  * message replies to, Send with a haptic, and, with expo-audio, the mic: hold
  * to record, slide left to cancel, slide up to lock and record hands-free.
  * The emoji button opens the full picker, which types where the cursor is.
- * When the person can't post, it says why instead of taking input.
+ * With `onRecordVideo`, a camera button opens the video recorder. When the
+ * person can't post, it says why instead of taking input.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder, Pressable, ScrollView, TextInput, View } from "react-native";
@@ -36,6 +37,12 @@ export interface ChatComposerProps {
   signalRecording?: () => void;
   /** The signed-in person (`useChat().userId`), whose recent emoji the picker keeps. */
   userId?: string | null;
+  /** Touch and hold Send (or VoiceOver's action on it) to schedule what's written (`ChatScheduleSheet`). */
+  onSchedule?: () => void;
+  /** The field's placeholder ("Message #Week 1" in a topic). */
+  placeholder?: string;
+  /** Opens the video recorder (`ChatVideoRecorder`); with it, a camera button sits beside attach. */
+  onRecordVideo?: () => void;
   testID?: string;
 }
 
@@ -84,7 +91,7 @@ function ComposerWithVoice(props: ChatComposerProps & { audio: ExpoAudioLike }) 
   return <ComposerBody {...props} voice={voice} />;
 }
 
-function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
+function ComposerBody({ composer, canPost, onSend, signalTyping, onRecordVideo, onSchedule, placeholder, voice, userId, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
   const { state, dispatch } = composer;
@@ -221,6 +228,9 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, 
             {modules.imagePicker || modules.clipboard?.getImageAsync ? (
               <IconButton testID={`${testID}-attach`} icon="plus" label={copy.attach} onPress={() => void openAttach()} color={colors.tint} disabled={!ready} />
             ) : null}
+            {onRecordVideo ? (
+              <IconButton testID={`${testID}-video`} icon="video" label={copy.recordVideo} onPress={onRecordVideo} color={colors.tint} disabled={!ready} />
+            ) : null}
             <TextInput
               testID={`${testID}-input`}
               value={state.text}
@@ -231,9 +241,9 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, 
               onSelectionChange={(e) => {
                 selection.current = e.nativeEvent.selection;
               }}
-              placeholder={copy.placeholder}
+              placeholder={placeholder ?? copy.placeholder}
               placeholderTextColor={colors.tertiaryLabel as string}
-              accessibilityLabel={copy.placeholder}
+              accessibilityLabel={placeholder ?? copy.placeholder}
               editable={ready}
               multiline
               maxLength={CHAT_LIMITS.bodyChars}
@@ -254,7 +264,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, 
           </>
         )}
         {sendable && !recording ? (
-          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} filled color={colors.tint} />
+          <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} onLongPress={onSchedule} longPressLabel={onSchedule ? copy.schedule : undefined} filled color={colors.tint} />
         ) : voice ? (
           <MicButton voice={voice} testID={testID} disabled={!ready} />
         ) : (
@@ -286,11 +296,16 @@ function IconButton({
   color,
   filled = false,
   disabled = false,
+  onLongPress,
+  longPressLabel,
   testID,
 }: {
-  icon: "plus" | "arrow-up" | "close" | "trash" | "mic" | "smile";
+  icon: "plus" | "arrow-up" | "close" | "trash" | "mic" | "video" | "smile";
   label: string;
   onPress: () => void;
+  onLongPress?: () => void;
+  /** The long press as a VoiceOver / TalkBack action. */
+  longPressLabel?: string;
   color: unknown;
   filled?: boolean;
   disabled?: boolean;
@@ -305,6 +320,10 @@ function IconButton({
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={onLongPress ? 400 : undefined}
+      accessibilityActions={onLongPress && longPressLabel ? [{ name: "longpress", label: longPressLabel }] : undefined}
+      onAccessibilityAction={onLongPress ? (e) => e.nativeEvent.actionName === "longpress" && onLongPress() : undefined}
       style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
     >
       {filled ? (

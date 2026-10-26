@@ -11,14 +11,48 @@ export const WEEKDAYS: readonly Weekday[] = ["mon", "tue", "wed", "thu", "fri", 
 
 const SHORT: Record<Weekday, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
 
-/** "09:30" → 570; a bad value → null. "24:00" is allowed as the end of a day. */
-export function minutesOf(hhmm: string): number | null {
+/** "09:30" → 570; a bad value (anything but such a string) → null. "24:00" is allowed as the end of a day. */
+export function minutesOf(hhmm: unknown): number | null {
+  if (typeof hhmm !== "string") return null;
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
   if (h > 24 || min > 59 || (h === 24 && min > 0)) return null;
   return h * 60 + min;
+}
+
+/** At most this many ranges a day, as the database allows. */
+export const MAX_RANGES_PER_DAY = 4;
+
+/**
+ * Working hours as they may safely be read: only mon..sun, each an array of `["HH:MM", "HH:MM"]`
+ * string pairs (at most four a day); every other day, range or value is dropped. Null when
+ * nothing is left. Hours come from other people, so they are never trusted as typed.
+ */
+export function normalizeHours(raw: unknown): WorkingHours | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const src = raw as Record<string, unknown>;
+  const out: WorkingHours = {};
+  let any = false;
+  for (const day of WEEKDAYS) {
+    if (!Object.prototype.hasOwnProperty.call(src, day)) continue;
+    const ranges = src[day];
+    if (!Array.isArray(ranges)) continue;
+    const kept: [string, string][] = [];
+    for (const r of ranges) {
+      if (!Array.isArray(r) || r.length !== 2) continue;
+      const [from, to] = r as unknown[];
+      if (typeof from !== "string" || typeof to !== "string" || minutesOf(from) == null || minutesOf(to) == null) continue;
+      kept.push([from, to]);
+      if (kept.length >= MAX_RANGES_PER_DAY) break;
+    }
+    if (kept.length) {
+      out[day] = kept;
+      any = true;
+    }
+  }
+  return any ? out : null;
 }
 
 /** The weekday and minute of the day at `now` in `timeZone` (the device's zone when null or unknown). */
@@ -46,8 +80,9 @@ export function localClock(now: Date, timeZone?: string | null): { day: Weekday;
  * A range whose end is at or before its start runs overnight into the next day
  * (`fri: [["22:00","02:00"]]` covers Friday 22:00 to Saturday 02:00).
  */
-export function isWithinWorkingHours(hours: WorkingHours | null | undefined, timeZone: string | null | undefined, now: Date = new Date()): boolean {
-  if (!hours || WEEKDAYS.every((d) => !hours[d]?.length)) return true;
+export function isWithinWorkingHours(raw: WorkingHours | null | undefined, timeZone: string | null | undefined, now: Date = new Date()): boolean {
+  const hours = normalizeHours(raw);
+  if (!hours) return true;
   const { day, minutes } = localClock(now, timeZone);
   const yesterday = WEEKDAYS[(WEEKDAYS.indexOf(day) + 6) % 7]!;
   for (const [from, to] of hours[day] ?? []) {
@@ -82,7 +117,8 @@ function clock(hhmm: string): string {
 }
 
 /** "Mon–Fri, 9–5", "Mon–Thu, 9–5; Fri, 9–1". Days with the same hours are grouped. Empty when none. */
-export function hoursSummary(hours: WorkingHours | null | undefined): string {
+export function hoursSummary(raw: WorkingHours | null | undefined): string {
+  const hours = normalizeHours(raw);
   if (!hours) return "";
   const key = (d: Weekday) => (hours[d] ?? []).map(([a, b]) => `${clock(a)}–${clock(b)}`).join(", ");
   const runs: { from: Weekday; to: Weekday; text: string }[] = [];
@@ -118,7 +154,16 @@ export function timeZoneLabel(timeZone: string | null | undefined, locale = "en-
 /** "3:00 PM" today, "Monday" within the week, else "12 Mar". */
 export function untilLabel(iso: string, now: Date = new Date(), locale?: string, timeZone?: string | null): string {
   const d = new Date(iso);
-  const tz = timeZone || undefined;
+  if (!Number.isFinite(d.getTime())) return "later";
+  try {
+    return untilIn(d, now, locale, timeZone || undefined);
+  } catch {
+    // An unknown zone or locale: the device's.
+    return untilIn(d, now, undefined, undefined);
+  }
+}
+
+function untilIn(d: Date, now: Date, locale: string | undefined, tz: string | undefined): string {
   const dayKey = (x: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(x);
   if (dayKey(d) === dayKey(now)) return d.toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit", timeZone: tz });
   const days = (d.getTime() - now.getTime()) / 86_400_000;

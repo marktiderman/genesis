@@ -2,8 +2,9 @@
  * Chat (`features.chat`): the chat client on the app's Supabase, the native
  * modules the chat screens use, resumable uploads, unsent messages kept on
  * the phone, and the push glue (the `messages` category's Reply and Mark read).
- * `src/app/(app)/messages/_layout.tsx` mounts `ChatRoot` over the Messages
- * tab; `push.ts` adds the category and the reply handler.
+ * `src/app/(app)/_layout.tsx` mounts `ChatRoot` over the signed-in tabs (the
+ * Messages tab and Settings → Availability share it); `push.ts` adds the
+ * category and the reply handler.
  *
  * Names and avatars: genesis-chat stores user ids only. The starter reads them
  * with `loadChatPeople`, through `public.chat_people` (migration
@@ -18,6 +19,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import * as Audio from "expo-audio";
+import * as Camera from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import * as ExpoCrypto from "expo-crypto";
 import { Directory, File, FileMode, Paths } from "expo-file-system";
@@ -25,6 +27,8 @@ import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Sharing from "expo-sharing";
 import * as Notifications from "expo-notifications";
+import * as Video from "expo-video";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, type ReactNode } from "react";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { createChatClient, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "@marktiderman/genesis-chat";
@@ -36,6 +40,7 @@ import {
   forgetRecentEmoji,
   createTusUpload,
   handleChatPushResponse,
+  videoUploads,
   registerChatNotificationActions,
   type ChatNativeModules,
 } from "@marktiderman/genesis-chat/native";
@@ -43,6 +48,7 @@ import { useSession } from "@marktiderman/genesis-native";
 import starter from "../../starter.config";
 import { copy } from "@/copy";
 import { createChatOutboxes, outboxKey } from "./chat-outboxes";
+import { chatVideoUpload } from "./chat-video";
 import { env } from "./env";
 import { supabase } from "./supabase";
 
@@ -58,8 +64,8 @@ const outboxes = createChatOutboxes(AsyncStorage);
 
 const modules: ChatNativeModules = {
   audio: Audio as unknown as ChatNativeModules["audio"],
-  // The library only: the starter asks for no camera permission (add `launchCameraAsync` and a
-  // `cameraPermission` sentence in app.config.ts for "Take a photo").
+  // The library only (add `launchCameraAsync` for "Take a photo"; the camera sentence is already in
+  // app.config.ts for video messages).
   imagePicker: { launchImageLibraryAsync: ImagePicker.launchImageLibraryAsync } as unknown as ChatNativeModules["imagePicker"],
   haptics: Haptics as unknown as ChatNativeModules["haptics"],
   clipboard: Clipboard as unknown as ChatNativeModules["clipboard"],
@@ -74,6 +80,25 @@ const modules: ChatNativeModules = {
     return (await File.downloadFileAsync(url, dir, { idempotent: true })).uri;
   },
   netInfo: NetInfo as unknown as ChatNativeModules["netInfo"],
+  // Video messages: record in the thread (camera and microphone sentences in app.config.ts), play
+  // HLS and files in the bubble; link previews open in an in-app browser.
+  camera: Camera as unknown as ChatNativeModules["camera"],
+  video: Video as unknown as ChatNativeModules["video"],
+  webBrowser: WebBrowser as unknown as ChatNativeModules["webBrowser"],
+  openFile: (uri: string) => openFile(uri),
+};
+
+// Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
+const videoUpload = chatVideoUpload();
+
+// The app's own attachment kinds, drawn as cards in the thread. A check-in sent in a conversation
+// opens the check-in screen (`onOpenAttachment` in messages/[id].tsx).
+const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
+  check_in: {
+    title: () => copy.messages.checkInCard,
+    subtitle: (a) => (typeof a.ref.title === "string" ? a.ref.title : null),
+    action: () => (starter.features.checkIn ? { label: copy.messages.checkInAnswer } : null),
+  },
 };
 
 /** Unsent messages wait here between launches (per signed-in person). */
@@ -140,10 +165,14 @@ export const loadChatPeople: LoadPeople = async (userIds) => {
   return out;
 };
 
-/** The providers the Messages screens read: the signed-in person's chat, with its uploads and drafts. */
+/**
+ * The providers the chat screens read: the signed-in person's chat, with its uploads and drafts.
+ * Before the session is known its children render without it (the Messages stack waits for a
+ * person itself).
+ */
 export function ChatRoot({ children, loadPeople = loadChatPeople }: { children: ReactNode; loadPeople?: LoadPeople }) {
   const { userId } = useSession();
-  if (!userId) return null;
+  if (!userId) return <>{children}</>;
   return (
     <ChatForUser userId={userId} loadPeople={loadPeople}>
       {children}
@@ -167,7 +196,7 @@ function forUser(userId: string) {
 function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeople?: LoadPeople; children: ReactNode }) {
   const { store, upload } = forUser(userId);
   return (
-    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople}>
+    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople} videoUpload={videoUpload} attachmentKinds={attachmentKinds}>
       <ShareOutbox userId={userId} />
       <ChatNativeProvider modules={modules} copy={copy.chat}>
         <ChatAutoRetry />
@@ -228,6 +257,8 @@ export function useClearChatOnSignOut() {
     const who = lastChatUser;
     lastChatUser = null;
     void clearDrafts(modules.drafts!, who, onError);
+    // Videos still uploading were theirs: they stop, and nothing is sent after sign-out.
+    videoUploads.cancelAll();
     void outboxes.clear(who).catch(onError);
     forgetRecentEmoji(who);
     try {

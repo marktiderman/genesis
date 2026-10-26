@@ -54,8 +54,9 @@ export { ChatScheduleMenu, ChatScheduledList, toLocalInput, type ChatScheduleMen
 export { ChatAwayBanner, ChatAvailabilitySettings, type ChatAwayBannerProps, type ChatAvailabilitySettingsProps } from "./availability";
 export { ChatBroadcast, type ChatBroadcastProps } from "./broadcast";
 export { ChatSearch, SearchSnippet, type ChatSearchProps } from "./search";
-export { ChatLinkPreview, ChatAttachmentCard, type ChatLinkPreviewProps, type ChatAttachmentCardProps } from "./cards";
-export { ChatEmojiPicker, type ChatEmojiPickerProps } from "./emoji-picker";
+export { ChatLinkPreview, ChatAttachmentCard, linkPreviewImageSrc, type ChatLinkPreviewProps, type ChatAttachmentCardProps, type LinkPreviewImages } from "./cards";
+export { ChatErrorBoundary, type ChatErrorBoundaryProps } from "./error-boundary";
+export { ChatEmojiPicker, canPickEmoji, type ChatEmojiPickerProps } from "./emoji-picker";
 export {
   ChatVideoRecorder,
   ChatVideoPlayer,

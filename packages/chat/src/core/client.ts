@@ -18,7 +18,6 @@ import type {
   ScheduleInput,
   ScheduledMessage,
   TopicInput,
-  WorkingHours,
   ChatConversation,
   ChatInboxItem,
   ChatKindRules,
@@ -28,6 +27,7 @@ import type {
   ChatSignal,
   SendInput,
 } from "./types";
+import { normalizeHours } from "./availability";
 import { fileExtension, isAllowedExtension, randomId } from "./media";
 
 /** Any supabase-js client; the app's generated Database types don't need to list genesis_chat. */
@@ -59,6 +59,14 @@ export class ChatError extends Error {
   /** Worth trying again: the network, not the database, said no. */
   get transient(): boolean {
     return this.code === undefined || this.code === "" || /^(08|57|53)/.test(this.code) || this.code === "PGRST000";
+  }
+  /**
+   * Sending it again won't help: the database refused what was sent (not allowed 42501, bad
+   * data 22xxx such as 22023, a conflict 23xxx such as 23505, another refusal 42xxx, or a
+   * function's own `raise` P0001). A person may still retry by hand; nothing retries it alone.
+   */
+  get permanent(): boolean {
+    return !this.transient && !this.rateLimited && /^(22|23|42|P0)/.test(this.code ?? "");
   }
 }
 
@@ -232,7 +240,8 @@ export function toAvailability(r: Row): ChatAvailability {
     awayMessage: str(r.away_message),
     awayUntil: str(r.away_until),
     timeZone: str(r.time_zone),
-    hours: (r.hours as WorkingHours | null) ?? null,
+    // Someone else's hours: only well-formed days and ranges reach the renderers.
+    hours: normalizeHours(r.hours),
   };
 }
 
@@ -323,12 +332,17 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
   return {
     supabase,
 
-    async inbox(opts: { kind?: string; archived?: boolean; limit?: number; before?: string } = {}): Promise<ChatInboxItem[]> {
+    /** Your conversations: one `kind`, several `kinds`, or all but `excludeKinds` (e.g. Messages without `support`). */
+    async inbox(
+      opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number; before?: string } = {},
+    ): Promise<ChatInboxItem[]> {
       const rows = await rpc<Row[]>("inbox", {
         p_kind: opts.kind ?? null,
         p_archived: opts.archived ?? false,
         p_limit: opts.limit ?? 50,
         p_before: opts.before ?? null,
+        ...(opts.kinds?.length ? { p_kinds: opts.kinds } : {}),
+        ...(opts.excludeKinds?.length ? { p_exclude_kinds: opts.excludeKinds } : {}),
       });
       return rows.map(toInboxItem);
     },
@@ -337,8 +351,9 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return rpc<Row[]>("observed", { p_kind: kind, p_status: opts.status ?? null, p_limit: opts.limit ?? 50, p_before: opts.before ?? null });
     },
 
-    async unreadTotal(): Promise<number> {
-      return rpc<number>("unread_total", {});
+    /** Unread across your conversations (for a badge), leaving out `excludeKinds` to match an inbox that does. */
+    async unreadTotal(opts: { excludeKinds?: string[] } = {}): Promise<number> {
+      return rpc<number>("unread_total", opts.excludeKinds?.length ? { p_exclude_kinds: opts.excludeKinds } : {});
     },
 
     async conversation(id: string): Promise<ChatConversation | null> {

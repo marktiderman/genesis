@@ -30,7 +30,7 @@ vi.mock("lucide-react-native", () => {
     "CircleX", "Clock", "Ellipsis", "ExternalLink", "Funnel", "Heart", "House", "Info", "Lock", "LogOut", "Mail", "Menu",
     "Minus", "Pencil", "Plus", "RefreshCw", "Search", "Settings", "Share", "Star", "Trash2", "TriangleAlert", "User", "X",
     "ArrowUp", "Camera", "Copy", "File", "Image", "MessageCircle", "Mic", "Paperclip", "Pause", "Pin", "Play", "Reply", "SquarePen",
-    "Download", "Smile",
+    "Download", "Smile", "Maximize2", "Square", "SwitchCamera", "Video", "Volume2", "VolumeX",
   ];
   return Object.fromEntries(names.map((n) => [n, icon(n)]));
 });

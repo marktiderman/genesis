@@ -5,7 +5,7 @@
  * Realtime hints, sending through the outbox, and message actions. Server
  * state is TanStack Query's; the renderers in /web and /native only draw.
  */
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
 import { createOutbox, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "../core/outbox";
@@ -43,7 +43,13 @@ export const chatKeys = {
   myAvailability: () => ["genesis-chat", "my-availability"] as const,
   search: (query: string, conversationId?: string | null) => ["genesis-chat", "search", conversationId ?? null, query] as const,
   previews: (messageIds: string[]) => ["genesis-chat", "previews", [...messageIds].sort()] as const,
+  /** One message's link previews (useLinkPreviews keeps one query per message). */
+  preview: (messageId: string) => ["genesis-chat", "preview", messageId] as const,
 };
+
+/** How many messages a catch-up asks for at a time, and how many pages before it gives up and jumps to the newest. */
+export const CATCH_UP_PAGE = 200;
+export const CATCH_UP_MAX_PAGES = 10;
 
 /** What a messages list holds in the query cache: the page, and whether older messages exist. */
 export type MessagesData = MessagePage;
@@ -112,12 +118,14 @@ export interface ChatProviderProps {
   outboxStore?: OutboxStore;
   /** Reads a native file URI for upload. */
   readFile?: (uri: string) => Promise<Blob | ArrayBuffer>;
-  /** Replaces the plain upload (resumable uploads on native). */
-  upload?: (conversationId: string, file: LocalFile) => Promise<string>;
+  /** Replaces the plain upload (resumable uploads on native). `signal` aborts when the message is discarded or the outbox cleared. */
+  upload?: (conversationId: string, file: LocalFile, opts?: { signal?: AbortSignal }) => Promise<string>;
   /** Makes client ids (default: a random UUID that works without crypto.randomUUID). */
   newId?: () => string;
   /** Keeps a byte file (a pasted image, a recording) across launches: write it, return a URI. */
   persistFile?: (file: LocalFile) => Promise<string>;
+  /** Lets go of a sent file's preview (default: revokes `blob:` object URLs only). */
+  releasePreview?: (url: string) => void;
   /** Names and avatars for user ids, fetched in batches (usePeople, usePerson). */
   loadPeople?: (userIds: string[]) => Promise<Record<string, ChatPerson>>;
   /** Hosted video uploads (Mux); videos go to storage without it. */
@@ -142,6 +150,7 @@ export function ChatProvider({
   upload,
   newId,
   persistFile,
+  releasePreview,
   loadPeople,
   videoUpload,
   attachmentKinds,
@@ -161,6 +170,7 @@ export function ChatProvider({
         upload,
         newId,
         persistFile,
+        releasePreview,
         onChange: setQueue,
         onSent: (message) => {
           // Into every loaded list it belongs to (the main timeline, its thread, its topic), so
@@ -224,16 +234,19 @@ export function useChat(): ChatContextValue {
 }
 
 /** Your conversations, live. `kind` narrows to one kind; `archived` shows the archived ones. */
-export function useInbox(opts: { kind?: string; archived?: boolean; limit?: number } = {}) {
+export function useInbox(opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number } = {}) {
   const { client } = useChat();
   const query = useQuery({ queryKey: chatKeys.inbox(opts), queryFn: () => client.inbox(opts), staleTime: 15_000 });
   return { items: query.data ?? [], isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 /** How many messages wait for you everywhere (for a badge), live. */
-export function useUnreadTotal(): number {
+export function useUnreadTotal(opts: { excludeKinds?: string[] } = {}): number {
   const { client } = useChat();
-  return useQuery({ queryKey: chatKeys.unread(), queryFn: () => client.unreadTotal(), staleTime: 15_000 }).data ?? 0;
+  return (
+    useQuery({ queryKey: [...chatKeys.unread(), opts.excludeKinds ?? []], queryFn: () => client.unreadTotal(opts), staleTime: 15_000 }).data ??
+    0
+  );
 }
 
 export interface UseConversationOptions {
@@ -296,14 +309,23 @@ export function useConversation(conversationId: string | null | undefined, opts:
   /**
    * Fetches what came after the newest message held (everything, for an empty list). Runs on
    * every join of the live channel, the first included, so messages that arrived while the
-   * thread was closed, or between the first fetch and the subscription, always show.
+   * thread was closed, or between the first fetch and the subscription, always show. Pages
+   * until a short one; after CATCH_UP_MAX_PAGES full pages (a long time away from a busy group)
+   * it shows the newest page instead, with the rest behind "load earlier".
    */
   const catchUp = useCallback(async () => {
     const current = queryClient.getQueryData<MessagesData>(messagesKey) ?? (await queryClient.ensureQueryData<MessagesData>({ queryKey: messagesKey, queryFn: fetchPage }));
     const list = current.messages;
-    const after = list.length ? list[list.length - 1]!.seq : 0;
-    const page = await client.messages(id, { afterSeq: after, limit: 200, threadRootId: opts.threadRootId, topic: opts.topic });
-    if (page.messages.length) merge(page.messages);
+    let after = list.length ? list[list.length - 1]!.seq : 0;
+    for (let pages = 0; ; ) {
+      const page = await client.messages(id, { afterSeq: after, limit: CATCH_UP_PAGE, threadRootId: opts.threadRootId, topic: opts.topic });
+      if (page.messages.length) merge(page.messages);
+      if (page.messages.length < CATCH_UP_PAGE) return;
+      after = Math.max(after, ...page.messages.map((m) => m.seq));
+      if (++pages >= CATCH_UP_MAX_PAGES) break;
+    }
+    const newest = await fetchPage();
+    queryClient.setQueryData<MessagesData>(messagesKey, { messages: newest.messages, hasEarlier: true });
   }, [client, fetchPage, id, merge, messagesKey, opts.threadRootId, opts.topic, queryClient]);
 
   const [activity, setActivity] = useState<ChatActivity[]>([]);
@@ -366,10 +388,13 @@ export function useConversation(conversationId: string | null | undefined, opts:
     void queryClient.invalidateQueries({ queryKey: chatKeys.unread() });
   }, [client, enabled, id, latestSeq, queryClient]);
 
-  const shouldMark = opts.markRead !== false;
+  // Your read place is one number for the whole conversation, so only the whole timeline moves
+  // it: a topic (or a thread) shows a slice, and marking up to its newest message would also
+  // mark unseen messages in other topics read.
+  const shouldMark = opts.markRead !== false && !opts.threadRootId && !opts.topic;
   useEffect(() => {
-    if (shouldMark && latestSeq > 0 && !opts.threadRootId) void markRead().catch(() => undefined);
-  }, [shouldMark, latestSeq, markRead, opts.threadRootId]);
+    if (shouldMark && latestSeq > 0) void markRead().catch(() => undefined);
+  }, [shouldMark, latestSeq, markRead]);
 
   const loadEarlier = useCallback(async () => {
     const first = list[0];
@@ -721,23 +746,62 @@ export function useSearch(query: string, opts: { conversationId?: string | null;
   };
 }
 
+/** At most this many link-preview reads at once, per client. */
+export const LINK_PREVIEW_CONCURRENCY = 4;
+const previewGates = new WeakMap<object, <T>(task: () => Promise<T>) => Promise<T>>();
+
+/** A gate that lets `max` tasks run at once and queues the rest. */
+function gate(max: number) {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async <T,>(task: () => Promise<T>): Promise<T> => {
+    if (active >= max) await new Promise<void>((r) => waiting.push(r));
+    active += 1;
+    try {
+      return await task();
+    } finally {
+      active -= 1;
+      waiting.shift()?.();
+    }
+  };
+}
+
 /**
  * Link previews for these messages, by message id, in link order (only those the server has
- * fetched). Pass the messages whose text has links (`extractLinks(body).length > 0`): one
- * with none yet is asked again a few times, since the runner fills them moments after it lands.
+ * fetched). Pass the messages whose text has links (`extractLinks(body).length > 0`). One query
+ * per message, so a new message asks only for its own, and at most LINK_PREVIEW_CONCURRENCY
+ * run at once. One with none yet is asked again a few times, since the runner fills them
+ * moments after it lands.
  */
 export function useLinkPreviews(messageIds: (string | null | undefined)[]): Record<string, ChatLinkPreview[]> {
   const { client } = useChat();
   const list = useMemo(() => [...new Set(messageIds.filter((u): u is string => Boolean(u)))].sort(), [messageIds]);
-  return (
-    useQuery({
-      queryKey: chatKeys.previews(list),
-      queryFn: () => client.linkPreviewsFor(list),
-      enabled: list.length > 0,
-      staleTime: 60_000,
-      refetchInterval: (q) => (list.some((id) => !q.state.data?.[id]?.length) && q.state.dataUpdateCount < 4 ? 5_000 : false),
-    }).data ?? EMPTY_PREVIEWS
+  let run = previewGates.get(client);
+  if (!run) {
+    run = gate(LINK_PREVIEW_CONCURRENCY);
+    previewGates.set(client, run);
+  }
+  const limited = run;
+  const combine = useCallback(
+    (results: { data?: ChatLinkPreview[] }[]) => {
+      let out: Record<string, ChatLinkPreview[]> | null = null;
+      results.forEach((r, i) => {
+        if (r.data) (out ??= {})[list[i]!] = r.data;
+      });
+      return out ?? EMPTY_PREVIEWS;
+    },
+    [list],
   );
+  return useQueries({
+    queries: list.map((id) => ({
+      queryKey: chatKeys.preview(id),
+      queryFn: () => limited(async () => (await client.linkPreviewsFor([id]))[id] ?? []),
+      staleTime: 60_000,
+      refetchInterval: (q: { state: { data?: ChatLinkPreview[]; dataUpdateCount: number } }) =>
+        !q.state.data?.length && q.state.dataUpdateCount < 4 ? 5_000 : false,
+    })),
+    combine,
+  });
 }
 const EMPTY_PREVIEWS: Record<string, ChatLinkPreview[]> = {};
 

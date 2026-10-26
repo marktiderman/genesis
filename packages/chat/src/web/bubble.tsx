@@ -54,7 +54,7 @@ import { previewText, summarizeReactions, type ThreadItem } from "../core/thread
 import type { ChatMessage, PendingMessage } from "../core/types";
 import { MessageAttachments, toAttachmentView, type AttachmentView } from "./attachments";
 import { ChatLinkPreview } from "./cards";
-import { ChatEmojiPicker } from "./emoji-picker";
+import { ChatEmojiPicker, canPickEmoji } from "./emoji-picker";
 import { clockTime, messageLabel } from "./format";
 import { ChatMarkdown } from "./markdown";
 import { useThreadContext } from "./thread-context";
@@ -197,7 +197,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
             </div>
           ) : null}
           {message.body ? <ChatMarkdown text={message.body} me={ctx.me} tone={tone} /> : null}
-          {preview ? <ChatLinkPreview preview={preview} tone={tone} /> : null}
+          {preview ? <ChatLinkPreview preview={preview} images={ctx.linkPreviewImages} proxyUrl={ctx.linkPreviewProxyUrl} tone={tone} /> : null}
           {hidden && mine && !observer ? (
             <span className="mt-1 flex items-center gap-1 text-xs font-medium" data-testid="genesis-chat-hidden-notice">
               <EyeOff className="size-3" aria-hidden /> Hidden by moderation. Only you can see it.
@@ -527,15 +527,17 @@ function HoverBar({ message, mine }: { message: ChatMessage; mine: boolean }) {
                 </button>
               );
             })}
-            <button
-              type="button"
-              className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              aria-label="More reactions"
-              onClick={() => setFull(true)}
-              data-testid="genesis-chat-more-reactions"
-            >
-              <Plus className="size-4" />
-            </button>
+            {canPickEmoji(ctx.emojibaseUrl) ? (
+              <button
+                type="button"
+                className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label="More reactions"
+                onClick={() => setFull(true)}
+                data-testid="genesis-chat-more-reactions"
+              >
+                <Plus className="size-4" />
+              </button>
+            ) : null}
           </PopoverContent>
           )}
         </Popover>

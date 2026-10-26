@@ -13,6 +13,9 @@
  *   import * as Sharing from "expo-sharing";                // share a photo
  *   import * as MediaLibrary from "expo-media-library";     // save a photo
  *   import NetInfo from "@react-native-community/netinfo";  // retry when back online
+ *   import * as Camera from "expo-camera";                  // video messages
+ *   import * as Video from "expo-video";                    // video playback
+ *   import * as WebBrowser from "expo-web-browser";         // link previews
  *
  * FlashList and expo-image come from GenesisNativeApp's `modules` (genesis-ui-native's
  * GenesisModulesProvider), the same objects every Genesis list and image uses.
@@ -144,6 +147,81 @@ export interface NetInfoLike {
   addEventListener(listener: (state: { isConnected: boolean | null; isInternetReachable?: boolean | null }) => void): () => void;
 }
 
+/** A permission answer from expo-camera (`PermissionResponse`). */
+export interface PermissionLike {
+  granted: boolean;
+  canAskAgain?: boolean;
+}
+
+/** The `ref` of expo-camera's `CameraView`. */
+export interface CameraViewHandleLike {
+  /** Resolves with the file when `stopRecording` is called, the limit is reached or the preview stops. */
+  recordAsync(options?: { maxDuration?: number; maxFileSize?: number; codec?: string }): Promise<{ uri: string } | undefined>;
+  stopRecording(): void;
+}
+
+/** `import * as Camera from "expo-camera"` (SDK 58): `CameraView` and the permission requests on `Camera`. */
+export interface ExpoCameraLike {
+  CameraView: ComponentType<{
+    ref?: unknown;
+    style?: unknown;
+    facing?: "front" | "back";
+    mode?: "picture" | "video";
+    mirror?: boolean;
+    mute?: boolean;
+    videoQuality?: "2160p" | "1080p" | "720p" | "480p" | "4:3";
+    onCameraReady?: () => void;
+    onMountError?: (event: { message: string }) => void;
+    testID?: string;
+  }>;
+  Camera: {
+    requestCameraPermissionsAsync(): Promise<PermissionLike>;
+    requestMicrophonePermissionsAsync(): Promise<PermissionLike>;
+  };
+}
+
+/** `VideoPlayer` from expo-video. */
+export interface VideoPlayerLike {
+  play(): void;
+  pause(): void;
+  muted: boolean;
+  playing: boolean;
+  playbackRate: number;
+  currentTime: number;
+  addListener(event: "playingChange" | "statusChange" | "playToEnd", listener: (payload: never) => void): { remove(): void };
+}
+
+/** `import * as Video from "expo-video"` (SDK 58). */
+export interface ExpoVideoLike {
+  useVideoPlayer(source: { uri: string; contentType?: "auto" | "progressive" | "hls" } | null, setup?: (player: VideoPlayerLike) => void): VideoPlayerLike;
+  VideoView: ComponentType<{
+    ref?: unknown;
+    player: VideoPlayerLike;
+    style?: unknown;
+    contentFit?: "contain" | "cover" | "fill";
+    nativeControls?: boolean;
+    allowsPictureInPicture?: boolean;
+    testID?: string;
+  }>;
+}
+
+/** The `ref` of expo-video's `VideoView`. */
+export interface VideoViewHandleLike {
+  enterFullscreen(): Promise<void>;
+}
+
+/** `import * as WebBrowser from "expo-web-browser"`: links open in an in-app browser. */
+export interface WebBrowserLike {
+  openBrowserAsync(url: string, options?: Record<string, unknown>): Promise<unknown>;
+}
+
+/** An open file read a chunk at a time (expo-file-system's `new File(uri).open()`), as `createTusUpload` takes. */
+export interface ChunkFileLike {
+  size: number;
+  read(offset: number, length: number): Promise<ArrayBuffer | Uint8Array>;
+  close?(): void;
+}
+
 /** Each optional: without one its feature is hidden (no mic without audio, no attach without a picker). */
 export interface ChatNativeModules {
   audio?: ExpoAudioLike;
@@ -163,6 +241,14 @@ export interface ChatNativeModules {
   downloadFile?: (url: string) => Promise<string>;
   /** Unsent messages are retried when the connection comes back (`ChatAutoRetry`). */
   netInfo?: NetInfoLike;
+  /** Video messages recorded in the thread. Without it there is no video button. */
+  camera?: ExpoCameraLike;
+  /** Video playback (HLS and files) in the bubble. Without it a video shows as a row with its name. */
+  video?: ExpoVideoLike;
+  /** Where links from previews open; without it, the system browser (`Linking`). */
+  webBrowser?: WebBrowserLike;
+  /** Reads a recording a chunk at a time for a hosted upload; without it the file is read whole. */
+  openFile?: (uri: string) => Promise<ChunkFileLike> | ChunkFileLike;
 }
 
 export type HapticEvent = "send" | "record-start" | "record-lock" | "record-cancel" | "select" | "error";

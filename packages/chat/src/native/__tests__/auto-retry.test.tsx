@@ -40,7 +40,7 @@ function fakes() {
 }
 
 /** One message that failed to send, waiting in the saved outbox; the server keeps refusing it. */
-function failing() {
+function failing(extra: Partial<QueuedMessage> = {}) {
   const queued: QueuedMessage = {
     clientId: "q1",
     input: { conversationId: "c1", clientId: "q1", body: "hello", replyToId: null, mentions: [] } as QueuedMessage["input"],
@@ -49,6 +49,7 @@ function failing() {
     status: "failed",
     files: [],
     attempts: 1,
+    ...extra,
   };
   let saved = [queued];
   const store: OutboxStore = { load: async () => saved, save: async (q) => void (saved = q) };
@@ -95,6 +96,17 @@ describe("ChatAutoRetry", () => {
     await act(async () => f.net(false));
     await act(async () => f.net(true));
     await waitFor(() => expect(o.send).toHaveBeenCalledTimes(2));
+  });
+
+  it("leaves alone a message the server refused for good", async () => {
+    const f = fakes();
+    const o = failing({ permanent: true, error: "You can't post here" });
+    mount(f, o);
+    await act(async () => f.app("background"));
+    await act(async () => f.app("active"));
+    await act(async () => f.net(false));
+    await act(async () => f.net(true));
+    expect(o.send).not.toHaveBeenCalled();
   });
 
   it("stops listening when unmounted", async () => {
