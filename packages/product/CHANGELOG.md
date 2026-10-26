@@ -1,5 +1,12 @@
 # @marktiderman/genesis-product
 
+## 0.0.2
+
+### Patch Changes
+
+- Updated dependencies [d67b516]
+  - @marktiderman/genesis-features@0.4.0
+
 ## 0.0.1
 
 ### Patch Changes
