@@ -612,7 +612,9 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
   (drop the second half for a free feature). Switches and flags are not checked here: server code enforces them.
 - **Who is asking (0014).** Server code is told apart from a person by the request's role
   (`current_setting('role')`, set per request by PostgREST), never by `request.jwt.claims`: a role that bypasses
-  row security, or a connection that never switched role, is server code; everyone else must be a member. The
+  row security, or a connection that never switched role, is server code; everyone else must be a member. So any database login that
+  connects directly, without switching role, is trusted as server code: give people API access only, never a
+  direct database login. The
   functions use `auth.jwt()` and `auth.uid()`, so they need Supabase's `auth` schema (not bare Postgres).
 - **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features (and
   `feature_shipped` answers them only for those), and
