@@ -4,6 +4,7 @@ export type {
   BaseRecord,
   DataProvider,
   ListParams,
+  CountMode,
   ListResult,
   PaginationParam,
   SortParam,

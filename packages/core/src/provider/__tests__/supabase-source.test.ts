@@ -119,4 +119,29 @@ describe("resource source", () => {
     expect(isDataReadError(error)).toBe(true);
     expect((error as Error).message).toMatch(/no rpc/);
   });
+
+  it("counts exactly by default, or as the resource or the caller asks", async () => {
+    const p = provider({ resources: { big: { count: "estimated" }, quiet: { count: "none" } } });
+    queue.push({ data: [], error: null, count: 3 });
+    expect(await p.getList("tasks", {})).toEqual({ data: [], total: 3 });
+    queue.push({ data: [], error: null, count: 90000 });
+    expect(await p.getList("big", {})).toEqual({ data: [], total: 90000, totalIsEstimate: true });
+    queue.push({ data: [], error: null, count: null as never });
+    expect(await p.getList("quiet", {})).toEqual({ data: [], total: -1 });
+    queue.push({ data: [], error: null, count: 5 });
+    expect((await p.getList("big", { count: "exact" })).totalIsEstimate).toBeUndefined();
+    expect(call("select")).toEqual([
+      ["*", { count: "exact" }],
+      ["*", { count: "estimated" }],
+      ["*"],
+      ["*", { count: "exact" }],
+    ]);
+  });
+
+  it("a function source counts as asked too", async () => {
+    const p = provider({ resources: { progress: { source: { rpc: "group_progress" }, count: "planned" } } });
+    queue.push({ data: [], error: null, count: 12 });
+    expect(await p.getList("progress", {})).toEqual({ data: [], total: 12, totalIsEstimate: true });
+    expect(call("rpc")).toEqual([["group_progress", {}, { count: "planned" }]]);
+  });
 });

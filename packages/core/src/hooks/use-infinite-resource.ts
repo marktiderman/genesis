@@ -140,11 +140,14 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
         // Cursor mode: the provider says whether there is more.
         return last.nextCursor ? { page: lastParam.page + 1, cursor: last.nextCursor } : undefined;
       }
-      // Offset mode: more while fewer than `total` rows are loaded and the
-      // last page was full.
+      // Offset mode: more while the last page was full and, when the total is
+      // an exact count, fewer than `total` rows are loaded. An uncounted
+      // (`count: "none"`, total -1) or estimated total (RLS makes the planner
+      // guess low) never stops the list early: only a short page does.
       const loaded = pages.reduce((n, p) => n + p.data.length, 0);
-      const total = pages[0]?.total ?? 0;
-      if (last.data.length < params.perPage || loaded >= total) return undefined;
+      const first = pages[0];
+      const exact = !!first && first.total >= 0 && !first.totalIsEstimate;
+      if (last.data.length < params.perPage || (exact && loaded >= first.total)) return undefined;
       return { page: lastParam.page + 1, cursor: null };
     },
     enabled,
