@@ -321,7 +321,16 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
     loadUntil,
     scrollTo: (index, id) => {
       jumpingTo.current = { id, tries: 0 };
-      requestAnimationFrame(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 }));
+      const scroll = (at: number) => listRef.current?.scrollToIndex?.({ index: at, animated: !reducedMotion, viewPosition: 0.5 });
+      requestAnimationFrame(() => scroll(index));
+      // Once more after the first layout: with the message already loaded (the thread was opened
+      // before), the jump runs on the first frame, and FlashList's start-at-the-bottom placement,
+      // which comes after it, would win and leave the thread at the bottom.
+      if (retryTimer.current) clearTimeout(retryTimer.current);
+      retryTimer.current = setTimeout(() => {
+        const at = rowIndexOf(rowsNow.current, id);
+        if (at >= 0) scroll(at);
+      }, 250);
     },
     onStart: () => {
       atBottom.current = false;

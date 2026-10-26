@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Linking, Modal, Pressable, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration } from "../core/media";
@@ -49,6 +49,9 @@ export function ChatVideoRecorder(props: ChatVideoRecorderProps) {
 
 function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, now = Date.now, testID }: ChatVideoRecorderProps & { camera: ExpoCameraLike; testID: string }) {
   const { copy, modules } = useChatNative();
+  // The app's insets, as padding: a SafeAreaView inside the full-screen Modal measured none on
+  // iOS 27, which put Close and the timer under the status bar (the photo viewer does the same).
+  const insets = useSafeAreaInsets();
   const colors = useThemeRoles();
   const [state, setState] = useState<VideoRecorderState>(() => initialVideoRecorder());
   const stateRef = useRef(state);
@@ -171,7 +174,7 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
           onMountError={() => dispatch({ type: "camera-failed" })}
         />
       ) : null}
-      <SafeAreaView edges={["top", "bottom", "left", "right"]} style={{ flex: 1, justifyContent: "space-between" }}>
+      <View style={{ flex: 1, justifyContent: "space-between", paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingTop: 4 }}>
           <Pressable
             testID={`${testID}-close`}
@@ -265,7 +268,7 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
             </NativeText>
           ) : null}
         </View>
-      </SafeAreaView>
+      </View>
     </View>
   );
 }

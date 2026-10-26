@@ -227,6 +227,18 @@ function ShareOutbox({ userId }: { userId: string }) {
 // Who was signed in last, kept outside React: the layout that sees the sign-out may be a new instance.
 let lastChatUser: string | null = null;
 
+/**
+ * Who was signed in last, forgotten as it is read. A function on purpose: the React Compiler
+ * folded `const who = lastChatUser; lastChatUser = null;` in the hook below into reads of
+ * `lastChatUser` after the reset, so sign-out cleared the drafts, unsent messages and recent
+ * emoji of `null` instead of the person's.
+ */
+function takeLastChatUser(): string | null {
+  const who = lastChatUser;
+  lastChatUser = null;
+  return who;
+}
+
 /** Chat's copies of pictures in the cache: shared photos and pasted ones kept for unsent messages. */
 function clearChatFiles() {
   for (const entry of new Directory(Paths.cache).list()) {
@@ -253,9 +265,9 @@ export function useClearChatOnSignOut() {
       lastChatUser = userId;
       return;
     }
-    if (status !== "signedOut" || !lastChatUser) return;
-    const who = lastChatUser;
-    lastChatUser = null;
+    if (status !== "signedOut") return;
+    const who = takeLastChatUser();
+    if (!who) return;
     void clearDrafts(modules.drafts!, who, onError);
     // Videos still uploading were theirs: they stop, and nothing is sent after sign-out.
     videoUploads.cancelAll();
