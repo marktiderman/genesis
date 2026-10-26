@@ -84,3 +84,21 @@ export const customFieldsBlock = defineBlock({
     privacy: { notes: ["Stores the extra fields a tenant defines and their values on its rows."] },
   },
 });
+
+/**
+ * Content packs: install a pack (session types, metric templates, custom
+ * fields, labels) into a tenant's own editable rows. Updates are additive and
+ * keep what the tenant changed; uninstalling removes only untouched, unused
+ * items. Installed by server code.
+ *
+ * @stability Experimental
+ */
+export const contentPacksBlock = defineBlock({
+  id: "content-packs",
+  requires: ["sessions", "metrics", "custom-fields"],
+  platforms: ["web", "native", "server"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0006_genesis_work_packs.sql", test: "migrations/tests/0006_genesis_work_packs.test.sql" }],
+    privacy: { notes: ["Stores which packs a tenant installed, by whom, and the starting content they added."] },
+  },
+});

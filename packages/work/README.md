@@ -11,6 +11,7 @@ Every table lives in the `genesis_work` schema, so nothing collides with the app
 | `sessions` | `0004_genesis_work_sessions.sql` | Meetings, workshops, presentations, coaching calls, one-on-ones, classes and planning days: types with agendas, the live step, attendees and guests, ratings, links |
 
 | `custom-fields` | `0005_genesis_work_fields.sql` | A tenant's own fields on goals, projects, tasks, issues, metrics and sessions, with no code or migration |
+| `content-packs` | `0006_genesis_work_packs.sql` | Install a content pack (session types, metric templates, custom fields, labels) into a tenant's own editable rows |
 
 ## Install
 
@@ -34,7 +35,10 @@ Never change a genesis-work table. Instead:
   engine; the database checks their shape.
 - **Your own table**, keyed by the row's id, plus a view that joins the two, for fields you filter or
   join heavily.
-- **Content packs** (coming next) bring session types, metric templates, fields and forms.
+- **Content packs** bring session types, metric templates, fields and labels. A pack is defined in
+  code; server code installs it with `genesis_work.install_content_pack(tenant, manifest, person)`.
+  Installed items are the tenant's own, editable rows. Installing again or a newer version keeps
+  what the tenant changed, and uninstalling removes only what nobody touched or used.
 
 ## Status
 
