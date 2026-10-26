@@ -266,6 +266,9 @@ declare module "react-native" {
     ListEmptyComponent?: React.ReactNode | ComponentType;
     onEndReached?: () => void;
     onEndReachedThreshold?: number;
+    onStartReached?: (info: { distanceFromStart: number }) => void;
+    onStartReachedThreshold?: number;
+    maintainVisibleContentPosition?: { minIndexForVisible: number; autoscrollToTopThreshold?: number } | null;
     /** Anything else `renderItem` reads, so the list (a PureComponent) re-renders when it changes. */
     extraData?: unknown;
   }
