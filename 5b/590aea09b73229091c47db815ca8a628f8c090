@@ -1,0 +1,59 @@
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_14743a2083933f 47,65-66
+packages/chat/src/native/__tests__/video-recorder-state.test.ts
+  s_8252619ce79a86::t_772a0679796640 1-72
+packages/chat/src/native/__tests__/video-upload.test.ts
+  s_8252619ce79a86::t_89a08aca5f7e1b 1-169
+packages/chat/src/native/attachment-cards.tsx
+  s_8252619ce79a86::t_23fc313dd01b43 1-96
+packages/chat/src/native/composer.tsx
+  s_8252619ce79a86::t_b93f3beba784b4 7-8,35-36,85,209-211,274
+packages/chat/src/native/copy.ts
+  s_8252619ce79a86::t_98933170417a25 65-93,174-198
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_1dc1b7a40081fc 16-20,22-23,37-43,105
+packages/chat/src/native/link-preview.tsx
+  s_8252619ce79a86::t_c2422bc71a98a3 1-102
+packages/chat/src/native/media.tsx
+  s_8252619ce79a86::t_286418232746d6 14,29-35,49-52,73-74,96,136-150
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_47cdd0d50ff384 18-22,51-58,91-95,97,99-100,105,156-158,173-177,185,188-190,195-196,258-262,272,345-353
+packages/chat/src/native/modules.ts
+  s_8252619ce79a86::t_190009fdf99e76 13-15,130-204,213-220
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_ff9d50575f7758 27-33,55-56,108-112,165-166,271-274,279-304,371,385,398-406
+packages/chat/src/native/video-player.tsx
+  s_8252619ce79a86::t_a1e5344683f721 1-317
+packages/chat/src/native/video-recorder-state.ts
+  s_8252619ce79a86::t_da55ed1c9f701b 1-129
+packages/chat/src/native/video-recorder.tsx
+  s_8252619ce79a86::t_a95fd3b0dab693 1-249
+packages/chat/src/native/video-upload-tray.tsx
+  s_8252619ce79a86::t_f11629c7e95037 1-54
+packages/chat/src/native/video-upload.ts
+  s_8252619ce79a86::t_d6337930894986 1-382
+packages/ui-native/src/icon-names.ts
+  s_8252619ce79a86::t_b71226e9353915 15,27,54,58-60
+packages/ui-native/src/icons/lucide.ts
+  s_8252619ce79a86::t_e4f81c4d918867 34,51-52,60-62,74,86,113,117-119
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_aa298a28b24e17 501-507
+pnpm-lock.yaml
+  s_8252619ce79a86::t_7ac339b0671555 122-124,176-181,6129-6131,6769-6771,7731-7741,7965-7977,10907-10910,11113-11116,11651-11655,16200-16201,16541,16543,17058-17063,18150-18160,18418-18428,22068-22069,22276-22279,22908-22912
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5b590aea09b73229091c47db815ca8a628f8c090",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
