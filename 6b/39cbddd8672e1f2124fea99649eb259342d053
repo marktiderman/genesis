@@ -1,0 +1,77 @@
+.changeset/product-native-screens.md
+  s_8252619ce79a86::t_f0adfda7bdccc6 1-6
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_7c0910185b869a 62,82
+apps/genesis-rn-starter/__tests__/components/product-demo.test.tsx
+  s_8252619ce79a86::t_48612e1b270327 1-32
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_2653f1c3f034b6 1,434-444
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_a1ff906d7819f2 30
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_dde55f6147c1af 31-39
+apps/genesis-rn-starter/src/app/(app)/settings/product.tsx
+  s_8252619ce79a86::t_32cd0c5b500028 1-44
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_5d3f0c95451109 111-128
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_8252619ce79a86::t_9a2133144ea9c1 104-110
+apps/genesis-rn-starter/src/lib/product-demo.ts
+  s_8252619ce79a86::t_4adafbfcb88e46 1-26
+apps/genesis-rn-starter/starter.config.ts
+  s_8252619ce79a86::t_c249bad8b4d285 37-38
+features.json
+  s_8252619ce79a86::t_ce20987d19fb23 1682-1684
+features.ts
+  s_8252619ce79a86::t_7f5dd85d2993c4 746
+packages/product/README.md
+  s_8252619ce79a86::t_6fe60dd492032a 61-106,116-117
+packages/product/package.json
+  s_8252619ce79a86::t_c1ae0407e2c956 29-32,48-67,69-70,72-76
+packages/product/src/__tests__/app.test.ts
+  s_8252619ce79a86::t_fa22d65c5d7281 1-216
+packages/product/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_0028ea7c15db58 1-166
+packages/product/src/__tests__/product.test.ts
+  s_8252619ce79a86::t_8c0d8cbd92d456 288,297-299,304
+packages/product/src/app.ts
+  s_8252619ce79a86::t_8a781ab3df147d 1-471
+packages/product/src/index.ts
+  s_8252619ce79a86::t_1396529f22e3f2 3-4,8-35
+packages/product/src/native/copy.ts
+  s_8252619ce79a86::t_8435471f02d03e 1-45
+packages/product/src/native/haptics.ts
+  s_8252619ce79a86::t_c94dc129536510 1-28
+packages/product/src/native/idea-board.tsx
+  s_8252619ce79a86::t_a5f19eda96ee0b 1-171
+packages/product/src/native/index.ts
+  s_8252619ce79a86::t_095bfe21ddfd41 1-21
+packages/product/src/native/roadmap.tsx
+  s_8252619ce79a86::t_dc0f91bbc2ed77 1-161
+packages/product/src/native/whats-new.tsx
+  s_8252619ce79a86::t_53e57462f447d4 1-81
+packages/product/tsconfig.json
+  s_8252619ce79a86::t_030c2df9a401cf 6-7
+packages/product/tsup.config.ts
+  s_8252619ce79a86::t_b58720b1eeb306 4,6,11
+packages/product/vitest.config.ts
+  s_8252619ce79a86::t_150a7024c21250 1-8,11-12,16-28
+pnpm-lock.yaml
+  s_8252619ce79a86::t_fe8a19d892d483 74-76,1306-1311,1313-1318,1322-1336
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6b39cbddd8672e1f2124fea99649eb259342d053",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
