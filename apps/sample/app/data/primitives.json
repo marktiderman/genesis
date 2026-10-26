@@ -890,6 +890,27 @@
           "summary": "",
           "props": [
             {
+              "name": "accessibilityHint",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What a screen reader says, when the text alone isn't enough (\"Vote for Dark mode\"). Default: the text."
+            },
+            {
+              "name": "accessibilityState",
+              "type": "AccessibilityState",
+              "required": false,
+              "defaultValue": null,
+              "description": "Merged with the button's own `disabled` and `busy`: `{ selected: true }` for a vote cast, a filter on."
+            },
+            {
               "name": "className",
               "type": "string",
               "required": false,
