@@ -592,7 +592,8 @@ the same switch and reason again changes nothing, not even who and when.
 ## Testing your schema's data contract (genesis_testing)
 
 `sql/testing/genesis_testing.sql` is a pgTAP kit that checks your own tables and functions keep the
-Genesis data rules. Copy it to `supabase/tests/database/000_genesis_testing.test.sql` (the leading
+Genesis data rules. **Test databases only:** never put it in `supabase/migrations/`. It can sign
+in as anyone, and the API roles can't call it (only `sign_out` and `user_id`). Copy it to `supabase/tests/database/000_genesis_testing.test.sql` (the leading
 zeros make `supabase test db` run it first; it commits only the `genesis_testing` schema and reports
 one passing line of its own). Then call the helpers from your own test files, inside their usual
 `begin; … rollback;`:
@@ -620,7 +621,10 @@ select genesis_testing.sees('select * from notes', genesis_testing.user_id('clie
 | `never_shows(query, marker, user, description)` / `never_shows_anon` | `marker` appears nowhere in what the query returns, for a table, a view or a report function.                         |
 | `sees(query, user, expected, description)`                           | The query returns exactly `expected` rows.                                                                            |
 
-Every check runs in a savepoint that is always rolled back, so checks never affect each other. A
+A `user` of null means the system: no signed-in user and the test's own role, as jobs, backfills and
+migrations run. Checks only pass on evidence: any error other than a refusal fails them (so a typo
+can't pass), and "changed nothing" counts only when a control run can make the change (so a wrong
+key can't pass). Every check runs in a savepoint that is always rolled back, so checks never affect each other. A
 failing check prints why (`# changed from open to done`, `# raised 23514 …`). The `probe_*`
 functions return the same verdict as jsonb for testing your own helpers. `sign_in(who)`,
 `sign_in_anon()` and `sign_out()` act as someone for the rest of a test, setting both

@@ -3,18 +3,22 @@
 -- Run: load genesis_testing.sql, then this file, in one database with pgTAP.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(36);
 
 select genesis_testing.create_users();
 
 -- A sample app: notes owned by a person, with a server-owned status, a guarded delete that
 -- system work may bypass, a child table with ON DELETE SET NULL, and a private flag.
+create type public.gt_mood as enum ('calm', 'busy');
 create table public.gt_notes (
   id uuid primary key,
   owner uuid not null references auth.users (id),
   body text not null,
   status text not null default 'open',
-  private boolean not null default false
+  private boolean not null default false,
+  mood public.gt_mood not null default 'calm',
+  tags text[] not null default '{}',
+  stage text not null default 'draft' check (stage in ('draft', 'sent'))
 );
 create table public.gt_links (
   id uuid primary key,
@@ -125,6 +129,47 @@ select genesis_testing.sees('select * from public.gt_notes', genesis_testing.use
   'the client sees their two notes');
 select is((genesis_testing.probe_sees('select * from public.gt_notes', genesis_testing.user_id('stranger'), 1)
   ->> 'pass')::boolean, false, 'sees fails on the wrong count');
+
+-- No false passes ---------------------------------------------------------------------------------
+select is((genesis_testing.probe_refuses(
+  $$update public.gt_notes set body = 'x' where id = '00000000-0000-4000-9000-0000000000ff'$$,
+  genesis_testing.user_id('stranger')) ->> 'pass')::boolean, false,
+  'refuses fails when the control can''t change a row either (wrong id)');
+select is((genesis_testing.probe_refuses(
+  $$update public.gt_notse set body = 'x'$$, genesis_testing.user_id('stranger')) ->> 'pass')::boolean, false,
+  'refuses fails on an error that isn''t a refusal (a typo)');
+select is((genesis_testing.probe_refuses(
+  $$update public.gt_notes set body = 'x' where id = '00000000-0000-4000-9000-000000000001'$$,
+  genesis_testing.user_id('stranger'), genesis_testing.user_id('owner')) ->> 'pass')::boolean, false,
+  'refuses fails when the named control can''t make the change either');
+select is((genesis_testing.probe_never_shows('select * from public.gt_reprot_good()', 'SECRET-DIARY',
+  genesis_testing.user_id('owner')) ->> 'pass')::boolean, false, 'never_shows fails on a typo, not passes');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-0000000000ff',
+  'status', genesis_testing.user_id('client')) ->> 'pass')::boolean, false,
+  'server_owned fails on a key that matches no row');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-000000000001',
+  'mood', genesis_testing.user_id('client')) ->> 'pass')::boolean, false,
+  'server_owned handles enums: a writable enum column fails');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-000000000001',
+  'tags', genesis_testing.user_id('client')) ->> 'detail'), 'pass a value for tags (type text[]) to try',
+  'server_owned asks for a value for an array column instead of passing');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-000000000001',
+  'tags', genesis_testing.user_id('client'), $$array['x']$$) ->> 'pass')::boolean, false,
+  'with a value, a writable array column fails');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-000000000001',
+  'stage', genesis_testing.user_id('client')) ->> 'pass')::boolean, false,
+  'server_owned fails when the tried value breaks a check (the control raises), not passes');
+select is((genesis_testing.probe_server_owned('public.gt_notes', 'id', '00000000-0000-4000-9000-000000000001',
+  'stage', genesis_testing.user_id('client'), $$'sent'$$) ->> 'pass')::boolean, false,
+  'with a valid value, a writable checked column fails');
+
+-- Privileges -------------------------------------------------------------------------------------
+select ok(not has_function_privilege('authenticated', 'genesis_testing.run_as(text, uuid)', 'execute'),
+  'API roles can''t run statements through the kit');
+select ok(not has_function_privilege('anon', 'genesis_testing.sign_in(uuid)', 'execute'),
+  'API roles can''t sign in as someone');
+select ok(has_function_privilege('authenticated', 'genesis_testing.sign_out()', 'execute'),
+  'a test acting as a user can sign out');
 
 select * from finish();
 rollback;
