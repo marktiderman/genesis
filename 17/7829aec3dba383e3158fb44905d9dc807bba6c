@@ -1,0 +1,35 @@
+packages/agents/RULES.md
+  s_c0870a827920ef::t_41f7d78b1d8708 40-41
+packages/chat/src/__tests__/coaching-react.test.tsx
+  s_c0870a827920ef::t_eeee343867d20c 261-263,268-269
+packages/chat/src/__tests__/web.test.tsx
+  s_c0870a827920ef::t_344da337a8e48c 240-255
+packages/chat/src/native/attachment-cards.tsx
+  s_c0870a827920ef::t_cb872eec759066 19,22
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_122110b7000cfc 469-471
+packages/chat/src/react/previews.ts
+  s_c0870a827920ef::t_90d199e8444775 1-51
+packages/chat/src/web/inbox.tsx
+  s_c0870a827920ef::t_d86d983386437c 14,139
+packages/chat/src/web/video.tsx
+  s_c0870a827920ef::t_70359306ad65e7 276-280
+.changeset/chat-279-review-2.md
+  s_c0870a827920ef::t_cf48d9fda24f6a 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "177829aec3dba383e3158fb44905d9dc807bba6c",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
