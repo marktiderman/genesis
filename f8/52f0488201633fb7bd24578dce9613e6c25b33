@@ -1,0 +1,65 @@
+packages/support/src/__tests__/chat.test.tsx
+  s_c0870a827920ef::t_b4a3c0fbd303d5 1-253
+  s_c0870a827920ef::t_b5e7bfe65f4610 254-345
+packages/support/migrations/0001_genesis_support_chat.sql
+  s_c0870a827920ef::t_d6da6c41c3a8dd 1-616
+packages/support/src/chat.ts
+  s_c0870a827920ef::t_ca597b07bb06d5 1-72
+packages/support/src/web-chat/report-thread.tsx
+  s_c0870a827920ef::t_b64c79687e246c 1-123
+packages/support/src/web-chat/staff-thread.tsx
+  s_c0870a827920ef::t_4e253ce6547c7c 1-109
+  s_c0870a827920ef::t_5b1059f800856e 110-128
+packages/support/migrations/tests/0001_genesis_support_chat.test.sql
+  s_c0870a827920ef::t_c2a12e30673a51 1-288
+.changeset/support-on-chat-cli.md
+  s_c0870a827920ef::t_6e14ab51652b54 1-7
+.changeset/support-on-chat.md
+  s_c0870a827920ef::t_88d48dc51059d7 1-7
+AGENTS.md
+  s_c0870a827920ef::t_7a1b11eb23d0d3 16
+features.json
+  s_c0870a827920ef::t_2b9a77ba47e9eb 2730-2783
+features.ts
+  s_c0870a827920ef::t_4254307f4816fc 1202-1223
+packages/support/README.md
+  s_c0870a827920ef::t_df969f24b43825 107-110,120-171,182-186
+packages/support/package.json
+  s_c0870a827920ef::t_b5b98db4dddfc5 7,31-34,42,55,67-69,102,262-303
+packages/support/src/block.ts
+  s_c0870a827920ef::t_9ba459a206f7e8 9,104-120
+packages/support/src/client.ts
+  s_c0870a827920ef::t_f41a24bce6acad 6-10,15,65-66,77-88,122-123,125-139,153-159,167,194,216-225,243-287,354-359,375-388,397-402,406-439
+packages/support/src/copy.ts
+  s_c0870a827920ef::t_e2684b2857dd85 78-91
+packages/support/src/index.ts
+  s_c0870a827920ef::t_fb54f5fbe2e5c4 7-9,16
+packages/support/src/native/index.ts
+  s_c0870a827920ef::t_90484f86410f3e 25
+packages/support/src/native/screens.tsx
+  s_c0870a827920ef::t_01f76701f4fb58 18-19,113-116,119-136,139-143,148-151,153-160,196-208,231-232
+packages/support/src/native/support.tsx
+  s_c0870a827920ef::t_906717f4d552fa 24,48-52,129
+packages/support/src/web-chat/index.ts
+  s_c0870a827920ef::t_5ecf9bc8b23528 1-14
+packages/support/tsup.config.ts
+  s_c0870a827920ef::t_6f551b0c41ba4b 4
+pnpm-lock.yaml
+  s_c0870a827920ef::t_ef14db0fad0502 31,534,632,656,683,716,768,789,844,899,941,974,1020,1068,1163,1221,1276,1349,1412,1440,1462,1476-1478,1520,1680,1786,16418,16470,16490,16492
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f852f0488201633fb7bd24578dce9613e6c25b33",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
