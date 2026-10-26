@@ -1,0 +1,63 @@
+.changeset/support-on-chat-cli.md
+  s_8252619ce79a86::t_6aa6962d540cbb 1-7
+.changeset/support-on-chat.md
+  s_8252619ce79a86::t_dc7065ea6c003f 1-7
+AGENTS.md
+  s_8252619ce79a86::t_2f4aa6797810f7 16
+features.json
+  s_8252619ce79a86::t_e01bbf21f17d41 2888-2941
+features.ts
+  s_8252619ce79a86::t_494b9a2c66dc8d 1280-1301
+packages/support/README.md
+  s_8252619ce79a86::t_f6bd97782646be 107-110,120-171,182-186
+packages/support/migrations/0001_genesis_support_chat.sql
+  s_8252619ce79a86::t_b5d2bcd83bd11e 1-616
+packages/support/migrations/tests/0001_genesis_support_chat.test.sql
+  s_8252619ce79a86::t_413cedcb390922 1-288
+packages/support/package.json
+  s_8252619ce79a86::t_dad884318f6f42 7,31-34,42,55,67-69,102,262-303
+packages/support/src/__tests__/chat.test.tsx
+  s_8252619ce79a86::t_b44542eeed3087 1-345
+packages/support/src/block.ts
+  s_8252619ce79a86::t_098e3428355ba7 9,104-120
+packages/support/src/chat.ts
+  s_8252619ce79a86::t_0edadc732b9e93 1-72
+packages/support/src/client.ts
+  s_8252619ce79a86::t_72c7722d8e47e6 6-10,15,65-66,77-88,122-123,125-139,153-159,167,194,216-225,243-287,354-359,375-388,397-402,406-439
+packages/support/src/copy.ts
+  s_8252619ce79a86::t_122a48594a17f2 78-91
+packages/support/src/index.ts
+  s_8252619ce79a86::t_809d304c1e0739 7-9,16
+packages/support/src/native/index.ts
+  s_8252619ce79a86::t_13e0f33fe00ed2 25
+packages/support/src/native/screens.tsx
+  s_8252619ce79a86::t_fbda527d0e5877 18-19,113-116,119-136,139-143,148-151,153-160,196-208,231-232
+packages/support/src/native/support.tsx
+  s_8252619ce79a86::t_8f03fe11163c3e 24,48-52,129
+packages/support/src/web-chat/index.ts
+  s_8252619ce79a86::t_7e5e2a4b532460 1-14
+packages/support/src/web-chat/report-thread.tsx
+  s_8252619ce79a86::t_66f38fff33c357 1-123
+packages/support/src/web-chat/staff-thread.tsx
+  s_8252619ce79a86::t_96042d52cca30a 1-128
+packages/support/tsup.config.ts
+  s_8252619ce79a86::t_a1bbdd61dc7efb 4
+pnpm-lock.yaml
+  s_8252619ce79a86::t_372c51a3780917 34,540,640,664,691,724,776,797,852,907,949,982,1028,1076,1171,1229,1284,1376,1439,1467,1489,1503-1505,1547,1707,1813,16452,16504,16524,16526
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "12548ca5b77055d31cbba831e9cd4958fab6874c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
