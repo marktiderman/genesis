@@ -238,6 +238,45 @@
         "steps": [
           "Validate custom values on the server with the genesis-forms engine before writing; the database checks only their shape and that a field exists."
         ]
+      },
+      "content-packs": {
+        "feature": {
+          "name": "Content packs",
+          "summary": "Install a content pack (session types, metric templates, custom fields, labels) into a tenant's own editable rows; updates are additive and keep what the tenant changed; uninstalling removes only untouched, unused items.",
+          "keywords": [
+            "content packs",
+            "templates",
+            "starter content",
+            "install",
+            "taxonomy"
+          ],
+          "audience": [
+            "admin",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native",
+          "server"
+        ],
+        "requires": [
+          "sessions",
+          "metrics",
+          "custom-fields"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0006_genesis_work_packs.sql",
+            "test": "migrations/tests/0006_genesis_work_packs.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Install packs from server code: check that a tenant admin asked, then call genesis_work.install_content_pack(tenant, manifest, person) with the service role. Forms and roadmap templates in a manifest are the app's to install."
+        ]
       }
     }
   }

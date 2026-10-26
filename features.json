@@ -4190,6 +4190,72 @@
       "flags": []
     },
     {
+      "id": "content-packs",
+      "name": "Content packs",
+      "summary": "genesis_work.install_content_pack / uninstall_content_pack, installed_packs, metric_templates and labels: a pack (defined in code) installs session types, metric templates, custom fields and labels into a tenant's own editable rows, each keeping its source pack, version, key and content hash. Installing again or a newer version is idempotent and additive and keeps what the tenant changed; uninstalling removes only untouched, unused items and never people's data. Server code installs; tenants read and edit the rows.",
+      "category": "Productivity",
+      "status": "building",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "content packs",
+        "templates",
+        "starter content",
+        "taxonomy",
+        "install"
+      ],
+      "platforms": {
+        "server": "building",
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-work",
+        "native": "@marktiderman/genesis-work"
+      },
+      "requires": [
+        "supabase-kit",
+        "owner-access",
+        "sessions",
+        "metrics",
+        "custom-fields"
+      ],
+      "contributes": [
+        "table: genesis_work.installed_packs",
+        "table: genesis_work.metric_templates",
+        "table: genesis_work.labels",
+        "rpc: install_content_pack",
+        "rpc: uninstall_content_pack"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Installing adds every item into the tenant's rows with its source; installing again changes nothing.",
+        "A newer version updates what nobody changed and keeps what the tenant customized.",
+        "Uninstalling removes only untouched, unused items and forgets the install; only server code installs.",
+        "Not yet used by an app."
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/work/migrations/0006_genesis_work_packs.sql"
+        ],
+        "docs": [
+          "packages/work/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "custom-fields",
       "name": "Custom fields",
       "summary": "genesis_work.field_definitions and a custom jsonb on pursuits, work items, metrics and sessions: a tenant adds its own fields with no code or migration, using genesis-forms field types; values are keyed <namespace>.<key>, checked by shape in the database and fully on the server, with a GIN index. 'tenant' fields are managed by whoever may write the tenant's own rows; an app's or a content pack's namespace is written only by server code. Definitions from a pack keep their source.",
