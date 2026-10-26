@@ -46,16 +46,30 @@
     "lucide-react": "^1.0.0"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:>=1.12.0 <2.0.0",
     "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:>=2.14.0 <3.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-ui": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-dom": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@testing-library/react": "^16.3.2",
+    "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "happy-dom": "^20.9.0",

@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Textarea } from "../ui/textarea";
 import { toast } from "../ui/sonner";
 import { Copy, ExternalLink, Printer } from "lucide-react";
-import { embedSnippet, prefilledUrl, type PrefillChoice } from "./share";
+import { embedSnippet, prefilledUrl, type PrefillChoice } from "@marktiderman/genesis-core/resource";
 
 const ANY = "__any";
 

@@ -11,7 +11,7 @@ import { Separator } from "../ui/separator";
 import { cn } from "../../utils";
 import { Check, Eye, Loader2, Redo2, Rocket, Share2, TriangleAlert, Undo2 } from "lucide-react";
 import { Chip } from "./chip";
-import { SAVE_STATE_LABEL, type ChipTone, type SaveState } from "./status";
+import { SAVE_STATE_LABEL, type ChipTone, type SaveState } from "@marktiderman/genesis-core/resource";
 
 export interface ResourceHeaderProps {
   /** The title, shown once: as the heading and the breadcrumb's last part. */

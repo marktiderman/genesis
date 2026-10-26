@@ -82,7 +82,7 @@ export const features = defineFeatures({
     apps: ["web"],
     audience: ["developer"],
     reviewedAt: "2026-10-26",
-    links: { code: ["packages/ui/src/components/resource"] },
+    links: { code: ["packages/ui/src/components/resource", "packages/core/src/resource"] },
   },
   "app-shell": {
     name: "AppShell navigation",

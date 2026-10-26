@@ -166,7 +166,8 @@
       "reviewedAt": "2026-10-26",
       "links": {
         "code": [
-          "packages/ui/src/components/resource"
+          "packages/ui/src/components/resource",
+          "packages/core/src/resource"
         ]
       },
       "visibility": "customer",
