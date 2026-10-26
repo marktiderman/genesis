@@ -11,7 +11,8 @@ import { Badge, Button, EmptyState, Skeleton, UserAvatar, cn } from "@marktiderm
 import { renderSlot, type SlotOverride } from "@marktiderman/genesis-core/slots";
 import { previewText } from "../core/thread";
 import type { ChatInboxItem } from "../core/types";
-import { useChat, useInbox } from "../react/index";
+import { useChat, useInbox, type ChatAttachmentKind } from "../react/index";
+import { attachmentKindOf } from "./attachments";
 import { relativeTime, type ResolveUser } from "./format";
 
 export interface ChatInboxEmptyProps {
@@ -55,7 +56,7 @@ export function inboxTitle(item: ChatInboxItem, resolveUser: ResolveUser, fallba
 }
 
 export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = false, fallbackTitle, slots, className, ...rest }: ChatInboxProps) {
-  const { userId: me } = useChat();
+  const { userId: me, attachmentKinds } = useChat();
   const { items, isLoading, error, refetch } = useInbox({ kind, archived });
   const list = useRef<HTMLUListElement>(null);
 
@@ -113,7 +114,7 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
       <ul ref={list} className="flex flex-col" onKeyDown={onKeyDown}>
         {items.map((item) => (
           <li key={item.conversationId}>
-            <InboxRow item={item} me={me} resolveUser={resolveUser} fallbackTitle={fallbackTitle} selected={item.conversationId === selectedId} onSelect={onSelect} />
+            <InboxRow item={item} me={me} kinds={attachmentKinds} resolveUser={resolveUser} fallbackTitle={fallbackTitle} selected={item.conversationId === selectedId} onSelect={onSelect} />
           </li>
         ))}
       </ul>
@@ -124,18 +125,22 @@ export function ChatInbox({ resolveUser, onSelect, selectedId, kind, archived = 
 interface InboxRowProps {
   item: ChatInboxItem;
   me: string;
+  kinds?: Record<string, ChatAttachmentKind>;
   resolveUser: ResolveUser;
   fallbackTitle?: (item: ChatInboxItem) => string;
   selected: boolean;
   onSelect: (id: string) => void;
 }
 
-function InboxRow({ item, me, resolveUser, fallbackTitle, selected, onSelect }: InboxRowProps) {
+function InboxRow({ item, me, kinds, resolveUser, fallbackTitle, selected, onSelect }: InboxRowProps) {
   const title = inboxTitle(item, resolveUser, fallbackTitle);
   const other = item.otherUserId ? resolveUser(item.otherUserId) : null;
   const last = item.lastMessage;
   const unread = item.unread > 0;
   let preview = last ? previewText(last.body, last.attachment, last.deleted) : "";
+  // A message that is only an app card reads as its kind's label ("Check-in"), not "Attachment".
+  const kindLabel = last?.attachment && !last.deleted && !previewText(last.body, null) ? attachmentKindOf(kinds, last.attachment)?.label : undefined;
+  if (typeof kindLabel === "string" && kindLabel) preview = kindLabel;
   if (last && last.kind !== "system" && !last.deleted && last.senderId) {
     if (last.senderId === me) preview = `You: ${preview}`;
     else if (!item.otherUserId && item.memberCount > 2) preview = `${resolveUser(last.senderId).name}: ${preview}`;

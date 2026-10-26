@@ -385,6 +385,7 @@ describe("the bubble", () => {
     expect(attachmentPreview("how did it go?", "check_in", kinds)).toBe("how did it go?");
     expect(attachmentPreview("**", "check_in", kinds)).toBe("Check-in"); // only markdown marks: no text
     expect(attachmentPreview("", "check_in", kinds, true)).toBe("Message deleted");
+    expect(attachmentPreview("", "check_in", { check_in: { title: (a) => `Check-in ${String(a.ref.week)}`, label: "Check-in" } })).toBe("Check-in");
     expect(attachmentPreview("", "check_in", { check_in: { title: () => { throw new Error("x"); } } })).toBe("Attachment");
     const m = row({ attachments: [attachment({ id: "c1", kind: "check_in", provider: "none", ref: {} })] }).item;
     expect(messagePreview((m as { message: ChatMessage }).message, kinds)).toBe("Check-in");
