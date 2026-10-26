@@ -121,6 +121,8 @@ const en = {
     // A check-in sent in a conversation (an attachment of kind `check_in`), drawn as a card.
     checkInCard: "Check-in",
     checkInAnswer: "Answer",
+    // On the sender's own check-in card, in place of Answer.
+    checkInSent: "Sent",
   },
 } as const;
 

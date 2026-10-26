@@ -20,6 +20,8 @@
  * `GestureHandlerRootView` at the root and Reanimated set up.
  * `snapPoints` and `initialSnapIndex` apply only to that path.
  *
+ * A short menu or form passes `fitContent`: the sheet is as tall as what is in it.
+ *
  * A sheet that is a screen of its own (a link can open it) belongs in the
  * router instead: an expo-router screen with `presentation: "formSheet"` and
  * `sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.
@@ -36,7 +38,7 @@ import {
   type ComponentType,
   type ReactNode,
 } from "react";
-import { AccessibilityInfo, Modal, Platform, Pressable, ScrollView, View, type ScrollViewProps, type ViewStyle } from "react-native";
+import { AccessibilityInfo, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, View, type ScrollViewProps, type ViewStyle } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 
@@ -51,6 +53,14 @@ export interface NativeSheetProps {
   initialSnapIndex?: number;
   /** Keep the sheet open when the user taps the backdrop, swipes it down or presses Android back. Default false. */
   disableBackdropDismiss?: boolean;
+  /**
+   * As tall as its content (up to 90% of the screen) instead of the full page sheet, for a short
+   * menu or form. On iOS this is a bottom panel over a scrim, like Android's (a tap on the scrim
+   * or the VoiceOver escape gesture closes it; it doesn't follow a swipe down), and it moves above
+   * the keyboard. Under `NativeSheetProvider` the library sizes it (`enableDynamicSizing`) and
+   * `snapPoints` is ignored. Default false.
+   */
+  fitContent?: boolean;
   children: ReactNode;
   testID?: string;
 }
@@ -156,6 +166,7 @@ function LibrarySheet({
   snapPoints = ["50%", "90%"],
   initialSnapIndex = 0,
   disableBackdropDismiss = false,
+  fitContent = false,
   testID,
   children,
 }: NativeSheetProps & { library: NativeSheetLibrary }) {
@@ -198,10 +209,11 @@ function LibrarySheet({
   return (
     <BottomSheetModal
       ref={sheet}
-      snapPoints={snapPoints}
-      index={initialSnapIndex}
-      // v5 sizes to the content by default and adds that as a snap point, which would shift the indexes.
-      enableDynamicSizing={false}
+      snapPoints={fitContent ? undefined : snapPoints}
+      index={fitContent ? 0 : initialSnapIndex}
+      // v5 sizes to the content by default and adds that as a snap point, which would shift the
+      // indexes: only a sheet that fits its content asks for it, and then it is the only one.
+      enableDynamicSizing={fitContent}
       onDismiss={onDismiss}
       enablePanDownToClose={!disableBackdropDismiss}
       backdropComponent={backdrop}
@@ -238,9 +250,10 @@ function useReduceMotionAnswer(): boolean | null {
  * sheet (`presentationStyle="pageSheet"`), following the finger when swiped
  * down (`allowSwipeDismissal`); with `disableBackdropDismiss` a swipe only
  * asks and the sheet springs back. Android: a transparent modal with a scrim
- * and a panel at the bottom, drawn under the system bars.
+ * and a panel at the bottom, drawn under the system bars. `fitContent` on iOS: the same bottom
+ * panel, kept above the keyboard.
  */
-function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID, children }: NativeSheetProps) {
+function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitContent = false, testID, children }: NativeSheetProps) {
   const reducedMotion = useReduceMotionAnswer();
   const roles = useThemeRoles();
   const requestClose = () => {
@@ -250,7 +263,8 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID
   const animationType = reducedMotion ? "none" : "slide";
   const id = testID ?? "native-sheet";
 
-  if (Platform.OS === "ios") {
+  const ios = Platform.OS === "ios";
+  if (ios && !fitContent) {
     return (
       <Modal
         visible={visible}
@@ -283,7 +297,7 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID
       onRequestClose={requestClose}
     >
       <SafeAreaProvider>
-        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+        <KeyboardPanel ios={ios}>
           <Pressable
             testID={`${id}-backdrop`}
             accessibilityRole="button"
@@ -295,6 +309,7 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID
           />
           <SheetBody
             testID={id}
+            onAccessibilityEscape={disableBackdropDismiss ? undefined : requestClose}
             style={{
               maxHeight: "90%",
               borderTopLeftRadius: 28,
@@ -308,9 +323,22 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, testID
             />
             {children}
           </SheetBody>
-        </View>
+        </KeyboardPanel>
       </SafeAreaProvider>
     </Modal>
+  );
+}
+
+/**
+ * The bottom panel's frame: on iOS it moves up with the keyboard, less the home indicator's
+ * inset the sheet already pads, so it sits on the keyboard without a gap.
+ */
+function KeyboardPanel({ ios, children }: { ios: boolean; children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <KeyboardAvoidingView behavior={ios ? "padding" : undefined} keyboardVerticalOffset={ios ? -insets.bottom : 0} style={{ flex: 1, justifyContent: "flex-end" }}>
+      {children}
+    </KeyboardAvoidingView>
   );
 }
 

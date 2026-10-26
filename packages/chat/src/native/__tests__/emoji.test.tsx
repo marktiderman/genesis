@@ -154,6 +154,22 @@ describe("the long-press sheet's +", () => {
   });
 });
 
+describe("the long-press sheet's caption", () => {
+  const context = { me: "u1", role: "member" as const, canPost: true, pinned: false, canPin: false, canCopy: false };
+  it("has room under the sheet's top edge, and names an app card by its kind's title", async () => {
+    const message = { ...textMessage(), body: "", attachments: [{ id: "a1", kind: "check_in", ref: {} }] } as unknown as ChatMessage;
+    render(
+      <ChatNativeProvider>
+        <MessageActionsSheet message={message} context={context} onClose={vi.fn()} onReact={vi.fn()} onAction={vi.fn()} attachmentKinds={{ check_in: { title: () => "Check-in" } }} testID="acts" />
+      </ChatNativeProvider>,
+    );
+    const caption = await screen.findByTestId("acts-caption");
+    expect(caption.textContent).toBe("Check-in");
+    const body = JSON.parse(caption.parentElement!.getAttribute("data-style")!) as { paddingTop?: number };
+    expect(body.paddingTop).toBeGreaterThanOrEqual(16);
+  });
+});
+
 function ComposerHarness() {
   const composer = useChatComposer("c1", null, ME);
   return <ChatComposer composer={composer} canPost disabledReason={null} role="member" onSend={vi.fn()} userId="u-composer" testID="cmp" />;

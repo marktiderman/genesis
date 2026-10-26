@@ -42,6 +42,7 @@ import {
   handleChatPushResponse,
   videoUploads,
   registerChatNotificationActions,
+  type ChatCardContext,
   type ChatNativeModules,
 } from "@marktiderman/genesis-chat/native";
 import { useSession } from "@marktiderman/genesis-native";
@@ -91,15 +92,25 @@ const modules: ChatNativeModules = {
 // Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
 const videoUpload = chatVideoUpload();
 
-// The app's own attachment kinds, drawn as cards in the thread. A check-in sent in a conversation
-// opens the check-in screen (`onOpenAttachment` in messages/[id].tsx).
-const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
+// The app's own attachment kinds, drawn as cards in the thread (and named by their title in the
+// inbox's preview). A check-in sent in a conversation opens the check-in screen
+// (`onOpenAttachment` in messages/[id].tsx); its sender sees "Sent" instead of Answer
+// (genesis-chat's native cards pass `{ mine }`).
+export const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
   check_in: {
     title: () => copy.messages.checkInCard,
-    subtitle: (a) => (typeof a.ref.title === "string" ? a.ref.title : null),
-    action: () => (starter.features.checkIn ? { label: copy.messages.checkInAnswer } : null),
+    subtitle: (a, ctx?: ChatCardContext) => {
+      const title = typeof a.ref.title === "string" ? a.ref.title : null;
+      return ctx?.mine ? [copy.messages.checkInSent, title].filter(Boolean).join(" · ") : title;
+    },
+    action: (_a, ctx?: ChatCardContext) => (starter.features.checkIn && !ctx?.mine ? { label: copy.messages.checkInAnswer } : null),
   },
 };
+
+/** Whether a conversation's kind can have topics: any kind for more than two people (not a direct one). */
+export function kindAllowsTopics(rules: { maxMembers: number | null } | null | undefined): boolean {
+  return Boolean(rules) && rules!.maxMembers !== 2;
+}
 
 /** Unsent messages wait here between launches (per signed-in person). */
 function outboxStore(userId: string): OutboxStore {

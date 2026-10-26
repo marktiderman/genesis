@@ -5,10 +5,16 @@
  * button runs the kind's `onPress`; else the app's `onOpenAttachment` (open the form in the
  * app's own screen); else its `href`, when it is https. The bubble offers the same button as
  * a VoiceOver action (`cardAction`), since an accessible bubble hides what is inside it.
+ *
+ * Native passes the kind's `title`, `subtitle` and `action` a second argument, `{ mine }`
+ * (`ChatCardContext`): true on the sender's own card, so a kind can drop its button there (you
+ * don't answer your own check-in). Declare it optional: `action: (a, ctx?: ChatCardContext) => …`.
+ * Previews (the inbox, the long-press sheet) name a card by its kind's title, not "Attachment".
  */
 import { Linking, View } from "react-native";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { previewText } from "../core/thread";
 import type { ChatAttachment, ChatMessage } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
 import { fill } from "./copy";
@@ -41,11 +47,63 @@ export function isOpenableHref(href: string | null | undefined): href is string 
   }
 }
 
+/** What native tells a kind's `title`, `subtitle` and `action` besides the attachment. */
+export interface ChatCardContext {
+  /** The card is on a message you sent. */
+  mine: boolean;
+}
+
+// The kinds' methods are declared with the attachment alone; native passes the context too.
+const call = <K extends "title" | "subtitle" | "action">(kind: ChatAttachmentKind | undefined, key: K, a: ChatAttachment, ctx: ChatCardContext) => {
+  const fn = kind?.[key] as ((this: ChatAttachmentKind, a: ChatAttachment, ctx: ChatCardContext) => unknown) | undefined;
+  return fn?.call(kind!, a, ctx) as ReturnType<NonNullable<ChatAttachmentKind[K]>> | undefined;
+};
+
+/** A card's title (the kind's, else the file's name, else the kind); an app kind that throws reads as its name. */
+export function cardTitle(kind: ChatAttachmentKind | undefined, a: ChatAttachment, ctx: ChatCardContext = { mine: false }): string {
+  try {
+    return call(kind, "title", a, ctx) || a.name || a.kind;
+  } catch {
+    return a.name || a.kind;
+  }
+}
+
+/** An attachment with only its kind, for a preview that knows no more (the inbox's last message). */
+function bareAttachment(kind: string): ChatAttachment {
+  return { id: "", messageId: "", position: 0, kind, ref: {}, provider: "none", path: null, providerId: null, playbackId: null, url: null, status: "ready", name: null, mime: null, bytes: null, width: null, height: null, durationMs: null, waveform: null, posterPath: null, thumbhash: null, transcript: null, transcriptStatus: null };
+}
+
+/**
+ * A message's one-line preview: its text, else what it carries, where an app kind reads as its
+ * title ("Check-in") instead of "Attachment". `attachment` is the kind alone (the inbox) or the
+ * attachment itself.
+ */
+export function attachmentPreview(body: string, attachment: string | ChatAttachment | null | undefined, kinds: Record<string, ChatAttachmentKind> | undefined, deleted = false): string {
+  const kind = typeof attachment === "string" ? attachment : attachment?.kind;
+  const text = previewText(body, kind, deleted);
+  // Text that reads as something (not only markdown marks) is the preview, as previewText has it.
+  if (deleted || !kind || !kinds || !Object.prototype.hasOwnProperty.call(kinds, kind) || previewText(body, null)) return text;
+  const a = typeof attachment === "string" ? bareAttachment(attachment) : attachment!;
+  const title = cardTitle(kinds[kind], a);
+  return title && title !== kind ? title : text;
+}
+
+/** The long-press sheet's caption for a message. */
+export function messagePreview(message: ChatMessage, kinds: Record<string, ChatAttachmentKind> | undefined): string {
+  return attachmentPreview(message.body, message.attachments[0], kinds, Boolean(message.deletedAt));
+}
+
 /** What a card does: the kind's own handler, else the app's, else an https href; null without a button. */
-export function cardAction(kind: ChatAttachmentKind | undefined, attachment: ChatAttachment, message: ChatMessage, onOpenAttachment?: OpenAttachment): { label: string; run: () => void } | null {
+export function cardAction(
+  kind: ChatAttachmentKind | undefined,
+  attachment: ChatAttachment,
+  message: ChatMessage,
+  onOpenAttachment?: OpenAttachment,
+  ctx: ChatCardContext = { mine: false },
+): { label: string; run: () => void } | null {
   let action: ReturnType<NonNullable<ChatAttachmentKind["action"]>> = null;
   try {
-    action = kind?.action?.(attachment);
+    action = call(kind, "action", attachment, ctx);
   } catch {
     return null;
   }
@@ -70,15 +128,16 @@ export function ChatAttachmentCard({ attachment, message, kind, mine = false, on
   const colors = useThemeRoles();
   let title = "";
   let subtitle: string | null | undefined = null;
+  const ctx: ChatCardContext = { mine };
   try {
-    title = kind.title(attachment);
-    subtitle = kind.subtitle?.(attachment);
+    title = call(kind, "title", attachment, ctx) ?? "";
+    subtitle = call(kind, "subtitle", attachment, ctx);
   } catch (e) {
     // An app's kind that throws shows as a plain card, and says so in development.
     if (typeof __DEV__ !== "undefined" && __DEV__) console.warn(`[genesis-chat] attachment kind "${attachment.kind}" threw:`, e);
   }
   title = title || attachment.name || attachment.kind;
-  const action = cardAction(kind, attachment, message, onOpenAttachment);
+  const action = cardAction(kind, attachment, message, onOpenAttachment, ctx);
   const fg = mine ? "text-primary-foreground" : undefined;
   return (
     <View
