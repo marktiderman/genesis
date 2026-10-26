@@ -1,0 +1,31 @@
+.changeset/chat-native-cr-246.md
+  s_c0870a827920ef::t_39ba6b4d32c560 1-5
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_dd6e74936a66fc 239-241
+packages/chat/src/native/use-composer.ts
+  s_8252619ce79a86::t_5df6d21aa698b2 8,25-29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "58f300365345558600593d57fe408b851e4b464a",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
