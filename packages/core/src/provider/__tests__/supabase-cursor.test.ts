@@ -135,6 +135,14 @@ describe("getList by cursor", () => {
     expect(second.nextCursor).toBeNull();
   });
 
+  it("refuses a sort column with object values wherever they appear in the page, with that reason", async () => {
+    const p = provider();
+    const msg = await refusal(
+      page(p, sorted(null), { data: [{ id: "1", title: "A" }, { id: "2", title: { nested: true } }, { id: "3", title: "C" }], error: null, count: 3 }),
+    );
+    expect(msg).toMatch(/aren't plain/);
+  });
+
   it("going back: a later page has a previous cursor; it reads the rows before in reverse, then turns them around", async () => {
     const p = provider();
     const first = await page(p, sorted(null), { data: rows(["1", "A"], ["2", "B"], ["3", "B"]), error: null, count: 3 });

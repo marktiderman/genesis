@@ -273,6 +273,19 @@ describe("subscribe: events", () => {
     expect(b).toHaveLength(1);
   });
 
+  it("a channel opened after your write never saw it: a teammate's update there is heard", async () => {
+    const { p } = provider({
+      realtime: true,
+      resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+    });
+    p.subscribe!("tasks", {}, vi.fn());
+    await p.update("tasks", { id: "t1", data: { title: "mine" } });
+    const late: ResourceChangeEvent[] = [];
+    p.subscribe!("tasks", { filters: [{ field: "person_id", operator: "eq", value: "p1" }] }, (e) => late.push(e));
+    channels[1]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "teammate" } });
+    expect(late).toHaveLength(1);
+  });
+
   it("forgets old write marks as new writes come in", async () => {
     vi.useFakeTimers();
     try {

@@ -155,15 +155,52 @@ describe("useInfiniteResource maxPages over a cursor that pages both ways", () =
       await waitFor(() => expect(api.isFetchingNextPage).toBe(false));
       expect(api.rows[0]!.id).toBe(expectFirst);
     }
-    // Three pages read, two kept: the first page was dropped.
+    // Three pages read, two kept: the first page was dropped, and its count is kept.
     expect(api.rows.map((r) => r.id).slice(0, 1)).toEqual(["r10"]);
     expect(api.rows).toHaveLength(20);
+    expect(api.total).toBe(50);
+    expect(api.hasPreviousPage).toBe(true);
     // Going back loads it again (and drops the last).
-    await act(async () => {
-      await api.query.fetchPreviousPage();
-    });
-    expect(api.rows[0]!.id).toBe("r0");
+    act(() => api.fetchPreviousPage());
+    await waitFor(() => expect(api.rows[0]!.id).toBe("r0"));
     expect(api.rows).toHaveLength(20);
+    expect(api.total).toBe(50);
+  });
+});
+
+describe("useInfiniteResource maxPages with offset paging", () => {
+  it("drops nothing: offset pages can't be loaded back", async () => {
+    const all = Array.from({ length: 30 }, (_, i) => ({ id: `o${i}` }));
+    const provider = {
+      ...createMockProvider({}),
+      async getList(_r: string, params: { pagination?: { page: number; perPage: number } }) {
+        const { page = 1, perPage = 10 } = params.pagination ?? {};
+        return { data: all.slice((page - 1) * perPage, page * perPage), total: 30, totalIsEstimate: true };
+      },
+    } as never;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let api!: ReturnType<typeof useInfiniteResource>;
+    function Feed() {
+      api = useInfiniteResource("rows", { perPage: 10, maxPages: 2 });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <Feed />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.rows.length).toBe(10));
+    for (let i = 0; i < 2; i++) {
+      const before = api.rows.length;
+      act(() => api.fetchNextPage());
+      await waitFor(() => expect(api.rows.length).toBeGreaterThan(before));
+    }
+    expect(api.rows).toHaveLength(30);
+    expect(api.rows[0]!.id).toBe("o0");
+    expect(api.totalIsEstimate).toBe(true);
+    expect(api.hasPreviousPage).toBe(false);
   });
 });
 

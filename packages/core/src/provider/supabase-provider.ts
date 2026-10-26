@@ -603,14 +603,16 @@ export function createSupabaseProvider(
    */
   const recentWrites = new Map<
     string,
-    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string> }
+    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string>; openTopics: Set<string> }
   >();
 
   function noteWrite(event: WriteEvent): void {
     const now = Date.now();
     for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
     const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
-    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set() });
+    // Only the channels open now carry this write's echo; one opened later never saw the write.
+    const openTopics = new Set([...sharedChannels.keys()].filter((t) => t.startsWith(`${event.resource}\u0000`)));
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set(), openTopics });
   }
   /** One realtime channel per resource and server filter, shared by every subscriber to it. */
   const sharedChannels = new Map<
@@ -627,7 +629,7 @@ export function createSupabaseProvider(
     if (!isIdentifier(id)) return false;
     const key = `${resource}\u0000${String(id)}`;
     const mark = recentWrites.get(key);
-    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic)) return false;
+    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic) || !mark.openTopics.has(topic)) return false;
     if (Date.now() - mark.at > REALTIME_ECHO_MS) {
       recentWrites.delete(key);
       return false;
@@ -850,8 +852,9 @@ export function createSupabaseProvider(
     const next = back ? cursorAt(page[page.length - 1]) : more ? cursorAt(page[page.length - 1]) : null;
     const prev = back ? (more ? cursorAt(page[0], "b") : null) : cursor ? cursorAt(page[0], "b") : null;
     if (next === false || prev === false) {
-      const firstRow = page[0];
-      if (firstRow && sortField && sortField in firstRow && firstRow[sortField] !== null && typeof firstRow[sortField] === "object") {
+      const objectValued =
+        !!sortField && page.some((row) => sortField in row && row[sortField] !== null && typeof row[sortField] === "object");
+      if (objectValued) {
         return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
       }
       return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);

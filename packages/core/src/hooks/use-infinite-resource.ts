@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   keepPreviousData as keepPrevious,
   useInfiniteQuery,
@@ -69,9 +69,14 @@ export interface UseInfiniteResourceReturn<T> {
   rows: T[];
   /** Rows matching the filters and search, from the first page's count. */
   total: number | undefined;
+  /** True when `total` is the database's estimate, so a screen says "about". */
+  totalIsEstimate: boolean;
   /** Loads the next page. Does nothing while one is loading or none is left. */
   fetchNextPage: () => void;
   hasNextPage: boolean;
+  /** Load the page before the first loaded one (after `maxPages` dropped it). No-op when there is none. */
+  fetchPreviousPage: () => void;
+  hasPreviousPage: boolean;
   isFetchingNextPage: boolean;
   /** The params every page is asked with (without its page and cursor). */
   params: Omit<ListParams, "pagination"> & { perPage: number };
@@ -132,6 +137,8 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     return p;
   }, [perPage, sort, filters, select, search, searchFields]);
 
+  // Whether the provider pages by cursor (it sends `nextCursor`), learnt from the first page.
+  const cursorMode = useRef(false);
   const query = useInfiniteQuery<
     ListResult<T>,
     Error,
@@ -166,7 +173,9 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     getPreviousPageParam: (first, _pages, firstParam) =>
       // Cursor mode only: offset pages aren't dropped from the front.
       first.prevCursor ? { page: firstParam.page - 1, cursor: first.prevCursor } : undefined,
-    ...(options.maxPages !== undefined && options.maxPages > 0 ? { maxPages: options.maxPages } : {}),
+    // Only once the provider is known to page by cursor: TanStack drops pages whenever maxPages is
+    // set, and offset pages can't be loaded back, so they would be lost.
+    ...(options.maxPages !== undefined && options.maxPages > 0 && cursorMode.current ? { maxPages: options.maxPages } : {}),
     enabled,
     ...(keepPreviousData ? { placeholderData: keepPrevious } : {}),
   });
@@ -191,21 +200,45 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     }
     return out;
   }, [query.data]);
-  const firstTotal = query.data?.pages[0]?.total;
-  const total = firstTotal === undefined || firstTotal < 0 ? undefined : firstTotal;
+  const first = query.data?.pages[0];
+  if (first && first.nextCursor !== undefined) cursorMode.current = true;
+  // The count comes with the list's first page only. Once maxPages drops that page (or a refetch
+  // starts from a back cursor) the loaded first page has no count, so keep the last one seen for
+  // these params.
+  const paramsKey = JSON.stringify(params);
+  const lastCount = useRef<{ key: string; total: number; estimate: boolean } | null>(null);
+  if (first && first.total >= 0) {
+    lastCount.current = { key: paramsKey, total: first.total, estimate: !!first.totalIsEstimate };
+  }
+  const count = lastCount.current?.key === paramsKey ? lastCount.current : null;
+  const total = count?.total;
 
-  const { fetchNextPage: fetchNext, hasNextPage, isFetchingNextPage } = query;
+  const {
+    fetchNextPage: fetchNext,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchPreviousPage: fetchPrevious,
+    hasPreviousPage,
+    isFetchingPreviousPage,
+  } = query;
   const fetchNextPage = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage) return;
     void fetchNext();
   }, [fetchNext, hasNextPage, isFetchingNextPage]);
+  const fetchPreviousPage = useCallback(() => {
+    if (!hasPreviousPage || isFetchingPreviousPage) return;
+    void fetchPrevious();
+  }, [fetchPrevious, hasPreviousPage, isFetchingPreviousPage]);
 
   return {
     query,
     rows,
     total,
+    totalIsEstimate: !!count?.estimate,
     fetchNextPage,
     hasNextPage: !!hasNextPage,
+    fetchPreviousPage,
+    hasPreviousPage: !!hasPreviousPage,
     isFetchingNextPage,
     params,
     setSort,
