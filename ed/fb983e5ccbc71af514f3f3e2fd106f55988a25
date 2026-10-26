@@ -1,0 +1,33 @@
+.changeset/ios-rich-push.md
+  s_8252619ce79a86::t_47b97d6f2999f8 1-6
+features.json
+  s_8252619ce79a86::t_652a51a8fd3748 2923,2926,2930-2931
+features.ts
+  s_c0870a827920ef::t_cfcceb6484160b 1270,1273,1275
+packages/native/README.md
+  s_8252619ce79a86::t_32ff8452c93e1c 566-646
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "edfb983e5ccbc71af514f3f3e2fd106f55988a25",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
