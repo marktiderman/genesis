@@ -1,0 +1,35 @@
+packages/supabase/migrations/0009_genesis_pursuits.sql
+  s_26495fc9681b7e::t_8419ca138dd57a 1-301
+packages/supabase/migrations/tests/0009_genesis_pursuits.test.sql
+  s_26495fc9681b7e::t_79b7906b8d3173 1-198
+.changeset/genesis-pursuits.md
+  s_26495fc9681b7e::t_72d03c34734762 1-9
+AGENTS.md
+  s_26495fc9681b7e::t_d58121d2aadc1b 16
+features.json
+  s_26495fc9681b7e::t_0d8c34e66558a9 4054-4118
+features.ts
+  s_26495fc9681b7e::t_6d45711729f280 1766-1793
+packages/supabase/package.json
+  s_26495fc9681b7e::t_060033486b7b5f 194-230
+packages/supabase/src/blocks.ts
+  s_26495fc9681b7e::t_488ee9f17fa771 128-155
+packages/supabase/src/index.ts
+  s_26495fc9681b7e::t_cb28fbc58e7f33 205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4600abf74d116c8622300657a023f838cfa58c4a",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
