@@ -207,7 +207,8 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
   // these params.
   const paramsKey = JSON.stringify(params);
   const lastCount = useRef<{ key: string; total: number; estimate: boolean } | null>(null);
-  if (first && first.total >= 0) {
+  // Not from placeholder pages (keepPreviousData): they're the old params' rows and count.
+  if (first && first.total >= 0 && !query.isPlaceholderData) {
     lastCount.current = { key: paramsKey, total: first.total, estimate: !!first.totalIsEstimate };
   }
   const count = lastCount.current?.key === paramsKey ? lastCount.current : null;
