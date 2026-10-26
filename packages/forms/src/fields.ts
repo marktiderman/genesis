@@ -308,7 +308,7 @@ export interface ChoiceOption {
   image?: string;
   /**
    * Facts about the option for filtering and recall, such as `{ location: ["riverside", "hilltop"] }`
-   * for a coach who works at two locations (see `props.optionsFrom.filter`). Names and values are
+   * for someone who works at two locations (see `props.optionsFrom.filter`). Names and values are
    * text; a value is one text or a list of them.
    */
   attributes?: Record<string, string | string[]>;
@@ -438,7 +438,7 @@ export function choiceOptions(field: FieldBlock): ChoiceOption[] {
 
 /**
  * Option lists the app showing a form supplies, by key (`OptionsSource.key`):
- * `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`.
+ * `{ staff: [{ value: "8c1…", label: "Ada Lovelace" }] }`.
  */
 export type HostOptions = Readonly<Record<string, readonly ChoiceOption[]>>;
 

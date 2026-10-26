@@ -4,6 +4,7 @@ import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { formatReport, genesisInstalls, loadGenesis, runDoctor, satisfies, toJson, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
 import { scanFiles } from "../src/doctor/scan.js";
+import { createTrail, stripForImports } from "../src/doctor/trail.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -471,5 +472,422 @@ describe("peer-range-mismatch", () => {
       ["latest", "^1.0.0", null],
     ];
     for (const [version, range, want] of cases) expect([version, range, satisfies(version, range)]).toEqual([version, range, want]);
+  });
+});
+
+describe("follow-ups from the #303 review", () => {
+  const routesOf = (root: string) => {
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    return Object.fromEntries(routes.map((r) => [r.file.path, r]));
+  };
+
+  it("a route whose component is imported renders (not redirect-only), and page-layout follows the import", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/courses.tsx": `import { CoursesPage } from "@/components/CoursesPage";\nexport const Route = createFileRoute("/_shell/courses")({ component: CoursesPage });`,
+      "src/components/CoursesPage.tsx": `import { DetailPage } from "@marktiderman/genesis-ui";\nexport function CoursesPage() { return <DetailPage title="Courses" />; }`,
+      "src/routes/_shell/inbox.tsx": `import { Inbox } from "@/components/Inbox";\nexport const Route = createFileRoute("/_shell/inbox")({ component: Inbox });`,
+      "src/components/Inbox.tsx": `export function Inbox() { return <main />; }`,
+      "src/routes/_shell/go.tsx": `function Go() { return <Navigate to="/" />; }\nexport const Route = createFileRoute("/_shell/go")({ component: Go });`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/courses.tsx"]!.redirectOnly).toBe(false);
+    expect(by["src/routes/_shell/inbox.tsx"]!.redirectOnly).toBe(false);
+    expect(by["src/routes/_shell/go.tsx"]!.redirectOnly).toBe(true);
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/inbox.tsx:0"]);
+  });
+
+  it("pairs a TanStack posts.lazy.tsx with posts.tsx as one route", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/posts.tsx": `export const Route = createFileRoute("/_shell/posts")({ loader: () => fetchPosts() });`,
+      "src/routes/_shell/posts.lazy.tsx": `export const Route = createLazyFileRoute("/_shell/posts")({ component: () => <main><h1>Posts</h1></main> });`,
+      "src/routes/_shell/admin/route.lazy.tsx": `export const Route = createLazyFileRoute("/_shell/admin")({ component: () => <Outlet /> });`,
+    });
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    const posts = routes.filter((r) => r.segments.join("/") === "_shell/posts");
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.file.path).toBe("src/routes/_shell/posts.lazy.tsx");
+    expect(posts[0]!.files.map((f) => f.path).sort()).toEqual(["src/routes/_shell/posts.lazy.tsx", "src/routes/_shell/posts.tsx"]);
+    expect(posts[0]!.redirectOnly).toBe(false);
+    expect(routes.find((r) => r.file.path.endsWith("admin/route.lazy.tsx"))).toMatchObject({ segments: ["_shell", "admin"], layout: true, page: false });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/posts.lazy.tsx:0"]);
+  });
+
+  it("checks a page that renders its own content around an <Outlet>, in page-layout and hand-rolled-sub-nav", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // A list with the detail beside it: a page and a layout.
+      "src/routes/_shell/courses.tsx": `export const Route = createFileRoute("/_shell/courses")({ component: () => (
+  <main>
+    <TabsList><TabsTrigger value="a">All</TabsTrigger></TabsList>
+    <Outlet />
+  </main>
+) });`,
+      "src/routes/_shell/courses.$id.tsx": `export const Route = createFileRoute("/_shell/courses/$id")({ component: () => <DetailPage title="x" /> });`,
+      // Pure layouts: a pathless one, and one rendering nothing but the outlet.
+      "src/routes/_shell/_admin.tsx": `export const Route = createFileRoute("/_shell/_admin")({ component: () => <section><Outlet /></section> });`,
+      "src/routes/_shell/settings.tsx": `export const Route = createFileRoute("/_shell/settings")({ component: () => <Outlet /> });`,
+      "src/routes/_shell/settings.profile.tsx": `export const Route = createFileRoute("/_shell/settings/profile")({ component: () => <DetailPage title="x" /> });`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/courses.tsx"]).toMatchObject({ layout: true, page: true });
+    expect(by["src/routes/_shell/_admin.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/routes/_shell/settings.tsx"]).toMatchObject({ layout: true, page: false });
+    const f = await run(root);
+    expect(brief(f, "page-layout")).toEqual(["src/routes/_shell/courses.tsx:0"]);
+    expect(brief(f, "hand-rolled-sub-nav")).toEqual(["src/routes/_shell/courses.tsx:3 TabsList"]);
+  });
+
+  it("reads Next.js app/: no private _folders, (groups), @slots or special files as routes", () => {
+    const page = (title: string) => `export default function Page() { return <main>${title}</main>; }`;
+    const root = app({
+      "src/app/layout.tsx": `export default function Root({ children }) { return <html><body>{children}</body></html>; }`,
+      "src/app/page.tsx": page("Home"),
+      "src/app/courses/[id]/page.tsx": page("Course"),
+      "src/app/courses/[id]/error.tsx": `"use client";\nexport default function Error() { return <p>Oops</p>; }`,
+      "src/app/courses/[id]/loading.tsx": `export default function Loading() { return <p>…</p>; }`,
+      "src/app/courses/not-found.tsx": `export default function NotFound() { return <p>Gone</p>; }`,
+      "src/app/courses/template.tsx": `export default function T({ children }) { return <div>{children}</div>; }`,
+      "src/app/@modal/default.tsx": `export default function D() { return null; }`,
+      "src/app/_components/Card.tsx": `export function Card() { return <div />; }`,
+      "src/app/(marketing)/about/page.tsx": page("About"),
+    });
+    const routes = webRoutes({ root, config: {}, files: scanFiles(root, {}) });
+    expect(routes.map((r) => r.file.path).sort()).toEqual([
+      "src/app/(marketing)/about/page.tsx",
+      "src/app/courses/[id]/page.tsx",
+      "src/app/layout.tsx",
+      "src/app/page.tsx",
+    ]);
+    const by = Object.fromEntries(routes.map((r) => [r.file.path, r]));
+    expect(by["src/app/(marketing)/about/page.tsx"]).toMatchObject({ segments: ["about"], index: true, page: true });
+    expect(by["src/app/courses/[id]/page.tsx"]).toMatchObject({ segments: ["courses", "[id]"], index: true });
+    expect(by["src/app/layout.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/app/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/layout.tsx"]);
+  });
+
+  describe("dev-only Genesis copies", () => {
+    const pkg = (name: string, version: string, deps: Record<string, string> = {}, peers: Record<string, string> = {}) =>
+      JSON.stringify({ name, version, dependencies: deps, peerDependencies: peers });
+
+    it("a copy nested under the CLI (a devDependency) is info, not a runtime duplicate", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "app",
+          version: "1.0.0",
+          dependencies: { "@marktiderman/genesis-features": "^0.3.0", "@marktiderman/genesis-chat": "^0.2.0" },
+          devDependencies: { "@marktiderman/genesis-cli": "1.3.0", "some-tool": "1.0.0" },
+        }),
+        "node_modules/@marktiderman/genesis-features/package.json": pkg("@marktiderman/genesis-features", "0.3.0"),
+        "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-features": "^0.1.1" }),
+        "node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-features/package.json": pkg(
+          "@marktiderman/genesis-features",
+          "0.1.2",
+          {},
+          { "@marktiderman/genesis-ui": "^1.0.0" },
+        ),
+        // Another dev tool's own copy.
+        "node_modules/some-tool/package.json": pkg("some-tool", "1.0.0", { "@marktiderman/genesis-chat": "^0.1.0" }),
+        "node_modules/some-tool/node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.1.0"),
+        "node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.2.0"),
+      });
+      const copies = genesisInstalls(root);
+      expect(copies.get("@marktiderman/genesis-features")!.map((c) => [c.version, c.devOnly])).toEqual([
+        ["0.3.0", false],
+        ["0.1.2", true],
+      ]);
+      const f = await run(root);
+      expect(f.filter((x) => x.rule === "duplicate-genesis-package").map((x) => `${x.level} ${x.subject}`)).toEqual([
+        "info @marktiderman/genesis-features",
+        "info @marktiderman/genesis-chat",
+      ]);
+      // The CLI's own copy wants a genesis-ui the app doesn't have: info too.
+      expect(f.filter((x) => x.rule === "peer-range-mismatch").map((x) => x.level)).toEqual(["info"]);
+      expect((await runDoctor({ root, config: {}, strict: true })).ok).toBe(true);
+    });
+
+    it("the CLI's tree is dev-only even when it's listed in dependencies; a runtime copy still warns", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "app",
+          version: "1.0.0",
+          dependencies: { "@marktiderman/genesis-cli": "1.3.0", "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-studio-server": "0.2.1" },
+        }),
+        "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-core": "^1.0.0" }),
+        "node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.0.0"),
+        "node_modules/@marktiderman/genesis-studio-server/package.json": pkg("@marktiderman/genesis-studio-server", "0.2.1", { "@marktiderman/genesis-core": "1.6.0" }),
+        "node_modules/@marktiderman/genesis-studio-server/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+      });
+      const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+      expect(core.map((c) => [c.version, c.devOnly])).toEqual([
+        ["9.9.9", false],
+        ["1.0.0", true],
+        ["1.6.0", false],
+      ]);
+      const dup = (await run(root)).filter((x) => x.rule === "duplicate-genesis-package");
+      expect(dup.map((x) => x.level)).toEqual(["warn"]);
+      expect(dup[0]!.message).toContain("1.0.0 at node_modules/@marktiderman/genesis-cli/node_modules/@marktiderman/genesis-core");
+      expect(dup[0]!.message).toContain("[dev only]");
+    });
+  });
+});
+
+describe("#314 review", () => {
+  const pkg = (name: string, version: string, deps: Record<string, string> = {}, peers: Record<string, string> = {}) =>
+    JSON.stringify({ name, version, dependencies: deps, peerDependencies: peers });
+  const route = (body: string, imports = "") => `${imports}\nexport const Route = createFileRoute("/x")({ component: () => ${body} });`;
+  const routesOf = (root: string) => Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+
+  describe("duplicates in an app that lists everything as devDependencies", () => {
+    it("still warns, and fails --strict (a Vite SPA's devDependencies ship)", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "spa",
+          version: "1.0.0",
+          devDependencies: { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-ui": "^9.9.9", vite: "^7.0.0" },
+        }),
+        "node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.7.0"),
+        "node_modules/@marktiderman/genesis-ui/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+      });
+      // makeApp's genesis-ui fixture has no deps; give it the nested core's range.
+      writeFileSync(
+        path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+        JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
+      );
+      const result = await runDoctor({ root, config: {}, strict: true });
+      expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => `${f.level} ${f.subject}`)).toEqual([
+        "warn @marktiderman/genesis-core",
+      ]);
+      expect(result.ok).toBe(false);
+      expect(genesisInstalls(root).get("@marktiderman/genesis-core")!.every((c) => !c.devOnly)).toBe(true);
+    });
+
+    it("warns when no copy ships but more than one is installed", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({ name: "app", version: "1.0.0", dependencies: { react: "^19.0.0" }, devDependencies: { "tool-a": "1", "tool-b": "1" } }),
+        "node_modules/tool-a/package.json": pkg("tool-a", "1.0.0", { "@marktiderman/genesis-forms": "^1.0.0" }),
+        "node_modules/tool-a/node_modules/@marktiderman/genesis-forms/package.json": pkg("@marktiderman/genesis-forms", "1.0.0"),
+        "node_modules/tool-b/package.json": pkg("tool-b", "1.0.0", { "@marktiderman/genesis-forms": "^0.9.0" }),
+        "node_modules/tool-b/node_modules/@marktiderman/genesis-forms/package.json": pkg("@marktiderman/genesis-forms", "0.9.0"),
+      });
+      const dup = (await run(root)).filter((f) => f.rule === "duplicate-genesis-package");
+      expect(dup.map((f) => `${f.level} ${f.subject}`)).toEqual(["warn @marktiderman/genesis-forms"]);
+    });
+  });
+
+  it("a wrapper layout (<div className><Outlet/></div>) is a layout, not a page", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/settings.tsx": route(`<div className="space-y-4"><Outlet /></div>`),
+      "src/routes/_shell/settings.profile.tsx": route(`<DetailPage title="Profile" />`),
+    });
+    expect(routesOf(root)["src/routes/_shell/settings.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(brief(await run(root), "page-layout")).toEqual([]);
+  });
+
+  it("follows the trail: two hops, barrels, lazyRouteComponent, tsconfig and package.json aliases; an unreadable alias is skipped", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", version: "1.0.0", imports: { "#ui/*": "./src/ui/*" }, dependencies: { "@tanstack/react-router": "1" } }),
+      "tsconfig.json": `{
+  // JSONC, as tsconfig is
+  "compilerOptions": { "baseUrl": ".", "paths": { "@app/*": ["src/*"], }, },
+}`,
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // route → page component → barrel → wrapper → DetailPage
+      "src/routes/_shell/two.tsx": route(`<CoursesPage />`, `import { CoursesPage } from "@app/pages/CoursesPage";`),
+      "src/pages/CoursesPage.tsx": `import { Frame } from "../ui";\nexport function CoursesPage() { return <Frame />; }`,
+      "src/ui/index.ts": `export * from "./Frame";`,
+      "src/ui/Frame.tsx": `import { DetailPage } from "@marktiderman/genesis-ui";\nexport const Frame = () => <DetailPage title="x" />;`,
+      "src/routes/_shell/lazy.tsx": `export const Route = createFileRoute("/lazy")({ component: lazyRouteComponent(() => import("../../pages/LazyPage")) });`,
+      "src/pages/LazyPage.tsx": `export default function LazyPage() { return <DetailPage title="Lazy" />; }`,
+      "src/routes/_shell/hash.tsx": route(`<Framed />`, `import { Framed } from "#ui/Framed";`),
+      "src/ui/Framed.tsx": `export const Framed = () => <DashboardPage title="x" />;`,
+      // Neither installed, declared nor an alias we can read: unknown, so no finding.
+      "src/routes/_shell/lost.tsx": route(`<Mystery />`, `import { Mystery } from "@corp/mystery";`),
+      // A sure "no": the trail ends in app files and packages without a layout. A data helper it only
+    // calls isn't followed (even from an unreadable package), and "Start from" in a string isn't an import.
+      "src/routes/_shell/bare.tsx": route(`<Plain />`, `import { Plain } from "@app/pages/Plain";`),
+      "src/pages/Plain.tsx": `import { load } from "@corp/data-helpers";\nconst fields = [{ label: "Start from", type: "select" }];\nexport const Plain = () => <main>{load(fields)}</main>;`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/bare.tsx:0"]);
+  });
+
+  it("a layout whose <Outlet> is in an imported component wraps its children (_layout pathless routes too)", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/_layout.tsx": `import { AdminLayout } from "@/components/AdminLayout";\nexport const Route = createFileRoute("/_shell/_layout")({ component: AdminLayout });`,
+      "src/components/AdminLayout.tsx": `export function AdminLayout() { return <DetailPage title="Admin"><Outlet /></DetailPage>; }`,
+      "src/routes/_shell/_layout/users.tsx": route(`<UsersTable />`),
+      "src/routes/_shell/team.tsx": `import { TeamLayout } from "@/components/TeamLayout";\nexport const Route = createFileRoute("/_shell/team")({ component: TeamLayout });`,
+      "src/components/TeamLayout.tsx": `export function TeamLayout() { return <DashboardPage title="Team"><Outlet /></DashboardPage>; }`,
+      "src/routes/_shell/team.members.tsx": route(`<MembersTable />`),
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/_layout.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/routes/_shell/team.tsx"]!.layout).toBe(true);
+    expect(by["src/routes/_shell/_layout/users.tsx"]!.parents.map((p) => p.file.path)).toContain("src/routes/_shell/_layout.tsx");
+    expect(brief(await run(root), "page-layout")).toEqual([]);
+  });
+
+  it("Next: a (group) layout wraps only its group, @slot pages don't collide, and colocated files aren't routes", async () => {
+    const page = (body: string) => `export default function Page() { return ${body}; }`;
+    const root = app({
+      "src/app/layout.tsx": `import { AppShell } from "@marktiderman/genesis-ui";\nexport default function Root({ children }) { return <AppShell navigation={[]}>{children}</AppShell>; }`,
+      "src/app/page.tsx": page(`<main>Home</main>`),
+      "src/app/(admin)/layout.tsx": `export default function Admin({ children }) { return <DetailPage title="Admin">{children}</DetailPage>; }`,
+      "src/app/(admin)/users/page.tsx": page(`<UsersTable />`),
+      "src/app/@modal/page.tsx": page(`<p>modal</p>`),
+      "src/app/courses/page.tsx": page(`<DetailPage title="Courses" />`),
+      "src/app/courses/CourseCard.tsx": `export function CourseCard() { return <div>card</div>; }`,
+    });
+    const by = routesOf(root);
+    expect(Object.keys(by)).not.toContain("src/app/courses/CourseCard.tsx");
+    expect(by["src/app/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/layout.tsx"]);
+    expect(by["src/app/(admin)/users/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/(admin)/layout.tsx", "src/app/layout.tsx"]);
+    expect(by["src/app/@modal/page.tsx"]).toMatchObject({ segments: [], tree: ["@modal"] });
+    // The home page has no layout of its own and the (admin) layout doesn't wrap it; the @slot page is the same.
+    expect(brief(await run(root), "page-layout")).toEqual(["src/app/@modal/page.tsx:0", "src/app/page.tsx:0"]);
+  });
+
+  it("a folder route.tsx with its own content around an <Outlet> is a page; export default of a local redirect is redirect-only", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/posts/route.tsx": route(`<section><h2>Posts</h2><ul><li>One</li></ul><Outlet /></section>`),
+      "src/routes/_shell/posts/$id.tsx": route(`<DetailPage title="Post" />`),
+      "src/routes/_shell/old.tsx": `function R() { return <Navigate to="/" />; }\nexport default R;`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/posts/route.tsx"]).toMatchObject({ layout: true, page: true });
+    expect(by["src/routes/_shell/old.tsx"]!.redirectOnly).toBe(true);
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/posts/route.tsx:0"]);
+  });
+});
+
+describe("#314 re-review", () => {
+  const pkgJson = (extra: Record<string, unknown> = {}) => JSON.stringify({ name: "app", version: "1.0.0", dependencies: { "@tanstack/react-router": "1" }, ...extra });
+  const route = (body: string, imports = "") => `${imports}\nexport const Route = createFileRoute("/x")({ component: () => ${body} });`;
+  const layoutTest = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
+
+  it("the trail cache gives the same answer in either order, through a cycle", () => {
+    const root = app({
+      "src/A.tsx": `import { B } from "./B";\nimport { D } from "./D";\nexport const A = () => <><B /><D /></>;`,
+      "src/B.tsx": `import { A } from "./A";\nexport const B = () => <A />;`,
+      "src/C.tsx": `import { B } from "./B";\nexport const C = () => <B />;`,
+      "src/D.tsx": `export const D = () => <DetailPage title="x" />;`,
+    });
+    const files = scanFiles(root, {});
+    const get = (name: string) => files.find((f) => f.path === `src/${name}.tsx`)!;
+    const forward = createTrail({ root, files });
+    const one = [forward.reach(get("A"), layoutTest), forward.reach(get("C"), layoutTest), forward.reach(get("B"), layoutTest)];
+    const backward = createTrail({ root, files });
+    const two = [backward.reach(get("B"), layoutTest), backward.reach(get("C"), layoutTest), backward.reach(get("A"), layoutTest)];
+    expect(one).toEqual(["yes", "yes", "yes"]);
+    expect(two).toEqual(["yes", "yes", "yes"]);
+  });
+
+  it("resolves tsconfig extends (a file or a package) and baseUrl bare imports, so it reports what main reported", async () => {
+    const root = app({
+      "package.json": pkgJson(),
+      "tsconfig.json": `{ "extends": "./tsconfig.base.json", "compilerOptions": { "strict": true } }`,
+      "tsconfig.base.json": `{ "extends": "@acme/tsconfig/web.json", "compilerOptions": { "baseUrl": "src" } }`,
+      "node_modules/@acme/tsconfig/package.json": JSON.stringify({ name: "@acme/tsconfig", version: "1.0.0" }),
+      "node_modules/@acme/tsconfig/web.json": `{ "compilerOptions": { "paths": { "@app/*": ["../../../src/*"] } } }`,
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // Through the package's paths (relative to the config that holds them): a layout, so it passes.
+      "src/routes/_shell/framed.tsx": route(`<Framed />`, `import { Framed } from "@app/pages/Framed";`),
+      "src/pages/Framed.tsx": `export const Framed = () => <DetailPage title="x" />;`,
+      // Through baseUrl: no layout at the end, so it's reported (as on main).
+      "src/routes/_shell/plain.tsx": route(`<Plain />`, `import { Plain } from "pages/Plain";`),
+      "src/pages/Plain.tsx": `export const Plain = () => <main />;`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/plain.tsx:0"]);
+  });
+
+  it("ignores import() in strings and comments", async () => {
+    expect(stripForImports(`const s = "import('./Page')"; // import("./Old")\nimport { A } from "./a";`)).toContain(`from "./a"`);
+    expect(stripForImports(`const s = "import('./Page')";`)).not.toContain("./Page");
+    expect(stripForImports("const t = `${x} import(\"./T\")`;")).not.toContain("./T");
+    expect(stripForImports(`<p>Don't import("./x") here</p>; const y = import("./real");`)).toContain(`import("./real")`);
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/notes.tsx": `const tip = "lazy(() => import('../../pages/Page'))";\n/* import("../../pages/Page") */\n${route("<main>{tip}</main>")}`,
+      "src/pages/Page.tsx": `export default function Page() { return <DetailPage title="x" />; }`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/notes.tsx:0"]);
+  });
+
+  it("past six hops the trail ends as main's did: the route is reported", async () => {
+    const chain = (prefix: string, n: number): Record<string, string> => {
+      const files: Record<string, string> = {};
+      for (let i = 1; i <= n; i++) {
+        files[`src/${prefix}/C${i}.tsx`] =
+          i === n ? `export const C${i} = () => <DetailPage title="x" />;` : `import { C${i + 1} } from "./C${i + 1}";\nexport const C${i} = () => <C${i + 1} />;`;
+      }
+      return files;
+    };
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/near.tsx": route(`<C1 />`, `import { C1 } from "../../near/C1";`),
+      ...chain("near", 3),
+      "src/routes/_shell/far.tsx": route(`<C1 />`, `import { C1 } from "../../far/C1";`),
+      ...chain("far", 8),
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/far.tsx:0"]);
+  });
+
+  it("an unresolved import never counts as an <Outlet>: the route stays a page and its children are still checked", async () => {
+    const root = app({
+      "package.json": pkgJson(),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/team.tsx": route(`<main><Mystery /></main>`, `import { Mystery } from "@corp/mystery";`),
+      "src/routes/_shell/team.members.tsx": route(`<MembersTable />`),
+    });
+    const by = Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+    expect(by["src/routes/_shell/team.tsx"]!.layout).toBe(false);
+    expect(by["src/routes/_shell/team.members.tsx"]!.parents.map((p) => p.file.path)).not.toContain("src/routes/_shell/team.tsx");
+    // team.tsx itself is unsure (its import can't be traced); its child is reported as on main.
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/team.members.tsx:0"]);
+  });
+
+  it("a mixed graph (an undeclared hoisted package pulls in the top-level copy) warns", async () => {
+    const pkg = (name: string, version: string, deps: Record<string, string> = {}) => JSON.stringify({ name, version, dependencies: deps });
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", version: "1.0.0", dependencies: { react: "^19.0.0" }, devDependencies: { "@marktiderman/genesis-ui": "^9.0.0" } }),
+      "node_modules/react/package.json": pkg("react", "19.0.0"),
+      "node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.2.0", { "@marktiderman/genesis-core": "^1.7.0" }),
+      "node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.7.0"),
+      "node_modules/@marktiderman/genesis-ui/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+    });
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+      JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
+    );
+    const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+    expect(core.map((c) => [c.version, c.runtime, c.devOnly])).toEqual([
+      ["1.7.0", false, false],
+      ["1.6.0", false, true],
+    ]);
+    const result = await runDoctor({ root, config: {}, strict: true });
+    expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => f.level)).toEqual(["warn"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("Next intercepting folders are the segment they intercept; a conditional outlet is still a layout", () => {
+    const root = app({
+      "src/app/layout.tsx": `export default function Root({ children }) { return <html><body>{children}</body></html>; }`,
+      "src/app/feed/(..)photo/[id]/page.tsx": `export default function P() { return <main>Photo</main>; }`,
+      "src/routes-unused.tsx": "",
+    });
+    const by = Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+    expect(by["src/app/feed/(..)photo/[id]/page.tsx"]!.segments).toEqual(["feed", "photo", "[id]"]);
+    const tan = app({
+      "src/routes/__root.tsx": `export const Route = createRootRoute({ component: () => <Outlet /> });`,
+      "src/routes/admin.tsx": `export const Route = createFileRoute("/admin")({ component: () => isAdmin ? <div className="p-4"><Outlet /></div> : <Outlet /> });`,
+    });
+    const admin = webRoutes({ root: tan, config: {}, files: scanFiles(tan, {}) }).find((r) => r.file.path === "src/routes/admin.tsx")!;
+    expect(admin).toMatchObject({ layout: true, page: false });
   });
 });
