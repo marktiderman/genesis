@@ -199,8 +199,13 @@ badge, and hiding a push for the screen already open (`useSuppressNotifications`
 The runner sends every due job's devices in Expo batches of 100 with `threadId`, `categoryId`
 (the device category with Reply and Mark as read), `badge`, and a `collapseId` (the collapse key,
 else the notification id, so a resend after a timeout replaces rather than repeats). The payload's
-`data` is `{ url, notification_id, type, thread_key }`, never the notification's own `data`. A
-person who hides previews, or a type with `pushPrivacy: "generic"`, gets neutral text. Receipts
+`data` is `{ url, notification_id, type, thread_key }` plus what the type's `render` returns under
+`push`, never the notification's whole `data`: `push.ids` always travel (genesis-chat's
+`conversationId`, `messageId` and `seq`, so Reply and Mark read work from the notification), and
+`push.display` (a sender's name and photo) and `push.mutableContent` (which lets the app's
+Notification Service Extension run) only while previews are shown. Only flat strings and numbers
+pass, and they can't replace the notifier's own keys. A person who hides previews, or a type with
+`pushPrivacy: "generic"`, gets neutral text and no display values. Receipts
 are checked about every 15 minutes; `DeviceNotRegistered` forgets the device.
 
 Android shows a push only on a channel the app made: the runner sends the category id as
@@ -240,11 +245,15 @@ switch becomes explicit channel choices (`genesis_notifications_set_preference`)
 - **Digests** (next, v1.1).
 - SMS.
 - Web push.
-- The Notification Service Extension and Communication Notifications (rich pushes, sender avatars).
 - Live Activities.
 - Slack as a channel.
 - Routing auth emails (sign-in links, password resets) through Supabase's send-email hook.
 - Per-tenant Resend keys (the provider seam is there; reading a key from Vault isn't).
+
+The Notification Service Extension and Communication Notifications (rich pushes with sender
+avatars) aren't here but work with it: genesis-native's rich push plugin adds the extension, and a
+type opts in through `render`'s `push.display` and `push.mutableContent` (genesis-chat's
+`chat.message` does).
 
 Also not done yet: nothing has been sent through Expo or Resend with real credentials; the
 providers are tested against faked services.

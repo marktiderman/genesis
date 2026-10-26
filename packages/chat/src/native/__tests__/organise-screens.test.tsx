@@ -275,6 +275,18 @@ describe("ChatSearchScreen", () => {
     await waitFor(() => expect(screen.getByTestId("s-empty")).toBeTruthy());
     expect(called(client, "search").at(-1)!.args).toEqual(["zebra", "dm"]);
   });
+
+  it("keeps the field and its states in a list that insets below a large-title or see-through header", async () => {
+    const client = memory([{ id: "dm", members: [{ userId: ME }, { userId: SAM }], messages: [{ id: "a", senderId: SAM, body: "hello" }] }]);
+    render(wrap(client, <ChatSearchScreen onOpen={vi.fn()} debounceMs={0} testID="s" />));
+    const list = screen.getByTestId("s-results");
+    expect(list.getAttribute("data-content-inset-adjustment-behavior")).toBe("automatic");
+    expect(within(list).getByTestId("s-field-input")).toBeTruthy();
+    expect(within(list).getByTestId("s-hint")).toBeTruthy();
+    fireEvent.change(screen.getByTestId("s-field-input"), { target: { value: "hello" } });
+    await waitFor(() => expect(within(list).getByTestId("s-hit-a")).toBeTruthy());
+    expect(within(list).getByTestId("s-field-input")).toBeTruthy();
+  });
 });
 
 describe("ChatBroadcastSheet", () => {

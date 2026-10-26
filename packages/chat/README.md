@@ -9,9 +9,9 @@ replies, threads, reactions, read state, live updates and push.
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
 | `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
-| `/native` | Coming in the next release: renderers on genesis-ui-native (`InboxPage` and `ThreadPage` wired to chat, voice notes with expo-audio). Empty in this version. |
+| `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql` | The schema, copied into your app by `genesis add chat`, each with its pgTAP test. |
+| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql`, `0003_genesis_chat_search_threads.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`. |
 
 ## On the web
 
@@ -37,6 +37,32 @@ for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster /
 (a file too big, a send not allowed). Tailwind must scan the package
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
 all with no backend, for demos, stories and tests.
+
+## On native
+
+`@marktiderman/genesis-chat/native` (Beta) draws chat on genesis-ui-native, over the same
+`/react` hooks. Mount `ChatProvider` (from `/react`) and `ChatNativeProvider` (the native modules,
+copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
+
+| Screen | What it is | Main props |
+|---|---|---|
+| `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
+| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `keyboardVerticalOffset` |
+| `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
+| `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
+
+`ChatNativeProvider` takes `modules` (expo-audio, expo-image-picker, expo-haptics, expo-clipboard,
+expo-camera, expo-video, expo-web-browser and the rest are passed in, never imported), `copy`
+overrides and `getPerson(userId)` for names and avatars. `useChatThreadStackOptions` gives the
+thread's header options.
+
+The parts (`ChatComposer`, `MessageBubble`, `MessageActionsSheet`, `VoiceNotePlayer`,
+`ChatPhotoViewer`, `ChatEmojiPicker`, `ChatStartSheet`, `ChatBroadcastSheet`) build your own
+screen, and the logic under them (`composerReducer`, `buildThreadRows`, `useChatComposer`,
+`useVoiceRecorder`) is exported too. Glue: `createTusUpload` (resumable uploads for
+`ChatProvider upload`), and for genesis-native's push block the `messages` category with Reply and
+Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
+`/push` alone).
 
 ## Kinds and rules
 
@@ -338,7 +364,7 @@ each removing up to `retentionBatch`, default 1 000; never in a conversation on 
   the collapse id becomes the notification's identifier, so replies from two notifications of one
   conversation would collide. Throw from `deliver` to retry. `createExpoDeliver` sends
   through Expo in requests of 100 (`threadId`, `collapseId`, `badge`, channel `messages`, category
-  `chat-message`) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
+  `messages`, the one `/native` registers Reply and Mark read under) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
   nothing was sent. Note that `collapseId` replaces a conversation's earlier notification on iOS.
 - **transcribe**: a 10 minute signed URL to the transcriber, then `transcript_status: ready`. With no
   transcriber the status is `off`; on the last attempt a failure sets `failed`. Hosted videos get
