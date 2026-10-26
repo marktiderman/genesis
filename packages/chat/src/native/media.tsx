@@ -11,6 +11,7 @@ import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration } from "../core/media";
 import type { AttachmentInput, ChatAttachment } from "../core/types";
 import { useChatNative } from "./context";
+import { ChatVideoPlayer } from "./video-player";
 import { VoiceNotePlayer } from "./voice-player";
 
 /** An attachment as the bubble draws it: from the server, or still on the phone. */
@@ -25,6 +26,13 @@ export interface BubbleAttachment {
   durationMs: number | null;
   waveform: number[] | null;
   thumbhash: string | null;
+  /** A hosted video: who hosts it, its playback id once processed, and whether it is ready. */
+  provider?: string | null;
+  playbackId?: string | null;
+  status?: "pending" | "ready" | "failed" | null;
+  posterUri?: string | null;
+  /** Still on its way from this phone. */
+  uploading?: boolean;
 }
 
 export function fromServer(a: ChatAttachment, urls: Record<string, string>): BubbleAttachment {
@@ -38,6 +46,10 @@ export function fromServer(a: ChatAttachment, urls: Record<string, string>): Bub
     durationMs: a.durationMs,
     waveform: a.waveform,
     thumbhash: a.thumbhash,
+    provider: a.provider,
+    playbackId: a.playbackId,
+    status: a.status,
+    posterUri: a.posterPath ? (urls[a.posterPath] ?? null) : null,
   };
 }
 
@@ -58,6 +70,8 @@ export function fromPending(
     durationMs: file.meta?.durationMs ?? null,
     waveform: file.meta?.waveform ?? null,
     thumbhash: null,
+    provider: file.meta?.provider ?? null,
+    uploading: true,
   };
 }
 
@@ -79,7 +93,7 @@ export interface AttachmentsProps {
 }
 
 export function MessageAttachments({ attachments, mine, onOpenImage, testID }: AttachmentsProps) {
-  const { copy } = useChatNative();
+  const { copy, modules } = useChatNative();
   const colors = useThemeRoles();
   const { width: screen } = useWindowDimensions();
   const images = attachments.filter((a) => a.kind === "image");
@@ -119,6 +133,21 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
       {others.map((a, i) =>
         a.kind === "voice" ? (
           <VoiceNotePlayer key={a.key} id={a.key} uri={a.uri} durationMs={a.durationMs} waveform={a.waveform} mine={mine} testID={`${testID}-voice-${i}`} />
+        ) : a.kind === "video" && modules.video ? (
+          <ChatVideoPlayer
+            key={a.key}
+            id={a.key}
+            uri={a.uri}
+            playbackId={a.playbackId}
+            posterUri={a.posterUri}
+            provider={a.provider}
+            status={a.status}
+            durationMs={a.durationMs}
+            width={a.width}
+            height={a.height}
+            uploading={a.uploading}
+            testID={`${testID}-video-${i}`}
+          />
         ) : (
           <View
             key={a.key}

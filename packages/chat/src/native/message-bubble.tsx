@@ -15,7 +15,11 @@ import { Animated, PanResponder, Pressable, View } from "react-native";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { previewText, summarizeReactions } from "../core/thread";
-import type { ChatMessage, PendingFile } from "../core/types";
+import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
+import type { ChatAttachmentKind } from "../react/index";
+import { ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
+import { ChatLinkPreviewCard, openChatLink } from "./link-preview";
+import { fullScreenVideo, isVideoPlaying, toggleVideo } from "./video-player";
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
 import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
@@ -44,6 +48,14 @@ export interface MessageBubbleProps {
   onOpenImage?: (uri: string, alt: string) => void;
   /** The swipe crossed the reply line (for a haptic). */
   onSwipeReply?: () => void;
+  /** The preview of a link in its text (`useLinkPreviews`, `previewToShow`). */
+  linkPreview?: ChatLinkPreview | null;
+  /** Show link previews' images (`ChatProvider linkPreviewImages`; off by default). */
+  linkPreviewImages?: boolean;
+  /** The app's own attachment kinds, drawn as cards (`ChatProvider attachmentKinds`). */
+  attachmentKinds?: Record<string, ChatAttachmentKind>;
+  /** A card's button, when its kind gives no `onPress` of its own. */
+  onOpenAttachment?: OpenAttachment;
   testID: string;
 }
 
@@ -76,14 +88,21 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const sender = person(row.senderId);
   const senderName = mine ? copy.you : (sender?.name ?? "");
 
+  const kinds = props.attachmentKinds;
+  const { cards, rest: plain } = useMemo(
+    () => splitCardAttachments(message && !message.deletedAt ? message.attachments : [], kinds),
+    [message, kinds],
+  );
   const attachments: BubbleAttachment[] = useMemo(() => {
-    if (message) return message.deletedAt ? [] : message.attachments.map((a) => fromServer(a, urls));
+    if (message) return message.deletedAt ? [] : plain.map((a) => fromServer(a, urls));
     return (pending?.files ?? []).map((f, i) => fromPending(pending!.clientId, i, f, pending!.previews?.[i]));
-  }, [message, pending, urls]);
+  }, [message, pending, urls, plain]);
+  const preview = message && !message.deletedAt && message.moderation !== "hidden" ? (props.linkPreview ?? null) : null;
 
   // The controls the accessible bubble hides, as its own actions.
   const voices = attachments.filter((a) => a.kind === "voice" && a.uri && modules.audio);
   const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
+  const videos = attachments.filter((a) => a.kind === "video" && modules.video && (a.uri || a.playbackId));
   const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
@@ -134,7 +153,9 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const label = [
     senderName,
     message?.deletedAt ? copy.deleted : displayBody(body),
-    attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : copy.file)).join(", "),
+    attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : a.kind === "video" ? copy.video : copy.file)).join(", "),
+    cards.map((a) => cardTitle(kinds?.[a.kind], a)).join(", "),
+    preview ? fill(copy.linkPreview, { title: preview.title?.trim() || preview.url, site: preview.siteName?.trim() || "" }) : null,
     time,
     message?.editedAt ? copy.edited : null,
     statusText,
@@ -149,6 +170,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
       { name: `voice-rate-${i}`, label: copy.changeSpeed },
     ]),
     ...photos.map((_, i) => ({ name: `photo-${i}`, label: photos.length > 1 ? fill(copy.openPhotoN, { n: i + 1 }) : copy.openImage })),
+    ...videos.flatMap((a, i) => [
+      { name: `video-${i}`, label: isVideoPlaying(a.key) ? copy.pauseVideo : copy.playVideo },
+      { name: `video-full-${i}`, label: copy.fullScreen },
+    ]),
+    ...(preview ? [{ name: "open-link", label: copy.openLink }] : []),
     ...(message && props.onReply && !message.deletedAt ? [{ name: "reply", label: copy.reply }] : []),
     ...(message && props.onLongPress && !message.deletedAt ? [{ name: "actions", label: copy.messageActions }] : []),
     ...(failed && !lost && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
@@ -156,15 +182,18 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     ...(failed && props.onDiscard ? [{ name: "discard", label: copy.discard }] : []),
   ];
   const onAction = (name: string) => {
-    const media = /^(voice-rate|voice|photo)-(\d+)$/.exec(name);
+    const media = /^(voice-rate|voice|photo|video-full|video)-(\d+)$/.exec(name);
     if (media) {
       const i = Number(media[2]);
-      if (media[1] === "voice" && voices[i]) toggleVoiceNote(voices[i].key);
+      if (media[1] === "video" && videos[i]) toggleVideo(videos[i].key);
+      else if (media[1] === "video-full" && videos[i]) fullScreenVideo(videos[i].key);
+      else if (media[1] === "voice" && voices[i]) toggleVoiceNote(voices[i].key);
       else if (media[1] === "voice-rate" && voices[i]) cycleVoiceNoteRate(voices[i].key);
       else if (media[1] === "photo" && photos[i]?.uri) props.onOpenImage?.(photos[i].uri, photos[i].name ? `${copy.photo}, ${photos[i].name}` : copy.photo);
       return;
     }
-    if (name === "reply" && message) props.onReply?.(message);
+    if (name === "open-link" && preview) void openChatLink(preview.url, modules.webBrowser);
+    else if (name === "reply" && message) props.onReply?.(message);
     else if (name === "actions" && message) props.onLongPress?.(message);
     else if (name === "retry" && pending) props.onRetry?.(pending.clientId);
     else if (name === "reattach" && pending) props.onReattach?.(pending.clientId, pending.files ?? []);
@@ -226,6 +255,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
               </View>
             ) : null}
             {attachments.length ? <MessageAttachments attachments={attachments} mine={mine} onOpenImage={props.onOpenImage} testID={testID} /> : null}
+            {message && cards.length
+              ? cards.map((a, i) => (
+                  <ChatAttachmentCard key={a.id} attachment={a} message={message} kind={kinds![a.kind]!} mine={mine} onOpenAttachment={props.onOpenAttachment} testID={`${testID}-card-${i}`} />
+                ))
+              : null}
             {message?.deletedAt ? (
               <NativeText className={fg} style={[textStyle, { fontStyle: "italic", opacity: 0.7 }]}>
                 {copy.deleted}
@@ -235,6 +269,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                 {displayBody(body)}
               </NativeText>
             ) : null}
+            {preview ? <ChatLinkPreviewCard preview={preview} mine={mine} images={props.linkPreviewImages} testID={`${testID}-preview`} /> : null}
           </Pressable>
         </Animated.View>
       </View>
@@ -305,6 +340,15 @@ function SmallAction({ label, onPress, color, testID }: { label: string; onPress
       </NativeText>
     </Pressable>
   );
+}
+
+/** A card's title for the bubble's label (an app kind that throws reads as its name). */
+function cardTitle(kind: ChatAttachmentKind | undefined, a: ChatMessage["attachments"][number]): string {
+  try {
+    return kind?.title(a) || a.name || a.kind;
+  } catch {
+    return a.name || a.kind;
+  }
 }
 
 export const MessageBubble = memo(MessageBubbleImpl);

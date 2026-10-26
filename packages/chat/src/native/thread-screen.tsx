@@ -24,7 +24,13 @@ import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToa
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine, previewText } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
-import { useChat, useConversation, useFileUrls, useMessageActions, usePeople, usePins } from "../react/index";
+import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins } from "../react/index";
+import { recordingLimitMs } from "../core/media";
+import type { OpenAttachment } from "./attachment-cards";
+import { linkPreviewIds, previewToShow } from "./link-preview";
+import { ChatVideoRecorder } from "./video-recorder";
+import { VideoUploadTray } from "./video-upload-tray";
+import { videoUploads, type RecordedVideo } from "./video-upload";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
@@ -46,6 +52,8 @@ export interface ChatThreadScreenProps {
    * the header's bottom).
    */
   keyboardVerticalOffset?: number;
+  /** An app attachment card's button (a form, a check-in), when its kind gives no `onPress`. */
+  onOpenAttachment?: OpenAttachment;
   testID?: string;
 }
 
@@ -97,8 +105,11 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
 }
 
-export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, testID = "chat-thread" }: ChatThreadScreenProps) {
-  const { userId } = useChat();
+export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, testID = "chat-thread" }: ChatThreadScreenProps) {
+  const chat = useChat();
+  const { userId, videoUpload, attachmentKinds, outbox } = chat;
+  // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
+  const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
   const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined });
   const pins = usePins(conversationId);
   const messageActions = useMessageActions();
@@ -151,6 +162,8 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   const byId = useMemo(() => new Map(conv.messages.map((m) => [m.id, m])), [conv.messages]);
+  const linkIds = useMemo(() => linkPreviewIds(conv.messages), [conv.messages]);
+  const previews = useLinkPreviews(linkIds);
   const people = usePeople(peopleIds);
   const nameOf = useCallback(
     (id: string | null) => (id === userId ? copy.you : ((person(id) ?? (id ? people[id] : undefined))?.name ?? copy.someone)),
@@ -255,11 +268,40 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onReattach={picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined}
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
+          linkPreview={m ? previewToShow(previews[m.id]) : null}
+          linkPreviewImages={linkPreviewImages}
+          attachmentKinds={attachmentKinds}
+          onOpenAttachment={onOpenAttachment}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment],
+  );
+
+  // ---- Video messages ----
+  const [videoOpen, setVideoOpen] = useState(false);
+  // Minted when a take starts, so its bytes go the moment it stops; kept for the next take if this one is thrown away.
+  const preparedVideo = useRef<ReturnType<NonNullable<typeof videoUpload>["create"]> | null>(null);
+  const onVideoStart = useCallback(() => {
+    if (!videoUpload || preparedVideo.current) return;
+    const p = videoUpload.create(conversationId);
+    p.catch(() => {
+      if (preparedVideo.current === p) preparedVideo.current = null;
+    });
+    preparedVideo.current = p;
+  }, [videoUpload, conversationId]);
+  const replyNow = composer.state.replyTo?.messageId ?? null;
+  const onVideoRecorded = useCallback(
+    (video: RecordedVideo) => {
+      const prepared = preparedVideo.current;
+      preparedVideo.current = null;
+      videoUploads.start({ conversationId, video, extra: { replyToId: replyNow, threadRootId }, send: outbox.send, videoUpload, prepared, openFile: modules.openFile });
+      if (replyNow) setReply(null);
+      atBottom.current = true;
+      toBottom(true);
+    },
+    [conversationId, replyNow, threadRootId, outbox, videoUpload, modules.openFile, setReply, toBottom],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -326,6 +368,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               />
             )}
           </View>
+          <VideoUploadTray conversationId={conversationId} testID={`${testID}-video-uploads`} />
           <ChatComposer
             composer={composer}
             canPost={canPost}
@@ -339,6 +382,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
             }}
             signalTyping={conv.signalTyping}
             signalRecording={conv.signalRecording}
+            onRecordVideo={modules.camera ? () => setVideoOpen(true) : undefined}
             testID={`${testID}-composer`}
           />
         </KeyboardAvoiding>
@@ -351,6 +395,15 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           testID={`${testID}-actions`}
         />
         <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+        <ChatVideoRecorder
+          open={videoOpen}
+          onClose={() => setVideoOpen(false)}
+          limitMs={recordingLimitMs(conv.role)}
+          onStart={onVideoStart}
+          onTick={conv.signalRecordingVideo}
+          onRecorded={onVideoRecorded}
+          testID={`${testID}-video-recorder`}
+        />
       </SafeAreaView>
     </ChatPeopleScope>
   );
