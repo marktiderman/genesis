@@ -174,7 +174,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   savePhoto: "Save to Photos",
   photoSaved: "Saved to Photos",
   photosDenied: "Allow this app to add to Photos in Settings to save.",
-  viewerHint: "Swipe left or right for other photos, down to close.",
+  viewerHint: "Swipe up or down for the next or previous photo.",
   sending: "Sending",
   notSent: "Not sent",
   retry: "Retry",

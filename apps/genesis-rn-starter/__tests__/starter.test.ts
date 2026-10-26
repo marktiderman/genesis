@@ -390,7 +390,7 @@ describe("chat", () => {
   it("forgets unsent messages on sign-out and retries them on return and reconnect", () => {
     const chat = read("src/lib/chat.tsx");
     expect(chat).not.toContain("TODO(chat clearOutbox)");
-    expect(chat).toContain("void clearChatOutbox(who)");
+    expect(chat).toContain("void outboxes.clear(who)");
     expect(chat).toContain("<ChatAutoRetry />");
     expect(chat).toMatch(/netInfo: NetInfo/);
   });

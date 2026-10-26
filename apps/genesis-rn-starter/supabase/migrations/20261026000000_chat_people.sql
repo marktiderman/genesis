@@ -5,12 +5,17 @@
 -- `picture`), set at sign-up or by Sign in with Apple.
 --
 -- auth.users isn't readable through the API, so this function reads it for the caller, and
--- returns only:
---   - the name and avatar, never the email, phone or the rest of the metadata;
---   - for the caller, and for people with a membership (current or past, so old messages keep
---     their author's name) in a conversation the caller can read (genesis_chat.can_view: a
---     member, or an observer the kind's check lets in).
+-- returns only the name and avatar (never the email, phone or the rest of the metadata), only
+-- for the people the caller can already see in chat:
+--   - the caller;
+--   - current members of a conversation the caller can read (genesis_chat.can_view: a member,
+--     or an observer the kind's check lets in): the people the members policy shows, so not
+--     observer rows and not those who left;
+--   - the authors of messages the caller can read there (visibility 'everyone'), so an old
+--     message keeps its author's name after they leave.
 -- Anyone else is left out, so asking about a stranger's id returns no row. At most 200 ids.
+-- Each check starts from the asked-about person (members_user_idx, messages_client_unique)
+-- and calls can_view once per conversation of theirs.
 --
 -- An app with its own profiles drops this and passes its own `loadPeople`.
 
@@ -32,7 +37,15 @@ as $$
       u.id = auth.uid()
       or exists (
         select 1 from genesis_chat.members theirs
-        where theirs.user_id = u.id and genesis_chat.can_view(theirs.conversation_id)
+        where theirs.user_id = u.id and theirs.left_at is null and theirs.role <> 'observer'
+          and genesis_chat.can_view(theirs.conversation_id)
+      )
+      or exists (
+        select 1 from (
+          select distinct m.conversation_id from genesis_chat.messages m
+          where m.sender_id = u.id and m.visibility = 'everyone' and m.deleted_at is null
+        ) authored
+        where genesis_chat.can_view(authored.conversation_id)
       )
     )
 $$;

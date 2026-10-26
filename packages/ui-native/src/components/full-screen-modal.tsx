@@ -30,8 +30,6 @@ export interface NativeFullScreenModalProps {
   onOpenChange: (open: boolean) => void;
   /** `"dark"` (default): black, for photos and video. `"app"`: the theme's background. `"none"`: the content draws its own. */
   tone?: "dark" | "app" | "none";
-  /** What VoiceOver and TalkBack call the modal ("Photo viewer"). */
-  label?: string;
   children: ReactNode;
   testID?: string;
 }
@@ -40,7 +38,7 @@ export interface NativeFullScreenModalProps {
 export const FULL_SCREEN_DARK = "#000000";
 
 /** @stability Beta */
-export function NativeFullScreenModal({ open, onOpenChange, tone = "dark", label, children, testID = "native-full-screen-modal" }: NativeFullScreenModalProps) {
+export function NativeFullScreenModal({ open, onOpenChange, tone = "dark", children, testID = "native-full-screen-modal" }: NativeFullScreenModalProps) {
   const reducedMotion = useReducedMotion();
   const roles = useThemeRoles();
   const background = tone === "dark" ? FULL_SCREEN_DARK : tone === "app" ? roles.background : "transparent";
@@ -61,7 +59,6 @@ export function NativeFullScreenModal({ open, onOpenChange, tone = "dark", label
         <View
           testID={`${testID}-body`}
           accessibilityViewIsModal
-          accessibilityLabel={label}
           onAccessibilityEscape={close}
           style={{ flex: 1, backgroundColor: background }}
         >

@@ -10,12 +10,25 @@ import type { ChatMessage } from "../../core/types";
 import { ChatComposer } from "../composer";
 import { clearDrafts, memoryDraftStorage } from "../composer-state";
 import { ChatNativeProvider } from "../context";
+import { ChatEmojiPicker } from "../emoji-picker";
 import { EMOJI_CATEGORIES, emojiEntry, emojiInCategory, insertAtSelection, loadRecentEmoji, pushRecentEmoji, recentEmojiKey, RECENT_EMOJI_MAX, saveRecentEmoji, searchEmoji } from "../emoji";
 import { QUICK_REACTIONS } from "../actions";
 import { MessageActionsSheet } from "../message-actions-sheet";
 import { useChatComposer } from "../use-composer";
 
-vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
+// The grids' FlatList props, as the picker gave them.
+const lists = vi.hoisted(() => [] as Record<string, unknown>[]);
+vi.mock("react-native", async (original) => {
+  const rn = await original<Record<string, unknown> & { FlatList: (p: Record<string, unknown>) => unknown }>();
+  return {
+    ...rn,
+    useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }),
+    FlatList: (props: Record<string, unknown>) => {
+      lists.push(props);
+      return rn.FlatList(props);
+    },
+  };
+});
 
 afterEach(cleanup);
 
@@ -162,5 +175,64 @@ describe("the composer's emoji button", () => {
     await waitFor(() => expect(input.value).toBe("see you😀"));
     fireEvent.click(screen.getByTestId("cmp-emoji-sheet-done"));
     await waitFor(() => expect(screen.queryByTestId("cmp-emoji-sheet-picker")).toBeNull());
+  });
+});
+
+describe("the picker's grid", () => {
+  it("lays out rows by row index (FlatList with numColumns asks per row), so every row scrolls into place", () => {
+    lists.length = 0;
+    render(
+      <ChatNativeProvider>
+        <ChatEmojiPicker onSelect={vi.fn()} testID="pk" />
+      </ChatNativeProvider>,
+    );
+    const grid = lists.find((p) => p.testID === "pk-grid")!;
+    const columns = grid.numColumns as number;
+    expect(columns).toBe(8);
+    const layout = grid.getItemLayout as (d: unknown, i: number) => { length: number; offset: number };
+    expect(layout(null, 5)).toEqual({ length: 44, offset: 5 * 44, index: 5 });
+    const rows = Math.ceil((grid.data as unknown[]).length / columns);
+    expect(layout(null, rows - 1).offset).toBe((rows - 1) * 44);
+  });
+
+  it("keeps an emoji picked while the stored recents were still loading", async () => {
+    const drafts = memoryDraftStorage();
+    await saveRecentEmoji(drafts, "u-race", ["🍕", "🎸"]);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    // Read when asked, answered late: as AsyncStorage does with a write queued behind the read.
+    const slow = {
+      ...drafts,
+      getItem: async (k: string) => {
+        const value = await drafts.getItem(k);
+        await gate;
+        return value;
+      },
+    };
+    render(
+      <ChatNativeProvider modules={{ drafts: slow }}>
+        <ChatEmojiPicker onSelect={vi.fn()} userId="u-race" testID="pk" />
+      </ChatNativeProvider>,
+    );
+    fireEvent.click(screen.getByTestId("pk-emoji-😀"));
+    await act(async () => release());
+    await waitFor(async () => expect(await loadRecentEmoji(drafts, "u-race")).toEqual(["😀", "🍕", "🎸"]));
+  });
+});
+
+describe("the composer's emoji button, picked twice quickly", () => {
+  it("types both", async () => {
+    render(
+      <ChatNativeProvider modules={{ drafts: memoryDraftStorage() }}>
+        <ComposerHarness />
+      </ChatNativeProvider>,
+    );
+    await act(async () => fireEvent.click(screen.getByTestId("cmp-emoji")));
+    const smile = await screen.findByTestId("cmp-emoji-sheet-picker-emoji-😀");
+    act(() => {
+      fireEvent.click(smile);
+      fireEvent.click(smile);
+    });
+    await waitFor(() => expect((screen.getByTestId("cmp-input") as HTMLInputElement).value).toBe("😀😀"));
   });
 });

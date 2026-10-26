@@ -7,7 +7,7 @@ import { FULL_SCREEN_DARK, NativeFullScreenModal } from "../full-screen-modal";
 describe("NativeFullScreenModal", () => {
   it("covers the whole screen (not a page sheet), faded in, on black by default", () => {
     render(
-      <NativeFullScreenModal open onOpenChange={() => undefined} label="Photo viewer" testID="fs">
+      <NativeFullScreenModal open onOpenChange={() => undefined} testID="fs">
         <NativeText>Inside</NativeText>
       </NativeFullScreenModal>,
     );

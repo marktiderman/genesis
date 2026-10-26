@@ -93,8 +93,12 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, 
   const [emojiOpen, setEmojiOpen] = useState(false);
   // Where the cursor is, so an emoji from the picker goes there.
   const selection = useRef<{ start: number; end: number } | null>(null);
+  // The text as last typed or inserted: two picks before a re-render both land.
+  const latestText = useRef(state.text);
+  latestText.current = state.text;
   const insertEmoji = (emoji: string) => {
-    const next = insertAtSelection(state.text, selection.current, emoji);
+    const next = insertAtSelection(latestText.current, selection.current, emoji);
+    latestText.current = next.text;
     selection.current = { start: next.cursor, end: next.cursor };
     dispatch({ type: "text", text: next.text });
     signalTyping?.();

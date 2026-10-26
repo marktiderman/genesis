@@ -44,7 +44,7 @@ export {
   type ChatPhoto,
   type ChatPhotoViewerProps,
 } from "./photo-viewer";
-export { ChatEmojiPicker, ChatEmojiPickerSheet, type ChatEmojiPickerProps, type ChatEmojiPickerSheetProps } from "./emoji-picker";
+export { ChatEmojiPicker, ChatEmojiPickerSheet, forgetRecentEmoji, type ChatEmojiPickerProps, type ChatEmojiPickerSheetProps } from "./emoji-picker";
 export {
   EMOJI_CATEGORIES,
   emojiInCategory,

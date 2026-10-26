@@ -46,6 +46,20 @@ const CELL = 44;
 // Recents read once per person per launch, then kept here as they change.
 const recentCache = new Map<string, string[]>();
 
+// Whose stored recents were read this launch (and merged into the cache).
+const loaded = new Set<string>();
+
+/** Forgets the recent emoji held in memory (one person's, or everyone's): call it on sign-out, with `clearDrafts`. */
+export function forgetRecentEmoji(userId?: string): void {
+  if (userId) {
+    recentCache.delete(userId);
+    loaded.delete(userId);
+  } else {
+    recentCache.clear();
+    loaded.clear();
+  }
+}
+
 export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "chat-emoji-picker" }: ChatEmojiPickerProps) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
@@ -56,10 +70,15 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
   const storage = modules.drafts;
 
   useEffect(() => {
-    if (!userId || !storage || recentCache.has(userId)) return;
+    if (!userId || !storage || loaded.has(userId)) return;
+    loaded.add(userId);
     let live = true;
-    void loadRecentEmoji(storage, userId).then((list) => {
+    void loadRecentEmoji(storage, userId).then((stored) => {
+      // Picked while it loaded: those come first, and the merged list is what's kept.
+      const picked = recentCache.get(userId) ?? [];
+      const list = picked.reduceRight((acc, e) => pushRecentEmoji(acc, e), stored);
       recentCache.set(userId, list);
+      if (picked.length) void saveRecentEmoji(storage, userId, list);
       if (!live || list.length === 0) return;
       setRecents(list);
       setTab((t) => (t === "smileys" ? "recent" : t));
@@ -83,12 +102,12 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
     (emoji: string) => {
       onSelect(emoji);
       if (!userId) return;
-      const next = pushRecentEmoji(recentCache.get(userId) ?? recents, emoji);
+      const next = pushRecentEmoji(recentCache.get(userId) ?? [], emoji);
+      // Kept for next time; the grid on screen doesn't reorder under the finger.
       recentCache.set(userId, next);
-      setRecents(next);
       if (storage) void saveRecentEmoji(storage, userId, next);
     },
-    [onSelect, userId, recents, storage],
+    [onSelect, userId, storage],
   );
   const renderItem = useCallback(({ item }: { item: EmojiEntry }) => <EmojiCell entry={item} onPress={choose} testID={`${testID}-emoji-${item.emoji}`} />, [choose, testID]);
 
@@ -116,7 +135,7 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
                   setTab(t.id);
                   listRef.current?.scrollToOffset?.({ offset: 0, animated: false });
                 }}
-                style={{ minWidth: 32, height: 40, flexGrow: 1, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: on ? colors.fill : undefined }}
+                style={{ minWidth: 36, height: 44, flexGrow: 1, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: on ? colors.fill : undefined }}
               >
                 {t.icon ? (
                   <NativeText style={{ fontSize: 20, opacity: on ? 1 : 0.55 }}>{t.icon}</NativeText>
@@ -148,7 +167,8 @@ export function ChatEmojiPicker({ onSelect, userId = null, height, testID = "cha
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="on-drag"
             initialNumToRender={columns * 8}
-            getItemLayout={(_d, i) => ({ length: CELL, offset: CELL * Math.floor(i / columns), index: i })}
+            // With numColumns, FlatList lays out rows: the index here is a row's.
+            getItemLayout={(_d, row) => ({ length: CELL, offset: CELL * row, index: row })}
           />
         )}
       </View>

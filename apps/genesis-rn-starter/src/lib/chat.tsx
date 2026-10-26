@@ -33,6 +33,7 @@ import {
   ChatAutoRetry,
   ChatNativeProvider,
   clearDrafts,
+  forgetRecentEmoji,
   createTusUpload,
   handleChatPushResponse,
   registerChatNotificationActions,
@@ -41,12 +42,20 @@ import {
 import { useSession } from "@marktiderman/genesis-native";
 import starter from "../../starter.config";
 import { copy } from "@/copy";
+import { createChatOutboxes, outboxKey } from "./chat-outboxes";
 import { env } from "./env";
 import { supabase } from "./supabase";
 
 export const chatClient = createChatClient(supabase);
 
 // Genesis describes each module by what it calls, so the packages' own (wider) types are cast once here.
+// Photos copied from their signed links to share them, in one folder cleared on sign-out.
+const SHARED_DIR = "genesis-chat-shared";
+// Pasted pictures kept for an unsent message (`persistFile`), named with this prefix.
+const PERSISTED_PREFIX = "genesis-chat-";
+
+const outboxes = createChatOutboxes(AsyncStorage);
+
 const modules: ChatNativeModules = {
   audio: Audio as unknown as ChatNativeModules["audio"],
   // The library only: the starter asks for no camera permission (add `launchCameraAsync` and a
@@ -59,15 +68,17 @@ const modules: ChatNativeModules = {
   // Share in the photo viewer, from a copy in the cache. (Save to Photos needs expo-media-library
   // and a photo-library-add permission sentence in app.config.ts: pass it as `mediaLibrary`.)
   sharing: Sharing as unknown as ChatNativeModules["sharing"],
-  downloadFile: async (url) => (await File.downloadFileAsync(url, new Directory(Paths.cache), { idempotent: true })).uri,
+  downloadFile: async (url) => {
+    const dir = new Directory(Paths.cache, SHARED_DIR);
+    dir.create({ idempotent: true });
+    return (await File.downloadFileAsync(url, dir, { idempotent: true })).uri;
+  },
   netInfo: NetInfo as unknown as ChatNativeModules["netInfo"],
 };
 
-const OUTBOX_PREFIX = "genesis-chat:outbox:";
-
 /** Unsent messages wait here between launches (per signed-in person). */
 function outboxStore(userId: string): OutboxStore {
-  const key = `${OUTBOX_PREFIX}${userId}`;
+  const key = outboxKey(userId);
   return {
     load: async () => {
       try {
@@ -169,13 +180,11 @@ function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeo
 // The outbox the Messages screens are using, per person, so a reply from a notification queues
 // in it (and shows in the open thread) instead of writing the saved copy behind its back.
 const liveOutboxes = new Map<string, Outbox>();
-// Each person's `clearOutbox`, kept past the Messages screens' unmount: signing out unmounts them
-// before the signed-in layout sees the sign-out.
-const outboxClearers = new Map<string, () => Promise<void>>();
 function ShareOutbox({ userId }: { userId: string }) {
   const { outbox, clearOutbox } = useChat();
+  // Kept past the Messages screens' unmount: signing out unmounts them before the layout sees it.
   useEffect(() => {
-    outboxClearers.set(userId, clearOutbox);
+    outboxes.register(userId, clearOutbox);
   }, [userId, clearOutbox]);
   useEffect(() => {
     liveOutboxes.set(userId, outbox);
@@ -189,26 +198,16 @@ function ShareOutbox({ userId }: { userId: string }) {
 // Who was signed in last, kept outside React: the layout that sees the sign-out may be a new instance.
 let lastChatUser: string | null = null;
 
-/**
- * Forgets a person's unsent messages: through the outbox Messages used (`useChat().clearOutbox()`,
- * which also stops it), or, when Messages wasn't opened since launch, in the saved copy.
- */
-export async function clearChatOutbox(userId: string): Promise<void> {
-  const clear = outboxClearers.get(userId);
-  outboxClearers.delete(userId);
-  if (clear) await clear();
-  await forUser(userId).store.save([]);
-}
-
-/** Everyone else's saved unsent messages, on sign-in: a session that ended while the app was closed. */
-async function clearOtherOutboxes(userId: string): Promise<void> {
-  const keys = (await AsyncStorage.getAllKeys()).filter((k) => k.startsWith(OUTBOX_PREFIX) && k !== `${OUTBOX_PREFIX}${userId}`);
-  if (keys.length) await AsyncStorage.multiRemove(keys);
+/** Chat's copies of pictures in the cache: shared photos and pasted ones kept for unsent messages. */
+function clearChatFiles() {
+  for (const entry of new Directory(Paths.cache).list()) {
+    if (entry.name === SHARED_DIR || entry.name.startsWith(PERSISTED_PREFIX)) entry.delete();
+  }
 }
 
 /**
- * Chat drafts and unsent messages never outlive the person who wrote them on this phone: signing
- * out (Settings, account deletion) clears theirs, and signing in clears everyone else's, which covers a session
+ * Chat drafts, unsent messages, recent emoji and copied pictures never outlive the person who
+ * wrote them on this phone: signing out (Settings, account deletion) clears theirs, and signing in clears everyone else's, which covers a session
  * that ended while the app was closed and a switch from one person to another. Mounted once, in
  * the signed-in layout.
  */
@@ -220,7 +219,7 @@ export function useClearChatOnSignOut() {
     if (status === "signedIn" && userId) {
       if (lastChatUser !== userId) {
         void clearDrafts(modules.drafts!, { except: userId }, onError);
-        void clearOtherOutboxes(userId).catch(onError);
+        void outboxes.clearOthers(userId).catch(onError);
       }
       lastChatUser = userId;
       return;
@@ -229,7 +228,13 @@ export function useClearChatOnSignOut() {
     const who = lastChatUser;
     lastChatUser = null;
     void clearDrafts(modules.drafts!, who, onError);
-    void clearChatOutbox(who).catch(onError);
+    void outboxes.clear(who).catch(onError);
+    forgetRecentEmoji(who);
+    try {
+      clearChatFiles();
+    } catch (e) {
+      onError(e);
+    }
   }, [status, userId]);
 }
 

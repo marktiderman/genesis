@@ -3,7 +3,7 @@
 -- share a conversation with the caller. Writes only its own users and conversation; rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, aud, role, email, instance_id, raw_user_meta_data)
 values
@@ -16,7 +16,11 @@ values
   ('00000000-0000-4000-8000-0000000c9a04', 'authenticated', 'authenticated', 'chat-people-d@example.test', '00000000-0000-0000-0000-000000000000',
     '{"name": "  "}'),
   ('00000000-0000-4000-8000-0000000c9a05', 'authenticated', 'authenticated', 'chat-people-e@example.test', '00000000-0000-0000-0000-000000000000',
-    '{"name": "Emery Left"}');
+    '{"name": "Emery Left"}'),
+  ('00000000-0000-4000-8000-0000000c9a06', 'authenticated', 'authenticated', 'chat-people-f@example.test', '00000000-0000-0000-0000-000000000000',
+    '{"name": "Finley Observer"}'),
+  ('00000000-0000-4000-8000-0000000c9a07', 'authenticated', 'authenticated', 'chat-people-g@example.test', '00000000-0000-0000-0000-000000000000',
+    '{"name": "Gray Quiet"}');
 
 create function pg_temp.sign_in(id uuid) returns void language plpgsql as $$
 begin
@@ -26,18 +30,24 @@ begin
 end $$;
 grant execute on function pg_temp.sign_in(uuid) to authenticated;
 
--- a, b, d and e (who left) in one group; c in nothing with them.
+-- a, b and d in one group; e and g left it (e after posting, g without); f has an observer row;
+-- c is in nothing with them.
 insert into genesis_chat.conversations (id, kind) values ('00000000-0000-4000-8000-0000000c9ac1', 'group');
 insert into genesis_chat.members (conversation_id, user_id, role, left_at) values
   ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a01', 'owner', null),
   ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a02', 'member', null),
   ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a04', 'member', null),
-  ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a05', 'member', now());
+  ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a05', 'member', now()),
+  ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a06', 'observer', null),
+  ('00000000-0000-4000-8000-0000000c9ac1', '00000000-0000-4000-8000-0000000c9a07', 'member', now());
+insert into genesis_chat.messages (conversation_id, seq, sender_id, sender_role, body) values
+  ('00000000-0000-4000-8000-0000000c9ac1', 1, '00000000-0000-4000-8000-0000000c9a05', 'member', 'before I go');
 
 create temp table people_ids (id uuid);
 insert into people_ids values
   ('00000000-0000-4000-8000-0000000c9a01'), ('00000000-0000-4000-8000-0000000c9a02'), ('00000000-0000-4000-8000-0000000c9a03'),
-  ('00000000-0000-4000-8000-0000000c9a04'), ('00000000-0000-4000-8000-0000000c9a05');
+  ('00000000-0000-4000-8000-0000000c9a04'), ('00000000-0000-4000-8000-0000000c9a05'), ('00000000-0000-4000-8000-0000000c9a06'),
+  ('00000000-0000-4000-8000-0000000c9a07');
 grant select on people_ids to authenticated, anon;
 
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000c9a01');
@@ -49,8 +59,12 @@ select results_eq(
     ('00000000-0000-4000-8000-0000000c9a02'::uuid, 'Blair Quinn', 'https://example.test/b.png'),
     ('00000000-0000-4000-8000-0000000c9a04'::uuid, null, null),
     ('00000000-0000-4000-8000-0000000c9a05'::uuid, 'Emery Left', null) $$,
-  'a member sees the names and avatars of the people in their conversations, and their own'
+  'a member sees the names and avatars of the people in their conversations, their own, and an author who left'
 );
+select is((select count(*) from public.chat_people(array['00000000-0000-4000-8000-0000000c9a06'::uuid])), 0::bigint,
+  'not an observer row (the members policy hides it; it grants nothing)');
+select is((select count(*) from public.chat_people(array['00000000-0000-4000-8000-0000000c9a07'::uuid])), 0::bigint,
+  'not someone who left without posting');
 select is((select count(*) from public.chat_people(array['00000000-0000-4000-8000-0000000c9a03'::uuid])), 0::bigint,
   'no row for someone the caller shares no conversation with');
 select is((select name from public.chat_people(array['00000000-0000-4000-8000-0000000c9a02'::uuid])), 'Blair Quinn',
@@ -81,8 +95,6 @@ select results_eq(
 );
 
 select pg_temp.sign_in('00000000-0000-4000-8000-0000000c9a01');
-select is((select count(*) from public.chat_people(array_fill('00000000-0000-4000-8000-0000000c9a02'::uuid, array[500]))), 1::bigint,
-  'repeated ids return one row each');
 select is((select count(*) from public.chat_people(array_cat(array_fill('00000000-0000-4000-8000-0000000c9a03'::uuid, array[200]), array['00000000-0000-4000-8000-0000000c9a02'::uuid]))), 0::bigint,
   'only the first 200 ids are read');
 

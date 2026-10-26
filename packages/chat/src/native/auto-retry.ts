@@ -2,10 +2,10 @@
  * @feat:chat
  * Retries unsent messages when there's a chance they'll go now: the app
  * coming back to the front (AppState "active") and, with NetInfo
- * (`modules.netInfo`), the connection coming back. Through
- * `useChat().retryAll()`, which leaves alone what the outbox marked as
- * never going to succeed. Mount it once under ChatProvider and
- * ChatNativeProvider: `<ChatAutoRetry />`.
+ * (`modules.netInfo`), the connection coming back, through
+ * `useChat().retryAll()`: which messages it resends is the outbox's rule
+ * (every failed one whose files are still there). Mount it once under
+ * ChatProvider and ChatNativeProvider: `<ChatAutoRetry />`.
  */
 import { useEffect, useRef } from "react";
 import { AppState } from "react-native";

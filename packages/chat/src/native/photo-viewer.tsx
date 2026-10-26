@@ -90,9 +90,8 @@ const DOUBLE_TAP_MS = 280;
 
 export function ChatPhotoViewer({ photos, initialIndex = 0, onClose, testID = "chat-photo-viewer" }: ChatPhotoViewerProps) {
   const open = photos !== null && photos.length > 0;
-  const { copy } = useChatNative();
   return (
-    <NativeFullScreenModal open={open} onOpenChange={(o) => (o ? undefined : onClose())} tone="none" label={copy.photo} testID={testID}>
+    <NativeFullScreenModal open={open} onOpenChange={(o) => (o ? undefined : onClose())} tone="none" testID={testID}>
       {open ? <ViewerBody photos={photos} initialIndex={Math.min(Math.max(0, initialIndex), photos.length - 1)} onClose={onClose} testID={testID} /> : null}
     </NativeFullScreenModal>
   );
@@ -123,6 +122,7 @@ function ViewerBody({ photos, initialIndex, onClose, testID }: { photos: readonl
     (i: number) => {
       if (i < 0 || i >= photos.length) return;
       setIndex(i);
+      setZoomed(false);
       listRef.current?.scrollToIndex?.({ index: i, animated: !reducedMotion });
     },
     [photos.length, reducedMotion],
@@ -321,7 +321,17 @@ function useTaps(onSingle: () => void, onDouble: (e: { locationX: number; locati
   };
 }
 
-type ZoomScrollView = ScrollView & { scrollResponderZoomTo?: (rect: { x: number; y: number; width: number; height: number; animated?: boolean }) => void };
+type ZoomRect = { x: number; y: number; width: number; height: number };
+type ZoomScrollView = ScrollView & { scrollResponderZoomTo?: (rect: ZoomRect & { animated?: boolean }, animated?: boolean) => void };
+
+/**
+ * Zooms to a rect. React Native 0.88 drops `rect.animated` and animates per the deprecated second
+ * argument (ScrollView.js `scrollResponderZoomTo`), so both are given: the rect's keeps it from
+ * warning, the second is the one it uses.
+ */
+function zoomTo(view: ZoomScrollView | null, rect: ZoomRect, animated: boolean) {
+  view?.scrollResponderZoomTo?.({ ...rect, animated }, animated);
+}
 
 /** iOS: the system's zooming scroll view; at full size, a pull down past the top closes. */
 function ZoomableIos({ photo, width, height, active, onZoomChange, onPull, onDismiss, onTap, testID }: ZoomableProps) {
@@ -330,15 +340,15 @@ function ZoomableIos({ photo, width, height, active, onZoomChange, onPull, onDis
   const reducedMotion = useReducedMotion();
   useEffect(() => {
     if (!active && scale.current > 1.01) {
-      ref.current?.scrollResponderZoomTo?.({ x: 0, y: 0, width, height, animated: false });
+      zoomTo(ref.current, { x: 0, y: 0, width, height }, false);
       scale.current = 1;
     }
   }, [active, width, height]);
   const tap = useTaps(onTap, (at) => {
-    if (scale.current > 1.01) return ref.current?.scrollResponderZoomTo?.({ x: 0, y: 0, width, height, animated: !reducedMotion });
+    if (scale.current > 1.01) return zoomTo(ref.current, { x: 0, y: 0, width, height }, !reducedMotion);
     const w = width / 2.5;
     const h = height / 2.5;
-    ref.current?.scrollResponderZoomTo?.({ x: at.locationX - w / 2, y: at.locationY - h / 2, width: w, height: h, animated: !reducedMotion });
+    zoomTo(ref.current, { x: at.locationX - w / 2, y: at.locationY - h / 2, width: w, height: h }, !reducedMotion);
   });
   return (
     <ScrollView
