@@ -1,0 +1,69 @@
+.changeset/resource-workspace.md
+  s_1f35d570c63beb::t_801424f74e40f9 9,11
+.changeset/workspace-review-fixes.md
+  s_1f35d570c63beb::t_803aec715d5412 1-16
+apps/sample/app/data/primitives.json
+  s_03a3816737bc07::t_94e5c358240fe2 10,18,3919-4177,6922,13884-13890,13905,15493-15499,18271-18379
+docs/RESOURCE-VIEW.md
+  s_1f35d570c63beb::t_dd8eeabe2d1b1a 350-358,361,363-364,366-371
+packages/core/src/__tests__/resource-view.test.ts
+  s_1f35d570c63beb::t_6f25dd5c13b99f 5,488-552
+packages/core/src/__tests__/resource-workspace.test.ts
+  s_1f35d570c63beb::t_a9f50b52362546 5,7,19,44-55,77,135-137,143-147,156-218,242-259
+packages/core/src/resource-view/define-view.ts
+  s_1f35d570c63beb::t_a6d31a7ff4224e 148-151,206,328,334-339
+packages/core/src/resource-view/index.ts
+  s_1f35d570c63beb::t_b49c8538083cdd 40-41
+packages/core/src/resource-view/picture.ts
+  s_1f35d570c63beb::t_a3f0bc95597bf6 32-38,55
+packages/core/src/resource-view/types.ts
+  s_1f35d570c63beb::t_2726e80fa862fe 103-104,109
+packages/core/src/resource-view/workspace.ts
+  s_1f35d570c63beb::t_08700d31db7420 6-8,49-50,78,91-107,110-111,126-133,141-144,149-150,152,156-157,159-171,239-240,265-267,271,319,321-332,337,344-351,355-357,361-371,379-383,394-406,409
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_1f35d570c63beb::t_06e5a53e067dae 19,91-98,227,478
+packages/ui-native/src/data/resource-view/NativeResourceWorkspace.tsx
+  s_1f35d570c63beb::t_c4061f85d92abb 9,12-21,29,59-65,79-80,84-85,90-105,107-109,112,117-119,123,126,129,132,135-137,139-141,145-146,148-167,169-219,234-235,256-259,282,294,315,355-373,380-381,389,409,440-441,443,449,451,453,461,475,479-488,492-496,501-533,540-541,548,551-552,563-589,595,599-600,605,614-625
+packages/ui-native/src/data/resource-view/__tests__/native-resource-workspace.test.tsx
+  s_1f35d570c63beb::t_2bb84319a2e16d 13,17,49,91-96,107,109,113-117,119,128-129,131,137-191,205,251-295
+packages/ui-native/src/data/resource-view/index.ts
+  s_1f35d570c63beb::t_dde44852781bdb 57
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1f35d570c63beb::t_637a69429becc9 526-532
+packages/ui-native/types/react-native.d.ts
+  s_1f35d570c63beb::t_35456f3602000e 376-388
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_1f35d570c63beb::t_4c11c2191478bd 175-186
+packages/ui/src/components/data/__tests__/resource-workspace.test.tsx
+  s_1f35d570c63beb::t_3b41922ebce3db 17,31,49,205-258
+packages/ui/src/components/data/resource-view/ResourceWorkspace.tsx
+  s_1f35d570c63beb::t_41d068372edab7 11-13,57-61,85,91-104,115,139,165,178,185,244-245,247,257,263,273,275,284-292,294-298,309,327-328,334-336,339,342,347-348,365,369,380,385-386,393-397
+packages/ui/src/components/resource/status.ts
+  s_1f35d570c63beb::t_b1e22a782c35f4 17-101
+packages/ui/src/messages-en.ts
+  s_1f35d570c63beb::t_659bd24addabe9 165
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "76ea9e4c6177060f3aec80266399aa620cc72db9",
+  "prompts": {},
+  "sessions": {
+    "s_03a3816737bc07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8c690106-a79e-40ad-b9e8-1b62650319ca",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
