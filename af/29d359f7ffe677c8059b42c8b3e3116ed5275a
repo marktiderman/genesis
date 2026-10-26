@@ -1,0 +1,42 @@
+packages/core/src/resource-view/index.ts
+  s_9bf81edc5cc904::t_eb81b231ef701e 1-24
+packages/core/src/resource-view/types.ts
+  s_9bf81edc5cc904::t_8b35b5b83aa539 1-192
+packages/core/src/resource-view/define-view.ts
+  s_9bf81edc5cc904::t_4fad9f1923eab4 1-249
+packages/core/src/__tests__/resource-view.test.ts
+  s_9bf81edc5cc904::t_5cf2f2c3786a86 1-227
+  s_9bf81edc5cc904::t_bc72ae8eed0086 228-230
+.changeset/resource-view-core.md
+  s_9bf81edc5cc904::t_28d7ebde347bc9 1-9
+packages/core/package.json
+  s_9bf81edc5cc904::t_0b1f2e853afd13 61-72
+packages/core/src/csv.ts
+  s_9bf81edc5cc904::t_db82c93c83f908 1-103
+packages/core/src/index.ts
+  s_9bf81edc5cc904::t_f61146b439e270 46-48
+packages/core/src/urls.ts
+  s_9bf81edc5cc904::t_bb2a90060d10f9 1-51
+packages/core/tsup.config.ts
+  s_9bf81edc5cc904::t_842adc2bb092e1 20-22
+packages/studio/src/lib/csv.ts
+  s_9bf81edc5cc904::t_6941909be8b29d 1-2
+packages/ui/src/components/rich-text/rich-text-doc.ts
+  s_9bf81edc5cc904::t_63e42edaa207bd 24,133-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "af29d359f7ffe677c8059b42c8b3e3116ed5275a",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
