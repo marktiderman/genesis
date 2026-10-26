@@ -355,3 +355,30 @@ leave; asks with `window.confirm` otherwise). For other state,
 `useUnsavedChangesGuard({ when, message, confirm })` gives the same
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
+
+## One-off writes
+
+For the writes a resource page doesn't make: a database function, "one live row per key", or a few
+writes in a row. They fail with a `DataWriteError` in plain words, like the provider's own writes.
+
+```ts
+import { callRpc, createOrAdopt, useWrite } from "@marktiderman/genesis-core";
+
+// A database function. Your words for a code win; a guard's own `raise exception` (P0001) keeps its
+// words; 42501, 22023 and a missing function get plain defaults; anything else a generic sentence.
+await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "This course hasn't started yet." } });
+
+// One live row per key: create it, or adopt the row already there (merging in what you return).
+const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
+  key: ["person_id", "lesson_id"],
+  merge: (existing) => (existing.body ? null : { body }),
+});
+
+// In a component: pending, plain error words, and invalidation after a success.
+const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
+  invalidates: [["course-steps"], resourceKeys("tasks").all],
+});
+<Button onClick={() => release.fire(id)} disabled={release.pending}>Release</Button>
+```
+
+`run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`).
