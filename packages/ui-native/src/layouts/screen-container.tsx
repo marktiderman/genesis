@@ -69,10 +69,11 @@ export interface ScreenContainerProps {
   /**
    * When `true`, a centred `NativeLoadingState` (theme-tinted spinner,
    * announced as loading) replaces the body, inside the same safe area and
-   * background. Use it for redirect and first-load screens. Default `false`.
+   * background. Use it for redirect and first-load screens: the body is
+   * unmounted while it's on, so a form underneath loses its state. Default `false`.
    */
   loading?: boolean;
-  /** Text under the spinner while `loading`; also what screen readers announce. */
+  /** Text under the spinner while `loading`, and what screen readers announce: pass translated text. */
   loadingLabel?: string;
   /** Style on the root, e.g. a theme-role background color. */
   style?: ViewStyle;

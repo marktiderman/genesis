@@ -88,7 +88,9 @@ test, and the `functions/genesis-notifications` Edge Function template.
    `createPush({ backend: notificationsPushBackend(supabase), ...pushOptionsFrom(notifications), randomUUID: Crypto.randomUUID, … })`.
 
    An app that registers devices its own way keeps its `register` and `forget` and takes only the
-   preferences: `backend: { register, forget, ...notificationsPushPreferences(supabase) }`. The push
+   preferences: `backend: { register, forget, ...notificationsPushPreferences(supabase) }`. Spread it
+   last: keys that come after it (an app's own `loadPreferences` or `savePreferences`) replace its
+   functions, and keys before it are replaced by them. The push
    settings screen then reads and saves this package's preferences row (each category switch is that
    category's push channel; quiet hours and previews are the row's own columns).
 
