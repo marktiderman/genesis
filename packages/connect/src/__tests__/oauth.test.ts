@@ -5,6 +5,7 @@ import {
   clearAccessTokenCache,
   ConnectError,
   createConnector,
+  isConnectError,
   isSafeReturnOrigin,
   type ConnectedAccount,
   type ConnectLogEvent,
@@ -526,14 +527,17 @@ describe("one pinned callback origin for many addresses", () => {
   });
 
   it("goes back to the callback's own origin when the state's origin is not safe", async () => {
-    // Signed by this connector, so only reachable if the app itself started on an http address.
+    // Signed by this connector, so only reachable if the app itself started on a non-default port.
     const t = setup(pinned);
     const { location } = await roundTrip(t, {
-      startUrl: "http://team.example.com/api/connect/google/start",
+      startUrl: "https://team.example.com:8443/api/connect/google/start",
       callbackOrigin: "https://app.example.com",
       cookie: (pair) => pair,
     });
     expect(location.origin).toBe("https://app.example.com");
+    expect(
+      isSafeReturnOrigin("https://team.example.com:8443", "example.com"),
+    ).toBe(false);
   });
 
   it("checks its config at boot", () => {
@@ -551,6 +555,12 @@ describe("one pinned callback origin for many addresses", () => {
       { cookiePath: "/elsewhere" },
       { cookiePath: "/api; Domain=evil.example" },
       { stateTtlSeconds: 10 },
+      { cookiePath: "/api/connect/goo" },
+      { sharedDomain: "myapp.ngrok-free.app".replace("myapp.", "") },
+      {
+        sharedDomain: "example.com",
+        isPublicSuffix: (d: string) => d === "example.com",
+      },
     ];
     for (const overrides of bad)
       expect(() => setup(overrides)).toThrow(ConnectError);
@@ -789,5 +799,260 @@ describe("another provider as a plain object", () => {
     );
     expect(call.body.get("client_secret")).toBeNull();
     expect(t.stored[0]!.aad).toBe("acme-grant:grant-1");
+  });
+});
+
+describe("review follow-ups", () => {
+  it("accepts a parent-directory cookiePath (RFC 6265 path-match)", () => {
+    expect(() => setup({ cookiePath: "/api/connect" })).not.toThrow();
+    expect(() => setup({ cookiePath: "/api/connect/" })).not.toThrow();
+    expect(() =>
+      setup({ cookiePath: "/api/connect/google/callback" }),
+    ).not.toThrow();
+  });
+
+  it("sets Secure on every host but localhost, and refuses an http start elsewhere", async () => {
+    const t = setup();
+    const local = await t.connector.start(
+      new Request("http://localhost:3000/start"),
+      { subject: "u", returnTo: "/" },
+    );
+    expect(local.setCookie).not.toContain("Secure");
+    await expect(
+      t.connector.start(new Request("http://app.example.com/start"), {
+        subject: "u",
+        returnTo: "/",
+      }),
+    ).rejects.toMatchObject({ code: "config" });
+  });
+
+  it("finishes when a host-only and a domain cookie arrive together, and clears both", async () => {
+    const t = setup({
+      redirectOrigin: "https://app.example.com",
+      sharedDomain: "example.com",
+    });
+    const stale = await t.connector.start(
+      new Request("https://app.example.com/start"),
+      { subject: "u", returnTo: "/" },
+    );
+    const { result, response } = await roundTrip(t, {
+      startUrl: "https://team.example.com/api/connect/google/start",
+      callbackOrigin: "https://app.example.com",
+      cookie: (pair) => `${cookiePair(stale.setCookie)}; ${pair}`,
+    });
+    expect(result).toBe("connected");
+    const cleared = response.headers.getSetCookie();
+    expect(cleared).toHaveLength(2);
+    expect(cleared.every((c) => c.includes("Max-Age=0"))).toBe(true);
+    expect(
+      cleared.filter((c) => c.includes("Domain=example.com")),
+    ).toHaveLength(1);
+  });
+
+  it("matches Google's shorthand scopes against the full names it grants", async () => {
+    const t = setup({}, () =>
+      tokenOk({
+        scope: `openid https://www.googleapis.com/auth/userinfo.email ${GOOGLE_SCOPES.driveFile}`,
+      }),
+    );
+    const { result } = await roundTrip(t, {
+      scopes: [
+        GOOGLE_SCOPES.openid,
+        GOOGLE_SCOPES.email,
+        GOOGLE_SCOPES.driveFile,
+      ],
+    });
+    expect(result).toBe("connected");
+    const missing = setup({}, () =>
+      tokenOk({ scope: `openid ${GOOGLE_SCOPES.driveFile}` }),
+    );
+    expect(
+      (
+        await roundTrip(missing, {
+          scopes: [GOOGLE_SCOPES.profile, GOOGLE_SCOPES.driveFile],
+        })
+      ).result,
+    ).toBe("scope");
+  });
+
+  it("rejects a scope holding the provider's separator", async () => {
+    const provider: OAuthProvider = {
+      ...googleProvider,
+      id: "comma",
+      scopeSeparator: ",",
+    };
+    const t = setup({ provider, scopes: ["read"] });
+    await expect(
+      t.connector.start(new Request("https://app.example.com/s"), {
+        subject: "u",
+        returnTo: "/",
+        scopes: ["read,write"],
+      }),
+    ).rejects.toMatchObject({ code: "usage" });
+  });
+
+  async function connectedWith(
+    handler: (call: Call) => Response | Promise<Response>,
+  ) {
+    const t = setup({}, (call) =>
+      call.body.get("grant_type") === "authorization_code"
+        ? tokenOk()
+        : handler(call),
+    );
+    await roundTrip(t);
+    const account = t.stored[0]!;
+    t.http.calls.length = 0;
+    return { t, account };
+  }
+
+  it("never loses a rotated refresh token through accessToken", async () => {
+    let n = 0;
+    const { t, account } = await connectedWith(() =>
+      Response.json({
+        access_token: `a-${++n}`,
+        expires_in: 3600,
+        refresh_token: `1//rotated-${n}`,
+      }),
+    );
+    // No onRotate: a usage error carrying the new token, and the access token is cached.
+    const error = (await t.connector
+      .accessToken(account.sealedRefreshToken, account.aad)
+      .catch((e: unknown) => e)) as ConnectError;
+    expect(isConnectError(error)).toBe(true);
+    expect(error.code).toBe("usage");
+    expect(await t.secrets.open(error.sealedRefreshToken!, account.aad)).toBe(
+      "1//rotated-1",
+    );
+    expect(error.message).not.toContain("rotated-1");
+    // Cached under the old and the new refresh token: no second refresh.
+    expect(
+      await t.connector.accessToken(error.sealedRefreshToken!, account.aad, {
+        onRotate: () => {},
+      }),
+    ).toBe("a-1");
+    expect(t.http.calls).toHaveLength(1);
+
+    // onRotate throws: a failed error carrying the token, cached before it ran.
+    clearAccessTokenCache();
+    const failing = (await t.connector
+      .accessToken(account.sealedRefreshToken, account.aad, {
+        onRotate: () => {
+          throw new Error("db down");
+        },
+      })
+      .catch((e: unknown) => e)) as ConnectError;
+    expect(failing.code).toBe("failed");
+    expect(await t.secrets.open(failing.sealedRefreshToken!, account.aad)).toBe(
+      "1//rotated-2",
+    );
+    expect(
+      await t.connector.accessToken(account.sealedRefreshToken, account.aad, {
+        onRotate: () => {},
+      }),
+    ).toBe("a-2");
+    expect(t.http.calls).toHaveLength(2);
+
+    // onRotate given: it gets the token.
+    clearAccessTokenCache();
+    const onRotate = vi.fn();
+    expect(
+      await t.connector.accessToken(account.sealedRefreshToken, account.aad, {
+        onRotate,
+      }),
+    ).toBe("a-3");
+    expect(await t.secrets.open(onRotate.mock.calls[0]![0], account.aad)).toBe(
+      "1//rotated-3",
+    );
+  });
+
+  it("shares one refresh between concurrent cold calls", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const { t, account } = await connectedWith(async () => {
+      await gate;
+      return Response.json({ access_token: "shared", expires_in: 3600 });
+    });
+    const calls = Promise.all(
+      Array.from({ length: 5 }, () =>
+        t.connector.accessToken(account.sealedRefreshToken, account.aad),
+      ),
+    );
+    await new Promise((r) => setTimeout(r, 10));
+    release();
+    expect(await calls).toEqual(Array(5).fill("shared"));
+    expect(t.http.calls).toHaveLength(1);
+  });
+
+  it("maps a timeout and an abort to unavailable", async () => {
+    const { t, account } = await connectedWith(
+      (call) =>
+        new Promise<Response>((_, reject) => {
+          const signal = call.init.signal!;
+          if (signal.aborted) return reject(signal.reason);
+          signal.addEventListener("abort", () => reject(signal.reason), {
+            once: true,
+          });
+        }),
+    );
+    const timedOut = setup({ timeoutMs: 20, fetch: t.http.fetch });
+    const timeout = (await timedOut.connector
+      .refresh(account.sealedRefreshToken, account.aad)
+      .catch((e: unknown) => e)) as ConnectError;
+    expect(timeout.code).toBe("unavailable");
+    expect(timeout.message).toBe("The provider did not answer in time");
+    const controller = new AbortController();
+    const pending = t.connector
+      .refresh(account.sealedRefreshToken, account.aad, {
+        signal: controller.signal,
+      })
+      .catch((e: unknown) => e);
+    controller.abort();
+    const aborted = (await pending) as ConnectError;
+    expect(aborted.code).toBe("unavailable");
+    expect(aborted.message).toBe("The request was aborted");
+  });
+
+  it("keeps the timeout when AbortSignal.any is missing", async () => {
+    const original = (AbortSignal as unknown as { any?: unknown }).any;
+    (AbortSignal as unknown as { any?: unknown }).any = undefined;
+    try {
+      const { t, account } = await connectedWith(
+        (call) =>
+          new Promise<Response>((_, reject) => {
+            const signal = call.init.signal!;
+            if (signal.aborted) return reject(signal.reason);
+            signal.addEventListener("abort", () => reject(signal.reason), {
+              once: true,
+            });
+          }),
+      );
+      const timedOut = setup({ timeoutMs: 20, fetch: t.http.fetch });
+      const error = (await timedOut.connector
+        .refresh(account.sealedRefreshToken, account.aad, {
+          signal: new AbortController().signal,
+        })
+        .catch((e: unknown) => e)) as ConnectError;
+      expect(error.code).toBe("unavailable");
+      expect(error.message).toBe("The provider did not answer in time");
+    } finally {
+      (AbortSignal as unknown as { any?: unknown }).any = original;
+    }
+  });
+
+  it("brands ConnectError for checks across bundles", () => {
+    expect(isConnectError(new ConnectError("failed", "x"))).toBe(true);
+    const lookalike = Object.assign(new Error("x"), {
+      name: "ConnectError",
+      code: "revoked",
+    });
+    expect(isConnectError(lookalike)).toBe(true);
+    expect(
+      isConnectError(
+        Object.assign(new Error("x"), { name: "ConnectError", code: "nope" }),
+      ),
+    ).toBe(false);
+    expect(isConnectError({ name: "ConnectError", code: "failed" })).toBe(
+      false,
+    );
   });
 });

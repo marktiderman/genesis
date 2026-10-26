@@ -15,6 +15,7 @@ export {
   ConnectError,
   clearAccessTokenCache,
   createConnector,
+  isConnectError,
   isSafeReturnOrigin,
   type ConnectErrorCode,
   type ConnectLogEvent,

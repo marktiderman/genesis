@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import {
   createSecrets,
   deriveSecretKey,
+  isSecretError,
   openWithKey,
   parseKeyring,
   sealWithKey,
   SecretError,
   secretKeyBytes,
+  type KeyringInput,
 } from "../secrets";
 
 const k1 = Buffer.from("1".repeat(32)).toString("base64");
@@ -275,5 +277,61 @@ describe("the single-key v1 helpers", () => {
     expect(() => secretKeyBytes(new Uint8Array(16))).toThrow(
       "must be 32 bytes",
     );
+  });
+});
+
+describe("review follow-ups", () => {
+  it("derives v2 keys apart from v1: a v2 ciphertext passed off as v1 does not open", async () => {
+    const secrets = createSecrets(k1, { purpose: "p" });
+    const sealed = await secrets.seal("x", "row");
+    const [, kid, iv, body] = sealed.split(".");
+    // As v1, with the aad v2 binds, under the same key and purpose.
+    const forged = `v1.${iv}.${body}`;
+    expect((await rejection(secrets.open(forged, `v2.${kid}.row`))).code).toBe(
+      "decrypt",
+    );
+    expect(
+      (
+        await rejection(
+          openWithKey(await deriveSecretKey(k1, "p"), forged, `v2.${kid}.row`),
+        )
+      ).code,
+    ).toBe("decrypt");
+    // v1 stays byte-compatible: what sealWithKey sealed still opens.
+    const legacy = await sealWithKey(
+      await deriveSecretKey(k1, "p"),
+      "y",
+      "row",
+    );
+    expect(await secrets.open(legacy, "row")).toBe("y");
+  });
+
+  it("never quotes key ids in keyring errors", () => {
+    for (const input of <KeyringInput[]>[
+      { active: "secret-kid", keys: { "secret-kid": "c2hvcnQ=" } },
+      { active: "missing-kid", keys: { k1 } },
+    ]) {
+      let message = "";
+      try {
+        parseKeyring(input);
+      } catch (error) {
+        message = (error as Error).message;
+      }
+      expect(message).toMatch(/keyring/);
+      expect(message).not.toMatch(/secret-kid|missing-kid/);
+    }
+  });
+
+  it("brands SecretError for checks across bundles", async () => {
+    const error = await rejection(
+      createSecrets(k1, { purpose: "p" }).open("bad", "row"),
+    );
+    expect(isSecretError(error)).toBe(true);
+    expect(
+      isSecretError(
+        Object.assign(new Error("x"), { name: "SecretError", code: "decrypt" }),
+      ),
+    ).toBe(true);
+    expect(isSecretError(new Error("x"))).toBe(false);
   });
 });

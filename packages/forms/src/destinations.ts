@@ -118,6 +118,7 @@ export { deriveSecretKey, openSecret, sealSecret, secretKeyBytes, type DeriveSec
 // The keyring with rotation (v2 secrets that name their key; v1 still opens), from genesis-connect.
 export {
   createSecrets,
+  isSecretError,
   parseKeyring,
   SecretError,
   type Keyring,

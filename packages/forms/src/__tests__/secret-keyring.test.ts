@@ -3,6 +3,7 @@ import {
   createSecrets,
   DeliveryError,
   deriveSecretKey,
+  isSecretError,
   openSecret,
   parseKeyring,
   sealSecret,
@@ -40,5 +41,13 @@ describe("destination secrets move onto a keyring", () => {
     expect(error).toBeInstanceOf(DeliveryError);
     expect(error).not.toBeInstanceOf(SecretError);
     expect((error as DeliveryError).retryable).toBe(false);
+  });
+
+  it("isSecretError recognises a keyring error, whichever copy threw it", async () => {
+    const error = await createSecrets(k1, { purpose: "p" })
+      .open("bad", "row")
+      .catch((e: unknown) => e);
+    expect(isSecretError(error)).toBe(true);
+    expect(isSecretError(new DeliveryError("x"))).toBe(false);
   });
 });

@@ -45,6 +45,27 @@ export class SecretError extends Error {
   }
 }
 
+const SECRET_ERROR_CODES: readonly string[] = [
+  "key",
+  "format",
+  "unknown-key",
+  "decrypt",
+  "usage",
+];
+
+/**
+ * Whether `error` is a `SecretError`, by its name and code rather than
+ * `instanceof`, so it also matches a copy bundled into another package
+ * (genesis-forms bundles one).
+ */
+export function isSecretError(error: unknown): error is SecretError {
+  return (
+    error instanceof Error &&
+    error.name === "SecretError" &&
+    SECRET_ERROR_CODES.includes((error as { code?: unknown }).code as string)
+  );
+}
+
 // Keys ---------------------------------------------------------------------------------------------
 
 /**
@@ -255,27 +276,29 @@ export function parseKeyring(value: string | KeyringInput | Keyring): Keyring {
   if (entries.length === 0)
     throw new SecretError("key", "The keyring has no keys");
   const out = new Map<string, Uint8Array<ArrayBuffer>>();
-  for (const [id, key] of entries) {
+  // Errors name a key by its position, never its id or its value.
+  for (const [index, [id, key]] of entries.entries()) {
+    const which = `A key in the keyring (#${index + 1})`;
     if (!KEY_ID.test(id))
       throw new SecretError(
         "key",
-        "A keyring key id is malformed (letters, digits, _ and -, at most 32)",
+        `${which} has a malformed id (letters, digits, _ and -, at most 32)`,
       );
     if (typeof key !== "string" && !(key instanceof Uint8Array))
-      throw new SecretError("key", `Keyring key ${id} is not a base64 string`);
+      throw new SecretError("key", `${which} is not a base64 string`);
     try {
       out.set(id, secretKeyBytes(key));
     } catch (error) {
       throw new SecretError(
         "key",
-        `Keyring key ${id}: ${(error as Error).message}`,
+        `${which}: ${(error as Error).message.replace(/^The encryption key /, "")}`,
       );
     }
   }
   if (!out.has(active))
     throw new SecretError(
       "key",
-      `The keyring's active key ${active} is not among its keys`,
+      "The keyring's active key id is not among its keys",
     );
   return { active, keys: out };
 }
@@ -351,6 +374,13 @@ function parseSealed(sealed: unknown): ParsedSealed | null {
 const v2Aad = (keyId: string, aad: string) => `v2.${keyId}.${aad}`;
 
 /**
+ * The HKDF info for `v2.` keys: distinct from the bare purpose that `v1.`
+ * (single-key) secrets use, so the same key and purpose never seal both
+ * formats under one AES key.
+ */
+const v2Info = (purpose: string) => `genesis-connect/v2:${purpose}`;
+
+/**
  * Seals and opens secrets of one purpose with a keyring (see `parseKeyring`
  * for what it takes). Derived keys are cached on the returned object.
  */
@@ -365,17 +395,25 @@ export function createSecrets(
   const legacyKeyId = options.legacyKeyId ?? "k1";
   const derived = new Map<string, Promise<WebCryptoKey>>();
 
-  const keyFor = (keyId: string): Promise<WebCryptoKey> => {
+  const keyFor = (
+    keyId: string,
+    version: "v1" | "v2",
+  ): Promise<WebCryptoKey> => {
     const bytes = ring.keys.get(keyId);
     if (!bytes)
       throw new SecretError(
         "unknown-key",
-        `The stored secret was sealed with key ${keyId}, which the keyring no longer has`,
+        "The stored secret was sealed with a key the keyring no longer has",
       );
-    let key = derived.get(keyId);
+    const cacheKey = `${version}:${keyId}`;
+    let key = derived.get(cacheKey);
     if (!key) {
-      key = deriveSecretKey(bytes, purpose, { salt });
-      derived.set(keyId, key);
+      key = deriveSecretKey(
+        bytes,
+        version === "v1" ? purpose : v2Info(purpose),
+        { salt },
+      );
+      derived.set(cacheKey, key);
     }
     return key;
   };
@@ -388,7 +426,7 @@ export function createSecrets(
       if (typeof plaintext !== "string")
         throw new SecretError("usage", "Only text can be sealed");
       const { iv, body } = await encrypt(
-        await keyFor(ring.active),
+        await keyFor(ring.active, "v2"),
         plaintext,
         v2Aad(ring.active, aad),
       );
@@ -403,10 +441,15 @@ export function createSecrets(
           "The stored secret is not in a known format",
         );
       if (parsed.version === "v1")
-        return decrypt(await keyFor(legacyKeyId), parsed.iv, parsed.body, aad);
+        return decrypt(
+          await keyFor(legacyKeyId, "v1"),
+          parsed.iv,
+          parsed.body,
+          aad,
+        );
       const keyId = parsed.keyId!;
       return decrypt(
-        await keyFor(keyId),
+        await keyFor(keyId, "v2"),
         parsed.iv,
         parsed.body,
         v2Aad(keyId, aad),

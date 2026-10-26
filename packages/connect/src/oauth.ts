@@ -84,12 +84,19 @@ export class ConnectError extends Error {
   readonly retryable: boolean;
   readonly status: number | undefined;
   readonly retryAfterSeconds: number | undefined;
+  /**
+   * Set when the provider rotated the refresh token but it could not be
+   * handed over (no `onRotate`, or `onRotate` threw): the new one, sealed to
+   * the same row. Store it in place of the old one, or the grant is lost.
+   */
+  readonly sealedRefreshToken: string | undefined;
   constructor(
     code: ConnectErrorCode,
     message: string,
     options: {
       status?: number | undefined;
       retryAfterSeconds?: number | undefined;
+      sealedRefreshToken?: string | undefined;
     } = {},
   ) {
     super(message);
@@ -97,7 +104,28 @@ export class ConnectError extends Error {
     this.retryable = code === "unavailable";
     this.status = options.status;
     this.retryAfterSeconds = options.retryAfterSeconds;
+    this.sealedRefreshToken = options.sealedRefreshToken;
   }
+}
+
+const CONNECT_ERROR_CODES: readonly string[] = [
+  "config",
+  "usage",
+  "revoked",
+  "unavailable",
+  "failed",
+];
+
+/**
+ * Whether `error` is a `ConnectError`, by its name and code rather than
+ * `instanceof`, so it also matches a copy from another bundle.
+ */
+export function isConnectError(error: unknown): error is ConnectError {
+  return (
+    error instanceof Error &&
+    error.name === "ConnectError" &&
+    CONNECT_ERROR_CODES.includes((error as { code?: unknown }).code as string)
+  );
 }
 
 /** Small app data carried in the signed state. Signed, not encrypted: never put a secret in it. */
@@ -107,7 +135,11 @@ export type StateData = Readonly<
 
 /** What `start` is told about this attempt. */
 export interface StartOptions<D extends StateData = StateData> {
-  /** Who is connecting: the app's verified user id. Handed back to `store`. */
+  /**
+   * Who is connecting: the app's verified user id. Handed back to `store`.
+   * The state is signed, not encrypted, so this is readable in the sign-in
+   * URL (and by the provider): prefer an opaque id over an email address.
+   */
   subject: string;
   /** What the connection is for, app-defined (`"sheets"`, `"calendar"`). At most 64 characters. */
   intent?: string | undefined;
@@ -222,7 +254,10 @@ export interface ConnectorConfig<
   /** Fail with `failed` when the provider sends no refresh token. Default true. */
   requireRefreshToken?: boolean | undefined;
   /**
-   * Keeps the new account: the app's row, under `account.id`. May return
+   * Keeps the new account: the app's row, under `account.id`, for
+   * `account.subject` (the user who started). Use that, never a session read
+   * from the callback's request: the callback is a top-level navigation the
+   * provider sends, and the session there may be another one. May return
    * query parameters for the way back. Throwing ends the attempt as `failed`.
    */
   store: (
@@ -231,6 +266,12 @@ export interface ConnectorConfig<
   ) => StoreResult | Promise<StoreResult>;
   /** Safe log lines (see `ConnectLogEvent`). */
   log?: ((event: ConnectLogEvent) => void) | undefined;
+  /**
+   * Whether a domain is a public suffix (where a cookie would be dropped), for
+   * the `sharedDomain` check: pass a Public Suffix List lookup to cover every
+   * suffix. The built-in list only knows common hosting suffixes.
+   */
+  isPublicSuffix?: ((domain: string) => boolean) | undefined;
   now?: (() => number) | undefined;
   randomId?: (() => string) | undefined;
 }
@@ -245,8 +286,16 @@ export interface RefreshedToken {
 }
 
 export interface TokenCallOptions {
+  /** Aborts the request. Concurrent `accessToken` calls share one refresh: the first caller's signal aborts it. */
   signal?: AbortSignal | undefined;
-  /** Called with the new sealed refresh token when the provider rotates it. */
+  /**
+   * Stores the new sealed refresh token when the provider rotates it (some
+   * do on every refresh; Google does not). `accessToken` needs it for such a
+   * provider: a rotation without it throws a `usage` `ConnectError` carrying
+   * the new token on `sealedRefreshToken`, so it is never silently lost. If
+   * it throws, a `failed` `ConnectError` carries the token the same way. The
+   * access token is cached before it runs.
+   */
   onRotate?: ((sealedRefreshToken: string) => void | Promise<void>) | undefined;
 }
 
@@ -258,13 +307,20 @@ export interface Connector<D extends StateData = StateData> {
   start(request: Request, options: StartOptions<D>): Promise<StartResult>;
   /** Finishes one: always a 303 back to the app, with the result and a cleared cookie. */
   callback(request: Request): Promise<Response>;
-  /** A fresh access token for a sealed refresh token (cached until a minute before it expires). */
+  /**
+   * A fresh access token for a sealed refresh token, cached until a minute
+   * before it expires; concurrent calls for one grant share one refresh.
+   * Needs `onRotate` for providers that rotate refresh tokens.
+   */
   accessToken(
     sealedRefreshToken: string,
     aad: string,
     options?: TokenCallOptions,
   ): Promise<string>;
-  /** Trades a sealed refresh token for an access token, uncached. */
+  /**
+   * Trades a sealed refresh token for an access token, uncached. A rotated
+   * refresh token comes back sealed on the result (and goes to `onRotate`).
+   */
   refresh(
     sealedRefreshToken: string,
     aad: string,
@@ -300,8 +356,16 @@ const PUBLIC_SUFFIXES = new Set([
   "firebaseapp.com",
   "azurewebsites.net",
   "appspot.com",
+  "ngrok-free.app",
+  "ngrok.io",
+  "cloudfront.net",
+  "up.railway.app",
+  "deno.dev",
   "co.uk",
   "com.au",
+  "co.jp",
+  "com.br",
+  "co.in",
 ]);
 
 const COOKIE_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
@@ -378,6 +442,7 @@ export function isSafeReturnOrigin(origin: string, domain: string): boolean {
     const url = new URL(origin);
     return (
       url.protocol === "https:" &&
+      url.port === "" &&
       url.origin === origin &&
       onDomain(url.hostname, domain)
     );
@@ -386,13 +451,20 @@ export function isSafeReturnOrigin(origin: string, domain: string): boolean {
   }
 }
 
-function scopeList(scopes: readonly string[] | undefined): string[] {
+function scopeList(
+  scopes: readonly string[] | undefined,
+  separator: string,
+): string[] {
   const list = [...new Set(scopes ?? [])];
   for (const scope of list) {
-    if (typeof scope !== "string" || !SCOPE_TOKEN.test(scope))
+    if (
+      typeof scope !== "string" ||
+      !SCOPE_TOKEN.test(scope) ||
+      scope.includes(separator)
+    )
       throw new ConnectError(
         "usage",
-        "A scope is malformed (no spaces or quotes)",
+        "A scope is malformed (no spaces, quotes or the provider's separator)",
       );
   }
   return list;
@@ -409,10 +481,7 @@ async function timedFetch(
   signal?: AbortSignal,
 ): Promise<Response> {
   const timeout = AbortSignal.timeout(deps.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-  const any = (
-    AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }
-  ).any;
-  const combined = signal ? (any ? any([timeout, signal]) : signal) : timeout;
+  const combined = signal ? anySignal([timeout, signal]) : timeout;
   try {
     // Never follow a redirect: the body holds a code, a token or the client secret.
     return await (deps.fetch ?? fetch)(url, {
@@ -431,6 +500,25 @@ async function timedFetch(
       throw new ConnectError("unavailable", "The request was aborted");
     throw new ConnectError("unavailable", "The provider could not be reached");
   }
+}
+
+/** `AbortSignal.any`, combined by hand where the runtime lacks it, so the timeout always holds. */
+function anySignal(signals: AbortSignal[]): AbortSignal {
+  const any = (
+    AbortSignal as unknown as { any?: (signals: AbortSignal[]) => AbortSignal }
+  ).any;
+  if (any) return any(signals);
+  const controller = new AbortController();
+  for (const signal of signals) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener("abort", () => controller.abort(signal.reason), {
+      once: true,
+    });
+  }
+  return controller.signal;
 }
 
 function discard(response: Response): void {
@@ -471,6 +559,8 @@ const isRetryableStatus = (status: number) =>
 // One per process, shared by connectors: keyed by a digest of the provider, the
 // client and the refresh token, so a hit is only ever for the same grant.
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+// Refreshes in flight, by the same key: concurrent cold calls share one.
+const inFlight = new Map<string, Promise<Refreshed>>();
 const TOKEN_CACHE_LIMIT = 1000;
 
 /** Forgets every cached access token (tests, or after a key or client change). */
@@ -479,6 +569,11 @@ export function clearAccessTokenCache(): void {
 }
 
 // The connector ------------------------------------------------------------------------------------
+
+/** A refresh as `refreshWith` does it: the result, plus the rotated token in plain text to cache under. */
+interface Refreshed extends RefreshedToken {
+  rotatedPlain?: string | undefined;
+}
 
 interface SignedState {
   subject: string;
@@ -529,7 +624,11 @@ export function createConnector<D extends StateData = StateData>(
   const sharedDomain =
     config.sharedDomain?.trim().toLowerCase().replace(/^\./, "") || undefined;
   if (sharedDomain) {
-    if (!HOSTNAME.test(sharedDomain) || PUBLIC_SUFFIXES.has(sharedDomain)) {
+    if (
+      !HOSTNAME.test(sharedDomain) ||
+      PUBLIC_SUFFIXES.has(sharedDomain) ||
+      config.isPublicSuffix?.(sharedDomain)
+    ) {
       throw new ConnectError(
         "config",
         "sharedDomain must be a registrable domain such as example.com, not a public suffix",
@@ -557,7 +656,14 @@ export function createConnector<D extends StateData = StateData>(
   if (/[;,]/.test(cookiePath)) {
     throw new ConnectError("config", "cookiePath can't hold ; or ,");
   }
-  if (!callbackPath.startsWith(cookiePath))
+  // RFC 6265 path-match: the same path, or a parent directory of it.
+  const callbackPathOnly = callbackPath.replace(/[?#].*$/, "");
+  if (
+    cookiePath !== callbackPathOnly &&
+    !callbackPathOnly.startsWith(
+      cookiePath.endsWith("/") ? cookiePath : `${cookiePath}/`,
+    )
+  )
     throw new ConnectError("config", "cookiePath must cover callbackPath");
   const ttl = Math.floor(config.stateTtlSeconds ?? 600);
   if (!(ttl >= 60 && ttl <= 3600))
@@ -569,7 +675,12 @@ export function createConnector<D extends StateData = StateData>(
   const fallbackPath = checkPath(config.fallbackPath ?? "/", "fallbackPath");
   const aadFor = config.aad ?? ((id: string) => `${provider.id}-grant:${id}`);
   const separator = provider.scopeSeparator ?? " ";
-  const defaultScopes = scopeList(config.scopes ?? provider.defaultScopes);
+  const defaultScopes = scopeList(
+    config.scopes ?? provider.defaultScopes,
+    separator,
+  );
+  const aliases = provider.scopeAliases ?? {};
+  const normalScope = (scope: string) => aliases[scope] ?? scope;
   const now = () => config.now?.() ?? Date.now();
   const log = (event: ConnectLogEvent) => {
     try {
@@ -679,9 +790,17 @@ export function createConnector<D extends StateData = StateData>(
       ? sharedDomain
       : undefined;
 
-  function cookie(request: Request, value: string, maxAge: number): string {
-    const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
-    const domain = cookieDomain(request);
+  /** Secure everywhere but a local development host. */
+  const isLocalRequest = (request: Request) =>
+    isLocal(new URL(request.url).hostname);
+
+  function cookie(
+    request: Request,
+    value: string,
+    maxAge: number,
+    domain: string | null = cookieDomain(request) ?? null,
+  ): string {
+    const secure = isLocalRequest(request) ? "" : "; Secure";
     return `${cookieName}=${value}; Path=${cookiePath}; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}${domain ? `; Domain=${domain}` : ""}`;
   }
 
@@ -726,15 +845,16 @@ export function createConnector<D extends StateData = StateData>(
     }
     url.searchParams.set(resultParam, result);
     log({ step: "callback", result, ...(detail ? { detail } : {}) });
-    return new Response(null, {
-      status: 303,
-      headers: {
-        location: url.toString(),
-        "set-cookie": cookie(request, "", 0),
-        "cache-control": "no-store",
-        "referrer-policy": "no-referrer",
-      },
+    const headers = new Headers({
+      location: url.toString(),
+      "cache-control": "no-store",
+      "referrer-policy": "no-referrer",
     });
+    // Clear both variants: a host-only cookie and a shared-domain one may both be there.
+    headers.append("set-cookie", cookie(request, "", 0, null));
+    const domain = cookieDomain(request);
+    if (domain) headers.append("set-cookie", cookie(request, "", 0, domain));
+    return new Response(null, { status: 303, headers });
   }
 
   function clientAuth(
@@ -772,7 +892,10 @@ export function createConnector<D extends StateData = StateData>(
   const granted = (body: Record<string, unknown>, asked: readonly string[]) => {
     const scope =
       typeof body["scope"] === "string" ? body["scope"] : asked.join(separator);
-    return { scope, scopes: scope.split(separator).filter(Boolean) };
+    return {
+      scope,
+      scopes: scope.split(separator).filter(Boolean).map(normalScope),
+    };
   };
 
   const expiresIn = (body: Record<string, unknown>) => {
@@ -787,11 +910,11 @@ export function createConnector<D extends StateData = StateData>(
   async function refreshWith(
     refreshToken: string,
     aad: string,
-    options: TokenCallOptions,
-  ): Promise<RefreshedToken> {
+    signal: AbortSignal | undefined,
+  ): Promise<Refreshed> {
     const response = await tokenRequest(
       { grant_type: "refresh_token", refresh_token: refreshToken },
-      options.signal,
+      signal,
     );
     if (!response.ok) {
       const body = await jsonBody(response);
@@ -833,13 +956,73 @@ export function createConnector<D extends StateData = StateData>(
     const sealedRefreshToken = rotated
       ? await config.secrets.seal(rotated, aad)
       : undefined;
-    if (sealedRefreshToken) await options.onRotate?.(sealedRefreshToken);
     return {
       accessToken,
       expiresIn: expiresIn(body),
       scope: granted(body, []).scope,
-      ...(sealedRefreshToken ? { sealedRefreshToken } : {}),
+      ...(sealedRefreshToken
+        ? { sealedRefreshToken, rotatedPlain: rotated }
+        : {}),
     };
+  }
+
+  /** Hands a rotated refresh token to `onRotate`; never lets it be lost. */
+  async function handOver(
+    fresh: Refreshed,
+    options: TokenCallOptions,
+    required: boolean,
+  ): Promise<void> {
+    const sealedRefreshToken = fresh.sealedRefreshToken;
+    if (!sealedRefreshToken) return;
+    if (!options.onRotate) {
+      if (!required) return;
+      log({
+        step: "refresh",
+        result: "usage",
+        detail: "rotated without onRotate",
+      });
+      throw new ConnectError(
+        "usage",
+        `The ${provider.id} refresh token was rotated and no onRotate was given to store it: store this error's sealedRefreshToken`,
+        { sealedRefreshToken },
+      );
+    }
+    try {
+      await options.onRotate(sealedRefreshToken);
+    } catch {
+      log({ step: "refresh", result: "failed", detail: "onRotate threw" });
+      throw new ConnectError(
+        "failed",
+        `Storing the rotated ${provider.id} refresh token failed: store this error's sealedRefreshToken`,
+        { sealedRefreshToken },
+      );
+    }
+  }
+
+  const publicResult = (fresh: Refreshed): RefreshedToken => ({
+    accessToken: fresh.accessToken,
+    expiresIn: fresh.expiresIn,
+    scope: fresh.scope,
+    ...(fresh.sealedRefreshToken
+      ? { sealedRefreshToken: fresh.sealedRefreshToken }
+      : {}),
+  });
+
+  async function cacheToken(
+    refreshToken: string,
+    fresh: Refreshed,
+    at: number,
+  ) {
+    const entry = {
+      token: fresh.accessToken,
+      expiresAt: at + fresh.expiresIn * 1000,
+    };
+    for (const plain of [refreshToken, fresh.rotatedPlain]) {
+      if (!plain) continue;
+      if (tokenCache.size >= TOKEN_CACHE_LIMIT)
+        tokenCache.delete(tokenCache.keys().next().value!);
+      tokenCache.set(await cacheKey(plain), entry);
+    }
   }
 
   return {
@@ -858,6 +1041,16 @@ export function createConnector<D extends StateData = StateData>(
       if (typeof intent !== "string" || intent.length > 64)
         throw new ConnectError("usage", "intent must be at most 64 characters");
       const returnTo = checkPath(options.returnTo, "returnTo");
+      // The cookie is always Secure off localhost, so http elsewhere could never finish.
+      if (
+        new URL(request.url).protocol !== "https:" &&
+        !isLocalRequest(request)
+      ) {
+        throw new ConnectError(
+          "config",
+          "start needs https (http only on localhost); behind a TLS-ending proxy, pass a Request with the public https URL",
+        );
+      }
       // The PKCE cookie must reach the pinned callback: this origin is it, or shares its domain.
       if (
         redirectOrigin &&
@@ -869,7 +1062,9 @@ export function createConnector<D extends StateData = StateData>(
           "This origin can't finish on the pinned redirectOrigin: it is not on sharedDomain",
         );
       }
-      const scopes = options.scopes ? scopeList(options.scopes) : defaultScopes;
+      const scopes = options.scopes
+        ? scopeList(options.scopes, separator)
+        : defaultScopes;
       if (scopes.length === 0)
         throw new ConnectError(
           "usage",
@@ -988,7 +1183,7 @@ export function createConnector<D extends StateData = StateData>(
       }
       const { scope, scopes } = granted(body, state.scopes);
       // The person can untick scopes on the consent screen; the app needs every one it asked for.
-      if (!state.scopes.every((s) => scopes.includes(s)))
+      if (!state.scopes.every((s) => scopes.includes(normalScope(s))))
         return back(request, state, "scope");
       if (
         (config.requireRefreshToken ?? true) &&
@@ -1038,22 +1233,30 @@ export function createConnector<D extends StateData = StateData>(
 
     async refresh(sealedRefreshToken, aad, options = {}) {
       const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
-      return refreshWith(refreshToken, aad, options);
+      const fresh = await refreshWith(refreshToken, aad, options.signal);
+      await handOver(fresh, options, false);
+      return publicResult(fresh);
     },
 
     async accessToken(sealedRefreshToken, aad, options = {}) {
       const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
       const key = await cacheKey(refreshToken);
-      const at = now();
       const hit = tokenCache.get(key);
-      if (hit && hit.expiresAt - 60_000 > at) return hit.token;
-      const fresh = await refreshWith(refreshToken, aad, options);
-      if (tokenCache.size >= TOKEN_CACHE_LIMIT)
-        tokenCache.delete(tokenCache.keys().next().value!);
-      tokenCache.set(key, {
-        token: fresh.accessToken,
-        expiresAt: at + fresh.expiresIn * 1000,
-      });
+      if (hit && hit.expiresAt - 60_000 > now()) return hit.token;
+      let flight = inFlight.get(key);
+      if (!flight) {
+        const at = now();
+        flight = refreshWith(refreshToken, aad, options.signal)
+          .then(async (fresh) => {
+            // Cached before onRotate runs, so a failing store never costs a refresh.
+            await cacheToken(refreshToken, fresh, at);
+            return fresh;
+          })
+          .finally(() => inFlight.delete(key));
+        inFlight.set(key, flight);
+      }
+      const fresh = await flight;
+      await handOver(fresh, options, true);
       return fresh.accessToken;
     },
 
@@ -1078,11 +1281,12 @@ export function createConnector<D extends StateData = StateData>(
           options.signal,
         );
         // RFC 7009: 200 for a revoked token and for one that was already invalid; Google says invalid_token.
-        const gone =
-          response.ok ||
-          (response.status === 400 &&
-            errorCode(await jsonBody(response)) === "invalid_token");
-        if (response.ok) discard(response);
+        let gone = response.ok;
+        if (!gone && response.status === 400) {
+          gone = errorCode(await jsonBody(response)) === "invalid_token";
+        } else {
+          discard(response);
+        }
         log({
           step: "revoke",
           result: gone ? "revoked" : "failed",

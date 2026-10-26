@@ -28,6 +28,13 @@ export interface OAuthProvider {
   readonly revokeWithClientAuth?: boolean | undefined;
   /** How the provider joins scopes. Default a space (RFC 6749). */
   readonly scopeSeparator?: string | undefined;
+  /**
+   * Shorthand scopes the provider answers with their full name, so the
+   * granted-scope check compares like with like: Google grants `email` as
+   * `https://www.googleapis.com/auth/userinfo.email`. Both what is asked
+   * for and what is granted are mapped through it.
+   */
+  readonly scopeAliases?: Readonly<Record<string, string>> | undefined;
 }
 
 /** Google's OAuth 2.0 endpoints, asking for offline access (a refresh token) every time. */
@@ -45,10 +52,21 @@ export const googleProvider: OAuthProvider = {
     include_granted_scopes: "false",
   },
   tokenAuth: "client_secret_post",
+  scopeAliases: {
+    email: "https://www.googleapis.com/auth/userinfo.email",
+    profile: "https://www.googleapis.com/auth/userinfo.profile",
+    openid: "openid",
+  },
 };
 
 /** Google scopes apps commonly connect with. Prefer the narrowest. */
 export const GOOGLE_SCOPES = {
+  /** OpenID Connect: an ID token naming the account. */
+  openid: "openid",
+  /** The account's email address (Google grants it as `…/auth/userinfo.email`). */
+  email: "email",
+  /** The account's name and picture (granted as `…/auth/userinfo.profile`). */
+  profile: "profile",
   /** Files the person picked or created through the app, and nothing else. */
   driveFile: "https://www.googleapis.com/auth/drive.file",
   /** Every spreadsheet the person can reach. Prefer `driveFile`. */

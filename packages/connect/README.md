@@ -34,6 +34,7 @@ export const google = createConnector({
   scopes: [GOOGLE_SCOPES.driveFile],
   store: async (account) => {
     // Your table: id, user, sealed refresh token, scope. Never the plaintext.
+    // The user is account.subject (from start), never a session read from the callback.
     await db.insert("google_grants", {
       id: account.id,
       user_id: account.subject,
@@ -99,8 +100,12 @@ if (secrets.needsRotation(row.sealed))
 - **A bare key is a keyring of one**, `k1`. That is how a single-key app moves on.
 - **Legacy `v1.` secrets** (genesis-forms' `sealSecret`) open with the key named by
   `legacyKeyId` (default `"k1"`), with the same purpose and salt; `reseal` turns them into `v2.`.
+- **`v2` keys are derived apart from `v1`** (HKDF info `genesis-connect/v2:<purpose>`), so one
+  key and purpose never seal both formats under the same AES key. `v1` is unchanged.
 - **Errors are `SecretError`s** with a `code` (`key`, `format`, `unknown-key`, `decrypt`,
-  `usage`) and a message that never holds a key, a plaintext or a ciphertext.
+  `usage`) and a message that never holds a key, a key id, a plaintext or a ciphertext. Check
+  them with `isSecretError(e)` rather than `instanceof`: it also matches the copy genesis-forms
+  bundles, and the ESM and CJS builds.
 
 ## The OAuth connector
 
@@ -114,18 +119,45 @@ if (secrets.needsRotation(row.sealed))
 | `refresh(sealed, aad, { onRotate })`                                      | Uncached; when the provider rotates the refresh token, the new one comes back sealed.                                                                                                                                                                                                                         |
 | `revoke(sealed, aad)`                                                     | Revokes at the provider and forgets the cached token. True when it is gone. Google ends every token of the person's grant to your client, so only revoke the last connection that uses it.                                                                                                                    |
 
-`accessToken`, `refresh` and `revoke` throw a `ConnectError` with a `code`: `revoked` (the
-grant is gone, `invalid_grant`: connect again), `unavailable` (retryable: 429, 5xx, a timeout),
-`failed`, or a `SecretError` when the sealed token doesn't open for that row.
+`accessToken`, `refresh` and `revoke` throw a `ConnectError` (check with `isConnectError(e)`)
+with a `code`: `revoked` (the grant is gone, `invalid_grant`: connect again), `unavailable`
+(retryable: 429, 5xx, a timeout, an abort), `failed`, or a `SecretError` when the sealed token
+doesn't open for that row.
+
+#### Providers that rotate refresh tokens
+
+Some providers send a new refresh token on every refresh (Google does not). The kit never drops
+one:
+
+- `accessToken(sealed, aad, { onRotate })` needs `onRotate` for such a provider. A rotation
+  without it throws a `usage` `ConnectError` whose `sealedRefreshToken` holds the new token;
+  store it in place of the old one.
+- The access token is cached (under the old and the new refresh token) before `onRotate` runs.
+  If `onRotate` throws, a `failed` `ConnectError` carries the new token the same way.
+- `refresh()` returns it as `sealedRefreshToken` (and calls `onRotate` when given).
+- Concurrent `accessToken` calls for one grant share one refresh, so a cold start never
+  rotates twice. The first caller's `signal` aborts the shared refresh.
+
+```ts
+const token = await connector.accessToken(row.refresh_token, aad, {
+  onRotate: (sealed) => db.update("grants", row.id, { refresh_token: sealed }),
+});
+```
 
 ### What it guarantees
 
 - **Only the browser that started can finish.** The state carries a nonce; the cookie
-  (HttpOnly, SameSite=Lax, Secure on https, scoped to the callback path) carries the same nonce
-  and the PKCE verifier. No cookie, or another attempt's, ends as `browser`.
+  (HttpOnly, SameSite=Lax, Secure everywhere but localhost, scoped to the callback path)
+  carries the same nonce and the PKCE verifier. No cookie, or another attempt's, ends as
+  `browser`. Both cookie variants (host-only and shared-domain) are cleared on the way back.
+- **https only**, except on `localhost`, `127.0.0.1` and `[::1]`: `start` on plain http
+  anywhere else throws `config`. Behind a proxy that ends TLS, `request.url` may read `http://`:
+  pass a `Request` built with the public https URL (from `X-Forwarded-Proto` and `Host`, if
+  your proxy sets them and you trust it).
 - **The state is signed and short-lived** (HMAC-SHA-256 with a key derived from
   `stateSecret`, 10 minutes by default). A forged, edited or old state ends as `expired`. It is
-  signed, not encrypted: `data` is for ids, never secrets.
+  signed, not encrypted: `data` is for ids, never secrets, and `subject` is readable in the
+  sign-in URL (and by the provider), so pass an opaque user id, not an email address.
 - **No secret in a URL or a log.** Token requests are POSTs that never follow a redirect
   (`redirect: "error"`) and time out after 10 seconds. `log` gets safe lines only: a step, a
   result and a reason such as `token endpoint answered 400 (invalid_grant)`.
@@ -146,10 +178,19 @@ createConnector({
 
 The cookie is scoped to `example.com`, the provider sends everyone to
 `https://app.example.com/api/connect/google/callback`, and the browser goes back to the address
-it started on, but only when that is exactly an https origin on `example.com`; anything else
+it started on, but only when that is exactly an https origin on `example.com` on the default
+port; anything else
 goes back to the callback's own origin. A start on an address the cookie can't carry to the
 pinned origin (a preview on `*.vercel.app`) throws a `config` error rather than failing later.
-A public suffix (`vercel.app`, `co.uk`) is refused as `sharedDomain`.
+A public suffix is refused as `sharedDomain`. The built-in list only knows common hosting
+suffixes (`vercel.app`, `netlify.app`, `pages.dev`, `workers.dev`, `ngrok-free.app`,
+`cloudfront.net`, `up.railway.app`, `co.uk`, `com.au`, …); pass `isPublicSuffix(domain)` (a
+Public Suffix List lookup) to cover every one.
+
+Google answers some short scopes with their full names (`email` is granted as
+`https://www.googleapis.com/auth/userinfo.email`); `googleProvider.scopeAliases` maps them so
+the granted-scope check compares like with like. A provider of your own can set
+`scopeAliases` too.
 
 ### Another provider
 
@@ -178,10 +219,11 @@ const acme: OAuthProvider = {
 | `scopes`                                       | `provider.defaultScopes`        | Scopes asked for when `start` names none.                                                   |
 | `redirectOrigin`, `sharedDomain`               |                                 | See above.                                                                                  |
 | `cookieName`                                   | `genesis_connect_<provider id>` |                                                                                             |
-| `cookiePath`                                   | `callbackPath`                  | Must cover `callbackPath`.                                                                  |
+| `cookiePath`                                   | `callbackPath`                  | `callbackPath` or a parent directory of it (RFC 6265 path-match).                           |
 | `stateTtlSeconds`                              | 600                             | 60 to 3600.                                                                                 |
 | `resultParam`                                  | `connect`                       | The query parameter the result comes back in.                                               |
 | `fallbackPath`                                 | `/`                             | Where `expired` goes when there is no state to read `returnTo` from.                        |
 | `aad(id)`                                      | `<provider id>-grant:<id>`      | The associated data a grant's refresh token is sealed to.                                   |
 | `requireRefreshToken`                          | true                            | Fail when the provider sends none.                                                          |
+| `isPublicSuffix(domain)`                       |                                 | A Public Suffix List lookup for the `sharedDomain` check.                                   |
 | `fetch`, `timeoutMs`, `now`, `randomId`, `log` |                                 | For tests and logging.                                                                      |
