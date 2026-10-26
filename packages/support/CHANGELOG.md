@@ -1,5 +1,12 @@
 # @marktiderman/genesis-support
 
+## 0.2.3
+
+### Patch Changes
+
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
 ## 0.2.2
 
 ### Patch Changes

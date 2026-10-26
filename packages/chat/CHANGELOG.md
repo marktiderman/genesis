@@ -1,5 +1,12 @@
 # @marktiderman/genesis-chat
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
 ## 0.3.0
 
 ### Minor Changes

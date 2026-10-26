@@ -1,5 +1,14 @@
 # @marktiderman/genesis-native
 
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [e35cabb]
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-core@1.11.0
+  - @marktiderman/genesis-features@0.5.0
+
 ## 0.4.2
 
 ### Patch Changes
