@@ -60,7 +60,7 @@ export type OpenOnWebResult =
 /** Only paths on the web app: one leading `/`, no `//`, no backslash or control characters. */
 function isAppPath(path: string): boolean {
   // eslint-disable-next-line no-control-regex
-  return path.startsWith("/") && !path.startsWith("//") && !/[\\\u0000- \u007f-\u009f]/.test(path);
+  return path.startsWith("/") && !path.startsWith("//") && !/[\\\u0000-\u0020\u007f-\u009f]/.test(path);
 }
 
 /**

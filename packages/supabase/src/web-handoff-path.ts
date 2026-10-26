@@ -7,8 +7,10 @@
 const BASE = "https://handoff.invalid";
 // A backslash (browsers read `/\host` as `//host`), whitespace and control characters (browsers
 // drop tabs and newlines from URLs, so `/\t/host` becomes `//host`).
-const UNSAFE = /[\\\u0000- \u007f-\u009f]/;
+// eslint-disable-next-line no-control-regex -- matching control characters is the point.
+const UNSAFE = /[\\\u0000-\u0020\u007f-\u009f]/;
 // After decoding, a space is ordinary text; the rest still is not.
+// eslint-disable-next-line no-control-regex -- as above.
 const UNSAFE_DECODED = /[\\\u0000-\u001f\u007f-\u009f]/;
 
 /**

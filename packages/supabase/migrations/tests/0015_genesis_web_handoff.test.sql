@@ -51,8 +51,10 @@ revoke execute on function public.genesis_web_handoff_issue(uuid, text, text, in
 -- Issue and redeem -------------------------------------------------------------------
 
 set local role service_role;
+-- (Through a subquery: BETWEEN would call the function twice.)
 select ok(
-  public.genesis_web_handoff_issue(pg_temp.person('a1'), pg_temp.digest(1), '/clients/1/forms') between now() + interval '59 seconds' and now() + interval '61 seconds',
+  (select e between now() + interval '59 seconds' and now() + interval '61 seconds'
+   from (select public.genesis_web_handoff_issue(pg_temp.person('a1'), pg_temp.digest(1), '/clients/1/forms') as e) issued),
   'a handoff expires in 60 seconds by default'
 );
 select results_eq(

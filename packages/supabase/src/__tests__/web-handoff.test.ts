@@ -71,7 +71,7 @@ function fakeAdmin(opts: { users?: Record<string, string | null>; bearer?: Recor
       }),
       admin: {
         getUserById: vi.fn(async (id: string) =>
-          id in users ? { data: { user: { id, email: users[id] } }, error: null } : { data: { user: null }, error: { message: "not found" } },
+          id in users ? { data: { user: { id, email: users[id] ?? null } }, error: null } : { data: { user: null }, error: { message: "not found" } },
         ),
         generateLink: vi.fn(async ({ email }: { type: "magiclink"; email: string }) => {
           generated.push(email);
