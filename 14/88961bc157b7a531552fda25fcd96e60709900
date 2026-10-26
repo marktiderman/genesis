@@ -1,0 +1,51 @@
+.changeset/source-rls-followup.md
+  s_f5a91deb5a46ce::t_e9adc7175201ae 1-5
+features.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 1710-1734
+  s_f5a91deb5a46ce::t_5de46e888e2973 1735
+packages/core/README.md
+  s_f5a91deb5a46ce::t_e9adc7175201ae 129-141,512-538
+packages/core/tsup.config.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 18
+packages/core/package.json
+  s_f5a91deb5a46ce::t_e9adc7175201ae 53-56
+.changeset/person-day.md
+  s_f5a91deb5a46ce::t_e9adc7175201ae 1-11
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 53,55-76
+packages/core/src/__tests__/dates.test.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 1-121
+AGENTS.md
+  s_f5a91deb5a46ce::t_e9adc7175201ae 16
+packages/core/src/provider/supabase-provider.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 206-210,221-227,499-525,819,947,949-950,982,984,986
+features.json
+  s_f5a91deb5a46ce::t_e9adc7175201ae 3930-3984
+  s_3daa86e3ae6031::t_798411d710aeac 3985-3986
+packages/core/src/dates.ts
+  s_f5a91deb5a46ce::t_e9adc7175201ae 1-204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1488961bc157b7a531552fda25fcd96e60709900",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
