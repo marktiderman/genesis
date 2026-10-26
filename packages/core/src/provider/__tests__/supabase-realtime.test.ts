@@ -286,6 +286,20 @@ describe("subscribe: events", () => {
     expect(late).toHaveLength(1);
   });
 
+  it("a channel closed and reopened on the same topic after your write hears a teammate's update", async () => {
+    const { p } = provider({
+      realtime: true,
+      resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+    });
+    const off = p.subscribe!("tasks", {}, vi.fn());
+    await p.update("tasks", { id: "t1", data: { title: "mine" } });
+    off(); // navigate away
+    const back: ResourceChangeEvent[] = [];
+    p.subscribe!("tasks", {}, (e) => back.push(e)); // and come back: same topic, new channel
+    channels[1]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "teammate" } });
+    expect(back).toHaveLength(1);
+  });
+
   it("forgets old write marks as new writes come in", async () => {
     vi.useFakeTimers();
     try {

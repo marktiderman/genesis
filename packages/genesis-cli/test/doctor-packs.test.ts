@@ -96,7 +96,7 @@ describe("native pack", () => {
     const g = loadGenesis(makeApp(null), NATIVE);
     expect(g.uiPackage).toBe("@marktiderman/genesis-ui-native");
     const pkg = readPackageExports(makeApp(null), "@marktiderman/genesis-ui-native")!;
-    expect(nativeLayouts(pkg)).toEqual(["AuthScreen", "NativeResourcePage", "ScreenContainer", "SettingsPage"]);
+    expect(nativeLayouts(pkg)).toEqual(["AuthScreen", "NativeResourcePage", "NativeResourceView", "ScreenContainer", "SettingsPage"]);
   });
 
   it("native-raw-primitive: wrapped primitives from react-native, multi-line and aliased imports included", async () => {

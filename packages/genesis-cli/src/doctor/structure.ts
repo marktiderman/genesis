@@ -19,10 +19,19 @@ const CONTAINER = /(?:Card|CardContent|Dialog|DialogContent|Sheet|SheetContent|D
 const SWITCHER = /<(TabsList|SubNavTabs)(?=[\s>/])/g;
 const SHELL = /<AppShell(?=[\s>/])/;
 const GENESIS_PACKAGE = /^@marktiderman\/genesis(?:-[\w-]+)?(?:\/|$)/;
-/** A web page layout: an exported component named `…Page` or `…PageShell` (not the breadcrumb's `BreadcrumbPage`). */
-const PAGE_LAYOUT = /^(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)$/;
+/**
+ * A web page layout: an exported component named `…Page` or `…PageShell` (not the breadcrumb's
+ * `BreadcrumbPage`), or `ResourceView`, which draws a ResourcePage from a view.
+ */
+const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView)$/;
 /** A package screen built on a Genesis layout: a `…Page` / `…Screen` / `…Workspace` imported from a Genesis package. */
-const PACKAGE_SCREEN = /^(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)$/;
+/**
+ * A `<ResourceView … layout="embedded" …>` tag, up to its first `>`. The trail blanks string contents
+ * but keeps their length, and `layout` is typed `"page" | "embedded" | "compact"`, so a literal of eight
+ * characters is `"embedded"` (as a string or `{"embedded"}`).
+ */
+const EMBEDDED_RESOURCE_VIEW = /<ResourceView\b[^>]*?\blayout\s*=\s*(?:(["'`]) {8}\1|\{\s*(["'`]) {8}\2\s*\})[^>]*>/g;
+const PACKAGE_SCREEN = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)|ResourceView)$/;
 
 const isNative = (ctx: DoctorContext) => ctx.config.packs?.includes("native") ?? false;
 const rendersRe = (names: Iterable<string>) => {
@@ -188,7 +197,9 @@ export function checkPageLayouts(ctx: DoctorContext): void {
   const rendersLayout = (code: string) => {
     const names = new Set(layouts);
     for (const n of namedImportsFrom(code, GENESIS_PACKAGE)) if (PACKAGE_SCREEN.test(n)) names.add(n);
-    return rendersRe(names)?.test(code) ?? false;
+    // An embedded ResourceView is a list inside a page and never claims it. Only a literal
+    // `layout="embedded"` is set aside; an expression could be anything, so it still counts.
+    return rendersRe(names)?.test(code.replace(EMBEDDED_RESOURCE_VIEW, "")) ?? false;
   };
   const cache = new Map<RouteFile, Reach>();
   const provides = (r: RouteFile) => {
