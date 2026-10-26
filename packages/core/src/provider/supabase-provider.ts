@@ -319,8 +319,10 @@ interface CursorState {
   k: string;
   /** The last row's sort value (absent when `s` is null). */
   v?: string | number | boolean | null;
-  /** The last row's key value. */
+  /** The last row's key value (the first row's, for a cursor going back). */
   id: string | number;
+  /** "b": the rows before this one (a previous page). Absent: the rows after it. */
+  d?: "b";
 }
 
 const PLAIN_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -339,6 +341,7 @@ function decodeCursor(cursor: string): CursorState | undefined {
     const state = JSON.parse(new TextDecoder().decode(bytes)) as CursorState;
     if (!state || typeof state !== "object" || typeof state.k !== "string" || !isIdentifier(state.id)) return undefined;
     if (state.o !== "asc" && state.o !== "desc") return undefined;
+    if (state.d !== undefined && state.d !== "b") return undefined;
     return state;
   } catch {
     return undefined;
@@ -357,6 +360,7 @@ function quoteFilterValue(value: string | number | boolean): string {
  * @internal Exported for tests.
  */
 export function keysetClauses(state: CursorState): string {
+  if (state.d === "b") return keysetClausesBefore(state);
   const k = state.k;
   const K = quoteFilterValue(state.id);
   if (state.s === null) return `${k}.${state.o === "asc" ? "gt" : "lt"}.${K}`;
@@ -372,6 +376,25 @@ export function keysetClauses(state: CursorState): string {
   const V = quoteFilterValue(v);
   const ties = afterInTies(`${s}.eq.${V}`);
   return state.o === "asc" ? `${s}.gt.${V},${ties},${s}.is.null` : `${s}.lt.${V},${ties}`;
+}
+
+/** The clauses selecting the rows before `state` in the same order (the mirror of keysetClauses). */
+function keysetClausesBefore(state: CursorState): string {
+  const k = state.k;
+  const K = quoteFilterValue(state.id);
+  if (state.s === null) return `${k}.${state.o === "asc" ? "lt" : "gt"}.${K}`;
+  const s = state.s;
+  const v = state.v;
+  const beforeInTies = (eq: string) => `and(${eq},${k}.lt.${K})`;
+  if (v === null || v === undefined) {
+    // Asc: nulls are last, so every non-null row and the earlier nulls come before.
+    // Desc: nulls are first, so only earlier nulls do.
+    const ties = beforeInTies(`${s}.is.null`);
+    return state.o === "asc" ? `${s}.not.is.null,${ties}` : ties;
+  }
+  const V = quoteFilterValue(v);
+  const ties = beforeInTies(`${s}.eq.${V}`);
+  return state.o === "asc" ? `${s}.lt.${V},${ties}` : `${s}.gt.${V},${ties},${s}.is.null`;
 }
 /** `"schema.table"` or `"table"` (schema `public`), as Realtime names them. */
 function realtimeTable(resource: string): { schema: string; table: string } {
@@ -575,16 +598,19 @@ export function createSupabaseProvider(
 
   /**
    * Rows this client wrote just now, `${resource}\0${id}` → the realtime event their write sends
-   * and when. Each mark is consumed by its first matching event, so a later change to the same row
-   * (a trigger, a job, another person) is still heard.
+   * and when. Each channel (one per filter) skips the first matching event once, so a later change
+   * to the same row (a trigger, a job, another person) is still heard.
    */
-  const recentWrites = new Map<string, { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number }>();
+  const recentWrites = new Map<
+    string,
+    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string> }
+  >();
 
   function noteWrite(event: WriteEvent): void {
     const now = Date.now();
     for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
     const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
-    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now });
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set() });
   }
   /** One realtime channel per resource and server filter, shared by every subscriber to it. */
   const sharedChannels = new Map<
@@ -592,13 +618,22 @@ export function createSupabaseProvider(
     { listeners: Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>; close: () => void }
   >();
 
-  function isEcho(resource: string, id: unknown, eventType: SupabaseRealtimePayload["eventType"]): boolean {
+  function isEcho(
+    resource: string,
+    id: unknown,
+    eventType: SupabaseRealtimePayload["eventType"],
+    topic: string,
+  ): boolean {
     if (!isIdentifier(id)) return false;
     const key = `${resource}\u0000${String(id)}`;
     const mark = recentWrites.get(key);
-    if (!mark || mark.eventType !== eventType) return false;
-    recentWrites.delete(key);
-    return Date.now() - mark.at <= REALTIME_ECHO_MS;
+    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic)) return false;
+    if (Date.now() - mark.at > REALTIME_ECHO_MS) {
+      recentWrites.delete(key);
+      return false;
+    }
+    mark.heardOn.add(topic);
+    return true;
   }
 
   function realtimeEnabled(resource: string): boolean {
@@ -740,7 +775,7 @@ export function createSupabaseProvider(
     resource: string,
     params: ListParams,
     key: string | false,
-  ): Promise<{ data: unknown[]; total: number; nextCursor: string | null }> {
+  ): Promise<{ data: unknown[]; total: number; nextCursor: string | null; prevCursor: string | null }> {
     const { cursor } = params.pagination!;
     // The look-ahead row must fit under PostgREST's max-rows (maxPerPage), or
     // it is dropped and the list would end after one page. A keyset page can
@@ -775,43 +810,58 @@ export function createSupabaseProvider(
     if (search && keyset) query = query.or(`and(or(${search}),or(${keyset}))`);
     else if (search || keyset) query = query.or(search || keyset);
 
+    // Going back reads the rows before the cursor in the reverse order (nearest first), then
+    // turns them around.
+    const back = after?.d === "b";
     if (sortField) {
       // Pinned to Postgres's default null placement, which the keyset assumes.
-      query = query.order(sortField, { ascending: order === "asc", nullsFirst: order === "desc" });
-      query = query.order(key, { ascending: true });
+      const ascending = (order === "asc") !== back;
+      query = query.order(sortField, { ascending, nullsFirst: !ascending });
+      query = query.order(key, { ascending: !back });
     } else {
-      query = query.order(key, { ascending: order === "asc" });
+      query = query.order(key, { ascending: (order === "asc") !== back });
     }
     query = query.range(0, perPage);
 
     const result = (await query) as unknown as { data: unknown[] | null; error: unknown; count?: number | null };
     await throwIfReadError(result, resource, "getList");
     const rows = (result.data ?? []) as Record<string, unknown>[];
+    const more = rows.length > perPage;
     const page = rows.slice(0, perPage);
-    let nextCursor: string | null = null;
-    if (rows.length > perPage) {
-      const last = page[page.length - 1]!;
-      const id = last[key];
-      const v = sortField ? last[sortField] : undefined;
-      if (!isIdentifier(id) || (sortField && !(sortField in last))) {
-        return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);
-      }
-      if (v !== undefined && v !== null && typeof v === "object") {
-        return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
-      }
-      nextCursor = encodeCursor({
+    if (back) page.reverse();
+    // A cursor for the rows after or before `row`.
+    const cursorAt = (row: Record<string, unknown> | undefined, direction?: "b"): string | null | false => {
+      if (!row) return null;
+      const id = row[key];
+      const v = sortField ? row[sortField] : undefined;
+      if (!isIdentifier(id) || (sortField && !(sortField in row))) return false;
+      if (v !== undefined && v !== null && typeof v === "object") return false;
+      return encodeCursor({
         s: sortField,
         o: order,
         k: key,
         ...(sortField ? { v: (v ?? null) as CursorState["v"] } : {}),
         id,
+        ...(direction ? { d: direction } : {}),
       });
+    };
+    // Forward: more after the last row when the look-ahead found one; rows before the first
+    // whenever this wasn't the first page. Back: the mirror.
+    const next = back ? cursorAt(page[page.length - 1]) : more ? cursorAt(page[page.length - 1]) : null;
+    const prev = back ? (more ? cursorAt(page[0], "b") : null) : cursor ? cursorAt(page[0], "b") : null;
+    if (next === false || prev === false) {
+      const firstRow = page[0];
+      if (firstRow && sortField && sortField in firstRow && firstRow[sortField] !== null && typeof firstRow[sortField] === "object") {
+        return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
+      }
+      return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);
     }
     return {
       data: page,
       total: cursor || mode === "none" ? -1 : (result.count ?? 0),
       ...(!cursor && (mode === "estimated" || mode === "planned") ? { totalIsEstimate: true } : {}),
-      nextCursor,
+      nextCursor: next,
+      prevCursor: prev,
     };
   }
 
@@ -981,7 +1031,7 @@ export function createSupabaseProvider(
           // subscriber, so a delete passes on only its id.
           const row = payload.eventType === "DELETE" ? payload.old : payload.new;
           const id = row?.["id"];
-          if (isEcho(resource, id, payload.eventType)) return;
+          if (isEcho(resource, id, payload.eventType, topic)) return;
           const type =
             payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
           const event: ResourceChangeEvent = isIdentifier(id)
@@ -1170,5 +1220,7 @@ export function createSupabaseProvider(
     },
   };
 
+  // How many write marks are held, for tests of the pruning. Not part of the provider contract.
+  Object.defineProperty(provider, "__recentWriteCount", { value: () => recentWrites.size, enumerable: false });
   return provider;
 }

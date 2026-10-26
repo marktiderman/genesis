@@ -42,6 +42,12 @@ export interface UseInfiniteResourceOptions {
   enabled?: boolean;
   /** Refetch the loaded pages when the provider reports a change. See `UseResourceOptions.live`. */
   live?: boolean | LiveOptions;
+  /**
+   * Keep at most this many pages loaded (TanStack Query's `maxPages`): scrolling far drops pages
+   * from the front, and scrolling back loads them again, so a long feed and a live refetch stay
+   * cheap. Needs a provider that pages by cursor both ways (`prevCursor`); offset paging ignores it.
+   */
+  maxPages?: number;
 }
 
 /** Where one page starts: its offset page, and its cursor (`null` for the first). */
@@ -150,6 +156,10 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
       if (last.data.length < params.perPage || (exact && loaded >= first.total)) return undefined;
       return { page: lastParam.page + 1, cursor: null };
     },
+    getPreviousPageParam: (first, _pages, firstParam) =>
+      // Cursor mode only: offset pages aren't dropped from the front.
+      first.prevCursor ? { page: firstParam.page - 1, cursor: first.prevCursor } : undefined,
+    ...(options.maxPages !== undefined && options.maxPages > 0 ? { maxPages: options.maxPages } : {}),
     enabled,
   });
 

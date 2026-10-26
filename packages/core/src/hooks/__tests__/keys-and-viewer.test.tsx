@@ -118,6 +118,55 @@ describe("useInfiniteResource and an uncounted or estimated total", () => {
   });
 });
 
+describe("useInfiniteResource maxPages over a cursor that pages both ways", () => {
+  it("drops pages from the front past maxPages, and loads them back going up", async () => {
+    // 50 rows, cursors are row offsets: next and prev like the Supabase provider's.
+    const all = Array.from({ length: 50 }, (_, i) => ({ id: `r${i}` }));
+    const provider = {
+      ...createMockProvider({}),
+      async getList(_r: string, params: { pagination?: { perPage: number; cursor?: string | null } }) {
+        const per = params.pagination!.perPage;
+        const at = params.pagination!.cursor ? Number(params.pagination!.cursor) : 0;
+        const data = all.slice(at, at + per);
+        return {
+          data,
+          total: at === 0 ? 50 : -1,
+          nextCursor: at + per < all.length ? String(at + per) : null,
+          prevCursor: at > 0 ? String(Math.max(0, at - per)) : null,
+        };
+      },
+    } as never;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let api!: ReturnType<typeof useInfiniteResource>;
+    function Feed() {
+      api = useInfiniteResource("rows", { perPage: 10, maxPages: 2 });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <Feed />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.rows.length).toBe(10));
+    for (const expectFirst of ["r0", "r10"]) {
+      act(() => api.fetchNextPage());
+      await waitFor(() => expect(api.isFetchingNextPage).toBe(false));
+      expect(api.rows[0]!.id).toBe(expectFirst);
+    }
+    // Three pages read, two kept: the first page was dropped.
+    expect(api.rows.map((r) => r.id).slice(0, 1)).toEqual(["r10"]);
+    expect(api.rows).toHaveLength(20);
+    // Going back loads it again (and drops the last).
+    await act(async () => {
+      await api.query.fetchPreviousPage();
+    });
+    expect(api.rows[0]!.id).toBe("r0");
+    expect(api.rows).toHaveLength(20);
+  });
+});
+
 describe("ViewerScope", () => {
   /** Shows whose data the cache holds under a key with no viewer in it (like a resource key). */
   function Whoami({ who }: { who: string }) {
