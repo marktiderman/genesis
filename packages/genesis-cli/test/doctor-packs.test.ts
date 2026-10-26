@@ -80,7 +80,7 @@ describe("packs config", () => {
     for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
-    for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit"]) expect(BUILTIN_RULES).toContain(id);
+    for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
     await expect(run("clean", { patterns: [{ id: "migration-rls", files: ["src/**"], forbid: "x" }] })).rejects.toThrow(/built-in rule id/);
   });
 
@@ -373,6 +373,37 @@ describe("supabase pack", () => {
     expect(levels(r.findings, "migration-testing-kit")).toEqual(["error"]);
     const clean = await migration("create table public.genesis_testings (id uuid primary key);\n");
     expect(brief(clean.findings, "migration-testing-kit")).toEqual([]);
+  });
+
+  it("migration-view-rls: a view in an exposed schema runs as the signed-in user", async () => {
+    const r = await migration(
+      [
+        "create table public.tasks (id uuid primary key);",
+        "alter table public.tasks enable row level security;",
+        "create view public.plain as select * from public.tasks;",
+        "create view public.safe with (security_invoker = true) as select * from public.tasks;",
+        "create view public.fixed as select * from public.tasks;",
+        "alter view public.fixed set (security_invoker = true);",
+        "create view public.undone with (security_invoker) as select * from public.tasks;",
+        "create or replace view public.undone as select * from public.tasks;",
+        "create view public.reset with (security_invoker = on, security_barrier = true) as select * from public.tasks;",
+        "alter view public.reset reset (security_invoker);",
+        "create view public.off with (security_invoker = false) as select * from public.tasks;",
+        "create view public.gone as select * from public.tasks;",
+        "drop view public.gone;",
+        "create view private.internal as select * from public.tasks;",
+        "create view public.old_name as select * from public.tasks;",
+        "alter view public.old_name rename to new_name;",
+      ].join("\n") + "\n",
+    );
+    expect(brief(r.findings, "migration-view-rls")).toEqual([
+      `migration-view-rls ${M}:3 public.plain`,
+      `migration-view-rls ${M}:8 public.undone`,
+      `migration-view-rls ${M}:9 public.reset`,
+      `migration-view-rls ${M}:11 public.off`,
+      `migration-view-rls ${M}:15 public.new_name`,
+    ]);
+    expect(levels(r.findings, "migration-view-rls")).toEqual(["error", "error", "error", "error", "error"]);
   });
 
   it("migration-grants: without git or since, grants are skipped with a warning instead of flagging applied migrations", async () => {

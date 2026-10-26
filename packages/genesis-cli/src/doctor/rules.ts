@@ -42,6 +42,7 @@ export const BUILTIN_RULES = [
   "migration-definer-search-path",
   "migration-edited",
   "migration-testing-kit",
+  "migration-view-rls",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];
