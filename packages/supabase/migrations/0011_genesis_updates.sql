@@ -117,7 +117,7 @@ begin
     select x.tenant_id, x.person_id, x.team_id, x.organization_id into t, p, tm, o from public.metrics x where x.id = new.item_id;
   end if;
   if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
-     and (t is null or (not private.genesis_updates_can(t, p, tm, o, 'read')
+     and (t is null or (not private.genesis_owner_allows(t, p, tm, o, 'read')
                         and not private.genesis_updates_asked(new.item_kind, new.item_id))) then
     raise exception 'permission denied for %', tg_table_name using errcode = '42501';
   end if;
@@ -213,45 +213,6 @@ create trigger update_requests_guard
 
 -- Access ---------------------------------------------------------------------------------------
 
-create or replace function private.genesis_updates_readable()
-returns table (tenant_id uuid, owner_id uuid)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
-    return;
-  end if;
-  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
-exception when others then
-  return;
-end;
-$$;
-
-create or replace function private.genesis_updates_can(tenant uuid, person uuid, team uuid, organization uuid, action text)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  allowed boolean;
-begin
-  if auth.uid() is null or tenant is null
-     or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
-    return false;
-  end if;
-  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
-    into allowed using tenant, auth.uid(), person, team, organization, action;
-  return coalesce(allowed, false);
-exception when others then
-  return false;
-end;
-$$;
-
 -- The app's hook, asked about any person (not only the signed-in one). No hook, or a hook that
 -- errors, means no.
 create or replace function private.genesis_updates_person_can(viewer uuid, tenant uuid, person uuid, team uuid, organization uuid, action text)
@@ -291,36 +252,34 @@ $$;
 revoke execute on function private.genesis_updates_fill_item() from public, anon, authenticated;
 revoke execute on function private.genesis_status_update_after() from public, anon, authenticated;
 revoke execute on function private.genesis_update_requests_guard() from public, anon, authenticated;
-revoke execute on function private.genesis_updates_readable() from public, anon;
-revoke execute on function private.genesis_updates_can(uuid, uuid, uuid, uuid, text) from public, anon;
+revoke execute on function private.genesis_owner_readable() from public, anon;
 revoke execute on function private.genesis_updates_asked(text, uuid) from public, anon;
 revoke execute on function private.genesis_updates_person_can(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
-grant execute on function private.genesis_updates_readable() to authenticated;
-grant execute on function private.genesis_updates_can(uuid, uuid, uuid, uuid, text) to authenticated;
+grant execute on function private.genesis_owner_readable() to authenticated;
 grant execute on function private.genesis_updates_asked(text, uuid) to authenticated;
 
 alter table public.status_updates enable row level security;
 alter table public.update_requests enable row level security;
 
 create policy status_updates_read on public.status_updates for select to authenticated
-  using (author_id = auth.uid() or exists (select 1 from private.genesis_updates_readable() r
+  using (author_id = auth.uid() or exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = status_updates.tenant_id
                    and r.owner_id = coalesce(status_updates.person_id, status_updates.team_id, status_updates.organization_id)));
 create policy status_updates_insert on public.status_updates for insert to authenticated
   with check (
     author_id = auth.uid()
-    and (private.genesis_updates_can(tenant_id, person_id, team_id, organization_id, 'write')
+    and (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write')
          or private.genesis_updates_asked(item_kind, item_id)));
 -- Updates are a record: nobody signed in edits or deletes them.
 
 create policy update_requests_read on public.update_requests for select to authenticated
   using (asked_of = auth.uid()
-         or exists (select 1 from private.genesis_updates_readable() r
+         or exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = update_requests.tenant_id
                    and r.owner_id = coalesce(update_requests.person_id, update_requests.team_id, update_requests.organization_id)));
 create policy update_requests_insert on public.update_requests for insert to authenticated
   with check (asked_by = auth.uid()
-              and private.genesis_updates_can(tenant_id, person_id, team_id, organization_id, 'read'));
+              and private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'read'));
 create policy update_requests_cancel on public.update_requests for update to authenticated
   using (asked_by = auth.uid()) with check (asked_by = auth.uid());
 
