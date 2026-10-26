@@ -146,3 +146,19 @@ describe("packages pack invariants", () => {
     expect(result.findings.filter((f) => f.rule.startsWith("package-"))).toEqual([]);
   });
 });
+
+describe("what counts as declared", () => {
+  it("a peerDependency, a workspace: dependency, and Node built-ins (node: and bare)", async () => {
+    const pkg = { ...PKG, peerDependencies: { react: "^19" }, dependencies: { "@acme/ui": "workspace:*" } };
+    const result = await runDoctor({
+      root: makeApp(null, {
+        ...CLEAN,
+        "packages/os/package.json": JSON.stringify(pkg),
+        "packages/os/src/index.ts":
+          'import { useState } from "react";\nimport { Button } from "@acme/ui";\nimport { join } from "node:path";\nimport { readFileSync } from "fs";\nimport { createHash } from "crypto";\nexport { useState, Button, join, readFileSync, createHash };\n',
+      }),
+      config: PACKAGES,
+    });
+    expect(brief(result.findings)).toEqual([]);
+  });
+});
