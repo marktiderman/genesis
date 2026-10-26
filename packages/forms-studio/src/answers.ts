@@ -16,7 +16,9 @@ export { carryAnswers } from "@marktiderman/genesis-forms";
 
 // Option labels by value, built once per options array: answerCell runs once per answer, and
 // option lists can hold thousands of options. The first option with a value wins, as find() did.
-const labelMaps = new WeakMap<readonly { value: string; label?: string }[], Map<string, string | undefined>>();
+// Keys are the stored values as they are (a Map matches them like ===), so number and boolean
+// option values keep their labels too.
+const labelMaps = new WeakMap<readonly { value: string; label?: string }[], Map<unknown, string | undefined>>();
 function optionLabels(options: readonly { value: string; label?: string }[]) {
   let map = labelMaps.get(options);
   if (!map) {
@@ -38,7 +40,7 @@ export function answerCell(field: FieldBlock, value: Json | undefined): Cell {
     ? (field.props["options"] as { value: string; label?: string }[])
     : [];
   const labels = optionLabels(options);
-  const label = (v: Json) => (typeof v === "string" ? labels.get(v) : undefined) ?? String(v);
+  const label = (v: Json) => labels.get(v) ?? String(v);
   // Structured values (a worksheet's rows, notes or highlights) use each type's own summary
   // from genesis-forms. Flat values keep raw numbers, so a Sheet can sort and average them.
   const structured = Array.isArray(value)

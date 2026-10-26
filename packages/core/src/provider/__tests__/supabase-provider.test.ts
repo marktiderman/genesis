@@ -59,7 +59,7 @@ beforeEach(() => {
 describe("writeOutcomeFromCode", () => {
   it("maps Postgres and PostgREST codes", () => {
     expect(writeOutcomeFromCode("42501")).toBe("forbidden");
-    expect(writeOutcomeFromCode("23505")).toBe("invalid");
+    expect(writeOutcomeFromCode("23505")).toBe("duplicate");
     expect(writeOutcomeFromCode("23503")).toBe("invalid");
     expect(writeOutcomeFromCode("23502")).toBe("invalid");
     expect(writeOutcomeFromCode("23514")).toBe("invalid");
@@ -95,7 +95,7 @@ describe("field-level write errors", () => {
       details: "Key (email)=(ann@example.com) already exists.",
     };
     const err = toDataWriteError(raw);
-    expect(err.outcome).toBe("invalid");
+    expect(err.outcome).toBe("duplicate");
     expect(err.fields).toEqual({ email: "This value is already in use." });
     expect(err.message).toBe("Email is already in use.");
     // Neither the value nor the constraint name reaches a message.
@@ -163,7 +163,7 @@ describe("field-level write errors", () => {
       });
       expect(err.fields).toBeUndefined();
       expect(err.message).toBe("This value is already in use.");
-      expect(err.outcome).toBe("invalid");
+      expect(err.outcome).toBe("duplicate");
     }
   });
 
@@ -358,7 +358,7 @@ describe("create", () => {
     queue.push(fail("new row violates row-level security policy for table \"questions\"", "42501"));
     expect((await failure(provider().create("questions", { data: {} }))).outcome).toBe("forbidden");
     queue.push(fail("duplicate key value violates unique constraint", "23505"));
-    expect((await failure(provider().create("questions", { data: {} }))).outcome).toBe("invalid");
+    expect((await failure(provider().create("questions", { data: {} }))).outcome).toBe("duplicate");
   });
 
   it("a create override returning an id is read back", async () => {

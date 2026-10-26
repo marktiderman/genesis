@@ -2,10 +2,9 @@
 import { describe, expect, it } from "vitest";
 import { comparisonFilter, headlineNumbers } from "../headline";
 import { followUpOf, needsFollowUp } from "../followups";
-import { dayLabel } from "../generic/days";
 import { filterResponses, NO_FILTERS } from "../summary";
 import { formCounts, formNavItems, formStatusChip } from "../status";
-import { readinessChip, readinessOf } from "../generic/status";
+import { readinessChip, readinessOf } from "../moved-rules";
 import { answer, checkIn } from "./fixtures";
 
 const skip = new Set(["name"]);
@@ -108,16 +107,6 @@ describe("needsFollowUp", () => {
   });
 });
 
-describe("dayLabel", () => {
-  it("says Today, Yesterday, a short date, and the year when it differs", () => {
-    expect(dayLabel("2026-10-23", "2026-10-23")).toBe("Today");
-    expect(dayLabel("2026-10-22", "2026-10-23")).toBe("Yesterday");
-    expect(dayLabel("2026-10-21", "2026-10-23")).toBe("Oct 21");
-    expect(dayLabel("2025-12-30", "2026-01-02")).toBe("Dec 30, 2025");
-    expect(dayLabel("nope")).toBe("nope");
-  });
-});
-
 describe("status words", () => {
   it("names a form's status", () => {
     expect(formStatusChip("live", 1)).toEqual({ label: "Live · version 1", tone: "success" });
@@ -134,6 +123,7 @@ describe("status words", () => {
     expect(readinessChip(readinessOf([{ level: "warning" }]))).toEqual({ label: "1 to check", tone: "warning" });
     expect(readinessOf([{ level: "info" }], { pending: true }).state).toBe("pending");
     expect(readinessChip({ state: "ready", count: 0 }).label).toBe("Ready to publish");
+    expect(readinessChip({ state: "empty", count: 0 }).label).toBe("Add a question");
   });
 
   it("declares the four places with their counts", () => {

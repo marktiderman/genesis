@@ -117,6 +117,7 @@ try {
       case "forbidden": /* hide the control, say why */ break;
       case "gone": /* close the record, refresh the list */ break;
       case "invalid": /* show error.message by the form */ break;
+      case "duplicate": /* adopt the existing row, or show error.fields by the form */ break;
       case "unauthenticated": /* send to sign-in */ break;
       default: /* show error.message */
     }
