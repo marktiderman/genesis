@@ -11,7 +11,10 @@ import type { ResourceChangeEvent } from "../types";
 // change and status callbacks so a test can fire them, and notes removal.
 interface FakeChannel {
   name: string;
+  /** The first binding's filter. */
   filter?: { event: string; schema: string; table: string; filter?: string };
+  bindings: { filter: NonNullable<FakeChannel["filter"]>; cb: (payload: SupabaseRealtimePayload) => void }[];
+  /** Delivers a payload to every binding listening to its event (filters are the server's job). */
   change?: (payload: SupabaseRealtimePayload) => void;
   status?: (status: string) => void;
   removed: boolean;
@@ -25,12 +28,15 @@ function makeClient(withRemove = true) {
       throw new Error("no reads in these tests");
     },
     channel: vi.fn((name: string) => {
-      const record: FakeChannel = { name, removed: false };
+      const record: FakeChannel = { name, removed: false, bindings: [] };
+      record.change = (payload) => {
+        for (const b of record.bindings) if (b.filter.event === "*" || b.filter.event === payload.eventType) b.cb(payload);
+      };
       channels.push(record);
       const ch = {
-        on(_type: string, filter: FakeChannel["filter"], cb: FakeChannel["change"]) {
-          record.filter = filter;
-          record.change = cb;
+        on(_type: string, filter: NonNullable<FakeChannel["filter"]>, cb: (payload: SupabaseRealtimePayload) => void) {
+          record.filter ??= filter;
+          record.bindings.push({ filter, cb });
           return ch;
         },
         subscribe(cb?: (status: string) => void) {
@@ -119,14 +125,44 @@ describe("subscribe: the channel", () => {
     expect(channels[1]!.filter).toEqual({ event: "*", schema: "crm", table: "clients" });
   });
 
-  it("gives each subscription its own channel, so removing one leaves the other", () => {
+  it("shares one channel per resource and filter; the last subscriber to leave removes it", () => {
     const { p } = provider({ realtime: true });
-    const offA = p.subscribe!("tasks", {}, vi.fn());
-    p.subscribe!("tasks", {}, vi.fn());
-    expect(channels[0]!.name).not.toBe(channels[1]!.name);
+    const a = vi.fn();
+    const b = vi.fn();
+    const offA = p.subscribe!("tasks", {}, a);
+    const offB = p.subscribe!("tasks", {}, b);
+    expect(channels).toHaveLength(1);
+    channels[0]!.change!({ eventType: "DELETE", new: {}, old: { id: 1 } });
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(1);
     offA();
+    expect(channels[0]!.removed).toBe(false);
+    channels[0]!.change!({ eventType: "DELETE", new: {}, old: { id: 2 } });
+    expect(a).toHaveBeenCalledTimes(1);
+    expect(b).toHaveBeenCalledTimes(2);
+    offB();
     expect(channels[0]!.removed).toBe(true);
-    expect(channels[1]!.removed).toBe(false);
+    // A new subscriber after that gets a fresh channel.
+    p.subscribe!("tasks", {}, vi.fn());
+    expect(channels).toHaveLength(2);
+  });
+
+  it("a list's first equality filter narrows the channel on the server; deletes still arrive", () => {
+    const { p } = provider({ realtime: true });
+    const cb = vi.fn();
+    p.subscribe!("tasks", { filters: [{ field: "title", operator: "contains", value: "x" }, { field: "person_id", operator: "eq", value: "p1" }] }, cb);
+    expect(channels[0]!.bindings.map((b) => b.filter)).toEqual([
+      { event: "INSERT", schema: "public", table: "tasks", filter: "person_id=eq.p1" },
+      { event: "UPDATE", schema: "public", table: "tasks", filter: "person_id=eq.p1" },
+      { event: "DELETE", schema: "public", table: "tasks" },
+    ]);
+    // Another filter value is another channel; the same one is shared.
+    p.subscribe!("tasks", { filters: [{ field: "person_id", operator: "eq", value: "p2" }] }, vi.fn());
+    p.subscribe!("tasks", { filters: [{ field: "person_id", operator: "eq", value: "p1" }] }, vi.fn());
+    expect(channels).toHaveLength(2);
+    // A value Realtime's filter grammar can't carry falls back to the whole table.
+    p.subscribe!("tasks", { filters: [{ field: "title", operator: "eq", value: "a,b" }] }, vi.fn());
+    expect(channels[2]!.filter).toEqual({ event: "*", schema: "public", table: "tasks" });
   });
 
   it("one record: no server filter (it would drop deletes); the id is matched here, deletes included", () => {
@@ -148,12 +184,12 @@ describe("subscribe: the channel", () => {
     channels[0]!.change!({ eventType: "UPDATE", new: { id: "other" } });
     expect(cb).not.toHaveBeenCalled();
     channels[0]!.change!({ eventType: "UPDATE", new: { id: "a,b" } });
-    expect(cb).toHaveBeenCalledWith({ type: "updated", id: "a,b" });
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ type: "updated", id: "a,b" }));
   });
 });
 
 describe("subscribe: events", () => {
-  it("maps inserts, updates and deletes to hints carrying only the id", () => {
+  it("maps inserts, updates and deletes; inserts and updates carry the row, deletes only the id", () => {
     const { p } = provider({ realtime: true });
     const events: ResourceChangeEvent[] = [];
     p.subscribe!("tasks", {}, (e) => events.push(e));
@@ -163,13 +199,40 @@ describe("subscribe: events", () => {
     ch.change!({ eventType: "DELETE", new: {}, old: { id: 1 } });
     ch.change!({ eventType: "UPDATE", new: { slug: "no-id" } });
     expect(events).toEqual([
-      { type: "created", id: 1 },
-      { type: "updated", id: 1 },
+      { type: "created", id: 1, record: { id: 1, title: "secret title" } },
+      { type: "updated", id: 1, record: { id: 1, title: "x" } },
       { type: "deleted", id: 1 },
       { type: "updated" },
     ]);
-    // No payload row is passed on.
-    expect(events.some((e) => "record" in e)).toBe(false);
+  });
+
+  it("a resource read from a view or function gets no row: its columns differ, so it refetches", () => {
+    const { p } = provider({ realtime: true, resources: { tasks: { source: "tasks_with_people" } } });
+    const events: ResourceChangeEvent[] = [];
+    p.subscribe!("tasks", {}, (e) => events.push(e));
+    channels[0]!.change!({ eventType: "UPDATE", new: { id: 1, title: "x" } });
+    expect(events).toEqual([{ type: "updated", id: 1 }]);
+  });
+
+  it("skips the echo of this client's own write, then hears that row again", async () => {
+    vi.useFakeTimers();
+    try {
+      const { p } = provider({
+        realtime: true,
+        resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+      });
+      const events: ResourceChangeEvent[] = [];
+      p.subscribe!("tasks", {}, (e) => events.push(e));
+      await p.update("tasks", { id: "t1", data: { title: "mine" } });
+      channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "mine" } });
+      channels[0]!.change!({ eventType: "UPDATE", new: { id: "t2", title: "theirs" } });
+      expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2"]);
+      vi.advanceTimersByTime(2500);
+      channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "someone else" } });
+      expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2", "t1"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reports `changed` after a reconnect (events may have been missed), not on the first join", () => {
