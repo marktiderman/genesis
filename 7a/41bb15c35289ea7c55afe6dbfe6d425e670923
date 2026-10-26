@@ -1,0 +1,261 @@
+.changeset/chat-client-review-fixes.md
+  s_8252619ce79a86::t_5ccc0662c271dd 1-14
+.changeset/chat-native-media.md
+  s_8252619ce79a86::t_568bcb2b32101e 1-6
+.changeset/chat-rich-push-server.md
+  s_8252619ce79a86::t_b7168193fa768e 1-5
+.changeset/genesis-notifications.md
+  s_8252619ce79a86::t_94c8709fce0c7d 9,11
+.changeset/ios-rich-push.md
+  s_8252619ce79a86::t_9f6359f3c0c5c2 1-6
+.changeset/notifications-push-extras.md
+  s_8252619ce79a86::t_16d7731d2149ab 1-5
+.changeset/notifications-review-fixes.md
+  s_8252619ce79a86::t_7b5434d6d43b35 1-17
+apps/genesis-rn-starter/.env.example
+  s_8252619ce79a86::t_672ff56528cf9b 12-14
+apps/genesis-rn-starter/__tests__/app-config.test.ts
+  s_8252619ce79a86::t_4bd51fbdf9117b 52-78
+apps/genesis-rn-starter/__tests__/check-in-photos.test.ts
+  s_8252619ce79a86::t_596518b79cf767 53,55-57
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_93676a44824755 351-360
+apps/genesis-rn-starter/app.config.ts
+  s_8252619ce79a86::t_98f008d46afbf6 6-7,37-44,49-54
+apps/genesis-rn-starter/package.json
+  s_8252619ce79a86::t_0f43a8b02f441d 47,65-66
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_2de3a894cdefb2 37-38,45
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_c588b8394d9e73 121-123
+apps/genesis-rn-starter/src/lib/chat-video.ts
+  s_8252619ce79a86::t_e18c26940eec65 1-57
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_3efc171db2d6f9 16,23-24,34,41,50-51,57-75,158,204-205
+apps/genesis-rn-starter/src/lib/env.ts
+  s_8252619ce79a86::t_c4d19dae211329 17-19,36
+apps/genesis-rn-starter/supabase/migrations/20261025000050_genesis_chat_coaching.sql
+  s_8252619ce79a86::t_2bbabf682b0983 309-343,350,380-382,447-448,472,479,716-719,749-750,754-757,761-763,815-816,822-838,884-886,896-897,909-910,921,932
+apps/genesis-rn-starter/supabase/migrations/20261025000100_genesis_notifications.sql
+  s_8252619ce79a86::t_efba33a0f30acf 37,210-222,236-243,249,300-305,331-334,355-357,368-369,434-439,451-453,471-473,479,486,530-531,541,559-562,641-644,669-671,806-807,842-846,873-875,971-972,985,987-993,996-997,1038-1042,1085-1087,1109-1112,1137-1140,1164-1179,1216,1243,1258-1259,1263-1264,1267,1276-1294,1410-1412,1430-1432,1434-1437,1441,1447,1456-1461,1467-1468,1477-1479,1481-1484,1487,1490-1495,1502-1503,1513,1518-1520,1524,1615-1619,1621,1625-1638,1727-1728,1735-1737,1741,1750,1753-1758,1764-1772,1780,1782-1784,1810,1814-1823,1829,1862-1864,1875-1882,1887,1917,1927-1928,2012,2017,2019,2022,2029,2041,2047,2052,2054,2057
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_coaching.test.sql
+  s_8252619ce79a86::t_be958d6a52094a 9,128-140,163-165,243-256
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_8252619ce79a86::t_fbf2d66d2ec1be 10,68,183,236,238-240,276,284,291-292,319-471
+docs/NOTIFICATIONS.md
+  s_8252619ce79a86::t_0047ac6f42e616 24,39,45-46,58,69-72,74-75,77-78,81-84,106-115
+features.json
+  s_8252619ce79a86::t_b6f6c1987fed2e 3135,3138,3142-3143,3292,3316,3337-3338
+features.ts
+  s_8252619ce79a86::t_105ba78355412a 1370,1373,1375,1445,1452,1463-1464
+packages/chat/README.md
+  s_8252619ce79a86::t_0fdd04f2cc1bb6 145-149,153-159,205-210,225-230,233-238
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_8252619ce79a86::t_3fc3f749fa697c 309-343,350,380-382,447-448,472,479,884-886
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_8252619ce79a86::t_2c312be6b9ba54 9,128-140,163-165
+packages/chat/package.json
+  s_8252619ce79a86::t_364f1d15bb2bd3 46-51,105-107,120-125
+packages/chat/src/__tests__/coaching-core.test.ts
+  s_8252619ce79a86::t_9c6265f5ba2a5a 178-180
+packages/chat/src/__tests__/coaching-react.test.tsx
+  s_8252619ce79a86::t_03def885399bac 125-126
+packages/chat/src/__tests__/coaching-web.test.tsx
+  s_8252619ce79a86::t_1271e1cbbc7407 250,255
+packages/chat/src/__tests__/review-fixes-core.test.ts
+  s_8252619ce79a86::t_8fb17a32fb3775 1-193
+packages/chat/src/__tests__/review-fixes-web.test.tsx
+  s_8252619ce79a86::t_06eda7a7e589da 1-402
+packages/chat/src/__tests__/server-integrations.test.ts
+  s_8252619ce79a86::t_4fff65d9b3249d 87
+packages/chat/src/__tests__/server-runner.test.ts
+  s_8252619ce79a86::t_e8e218fd0ece95 54-55,99-120
+packages/chat/src/core/availability.ts
+  s_8252619ce79a86::t_0341c137661d18 14-16,25-57,83-85,120-121,157-166
+packages/chat/src/core/client.ts
+  s_8252619ce79a86::t_f857305d22721a 30,63-70,243-244
+packages/chat/src/core/outbox.ts
+  s_8252619ce79a86::t_98db2a5a02b6a6 6-9,23,58-59,72-86,93-96,99-105,152,159-160,185-186,192-196,199-203,210-211,219-220,231,233-234,239-240,242,246,251-252,256,260-263,268,288-289,299-306,354,356,362-366,370,372-376,378-379,387-392,395,397,403,405-407,427-428
+packages/chat/src/core/types.ts
+  s_8252619ce79a86::t_5eca9a830c2edb 192-193,289
+packages/chat/src/native/__tests__/push-payload.test.ts
+  s_8252619ce79a86::t_5fc415badc2a24 1-66
+packages/chat/src/native/__tests__/video-media.test.tsx
+  s_8252619ce79a86::t_e16f7bf0b85b61 1-421
+packages/chat/src/native/__tests__/video-recorder-state.test.ts
+  s_8252619ce79a86::t_db18fb8179b3e0 1-87
+packages/chat/src/native/__tests__/video-upload.test.ts
+  s_8252619ce79a86::t_fce0cb82b2d455 1-227
+packages/chat/src/native/attachment-cards.tsx
+  s_8252619ce79a86::t_e6730fb105b138 1-116
+packages/chat/src/native/composer.tsx
+  s_8252619ce79a86::t_53e77f0a370054 7-8,39-40,89,213-215,280
+packages/chat/src/native/copy.ts
+  s_8252619ce79a86::t_9ed8eb22170732 68-104,186-216
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_c1954f14e61ef6 16-20,22-23,37-43,99,101-103,109
+packages/chat/src/native/link-preview.tsx
+  s_8252619ce79a86::t_83f3cd4a4e7480 1-104
+packages/chat/src/native/media-colors.ts
+  s_8252619ce79a86::t_897f0467f1d0dd 1-15
+packages/chat/src/native/media.tsx
+  s_8252619ce79a86::t_16781f17e0cc49 14,29-35,49-52,73-91,113,153-167
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_00ca03360b8909 18-22,25,56-63,96-100,102-109,114-116,168-170,186-193,201,204-209,214-215,277-281,292,365-373
+packages/chat/src/native/modules.ts
+  s_8252619ce79a86::t_60723bd9616641 13-15,130-204,213-220
+packages/chat/src/native/push.ts
+  s_8252619ce79a86::t_87db4ea752c8ce 16-19,288-375
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_b14e116a1c88f8 32-38,55-57,78-79,134-138,210-211,354-357,362-394,488,504,518-526
+packages/chat/src/native/video-player.tsx
+  s_8252619ce79a86::t_af89181406af97 1-370
+packages/chat/src/native/video-recorder-state.ts
+  s_8252619ce79a86::t_1ed64e12d5a0c6 1-140
+packages/chat/src/native/video-recorder.tsx
+  s_8252619ce79a86::t_92f94e4876aba6 1-271
+packages/chat/src/native/video-upload-tray.tsx
+  s_8252619ce79a86::t_7bae58ae97e7d9 1-77
+packages/chat/src/native/video-upload.ts
+  s_8252619ce79a86::t_041a73d044d419 1-432
+packages/chat/src/react/index.tsx
+  s_8252619ce79a86::t_ad62522850ba97 8,46-47,50-53,121-122,127-128,153,173,312-314,319-328,391-394,396-397,749-768,771-774,779-793,795-804
+packages/chat/src/server/expo.ts
+  s_8252619ce79a86::t_63e43eebc06814 25,69,72
+packages/chat/src/server/notifications.ts
+  s_8252619ce79a86::t_63fc2dbfb4d9fc 34-36,38,71-73,75,112-118,122-130
+packages/chat/src/server/runner.ts
+  s_8252619ce79a86::t_65d7fa1c8d0d19 26,80-81,208-228,240-242
+packages/chat/src/server/types.ts
+  s_8252619ce79a86::t_93324791c313c5 44-61
+packages/chat/src/web/attachments.tsx
+  s_8252619ce79a86::t_a0a9aa4b2882d3 22-23,293-320,363-367,369-374
+packages/chat/src/web/broadcast.tsx
+  s_8252619ce79a86::t_6f3d1731c4bc17 7,10,33-36,59-61,63-64,73-74
+packages/chat/src/web/bubble.tsx
+  s_8252619ce79a86::t_927cf9b8c812c4 57,200,530-540
+packages/chat/src/web/cards.tsx
+  s_8252619ce79a86::t_467a912e85d5bb 4,15-36,39-42,47,56
+packages/chat/src/web/composer.tsx
+  s_8252619ce79a86::t_1286cc70b4f06e 43,80,133-137,219-222,231,234,242-244,512,535
+packages/chat/src/web/emoji-picker.tsx
+  s_8252619ce79a86::t_c1f5a24d410534 6-11,16-18,21,29-36
+packages/chat/src/web/error-boundary.tsx
+  s_8252619ce79a86::t_e759550f139946 1-33
+packages/chat/src/web/index.ts
+  s_8252619ce79a86::t_7a871f2f83d421 57-59
+packages/chat/src/web/memory-client.ts
+  s_8252619ce79a86::t_1e86e6d3c2c879 614-616
+packages/chat/src/web/schedule.tsx
+  s_8252619ce79a86::t_1a668168918163 6,90-93
+packages/chat/src/web/thread-context.ts
+  s_8252619ce79a86::t_c7a97263b1d280 10,32,34-36
+packages/chat/src/web/thread.tsx
+  s_8252619ce79a86::t_45c6fd5445d17f 66-67,145,147-150,219-220,460-461,571-579
+packages/chat/src/web/video.tsx
+  s_8252619ce79a86::t_38b26b897642ea 75-76,101,106-111,117,138,143-150,190-197,200,218,239-245,247-248,297,304-305,309-311,316-317,320,322,327,329,334-339,342,374-378
+packages/chat/tsup.config.ts
+  s_8252619ce79a86::t_48e3ec002b05ca 9
+packages/forms/src/__tests__/build-config.test.ts
+  s_8252619ce79a86::t_463a53f6592437 1-22
+packages/forms/tsconfig.json
+  s_8252619ce79a86::t_a505988bff2a4e 14-17
+packages/forms/tsup.config.ts
+  s_8252619ce79a86::t_1c3114d9ea24b4 1,4-8,24-26
+packages/native/README.md
+  s_8252619ce79a86::t_3c9b638efdbfd8 566-659
+packages/native/ios/notification-service/NotificationService.swift
+  s_8252619ce79a86::t_10839bcc4a8cbf 1-309
+packages/native/package.json
+  s_8252619ce79a86::t_678150ccdf5308 45-49,64-68,74,94,109-111,115-117,135
+packages/native/src/__tests__/push/payload.test.ts
+  s_8252619ce79a86::t_b17c6654a55066 1-45
+packages/native/src/plugin/__tests__/fixtures/project.pbxproj
+  s_8252619ce79a86::t_bf335fead99d86 1-446
+packages/native/src/plugin/__tests__/rich-push.test.ts
+  s_8252619ce79a86::t_5ace7b74956ca3 1-222
+packages/native/src/plugin/rich-push.ts
+  s_8252619ce79a86::t_9901b9ba2ae1b5 1-312
+packages/native/src/push/index.ts
+  s_8252619ce79a86::t_4626038e3fdfc0 88
+packages/native/src/push/payload.ts
+  s_8252619ce79a86::t_ca892c5c6d9ad9 1-61
+packages/native/tsup.config.ts
+  s_8252619ce79a86::t_a143612a8ce6da 9-10,29-30
+packages/notifications/README.md
+  s_8252619ce79a86::t_60d2655c78306f 99,113,116-120,124-129,136-152,161-162,171-179,184-190
+packages/notifications/functions/genesis-notifications/notifications.ts
+  s_8252619ce79a86::t_a525d66954653e 4-7,11-12,16-17
+packages/notifications/migrations/0001_genesis_notifications.sql
+  s_8252619ce79a86::t_2f75cca5f294a6 37,210-222,236-243,249,300-305,331-334,355-357,368-369,434-439,451-453,471-473,479,486,530-531,541,559-562,641-644,669-671,806-807,842-846,873-875,971-972,985,987-993,996-997,1038-1042,1085-1087,1109-1112,1137-1140,1164-1179,1216,1243,1258-1259,1263-1264,1267,1276-1294,1410-1412,1430-1432,1434-1437,1441,1447,1456-1461,1467-1468,1477-1479,1481-1484,1487,1490-1495,1502-1503,1513,1518-1520,1524,1615-1619,1621,1625-1638,1727-1728,1735-1737,1741,1750,1753-1758,1764-1772,1780,1782-1784,1810,1814-1823,1829,1862-1864,1875-1882,1887,1917,1927-1928,2012,2017,2019,2022,2029,2041,2047,2052,2054,2057
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_8252619ce79a86::t_cf0f0da186b7b9 10,68,183,236,238-240,276,284,291-292,319-471
+packages/notifications/src/__tests__/core.test.ts
+  s_8252619ce79a86::t_190573f3e5185a 71-76,82-96
+packages/notifications/src/__tests__/feature-entry.test.ts
+  s_8252619ce79a86::t_e73214d4e213a0 1-16
+packages/notifications/src/__tests__/function-template.test.ts
+  s_8252619ce79a86::t_9b3ee769b81dd0 1-24
+packages/notifications/src/__tests__/handler.test.ts
+  s_8252619ce79a86::t_baacb603d45bdd 7-8,34-44,70-73,101-102,112-113,160,162-167,177-180,183-200,203-219
+packages/notifications/src/__tests__/notification-runner.test.ts
+  s_8252619ce79a86::t_d5d054b493dbac 21-41,81-82,97-101,111,177-191,215-276,363-424
+packages/notifications/src/__tests__/providers.test.ts
+  s_8252619ce79a86::t_6fb21831d2e9a7 3,56,58-75
+packages/notifications/src/__tests__/ui.test.tsx
+  s_8252619ce79a86::t_acf2b78fb92d05 8,10,95-118,127-169
+packages/notifications/src/core/registry.ts
+  s_8252619ce79a86::t_da071a460cb1d5 63-74,277
+packages/notifications/src/core/validate.ts
+  s_8252619ce79a86::t_982a478bfdc3a2 13-16,18,24-30
+packages/notifications/src/native/index.tsx
+  s_8252619ce79a86::t_8095b9088c29cb 41-43,56,86-91,201-205,216-217,235,237-239,254,257-267,271
+packages/notifications/src/react/index.tsx
+  s_8252619ce79a86::t_39ab10b46fd58b 209-210
+packages/notifications/src/server/dns.ts
+  s_8252619ce79a86::t_4d81f0c90afbac 2-7,12-13,17-19,24-27,38-61,76-78,82-89,91-93,99,103,105
+packages/notifications/src/server/expo.ts
+  s_8252619ce79a86::t_ce20455afd2e22 41-42
+packages/notifications/src/server/handler.ts
+  s_8252619ce79a86::t_448fbb97b55694 117
+packages/notifications/src/server/index.ts
+  s_8252619ce79a86::t_b358c7de583a9c 40-41,43,45
+packages/notifications/src/server/notify.ts
+  s_8252619ce79a86::t_0667794f4ba39d 21,54-55,58-59,67-71,76,79,81
+packages/notifications/src/server/rate.ts
+  s_8252619ce79a86::t_8e5ea0839e196a 1-47
+packages/notifications/src/server/resend.ts
+  s_8252619ce79a86::t_179a2acbb6a88c 7-11,13-15,18,51-53,57-61,70-74,79-83,125-131
+packages/notifications/src/server/runner.ts
+  s_8252619ce79a86::t_14ccbeb9227ac9 7-10,23-28,34-35,41,80-86,106,115,117,121-137,154-157,185-189,194-222,227-235,238-242,247-248,260-263,273-276,284-287,353-355,370,378-379,453-460,473-486,489,492-493
+packages/notifications/src/server/store.ts
+  s_8252619ce79a86::t_0d4f1d5f80020e 90-91,105-106,111-112,136-137,146-147
+packages/notifications/src/server/unsubscribe.ts
+  s_8252619ce79a86::t_583b2c61fd91a2 4-7,9,14-15,17,21-25,34-35,55-58,62
+packages/notifications/src/server/webhook.ts
+  s_8252619ce79a86::t_ba905f72d51f86 48-49
+packages/ui-native/src/icon-names.ts
+  s_8252619ce79a86::t_80c7724c78ecf4 15,27,54,58-60
+packages/ui-native/src/icons/lucide.ts
+  s_8252619ce79a86::t_ba5dcc55c67bea 34,51-52,60-62,74,86,113,117-119
+packages/ui-native/types/react-native.d.ts
+  s_8252619ce79a86::t_41e0bbc626c1d7 501-507
+pnpm-lock.yaml
+  s_8252619ce79a86::t_b6a9f4ff84c39f 125-127,179-184,1218-1220,6159-6161,6799-6801,7761-7771,7995-8007,10937-10940,11143-11146,11681-11685,16230-16231,17088-17093,18180-18190,18448-18458,22098-22099,22306-22309,22907-22911
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7a41bb15c35289ea7c55afe6dbfe6d425e670923",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
