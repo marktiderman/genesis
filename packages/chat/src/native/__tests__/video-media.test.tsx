@@ -15,6 +15,8 @@ import { ChatVideoRecorder } from "../video-recorder";
 import { claimPlayback, activePlaybackId, releasePlayback } from "../voice-player";
 import { ChatAttachmentCard, isOpenableHref, splitCardAttachments } from "../attachment-cards";
 import { useChatComposer } from "../use-composer";
+import { createVideoUploads } from "../video-upload";
+import { VideoUploadTray } from "../video-upload-tray";
 
 const linking = vi.hoisted(() => ({ openURL: vi.fn(async () => true), openSettings: vi.fn(async () => undefined) }));
 vi.mock("react-native", async (original) => ({
@@ -144,6 +146,15 @@ describe("ChatVideoPlayer", () => {
     releasePlayback("voice-2");
   });
 
+  it("says a stream that won't load can't play, instead of a black box", () => {
+    const { video, player } = fakeVideo();
+    render(withModules({ video }, <ChatVideoPlayer id="a4" uri={null} playbackId="GONE" provider="mux" status="ready" durationMs={3000} testID="v" />));
+    fireEvent.click(screen.getByTestId("v-poster"));
+    const status = player.addListener.mock.calls.find((c) => c[0] === "statusChange")![1];
+    act(() => status({ status: "error" }));
+    expect(screen.getByTestId("v-broken").getAttribute("aria-label")).toBe("This video can't play right now.");
+  });
+
   it("renders nothing without expo-video (the bubble keeps its row)", () => {
     const { container } = render(<ChatVideoPlayer id="a" uri="https://x" durationMs={1} />);
     expect(container.innerHTML).toBe("");
@@ -195,6 +206,8 @@ describe("ChatVideoRecorder", () => {
     expect(screen.getByTestId("r-camera").getAttribute("data-facing")).toBe("front");
     fireEvent.click(screen.getByTestId("r-flip"));
     expect(screen.getByTestId("r-camera").getAttribute("data-facing")).toBe("back");
+    // The other camera starts before it records.
+    await waitFor(() => expect(screen.getByTestId("r-record").getAttribute("aria-disabled")).toBe("false"));
     fireA11y(screen.getByTestId("r-record"), "activate");
     fireEvent.click(screen.getByTestId("r-close"));
     expect(handle.stopRecording).toHaveBeenCalled();
@@ -299,6 +312,35 @@ describe("the bubble", () => {
     expect(screen.queryByTestId("b-file-0")).toBeNull();
     fireEvent.click(screen.getByTestId("b-card-0-action"));
     expect(onOpenAttachment).toHaveBeenCalledWith(form, expect.objectContaining({ id: "m1" }));
+    // The accessible bubble hides the button from VoiceOver, so it carries it as an action.
+    const bubble = screen.getByTestId("b-bubble");
+    expect(bubble.getAttribute("data-a11y-actions")).toContain("card-0");
+    fireA11y(bubble, "card-0");
+    expect(onOpenAttachment).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows a hosted video still on its way as Processing, not an empty bubble", () => {
+    const pending = {
+      clientId: "c9", senderId: ME, createdAt: "2026-10-25T10:00:00Z", status: "sending" as const, files: [],
+      input: { conversationId: "conv", clientId: "c9", body: "", attachments: [{ kind: "video", provider: "mux" as const, providerId: "upl", status: "pending" as const, durationMs: 5000 }] },
+    };
+    const r = invertedRows([{ type: "pending", pending }], { me: ME, group: false }).find((x) => x.type === "message") as Extract<ThreadRow, { type: "message" }>;
+    const { video } = fakeVideo();
+    render(withModules({ video }, <MessageBubble row={r} me={ME} urls={{}} group={false} reducedMotion testID="b" />));
+    expect(screen.getByTestId("b-video-0-processing")).toBeTruthy();
+    expect(screen.getByTestId("b-bubble").getAttribute("aria-label")).toContain("Video");
+  });
+
+  it("offers mute and speed to VoiceOver while its video plays", () => {
+    const { video, player } = fakeVideo();
+    render(withModules({ video }, <MessageBubble row={row({ attachments: [attachment({ id: "vv", playbackId: "PB", status: "ready" })] })} me={ME} urls={{}} group={false} reducedMotion testID="b" />));
+    const bubble = () => screen.getByTestId("b-bubble");
+    fireA11y(bubble(), "video-0");
+    expect(bubble().getAttribute("data-a11y-actions")).toBe("video-0,video-mute-0,video-rate-0,video-full-0");
+    fireA11y(bubble(), "video-mute-0");
+    expect(player.muted).toBe(true);
+    fireA11y(bubble(), "video-rate-0");
+    expect(player.playbackRate).toBe(1.5);
   });
 });
 
@@ -314,14 +356,16 @@ describe("attachment cards", () => {
     expect(own).toHaveBeenCalled();
     expect(app).not.toHaveBeenCalled();
     cleanup();
-    render(withModules({}, <ChatAttachmentCard attachment={checkIn} message={msg} kind={{ title: () => "Weekly check-in", action: () => ({ label: "Answer", href: "myapp://check-in/1" }) }} testID="k" />));
+    render(withModules({}, <ChatAttachmentCard attachment={checkIn} message={msg} kind={{ title: () => "Weekly check-in", action: () => ({ label: "Answer", href: "https://forms.example.com/1" }) }} testID="k" />));
     fireEvent.click(screen.getByTestId("k-action"));
-    expect(linking.openURL).toHaveBeenCalledWith("myapp://check-in/1");
+    expect(linking.openURL).toHaveBeenCalledWith("https://forms.example.com/1");
   });
 
-  it("never open an unsafe href, and have no button without an action", () => {
+  it("open only https by themselves (other links go through the app), and have no button without an action", () => {
     expect(isOpenableHref("javascript:alert(1)")).toBe(false);
     expect(isOpenableHref("http://x.test")).toBe(false);
+    expect(isOpenableHref("tel:+15555550100")).toBe(false);
+    expect(isOpenableHref("myapp://form/1")).toBe(false);
     expect(isOpenableHref("https://x.test")).toBe(true);
     render(withModules({}, <ChatAttachmentCard attachment={checkIn} message={msg} kind={{ title: () => "T", action: () => ({ label: "Go", href: "javascript:alert(1)" }) }} testID="k" />));
     expect(screen.queryByTestId("k-action")).toBeNull();
@@ -352,5 +396,26 @@ describe("the composer's video button", () => {
     cleanup();
     render(withModules({}, <Composer />));
     expect(screen.queryByTestId("c-video")).toBeNull();
+  });
+});
+
+describe("the upload tray", () => {
+  it("shows progress, then a failure in words with Retry and Cancel, for the signed-in person only", async () => {
+    const uploads = createVideoUploads(() => "t1");
+    const fetch = vi.fn(async (url: string) => {
+      if (url.startsWith("file:")) return new Response(new Uint8Array(10));
+      throw new TypeError("Network request failed");
+    }) as unknown as typeof globalThis.fetch;
+    const video = { uri: "file:///a.mov", name: "a.mov", contentType: "video/quicktime", durationMs: 3000 };
+    render(withModules({}, <VideoUploadTray conversationId="c" userId={ME} uploads={uploads} testID="t" />));
+    act(() => void uploads.start({ conversationId: "c", userId: ME, video, send: vi.fn(), videoUpload: { create: async () => ({ url: "https://up", providerId: "p", provider: "mux" }) }, fetch, sleep: async () => undefined }));
+    await waitFor(() => expect(screen.getByTestId("t-t1-text").textContent).toBe("The video didn't send. Check your connection and retry."));
+    expect(screen.getByTestId("t-t1-retry")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("t-t1-cancel"));
+    expect(screen.queryByTestId("t")).toBeNull();
+    cleanup();
+    act(() => void uploads.start({ conversationId: "c", userId: SAM, video, send: vi.fn(), fetch }));
+    render(withModules({}, <VideoUploadTray conversationId="c" userId={ME} uploads={uploads} testID="t" />));
+    expect(screen.queryByTestId("t")).toBeNull();
   });
 });

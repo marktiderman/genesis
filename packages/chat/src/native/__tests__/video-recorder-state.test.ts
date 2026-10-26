@@ -59,10 +59,25 @@ describe("the video recorder", () => {
     expect(run([{ type: "flip" }], recording).state.facing).toBe("front");
   });
 
-  it("a take with no file is a failure, not a send", () => {
+  it("a take with no file is lost on its own: nothing is sent and the camera stays ready", () => {
     const r = run([{ type: "press", at: 0 }, { type: "release", at: 2000 }, { type: "recorded", at: 2000, uri: null }], ready);
-    expect(r.state.phase).toBe("failed");
+    expect(r.state).toMatchObject({ phase: "ready", notice: "take-failed" });
     expect(r.effects.some((e) => e.startsWith("send"))).toBe(false);
+  });
+
+  it("a very short take with no file says too short, not failed", () => {
+    const r = run([{ type: "press", at: 0 }, { type: "release", at: 400 }, { type: "recorded", at: 450, uri: null }], ready);
+    expect(r.state.notice).toBe("too-short");
+  });
+
+  it("waits for the other camera after a flip, and Try again restarts a camera that failed", () => {
+    const flipped = run([{ type: "flip" }], ready).state;
+    expect(flipped.phase).toBe("starting");
+    expect(run([{ type: "press", at: 0 }], flipped).effects).toEqual([]);
+    expect(run([{ type: "camera-ready" }], flipped).state.phase).toBe("ready");
+    const failed = run([{ type: "camera-failed" }], ready).state;
+    expect(failed.phase).toBe("failed");
+    expect(run([{ type: "retry" }], failed).state).toMatchObject({ phase: "starting", cameraKey: 1 });
   });
 
   it("names the recording's type from its file", () => {

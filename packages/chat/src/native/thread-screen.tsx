@@ -30,7 +30,10 @@ import type { OpenAttachment } from "./attachment-cards";
 import { linkPreviewIds, previewToShow } from "./link-preview";
 import { ChatVideoRecorder } from "./video-recorder";
 import { VideoUploadTray } from "./video-upload-tray";
-import { videoUploads, type RecordedVideo } from "./video-upload";
+import { videoUploads, type MintedUpload, type RecordedVideo } from "./video-upload";
+
+/** How long an upload minted for a thrown-away take is kept for the next one. */
+const PREPARED_UPLOAD_MS = 20 * 60_000;
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
@@ -281,27 +284,34 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
 
   // ---- Video messages ----
   const [videoOpen, setVideoOpen] = useState(false);
-  // Minted when a take starts, so its bytes go the moment it stops; kept for the next take if this one is thrown away.
-  const preparedVideo = useRef<ReturnType<NonNullable<typeof videoUpload>["create"]> | null>(null);
+  // Minted when a take starts, so its bytes go the moment it stops. Kept for the next take when this
+  // one is thrown away, but only for this conversation and only while it is fresh (Mux's direct
+  // uploads expire; the uploader mints another if one has).
+  const preparedVideo = useRef<{ conversationId: string; at: number; upload: Promise<MintedUpload> } | null>(null);
+  const takePrepared = useCallback(() => {
+    const p = preparedVideo.current;
+    preparedVideo.current = null;
+    return p && p.conversationId === conversationId && Date.now() - p.at < PREPARED_UPLOAD_MS ? p.upload : null;
+  }, [conversationId]);
   const onVideoStart = useCallback(() => {
-    if (!videoUpload || preparedVideo.current) return;
-    const p = videoUpload.create(conversationId);
-    p.catch(() => {
-      if (preparedVideo.current === p) preparedVideo.current = null;
+    if (!videoUpload) return;
+    const before = preparedVideo.current;
+    const kept = takePrepared();
+    const upload = kept ?? videoUpload.create(conversationId);
+    upload.catch(() => {
+      if (preparedVideo.current?.upload === upload) preparedVideo.current = null;
     });
-    preparedVideo.current = p;
-  }, [videoUpload, conversationId]);
+    preparedVideo.current = { conversationId, at: kept && before ? before.at : Date.now(), upload };
+  }, [videoUpload, conversationId, takePrepared]);
   const replyNow = composer.state.replyTo?.messageId ?? null;
   const onVideoRecorded = useCallback(
     (video: RecordedVideo) => {
-      const prepared = preparedVideo.current;
-      preparedVideo.current = null;
-      videoUploads.start({ conversationId, video, extra: { replyToId: replyNow, threadRootId }, send: outbox.send, videoUpload, prepared, openFile: modules.openFile });
+      videoUploads.start({ conversationId, userId, video, extra: { replyToId: replyNow, threadRootId }, send: outbox.send, videoUpload, prepared: takePrepared(), openFile: modules.openFile });
       if (replyNow) setReply(null);
       atBottom.current = true;
       toBottom(true);
     },
-    [conversationId, replyNow, threadRootId, outbox, videoUpload, modules.openFile, setReply, toBottom],
+    [conversationId, userId, replyNow, threadRootId, outbox, videoUpload, takePrepared, modules.openFile, setReply, toBottom],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -368,7 +378,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               />
             )}
           </View>
-          <VideoUploadTray conversationId={conversationId} testID={`${testID}-video-uploads`} />
+          <VideoUploadTray conversationId={conversationId} userId={userId} testID={`${testID}-video-uploads`} />
           <ChatComposer
             composer={composer}
             canPost={canPost}

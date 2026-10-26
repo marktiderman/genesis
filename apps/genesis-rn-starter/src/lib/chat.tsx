@@ -30,6 +30,7 @@ import {
   clearDrafts,
   createTusUpload,
   handleChatPushResponse,
+  videoUploads,
   registerChatNotificationActions,
   type ChatNativeModules,
 } from "@marktiderman/genesis-chat/native";
@@ -185,6 +186,8 @@ export function useClearChatOnSignOut() {
     const who = lastChatUser;
     lastChatUser = null;
     void clearDrafts(modules.drafts!, who, onError);
+    // Videos still uploading were theirs: they stop, and nothing is sent after sign-out.
+    videoUploads.cancelAll();
     // TODO(chat clearOutbox): also empty this person's unsent messages here, through
     // `useChat().clearOutbox()` once genesis-chat ships it (the chat owner's PR); until then they
     // stay under `genesis-chat:outbox:<userId>` and come back if the same person signs in again.

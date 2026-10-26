@@ -75,6 +75,23 @@ export function fromPending(
   };
 }
 
+/** An attachment a pending message already carries (a hosted video, uploaded before it was queued). */
+export function fromPendingInput(clientId: string, index: number, a: AttachmentInput): BubbleAttachment {
+  return {
+    key: `${clientId}:input:${index}`,
+    kind: a.kind,
+    uri: a.url ?? null,
+    name: a.name ?? null,
+    width: a.width ?? null,
+    height: a.height ?? null,
+    durationMs: a.durationMs ?? null,
+    waveform: a.waveform ?? null,
+    thumbhash: a.thumbhash ?? null,
+    provider: a.provider ?? null,
+    status: a.status ?? null,
+  };
+}
+
 /** The paths a set of messages needs signed links for. */
 export function attachmentPaths(attachments: readonly ChatAttachment[]): string[] {
   const out: string[] = [];

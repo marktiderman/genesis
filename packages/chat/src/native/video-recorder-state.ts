@@ -5,6 +5,8 @@
  * second tap stops (what VoiceOver and TalkBack do too), and a hold records
  * until the finger lifts. Stopping sends; Cancel throws the take away. The
  * camera flips only between takes (expo-camera stops a recording that flips).
+ * A take the camera doesn't hand over is only that take: the camera stays
+ * ready. A camera that fails to start offers Try again.
  */
 
 export type VideoRecorderPhase = "asking" | "denied" | "starting" | "ready" | "recording" | "stopping" | "failed";
@@ -19,7 +21,9 @@ export interface VideoRecorderState {
   gesture: "hold" | "tap" | "stop-on-release" | null;
   /** The take is to be thrown away when the camera hands it over. */
   discard: boolean;
-  notice: "too-short" | null;
+  notice: "too-short" | "take-failed" | null;
+  /** Bumped by Try again after the camera failed: the camera view starts over. */
+  cameraKey: number;
 }
 
 export type VideoRecorderEvent =
@@ -31,6 +35,7 @@ export type VideoRecorderEvent =
   | { type: "tick"; at: number }
   | { type: "recorded"; at: number; uri: string | null }
   | { type: "flip" }
+  | { type: "retry" }
   | { type: "cancel" };
 
 export type VideoRecorderEffect =
@@ -59,6 +64,7 @@ export const initialVideoRecorder = (facing: "front" | "back" = "front"): VideoR
   gesture: null,
   discard: false,
   notice: null,
+  cameraKey: 0,
 });
 
 type Step = { state: VideoRecorderState; effects: VideoRecorderEffect[] };
@@ -104,13 +110,18 @@ export function videoRecorderStep(state: VideoRecorderState, event: VideoRecorde
       const durationMs = Math.min(config.limitMs, Math.max(0, event.at - state.startedAt));
       const base: VideoRecorderState = { ...state, phase: "ready", gesture: null, elapsedMs: 0, discard: false };
       if (state.discard) return { state: base, effects: [{ type: "close" }] };
-      if (!event.uri) return { state: { ...base, phase: "failed" }, effects: [{ type: "haptic", event: "error" }] };
+      // Too short first: a take stopped straight after it started often leaves no file at all.
       if (durationMs < minMs) return { state: { ...base, notice: "too-short" }, effects: [{ type: "haptic", event: "record-cancel" }] };
+      // The camera is still there; only this take is lost.
+      if (!event.uri) return { state: { ...base, notice: "take-failed" }, effects: [{ type: "haptic", event: "error" }] };
       return { state: base, effects: [{ type: "send", uri: event.uri, durationMs }, { type: "haptic", event: "send" }, { type: "close" }] };
     }
     case "flip":
       if (state.phase === "recording" || state.phase === "stopping") return same;
-      return { state: { ...state, facing: state.facing === "front" ? "back" : "front", notice: null }, effects: [] };
+      // The preview restarts on the other camera: wait for it (the screen also gives it a moment).
+      return { state: { ...state, facing: state.facing === "front" ? "back" : "front", phase: state.phase === "ready" ? "starting" : state.phase, notice: null }, effects: [] };
+    case "retry":
+      return state.phase === "failed" ? { state: { ...state, phase: "starting", cameraKey: state.cameraKey + 1, notice: null }, effects: [] } : same;
     case "cancel":
       if (state.phase === "recording") {
         return { state: { ...state, phase: "stopping", gesture: null, discard: true }, effects: [{ type: "stop" }, { type: "haptic", event: "record-cancel" }] };

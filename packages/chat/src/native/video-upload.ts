@@ -118,56 +118,59 @@ export async function chunkedPut(options: ChunkedPutOptions): Promise<void> {
 
   let offset = 0;
   if (options.resume) {
+    cancelled();
     const at = await withRetry(ask);
     if (at === null) return void options.onProgress?.(total, total);
     offset = at;
   }
   options.onProgress?.(offset, total);
+  // Failures since the server last moved forward: a 308 that keeps nothing new counts too, so a
+  // server that never advances ends in an error, not a loop.
+  let stalls = 0;
+  const stall = async (message: string) => {
+    stalls++;
+    if (stalls > retries) throw new ChatError(message, undefined, "upload");
+    await sleep(Math.min(8000, 500 * 2 ** (stalls - 1)));
+    cancelled();
+  };
   while (offset < total) {
     cancelled();
     const from = offset;
     const to = Math.min(total, from + chunk);
     const body = await options.source.read(from, to);
-    let failures = 0;
-    for (;;) {
-      cancelled();
-      let res: Response | null = null;
-      try {
-        res = await doFetch(options.url, {
-          method: "PUT",
-          headers: { "content-type": options.contentType, "content-range": `bytes ${from}-${to - 1}/${total}` },
-          body,
-        });
-      } catch {
-        res = null;
+    let res: Response | null = null;
+    try {
+      res = await doFetch(options.url, {
+        method: "PUT",
+        headers: { "content-type": options.contentType, "content-range": `bytes ${from}-${to - 1}/${total}` },
+        body,
+      });
+    } catch {
+      res = null;
+    }
+    if (res && DONE.has(res.status)) {
+      // "Complete" before the last byte: the server took a part as the whole (a plain PUT URL).
+      if (to < total) throw new ChatError("The upload server kept only part of the video", "22023", "upload");
+      offset = total;
+    } else if (res?.status === 308) {
+      const next = nextOffset(res.headers.get("range"));
+      if (next > from) {
+        offset = next;
+        stalls = 0;
+      } else {
+        await stall("The video upload is out of step");
       }
-      if (res && DONE.has(res.status)) {
-        offset = total;
-        break;
-      }
-      if (res?.status === 308) {
-        const next = nextOffset(res.headers.get("range"));
-        // The server kept less than this chunk: send the rest of it again from where it is.
-        offset = next > from ? next : from;
-        if (next <= from) failures++;
-        if (failures > retries) throw new ChatError("The video upload is out of step", undefined, "upload");
-        break;
-      }
-      if (res && !transient(res.status)) return refuse(res);
+    } else if (res && !transient(res.status)) {
+      return refuse(res);
+    } else {
       // A dropped connection or a server hiccup: wait, ask where it is, and go on from there.
-      failures++;
-      if (failures > retries) throw new ChatError("Not sent. Check your connection.", undefined, "upload");
-      await sleep(Math.min(8000, 500 * 2 ** (failures - 1)));
-      cancelled();
+      await stall("Not sent. Check your connection.");
       try {
         const at = await ask();
-        if (at === null) {
-          offset = total;
-          break;
-        }
-        if (at !== from) {
+        if (at === null) offset = total;
+        else if (at > from) {
           offset = at;
-          break;
+          stalls = 0;
         }
       } catch (e) {
         if (e instanceof ChatError && !e.transient) throw e;
@@ -184,7 +187,8 @@ export async function chunkedPut(options: ChunkedPutOptions): Promise<void> {
       } catch (e) {
         last = e;
         if (e instanceof ChatError && !e.transient) throw e;
-        await sleep(Math.min(8000, 500 * 2 ** attempt));
+        if (attempt < retries) await sleep(Math.min(8000, 500 * 2 ** attempt));
+        cancelled();
       }
     }
     throw last instanceof ChatError ? last : new ChatError("Not sent. Check your connection.", undefined, "upload");
@@ -210,29 +214,38 @@ export interface RecordedVideo {
 
 export type VideoUploadStatus = "uploading" | "failed";
 
+/** Why a video didn't go: the tray words it (`copy`); `detail` is the error, for logs. */
+export type VideoUploadError = "offline" | "forbidden" | "failed";
+
 /** One video on its way, shown in the thread above the composer until its message is queued. */
 export interface VideoUploadTask {
   id: string;
   conversationId: string;
+  /** Whose it is: the tray shows only the signed-in person's. */
+  userId: string | null;
   video: RecordedVideo;
   status: VideoUploadStatus;
   /** 0 to 1. */
   progress: number;
-  error: string | null;
+  error: VideoUploadError | null;
+  detail: string | null;
 }
 
 /** The outbox's send (`useChat().outbox.send`): the message goes in the conversation's order. */
 export type OutboxSend = (input: Omit<SendInput, "clientId"> & { clientId?: string }, files?: LocalFile[]) => Promise<string>;
 
+export type MintedUpload = { url: string; providerId: string; provider: "mux" };
+
 export interface StartVideoInput {
   conversationId: string;
+  userId?: string | null;
   video: RecordedVideo;
   /** What goes with it: a reply, a thread, a topic. */
   extra?: Omit<SendInput, "conversationId" | "clientId" | "attachments" | "body">;
   send: OutboxSend;
   videoUpload?: ChatVideoUpload;
-  /** The upload minted when recording started (`prepare`). */
-  prepared?: Promise<{ url: string; providerId: string; provider: "mux" }> | null;
+  /** The upload minted when recording started. */
+  prepared?: Promise<MintedUpload> | null;
   openFile?: (uri: string) => Promise<ChunkFileLike> | ChunkFileLike;
   fetch?: typeof fetch;
   chunkBytes?: number;
@@ -247,10 +260,18 @@ export function recordedVideoFile(video: RecordedVideo): LocalFile {
 interface Internal {
   task: VideoUploadTask;
   input: StartVideoInput;
-  upload: { url: string; providerId: string; provider: "mux" } | null;
+  upload: MintedUpload | null;
   bytes: number | null;
+  /** Bytes went to `upload`: a Retry asks the server where it is first. */
   started: boolean;
+  /** Every byte is there: a Retry only sends the message. */
+  uploaded: boolean;
   cancelled: boolean;
+}
+
+function errorKind(e: unknown): VideoUploadError {
+  if (e instanceof ChatError) return e.forbidden ? "forbidden" : e.transient ? "offline" : "failed";
+  return e instanceof TypeError ? "offline" : "failed";
 }
 
 export function createVideoUploads(newId: () => string = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`) {
@@ -262,29 +283,32 @@ export function createVideoUploads(newId: () => string = () => `${Date.now().toS
     listeners.forEach((l) => l());
   };
   const update = (t: Internal, patch: Partial<VideoUploadTask>) => {
+    if (!tasks.has(t.task.id)) return;
     t.task = { ...t.task, ...patch };
     emit();
   };
+  const finish = (t: Internal) => {
+    tasks.delete(t.task.id);
+    emit();
+  };
 
-  async function run(t: Internal) {
+  async function upload(t: Internal, videoUpload: ChatVideoUpload) {
     const { input } = t;
-    const { video } = input;
-    if (!input.videoUpload) {
-      // To storage, through the outbox (its pending bubble shows the upload).
-      tasks.delete(t.task.id);
-      emit();
-      await input.send({ ...input.extra, conversationId: input.conversationId, body: "" }, [recordedVideoFile(video)]);
-      return;
+    if (!t.upload) {
+      const prepared = input.prepared;
+      // A minted upload is used once, whatever happens to it.
+      t.input = { ...input, prepared: null };
+      t.upload = await (prepared ?? videoUpload.create(input.conversationId));
     }
-    const source = await fileSource(video.uri, input.openFile, input.fetch);
+    if (t.cancelled) return;
+    const source = await fileSource(input.video.uri, input.openFile, input.fetch);
     try {
       t.bytes = source.size;
-      const resume = t.started && t.upload !== null;
-      if (!t.upload) t.upload = await (input.prepared ?? input.videoUpload.create(input.conversationId));
+      const resume = t.started;
       t.started = true;
       await chunkedPut({
         url: t.upload.url,
-        contentType: video.contentType,
+        contentType: input.video.contentType,
         source,
         fetch: input.fetch,
         chunkBytes: input.chunkBytes,
@@ -296,7 +320,29 @@ export function createVideoUploads(newId: () => string = () => `${Date.now().toS
     } finally {
       source.close();
     }
-    if (t.cancelled) return;
+    t.uploaded = true;
+  }
+
+  async function run(t: Internal) {
+    const { input } = t;
+    const { video } = input;
+    if (!input.videoUpload) {
+      // To storage, through the outbox (its pending bubble shows the upload).
+      await input.send({ ...input.extra, conversationId: input.conversationId, body: "" }, [recordedVideoFile(video)]);
+      return finish(t);
+    }
+    if (!t.uploaded) {
+      try {
+        await upload(t, input.videoUpload);
+      } catch (e) {
+        // A minted upload that expired before it was used: mint a fresh one, once, without asking.
+        if (!(e instanceof ChatError && e.code === "P0002") || t.cancelled) throw e;
+        t.upload = null;
+        t.started = false;
+        await upload(t, input.videoUpload);
+      }
+    }
+    if (t.cancelled || !t.upload) return;
     const attachment: AttachmentInput = {
       kind: "video",
       provider: t.upload.provider,
@@ -307,25 +353,21 @@ export function createVideoUploads(newId: () => string = () => `${Date.now().toS
       bytes: t.bytes ?? undefined,
       durationMs: Math.round(video.durationMs),
     };
-    tasks.delete(t.task.id);
-    emit();
+    // Queued in the outbox, it shows in the thread as a pending video; then the tray lets it go.
     await input.send({ ...input.extra, conversationId: input.conversationId, body: "", attachments: [attachment] });
+    finish(t);
   }
 
   function go(t: Internal) {
-    update(t, { status: "uploading", error: null });
+    update(t, { status: "uploading", error: null, detail: null });
     run(t).catch((e: unknown) => {
-      if (t.cancelled || !tasks.has(t.task.id)) return;
-      const err = e instanceof ChatError ? e : null;
-      // An expired or used-up upload URL: Retry mints a new one and starts over.
-      if (err?.code === "P0002") {
+      if (t.cancelled) return;
+      // An upload URL that is gone: Retry mints a new one and starts over.
+      if (e instanceof ChatError && e.code === "P0002") {
         t.upload = null;
         t.started = false;
-        t.input = { ...t.input, prepared: null };
       }
-      // A minted upload that was never used stays; one that failed partway resumes.
-      if (t.input.prepared && !t.upload) t.input = { ...t.input, prepared: null };
-      update(t, { status: "failed", error: err?.forbidden ? "You can't post here" : (e instanceof Error ? e.message : String(e)) || null });
+      update(t, { status: "failed", error: errorKind(e), detail: e instanceof Error ? e.message : String(e) });
     });
   }
 
@@ -334,14 +376,16 @@ export function createVideoUploads(newId: () => string = () => `${Date.now().toS
     start(input: StartVideoInput): string {
       const id = newId();
       const t: Internal = {
-        task: { id, conversationId: input.conversationId, video: input.video, status: "uploading", progress: 0, error: null },
+        task: { id, conversationId: input.conversationId, userId: input.userId ?? null, video: input.video, status: "uploading", progress: 0, error: null, detail: null },
         input,
         upload: null,
         bytes: null,
         started: false,
+        uploaded: false,
         cancelled: false,
       };
       tasks.set(id, t);
+      emit();
       go(t);
       return id;
     },
@@ -354,7 +398,12 @@ export function createVideoUploads(newId: () => string = () => `${Date.now().toS
       const t = tasks.get(id);
       if (!t) return;
       t.cancelled = true;
-      tasks.delete(id);
+      finish(t);
+    },
+    /** Stops and forgets every one (call it on sign-out, beside `clearOutbox`). */
+    cancelAll() {
+      for (const t of tasks.values()) t.cancelled = true;
+      tasks.clear();
       emit();
     },
     list(conversationId?: string): VideoUploadTask[] {
@@ -375,8 +424,9 @@ export const videoUploads: VideoUploads = createVideoUploads();
 
 const EMPTY: VideoUploadTask[] = [];
 
-/** The videos on their way to this conversation, live. */
-export function useVideoUploads(conversationId: string, store: VideoUploads = videoUploads): VideoUploadTask[] {
+/** The signed-in person's videos on their way to this conversation, live. */
+export function useVideoUploads(conversationId: string, userId: string | null = null, store: VideoUploads = videoUploads): VideoUploadTask[] {
   const all = useSyncExternalStore(store.subscribe, store.snapshot, () => EMPTY);
-  return all.some((t) => t.conversationId === conversationId) ? all.filter((t) => t.conversationId === conversationId) : EMPTY;
+  const mine = (t: VideoUploadTask) => t.conversationId === conversationId && (userId === null || t.userId === null || t.userId === userId);
+  return all.some(mine) ? all.filter(mine) : EMPTY;
 }

@@ -8,7 +8,7 @@
  * it takes the same playback slot (`claimPlayback`), so starting it pauses a voice note and
  * the other way round. The bubble's VoiceOver actions reach it by id (`toggleVideo`).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { ActivityIndicator, Pressable, View, useWindowDimensions } from "react-native";
 import { NativeIcon, NativeImage, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -62,9 +62,46 @@ export function videoSource(p: Pick<ChatVideoPlayerProps, "uri" | "playbackId">)
 interface VideoControls {
   toggle: () => void;
   fullScreen: () => void;
+  mute: () => void;
+  rate: () => void;
 }
 const controls = new Map<string, VideoControls[]>();
 const playingIds = new Set<string>();
+const playingListeners = new Set<() => void>();
+const setPlayingId = (id: string, on: boolean) => {
+  if (playingIds.has(id) === on) return;
+  if (on) playingIds.add(id);
+  else playingIds.delete(id);
+  playingListeners.forEach((l) => l());
+};
+const subscribePlaying = (l: () => void) => {
+  playingListeners.add(l);
+  return () => void playingListeners.delete(l);
+};
+
+/** Which of these videos is playing, or null (re-renders only when that answer changes). */
+export function usePlayingVideo(ids: readonly string[]): string | null {
+  const key = ids.join("|");
+  return useSyncExternalStore(
+    subscribePlaying,
+    () => key.split("|").find((id) => id && playingIds.has(id)) ?? null,
+    () => null,
+  );
+}
+
+/** Mutes or unmutes the video with this id while it plays. */
+export function toggleVideoMute(id: string): boolean {
+  const c = controls.get(id)?.at(-1);
+  c?.mute();
+  return Boolean(c);
+}
+
+/** Moves the playing video with this id to its next speed. */
+export function cycleVideoRate(id: string): boolean {
+  const c = controls.get(id)?.at(-1);
+  c?.rate();
+  return Boolean(c);
+}
 
 /** Plays or pauses the video with this id; false when none with it is on screen. */
 export function toggleVideo(id: string): boolean {
@@ -87,7 +124,12 @@ export function isVideoPlaying(id: string): boolean {
 
 function useRegister(id: string, handles: React.MutableRefObject<VideoControls>) {
   useEffect(() => {
-    const entry: VideoControls = { toggle: () => handles.current.toggle(), fullScreen: () => handles.current.fullScreen() };
+    const entry: VideoControls = {
+      toggle: () => handles.current.toggle(),
+      fullScreen: () => handles.current.fullScreen(),
+      mute: () => handles.current.mute(),
+      rate: () => handles.current.rate(),
+    };
     controls.set(id, [...(controls.get(id) ?? []), entry]);
     return () => {
       const rest = (controls.get(id) ?? []).filter((e) => e !== entry);
@@ -108,7 +150,8 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
   const state = videoState(props);
   const source = useMemo(() => videoSource(props), [props.uri, props.playbackId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handles = useRef<VideoControls>({ toggle: () => undefined, fullScreen: () => undefined });
+  const [broken, setBroken] = useState(false);
+  const handles = useRef<VideoControls>({ toggle: () => undefined, fullScreen: () => undefined, mute: () => undefined, rate: () => undefined });
   handles.current = {
     toggle: () => state === "playable" && setActive(true),
     fullScreen: () => {
@@ -116,6 +159,8 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
       setFullOnStart(true);
       setActive(true);
     },
+    mute: () => undefined,
+    rate: () => undefined,
   };
   useRegister(props.id, handles);
 
@@ -126,18 +171,19 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
   const duration = props.durationMs ? formatDuration(props.durationMs) : null;
   const box = { width: w, height: h, borderRadius: 14, overflow: "hidden" as const, backgroundColor: MEDIA_FRAME };
 
-  if (state === "failed" || state === "processing") {
+  if (state === "failed" || state === "processing" || broken) {
+    const text = broken ? copy.videoCantPlay : state === "failed" ? copy.videoFailed : copy.videoProcessing;
     return (
       <View
-        testID={`${testID}-${state}`}
+        testID={`${testID}-${broken ? "broken" : state}`}
         accessible
-        accessibilityLabel={state === "failed" ? copy.videoFailed : copy.videoProcessing}
+        accessibilityLabel={text}
         accessibilityLiveRegion="polite"
         style={[box, { alignItems: "center", justifyContent: "center", gap: 8, padding: 12, backgroundColor: colors.fill }]}
       >
-        {state === "processing" ? <ActivityIndicator color={colors.secondaryLabel as string} /> : <NativeIcon name="video" size={24} color={colors.secondaryLabel} />}
+        {state === "processing" && !broken ? <ActivityIndicator color={colors.secondaryLabel as string} /> : <NativeIcon name="video" size={24} color={colors.secondaryLabel} />}
         <NativeText preset="caption" style={{ color: colors.secondaryLabel, textAlign: "center" }}>
-          {state === "failed" ? copy.videoFailed : copy.videoProcessing}
+          {text}
         </NativeText>
       </View>
     );
@@ -152,6 +198,7 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
         style={box}
         fullOnStart={fullOnStart}
         onFullStarted={() => setFullOnStart(false)}
+        onBroken={() => setBroken(true)}
         handles={handles}
         testID={testID}
       />
@@ -196,9 +243,11 @@ function ActiveVideo({
   style,
   fullOnStart,
   onFullStarted,
+  onBroken,
   handles,
   testID,
 }: ChatVideoPlayerProps & {
+  onBroken: () => void;
   video: ExpoVideoLike;
   source: { uri: string; contentType: "hls" | "auto" };
   style: Record<string, unknown>;
@@ -212,6 +261,8 @@ function ActiveVideo({
     p.play();
   });
   const viewRef = useRef<VideoViewHandleLike | null>(null);
+  const latestBroken = useRef(onBroken);
+  latestBroken.current = onBroken;
   const [playing, setPlaying] = useState(true);
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
@@ -219,26 +270,29 @@ function ActiveVideo({
 
   useEffect(() => {
     claimPlayback(id, () => player.pause());
-    playingIds.add(id);
+    setPlayingId(id, true);
     const subs = [
       player.addListener("playingChange", ((payload: { isPlaying: boolean }) => {
         setPlaying(payload.isPlaying);
+        setPlayingId(id, payload.isPlaying);
         if (payload.isPlaying) {
           ended.current = false;
-          playingIds.add(id);
           claimPlayback(id, () => player.pause());
         } else {
-          playingIds.delete(id);
           releasePlayback(id);
         }
       }) as (payload: never) => void),
       player.addListener("playToEnd", (() => {
         ended.current = true;
       }) as (payload: never) => void),
+      // A stream that won't load (gone, refused, offline) says so instead of staying black.
+      player.addListener("statusChange", ((payload: { status: string }) => {
+        if (payload.status === "error") latestBroken.current();
+      }) as (payload: never) => void),
     ];
     return () => {
       subs.forEach((s) => s.remove());
-      playingIds.delete(id);
+      setPlayingId(id, false);
       releasePlayback(id);
     };
   }, [id, player]);
@@ -255,8 +309,6 @@ function ActiveVideo({
     player.play();
   };
   const fullScreen = () => void viewRef.current?.enterFullscreen().catch(() => undefined);
-  handles.current = { toggle, fullScreen };
-
   const toggleMute = () => {
     player.muted = !muted;
     setMuted(!muted);
@@ -266,6 +318,7 @@ function ActiveVideo({
     player.playbackRate = next;
     setRate(next);
   };
+  handles.current = { toggle, fullScreen, mute: toggleMute, rate: cycleRate };
   const { VideoView } = video;
     return (
     <View testID={`${testID}-active`} style={style}>

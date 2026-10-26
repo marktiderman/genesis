@@ -5,7 +5,8 @@
  * in-app browser with `modules.webBrowser` (expo-web-browser), else the system's (`Linking`).
  * Only https links. The image shows only when the app turns on `linkPreviewImages`: fetching
  * a page's og:image from the phone tells that site the reader's address, so by default the
- * card has none and nothing is fetched.
+ * card has none and nothing is fetched. The thread screen reads that switch from `ChatProvider
+ * linkPreviewImages` once the provider has it (the chat owner's change); until then it is off.
  */
 import { Linking, Pressable, View } from "react-native";
 import { NativeImage, NativeText } from "@marktiderman/genesis-ui-native/components";
@@ -52,7 +53,7 @@ export interface ChatLinkPreviewCardProps {
   preview: ChatLinkPreview;
   /** On the tint bubble. */
   mine?: boolean;
-  /** Show the og:image (`ChatProvider linkPreviewImages`). Off by default: it reveals the reader's address to the site. */
+  /** Show the og:image. Off by default: fetching it tells the site the reader's address. */
   images?: boolean;
   testID?: string;
 }

@@ -73,6 +73,17 @@ describe("chunkedPut (resumable PUT to a direct upload URL)", () => {
     await expect(chunkedPut({ url: "u", contentType: "video/mp4", source: bytes(10), fetch: down, retries: 2, sleep: noSleep })).rejects.toThrow(/connection/);
   });
 
+  it("ends in an error, not a loop, when the server answers 308 without moving forward", async () => {
+    const stuck = vi.fn(async () => res(308)) as unknown as typeof fetch;
+    await expect(chunkedPut({ url: "u", contentType: "video/mp4", source: bytes(10), fetch: stuck, retries: 3, sleep: noSleep })).rejects.toThrow(/out of step/);
+    expect((stuck as unknown as { mock: { calls: unknown[] } }).mock.calls.length).toBe(4);
+  });
+
+  it("refuses a server that calls a middle chunk the whole upload (it kept only part)", async () => {
+    const plain = vi.fn(async () => res(200)) as unknown as typeof fetch;
+    await expect(chunkedPut({ url: "u", contentType: "video/mp4", source: bytes(512 * KIB), fetch: plain, chunkBytes: 256 * KIB, sleep: noSleep })).rejects.toThrow(/only part/);
+  });
+
   it("reads Range headers", () => {
     expect(nextOffset("bytes=0-262143")).toBe(262144);
     expect(nextOffset(null)).toBe(0);
@@ -130,12 +141,59 @@ describe("video uploads in flight", () => {
     const uploads = createVideoUploads(() => "t1");
     uploads.start({ conversationId: "c", video, send, videoUpload: { create }, fetch, sleep: noSleep });
     await vi.waitFor(() => expect(uploads.list("c")[0]?.status).toBe("failed"));
-    expect(uploads.list("c")[0]?.error).toMatch(/connection/);
+    expect(uploads.list("c")[0]?.error).toBe("offline");
     up = true;
     uploads.retry("t1");
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
     expect(create).toHaveBeenCalledTimes(1);
     expect(s.calls[0]?.range).toBe("bytes */100");
+  });
+
+  it("an outbox that won't take the message leaves it failed, and Retry sends it without uploading again", async () => {
+    const s = server(100);
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => (url.startsWith("file:") ? read() : s.fetch(url, init!))) as unknown as typeof globalThis.fetch;
+    const send = vi.fn().mockRejectedValueOnce(new Error("storage full")).mockResolvedValue("x");
+    const uploads = createVideoUploads(() => "t1");
+    uploads.start({ conversationId: "c", video, send, videoUpload: { create: async () => ({ url: "https://up", providerId: "p", provider: "mux" }) }, fetch, sleep: noSleep });
+    await vi.waitFor(() => expect(uploads.list("c")[0]?.status).toBe("failed"));
+    const puts = s.calls.length;
+    uploads.retry("t1");
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+    expect(s.calls.length).toBe(puts);
+    expect(uploads.list("c")).toEqual([]);
+  });
+
+  it("mints a fresh upload, once and by itself, when the one minted at the start has expired", async () => {
+    const live = server(100);
+    const fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.startsWith("file:")) return read();
+      if (url === "https://expired") return res(410);
+      return live.fetch(url, init!);
+    }) as unknown as typeof globalThis.fetch;
+    const create = vi.fn(async () => ({ url: "https://fresh", providerId: "upl_2", provider: "mux" as const }));
+    const send = vi.fn(async () => "x");
+    createVideoUploads().start({ conversationId: "c", video, send, videoUpload: { create }, prepared: Promise.resolve({ url: "https://expired", providerId: "upl_1", provider: "mux" }), fetch, sleep: noSleep });
+    await vi.waitFor(() => expect(send).toHaveBeenCalled());
+    expect(create).toHaveBeenCalledTimes(1);
+    expect((send.mock.calls[0] as unknown[])[0]).toMatchObject({ attachments: [{ providerId: "upl_2" }] });
+  });
+
+  it("cancelAll (sign-out) stops every upload, and none is sent", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const fetch = vi.fn(async (url: string) => (url.startsWith("file:") ? read() : (await gate, res(201)))) as unknown as typeof globalThis.fetch;
+    const send = vi.fn();
+    const uploads = createVideoUploads();
+    const upload = { create: async () => ({ url: "https://up", providerId: "p", provider: "mux" as const }) };
+    uploads.start({ conversationId: "c", userId: "u1", video, send, videoUpload: upload, fetch, sleep: noSleep });
+    uploads.start({ conversationId: "d", userId: "u1", video, send, videoUpload: upload, fetch, sleep: noSleep });
+    await flush();
+    uploads.cancelAll();
+    release();
+    await flush();
+    await flush();
+    expect(uploads.list()).toEqual([]);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("Cancel stops it and nothing is sent", async () => {

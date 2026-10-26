@@ -7,7 +7,7 @@
  * microphone when it opens; refused, it says how to turn them on.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking, Modal, Pressable, View } from "react-native";
+import { AccessibilityInfo, Linking, Modal, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -134,6 +134,23 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
     return () => clearInterval(id);
   }, [recording, dispatch]);
 
+  // The preview says when it's ready (at open, after a flip, after Try again); a camera that never
+  // says so gets the button anyway after a moment, and a take that can't record says that.
+  const starting = state.phase === "starting";
+  useEffect(() => {
+    if (!starting) return;
+    const id = setTimeout(() => dispatch({ type: "camera-ready" }), 1500);
+    return () => clearTimeout(id);
+  }, [starting, state.facing, state.cameraKey, dispatch]);
+
+  // Said out loud on iOS too (a live region is Android only).
+  const noticeText = state.notice === "too-short" ? copy.videoTooShort : state.notice === "take-failed" ? copy.videoTakeFailed : null;
+  const blockedText = state.phase === "denied" ? copy.cameraDenied : state.phase === "failed" ? copy.cameraFailed : null;
+  useEffect(() => {
+    const text = noticeText ?? blockedText;
+    if (text) AccessibilityInfo?.announceForAccessibility?.(text);
+  }, [noticeText, blockedText]);
+
   const { CameraView } = camera;
     const blocked = state.phase === "denied" || state.phase === "failed";
   const canRecord = state.phase === "ready" || recording;
@@ -143,6 +160,7 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
     <View testID={`${testID}-body`} style={{ flex: 1, backgroundColor: MEDIA_BACKDROP }}>
       {state.phase !== "asking" && state.phase !== "denied" ? (
         <CameraView
+          key={state.cameraKey}
           ref={cameraRef}
           testID={`${testID}-camera`}
           style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
@@ -188,14 +206,18 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
               <NativeButton testID={`${testID}-settings`} variant="secondary" onPress={() => void Linking?.openSettings?.()}>
                 {copy.openSettings}
               </NativeButton>
-            ) : null}
+            ) : (
+              <NativeButton testID={`${testID}-retry`} variant="secondary" onPress={() => dispatch({ type: "retry" })}>
+                {copy.tryAgain}
+              </NativeButton>
+            )}
           </View>
         ) : null}
 
         <View style={{ paddingBottom: 16, gap: 12, alignItems: "center" }}>
-          {state.notice === "too-short" ? (
+          {state.notice ? (
             <NativeText testID={`${testID}-notice`} accessibilityLiveRegion="polite" style={{ color: ON_MEDIA, textAlign: "center", paddingHorizontal: 24 }}>
-              {copy.videoTooShort}
+              {noticeText}
             </NativeText>
           ) : null}
           {!blocked ? (

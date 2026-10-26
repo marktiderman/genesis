@@ -36,11 +36,11 @@ export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, togg
 export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
 export { ChatVideoRecorder, type ChatVideoRecorderProps } from "./video-recorder";
 export { videoRecorderStep, initialVideoRecorder, recordingType, VIDEO_HOLD_MS, VIDEO_MIN_MS, type VideoRecorderState, type VideoRecorderEvent, type VideoRecorderEffect, type VideoRecorderPhase } from "./video-recorder-state";
-export { ChatVideoPlayer, videoState, videoSource, muxStreamUrl, muxPosterUrl, toggleVideo, fullScreenVideo, isVideoPlaying, type ChatVideoPlayerProps, type ChatVideoState } from "./video-player";
-export { chunkedPut, fileSource, nextOffset, createVideoUploads, videoUploads, useVideoUploads, recordedVideoFile, VIDEO_CHUNK_BYTES, type ByteSource, type ChunkedPutOptions, type RecordedVideo, type VideoUploadTask, type VideoUploads, type StartVideoInput, type OutboxSend } from "./video-upload";
+export { ChatVideoPlayer, videoState, videoSource, muxStreamUrl, muxPosterUrl, toggleVideo, fullScreenVideo, isVideoPlaying, usePlayingVideo, toggleVideoMute, cycleVideoRate, type ChatVideoPlayerProps, type ChatVideoState } from "./video-player";
+export { chunkedPut, fileSource, nextOffset, createVideoUploads, videoUploads, type VideoUploadError, type MintedUpload, useVideoUploads, recordedVideoFile, VIDEO_CHUNK_BYTES, type ByteSource, type ChunkedPutOptions, type RecordedVideo, type VideoUploadTask, type VideoUploads, type StartVideoInput, type OutboxSend } from "./video-upload";
 export { VideoUploadTray, type VideoUploadTrayProps } from "./video-upload-tray";
 export { ChatLinkPreviewCard, previewToShow, linkPreviewIds, openChatLink, linkHost, type ChatLinkPreviewCardProps } from "./link-preview";
-export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, type ChatAttachmentCardProps, type OpenAttachment } from "./attachment-cards";
+export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, cardAction, type ChatAttachmentCardProps, type OpenAttachment } from "./attachment-cards";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 export {

@@ -17,12 +17,12 @@ import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { previewText, summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
-import { ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
-import { ChatLinkPreviewCard, openChatLink } from "./link-preview";
-import { fullScreenVideo, isVideoPlaying, toggleVideo } from "./video-player";
+import { cardAction, ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
+import { ChatLinkPreviewCard, linkHost, openChatLink } from "./link-preview";
+import { cycleVideoRate, fullScreenVideo, toggleVideo, toggleVideoMute, usePlayingVideo } from "./video-player";
 import { fill } from "./copy";
 import { initials, useChatNative } from "./context";
-import { fromPending, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
+import { fromPending, fromPendingInput, fromServer, MessageAttachments, type BubbleAttachment } from "./media";
 import { cycleVoiceNoteRate, toggleVoiceNote, usePlayingVoiceNote } from "./voice-player";
 import type { ThreadRow } from "./rows";
 
@@ -50,7 +50,7 @@ export interface MessageBubbleProps {
   onSwipeReply?: () => void;
   /** The preview of a link in its text (`useLinkPreviews`, `previewToShow`). */
   linkPreview?: ChatLinkPreview | null;
-  /** Show link previews' images (`ChatProvider linkPreviewImages`; off by default). */
+  /** Show link previews' images (off by default; the thread screen passes `ChatProvider linkPreviewImages`). */
   linkPreviewImages?: boolean;
   /** The app's own attachment kinds, drawn as cards (`ChatProvider attachmentKinds`). */
   attachmentKinds?: Record<string, ChatAttachmentKind>;
@@ -95,7 +95,11 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   );
   const attachments: BubbleAttachment[] = useMemo(() => {
     if (message) return message.deletedAt ? [] : plain.map((a) => fromServer(a, urls));
-    return (pending?.files ?? []).map((f, i) => fromPending(pending!.clientId, i, f, pending!.previews?.[i]));
+    // What it already carries (a hosted video) comes first, as the outbox sends it.
+    return [
+      ...(pending?.input.attachments ?? []).map((a, i) => fromPendingInput(pending!.clientId, i, a)),
+      ...(pending?.files ?? []).map((f, i) => fromPending(pending!.clientId, i, f, pending!.previews?.[i])),
+    ];
   }, [message, pending, urls, plain]);
   const preview = message && !message.deletedAt && message.moderation !== "hidden" ? (props.linkPreview ?? null) : null;
 
@@ -103,6 +107,8 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const voices = attachments.filter((a) => a.kind === "voice" && a.uri && modules.audio);
   const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
   const videos = attachments.filter((a) => a.kind === "video" && modules.video && (a.uri || a.playbackId));
+  const playingVideo = usePlayingVideo(videos.map((a) => a.key));
+  const cardActions = message ? cards.map((a) => cardAction(kinds?.[a.kind], a, message, props.onOpenAttachment)) : [];
   const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
@@ -155,7 +161,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     message?.deletedAt ? copy.deleted : displayBody(body),
     attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : a.kind === "video" ? copy.video : copy.file)).join(", "),
     cards.map((a) => cardTitle(kinds?.[a.kind], a)).join(", "),
-    preview ? fill(copy.linkPreview, { title: preview.title?.trim() || preview.url, site: preview.siteName?.trim() || "" }) : null,
+    preview ? fill(copy.linkPreview, { title: preview.title?.trim() || linkHost(preview.url), site: preview.siteName?.trim() || linkHost(preview.url) }) : null,
     time,
     message?.editedAt ? copy.edited : null,
     statusText,
@@ -171,10 +177,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     ]),
     ...photos.map((_, i) => ({ name: `photo-${i}`, label: photos.length > 1 ? fill(copy.openPhotoN, { n: i + 1 }) : copy.openImage })),
     ...videos.flatMap((a, i) => [
-      { name: `video-${i}`, label: isVideoPlaying(a.key) ? copy.pauseVideo : copy.playVideo },
+      { name: `video-${i}`, label: playingVideo === a.key ? copy.pauseVideo : copy.playVideo },
+      // Mute and speed reach the player that is playing.
+      ...(playingVideo === a.key ? [{ name: `video-mute-${i}`, label: copy.mute }, { name: `video-rate-${i}`, label: copy.changeSpeed }] : []),
       { name: `video-full-${i}`, label: copy.fullScreen },
     ]),
-    ...(preview ? [{ name: "open-link", label: copy.openLink }] : []),
+    ...cardActions.flatMap((c, i) => (c ? [{ name: `card-${i}`, label: c.label }] : [])),
+    ...(preview ? [{ name: "open-link", label: copy.openLinkAction }] : []),
     ...(message && props.onReply && !message.deletedAt ? [{ name: "reply", label: copy.reply }] : []),
     ...(message && props.onLongPress && !message.deletedAt ? [{ name: "actions", label: copy.messageActions }] : []),
     ...(failed && !lost && props.onRetry ? [{ name: "retry", label: copy.retry }] : []),
@@ -182,10 +191,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     ...(failed && props.onDiscard ? [{ name: "discard", label: copy.discard }] : []),
   ];
   const onAction = (name: string) => {
-    const media = /^(voice-rate|voice|photo|video-full|video)-(\d+)$/.exec(name);
+    const media = /^(voice-rate|voice|photo|video-full|video-mute|video-rate|video|card)-(\d+)$/.exec(name);
     if (media) {
       const i = Number(media[2]);
-      if (media[1] === "video" && videos[i]) toggleVideo(videos[i].key);
+      if (media[1] === "card") cardActions[i]?.run();
+      else if (media[1] === "video-mute" && videos[i]) toggleVideoMute(videos[i].key);
+      else if (media[1] === "video-rate" && videos[i]) cycleVideoRate(videos[i].key);
+      else if (media[1] === "video" && videos[i]) toggleVideo(videos[i].key);
       else if (media[1] === "video-full" && videos[i]) fullScreenVideo(videos[i].key);
       else if (media[1] === "voice" && voices[i]) toggleVoiceNote(voices[i].key);
       else if (media[1] === "voice-rate" && voices[i]) cycleVoiceNoteRate(voices[i].key);

@@ -77,6 +77,12 @@ export interface ChatNativeCopy {
   videoElapsed: string;
   videoUploading: string;
   videoUploadFailed: string;
+  videoOffline: string;
+  videoForbidden: string;
+  videoCantPlay: string;
+  /** A take that the camera didn't hand over. */
+  videoTakeFailed: string;
+  tryAgain: string;
   cancelUpload: string;
   videoProcessing: string;
   videoFailed: string;
@@ -90,6 +96,8 @@ export interface ChatNativeCopy {
   /** A link preview card's label: "{title}, {site}". */
   linkPreview: string;
   openLink: string;
+  /** The bubble's VoiceOver action for its link preview. */
+  openLinkAction: string;
   attachmentCard: string;
   openImage: string;
   closeViewer: string;
@@ -184,6 +192,11 @@ export const chatNativeCopy: ChatNativeCopy = {
   videoElapsed: "{elapsed} of {limit}",
   videoUploading: "Sending video, {percent}%",
   videoUploadFailed: "The video didn't send.",
+  videoOffline: "The video didn't send. Check your connection and retry.",
+  videoForbidden: "You can't post in this conversation.",
+  videoCantPlay: "This video can't play right now.",
+  videoTakeFailed: "That take didn't record. Try again.",
+  tryAgain: "Try again",
   cancelUpload: "Cancel video",
   videoProcessing: "Processing video",
   videoFailed: "This video couldn't be processed.",
@@ -195,6 +208,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   videoMessage: "Video, {duration}",
   linkPreview: "{title}, {site}",
   openLink: "Opens the link",
+  openLinkAction: "Open link",
   attachmentCard: "{title}, {subtitle}",
   openImage: "Open photo",
   closeViewer: "Close",
