@@ -49,3 +49,16 @@ describe("app.config.ts per APP_VARIANT", () => {
     expect(new Set(links)).toEqual(new Set([scheme]));
   });
 });
+
+describe("iOS rich push (in the build whichever way the chat switch is)", () => {
+  it.each([
+    ["development", "com.example.genesisstarter.dev.NotificationService"],
+    ["production", "com.example.genesisstarter.NotificationService"],
+  ])("%s: Communication Notifications on the app, and the extension for EAS with the variant's id", (variant, extensionId) => {
+    const config = configFor(variant);
+    expect(config.ios?.entitlements?.["com.apple.developer.usernotifications.communication"]).toBe(true);
+    expect(config.ios?.infoPlist?.NSUserActivityTypes).toContain("INSendMessageIntent");
+    const extensions = (config.extra as { eas?: { build?: { experimental?: { ios?: { appExtensions?: { targetName: string; bundleIdentifier: string }[] } } } } })?.eas?.build?.experimental?.ios?.appExtensions;
+    expect(extensions).toEqual([expect.objectContaining({ targetName: "GenesisNotificationService", bundleIdentifier: extensionId })]);
+  });
+});
