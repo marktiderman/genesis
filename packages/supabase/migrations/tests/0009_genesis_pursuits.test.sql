@@ -168,7 +168,10 @@ select throws_ok(
   '22023', null, 'a parent must be in the same tenant');
 
 -- The owner-access contract ----------------------------------------------------------------
-select pg_temp.sign_in('a1');
+-- Called as the owner with a1's claims, the way a policy calls it for a1 (signed-in callers
+-- can't name the private schema themselves).
+select pg_temp.as_server();
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.person('a1'), 'role', 'authenticated')::text, true);
 select is(private.genesis_owner_allows(pg_temp.tenant(1), null, pg_temp.team(1), null, 'write'), true, 'the wrapper answers for the signed-in person');
 select is(private.genesis_owner_allows(pg_temp.tenant(1), null, pg_temp.team(1), null, 'delete'), false, 'an action other than read or write is no');
 select ok(not has_function_privilege('anon', 'private.genesis_owner_allows(uuid,uuid,uuid,uuid,text)', 'execute'), 'anon can''t call the wrappers');
