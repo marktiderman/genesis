@@ -1,0 +1,23 @@
+packages/product/package.json
+  s_4ea9e233c4fda6::t_963b69ddd1a705 13-16
+packages/product/README.md
+  s_4ea9e233c4fda6::t_963b69ddd1a705 6-7
+.changeset/publish-genesis-product.md
+  s_4ea9e233c4fda6::t_963b69ddd1a705 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aa6982b8440a8e0382df88321fa952d6ca236fae",
+  "prompts": {},
+  "sessions": {
+    "s_4ea9e233c4fda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87517208-b3be-4ddc-b8ac-0ec52a33a61a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
