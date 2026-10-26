@@ -1,0 +1,37 @@
+packages/work/migrations/0002_genesis_work_metrics.sql
+  s_26495fc9681b7e::t_7bfc5b144a88c6 258-261,263
+packages/work/migrations/0004_genesis_work_sessions.sql
+  s_26495fc9681b7e::t_6e13059c91beb8 28-29,161-179,363,370-375,413-443,447,460,466-468,471-472,479-481,484-485,494-496,499-500,509-511,514-515,517-535
+packages/work/migrations/0005_genesis_work_fields.sql
+  s_26495fc9681b7e::t_d480e4f26a1c8d 13-14,78,80,82-85,87-90,95,124,144,157,159,186,208-210,214-216,224,239-276,281-282,293-295,298-299
+packages/work/migrations/tests/0002_genesis_work_metrics.test.sql
+  s_26495fc9681b7e::t_9aca6d2e99fb74 10,206-208
+packages/work/migrations/tests/0004_genesis_work_sessions.test.sql
+  s_1f35d570c63beb::t_9551df69a2cb25 10,111-114,128,163-173
+packages/work/migrations/tests/0005_genesis_work_fields.test.sql
+  s_26495fc9681b7e::t_b081c2523f417a 6,63,124-125,131-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6985feb64e7de8554151f3aed49389466a9e2462",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
