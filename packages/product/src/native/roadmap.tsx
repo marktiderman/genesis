@@ -44,7 +44,7 @@ export function useRoadmap(options: RoadmapOptions): Roadmap {
   const [all, setAll] = useState<RoadmapItem[] | null>(null);
   const [error, setError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [selected, setSelected] = useState<RoadmapItem | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const alive = useRef(true);
   const latest = useRef(source);
   latest.current = source;
@@ -76,7 +76,7 @@ export function useRoadmap(options: RoadmapOptions): Roadmap {
       title: item.title,
       preview: item.summary,
       meta: item.votes ? copy.ideas.votes(item.votes) : undefined,
-      onPress: () => setSelected(item),
+      onPress: () => setSelectedId(item.id),
       testID: `${testID}-item-${item.id}`,
     }));
 
@@ -88,8 +88,9 @@ export function useRoadmap(options: RoadmapOptions): Roadmap {
       haptic(haptics, "select");
       setHorizonState(next);
     },
-    selected,
-    close: () => setSelected(null),
+    // Read from the current rows, so a refresh shows in an open sheet; gone from them, it closes.
+    selected: (selectedId && all?.find((item) => item.id === selectedId)) || null,
+    close: () => setSelectedId(null),
     copy,
     page: {
       testID,

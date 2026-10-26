@@ -13,6 +13,7 @@ export {
   memoryProductSource,
   memoryVoteQueueStore,
   roadmapFromBoard,
+  type RoadmapFromBoardOptions,
   storageVoteQueueStore,
   whatsNewKey,
   type MemoryProductSeed,

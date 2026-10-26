@@ -32,7 +32,7 @@ export function useProductWhatsNew(store: ProductWhatsNewStore): ProductWhatsNew
 export interface ProductWhatsNewSheetProps {
   notes: readonly WhatsNewNote[];
   dismiss: () => void;
-  /** Called with a note's `url` when it has one ("Learn more"). */
+  /** "Learn more" on a note with a `url`: the sheet closes (and is remembered), then this opens it. */
   onOpenNote?: (note: WhatsNewNote) => void;
   copy?: ProductCopyInput;
   testID?: string;
@@ -55,7 +55,11 @@ export function ProductWhatsNewSheet({ notes, dismiss, onOpenNote, copy: input, 
               </NativeText>
             ) : null}
             {note.url && onOpenNote ? (
-              <NativeButton variant="ghost" size="sm" onPress={() => onOpenNote(note)} testID={`${testID}-open-${note.id}`}>
+              <NativeButton variant="ghost" size="sm" onPress={() => {
+                  // Closed first: the note's screen opens with "what's new" seen.
+                  dismiss();
+                  onOpenNote(note);
+                }} testID={`${testID}-open-${note.id}`}>
                 {copy.whatsNew.learnMore}
               </NativeButton>
             ) : null}

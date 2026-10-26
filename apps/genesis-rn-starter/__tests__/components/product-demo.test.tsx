@@ -21,7 +21,7 @@ describe("product demo", () => {
     const row = screen.getByTestId("product-ideas-idea-dark-mode");
     expect(within(row).getByText("12 votes · Planned")).toBeOnTheScreen();
     await user.press(screen.getByTestId("product-ideas-vote-dark-mode"));
-    expect(await within(row).findByText("13 votes · Planned")).toBeOnTheScreen();
+    expect(await within(row).findByText("13 votes · Planned · You voted")).toBeOnTheScreen();
 
     await user.press(screen.getByTestId("product-demo-tab-option-roadmap"));
     expect(await screen.findByText(t.roadmap.search.title)).toBeOnTheScreen();

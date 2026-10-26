@@ -159,7 +159,7 @@ describe("what's new (@feat:product-releases)", () => {
     await flushMicrotasks();
     expect(store.getState().status).toBe("hidden");
     expect(whatsNew).not.toHaveBeenCalled();
-    expect(storage.data.get("genesis:product:whats-new")).toBe("1.4.0+u1");
+    expect(JSON.parse(storage.data.get("genesis:product:whats-new")!)).toEqual(["1.4.0+u1"]);
   });
 
   it("shows once per key: a new update fetches its notes then, and closing remembers it", async () => {
@@ -172,7 +172,7 @@ describe("what's new (@feat:product-releases)", () => {
     store.dismiss();
     await flushMicrotasks();
     expect(store.getState().status).toBe("hidden");
-    expect(storage.data.get("genesis:product:whats-new")).toBe("1.4.0+u2");
+    expect(JSON.parse(storage.data.get("genesis:product:whats-new")!)).toEqual(["1.4.0+u1", "1.4.0+u2"]);
 
     const again = createProductWhatsNew({ source: { whatsNew }, key: "1.4.0+u2", storage });
     await again.load();
@@ -186,7 +186,7 @@ describe("what's new (@feat:product-releases)", () => {
     await empty.load();
     await flushMicrotasks();
     expect(empty.getState().status).toBe("hidden");
-    expect(storage.data.get("genesis:product:whats-new")).toBe("1.4.0+u2");
+    expect(JSON.parse(storage.data.get("genesis:product:whats-new")!)).toEqual(["1.4.0+u1", "1.4.0+u2"]);
 
     const onError = vi.fn();
     const failing = createProductWhatsNew({ source: { whatsNew: async () => Promise.reject(new Error("offline")) }, key: "1.4.0+u3", storage, onError });
@@ -194,7 +194,7 @@ describe("what's new (@feat:product-releases)", () => {
     await flushMicrotasks();
     expect(failing.getState().status).toBe("hidden");
     expect(onError).toHaveBeenCalled();
-    expect(storage.data.get("genesis:product:whats-new")).toBe("1.4.0+u2");
+    expect(JSON.parse(storage.data.get("genesis:product:whats-new")!)).toEqual(["1.4.0+u1", "1.4.0+u2"]);
   });
 
   it("storage that can't be read shows nothing, rather than on every launch", async () => {
@@ -229,5 +229,79 @@ describe("vote queue review fixes (@feat:product-insights)", () => {
     await flushing;
     expect(vote.mock.calls.map(([id]) => id)).toEqual(["a"]);
     expect(queue.pending()).toEqual([]);
+  });
+});
+
+describe("second review fixes (@feat:product-insights)", () => {
+  it("a vote cast before the saved queue is read keeps the saved votes, across a relaunch", async () => {
+    const store = memoryVoteQueueStore([{ ideaId: "a", voted: true, base: false }]);
+    const source = { vote: vi.fn(() => Promise.reject(new Error("offline"))), unvote: vi.fn() };
+    const queue = createVoteQueue({ source, store });
+    await queue.toggle(idea("b")); // before load() was called
+    const relaunched = createVoteQueue({ source, store });
+    await relaunched.load();
+    expect(relaunched.pending().map((v) => v.ideaId).sort()).toEqual(["a", "b"]);
+  });
+
+  it("a flush before load() sends the saved votes too", async () => {
+    const vote = vi.fn(async () => {});
+    const queue = createVoteQueue({ source: { vote, unvote: vi.fn() }, store: memoryVoteQueueStore([{ ideaId: "a", voted: true, base: false }]) });
+    await queue.flush();
+    expect(vote).toHaveBeenCalledWith("a");
+  });
+});
+
+describe("roadmap visibility (@feat:product-roadmap)", () => {
+  const f = (id: string, visibility?: CatalogFeature["visibility"]): CatalogFeature => ({ id, name: id, summary: id, status: "planned", owner: "o", horizon: "now", visibility });
+  const board = buildBoard([f("open"), f("pub", "public"), f("cust", "customer"), f("int", "internal"), f("mine", "client:example"), f("theirs", "client:other")], []);
+
+  it("leaves internal and every client's own features off", () => {
+    expect(roadmapFromBoard(board).map((r) => r.id).sort()).toEqual(["cust", "open", "pub"]);
+  });
+
+  it("admits one client's own features when asked", () => {
+    expect(roadmapFromBoard(board, { client: "example" }).map((r) => r.id).sort()).toEqual(["cust", "mine", "open", "pub"]);
+  });
+});
+
+describe("what's new review fixes (@feat:product-releases)", () => {
+  it("doesn't show again for a key seen before (an emergency fallback to the embedded code)", async () => {
+    const storage = memoryStorage({ "genesis:product:whats-new": "1.4.0+embedded" });
+    const whatsNew = vi.fn(async () => [{ id: "n", title: "New" }]);
+    const update = createProductWhatsNew({ source: { whatsNew }, key: "1.4.0+u1", storage });
+    await update.load();
+    update.dismiss();
+    await flushMicrotasks();
+    // The update fails to launch: expo-updates falls back to the code in the binary.
+    const fallback = createProductWhatsNew({ source: { whatsNew }, key: "1.4.0+embedded", storage });
+    await fallback.load();
+    expect(fallback.getState().status).toBe("hidden");
+    expect(whatsNew).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps at most 20 seen keys", async () => {
+    const storage = memoryStorage({ "genesis:product:whats-new": "0+start" });
+    for (let i = 0; i < 25; i++) {
+      const store = createProductWhatsNew({ source: { whatsNew: async () => [] }, key: `1.${i}.0+embedded`, storage });
+      await store.load();
+      await flushMicrotasks();
+    }
+    const seen = JSON.parse(storage.data.get("genesis:product:whats-new")!) as string[];
+    expect(seen).toHaveLength(20);
+    expect(seen.at(-1)).toBe("1.24.0+embedded");
+  });
+
+  it("closed before the first storage read answers, it doesn't open again", async () => {
+    let answer!: (v: string | null) => void;
+    const storage = { getItem: () => new Promise<string | null>((r) => (answer = r)), setItem: vi.fn(async () => {}) };
+    const whatsNew = vi.fn(async () => [{ id: "n", title: "New" }]);
+    const store = createProductWhatsNew({ source: { whatsNew }, key: "1+u2", storage });
+    const loading = store.load();
+    await store.open();
+    store.dismiss();
+    answer("1+u1");
+    await loading;
+    expect(store.getState().status).toBe("hidden");
+    expect(whatsNew).toHaveBeenCalledTimes(1);
   });
 });

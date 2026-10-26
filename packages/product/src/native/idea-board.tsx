@@ -5,6 +5,7 @@
  * source refuses for good is rolled back with an error haptic.
  */
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { AccessibilityInfo } from "react-native";
 import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
 import { createVoteQueue, type ProductIdea, type ProductSource, type VoteFlushResult, type VoteQueue } from "../app";
@@ -29,6 +30,11 @@ export interface IdeaBoardOptions {
   onReconnect?: (listener: () => void) => () => void;
   /** A tap on a row (its detail). Without it rows aren't tappable; the vote button always is. */
   onOpenIdea?: (idea: ProductIdea) => void;
+  /**
+   * Votes the source refused for good, by idea id, after the board rolled them back. The board
+   * plays an error haptic and has screen readers say `copy.ideas.refused`; show your own toast here.
+   */
+  onRefused?: (ideaIds: string[]) => void;
   copy?: ProductCopyInput;
   /** Default `"product-ideas"`. */
   testID?: string;
@@ -48,13 +54,23 @@ export type IdeaBoard = Pick<
 export interface VoteButtonProps {
   voted: boolean;
   onPress: () => void;
+  /** What it shows: "Vote" or "Voted". */
   label: string;
+  /** What a screen reader says, with the idea's title: "Vote for Dark mode". */
+  accessibilityLabel?: string;
   testID: string;
 }
 
-export function VoteButton({ voted, onPress, label, testID }: VoteButtonProps) {
+export function VoteButton({ voted, onPress, label, accessibilityLabel, testID }: VoteButtonProps) {
   return (
-    <NativeButton size="sm" variant={voted ? "default" : "outline"} onPress={onPress} testID={testID}>
+    <NativeButton
+      size="sm"
+      variant={voted ? "default" : "outline"}
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected: voted }}
+      testID={testID}
+    >
       {label}
     </NativeButton>
   );
@@ -65,8 +81,8 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
   const { source, haptics, onReconnect, onOpenIdea, testID = "product-ideas" } = options;
   const copy = useMemo(() => mergeCopy(options.copy), [options.copy]);
   // The latest props, read at call time: an inline `source` or `haptics` never restarts the board.
-  const latest = useRef({ source, haptics });
-  latest.current = { source, haptics };
+  const latest = useRef({ source, haptics, onRefused: options.onRefused, copy });
+  latest.current = { source, haptics, onRefused: options.onRefused, copy };
   const [ownQueue] = useState(() =>
     createVoteQueue({ source: { vote: (id) => latest.current.source.vote(id), unvote: (id) => latest.current.source.unvote(id) } }),
   );
@@ -106,8 +122,16 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
     }
     if (result.refused.length) {
       haptic(latest.current.haptics, "refused");
-      void load();
+      try {
+        AccessibilityInfo.announceForAccessibility?.(latest.current.copy.ideas.refused);
+      } catch {
+        // an announcement is never worth an error
+      }
+      latest.current.onRefused?.(result.refused);
     }
+    // A read that started before these reached the source would bring back the old counts:
+    // drop it, and read again.
+    if (result.sent.length || result.refused.length) void load();
     return result;
   }, [queue, load]);
 
@@ -137,11 +161,19 @@ export function useIdeaBoard(options: IdeaBoardOptions): IdeaBoard {
       id: idea.id,
       title: idea.title,
       preview: idea.body,
-      meta: `${copy.ideas.votes(idea.votes)} · ${copy.ideas.statuses[idea.status]}`,
+      meta: [copy.ideas.votes(idea.votes), copy.ideas.statuses[idea.status], idea.voted ? copy.ideas.youVoted : null].filter(Boolean).join(" · "),
       onPress: onOpenIdea ? () => onOpenIdea(idea) : undefined,
       // Swipe, long press or a screen reader action: the same vote, for people who don't see the button.
       swipeActions: [{ id: "vote", label: idea.voted ? copy.ideas.removeVote : copy.ideas.vote, onPress: () => toggle(server) }],
-      trailing: <VoteButton voted={idea.voted} label={idea.voted ? copy.ideas.voted : copy.ideas.vote} onPress={() => toggle(server)} testID={`${testID}-vote-${idea.id}`} />,
+      trailing: (
+        <VoteButton
+          voted={idea.voted}
+          label={idea.voted ? copy.ideas.voted : copy.ideas.vote}
+          accessibilityLabel={(idea.voted ? copy.ideas.removeVoteFor : copy.ideas.voteFor)(idea.title)}
+          onPress={() => toggle(server)}
+          testID={`${testID}-vote-${idea.id}`}
+        />
+      ),
       testID: `${testID}-idea-${idea.id}`,
     };
   });

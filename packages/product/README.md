@@ -80,19 +80,24 @@ const votes = createVoteQueue({ source, store: storageVoteQueueStore(AsyncStorag
 
 - **Data** comes through a `ProductSource` (`ideas`, `vote`, `unvote`, `roadmap`, `whatsNew`). There
   is no Supabase source yet; `memoryProductSource(seed)` is for tests and demos, and
-  `roadmapFromBoard(buildBoard(...))` turns the board into roadmap rows.
+  `roadmapFromBoard(buildBoard(...))` turns the board into roadmap rows: only `public`, `customer` and
+  unset visibility, never `internal` or a `client:<name>` feature unless you pass that `{ client }`.
 - **Idea board** (`useIdeaBoard` for InboxPage props, or `IdeaBoardScreen`): each row shows "N votes"
   and a vote button at its end; swipe, long press and screen readers get the same vote. A vote shows
   at once with a light haptic and goes through the vote queue: saved, sent on start, after each vote
   and on reconnect, and toggling back before it is sent sends nothing. A refusal that retrying won't
   fix (`VoteRefusedError`, or an HTTP 4xx other than 408 and 429) is dropped and rolled back, with an
-  error haptic; anything else waits for the next flush.
+  error haptic, screen readers hear `copy.ideas.refused`, and `onRefused(ids)` lets the app show a
+  toast; anything else waits for the next flush. The vote button says which idea it is for and
+  whether it is cast (`accessibilityState.selected`), and a cast vote reads "You voted" on the row.
 - **Roadmap** (`useRoadmap`, `RoadmapScreen`): a segmented control over the rows; a tap opens the
   item in a sheet.
 - **What's new** (`createProductWhatsNew`, `ProductWhatsNew`): once per app version plus over-the-air
   update (`whatsNewKey`, e.g. `1.4.0+3f2a…` or `1.4.0+embedded`). A first install remembers the key
   and shows nothing; a new key fetches its notes then, never from the bundle, and opens the sheet
-  when there are any. To hang it off genesis-native's updates block, turn the block's own sheet off
+  when there are any. The last 20 keys seen are remembered, so falling back to the embedded code
+  after a failed update shows nothing again. An app that adds this to a build that didn't have it
+  starts like a first install: nothing shows until the next version or update. To hang it off genesis-native's updates block, turn the block's own sheet off
   and render this one with the same modules:
 
   ```tsx

@@ -84,11 +84,25 @@ export function isPermanentVoteError(error: unknown): boolean {
   return typeof e.status === "number" && e.status >= 400 && e.status < 500 && e.status !== 408 && e.status !== 429;
 }
 
-/** The board's Now / Next / Later columns as roadmap rows, internal features left out. @stability Experimental */
-export function roadmapFromBoard(board: Pick<Board, "now" | "next" | "later">): RoadmapItem[] {
+/** Options for {@link roadmapFromBoard}. @stability Experimental */
+export interface RoadmapFromBoardOptions {
+  /** The client whose own features (`visibility: "client:<name>"`) this roadmap may show. Default: none. */
+  client?: string;
+}
+
+/**
+ * The board's Now / Next / Later columns as roadmap rows. Only features
+ * everyone may see are kept (`public`, `customer`, or no visibility):
+ * `internal` and every `client:<name>` feature are left out, except that
+ * `client`'s own when it is given.
+ *
+ * @stability Experimental
+ */
+export function roadmapFromBoard(board: Pick<Board, "now" | "next" | "later">, options: RoadmapFromBoardOptions = {}): RoadmapItem[] {
+  const visible = (v: string | undefined) => v === undefined || v === "public" || v === "customer" || (options.client !== undefined && v === `client:${options.client}`);
   return (["now", "next", "later"] as const).flatMap((horizon) =>
     board[horizon]
-      .filter((item) => item.feature.visibility !== "internal")
+      .filter((item) => visible(item.feature.visibility))
       .map((item) => ({
         id: item.feature.id,
         title: item.feature.name,
@@ -281,7 +295,10 @@ export function createVoteQueue(options: VoteQueueOptions): VoteQueue {
     load() {
       loading ??= (async () => {
         try {
-          for (const v of await store.load()) if (!queue.has(v.ideaId)) queue.set(v.ideaId, { ...v });
+          const stored = await store.load();
+          for (const v of stored) if (!queue.has(v.ideaId)) queue.set(v.ideaId, { ...v });
+          // Votes cast before this read are saved with the stored ones, so neither is lost.
+          if (queue.size !== stored.length) await save();
         } catch (error) {
           report(error);
         }
@@ -298,6 +315,8 @@ export function createVoteQueue(options: VoteQueueOptions): VoteQueue {
       });
     },
     async toggle(idea) {
+      // The saved queue first: a save before it is read would overwrite it.
+      await self.load();
       const q = queue.get(idea.id);
       const base = q?.base ?? idea.voted;
       const voted = !(q?.voted ?? idea.voted);
@@ -361,6 +380,20 @@ export function whatsNewKey(input: { application?: WhatsNewApplicationLike | nul
   return `${version}+${update}`;
 }
 
+/** How many "what's new" keys are remembered. */
+const MAX_SEEN_KEYS = 20;
+
+function parseSeen(raw: string | null): string[] {
+  if (raw === null) return [];
+  try {
+    const list = JSON.parse(raw) as unknown;
+    if (Array.isArray(list)) return list.filter((k): k is string => typeof k === "string").slice(-MAX_SEEN_KEYS);
+  } catch {
+    // a plain key, written before the list
+  }
+  return [raw];
+}
+
 /** @stability Experimental */
 export interface ProductWhatsNewState {
   /** `loading`: reading what was seen; `fetching`: the notes are on their way; `showing`: open. */
@@ -416,12 +449,18 @@ export function createProductWhatsNew(options: ProductWhatsNewOptions): ProductW
       // ignore a failing reporter
     }
   };
+  // The keys seen, oldest first (a plain string from before is one key). Kept as a list, so going
+  // back to a key seen before (expo-updates falling back to the embedded code) shows nothing.
+  let seen: string[] = [];
   const remember = () => {
     if (!storage || !key) return;
+    seen = [...seen.filter((k) => k !== key), key].slice(-MAX_SEEN_KEYS);
+    const value = JSON.stringify(seen);
     Promise.resolve()
-      .then(() => storage.setItem(storageKey, key))
+      .then(() => storage.setItem(storageKey, value))
       .catch(report);
   };
+  let dismissed = false;
   let fetches = 0;
   const fetchNotes = async (rememberWhenEmpty: boolean) => {
     if (!key) return set({ status: "hidden", notes: [] });
@@ -448,18 +487,21 @@ export function createProductWhatsNew(options: ProductWhatsNewOptions): ProductW
     load() {
       loading ??= (async () => {
         if (!storage || !key) return set({ status: "hidden", notes: [] });
-        let seen: string | null;
+        let raw: string | null;
         try {
-          seen = await storage.getItem(storageKey);
+          raw = await storage.getItem(storageKey);
         } catch (error) {
           report(error);
           return set({ status: "hidden", notes: [] });
         }
-        if (seen === null) {
+        seen = parseSeen(raw);
+        // Closed by hand while storage was being read: this key is seen.
+        if (dismissed) return;
+        if (raw === null) {
           remember();
           return set({ status: "hidden", notes: [] });
         }
-        if (seen === key) return set({ status: "hidden", notes: [] });
+        if (seen.includes(key)) return set({ status: "hidden", notes: [] });
         await fetchNotes(true);
       })();
       return loading;
@@ -467,6 +509,7 @@ export function createProductWhatsNew(options: ProductWhatsNewOptions): ProductW
     open: () => fetchNotes(false),
     dismiss() {
       fetches++;
+      dismissed = true;
       remember();
       set({ status: "hidden", notes: [] });
     },
