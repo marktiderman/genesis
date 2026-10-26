@@ -1,0 +1,72 @@
+packages/chat/src/__tests__/review-fixes-web.test.tsx
+  s_c0870a827920ef::t_72d3403d7731d8 1-324
+  s_c0870a827920ef::t_22fdc28cb07ea0 325-402
+packages/chat/src/__tests__/review-fixes-core.test.ts
+  s_c0870a827920ef::t_f5e9e900f9cd87 1-193
+.changeset/chat-client-review-fixes.md
+  s_c0870a827920ef::t_f0806629b60c67 1-14
+packages/chat/README.md
+  s_c0870a827920ef::t_73cba9cc8d2c79 145-149,153-159,205-210,225-230,233-238
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_c0870a827920ef::t_e557eab5db27fc 309-343,350,380-382,447-448,472,479,856-858
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_c0870a827920ef::t_36b6c30209fd8d 9,128-140,163-165
+packages/chat/src/__tests__/coaching-core.test.ts
+  s_c0870a827920ef::t_1a512d7c5b1f23 178-180
+packages/chat/src/__tests__/coaching-react.test.tsx
+  s_c0870a827920ef::t_4e27da7a12c2d2 125-126
+packages/chat/src/__tests__/coaching-web.test.tsx
+  s_c0870a827920ef::t_60693365afcc39 250,255
+packages/chat/src/core/availability.ts
+  s_c0870a827920ef::t_da514056801030 14-16,25-57,83-85,120-121,157-166
+packages/chat/src/core/client.ts
+  s_c0870a827920ef::t_49740dbe05944e 30,63-70,243-244
+packages/chat/src/core/outbox.ts
+  s_c0870a827920ef::t_9f448088590258 6-9,23,58-59,72-86,93-96,99-105,152,159-160,185-186,192-196,199-203,210-211,219-220,231,233-234,239-240,242,246,251-252,256,260-263,268,288-289,299-306,354,356,362-366,370,372-376,378-379,387-392,395,397,403,405-407,427-428
+packages/chat/src/core/types.ts
+  s_c0870a827920ef::t_dfdaf7d8414981 192-193,289
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_6f44eeccf55dbb 8,46-47,50-53,121-122,127-128,153,173,309-311,316-325,388-391,393-394,746-765,768-771,776-790,792-801
+packages/chat/src/web/attachments.tsx
+  s_c0870a827920ef::t_5b26b04599f8b1 22-23,293-320,363-367,369-374
+packages/chat/src/web/broadcast.tsx
+  s_c0870a827920ef::t_501e39eb3db4ec 7,10,33-36,59-61,63-64,73-74
+packages/chat/src/web/bubble.tsx
+  s_c0870a827920ef::t_4aa398f5f25219 57,200,530-540
+packages/chat/src/web/cards.tsx
+  s_c0870a827920ef::t_f9a121526f4534 4,15-36,39-42,47,56
+packages/chat/src/web/composer.tsx
+  s_c0870a827920ef::t_03004f750a34a7 43,80,133-137,219-222,231,234,242-244,512,535
+packages/chat/src/web/emoji-picker.tsx
+  s_c0870a827920ef::t_3cf6c7941ab3f6 6-11,16-18,21,29-36
+packages/chat/src/web/error-boundary.tsx
+  s_c0870a827920ef::t_f76618feb3c726 1-33
+packages/chat/src/web/index.ts
+  s_c0870a827920ef::t_dfda510bd87d94 57-59
+packages/chat/src/web/memory-client.ts
+  s_c0870a827920ef::t_41f0b85dd5d6ac 614-616
+packages/chat/src/web/schedule.tsx
+  s_c0870a827920ef::t_c7fc94a0501cbe 6,90-93
+packages/chat/src/web/thread-context.ts
+  s_c0870a827920ef::t_d8d84aa701875e 10,32,34-36
+packages/chat/src/web/thread.tsx
+  s_c0870a827920ef::t_a7b8b9b55679aa 66-67,145,147-150,219-220,460-461,571-579
+packages/chat/src/web/video.tsx
+  s_c0870a827920ef::t_a6c2f47c263575 75-76,101,106-111,117,138,143-150,190-197,200,218,239-245,247-248,297,304-305,309-311,316-317,320,322,327,329,334-339,342,374-378
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6a1c2f49bb0d28411f27d02b75e0fad4b3570742",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
