@@ -1,0 +1,37 @@
+apps/genesis-rn-starter/README.md
+  s_8252619ce79a86::t_05f3c655ba4f58 180-186
+apps/genesis-rn-starter/__tests__/inline-copy.ts
+  s_8252619ce79a86::t_4441f0daa5ad59 17
+apps/genesis-rn-starter/src/app/(app)/messages/index.tsx
+  s_8252619ce79a86::t_a84e77132b3157 9-11,35
+packages/chat/src/native/__tests__/organise-screens.test.tsx
+  s_8252619ce79a86::t_6035cdf57070c1 13,107-122,168-192,233-234
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_e1fd4e84ee439a 50-51,188
+packages/chat/src/native/moderation.tsx
+  s_8252619ce79a86::t_2ba3b5098b9a36 32-33,36-37
+packages/chat/src/native/organise-copy.ts
+  s_8252619ce79a86::t_259f5cce701b11 44-45,98-99,141,191
+packages/chat/src/native/schedule-sheet.tsx
+  s_8252619ce79a86::t_b16f78fca49e30 11,136-141,153,259-260,264,269
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_6dd35faff22208 25-26,37,127-132,278-286,292-295,300-309,320,337,342,391-392,401,403-410
+packages/chat/src/native/use-jump.ts
+  s_8252619ce79a86::t_f5c9c316564588 28-29,32-34,41,48-49,59-60,85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2d540b05250a5acf0cce4264b6e49aee82264f29",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
