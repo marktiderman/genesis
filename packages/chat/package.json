@@ -199,6 +199,10 @@
           {
             "file": "migrations/0002_genesis_chat_coaching.sql",
             "test": "migrations/tests/0002_genesis_chat_coaching.test.sql"
+          },
+          {
+            "file": "migrations/0003_genesis_chat_search_threads.sql",
+            "test": "migrations/tests/0003_genesis_chat_search_threads.test.sql"
           }
         ],
         "install": [

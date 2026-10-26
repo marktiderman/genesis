@@ -204,6 +204,21 @@ export interface PendingFile {
   meta?: Partial<AttachmentInput>;
   /** Not kept between launches (bytes with nowhere to save them): attach it again. */
   lost?: boolean;
+  /** How much of it has uploaded, 0 to 1, once the upload reports progress. */
+  progress?: number;
+  /** Going to the hosted video provider (Mux, Cloudflare) rather than storage. */
+  hosted?: boolean;
+}
+
+/**
+ * A hosted video upload that has started: the provider's upload id, sent with the message as
+ * `{ provider, providerId, status: "pending" }` while the bytes still go up. The provider's
+ * webhook marks the attachment ready.
+ */
+export interface HostedAttachment {
+  provider: "mux" | "cloudflare";
+  providerId: string;
+  status: "pending";
 }
 
 /** A live hint from Realtime: something changed; fetch to see what. */
@@ -296,6 +311,8 @@ export interface ChatSearchHit {
   snippet: string;
   /** Found in a voice note's or video's transcript, not the text. */
   inTranscript: boolean;
+  /** The thread the message is a reply in (open that thread to show it); null on the main timeline. */
+  threadRootId: string | null;
 }
 
 /** Open Graph data for a link (fetched by the server's runner). Plain text: never render it as HTML. */

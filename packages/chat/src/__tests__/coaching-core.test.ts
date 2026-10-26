@@ -69,8 +69,10 @@ describe("mappers for 0002", () => {
       userId: "u", awayMessage: "Back Monday", awayUntil: null, timeZone: "Europe/London", hours: { mon: [["09:00", "17:00"]] },
     });
     expect(toSearchHit({ message_id: "m", conversation_id: "c", seq: "4", sender_id: null, created_at: "t", snippet: "a «b»", in_transcript: true })).toEqual({
-      messageId: "m", conversationId: "c", seq: 4, senderId: null, createdAt: "t", snippet: "a «b»", inTranscript: true,
+      messageId: "m", conversationId: "c", seq: 4, senderId: null, createdAt: "t", snippet: "a «b»", inTranscript: true, threadRootId: null,
     });
+    // A reply in a thread says which thread, so the app can open it.
+    expect(toSearchHit({ message_id: "m", conversation_id: "c", seq: 5, created_at: "t", snippet: "x", in_transcript: false, thread_root_id: "root" }).threadRootId).toBe("root");
     const p = toLinkPreview({ url: "https://x.test/a", status: "ok", title: "T", image_url: "http://x.test/i.png", fetched_at: "t" });
     expect(p.imageUrl).toBeNull();
     expect(toLinkPreview({ url: "https://x.test/a", image_url: "https://x.test/i.png", fetched_at: "t" }).imageUrl).toBe("https://x.test/i.png");

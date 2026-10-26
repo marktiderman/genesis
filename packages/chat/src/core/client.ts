@@ -29,6 +29,7 @@ import type {
 } from "./types";
 import { normalizeHours } from "./availability";
 import { fileExtension, isAllowedExtension, randomId } from "./media";
+import { sendBytes, type UploadProgress } from "./transfer";
 
 /** Any supabase-js client; the app's generated Database types don't need to list genesis_chat. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -254,6 +255,7 @@ export function toSearchHit(r: Row): ChatSearchHit {
     createdAt: String(r.created_at),
     snippet: String(r.snippet ?? ""),
     inTranscript: Boolean(r.in_transcript),
+    threadRootId: str(r.thread_root_id),
   };
 }
 
@@ -643,13 +645,37 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
      * Uploads a file into the conversation's folder for the signed-in person and
      * returns its path, ready to attach. Resumable for big files is the native
      * renderer's job (Supabase TUS); this is the plain upload.
+     *
+     * With `onProgress(sent, total)`, where XMLHttpRequest exists (browsers, React Native), the
+     * bytes go to a signed upload URL (`createSignedUploadUrl`, which checks the same storage
+     * policy as a plain upload) through XMLHttpRequest, which reports progress; elsewhere the
+     * plain upload runs and reports once, at the end. `signal` cancels it.
      */
-    async upload(conversationId: string, userId: string, file: Blob | ArrayBuffer, opts: { name: string; contentType: string; id?: string }) {
+    async upload(
+      conversationId: string,
+      userId: string,
+      file: Blob | ArrayBuffer,
+      opts: { name: string; contentType: string; id?: string; onProgress?: UploadProgress; signal?: AbortSignal },
+    ) {
       const ext = fileExtension(opts.name, opts.contentType);
       if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
       const id = opts.id ?? randomId();
       const path = `${conversationId}/${userId}/${id}.${ext}`;
-      must("upload", await supabase.storage.from(CHAT_BUCKET).upload(path, file, { contentType: opts.contentType, upsert: false }));
+      const bucket = supabase.storage.from(CHAT_BUCKET);
+      if (opts.onProgress && typeof XMLHttpRequest !== "undefined" && typeof bucket.createSignedUploadUrl === "function") {
+        const signed = must<{ signedUrl: string } | null>("upload", await bucket.createSignedUploadUrl(path));
+        if (!signed?.signedUrl) throw new ChatError("No upload URL came back", undefined, "upload");
+        await sendBytes(signed.signedUrl, file, {
+          method: "PUT",
+          headers: { "content-type": opts.contentType, "x-upsert": "false", "cache-control": "max-age=3600" },
+          signal: opts.signal,
+          onProgress: opts.onProgress,
+        });
+        return path;
+      }
+      must("upload", await bucket.upload(path, file, { contentType: opts.contentType, upsert: false }));
+      const total = typeof Blob !== "undefined" && file instanceof Blob ? file.size : (file as ArrayBuffer).byteLength;
+      opts.onProgress?.(total, total);
       return path;
     },
 

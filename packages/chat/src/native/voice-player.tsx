@@ -82,6 +82,24 @@ export function cycleVoiceNoteRate(id: string): boolean {
   return Boolean(c);
 }
 
+/**
+ * Pauses the voice note or video playing, if any; with `ids` (or a test of an id), only when it
+ * is one of them (a screen's own attachments). For a screen losing focus: a tab switch keeps it mounted, so its
+ * player would play on. Returns whether one was paused.
+ */
+export function pauseChatPlayback(ids?: Iterable<string> | ((id: string) => boolean)): boolean {
+  if (!active) return false;
+  if (typeof ids === "function" ? !ids(active.id) : ids && !new Set(ids).has(active.id)) return false;
+  const { id, pause } = active;
+  try {
+    pause();
+  } catch {
+    // A player already gone has nothing to pause.
+  }
+  releasePlayback(id);
+  return true;
+}
+
 /** The playing voice note's id, for tests. */
 export function activePlaybackId(): string | null {
   return active?.id ?? null;

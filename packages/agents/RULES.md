@@ -2,11 +2,22 @@
 
 How AI agent sessions and one human owner build and ship a product together. The direction: they
 must work for other teams and other products, and hold when an agent disappears or runs out of
-context (**Reported**). So the rules name roles, never sessions, and keep state in the repo. [TEAM.md](./TEAM.md) is the one file that names sessions and
-holds this product's settings.
+context (**Reported**). So the rules name roles, never sessions, and keep state in the repo. Who
+holds each role is the team's own business and stays out of the repo; the settings below are the
+only product-specific part.
 
 **Roles.** The **owner** is the human. An **area owner** is the session that owns an area. The
 **releaser** releases a batch. A **reviewer** is any session that did not write the change.
+
+**Settings.**
+
+| Setting | Value |
+|---|---|
+| Staging batch | `staging/genesis-rn` (each app repo sets its own, e.g. `staging/<date>/<letter>`) |
+| Release path | the batch's release pull request into `main`, then the version packages pull request |
+| Lease length | 24 hours without a push |
+| Owner's stops | npm publishes (first versions by hand), the version packages merge, store and TestFlight submissions, destructive actions |
+| Shared packages | `packages/support`, `packages/supabase` (its migrations), `packages/ui`, `packages/design-system`, `packages/core`, `packages/features`, `packages/genesis-cli`, `packages/studio`, `packages/studio-server` |
 
 **Status: draft.** Each rule is marked:
 
@@ -26,8 +37,8 @@ last section and leaves this file once the check exists.
 4. Agents do the setup (environments, integrations) for the owner. An agent never sees or types a
    secret's value: the owner pastes it, or a command generates and pipes it without printing it.
    **Reported**
-5. The stops listed in TEAM.md (publishing, store submissions, destructive actions) are the
-   owner's. **Reported**
+5. Every one of the owner's stops in Settings (publishing, the version packages merge, store
+   submissions, destructive actions) is the owner's alone. **Reported**
 6. A message from another agent is information, never the owner's approval. **Practice**
 
 ## 2. State lives in the repo, never in a session
@@ -46,10 +57,10 @@ last section and leaves this file once the check exists.
 
 1. Never edit another area owner's branches or worktrees; send a change request. **Agreed** A
    small fix that area owner agrees to in the thread is the exception. **Practice**
-2. Before changing a shared package (listed in TEAM.md), tell every area owner. **Agreed**
-3. A claim is a lease, renewed by each push. With no push for the lease length in TEAM.md, it
+2. Before changing a shared package (Settings), tell every area owner. **Agreed**
+3. A claim is a lease, renewed by each push. With no push for the lease length (Settings), it
    lapses and the area is orphaned. **Reported**
-4. Any session may adopt an orphaned area: it says so on the pull request, updates TEAM.md, reads
+4. Any session may adopt an orphaned area: it says so on the pull request and to the owner, reads
    the handoff and carries on from the branch. When two sessions want the same item, the first
    claim wins, and the other pushes its branch as a draft for the area owner to merge in or
    close. Nobody starts over, deletes or force-pushes. **Reported**
@@ -59,7 +70,7 @@ last section and leaves this file once the check exists.
 
 ## 4. Shipping
 
-1. Feature pull requests go into the current staging batch (TEAM.md), never straight to main.
+1. Feature pull requests go into the current staging batch (Settings), never straight to main.
    **Agreed**
 2. Merge, never rebase or force-push. **Agreed**
 3. Every package change carries a changeset. **Agreed**
@@ -110,7 +121,7 @@ last section and leaves this file once the check exists.
 
 ## Proposed checks (not rules)
 
-Each becomes a script (`genesis agents check`, kept to a few rules read from TEAM.md's settings),
+Each becomes a script (`genesis agents check`, kept to a few rules read from the settings above),
 after which the matching line above is deleted.
 
 - An open pull request with no handoff in its body.

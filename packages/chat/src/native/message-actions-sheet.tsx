@@ -9,7 +9,9 @@ import { useEffect, useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { NativeIcon, NativeListItem, NativeSheet, NativeText, type NativeIconName } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { previewText, summarizeReactions } from "../core/thread";
+import { summarizeReactions } from "../core/thread";
+import type { ChatAttachmentKind } from "../react/index";
+import { messagePreview } from "./attachment-cards";
 import type { ChatMessage } from "../core/types";
 import { QUICK_REACTIONS, canReactTo, messageActionsFor, type MessageActionContext, type MessageActionId } from "./actions";
 import { fill } from "./copy";
@@ -22,12 +24,14 @@ export interface MessageActionsSheetProps {
   onClose: () => void;
   onReact: (message: ChatMessage, emoji: string, on: boolean) => void;
   onAction: (message: ChatMessage, action: MessageActionId) => void;
+  /** The app's attachment kinds (`ChatProvider attachmentKinds`): the caption names a card by its title. */
+  attachmentKinds?: Record<string, ChatAttachmentKind>;
   testID?: string;
 }
 
 const ICONS: Record<MessageActionId, NativeIconName> = { reply: "reply", copy: "copy", pin: "pin", unpin: "pin", delete: "trash" };
 
-export function MessageActionsSheet({ message, context, onClose, onReact, onAction, testID = "chat-message-actions" }: MessageActionsSheetProps) {
+export function MessageActionsSheet({ message, context, onClose, onReact, onAction, attachmentKinds, testID = "chat-message-actions" }: MessageActionsSheetProps) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
   const actions = message ? messageActionsFor(message, context) : [];
@@ -67,9 +71,10 @@ export function MessageActionsSheet({ message, context, onClose, onReact, onActi
         />
         </View>
       ) : message ? (
-        <View style={{ gap: 12, paddingBottom: 8, paddingHorizontal: 16 }}>
-          <NativeText numberOfLines={2} preset="body-sm" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
-            {previewText(message.body, message.attachments[0]?.kind, Boolean(message.deletedAt))}
+        // Room at the top: the iOS page sheet has no grabber, and its rounded corner clipped the caption.
+        <View style={{ gap: 12, paddingTop: 20, paddingBottom: 8, paddingHorizontal: 16 }}>
+          <NativeText testID={`${testID}-caption`} numberOfLines={2} preset="body-sm" style={{ color: colors.secondaryLabel, paddingHorizontal: 4 }}>
+            {messagePreview(message, attachmentKinds)}
           </NativeText>
           {canReactTo(message, context) ? (
             <View accessibilityRole="toolbar" style={{ flexDirection: "row", justifyContent: "space-between" }}>

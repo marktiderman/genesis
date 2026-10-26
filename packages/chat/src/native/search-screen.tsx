@@ -7,7 +7,7 @@
  * (`ChatThreadScreen jumpTo`, which loads earlier pages until it is there). The same rules as
  * the web's `ChatSearch`.
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { AccessibilityInfo, FlatList, Pressable, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeBadge, NativeEmptyState, NativeIcon, NativeSearchBar, NativeSkeleton, NativeText } from "@marktiderman/genesis-ui-native/components";
@@ -123,12 +123,10 @@ export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, de
             const where = conversationId ? null : fill(copy.searchIn, { name: titleOf(h.conversationId) });
             const when = formatInboxTime(new Date(h.createdAt), now());
             return (
-              <Pressable
+              <HitRow
                 testID={`${testID}-hit-${h.messageId}`}
-                accessibilityRole="button"
                 accessibilityLabel={[who, where, when, h.inTranscript ? copy.transcript : null, snippetText(h.snippet)].filter(Boolean).join(", ")}
                 onPress={() => onOpen(h)}
-                style={({ pressed }: { pressed: boolean }) => ({ minHeight: 56, paddingHorizontal: 16, paddingVertical: 10, gap: 4, backgroundColor: pressed ? colors.fill : "transparent" })}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <NativeText preset="label" numberOfLines={1} style={{ flexShrink: 1 }}>
@@ -158,11 +156,34 @@ export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, de
                     <SearchSnippet snippet={h.snippet} />
                   </View>
                 </View>
-              </Pressable>
+              </HitRow>
             );
           }}
         />
       )}
     </SafeAreaView>
+  );
+}
+
+/**
+ * One result's row. A static style, with the pressed state kept here: with a `style` function
+ * the row's padding wasn't applied in the starter on iOS 27 (the name and time touched the
+ * screen's edges).
+ */
+function HitRow({ testID, accessibilityLabel, onPress, children }: { testID: string; accessibilityLabel: string; onPress: () => void; children: ReactNode }) {
+  const colors = useThemeRoles();
+  const [pressed, setPressed] = useState(false);
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      onPress={onPress}
+      onPressIn={() => setPressed(true)}
+      onPressOut={() => setPressed(false)}
+      style={{ minHeight: 56, paddingHorizontal: 16, paddingVertical: 10, gap: 4, backgroundColor: pressed ? colors.fill : "transparent" }}
+    >
+      {children}
+    </Pressable>
   );
 }

@@ -9,9 +9,9 @@
 import { useCallback, useMemo, useState } from "react";
 import { NativeAvatar } from "@marktiderman/genesis-ui-native/components";
 import { InboxPage, type InboxItem, type InboxPageProps } from "@marktiderman/genesis-ui-native/layouts";
-import { previewText } from "../core/thread";
 import type { ChatInboxItem } from "../core/types";
-import { chatKeys, useChat, useInbox, usePeople } from "../react/index";
+import { chatKeys, useChat, useInbox, usePeople, type ChatAttachmentKind } from "../react/index";
+import { attachmentPreview } from "./attachment-cards";
 import { useQueryClient } from "@tanstack/react-query";
 import type { ChatNativeCopy } from "./copy";
 import { initials, useChatNative, type ChatPerson } from "./context";
@@ -37,12 +37,18 @@ export interface ChatInboxScreenProps {
 /** An inbox row from a conversation. Exported for apps that build their own list. */
 export function inboxRow(
   item: ChatInboxItem,
-  ctx: { me: string; copy: ChatNativeCopy; person: (id: string | null) => ChatPerson | undefined },
+  ctx: {
+    me: string;
+    copy: ChatNativeCopy;
+    person: (id: string | null) => ChatPerson | undefined;
+    /** The app's attachment kinds: a last message that is a card reads as its title ("Check-in"). */
+    kinds?: Record<string, ChatAttachmentKind>;
+  },
 ): Omit<InboxItem, "onPress" | "swipeActions"> {
   const other = item.otherUserId ? ctx.person(item.otherUserId) : undefined;
   const title = item.title ?? other?.name ?? ctx.copy.untitled;
   const last = item.lastMessage;
-  const text = last ? previewText(displayBody(last.body), last.attachment, last.deleted) : "";
+  const text = last ? attachmentPreview(displayBody(last.body), last.attachment, ctx.kinds, last.deleted) : "";
   const preview = last && text && last.senderId === ctx.me && last.kind !== "system" ? `${ctx.copy.youPrefix}${text}` : text;
   return {
     id: item.conversationId,
@@ -57,7 +63,7 @@ export function inboxRow(
 }
 
 export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, archived, pageProps, testID = "chat-inbox" }: ChatInboxScreenProps) {
-  const { client, userId } = useChat();
+  const { client, userId, attachmentKinds } = useChat();
   const queryClient = useQueryClient();
   const { copy, person: known } = useChatNative();
   const inbox = useInbox({ kind, kinds, excludeKinds, archived });
@@ -82,7 +88,7 @@ export function ChatInboxScreen({ onOpen, onStart, kind, kinds, excludeKinds, ar
   }, [queryClient]);
 
   const items: InboxItem[] = inbox.items.map((item) => ({
-    ...inboxRow(item, { me: userId, copy, person }),
+    ...inboxRow(item, { me: userId, copy, person, kinds: attachmentKinds }),
     onPress: () => onOpen(item.conversationId),
     swipeActions: [
       ...(item.unread > 0 ? [{ id: "read", label: copy.markRead, onPress: () => void client.markRead(item.conversationId).then(settle, settle) }] : []),

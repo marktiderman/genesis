@@ -118,6 +118,18 @@ describe("NativeSheet without a provider", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 
+  it("fits its content on iOS with fitContent: a bottom panel over a scrim, not the page sheet", async () => {
+    Platform.OS = "ios";
+    const onOpenChange = vi.fn();
+    render(sheet({ onOpenChange, testID: "s", fitContent: true }));
+    const modal = await screen.findByRole("dialog");
+    expect(modal.getAttribute("data-presentation-style")).toBeNull();
+    expect(modal.getAttribute("data-transparent")).toBe("true");
+    expect(screen.getByTestId("s").textContent).toBe("body");
+    fireEvent.click(screen.getByTestId("s-backdrop"));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("renders nothing while closed", async () => {
     render(sheet({ open: false }));
     await act(async () => {});
@@ -146,6 +158,7 @@ describe("NativeSheet under NativeSheetProvider", () => {
     expect(present).toHaveBeenCalledTimes(1);
     // The given snap points are the sheet's only ones (v5 would add a content-height one).
     expect(modalProps).toHaveBeenLastCalledWith(expect.objectContaining({ snapPoints: ["25%"], enableDynamicSizing: false }));
+    expect((modalProps.mock.calls.at(-1)![0] as { maxDynamicContentSize?: number }).maxDynamicContentSize).toBeUndefined();
 
     // The user closing it reports; the app closing it doesn't report back.
     fireEvent.click(screen.getByTestId("gorhom-modal"));
@@ -155,6 +168,20 @@ describe("NativeSheet under NativeSheetProvider", () => {
     expect(dismiss).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByTestId("gorhom-modal"));
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("lets the library size a sheet that fits its content", () => {
+    const { library, modalProps } = fakeLibrary();
+    render(
+      <NativeSheetProvider bottomSheet={library}>
+        <NativeSheet open onOpenChange={() => {}} fitContent>
+          <span>body</span>
+        </NativeSheet>
+      </NativeSheetProvider>,
+    );
+    expect(modalProps).toHaveBeenLastCalledWith(expect.objectContaining({ snapPoints: undefined, index: 0, enableDynamicSizing: true }));
+    // Capped below the full height, so long content never runs under the status bar.
+    expect((modalProps.mock.calls.at(-1)![0] as { maxDynamicContentSize?: number }).maxDynamicContentSize).toBeGreaterThan(0);
   });
 
   it("doesn't report a dismiss that finishes after the app reopened the sheet", () => {

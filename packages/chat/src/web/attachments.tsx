@@ -18,7 +18,7 @@ import {
   cn,
 } from "@marktiderman/genesis-ui";
 import type { ChatAttachment, ChatMessage } from "../core/types";
-import type { ChatAttachmentKind } from "../react/index";
+import type { ChatAttachmentKind, ChatCardContext } from "../react/index";
 import { ChatAttachmentCard, type ChatAttachmentCardProps } from "./cards";
 import { ChatErrorBoundary } from "./error-boundary";
 import { formatBytes } from "./format";
@@ -301,12 +301,12 @@ export function attachmentKindOf(kinds: Record<string, ChatAttachmentKind> | und
  * What the app's kind says to draw for this attachment, or null when its functions throw or
  * return the wrong shapes (the attachment's `ref` is whatever the sender put there).
  */
-export function attachmentCardOf(k: ChatAttachmentKind, a: ChatAttachment): Pick<ChatAttachmentCardProps, "title" | "subtitle" | "action"> | null {
+export function attachmentCardOf(k: ChatAttachmentKind, a: ChatAttachment, ctx: ChatCardContext = { mine: false }): Pick<ChatAttachmentCardProps, "title" | "subtitle" | "action"> | null {
   try {
-    const title = k.title(a);
+    const title = k.title(a, ctx);
     if (typeof title !== "string") return null;
-    const sub = typeof k.subtitle === "function" ? k.subtitle(a) : null;
-    const act = typeof k.action === "function" ? k.action(a) : null;
+    const sub = typeof k.subtitle === "function" ? k.subtitle(a, ctx) : null;
+    const act = typeof k.action === "function" ? k.action(a, ctx) : null;
     const action =
       act && typeof act === "object" && typeof act.label === "string" && (typeof act.href === "string" || typeof act.onPress === "function")
         ? { label: act.label, href: typeof act.href === "string" ? act.href : undefined, onPress: typeof act.onPress === "function" ? act.onPress : undefined }
@@ -363,7 +363,7 @@ export function MessageAttachments({ views, message, mine, tone, slot, kinds }: 
             const generic = <GenericAttachment attachment={v.attachment} message={message} url={v.url} mine={mine} />;
             const k = attachmentKindOf(kinds, v.kind);
             if (k) {
-              const card = attachmentCardOf(k, v.attachment);
+              const card = attachmentCardOf(k, v.attachment, { mine });
               return card ? <ChatAttachmentCard key={v.key} {...card} tone={tone} /> : <GenericAttachment key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} />;
             }
             // The app's slot draws sender-controlled data: if it throws, the generic card stands in.

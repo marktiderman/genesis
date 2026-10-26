@@ -24,9 +24,9 @@ import {
 } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { isSchedulable, scheduleLabel, scheduleQuickPicks } from "../core/extras";
-import { previewText } from "../core/thread";
 import type { ScheduleInput, ScheduledMessage } from "../core/types";
-import { useScheduled } from "../react/index";
+import { useChat, useScheduled, type ChatAttachmentKind } from "../react/index";
+import { attachmentPreview } from "./attachment-cards";
 import { toSend, type ComposerState } from "./composer-state";
 import { haptic } from "./modules";
 import type { ChatComposerHandle } from "./use-composer";
@@ -148,11 +148,7 @@ export function ChatScheduleSheet({ open, onOpenChange, onSchedule, now, testID 
   };
 
   return (
-    <NativeSheet
-      open={open}
-      onOpenChange={onOpenChange}
-      testID={testID}
-    >
+    <NativeSheet open={open} onOpenChange={onOpenChange} fitContent testID={testID}>
       <View style={{ paddingVertical: 8 }}>
         <View style={{ paddingHorizontal: 16, paddingBottom: 8, gap: 4 }}>
           <NativeText preset="h4" accessibilityRole="header">
@@ -234,12 +230,30 @@ export function ChatScheduledList({ conversationId, conversationTitle, testID = 
   );
 }
 
+/**
+ * Cancel's (or Remove's) label on a scheduled row: the message's text as well as its time, so
+ * each row's button says which message it takes back.
+ */
+export function scheduledActionLabel(
+  item: ScheduledMessage,
+  copy: Pick<ReturnType<typeof useChatNative>["copy"], "scheduledCancel" | "scheduledRemove" | "scheduledFor">,
+  kinds?: Record<string, ChatAttachmentKind>,
+): string {
+  const text = attachmentPreview(displayBody(item.body), item.attachments[0]?.kind ?? null, kinds);
+  // Cut by character, not UTF-16 unit, so an emoji isn't split.
+  const chars = Array.from(text);
+  const short = chars.length > 60 ? `${chars.slice(0, 59).join("")}…` : text;
+  if (item.status === "failed") return [copy.scheduledRemove, short].filter(Boolean).join(", ");
+  return [copy.scheduledCancel, short, fill(copy.scheduledFor, { when: scheduleLabel(item.sendAt) })].filter(Boolean).join(", ");
+}
+
 function ScheduledRow({ item, where, onCancel, testID }: { item: ScheduledMessage; where: string | null; onCancel: () => void; testID: string }) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
+  const { attachmentKinds } = useChat();
   const failed = item.status === "failed";
   const when = failed ? copy.scheduledCouldntSend : scheduleLabel(item.sendAt);
-  const text = previewText(displayBody(item.body), item.attachments[0]?.kind ?? null);
+  const text = attachmentPreview(displayBody(item.body), item.attachments[0]?.kind ?? null, attachmentKinds);
   return (
     <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingLeft: 16, paddingRight: 4, paddingVertical: 8, minHeight: 56 }}>
       <NativeIcon name={failed ? "warning" : "clock"} size={18} color={failed ? colors.destructive : colors.secondaryLabel} />
@@ -261,7 +275,7 @@ function ScheduledRow({ item, where, onCancel, testID }: { item: ScheduledMessag
         <Pressable
           testID={`${testID}-cancel`}
           accessibilityRole="button"
-          accessibilityLabel={failed ? `${copy.scheduledRemove}, ${text}` : `${copy.scheduledCancel}, ${fill(copy.scheduledFor, { when })}`}
+          accessibilityLabel={scheduledActionLabel(item, copy, attachmentKinds)}
           onPress={onCancel}
           style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" }}
         >

@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OutboxStore, QueuedMessage } from "../core/outbox";
 import {
   ChatProvider,
+  type ChatProviderProps,
   useAvailability,
   useBroadcast,
   useChat,
@@ -27,7 +28,7 @@ const ME = "00000000-0000-4000-8000-0000000000a1";
 const SAM = "00000000-0000-4000-8000-0000000000b2";
 const LEE = "00000000-0000-4000-8000-0000000000c3";
 
-function setup(over: Partial<MemoryChatOptions> = {}, store?: OutboxStore) {
+function setup(over: Partial<MemoryChatOptions> = {}, store?: OutboxStore, extra: Partial<ChatProviderProps> = {}) {
   const client = createMemoryChatClient({
     me: ME,
     conversations: [
@@ -50,7 +51,7 @@ function setup(over: Partial<MemoryChatOptions> = {}, store?: OutboxStore) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <ChatProvider client={client} userId={ME} outboxStore={store}>
+      <ChatProvider client={client} userId={ME} outboxStore={store} {...extra}>
         {children}
       </ChatProvider>
     </QueryClientProvider>
@@ -81,6 +82,55 @@ describe("hooks for 0002", () => {
     expect(result.current.items[0]).toMatchObject({ body: "Later", status: "scheduled", sendAt: at.toISOString() });
     await act(() => result.current.cancel(result.current.items[0]!.id));
     await waitFor(() => expect(result.current.items).toHaveLength(0));
+  });
+
+  it("useScheduled removes one that failed when due, as cancel_scheduled allows", async () => {
+    const { wrapper, client } = setup();
+    const { result } = renderHook(() => useScheduled("c1"), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.schedule({ conversationId: "c1", body: "Later", sendAt: new Date(Date.now() + 3_600_000) });
+    });
+    client.failNextSends(1);
+    await client.sendDue(new Date(Date.now() + 7_200_000));
+    await act(() => result.current.refetch());
+    await waitFor(() => expect(result.current.items[0]?.status).toBe("failed"));
+    await act(() => result.current.cancel(result.current.items[0]!.id));
+    await waitFor(() => expect(result.current.items).toHaveLength(0));
+    expect(client.calls.filter((c) => c.method === "cancelScheduled")).toHaveLength(1);
+  });
+
+  it("useScheduled takes native file URIs, read through the provider's readFile, as send does", async () => {
+    const readFile = vi.fn(async () => new Blob(["jpeg"], { type: "image/jpeg" }));
+    const { wrapper, client } = setup({}, undefined, { readFile });
+    const { result } = renderHook(() => useScheduled("c1"), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.schedule({ conversationId: "c1", body: "", sendAt: new Date(Date.now() + 3_600_000) }, [
+        { data: "file:///photos/a.jpg", name: "a.jpg", contentType: "image/jpeg" },
+        { data: "file:///rec/v.m4a", name: "v.m4a", contentType: "audio/mp4", meta: { kind: "voice", durationMs: 2000 } },
+      ]);
+    });
+    expect(readFile).toHaveBeenCalledWith("file:///photos/a.jpg");
+    expect(readFile).toHaveBeenCalledWith("file:///rec/v.m4a");
+    expect(client.calls.filter((c) => c.method === "upload")).toHaveLength(2);
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.items[0]!.attachments).toEqual([
+      expect.objectContaining({ kind: "image", mime: "image/jpeg", path: expect.stringContaining("a.jpg") }),
+      expect.objectContaining({ kind: "voice", durationMs: 2000, path: expect.stringContaining("v.m4a") }),
+    ]);
+  });
+
+  it("useScheduled uploads through the provider's upload hook when there is one", async () => {
+    const upload = vi.fn(async (conversationId: string, file: { name: string }) => `${conversationId}/me/${file.name}`);
+    const { wrapper } = setup({}, undefined, { upload });
+    const { result } = renderHook(() => useScheduled("c1"), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.schedule({ conversationId: "c1", body: "", sendAt: new Date(Date.now() + 3_600_000) }, [{ data: "file:///a.jpg", name: "a.jpg", contentType: "image/jpeg" }]);
+    });
+    expect(upload).toHaveBeenCalledWith("c1", expect.objectContaining({ data: "file:///a.jpg" }), expect.anything());
+    await waitFor(() => expect(result.current.items[0]?.attachments[0]?.path).toBe("c1/me/a.jpg"));
   });
 
   it("useAvailability reads a conversation's and saves yours", async () => {
@@ -197,6 +247,27 @@ describe("review fixes in the hooks", () => {
     });
     await waitFor(() => expect(result.current.accessError).toBeNull());
     expect(result.current.canPost).toBe(true);
+  });
+
+  it("retries every lookup of the conversation, not only access", async () => {
+    const { wrapper, client } = setup();
+    const realMembers = client.members;
+    client.members = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    const { result } = renderHook(() => useConversation("c1"), { wrapper });
+    await waitFor(() => expect(client.members).toHaveBeenCalled());
+    client.members = vi.fn(realMembers);
+    await waitFor(() => expect(result.current.messages.length).toBeGreaterThan(0));
+    const realMessages = client.messages;
+    client.messages = vi.fn(realMessages);
+    await act(async () => {
+      await result.current.refetchAccess();
+    });
+    expect(client.members).toHaveBeenCalled();
+    // Never the message history: a refetch would drop loaded pages and merged live messages.
+    expect(client.messages).not.toHaveBeenCalled();
+    expect(typeof result.current.refetchConversation).toBe("function");
   });
 
   const savedStore = (q: QueuedMessage[]) => {

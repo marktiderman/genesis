@@ -13,6 +13,8 @@ import { ChatNativeProvider } from "../context";
 import { ChatScheduledList, ChatScheduleSheet } from "../schedule-sheet";
 import { ChatSearchScreen } from "../search-screen";
 import { ChatThreadScreen } from "../thread-screen";
+import { scrollToShow } from "../topics";
+import { activePlaybackId, claimPlayback } from "../voice-player";
 
 vi.mock("react-native", async (original) => ({ ...(await original<object>()), useWindowDimensions: () => ({ width: 390, height: 844, scale: 3, fontScale: 1 }) }));
 
@@ -340,5 +342,83 @@ describe("ChatAvailabilityScreen", () => {
     });
     fireEvent.click(screen.getByTestId("a-save"));
     await waitFor(() => expect(called(client, "setAvailability")[0]!.args[0]).toMatchObject({ awayMessage: null, awayUntil: null, hours: null }));
+  });
+});
+
+describe("simulator check leftovers", () => {
+  const cohort = (closed: boolean, messages: MemoryConversationSeed["messages"] = []): MemoryConversationSeed => ({
+    id: "cohort",
+    kind: "cohort",
+    members: [{ userId: ME, role: "member" }, { userId: SAM }, { userId: LEE }],
+    topics: [{ topic: "week-1", title: "Week 1", closed }],
+    messages,
+  });
+
+  it("says a closed topic is closed when it has no messages, instead of inviting a hello", async () => {
+    const client = memory([cohort(true)]);
+    render(wrap(client, <ChatThreadScreen conversationId="cohort" testID="t" />));
+    fireEvent.click(await screen.findByTestId("t-topics-week-1"));
+    await waitFor(() => expect(screen.getByTestId("t-empty").textContent).toContain("This topic is closed."));
+    expect(screen.getByTestId("t-empty").textContent).not.toContain("Say hello below.");
+  });
+
+  it("still invites a hello in an open topic with no messages", async () => {
+    const client = memory([cohort(false)]);
+    render(wrap(client, <ChatThreadScreen conversationId="cohort" testID="t" />));
+    fireEvent.click(await screen.findByTestId("t-topics-week-1"));
+    await waitFor(() => expect(screen.getByTestId("t-empty").textContent).toContain("Say hello below."));
+  });
+
+  it("pauses what this thread is playing when the screen loses focus, and nothing of another's", async () => {
+    const client = memory([{ id: "dm", members: [{ userId: ME }, { userId: SAM }], messages: [{ id: "m1", senderId: SAM, body: "", attachments: [{ id: "att-1", kind: "voice", path: "dm/x/a.m4a" }] }] }]);
+    const view = render(wrap(client, <ChatThreadScreen conversationId="dm" testID="t" />));
+    await screen.findByTestId("t-message-m1");
+    const other = vi.fn();
+    claimPlayback("elsewhere", other);
+    view.rerender(wrap(client, <ChatThreadScreen conversationId="dm" focused={false} testID="t" />));
+    expect(other).not.toHaveBeenCalled();
+
+    view.rerender(wrap(client, <ChatThreadScreen conversationId="dm" testID="t" />));
+    const mine = vi.fn();
+    claimPlayback("att-1", mine);
+    view.rerender(wrap(client, <ChatThreadScreen conversationId="dm" focused={false} testID="t" />));
+    expect(mine).toHaveBeenCalledTimes(1);
+    expect(activePlaybackId()).toBeNull();
+  });
+
+  it("names the message in each scheduled row's Cancel, so two at the same time differ", async () => {
+    const client = memory([{ id: "dm", members: [{ userId: ME }, { userId: SAM }] }]);
+    const at = new Date(Date.now() + 3600_000);
+    await client.schedule({ conversationId: "dm", clientId: "c1", body: "first one", sendAt: at });
+    await client.schedule({ conversationId: "dm", clientId: "c2", body: "second one", sendAt: at });
+    render(wrap(client, <ChatScheduledList conversationId="dm" testID="l" />));
+    const cancels = await screen.findAllByText("Cancel");
+    const labels = cancels.map((c) => c.closest("button")!.getAttribute("aria-label"));
+    expect(new Set(labels).size).toBe(2);
+    expect(labels.some((l) => l?.startsWith("Cancel, first one, Scheduled for"))).toBe(true);
+    expect(labels.some((l) => l?.startsWith("Cancel, second one, Scheduled for"))).toBe(true);
+  });
+
+  it("sizes the schedule and topic sheets to their content", async () => {
+    const client = memory([{ ...cohort(false), members: [{ userId: ME, role: "owner" }, { userId: SAM }, { userId: LEE }] }]);
+    render(wrap(client, <ChatScheduleSheet open onOpenChange={vi.fn()} onSchedule={vi.fn()} testID="s" />));
+    const schedule = (await screen.findByTestId("s-pick-0")).closest("[role=dialog]")!;
+    expect(schedule.getAttribute("data-presentation-style")).toBeNull();
+    expect(schedule.getAttribute("data-transparent")).toBe("true");
+    cleanup();
+
+    render(wrap(client, <ChatThreadScreen conversationId="cohort" testID="t" />));
+    fireEvent.click(await screen.findByTestId("t-topics-menu"));
+    const topics = (await screen.findByTestId("t-topics-new")).closest("[role=dialog]")!;
+    expect(topics.getAttribute("data-transparent")).toBe("true");
+  });
+});
+
+describe("scrollToShow", () => {
+  it("brings a chip past either edge into view, and leaves one in view alone", () => {
+    expect(scrollToShow({ x: 400, width: 80 }, { offset: 0, width: 300 })).toBe(400 + 80 + 8 - 300);
+    expect(scrollToShow({ x: 20, width: 60 }, { offset: 100, width: 300 })).toBe(12);
+    expect(scrollToShow({ x: 120, width: 60 }, { offset: 100, width: 300 })).toBeNull();
+    expect(scrollToShow({ x: 120, width: 60 }, { offset: 0, width: 0 })).toBeNull();
   });
 });

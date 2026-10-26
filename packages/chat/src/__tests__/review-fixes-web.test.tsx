@@ -24,6 +24,7 @@ import {
   type MemoryChatOptions,
   type MemoryConversationSeed,
 } from "../web";
+import { installFakeXHR } from "./fake-xhr";
 
 afterEach(() => {
   cleanup();
@@ -343,22 +344,24 @@ describe("the camera", () => {
     await screen.findByTestId("genesis-chat-video-retake");
   }
 
-  it("cancels a hosted video upload, sending nothing", async () => {
-    let signal: AbortSignal | undefined;
-    vi.stubGlobal("fetch", vi.fn((_url: string, init: RequestInit) => new Promise((_r, reject) => {
-      signal = init.signal ?? undefined;
-      signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
-    })));
+  it("a hosted video keeps its place: text typed after it lands after it, while its bytes still go up", async () => {
+    const XHR = installFakeXHR();
     const client = make(dm());
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />, { videoUpload: { create: async () => ({ url: "https://up.test/1", providerId: "u1", provider: "mux" }) } });
     await recordTake();
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-chat-video-send"));
     });
-    fireEvent.click(await screen.findByTestId("genesis-chat-video-cancel-upload"));
-    await waitFor(() => expect(signal?.aborted).toBe(true));
-    await screen.findByTestId("genesis-chat-video-send");
-    expect(client.calls.some((c) => c.method === "send")).toBe(false);
+    // The dialog closes at once; the upload carries on.
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-video-recorder")).toBeNull());
+    fireEvent.change(await screen.findByTestId("genesis-chat-input"), { target: { value: "Watch this" } });
+    fireEvent.keyDown(screen.getByTestId("genesis-chat-input"), { key: "Enter" });
+    await waitFor(() => expect(client.calls.filter((c) => c.method === "send").length).toBe(2));
+    const sends = client.calls.filter((c) => c.method === "send").map((c) => c.args[0] as { body: string; attachments?: { provider?: string; status?: string }[] });
+    expect(sends[0]!.attachments?.[0]).toMatchObject({ provider: "mux", status: "pending" });
+    expect(sends[1]!.body).toBe("Watch this");
+    expect(XHR.all[0]!.status).toBe(0);
+    act(() => XHR.all[0]!.respond(200));
   });
 
   it("keeps the take's preview while it uploads, and frees it once the message lands", async () => {

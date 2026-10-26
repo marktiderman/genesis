@@ -42,6 +42,7 @@ import {
   handleChatPushResponse,
   videoUploads,
   registerChatNotificationActions,
+  type ChatCardContext,
   type ChatNativeModules,
 } from "@marktiderman/genesis-chat/native";
 import { useSession } from "@marktiderman/genesis-native";
@@ -91,15 +92,25 @@ const modules: ChatNativeModules = {
 // Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
 const videoUpload = chatVideoUpload();
 
-// The app's own attachment kinds, drawn as cards in the thread. A check-in sent in a conversation
-// opens the check-in screen (`onOpenAttachment` in messages/[id].tsx).
-const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
+// The app's own attachment kinds, drawn as cards in the thread (and named by their title in the
+// inbox's preview). A check-in sent in a conversation opens the check-in screen
+// (`onOpenAttachment` in messages/[id].tsx); its sender sees "Sent" instead of Answer
+// (genesis-chat's native cards pass `{ mine }`).
+export const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
   check_in: {
     title: () => copy.messages.checkInCard,
-    subtitle: (a) => (typeof a.ref.title === "string" ? a.ref.title : null),
-    action: () => (starter.features.checkIn ? { label: copy.messages.checkInAnswer } : null),
+    subtitle: (a, ctx?: ChatCardContext) => {
+      const title = typeof a.ref.title === "string" ? a.ref.title : null;
+      return ctx?.mine ? [copy.messages.checkInSent, title].filter(Boolean).join(" · ") : title;
+    },
+    action: (_a, ctx?: ChatCardContext) => (starter.features.checkIn && !ctx?.mine ? { label: copy.messages.checkInAnswer } : null),
   },
 };
+
+/** Whether a conversation's kind can have topics: any kind for more than two people (not a direct one). */
+export function kindAllowsTopics(rules: { maxMembers: number | null } | null | undefined): boolean {
+  return Boolean(rules) && rules!.maxMembers !== 2;
+}
 
 /** Unsent messages wait here between launches (per signed-in person). */
 function outboxStore(userId: string): OutboxStore {
@@ -227,6 +238,18 @@ function ShareOutbox({ userId }: { userId: string }) {
 // Who was signed in last, kept outside React: the layout that sees the sign-out may be a new instance.
 let lastChatUser: string | null = null;
 
+/**
+ * Who was signed in last, forgotten as it is read. A function on purpose: the React Compiler
+ * folded `const who = lastChatUser; lastChatUser = null;` in the hook below into reads of
+ * `lastChatUser` after the reset, so sign-out cleared the drafts, unsent messages and recent
+ * emoji of `null` instead of the person's.
+ */
+function takeLastChatUser(): string | null {
+  const who = lastChatUser;
+  lastChatUser = null;
+  return who;
+}
+
 /** Chat's copies of pictures in the cache: shared photos and pasted ones kept for unsent messages. */
 function clearChatFiles() {
   for (const entry of new Directory(Paths.cache).list()) {
@@ -253,9 +276,9 @@ export function useClearChatOnSignOut() {
       lastChatUser = userId;
       return;
     }
-    if (status !== "signedOut" || !lastChatUser) return;
-    const who = lastChatUser;
-    lastChatUser = null;
+    if (status !== "signedOut") return;
+    const who = takeLastChatUser();
+    if (!who) return;
     void clearDrafts(modules.drafts!, who, onError);
     // Videos still uploading were theirs: they stop, and nothing is sent after sign-out.
     videoUploads.cancelAll();

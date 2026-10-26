@@ -9,5 +9,6 @@ export * from "./core/client";
 export * from "./core/media";
 export * from "./core/thread";
 export * from "./core/outbox";
+export * from "./core/transfer";
 export * from "./core/availability";
 export * from "./core/extras";

@@ -4,19 +4,21 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, configure, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ChatProvider, type ChatProviderProps } from "../react";
+import { ChatProvider, useChat, type ChatProviderProps } from "../react";
 import {
   ChatAvailabilitySettings,
   ChatBroadcast,
   ChatLinkPreview,
+  ChatScheduledList,
   ChatThread,
   createMemoryChatClient,
   type MemoryChatClient,
   type MemoryChatOptions,
   type MemoryConversationSeed,
 } from "../web";
+import { installFakeXHR } from "./fake-xhr";
 
 afterEach(() => {
   cleanup();
@@ -147,6 +149,19 @@ describe("scheduled send", () => {
     await waitFor(() => expect(screen.queryByTestId("genesis-chat-scheduled-count")).toBeNull());
   });
 
+  it("offers Remove for a scheduled message that failed when due", async () => {
+    const client = make(dm());
+    await client.schedule({ conversationId: "c1", clientId: "00000000-0000-4000-8000-00000000s001", body: "Too late", sendAt: new Date(Date.now() + 3_600_000) });
+    client.failNextSends(1);
+    await client.sendDue(new Date(Date.now() + 7_200_000));
+    mount(client, <ChatScheduledList conversationId="c1" />);
+    expect((await screen.findByTestId("genesis-chat-scheduled-item")).textContent).toContain("Couldn't send");
+    expect(screen.queryByTestId("genesis-chat-scheduled-cancel")).toBeNull();
+    fireEvent.click(screen.getByTestId("genesis-chat-scheduled-remove"));
+    await waitFor(() => expect(client.calls.some((c) => c.method === "cancelScheduled")).toBe(true));
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-scheduled-item")).toBeNull());
+  });
+
   it("schedules at a date and time you pick", async () => {
     const client = make(dm());
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
@@ -216,6 +231,37 @@ describe("availability", () => {
   });
 });
 
+describe("upload progress", () => {
+  it("draws a progress bar on a pending message while its file uploads", async () => {
+    const client = make(dm());
+    let report!: (sent: number, total: number) => void;
+    let finish!: () => void;
+    const upload = vi.fn(
+      (_c: string, file: { name: string }, o?: { onProgress?: (s: number, t: number) => void }) =>
+        new Promise<string>((r) => {
+          report = o!.onProgress!;
+          finish = () => r(`c1/${ME}/${file.name}`);
+        }),
+    );
+    function SendOne() {
+      const { outbox } = useChat();
+      useEffect(() => {
+        void outbox.send({ conversationId: "c1", body: "" }, [{ data: new Blob(["0123456789"]), name: "a.pdf", contentType: "application/pdf" }]);
+      }, [outbox]);
+      return null;
+    }
+    mount(client, <><ChatThread conversationId="c1" resolveUser={resolveUser} /><SendOne /></>, { upload });
+    await waitFor(() => expect(upload).toHaveBeenCalled());
+    act(() => report(3, 10));
+    const bar = await screen.findByTestId("genesis-chat-upload-progress");
+    expect(bar.getAttribute("aria-valuenow")).toBe("30");
+    act(() => report(8, 10));
+    await waitFor(() => expect(screen.getByTestId("genesis-chat-upload-progress").getAttribute("aria-valuenow")).toBe("80"));
+    await act(async () => finish());
+    await waitFor(() => expect(screen.queryByTestId("genesis-chat-upload-progress")).toBeNull());
+  });
+});
+
 describe("search", () => {
   it("finds a message further up, loads to it and highlights it", async () => {
     const messages = [
@@ -232,6 +278,29 @@ describe("search", () => {
     expect(hit.querySelector("mark")?.textContent).toBe("needle");
     fireEvent.click(hit);
     await waitFor(() => expect(document.querySelector("#genesis-chat-msg-old .ring-2")).not.toBeNull());
+  });
+
+  it("opens the thread of a hit that is a reply in one, scrolled to the reply", async () => {
+    const client = make(
+      dm({
+        messages: [
+          { id: "root", senderId: SAM, body: "How did the week go?", createdAt: at(1), threadCount: 1 },
+          { id: "reply", senderId: ME, body: "Saw a zebra on my run", createdAt: at(2), threadRootId: "root" },
+        ],
+      }),
+    );
+    const onOpenThread = vi.fn();
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} onOpenThread={onOpenThread} />);
+    fireEvent.click(await screen.findByTestId("genesis-chat-thread-search"));
+    fireEvent.change(await screen.findByTestId("genesis-chat-search-input"), { target: { value: "zebra" } });
+    fireEvent.click(await screen.findByTestId("genesis-chat-search-hit"));
+    await waitFor(() => expect(onOpenThread).toHaveBeenCalledTimes(1));
+    const [root, opts] = onOpenThread.mock.calls[0]! as [{ id: string }, { jumpTo: { messageId: string; seq: number } }];
+    expect(root.id).toBe("root");
+    expect(opts.jumpTo.messageId).toBe("reply");
+    // And here, the thread's first message.
+    await waitFor(() => expect(document.querySelector("#genesis-chat-msg-root .ring-2")).not.toBeNull());
+    expect(screen.queryByText("That message isn't here any more")).toBeNull();
   });
 
   it("marks hits in a transcript", async () => {
@@ -397,13 +466,12 @@ describe("video in the composer", () => {
     });
   }
 
-  it("records, uploads to the app's videoUpload with a PUT, and sends a pending Mux video", async () => {
+  it("records, sends a pending Mux video at once, and PUTs its bytes to the app's videoUpload meanwhile", async () => {
     const time = { now: 2_000_000 };
     vi.spyOn(Date, "now").mockImplementation(() => time.now);
     vi.stubGlobal("MediaRecorder", FakeRecorder);
     const camera = stubCamera();
-    const fetchMock = vi.fn(async () => new Response(null, { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
+    const XHR = installFakeXHR();
     const create = vi.fn(async () => ({ url: "https://storage.mux.test/upload/1", providerId: "up_1", provider: "mux" as const }));
     const client = make(dm());
     mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />, { videoUpload: { create } });
@@ -411,7 +479,11 @@ describe("video in the composer", () => {
     await waitFor(() => expect(client.calls.some((c) => c.method === "send")).toBe(true));
     expect(camera.getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ audio: true, video: expect.anything() }));
     expect(create).toHaveBeenCalledWith("c1");
-    expect(fetchMock).toHaveBeenCalledWith("https://storage.mux.test/upload/1", expect.objectContaining({ method: "PUT", headers: { "Content-Type": "video/webm" } }));
+    // The message went before the bytes: the PUT is still open.
+    await waitFor(() => expect(XHR.all.length).toBe(1));
+    const put = XHR.all[0]!;
+    expect(put).toMatchObject({ method: "PUT", url: "https://storage.mux.test/upload/1", headers: { "Content-Type": "video/webm" }, sent: true, status: 0 });
+    act(() => put.respond(200));
     const sent = client.calls.find((c) => c.method === "send")!.args[0] as { body: string; attachments: Record<string, unknown>[] };
     expect(sent.attachments[0]).toMatchObject({ kind: "video", provider: "mux", providerId: "up_1", status: "pending", durationMs: 4000, mime: "video/webm" });
     // Nothing went to storage, and the camera was released.

@@ -425,6 +425,20 @@ export const AccessibilityInfo = {
   addEventListener: () => ({ remove: () => {} }),
 };
 
+const appStateListeners = new Set<(state: string) => void>();
+/** AppState: "active"; a test moves the app with `AppState.__emit("background")`. */
+export const AppState = {
+  currentState: "active" as string,
+  addEventListener: (_event: string, listener: (state: string) => void) => {
+    appStateListeners.add(listener);
+    return { remove: () => void appStateListeners.delete(listener) };
+  },
+  __emit(state: string) {
+    AppState.currentState = state;
+    appStateListeners.forEach((l) => l(state));
+  },
+};
+
 export const Dimensions = {
   get: () => ({ width: 375, height: 812, scale: 2, fontScale: 1 }),
   addEventListener: () => ({ remove: () => {} }),
