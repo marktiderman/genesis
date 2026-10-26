@@ -1,0 +1,45 @@
+packages/genesis-cli/src/doctor/native.ts
+  s_a1b83c03f697d3::t_1317bda2ace6f8 24-25
+packages/genesis-cli/src/doctor/structure.ts
+  s_a1b83c03f697d3::t_ef1715c5bbb7f5 22-26,28
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_1f35d570c63beb::t_9e62c571ac46d6 99
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_1f35d570c63beb::t_d84476fe55d023 35-36,383
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_1f35d570c63beb::t_a07a069a4bdb26 12,16
+.changeset/doctor-resource-view.md
+  s_2c334912fcb08f::t_fa102b0ed00536 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dda639d79d485e4e969393db1400c7160062b9b9",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
