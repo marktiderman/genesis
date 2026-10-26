@@ -125,3 +125,31 @@ export const jobsBlock = defineBlock({
     privacy: { notes: ["Job payloads hold ids, never content or secrets; finished jobs are deleted after 14 days."] },
   },
 });
+
+/**
+ * The pursuits block: goals and projects (one table, either or both) with
+ * their tasks, issues and milestones, owned by a person, a team or the
+ * tenant. Who reads and writes is the app's hook (`genesis_owner_can`,
+ * `genesis_readable_owners`); without it nobody signed in can.
+ *
+ * @stability Experimental
+ */
+export const pursuitsBlock = defineBlock({
+  id: "pursuits",
+  requires: ["tenant-features"],
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0009_genesis_pursuits.sql",
+        test: "migrations/tests/0009_genesis_pursuits.test.sql",
+      },
+    ],
+    privacy: {
+      notes: [
+        "Stores the goals, projects, tasks and issues people and teams write; a deleted person's rows keep no link to their login.",
+      ],
+    },
+  },
+});
