@@ -1,0 +1,19 @@
+packages/supabase/migrations/0011_genesis_updates.sql
+  s_26495fc9681b7e::t_34529bc98e135b 120,255,258,265,271,277,282
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66feb7b9846b8509bcc4ba04845f2a700a282dbf",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
