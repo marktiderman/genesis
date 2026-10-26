@@ -1,0 +1,31 @@
+.changeset/chat-refetch-moderation.md
+  s_c0870a827920ef::t_ba323269f70e98 1-5
+apps/genesis-rn-starter/supabase/migrations/20261025000060_genesis_chat_search_threads.sql
+  s_c0870a827920ef::t_1bd751dbda659d 8-10,67-85
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_search_threads.test.sql
+  s_c0870a827920ef::t_872d2f724ba7bf 7,46-48
+packages/chat/migrations/0003_genesis_chat_search_threads.sql
+  s_c0870a827920ef::t_c07bf245305823 8-10,67-85
+packages/chat/migrations/tests/0003_genesis_chat_search_threads.test.sql
+  s_c0870a827920ef::t_68d9e6d7234c9e 7,46-48
+packages/chat/src/__tests__/coaching-react.test.tsx
+  s_c0870a827920ef::t_26efe23316ce44 252-267
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_0ebc1b05d53e88 446-457,528-531
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "85a9ea538bf9342588878237f572a32e94c5c4b5",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
