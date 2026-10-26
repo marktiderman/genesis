@@ -1,5 +1,6 @@
 import { Button } from "../ui/button";
 import { LayoutGrid, Table2, List } from "lucide-react";
+import { useUiMessages } from "../../messages";
 
 export type ViewMode = "grid" | "table" | "list";
 
@@ -9,6 +10,7 @@ interface ViewToggleProps {
 }
 
 export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
+  const m = useUiMessages();
   // Each button is icon-only, so `aria-label` supplies the accessible name
   // (`title` alone is not a reliable one) and `aria-pressed` reports which of
   // the three is current — the `default`/`ghost` variant swap conveys that to
@@ -17,15 +19,15 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
     <div
       className="flex items-center border rounded-lg overflow-hidden"
       role="group"
-      aria-label="View mode"
+      aria-label={m.view.mode}
     >
       <Button
         variant={viewMode === "grid" ? "default" : "ghost"}
         size="icon"
         className="h-8 w-8 rounded-none"
         onClick={() => onViewModeChange("grid")}
-        title="Grid view"
-        aria-label="Grid view"
+        title={m.view.grid}
+        aria-label={m.view.grid}
         aria-pressed={viewMode === "grid"}
         testID="view-toggle-grid"
       >
@@ -36,8 +38,8 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
         size="icon"
         className="h-8 w-8 rounded-none"
         onClick={() => onViewModeChange("table")}
-        title="Table view"
-        aria-label="Table view"
+        title={m.view.table}
+        aria-label={m.view.table}
         aria-pressed={viewMode === "table"}
         testID="view-toggle-table"
       >
@@ -48,8 +50,8 @@ export function ViewToggle({ viewMode, onViewModeChange }: ViewToggleProps) {
         size="icon"
         className="h-8 w-8 rounded-none"
         onClick={() => onViewModeChange("list")}
-        title="List view"
-        aria-label="List view"
+        title={m.view.list}
+        aria-label={m.view.list}
         aria-pressed={viewMode === "list"}
         testID="view-toggle-list"
       >

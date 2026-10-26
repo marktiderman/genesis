@@ -8,16 +8,19 @@
  * are also VoiceOver / TalkBack actions, so nothing needs a gesture. The
  * bubble is one accessible element (its parts would otherwise be read one by
  * one), which hides the controls inside it, so it carries theirs as actions
- * too: play or pause a voice note and change its speed, open each photo.
+ * too: play or pause a voice note and change its speed, open each photo, an
+ * app card's action. App attachment kinds draw as cards, or through the app's
+ * `attachmentSlot` (see attachment-cards.tsx); a voice note's transcript is
+ * part of the bubble's label.
  */
-import { memo, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Animated, PanResponder, Pressable, View } from "react-native";
 import { NativeAvatar, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
-import { previewText, summarizeReactions } from "../core/thread";
+import { summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
-import { cardAction, cardTitle, ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
+import { AppAttachment, attachmentKindOf, attachmentPreview, cardAction, cardTitle, splitCardAttachments, useCardRuns, type ChatAttachmentSlot, type OpenAttachment } from "./attachment-cards";
 import { ChatLinkPreviewCard, linkHost, openChatLink } from "./link-preview";
 import { cycleVideoRate, fullScreenVideo, toggleVideo, toggleVideoMute, usePlayingVideo } from "./video-player";
 import { fill } from "./copy";
@@ -61,6 +64,14 @@ export interface MessageBubbleProps {
   attachmentKinds?: Record<string, ChatAttachmentKind>;
   /** A card's button, when its kind gives no `onPress` of its own. */
   onOpenAttachment?: OpenAttachment;
+  /**
+   * Draws the app's own attachment kinds (a task with a checkbox, a worksheet with its progress)
+   * instead of the card: every kind the package doesn't draw, registered or not. `null` hides the
+   * kinds that aren't registered. Define it at module scope (or memoize it) so rows stay memoized.
+   */
+  attachmentSlot?: ChatAttachmentSlot | null;
+  /** How long an app card's action may run before it reads as failed; 30 s by default, 0 for never. */
+  cardActionTimeoutMs?: number;
   testID: string;
 }
 
@@ -94,10 +105,24 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const senderName = mine ? copy.you : (sender?.name ?? "");
 
   const kinds = props.attachmentKinds;
+  const slot = props.attachmentSlot;
   const { cards, rest: plain } = useMemo(
-    () => splitCardAttachments(message && !message.deletedAt ? message.attachments : [], kinds),
-    [message, kinds],
+    () => splitCardAttachments(message && !message.deletedAt ? message.attachments : [], kinds, slot !== undefined),
+    [message, kinds, slot],
   );
+  const runs = useCardRuns({ failedText: copy.cardActionFailed, timedOutText: copy.cardActionTimedOut, timeoutMs: props.cardActionTimeoutMs });
+  // App attachments that drew nothing (the slot returned null): left out of the label and actions.
+  const [empty, setEmpty] = useState<ReadonlySet<string>>(() => new Set());
+  const onEmpty = useCallback((id: string, isEmpty: boolean) => {
+    setEmpty((s) => {
+      if (s.has(id) === isEmpty) return s;
+      const next = new Set(s);
+      if (isEmpty) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+  const shownCards = cards.filter((a) => !empty.has(a.id));
   const attachments: BubbleAttachment[] = useMemo(() => {
     if (message) return message.deletedAt ? [] : plain.map((a) => fromServer(a, urls));
     // What it already carries (a hosted video) comes first, as the outbox sends it.
@@ -113,7 +138,13 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
   const videos = attachments.filter((a) => a.kind === "video" && modules.video && (a.uri || a.playbackId));
   const playingVideo = usePlayingVideo(videos.map((a) => a.key));
-  const cardActions = message ? cards.map((a) => cardAction(kinds?.[a.kind], a, message, props.onOpenAttachment, { mine })) : [];
+  const cardActions = message
+    ? cards.map((a) => {
+        if (empty.has(a.id)) return null;
+        const c = cardAction(attachmentKindOf(kinds, a.kind), a, message, props.onOpenAttachment, { mine });
+        return c ? { label: c.label, run: () => void runs.run(a.id, c.run) } : null;
+      })
+    : [];
   const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
@@ -165,8 +196,23 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const label = [
     senderName,
     message?.deletedAt ? copy.deleted : displayBody(body),
-    attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : a.kind === "video" ? copy.video : copy.file)).join(", "),
-    cards.map((a) => cardTitle(kinds?.[a.kind], a, { mine })).join(", "),
+    attachments
+      .map((a) =>
+        a.kind === "image"
+          ? copy.photo
+          : a.kind === "voice"
+            ? [copy.voice, a.transcript?.trim() ? fill(copy.transcriptLabel, { text: a.transcript.trim() }) : null].filter(Boolean).join(", ")
+            : a.kind === "video"
+              ? copy.video
+              : copy.file,
+      )
+      .join(", "),
+    shownCards
+      .map((a) => {
+        const s = runs.stateOf(a.id);
+        return [cardTitle(attachmentKindOf(kinds, a.kind), a, { mine }), s.error].filter(Boolean).join(", ");
+      })
+      .join(", "),
     preview ? fill(copy.linkPreview, { title: preview.title?.trim() || linkHost(preview.url), site: preview.siteName?.trim() || linkHost(preview.url) }) : null,
     time,
     message?.editedAt ? copy.edited : null,
@@ -221,12 +267,19 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
 
   const quote = message?.replyToId ?? pending?.input.replyToId ?? null;
   const quoted = quote && repliedTo ? repliedTo : null;
+  // A message that is only app attachments the slot drew nothing for has nothing to show or read.
+  const invisible = Boolean(message && !message.deletedAt && !body && !attachments.length && !preview && !quote && !moderation && cards.length && !shownCards.length);
   const bubbleColor = mine ? colors.tint : colors.surface;
   const fg = mine ? "text-primary-foreground" : undefined;
   const textStyle = mine ? { fontSize: 17, lineHeight: 22 } : { fontSize: 17, lineHeight: 22, color: colors.label };
 
   return (
-    <View testID={testID} style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined }}>
+    <View
+      testID={testID}
+      accessibilityElementsHidden={invisible || undefined}
+      importantForAccessibility={invisible ? "no-hide-descendants" : undefined}
+      style={{ paddingHorizontal: 8, paddingTop: row.groupStart ? 8 : 2, backgroundColor: props.highlighted ? colors.fill : undefined, display: invisible ? "none" : undefined }}
+    >
       {row.showName && sender?.name ? (
         <NativeText preset="caption" style={{ marginLeft: group ? 48 : 12, marginBottom: 2, color: colors.secondaryLabel }}>
           {sender.name}
@@ -269,14 +322,27 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
                   {quoted ? (quoted.senderId === me ? copy.you : (person(quoted.senderId)?.name ?? "")) : ""}
                 </NativeText>
                 <NativeText preset="caption" numberOfLines={2} className={fg} style={mine ? undefined : { color: colors.secondaryLabel }}>
-                  {quoted ? previewText(quoted.body, quoted.attachments[0]?.kind, Boolean(quoted.deletedAt)) : "…"}
+                  {quoted ? attachmentPreview(displayBody(quoted.body), quoted.attachments[0], kinds, Boolean(quoted.deletedAt)) : "…"}
                 </NativeText>
               </View>
             ) : null}
             {attachments.length ? <MessageAttachments attachments={attachments} mine={mine} onOpenImage={props.onOpenImage} testID={testID} /> : null}
             {message && cards.length
               ? cards.map((a, i) => (
-                  <ChatAttachmentCard key={a.id} attachment={a} message={message} kind={kinds![a.kind]!} mine={mine} onOpenAttachment={props.onOpenAttachment} testID={`${testID}-card-${i}`} />
+                  <AppAttachment
+                    key={a.id}
+                    attachment={a}
+                    message={message}
+                    kind={attachmentKindOf(kinds, a.kind)}
+                    url={(a.path ? urls[a.path] : null) ?? a.url ?? null}
+                    mine={mine}
+                    slot={slot}
+                    onOpenAttachment={props.onOpenAttachment}
+                    onEmpty={onEmpty}
+                    run={(task) => void runs.run(a.id, task)}
+                    state={runs.stateOf(a.id)}
+                    testID={`${testID}-card-${i}`}
+                  />
                 ))
               : null}
             {message?.deletedAt ? (

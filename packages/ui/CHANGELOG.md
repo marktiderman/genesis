@@ -1,5 +1,96 @@
 # @marktiderman/genesis-ui
 
+## 2.17.0
+
+### Minor Changes
+
+- 2d59f5e: ResourcePage gains `variant="embedded"` for a list inside another page: a tab, a card or a side panel. In one prop it sets:
+
+  - **A toolbar header:** the create button, plus the table/cards toggle only when there is a `renderCard`. No title, count, view settings or header options menu.
+  - **No filter row,** unless the list passes `filters`, `statusFilter` or `searchFields`.
+  - **`keyboardNavigation` off,** since j/k shortcuts belong to the page.
+
+  An explicit `header`, `keyboardNavigation`, `slots.filters` or `slotProps.shell.headerOptions` still wins. `useResourceTable` applies the same keyboard default.
+
+- 50db0d0: A message catalogue for genesis-ui's data components. Wrap the app once to reword or translate them:
+
+  ```tsx
+  <UiMessagesProvider messages={{ page: { loadMore: "Mehr laden" }, kanban: { moveTo: "Verschieben nach" } }}>
+  ```
+
+  - **What it covers:** about 120 strings, including screen-reader announcements, in ResourcePage, DataPageShell, DataTable, KanbanBoard, SortableList, ConfirmDeleteDialog, DetailPanel, DataFilters, DataBulkBar, ViewToggle and ViewSettings.
+  - **How it works:** the same shape as the support and chat packages' copy. There's an English catalogue (`uiMessages`), and overrides replace any part of it, with `{name}` placeholders.
+  - **Nesting:** nested providers build on the one above.
+  - **Exports:** `resolveUiMessages`, `fillMessage` and `useUiMessages`.
+  - **Props still win:** props that already name a piece of copy, such as `createLabel`, `emptyMessage`, `searchPlaceholder` and `confirmDelete.*`, take priority over the catalogue.
+  - **No visible change:** without a provider, every string is the same as before.
+
+### Patch Changes
+
+- 7eb6b99: - **KanbanBoard focus:** when a move saves but the caller keeps the card where it was, the board stops waiting to put focus back. A later move of that card by someone else can no longer pull focus to it.
+  - **Embedded ResourcePage:** sorting by a column header no longer brings up the filter row. Only a search or a status filter counts as filtering.
+- a1ef92b: Fixes from a review of the data layer:
+
+  - **Create:** `useResourceTable`'s `create` is undefined when `can("create")` refuses, matching ResourcePage, which hides its button. A headless layout no longer offers a create the page wouldn't.
+  - **KanbanBoard focus:** after a failed move, or a card that leaves the board, KanbanBoard drops its pending refocus, so focus no longer jumps to that card's handle later.
+  - **Imports:** ResourcePage no longer imports hooks it doesn't call, so no logic appears to live in the page.
+
+- 9033d75: Follow-ups from review:
+
+  - **ResourcePage `variant="embedded"`:** the filter row now also shows for saved views and whenever the list is already filtered (such as a `?q=` arriving from the URL), so a filtered list always shows why and how to clear it. An explicit `header="page"` keeps the full header, count and view settings included.
+  - **KanbanBoard focus:** after a move that saves asynchronously, focus returns to the card once it arrives in its new column. An earlier failed move of the same card no longer cancels a later move's refocus.
+
+- 7315f5b: AppShell: `<AppShellSubNavEnd>` content (a page's readiness chip) now renders on phones. Below `md` the tab row is hidden behind the bottom bar, and the end slot used to be hidden with it, so a disabled Publish button gave no reason. On phones the slot now moves to a compact strip under `<AppShellPageHeader>`; it is still one portal target, so the chip is never rendered twice. Desktop, an empty slot and the default `"section"` mode are unchanged.
+
+## 2.16.0
+
+### Minor Changes
+
+- d3576b7: `SubNavItem.hideOnPhone`: leave a sub-navigation item out of the phone bar while keeping it in the tab row, sidebar and rail, so a page with five sections can fold a builder panel into its parent tab on phones instead of overflowing the bar.
+
+### Patch Changes
+
+- d44b294: Brand accents: `accessibleAccent` now checks contrast on the rounded HSL triplet it actually emits, so the rendered `--primary` always reaches 4.5:1 on white (new `strongTriplet` field). `parseColor` also accepts `hsl()`/`hsla()` and bare token triplets like `"160 84% 39%"`; anything unparseable still falls back to Genesis's primary.
+- Updated dependencies [32c5146]
+  - @marktiderman/genesis-core@1.10.0
+
+## 2.15.0
+
+### Minor Changes
+
+- 870ddce: `BuilderLayout`: a builder's three columns, `outline` (left), `editor` (centre, the only required slot) and `preview` (right), from `@marktiderman/genesis-ui/builder-layout` (also `/layout` and the root). Responsive by container query with the forms-builder breakpoints: three columns from a 56rem container (13rem / editor / 20rem), 16rem / editor / 24.5rem from 76rem, the preview under the editor below 56rem, everything stacked below 34rem; outline and editor alone go 13rem from 34rem and 16rem from 48rem. The preview keeps its place in the tree, so swapping the editor never remounts it, and `previewHidden` hides it without unmounting. `sticky` (both, or `{ outline, preview }`) pins the side columns, `scrollSticky` gives them their own scroll, `outlineLabel` / `previewLabel` make them `nav` / `aside` landmarks, and `outlineProps` / `editorProps` / `previewProps` reach each wrapper. It owns no tabs, rail or header: those stay with the shell (`useAppShellSubNav`, `AppShellPageHeader`).
+- ddfbb28: `AuthPage` and `PublicPage` layouts in `@marktiderman/genesis-ui/layout`, for the screens that have no AppShell around them.
+
+  - `AuthPage`: the web counterpart of native `AuthScreen`. A full-height, centred card for sign-in, sign-up, reset, invite and verify: `branding` (logo, headline as the page's h1, subhead), `social`, the form as children, `footer` links, a `legal` line and an optional `aside` panel on wide screens. The card column is the `main` landmark. `slots` / `slotProps` replace or drop `branding`, `social` or `footer`, as on native.
+  - `PublicPage`: a public form, QR poster or landing page. An optional brand header (logo, name, cover image, accent rule), a content column with `maxWidth` (a `Container` size), and a footer with "Powered by …" that the host can leave out. `embedded` (for iframes, e.g. from `?embed=1`) drops the header, footer, background and full-viewport height.
+  - Brand theming: `brand.accent` becomes `--primary`, `--ring` and `--brand-accent*` variables on the page root, so nested Genesis components follow it. An accent under 4.5:1 on white is darkened (same hue) for text and fills: `accessibleAccent`, `contrastRatio` and `brandThemeStyle` are exported.
+
+### Patch Changes
+
+- Updated dependencies [fd09919]
+- Updated dependencies [927b32f]
+- Updated dependencies [5344767]
+- Updated dependencies [c054142]
+- Updated dependencies [66e1a5d]
+- Updated dependencies [75965c0]
+- Updated dependencies [b755b3e]
+  - @marktiderman/genesis-core@1.9.0
+
+## 2.14.0
+
+### Minor Changes
+
+- 14e907f: Resource workspace components: the page around one publishable thing (a form, a course, a lesson, a worksheet), moved up from genesis-forms-studio. `ResourceHeader`, `ReadinessChip`, `ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`, `ResourceSettingsPage`, `SettingsSection`, `ShareDialog` and `Chip`, with the pure `readinessOf`, `readinessChip`, `dayLabel`, `SAVE_STATE_LABEL`, `prefilledUrl` and `embedSnippet` and their types. Import from `@marktiderman/genesis-ui/resource` (or the root); the pure rules are also at `/resource/rules`, safe on a server.
+
+  The defaults are resource-neutral: `ShareDialog` says "Share your page" and "Anyone with the link can open it." unless given a `noun` and `description`; an empty `ReadinessChip` says "Nothing to publish yet" (`labels` renames any state); `readinessOf` treats a finding as "empty" only with `emptyCode`. `ResponsesToolbar` takes `labels` and `FollowUpList` takes `noComment`. The settings section type is `ResourceSettingsSection`, since `SettingsPageSection` already names the layout `SettingsPage`'s.
+
+  Features: resource-workspace
+
+### Patch Changes
+
+- Updated dependencies [6c180f6]
+  - @marktiderman/genesis-core@1.8.0
+
 ## 2.13.0
 
 ### Minor Changes

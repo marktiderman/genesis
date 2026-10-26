@@ -14,9 +14,10 @@ form's rows and handles every action (save, publish, mark handled, reply), so an
 
 ```tsx
 import {
-  ResourceHeader, ReadinessChip, formNavItems, formStatusChip, FORM_NAV_ICONS,
-  formAvailability, formCounts, readinessOf,
+  formNavItems, formStatusChip, FORM_NAV_ICONS, formAvailability, formCounts,
+  FORM_READINESS_LABELS, FORM_READINESS_OPTIONS,
 } from "@marktiderman/genesis-forms-studio";
+import { ResourceHeader, ReadinessChip, readinessOf } from "@marktiderman/genesis-ui/resource";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "@marktiderman/genesis-ui/layout";
 
 useAppShellSubNav(
@@ -35,14 +36,21 @@ useAppShellSubNav(
   publish={{ onClick: publish, label: form.version ? "Publish changes" : "Publish" }}
 />
 </AppShellPageHeader>
-<AppShellSubNavEnd><ReadinessChip readiness={readinessOf(analysis.findings)} /></AppShellSubNavEnd>
+<AppShellSubNavEnd>
+  <ReadinessChip
+    readiness={readinessOf(analysis.findings, FORM_READINESS_OPTIONS)}
+    labels={FORM_READINESS_LABELS}
+  />
+</AppShellSubNavEnd>
 ```
 
 - `formNavItems("/forms/f1", { questions, logic, responses })` declares the form's four child items
   (Questions, Logic and endings, Responses, Settings) as `?tab=` links with their counts as badges,
   for the app shell's `useAppShellSubNav`. `formCounts(definition)` gives the first two.
 - `ReadinessChip` ("Ready to publish", or "3 problems to fix") goes in the row's trailing slot,
-  `<AppShellSubNavEnd>`. `readinessOf(analysis.findings)` reads it from the builder's checks.
+  `<AppShellSubNavEnd>`. `readinessOf(analysis.findings, FORM_READINESS_OPTIONS)` reads it from
+  the builder's checks (`no-questions` is "empty"), and `FORM_READINESS_LABELS` says "Add a
+  question" for an empty form.
 
 ## Responses
 
@@ -89,23 +97,36 @@ section without `content` is a jump link only, for a part of the page the host r
 
 ## Share
 
-`ShareDialog`: the link with Copy, a QR code and poster (the host draws it), embed code, and a
-prefilled-link builder (`prefilledUrl`).
+`ShareDialog` (genesis-ui): the link with Copy, a QR code and poster (the host draws it), embed
+code, and a prefilled-link builder (`prefilledUrl`). genesis-ui's defaults say "page"; pass
+`{...FORM_SHARE_LABELS}` for "Share your form" and "Anyone with the link can answer." (this
+package's deprecated `ShareDialog` does that for you).
 
 ## Rules only
 
 `@marktiderman/genesis-forms-studio/rules` has the pure functions without React, for a server:
 `summarizeResponses`, the filters, `answerColumns`, `answersByKey`, `answerCell`, `toCsv`,
 `carryAnswers` (re-exported from genesis-forms), `formAvailability`, `takesResponses`,
-`prefilledUrl`, `embedSnippet` and the rest. For a forms list: `slugFromTitle` ("How was class?" →
+and the rest (`prefilledUrl`, `embedSnippet` and `dayLabel` are still here, deprecated: they
+moved to `@marktiderman/genesis-ui/resource/rules`). For a forms list: `slugFromTitle` ("How was class?" →
 `how-was-class`), `SLUG_PATTERN` and `validateSlug`, and for a duplicate `copyTitle` ("Copy of …")
 and `freeSlug` (the first of `slug`, `slug-2`… not taken). `offersSubmitAnother` says whether a
 thank-you page offers "Send another response" (never on a one-response-per-person form that isn't
 anonymous).
 
-## Generic pieces
+## Moved to genesis-ui
 
-`src/generic/` holds what isn't about forms: `ResourceHeader`, `ReadinessChip`,
-`ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`,
-`ResourceSettingsPage`, `SettingsSection`, `ShareDialog` and their words. Courses, lessons and
-worksheets use the same page pattern, so these are meant to move to genesis-ui.
+The pieces that aren't about forms now live in genesis-ui's resource workspace, so courses,
+lessons and worksheets use the same page: `ResourceHeader`, `ReadinessChip`, `readinessOf`,
+`readinessChip`, `ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`,
+`ResourceSettingsPage`, `SettingsSection`, `ShareDialog`, `Chip`, `dayLabel`, `SAVE_STATE_LABEL`,
+`prefilledUrl`, `embedSnippet` and their types. Import them from
+`@marktiderman/genesis-ui/resource` (the pure ones also from `/resource/rules`, safe on a
+server).
+
+This package still exports every one of those names, marked `@deprecated`, and they behave as
+before: the deprecated `ShareDialog`, `ReadinessChip`, `readinessOf` and `readinessChip` pass the
+form's words and rule (`FORM_SHARE_LABELS`, `FORM_READINESS_LABELS`, `FORM_READINESS_OPTIONS`),
+since genesis-ui's defaults are neutral. `SettingsPageSection` is genesis-ui's
+`ResourceSettingsSection` (renamed, because genesis-ui's `SettingsPage` already has a
+`SettingsPageSection`).

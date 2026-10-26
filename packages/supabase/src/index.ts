@@ -193,4 +193,13 @@ export {
   type TenantFeatures,
   type TenantFeaturesClient,
 } from "./tenant-features";
-export { accountBlock, tenantFeaturesBlock } from "./blocks";
+export {
+  featureGateState,
+  syncFeatureRegistry,
+  type FeatureGateState,
+  type FlagStateValue,
+  type FeatureRegistryClient,
+  type FeatureRegistryDocument,
+  type SyncFeatureRegistryOptions,
+} from "./feature-registry";
+export { accountBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";

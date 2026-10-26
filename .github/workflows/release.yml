@@ -215,16 +215,16 @@ jobs:
       # a package about to be published. Without it, pnpm logs "Skipped OIDC"
       # (hidden by changesets), publishes unauthenticated, and the only
       # visible error is a misleading E404 (see the ROOT CAUSE note above).
-      # Only runs when this push would publish: no pending changesets and at
-      # least one local version missing from npm. Never prints a token: an
+      # Runs whenever a local version is missing from npm, with or without
+      # pending changesets (see "Publish versions already on main" below for
+      # why pending changesets no longer mean "nothing publishes"). Never
+      # prints a token: an
       # exchange body is shown only for an error status, and the minted token
       # is discarded unused (it expires on its own).
       - name: Verify npm Trusted Publishing for packages about to publish
+        id: verify
         run: |
           set -euo pipefail
-          if find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
-            echo "Pending changesets: this run opens a version PR, nothing publishes."; exit 0
-          fi
           pending=()
           for pj in packages/*/package.json; do
             if [ "$(jq -r '.private // false' "$pj")" = true ]; then continue; fi
@@ -241,6 +241,7 @@ jobs:
             fi
           done
           if [ ${#pending[@]} -eq 0 ]; then echo "Nothing unpublished."; exit 0; fi
+          echo "unpublished=true" >> "$GITHUB_OUTPUT"
           if ! idt=$(curl -sf --max-time 30 -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
             "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm:registry.npmjs.org" | jq -r '.value // empty'); then
             echo "::error::Could not get a GitHub OIDC token (is id-token: write granted?)"; exit 1
@@ -269,6 +270,30 @@ jobs:
             rm -f "$RUNNER_TEMP/x.json"
           done
           exit $failed
+
+      # MEASURED 2026-10-26: GitHub keeps one pending run per concurrency
+      # group and cancels the older pending one when another push queues. A
+      # version-PR merge followed within seconds by a feature merge therefore
+      # lost its run (the version PR's merge commit, 0614901, was cancelled),
+      # and the next run saw the feature's new changeset, so changesets/action
+      # took the version path and never published. genesis-core 1.10.0 sat on
+      # main unpublished. changesets/action only publishes when there are NO
+      # pending changesets, so: when changesets ARE pending but main already
+      # carries versions npm doesn't have, publish those first. `changeset
+      # publish` publishes exactly the local versions missing from npm and
+      # ignores pending changeset files. GitHub Releases are not created on
+      # this path (only changesets/action does that); tags are pushed.
+      - name: Publish versions already on main
+        if: steps.verify.outputs.unpublished == 'true'
+        run: |
+          set -euo pipefail
+          if ! find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
+            echo "No pending changesets: changesets/action publishes in the next step."; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          pnpm changeset publish
+          git push origin --tags
 
       - name: Create Release PR or Publish
         id: changesets

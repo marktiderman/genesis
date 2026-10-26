@@ -21,6 +21,7 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type { BaseRecord, DataProvider, Identifier, ListResult } from "../provider/types";
 import type { AuditEntry, ProviderCapabilities } from "../schema/types";
 import { capabilitiesQueryKey } from "./use-capabilities";
+import { resourceKeys } from "../query-keys";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -175,7 +176,7 @@ export function cachedRecord(
   resource: string,
   id: Identifier,
 ): BaseRecord | undefined {
-  for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource, "detail"] })) {
+  for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: resourceKeys(resource).details })) {
     if (isDetailKeyFor(key, resource, id) && value && typeof value === "object") return value as BaseRecord;
   }
   for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource] })) {
@@ -237,6 +238,10 @@ interface Tracked {
   flush: (unloading?: boolean) => void;
   /** Drop a waiting or queued write (see `dropped`). */
   drop: () => void;
+  /** Drop a waiting or queued write without a word: its viewer is gone. */
+  discard: () => void;
+  /** Settles once the write was sent, failed or dropped. */
+  sent: Promise<unknown>;
 }
 
 interface Registry {
@@ -270,6 +275,31 @@ function registryFor(queryClient: QueryClient): Registry {
   return reg;
 }
 
+/**
+ * Sends every optimistic or undoable write still waiting on this client now,
+ * and resolves once all have settled. Call it while the session that made
+ * them still holds (a sign-out action, before signing out).
+ */
+export async function flushPendingWrites(queryClient: QueryClient): Promise<void> {
+  const reg = registries.get(queryClient);
+  if (!reg) return;
+  for (const write of [...reg.writes].sort((a, b) => a.seq - b.seq)) {
+    if (write.state === "waiting") write.flush();
+  }
+  await Promise.allSettled(reg.writes.map((write) => write.sent));
+}
+
+/**
+ * Drops every write on this client not yet sent, without reporting them: the
+ * viewer who made them is gone, so they must never be sent (or re-applied)
+ * under the next one. Writes already sending finish under the old session.
+ */
+export function dropPendingWrites(queryClient: QueryClient): void {
+  const reg = registries.get(queryClient);
+  if (!reg) return;
+  for (const write of [...reg.writes].sort((a, b) => b.seq - a.seq)) write.discard();
+}
+
 /** Optimistic or undoable writes on `resource` not yet settled. */
 export function pendingWriteCount(queryClient: QueryClient, resource: string): number {
   return registries.get(queryClient)?.pending.get(resource) ?? 0;
@@ -290,7 +320,7 @@ function endPending(reg: Registry, resource: string): void {
  * pending: their patches are re-applied to whatever the refetch brings.
  */
 export function invalidateResource(queryClient: QueryClient, resource: string): Promise<void> {
-  return queryClient.invalidateQueries({ queryKey: [resource] });
+  return queryClient.invalidateQueries({ queryKey: resourceKeys(resource).all });
 }
 
 function setProduced(reg: Registry, queryClient: QueryClient, key: QueryKey, value: unknown): void {
@@ -752,6 +782,8 @@ export async function executeWrite<R extends BaseRecord | void>(
     dropped: false,
     flush: () => {},
     drop: () => {},
+    discard: () => {},
+    sent,
   };
 
   const settle = () => {
@@ -832,6 +864,15 @@ export async function executeWrite<R extends BaseRecord | void>(
     takeBack(reg, write);
     void invalidateResource(queryClient, resource);
     failedLater(new Error(DROPPED_WRITE_MESSAGE));
+    resolveSent(undefined);
+  };
+
+  write.discard = () => {
+    if (write.state !== "waiting" && write.state !== "queued") return;
+    write.dropped = true;
+    settle();
+    // The cache is being emptied: forget the patch rather than put values back.
+    if (patch) dropPatchRecord(reg, patch);
     resolveSent(undefined);
   };
 

@@ -15,11 +15,11 @@ import { privacyApisFor } from "../expo.js";
 import { DoctorConfigError } from "./config.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
-import type { DoctorContext, SourceFile } from "./types.js";
+import { localImports, readSource } from "./source.js";
+import type { DoctorContext } from "./types.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
 const JSX_EXTS = new Set([".tsx", ".jsx"]);
-const RESOLVE_EXTS = [".tsx", ".ts", ".jsx", ".js"];
 
 /** A Genesis screen layout: an exported component named `…Page`, `…Screen` or `ScreenContainer`. */
 const LAYOUT_NAME = /(?:Page|Screen|ScreenContainer)$/;
@@ -167,6 +167,17 @@ function checkCustomHeaders(ctx: DoctorContext, pkg: PackageExports): void {
   }
 }
 
+/** Tags a route that is only a loading state may render next to it: its header options and fragments. */
+const LOADING_ROUTE_COMPANIONS = new Set(["NativeLoadingState", "Stack.Screen", "Fragment", "React.Fragment"]);
+
+/** A route whose only screen is a full-screen NativeLoadingState (a redirect or loading bridge). */
+export function isLoadingOnlyRoute(code: string): boolean {
+  const loading = [...code.matchAll(/<NativeLoadingState\b([^>]*)>/g)];
+  if (loading.length === 0 || loading.some((m) => /\bfullScreen\s*=\s*\{\s*false\s*\}/.test(m[1] ?? ""))) return false;
+  const tags = [...code.matchAll(/<([A-Z][\w.]*)/g)].map((m) => m[1] ?? "");
+  return tags.every((t) => LOADING_ROUTE_COMPANIONS.has(t));
+}
+
 /** The Expo Router root: `native.routerRoot`, else `src/app`, else `app`. */
 export function routerRoot(ctx: Pick<DoctorContext, "root" | "config">): string {
   if (ctx.config.native?.routerRoot) return ctx.config.native.routerRoot.replace(/\/+$/, "");
@@ -192,13 +203,17 @@ function checkScreenLayouts(ctx: DoctorContext, pkg: PackageExports): void {
     });
     return;
   }
-  const renders = new RegExp(`<(?:${layouts.join("|")}|Redirect)\\b`);
+  // A redirect is a screen too, here or through an import.
+  const renders = new RegExp(`<(?:${[...layouts, "Redirect"].join("|")})\\b`);
+  // So is a route that is only a whole-screen loading state (it brings its own safe area): counted
+  // in the route itself, never through an import, and not when it's a block (fullScreen={false}).
+  const loadingOnly = pkg.values.has("NativeLoadingState") ? isLoadingOnlyRoute : () => false;
   const byPath = new Map(ctx.files.map((f) => [f.absolutePath, f]));
   for (const file of routes) {
     if (!JSX_EXTS.has(file.ext) || NON_SCREEN_ROUTE.test(file.path)) continue;
     // A route that only re-exports a screen, or renders no JSX, is judged where the screen lives.
     if (!/\bexport\s+default\b/.test(file.code) || !/<[A-Za-z]/.test(file.code)) continue;
-    if (renders.test(file.code)) continue;
+    if (renders.test(file.code) || loadingOnly(file.code)) continue;
     const viaImport = localImports(ctx.root, file).some((abs) => {
       const target = byPath.get(abs) ?? readSource(abs);
       return target !== null && renders.test(target.code);
@@ -210,35 +225,6 @@ function checkScreenLayouts(ctx: DoctorContext, pkg: PackageExports): void {
       file: file.path,
       message: `doesn't render a Genesis screen layout (${layouts.join(", ")}); wrap the screen in one so the header, safe area and scrolling match every other screen`,
     });
-  }
-}
-
-/** Files a source imports by relative path or the `@/` / `~/` root aliases, resolved to absolute paths that exist. */
-function localImports(root: string, file: SourceFile): string[] {
-  const out: string[] = [];
-  for (const m of file.code.matchAll(/\bfrom\s*["']((?:\.{1,2}|[@~])\/[^"']+)["']/g)) {
-    const spec = m[1];
-    const bases = spec.startsWith(".")
-      ? [path.resolve(path.dirname(file.absolutePath), spec)]
-      : [path.join(root, spec.slice(2)), path.join(root, "src", spec.slice(2))];
-    for (const base of bases) {
-      const hit = [base, ...RESOLVE_EXTS.map((e) => base + e), ...RESOLVE_EXTS.map((e) => path.join(base, `index${e}`))].find(
-        (p) => SCRIPT_EXTS.has(path.extname(p)) && existsSync(p),
-      );
-      if (hit) {
-        out.push(hit);
-        break;
-      }
-    }
-  }
-  return out;
-}
-
-function readSource(abs: string): Pick<SourceFile, "code"> | null {
-  try {
-    return { code: readFileSync(abs, "utf8") };
-  } catch {
-    return null;
   }
 }
 

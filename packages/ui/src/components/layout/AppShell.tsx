@@ -45,6 +45,7 @@ import {
   type SubNavMode,
 } from "./sub-nav";
 import { cn } from "../../utils";
+import { useIsMobile } from "../../hooks/use-mobile";
 import { readStoredOptions, writeStoredOptions } from "../../option-storage";
 import {
   DefaultLink,
@@ -1409,7 +1410,8 @@ export function AppShell({
   // item to the logical parent. "section": the children replace the bar
   // as before, with no back item. "off": the app's main bar. An explicit
   // `mobileNavItems` always wins.
-  const contextualLeaves = subNavMode === "off" ? [] : leaves(contextualNavItems);
+  const contextualLeaves =
+    subNavMode === "off" ? [] : leaves(contextualNavItems).filter((i) => !i.hideOnPhone);
   // With sub-navigation on, a page's children win over an app-wide
   // `mobileNavItems` on that page; elsewhere `mobileNavItems` applies.
   const subBottom = subNavOn && contextualLeaves.length > 0;
@@ -1465,6 +1467,12 @@ export function AppShell({
   const showMobileBottom =
     bottomItems.length > 0 && resolved.showMobileBottomNav !== false;
   const showTabs = subNavMode === "tabs" && contextualNavItems.length > 0;
+  // Phones hide the tab row behind the bottom bar, so the row's end slot (a
+  // page's readiness chip) moves to a strip under the page header there.
+  // One target at a time: the slot element is either in the row or in the
+  // strip, never both, so the chip is never rendered twice.
+  const isPhone = useIsMobile();
+  const endOnPhone = showTabs && showMobileBottom && isPhone && subNavChannel.hasEnd;
 
   const optionsControl =
     resolved.configurable && toggles.length > 0 ? (
@@ -1802,6 +1810,16 @@ export function AppShell({
               data-testid="app-shell-page-header"
             />
           ) : null}
+          {endOnPhone ? (
+            <div
+              ref={subNavChannel.setEndSlot}
+              className={cn(
+                "flex min-w-0 flex-wrap items-center justify-end gap-2 px-4 sm:px-6",
+                parentNavigation || hasPageHeader ? "pt-2 sm:pt-3" : "pt-4 sm:pt-6",
+              )}
+              data-testid="app-shell-sub-nav-end-phone"
+            />
+          ) : null}
           {showTabs ? (
             <div
               className={cn(
@@ -1818,7 +1836,7 @@ export function AppShell({
                 linkComponent={linkComponent}
                 label={subNavLabel ?? derived?.current.label ?? "Page sections"}
                 end={
-                  subNavChannel.hasEnd ? (
+                  subNavChannel.hasEnd && !endOnPhone ? (
                     <div ref={subNavChannel.setEndSlot} className="flex items-center" />
                   ) : undefined
                 }

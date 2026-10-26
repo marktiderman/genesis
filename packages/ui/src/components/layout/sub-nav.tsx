@@ -63,6 +63,14 @@ export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
 export interface SubNavItem extends Omit<NavItem, "icon" | "children"> {
   icon?: LucideIcon;
   children?: SubNavItem[];
+  /**
+   * Leave this item out of the phone bar (it stays in the tab row, the
+   * sidebar and the rail). The phone bar fits back plus about four items:
+   * fold a builder panel into its parent tab on phones instead of
+   * overflowing. If its route sits under another item's (without `end`),
+   * that item shows as current while it is open.
+   */
+  hideOnPhone?: boolean;
 }
 
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -436,8 +444,10 @@ function useSlotPortal(slot: SlotName, children: ReactNode): ReactNode {
 /**
  * Render `children` in the right-hand slot of the shell's sub-navigation
  * tab row, e.g. a "Ready to publish" status chip. Rendered through a
- * portal, so it keeps the page's context and state. Renders nothing when
- * the shell shows no tab row (other modes, phones, no children). When
+ * portal, so it keeps the page's context and state. On phones, where the
+ * bottom bar replaces the tab row, it renders in a compact strip under the
+ * page header instead, so the chip stays reachable. Renders nothing when
+ * the shell has no tab row (other modes, a page without children). When
  * several are mounted (a layout's and a page's), the innermost renders.
  *
  * @stability Beta

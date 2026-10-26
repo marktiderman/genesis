@@ -1,5 +1,46 @@
 # @marktiderman/genesis-supabase
 
+## 0.6.0
+
+### Minor Changes
+
+- 85e23e1: Migration `0008_genesis_feature_registry` (block `feature-mirror`, needs `tenant-features`): the feature registry mirrored into the database on deploy (`features`, `feature_flags`, `sync_feature_registry`, never backwards), `feature_entitlements`, per-tenant `tenant_flag_values`, SQL `feature_on(tenant, feature)` for row security (shipped and, when paid, entitled), and `feature_gate_state(tenant)` for members. Client helpers `syncFeatureRegistry` and `featureGateState`. Platform-wide flag values (`feature_flags.platform_value`) act as a kill switch over tenant values. Requests are judged by their role: an authenticated request without a person is refused, never treated as server code.
+
+### Patch Changes
+
+- Updated dependencies [773e809]
+  - @marktiderman/genesis-features@0.4.1
+
+## 0.5.0
+
+### Minor Changes
+
+- 0435b05: Background jobs: `migrations/0007_genesis_jobs.sql` and `@marktiderman/genesis-supabase/jobs`.
+
+  - **Queue.** `genesis_jobs` takes:
+    - enqueues with an idempotency key;
+    - claims with `SKIP LOCKED` and leases (a lease that runs out redelivers the job; a job that keeps dying fails as `lease_expired`);
+    - settles (done, retry, failed);
+    - cancel and a 14-day purge.
+  - **Schedules.** `genesis_schedule_job(name, cron, job)` calls the app's job route through pg_cron and pg_net, with the URL and the secret read from Vault each time. Each request is signed for its job, and never carries the secret. Schedules are cron jobs named `genesis-job:<name>`.
+  - **Server.** `enqueueJob`, `runJobs` (handlers by kind, jittered backoff, `PermanentJobError`; never throws for one job or for a failed settle), `createJobsHandler` (one route; requests signed per job for five minutes, or the bearer secret; the previous secret is accepted during a rotation) and `signJobRequest`.
+  - **Block.** `jobsBlock`.
+
+### Patch Changes
+
+- Updated dependencies [d67b516]
+  - @marktiderman/genesis-features@0.4.0
+
+## 0.4.0
+
+### Minor Changes
+
+- 8c27421: Adds `sql/testing/genesis_testing.sql`, a pgTAP kit that checks an app's own schema keeps the Genesis data rules: refused writes, server-owned columns, guards that let system work through (signed out, bypass settings, ON DELETE SET NULL), private values never leaking through reports, and row counts per user. It uses shared owner, staff, client and stranger fixture ids.
+
+### Patch Changes
+
+- ca03900: genesis_testing: `never_shows` also finds a marker in the escaped form JSON writes it (quotes, backslashes), and `allows_system_paths` splits each setting on its first `=`, so a value may contain `=`.
+
 ## 0.3.1
 
 ### Patch Changes

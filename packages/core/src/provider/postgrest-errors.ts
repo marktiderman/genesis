@@ -33,9 +33,10 @@ export function readOutcomeFromCode(code: string | null | undefined): ReadOutcom
  *
  * - `42501` (insufficient privilege, including "new row violates row-level
  *   security policy") → `forbidden`
- * - `22***` (data exception: bad type, out of range) and `23***` (integrity
- *   constraint: `23505` unique, `23503` foreign key, `23502` not null,
- *   `23514` check) → `invalid`
+ * - `23505` (unique violation) → `duplicate`
+ * - `22***` (data exception: bad type, out of range) and the other `23***`
+ *   (integrity constraint: `23503` foreign key, `23502` not null, `23514`
+ *   check) → `invalid`
  * - `PGRST301`–`PGRST303` (JWT missing, expired or rejected), `28000`,
  *   `28P01` → `unauthenticated`
  * - `PGRST116` (one row was asked for and none came back) → `gone`
@@ -46,6 +47,7 @@ export function writeOutcomeFromCode(code: string | null | undefined): WriteOutc
   if (code === "PGRST116") return "gone";
   if (code === "PGRST301" || code === "PGRST302" || code === "PGRST303") return "unauthenticated";
   if (code === "28000" || code === "28P01") return "unauthenticated";
+  if (code === "23505") return "duplicate";
   if (/^2[23][0-9A-Z]{3}$/.test(code)) return "invalid";
   return "error";
 }

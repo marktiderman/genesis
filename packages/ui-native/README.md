@@ -52,6 +52,36 @@ as a direct dependency of your app (`npx expo install react-native-gesture-handl
 root in its `GestureHandlerRootView`; don't rely on another package bringing it in. The drawer's
 swipe uses React Native's `PanResponder`.
 
+## Loading screens: `NativeLoadingState` and `ScreenContainer loading`
+
+For a screen that is waiting (a redirect while the session loads, a first fetch), don't hand-roll
+`<View><ActivityIndicator /></View>`. `NativeLoadingState` is a centred spinner in the theme tint,
+read by screen readers as one "Loading" progress bar (or your `label`, which also shows under the
+spinner). By default it fills the screen on the background, inside the safe area; `fullScreen={false}`
+makes it a centred block for a screen body, a section or a list footer.
+
+```tsx
+import { NativeLoadingState, ScreenContainer } from "@marktiderman/genesis-ui-native";
+
+if (!session) return <NativeLoadingState label="Signing you in" />;
+
+<ScreenContainer scroll loading={isLoading} loadingLabel="Loading your plan">{body}</ScreenContainer>;
+```
+
+`ScreenContainer`'s `loading` puts the inline form in place of the body, keeping its safe area,
+background and status bar. `InboxPage` uses it for its first load and "Loading more" footer. Use
+`NativeSkeleton` for a placeholder shaped like the content, and `NativeProgress` for known progress.
+`loading` is for a screen's first load: the body is unmounted while it's on, so don't use it to
+cover a form the person is filling in (its state would be lost); show `NativeLoadingState
+fullScreen={false}` or a button's busy state instead. `loadingLabel` is shown and read by
+VoiceOver, so pass translated text; without it the screen reader hears `accessibilityLabel`
+("Loading" by default) and nothing is shown.
+
+`genesis doctor` (native pack) flags a raw `ActivityIndicator` from `react-native` and points here.
+A route whose only screen is a full-screen `NativeLoadingState` (a redirect or loading bridge,
+optionally with `Stack.Screen` options) counts as a screen for `native-screen-layout`; one that
+also renders other content, imports it, or uses `fullScreen={false}` still needs a layout.
+
 ## Keyboard toolbar
 
 `KeyboardScrollProvider` (from `/layouts`) takes an optional `toolbar`: react-native-keyboard-controller's

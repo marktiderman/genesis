@@ -2,7 +2,7 @@
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import type { FormAvailability } from "./availability";
 import type { SubNavItem } from "@marktiderman/genesis-ui/layout";
-import type { ChipTone } from "./generic/status";
+import type { ChipTone } from "@marktiderman/genesis-ui/resource/rules";
 
 /**
  * A form's status chip: "Live · version 3", "Draft", "Paused · version 3"… `availability`

@@ -27,6 +27,7 @@
     "@marktiderman/genesis-forms-react": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
     "@marktiderman/genesis-notifications": "workspace:^",
+    "@marktiderman/genesis-product": "workspace:^",
     "@marktiderman/genesis-supabase": "workspace:^",
     "@marktiderman/genesis-support": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",

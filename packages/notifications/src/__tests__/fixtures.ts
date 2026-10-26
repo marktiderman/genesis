@@ -7,13 +7,13 @@ export const registry = defineNotifications({
     security: { label: "Security", critical: true },
     ...GENESIS_TEST_CATEGORY,
   },
-  actions: { message: MESSAGE_ACTIONS },
+  actions: { messages: MESSAGE_ACTIONS },
   types: {
     "chat.message": {
       category: "messages",
       channels: { in_app: true, push: true, email: true },
       emailDelaySeconds: 600,
-      actions: "message",
+      actions: "messages",
       render: (d) => ({ title: String(d.sender_name ?? "Someone"), body: String(d.preview ?? ""), url: `/messages/${String(d.conversation_id)}` }),
     },
     "forms.receipt": {

@@ -3,6 +3,7 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../utils";
+import { fillMessage, useUiMessages } from "../../messages";
 
 /**
  * One button in the bulk action bar.
@@ -67,6 +68,7 @@ export function DataBulkBar({
   actions,
   className,
 }: DataBulkBarProps) {
+  const m = useUiMessages();
   if (selected.size === 0) return null;
 
   return (
@@ -80,7 +82,7 @@ export function DataBulkBar({
         checked={selected.size === totalCount}
         onCheckedChange={onToggleAll}
       />
-      <Badge variant="secondary">{selected.size} selected</Badge>
+      <Badge variant="secondary">{fillMessage(m.bulk.selected, { count: selected.size })}</Badge>
       {actions.map((action) => {
         const ActionIcon = action.icon;
         return (
@@ -103,7 +105,7 @@ export function DataBulkBar({
         onClick={onClearSelection}
         className="ml-auto text-xs text-muted-foreground"
       >
-        Clear
+        {m.common.clear}
       </Button>
     </div>
   );

@@ -67,3 +67,21 @@ export {
   type ResolvedBlocks,
 } from "./blocks";
 export { cycleProblems, dependencyOrder, requirementProblem, requiresProblems, type RequiresNode, type RequiresProblemsOptions } from "./graph";
+export {
+  FeatureOff,
+  SHIPPED_STATUSES,
+  featureOn,
+  fromSnapshot,
+  gateSnapshot,
+  isSnapshotStale,
+  requireFeature,
+  type GateAnswer,
+  type GateContext,
+  type GateFeature,
+  type GateFlag,
+  type GateReason,
+  type GateRegistry,
+  type GateSnapshot,
+  type GateSnapshotOptions,
+  type IdSet,
+} from "./gate";

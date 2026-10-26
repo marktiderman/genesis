@@ -4,16 +4,30 @@ Supabase for Genesis apps on web and React Native.
 
 ```ts
 import { createGenesisSupabase, must } from "@marktiderman/genesis-supabase";
-import { keychainStorage, refreshWhileActive, wipeSessionOnReinstall } from "@marktiderman/genesis-supabase/native";
+import {
+  keychainStorage,
+  refreshWhileActive,
+  wipeSessionOnReinstall,
+} from "@marktiderman/genesis-supabase/native";
 import * as SecureStore from "expo-secure-store";
 import * as ExpoCrypto from "expo-crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AppState } from "react-native";
 
 const session = keychainStorage(SecureStore);
-await wipeSessionOnReinstall({ session, sessionKey: "sb-<project-ref>-auth-token", installMarker: AsyncStorage });
+await wipeSessionOnReinstall({
+  session,
+  sessionKey: "sb-<project-ref>-auth-token",
+  installMarker: AsyncStorage,
+});
 
-export const supabase = createGenesisSupabase<Database>({ url, publishableKey, storage: session, platform: "native", crypto: ExpoCrypto });
+export const supabase = createGenesisSupabase<Database>({
+  url,
+  publishableKey,
+  storage: session,
+  platform: "native",
+  crypto: ExpoCrypto,
+});
 refreshWhileActive(supabase, AppState);
 
 const rows = must(await supabase.from("tasks").select("*"));
@@ -47,18 +61,25 @@ import Constants from "expo-constants";
 import { storeAppleToken } from "@marktiderman/genesis-supabase";
 import { signInWithApple } from "@marktiderman/genesis-supabase/native";
 
-const digest = (s: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s);
+const digest = (s: string) =>
+  Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, s);
 
 async function onApple() {
   // The nonce is 32 random bytes from crypto.getRandomValues (createGenesisSupabase installs it on native).
-  const result = await signInWithApple(supabase, AppleAuthentication, { digest });
+  const result = await signInWithApple(supabase, AppleAuthentication, {
+    digest,
+  });
   if (result.canceled) return; // they closed Apple's sheet: not an error
   if (result.error) return showError(result.error.message); // result.error.code says why
   // Apple shares the name on the first sign-in only, so save it now.
-  if (result.fullName) await supabase.auth.updateUser({ data: { full_name: result.fullName } });
+  if (result.fullName)
+    await supabase.auth.updateUser({ data: { full_name: result.fullName } });
   // For revoking on deletion: hand the single-use code to the server now (see "Revoking Apple's tokens").
   if (result.authorizationCode) {
-    const stored = await storeAppleToken(supabase, { authorizationCode: result.authorizationCode, clientId: Constants.expoConfig?.ios?.bundleIdentifier });
+    const stored = await storeAppleToken(supabase, {
+      authorizationCode: result.authorizationCode,
+      clientId: Constants.expoConfig?.ios?.bundleIdentifier,
+    });
     if (!stored.ok) console.warn(stored.error.message); // they're signed in either way
   }
 }
@@ -84,10 +105,15 @@ async function onApple() {
 import { GoogleOneTapSignIn } from "@react-native-google-signin/google-signin";
 import { signInWithGoogle } from "@marktiderman/genesis-supabase/native";
 
-GoogleOneTapSignIn.configure({ webClientId: WEB_CLIENT_ID, iosClientId: IOS_CLIENT_ID }); // once, at start-up
+GoogleOneTapSignIn.configure({
+  webClientId: WEB_CLIENT_ID,
+  iosClientId: IOS_CLIENT_ID,
+}); // once, at start-up
 
 async function onGoogle() {
-  const result = await signInWithGoogle(supabase, GoogleOneTapSignIn, { digest });
+  const result = await signInWithGoogle(supabase, GoogleOneTapSignIn, {
+    digest,
+  });
   if (result.canceled) return;
   if (result.error) return showError(result.error.message);
 }
@@ -119,11 +145,15 @@ import * as WebBrowser from "expo-web-browser";
 import { completeOAuthRedirect } from "@marktiderman/genesis-supabase/native";
 
 const redirectTo = "myapp://auth/callback";
-const { data } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo, skipBrowserRedirect: true } });
+const { data } = await supabase.auth.signInWithOAuth({
+  provider: "google",
+  options: { redirectTo, skipBrowserRedirect: true },
+});
 const res = await WebBrowser.openAuthSessionAsync(data.url!, redirectTo);
 if (res.type === "success") {
   const result = await completeOAuthRedirect(supabase, res.url);
-  if (result.error) showError(result.error.message); // never result.error.providerMessage
+  if (result.error)
+    showError(result.error.message); // never result.error.providerMessage
   else if (result.redirectType === "recovery") router.push("/set-password");
 }
 ```
@@ -163,12 +193,12 @@ test is `migrations/tests/0001_genesis_account_deletion.test.sql`: copy it to
 
 It refuses, by error code (`SupabaseQueryError.code` on the client):
 
-| Code | When |
-|---|---|
+| Code    | When                                                                                                                             |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `42501` | Nobody is signed in, or the person has a verified MFA factor and the session isn't `aal2`: verify the second factor, then retry. |
-| `GA001` | The app's hook refused (below). |
-| `GA002` | The app requires a recent sign-in and this one isn't: sign in again, then retry. |
-| `23503` | A row still references the login: a foreign key without `on delete cascade`, or files in Storage. |
+| `GA001` | The app's hook refused (below).                                                                                                  |
+| `GA002` | The app requires a recent sign-in and this one isn't: sign in again, then retry.                                                 |
+| `23503` | A row still references the login: a foreign key without `on delete cascade`, or files in Storage.                                |
 
 - **Your data:** deleting the login removes the rows whose foreign keys to `auth.users(id)` are
   `on delete cascade`, and is refused (`23503`) while any other row still points at it, so the
@@ -363,7 +393,6 @@ and release notes (`notes`, an array of `{ version, title?, body }`). Copy it in
 > block instead. When you move, remove 0005's pgTAP test from your app (two of its assertions
 > describe the old register and forget) and stop calling `genesis-push-send`.
 
-
 [`migrations/0005_genesis_push.sql`](./migrations/0005_genesis_push.sql) and the
 [`genesis-push-send`](./functions/genesis-push-send) Edge Function are the server half of
 `@marktiderman/genesis-native/push`. Copy the migration into your app's `supabase/migrations/`
@@ -477,11 +506,11 @@ into your app under a new timestamp; it stands alone.
 
 Functions (templates; copy the folder into `supabase/functions/`):
 
-| Function | What it does | Secrets |
-|---|---|---|
-| `genesis-support-intake` | The wire contract over HTTP (boot, submit, list) for clients without supabase-js; acts as the caller, never the service role | `GENESIS_SUPPORT_ORIGINS` (web origins) |
-| `genesis-support-notify` | A Database Webhook on new reports: a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`) |
-| `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API | `GENESIS_SUPPORT_CLEANUP_SECRET` |
+| Function                  | What it does                                                                                                                                         | Secrets                                                                                                                      |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `genesis-support-intake`  | The wire contract over HTTP (boot, submit, list) for clients without supabase-js; acts as the caller, never the service role                         | `GENESIS_SUPPORT_ORIGINS` (web origins)                                                                                      |
+| `genesis-support-notify`  | A Database Webhook on new reports: a GitHub issue per report and/or a signed webhook, with a summary only (no person, device, context or screenshot) | `GENESIS_SUPPORT_WEBHOOK_SECRET`, `GITHUB_TOKEN` + `GITHUB_REPO`, `SUPPORT_WEBHOOK_URL` (+ `SUPPORT_WEBHOOK_SIGNING_SECRET`) |
+| `genesis-support-cleanup` | On a schedule: removes queued and orphaned screenshots through the Storage API                                                                       | `GENESIS_SUPPORT_CLEANUP_SECRET`                                                                                             |
 
 All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
 
@@ -518,22 +547,31 @@ alter table public.tenant_feature_changes add foreign key (tenant_id) references
 Without the admin hook nobody can change a switch (`42501`, with a hint): it fails closed.
 
 ```ts
-import { setTenantFeature, tenantFeatures, tenantFeatureHistory } from "@marktiderman/genesis-supabase";
+import {
+  setTenantFeature,
+  tenantFeatures,
+  tenantFeatureHistory,
+} from "@marktiderman/genesis-supabase";
 
 const features = await tenantFeatures(supabase, teamId); // members and admins; 42501 for anyone else
 if (features.isOn("chat")) showChatTab();
 
-await setTenantFeature(supabase, { tenantId: teamId, featureId: "chat", enabled: false, reason: "Launching next month" });
+await setTenantFeature(supabase, {
+  tenantId: teamId,
+  featureId: "chat",
+  enabled: false,
+  reason: "Launching next month",
+});
 const history = await tenantFeatureHistory(supabase, teamId); // admins: who, when, why, newest first
 ```
 
-| | |
-| --- | --- |
+|                                                               |                                                                                |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `public.set_tenant_feature(tenant, feature, enabled, reason)` | admins only (the hook); a reason of 1 to 500 characters; a FeatureId-shaped id |
-| `public.tenant_features_off(tenant)` | the ids that are off; members (`private.genesis_tenant_member`) and admins |
-| `public.tenant_feature_settings(tenant)` | every switch with its reason, who and when; admins |
-| `public.tenant_feature_history(tenant, max_rows)` | every change, newest first; admins |
-| `private.tenant_feature_on(tenant, feature)` | for SQL gates; a feature with no row is on |
+| `public.tenant_features_off(tenant)`                          | the ids that are off; members (`private.genesis_tenant_member`) and admins     |
+| `public.tenant_feature_settings(tenant)`                      | every switch with its reason, who and when; admins                             |
+| `public.tenant_feature_history(tenant, max_rows)`             | every change, newest first; admins                                             |
+| `private.tenant_feature_on(tenant, feature)`                  | for SQL gates; a feature with no row is on                                     |
 
 Every change, through the function or by the service role writing the table directly, is
 recorded by a trigger in `public.tenant_feature_changes` with the person (none for the service
@@ -551,9 +589,192 @@ A delete that cascades into `tenant_features` (from your tenant table, or a pers
 goes with them) isn't recorded, so it never refuses the tenant's or the person's deletion; saving
 the same switch and reason again changes nothing, not even who and when.
 
+## The feature registry in the database (the feature-mirror block)
+
+Migration `0008_genesis_feature_registry.sql` (needs 0004) gives the feature gate its rows. Why it works this
+way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
+
+- **The mirror.** `features` and `feature_flags` copy `features.json`, written only by `sync_feature_registry`
+  with the service key. Run it from **production deployments only**, when one starts serving, with
+  `Date.now()` as the version (not the build time), so an instant rollback syncs as the newest. The same
+  registry again changes nothing; an empty registry, or one dropping more than a fifth of the features, is
+  refused unless `allowShrink`. Nothing is deleted: a removed feature or flag is marked `in_registry = false`,
+  and a flag's tenant values stay.
+- **Paid access.** `feature_entitlements` (tenant, feature, source, `active`, optional `ends_at`). Your billing
+  webhook writes it with the service key.
+- **Flag values.** `tenant_flag_values` overrides a flag's default for one tenant (service key).
+- **The gate in SQL.** `feature_on(tenant, feature)` is true for a shipped feature that, when paid, has an
+  active entitlement; a signed-in caller outside the tenant gets false. It runs once per row, so in policies
+  over many rows use the once-per-statement pair instead:
+  `using ((select feature_shipped('exports')) and team_id = any (array(select feature_entitled_tenants('exports'))))`
+  (drop the second half for a free feature). Switches and flags are not checked here: server code enforces them.
+- **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features, and
+  only `id, name, status, visibility, access_plan, platforms, in_registry`; the full record stays server side.
+- **The snapshot's input.** `feature_gate_state(tenant)` returns the tenant's switches off, entitlements and
+  flag values, to its members (with their own JWT, so browsers and extensions can call it) and the service role.
+
+```ts
+import { featureGateState, syncFeatureRegistry } from "@marktiderman/genesis-supabase";
+import { gateSnapshot } from "@marktiderman/genesis-features/gate";
+import registry from "../features.json";
+
+// When a production deployment starts serving (never from a preview):
+if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: Date.now() });
+
+const state = await featureGateState(supabase, teamId); // per session
+const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });
+```
+
+## Background jobs (the jobs block)
+
+`migrations/0007_genesis_jobs.sql` is one queue for background work and one way to schedule it, so
+an app writes neither its own outbox table nor its own cron wiring. `@marktiderman/genesis-supabase/jobs`
+is the server half. It is server only, since it takes the service-role client and the job secret.
+
+**Queue.** Enqueue from server code (`enqueueJob`) or from SQL (`genesis_job_enqueue`, for example
+in a trigger). Then run the handlers on a schedule:
+
+```ts
+import { enqueueJob, runJobs, PermanentJobError } from "@marktiderman/genesis-supabase/jobs";
+
+await enqueueJob(admin, "email.digest", { personId }, { idempotencyKey: `${personId}:${day}` });
+
+const report = await runJobs(admin, {
+  handlers: {
+    "email.digest": async ({ payload, redelivery }) => {
+      if (redelivery && (await alreadySent(payload.personId))) return;
+      const res = await send(payload.personId);
+      if (res.status === 429) return { retryAfterSeconds: Number(res.headers.get("retry-after") ?? 60) };
+      if (res.status >= 400 && res.status < 500) throw new PermanentJobError(`refused: ${res.status}`);
+    },
+  },
+});
+```
+
+- **Claims.** `runJobs` claims due jobs of the kinds it handles (`SKIP LOCKED`), each leased for
+  `leaseSeconds`. A lease that runs out brings the job back as a `redelivery`. A job that keeps
+  dying fails as `lease_expired`.
+- **Outcomes.** A handler that returns nothing is done. One that throws is retried with jittered
+  backoff (30 s, doubling, at most an hour) until `maxAttempts`, which defaults to 8.
+  `PermanentJobError` or `{ failed }` stops it at once.
+- **Idempotency.** An idempotency key makes a repeated enqueue return the job already queued. It
+  only dedupes while that job is pending or running: once it is done, failed or cancelled, the key
+  is free again.
+- **Clean-up.** Finished jobs are deleted after 14 days. That is scheduled only if pg_cron was
+  installed when the migration ran. If you enable pg_cron later, schedule
+  `select private.genesis_jobs_purge()` yourself.
+- **Logs.** Nothing about a payload is logged, so payloads should hold ids and never secrets.
+
+- **Settle failures.** If recording an outcome fails, the job is counted as `unsettled` and comes
+  back when its lease runs out. The run carries on, and only a failed claim throws.
+
+**One job route.** `createJobsHandler` runs the job the route names, but only if the request passes
+one of two constant-time checks:
+
+- **Signed for that job.** `Authorization: GenesisJob t=<unix seconds>,sig=<hex HMAC-SHA256 of
+  "<t>.<job>">` is good for five minutes. This is what schedules send, and `signJobRequest` builds
+  it from your own code.
+- **The plain secret.** `Authorization: Bearer <secret>` (any case) is for a platform cron or a
+  person running a job by hand.
+
+`previousSecret` is accepted too while you rotate the secret, so remove it once every caller has the
+new one.
+
+A signed call is signed for the job name only, so the route trusts nothing else in it. The job gets
+an empty `body`, and the response is `{ job, ok: true }` with no result, because pg_net keeps responses
+in `net._http_response`. A bearer call gets its body, and the job's result comes back as `result`.
+
+```ts
+const handle = createJobsHandler({
+  secret: process.env.GENESIS_JOBS_SECRET,
+  previousSecret: process.env.GENESIS_JOBS_SECRET_PREVIOUS,
+  jobs: {
+    queue: () => runJobs(admin, { handlers }),
+    "purge-uploads": () => purgeUploads(admin),
+  },
+});
+// /api/jobs/$job, GET and POST
+export const POST = ({ request, params }) => handle(request, params.job);
+```
+
+It answers 401 for a wrong or missing secret, and 500 when no secret is set. An unknown job gets
+404, and a failure gets 500 with no detail (the error goes to `log`).
+
+**Schedules.** pg_cron calls the route through pg_net, which needs pgcrypto too (Supabase has it
+in `extensions`). The URL and the secret are read from Vault each time, so they never sit in
+`cron.job`. The request carries a five-minute signature for that one job, never the secret itself.
+That matters because pg_net keeps each request's headers in `net.http_request_queue` until it sends
+them, and on some images other roles can read that table.
+
+```sql
+create extension if not exists pg_cron;
+create extension if not exists pg_net;
+select vault.create_secret('https://app.example.com/api/jobs', 'genesis_jobs_url');
+select vault.create_secret('<the same secret as GENESIS_JOBS_SECRET>', 'genesis_jobs_secret');
+select genesis_schedule_job('jobs-queue', '* * * * *', 'queue');          -- POST …/api/jobs/queue
+select genesis_schedule_job('purge-uploads', '15 3 * * *', 'purge-uploads');
+```
+
+The Vault secrets belong to each environment, so create them by hand in each project and never in
+a migration.
+
+- A schedule is the cron job `genesis-job:<name>`. Calling `genesis_schedule_job` with an existing
+  name replaces it.
+- `genesis_unschedule_job(name)` removes one, and never touches a cron job it didn't make. A platform cron (Vercel, Cloudflare) can call the same
+route instead: it sends GET with the bearer.
+
+**Access.** The queue table has RLS on, no policies, and no grants to `anon` or `authenticated`.
+Every function is granted by name to `service_role` only.
+
+## Testing your schema's data contract (genesis_testing)
+
+`sql/testing/genesis_testing.sql` is a pgTAP kit that checks your own tables and functions keep the
+Genesis data rules. **Test databases only:** never put it in `supabase/migrations/`. It can sign
+in as anyone, and the API roles can't call it (only `sign_out` and `user_id`). Copy it to `supabase/tests/database/000_genesis_testing.test.sql` (the leading
+zeros make `supabase test db` run it first; it commits only the `genesis_testing` schema and reports
+one passing line of its own). Then call the helpers from your own test files, inside their usual
+`begin; … rollback;`:
+
+```sql
+select genesis_testing.create_users();          -- owner, staff, client, stranger (fixed ids)
+select genesis_testing.refuses($$delete from notes where id = '…'$$,
+  genesis_testing.user_id('client'), 'a client can''t delete a note outright');
+select genesis_testing.server_owned('public.notes', 'id', '…',
+  array['status', 'completed_at'], genesis_testing.user_id('client'));
+select genesis_testing.allows_system_paths($$delete from notes where id = '…'$$,
+  array['bt.hard_delete=on'], genesis_testing.user_id('client'), 'system work can delete');
+select genesis_testing.never_shows('select * from group_progress(''…'')', 'PRIVATE-ANSWER',
+  genesis_testing.user_id('staff'), 'a private answer never reaches the report');
+select genesis_testing.sees('select * from notes', genesis_testing.user_id('client'), 2, 'own notes only');
+```
+
+| Helper                                                               | Passes when                                                                                                           |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `refuses(sql, user, description)`                                    | The write raises 42501 or changes no row.                                                                             |
+| `allows(sql, user, description, min_rows)`                           | It runs without an error (`user` null: signed out, as jobs and backfills run).                                        |
+| `allows_with_setting(sql, setting, value, user, description)`        | It runs with a bypass setting such as `bt.hard_delete`.                                                               |
+| `allows_system_paths(sql, settings, user, description)`              | It runs signed out and under each `name=value` setting (one line each).                                               |
+| `server_owned(table, key_column, key, columns, user)`                | The user can't change any of `columns` (one line each), whether the update raises, misses, or a trigger puts it back. |
+| `never_shows(query, marker, user, description)` / `never_shows_anon` | `marker` appears nowhere in what the query returns, for a table, a view or a report function.                         |
+| `sees(query, user, expected, description)`                           | The query returns exactly `expected` rows.                                                                            |
+
+A `user` of null means the system: no signed-in user and the test's own role, as jobs, backfills and
+migrations run. Checks only pass on evidence: any error other than a refusal fails them (so a typo
+can't pass), and "changed nothing" counts only when a control run can make the change (so a wrong
+key can't pass). Every check runs in a savepoint that is always rolled back, so checks never affect each other. A
+failing check prints why (`# changed from open to done`, `# raised 23514 …`). The `probe_*`
+functions return the same verdict as jsonb for testing your own helpers. `sign_in(who)`,
+`sign_in_anon()` and `sign_out()` act as someone for the rest of a test, setting both
+`request.jwt.claims` and the legacy `request.jwt.claim.sub`.
+
+What to cover, from the review history behind this kit: every guard trigger against every system
+path (signed out, your bypass settings, cascades and ON DELETE SET NULL); every column only the
+server sets; every security-definer function that reads a table with a privacy flag. The fixture
+ids are shared with `@marktiderman/genesis-core/testing`.
+
 ## Blocks
 
-`accountBlock` and `tenantFeaturesBlock` are `defineBlock` declarations
+`accountBlock`, `tenantFeaturesBlock` and `jobsBlock` are `defineBlock` declarations
 (`@marktiderman/genesis-features/blocks`) of what this package's blocks need: their migrations
 (with their tests) and, for the account, what it means for the stores' privacy forms. The
 functions above don't change; the declarations are for `resolveBlocks` and the shell.
@@ -563,6 +784,5 @@ functions above don't change; the declarations are for `resolveBlocks` and the s
 - **Keychain chunks rather than encrypted AsyncStorage.** Supabase's Expo guide shows two options: an AES-encrypted value in AsyncStorage with the key in SecureStore ("LargeSecureStore"), or `expo-sqlite/localStorage`. `keychainStorage` keeps the whole session in the Keychain/Keystore instead, split into chunks under the item size limit, with an atomic switch between generations. That means one native dependency (`expo-secure-store`) rather than three, no key to manage, and a session that can't be read off the device's file system. If you prefer LargeSecureStore, pass it as `storage`; everything else here works the same.
 - **The URL polyfill.** Supabase's React Native guides still import `react-native-url-polyfill/auto` before creating the client. Keep it until your app has tested PKCE sign-in end to end without it: React Native's built-in `URL` has improved, but the docs don't yet say it's enough.
 - **`refreshWhileActive` on native only.** Supabase gates the AppState listener to native platforms; call it from native code (not on web, where the browser already refreshes in the background).
-
 
 Part of the [Genesis framework](https://github.com/marktiderman/genesis).

@@ -281,6 +281,17 @@ export const SubNavPhone: Story = {
   render: () => subNavShell("tabs"),
 };
 
+/**
+ * The tab row is hidden on phones (the bottom bar carries the children), so
+ * the page's `<AppShellSubNavEnd>` chip moves to a strip under the page
+ * header, and a disabled Publish keeps its reason in view.
+ */
+export const SubNavPhoneEndSlot: Story = {
+  name: "Sub-nav: phone, end-slot chip under the header",
+  globals: { viewport: { value: "mobile1", isRotated: false } },
+  render: () => subNavShell("tabs"),
+};
+
 export const SubNavPhoneDefault: Story = {
   name: "Sub-nav: phone, not set (legacy bar)",
   globals: { viewport: { value: "mobile1", isRotated: false } },
