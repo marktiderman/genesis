@@ -80,22 +80,37 @@ export interface CreateOrAdoptOptions<T extends BaseRecord> {
    * the other. Where that matters, merge in a database function instead.
    */
   merge?: (existing: T) => Partial<T> | null;
+  /**
+   * Whether the row already there is finished and can't take changes (a sent answer): it's handed
+   * back with `final: true` and `merge` isn't called, so the caller stops instead of writing over it.
+   */
+  final?: (existing: T) => boolean;
 }
+
+export type CreateOrAdoptResult<T> = {
+  row: T;
+  /** The row was already there. */
+  adopted: boolean;
+  /** The row already there is finished (see `final`): nothing was written. */
+  final: boolean;
+};
 
 /**
  * "One live row per key": creates the row, or, when one with the same key is
  * already there (a `duplicate`), adopts it, optionally merging changes in.
- * `adopted` says which. A duplicate you can't see is still an error.
+ * `adopted` says which, and `final` that the row already there is finished. Key
+ * fields that are null or undefined match rows where they're null. A duplicate
+ * you can't see is still an error.
  */
 export async function createOrAdopt<T extends BaseRecord>(
   provider: DataProvider,
   resource: string,
   data: Partial<T>,
   options: CreateOrAdoptOptions<T>,
-): Promise<{ row: T; adopted: boolean }> {
+): Promise<CreateOrAdoptResult<T>> {
   if (options.key.length === 0) throw new Error(`[genesis-core] createOrAdopt("${resource}") needs a key`);
   try {
-    return { row: (await provider.create<T>(resource, { data })).data, adopted: false };
+    return { row: (await provider.create<T>(resource, { data })).data, adopted: false, final: false };
   } catch (error) {
     if (!isDataWriteError(error) || error.outcome !== "duplicate") throw error;
     // A clash on some other unique index isn't this key's row.
@@ -111,8 +126,13 @@ export async function createOrAdopt<T extends BaseRecord>(
     const { data: rows } = await provider.getList<T>(resource, { filters, pagination: { page: 1, perPage: 2 } });
     if (rows.length !== 1) throw error;
     const existing = rows[0]!;
+    if (options.final?.(existing)) return { row: existing, adopted: true, final: true };
     const changes = options.merge?.(existing);
-    if (!changes || Object.keys(changes).length === 0) return { row: existing, adopted: true };
-    return { row: (await provider.update<T>(resource, { id: existing.id, data: changes })).data, adopted: true };
+    if (!changes || Object.keys(changes).length === 0) return { row: existing, adopted: true, final: false };
+    return {
+      row: (await provider.update<T>(resource, { id: existing.id, data: changes })).data,
+      adopted: true,
+      final: false,
+    };
   }
 }
