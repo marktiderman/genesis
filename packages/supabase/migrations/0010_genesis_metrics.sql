@@ -10,7 +10,8 @@
 -- to tenant_id). A value copies its metric's tenant and owner. Add your foreign keys in a later
 -- migration.
 --
--- The app hooks are the same two 0009 uses, and this file needs them the same way:
+-- Access: this file needs 0009 and uses its owner-access contract (genesis_owner_readable and
+-- genesis_owner_allows) over the same two app hooks:
 --   private.genesis_readable_owners(viewer uuid) returns table (tenant_id uuid, owner_id uuid)
 --   private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid,
 --                             organization_id uuid, action text) returns boolean
@@ -291,7 +292,7 @@ begin
     into m from public.metrics mt where mt.id = new.metric_id;
   if private.genesis_metrics_caller_is_person()
      and (m.tenant_id is null
-          or not private.genesis_metrics_can_write(m.tenant_id, m.person_id, m.team_id, m.organization_id)) then
+          or not private.genesis_owner_allows(m.tenant_id, m.person_id, m.team_id, m.organization_id, 'write')) then
     raise exception 'permission denied for table metric_values' using errcode = '42501';
   end if;
   new.tenant_id := m.tenant_id;
@@ -324,45 +325,8 @@ create trigger metric_values_guard
 
 -- Access ---------------------------------------------------------------------------------------
 
--- Same answers as 0009's, under this file's own names so either file stands without the other.
-create or replace function private.genesis_metrics_readable()
-returns table (tenant_id uuid, owner_id uuid)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
-    return;
-  end if;
-  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
-exception when others then
-  return;
-end;
-$$;
-
-create or replace function private.genesis_metrics_can_write(tenant uuid, person uuid, team uuid, organization uuid)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  allowed boolean;
-begin
-  if auth.uid() is null or tenant is null
-     or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
-    return false;
-  end if;
-  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, ''write''))::boolean'
-    into allowed using tenant, auth.uid(), person, team, organization;
-  return coalesce(allowed, false);
-exception when others then
-  return false;
-end;
-$$;
+-- Access uses 0009's owner-access contract: private.genesis_owner_readable() and
+-- private.genesis_owner_allows(...). This file needs 0009.
 
 revoke execute on function private.genesis_metrics_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_metrics_caller_is_person() from public, anon, authenticated;
@@ -370,42 +334,38 @@ revoke execute on function private.genesis_metrics_period_ok(text, date) from pu
 revoke execute on function private.genesis_metrics_today() from public, anon, authenticated;
 revoke execute on function private.genesis_metrics_period_of(text, date) from public, anon, authenticated;
 revoke execute on function private.genesis_metric_values_guard() from public, anon, authenticated;
-revoke execute on function private.genesis_metrics_readable() from public, anon;
-revoke execute on function private.genesis_metrics_can_write(uuid, uuid, uuid, uuid) from public, anon;
-grant execute on function private.genesis_metrics_readable() to authenticated;
-grant execute on function private.genesis_metrics_can_write(uuid, uuid, uuid, uuid) to authenticated;
 
 alter table public.metrics enable row level security;
 alter table public.metric_values enable row level security;
 alter table public.metric_goal_changes enable row level security;
 
 create policy metrics_read on public.metrics for select to authenticated
-  using (exists (select 1 from private.genesis_metrics_readable() r
+  using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metrics.tenant_id
                    and r.owner_id = coalesce(metrics.person_id, metrics.team_id, metrics.organization_id)));
 create policy metrics_insert on public.metrics for insert to authenticated
-  with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy metrics_update on public.metrics for update to authenticated
-  using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id))
-  with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy metrics_delete on public.metrics for delete to authenticated
-  using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy metric_values_read on public.metric_values for select to authenticated
-  using (exists (select 1 from private.genesis_metrics_readable() r
+  using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metric_values.tenant_id
                    and r.owner_id = coalesce(metric_values.person_id, metric_values.team_id, metric_values.organization_id)));
 -- The values' owner columns are filled by the guard before the check runs.
 create policy metric_values_insert on public.metric_values for insert to authenticated
-  with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy metric_values_update on public.metric_values for update to authenticated
-  using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id))
-  with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy metric_values_delete on public.metric_values for delete to authenticated
-  using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy metric_goal_changes_read on public.metric_goal_changes for select to authenticated
-  using (exists (select 1 from private.genesis_metrics_readable() r
+  using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metric_goal_changes.tenant_id
                    and r.owner_id = coalesce(metric_goal_changes.person_id, metric_goal_changes.team_id, metric_goal_changes.organization_id)));
 
