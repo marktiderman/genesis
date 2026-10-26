@@ -58,6 +58,18 @@
     "./dates": {
       "types": "./dist/dates.d.ts",
       "import": "./dist/dates.js"
+    },
+    "./resource-view": {
+      "types": "./dist/resource-view/index.d.ts",
+      "import": "./dist/resource-view/index.js"
+    },
+    "./urls": {
+      "types": "./dist/urls.d.ts",
+      "import": "./dist/urls.js"
+    },
+    "./csv": {
+      "types": "./dist/csv.d.ts",
+      "import": "./dist/csv.js"
     }
   },
   "files": [

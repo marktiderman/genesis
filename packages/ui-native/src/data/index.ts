@@ -7,3 +7,4 @@ export { NativeDetailPanel, type NativeDetailPanelProps, type NativeDetailField 
 export { NativeResourceFormFieldRenderer, type NativeResourceFormFieldRendererProps } from "./NativeResourceFormField";
 export { NativeResourceForm, type NativeResourceFormProps } from "./NativeResourceForm";
 export { NativeResourcePage, type NativeResourcePageProps, type NativeCardFieldDef } from "./NativeResourcePage";
+export * from "./resource-view";

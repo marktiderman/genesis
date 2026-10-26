@@ -2,24 +2,36 @@
 // Live reads — refetch a resource's cached reads when the provider reports a
 // change (`DataProvider.subscribe`).
 //
-// Events are invalidation hints only. Nothing from an event's payload is
-// written to the cache: the refetch goes through the provider's normal read,
-// so what a user sees is always what that read (and its RLS) returns.
+// Events are invalidation hints. When an update carries the row (the provider
+// sends one only for a resource read from its own table, under realtime's RLS),
+// the fields cached rows already have are patched at once; the refetch that
+// follows still goes through the provider's normal read, so what a user ends
+// up seeing is what that read (and its RLS) returns. Lists the change can't
+// have touched (its row matches none of their filters and isn't in them) are
+// left alone.
 //
 // Pending optimistic and undoable writes are safe: their patches are
 // re-applied to whatever a refetch brings (see mutation-mode.ts), so a row
 // deleted with undo stays hidden and an edit stays shown until the write
-// settles. A change caused by this client's own write arrives as an event
-// too; the refetch it causes is idempotent, so it is not filtered out.
+// settles. The provider drops the echo of this client's own writes, which
+// already refresh through the write path.
 // ---------------------------------------------------------------------------
 
 import { useEffect, useRef } from "react";
 import { useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
 import type { ResourceChangeEvent, SubscribeParams } from "../provider/types";
+import { listCouldChange, patchCachedRow } from "./live-cache";
 
 /** How long a burst of change events is gathered into one refetch. */
 export const DEFAULT_LIVE_DEBOUNCE_MS = 250;
+
+/**
+ * How often a live read refetches anyway while the page is visible. Realtime checks each change
+ * against the row's new state, so a row the viewer stops being allowed to see (binned, made a
+ * draft, moved to another practice) sends them nothing and would stay on screen.
+ */
+export const DEFAULT_LIVE_RESYNC_MS = 60_000;
 
 /** `live` as an object, to tune it. `live: true` takes the defaults. */
 export interface LiveOptions {
@@ -29,6 +41,12 @@ export interface LiveOptions {
    * steady stream still refetches at least every `4 × debounceMs`.
    */
   debounceMs?: number;
+  /**
+   * Refetch at least this often while the page is visible, for the changes realtime can't
+   * deliver (a row the viewer may no longer read). Default {@link DEFAULT_LIVE_RESYNC_MS}; 0 turns
+   * it off.
+   */
+  resyncMs?: number;
 }
 
 const warnedNoSubscribe = new WeakSet<object>();
@@ -56,6 +74,10 @@ export function useLiveInvalidation(
     0,
     (typeof live === "object" ? live.debounceMs : undefined) ?? DEFAULT_LIVE_DEBOUNCE_MS,
   );
+  const resyncMs = Math.max(
+    0,
+    (typeof live === "object" ? live.resyncMs : undefined) ?? DEFAULT_LIVE_RESYNC_MS,
+  );
   const paramsKey = JSON.stringify(params);
   const keyKey = JSON.stringify(queryKey);
 
@@ -77,6 +99,9 @@ export function useLiveInvalidation(
     }
     let timer: ReturnType<typeof setTimeout> | undefined;
     let burstStart = 0;
+    // The rows of this burst's updates; null once an event without one (a delete, an insert,
+    // `changed`) means every read must refetch.
+    let burst: Record<string, unknown>[] | null = [];
     let active = true;
     // A busy table must not postpone the refetch forever.
     const maxWaitMs = debounceMs * 4;
@@ -84,9 +109,12 @@ export function useLiveInvalidation(
       timer = undefined;
       if (!active) return;
       const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+      const rows = burst;
+      burst = [];
       void queryClient.invalidateQueries({
         queryKey: [...latest.current.queryKey],
         refetchType: hidden ? "none" : "active",
+        ...(rows && rows.length ? { predicate: (query) => listCouldChange(query, rows) } : {}),
       });
     };
     let unsubscribe: (() => void) | undefined;
@@ -95,6 +123,12 @@ export function useLiveInvalidation(
         if (!active) return;
         const test = latest.current.accept;
         if (test && event.type !== "changed" && !test(event)) return;
+        if (event.type === "updated" && event.record) {
+          patchCachedRow(queryClient, resource, event.record);
+          burst?.push(event.record);
+        } else {
+          burst = null;
+        }
         // Coalesce: one refetch per burst, after it goes quiet (or has
         // lasted `maxWaitMs`).
         const now = Date.now();
@@ -105,8 +139,19 @@ export function useLiveInvalidation(
     } catch (error) {
       console.error(`[genesis] subscribing to "${resource}" failed:`, error);
     }
+    // The safety net for changes realtime can't deliver; skipped while the page is hidden (a
+    // hidden page refetches when it's shown again).
+    const resync =
+      resyncMs > 0
+        ? setInterval(() => {
+            if (!active) return;
+            if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+            void queryClient.invalidateQueries({ queryKey: [...latest.current.queryKey], refetchType: "active" });
+          }, resyncMs)
+        : undefined;
     return () => {
       active = false;
+      if (resync !== undefined) clearInterval(resync);
       if (timer !== undefined) clearTimeout(timer);
       try {
         unsubscribe?.();
@@ -115,5 +160,5 @@ export function useLiveInvalidation(
       }
     };
     // `paramsKey` / `keyKey` stand for `params` / `queryKey` by value.
-  }, [on, provider, queryClient, resource, debounceMs, paramsKey, keyKey]);
+  }, [on, provider, queryClient, resource, debounceMs, resyncMs, paramsKey, keyKey]);
 }

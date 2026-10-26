@@ -78,6 +78,19 @@ describe("keysetClauses", () => {
     );
   });
 
+  it("before a row (a previous page): the mirror, with nulls where the order puts them", () => {
+    expect(keysetClauses({ s: "title", o: "asc", k: "id", v: "B", id: 2, d: "b" })).toBe('title.lt."B",and(title.eq."B",id.lt."2")');
+    expect(keysetClauses({ s: "title", o: "desc", k: "id", v: "B", id: 2, d: "b" })).toBe(
+      'title.gt."B",and(title.eq."B",id.lt."2"),title.is.null',
+    );
+    expect(keysetClauses({ s: "title", o: "asc", k: "id", v: null, id: 7, d: "b" })).toBe(
+      'title.not.is.null,and(title.is.null,id.lt."7")',
+    );
+    expect(keysetClauses({ s: "title", o: "desc", k: "id", v: null, id: 7, d: "b" })).toBe('and(title.is.null,id.lt."7")');
+    expect(keysetClauses({ s: null, o: "asc", k: "id", id: 5, d: "b" })).toBe('id.lt."5"');
+    expect(keysetClauses({ s: null, o: "desc", k: "id", id: 5, d: "b" })).toBe('id.gt."5"');
+  });
+
   it("ordered by the key alone", () => {
     expect(keysetClauses({ s: null, o: "asc", k: "id", id: 5 })).toBe('id.gt."5"');
     expect(keysetClauses({ s: null, o: "desc", k: "id", id: 5 })).toBe('id.lt."5"');
@@ -120,6 +133,33 @@ describe("getList by cursor", () => {
     expect(second.data).toEqual(rows(["3", "B"]));
     expect(second.total).toBe(-1);
     expect(second.nextCursor).toBeNull();
+  });
+
+  it("refuses a sort column with object values wherever they appear in the page, with that reason", async () => {
+    const p = provider();
+    const msg = await refusal(
+      page(p, sorted(null), { data: [{ id: "1", title: "A" }, { id: "2", title: { nested: true } }, { id: "3", title: "C" }], error: null, count: 3 }),
+    );
+    expect(msg).toMatch(/aren't plain/);
+  });
+
+  it("going back: a later page has a previous cursor; it reads the rows before in reverse, then turns them around", async () => {
+    const p = provider();
+    const first = await page(p, sorted(null), { data: rows(["1", "A"], ["2", "B"], ["3", "B"]), error: null, count: 3 });
+    expect(first.prevCursor).toBeNull();
+    const second = await page(p, sorted(first.nextCursor!), { data: rows(["3", "B"], ["4", "C"], ["5", "D"]), error: null });
+    expect(second.prevCursor).toEqual(expect.any(String));
+    // Back from page 2: the rows before its first row, nearest first.
+    const back = await page(p, sorted(second.prevCursor!), { data: rows(["2", "B"], ["1", "A"]), error: null });
+    expect(callsOf("or")).toEqual([['title.lt."B",and(title.eq."B",id.lt."3")']]);
+    expect(callsOf("order")).toEqual([
+      ["title", { ascending: false, nullsFirst: true }],
+      ["id", { ascending: false }],
+    ]);
+    expect(back.data).toEqual(rows(["1", "A"], ["2", "B"]));
+    expect(back.prevCursor).toBeNull(); // no look-ahead row: that was the start
+    expect(back.nextCursor).toEqual(expect.any(String)); // and page 2 follows it
+    expect(back.total).toBe(-1);
   });
 
   it("descending: nulls first, then the keyset after the last row", async () => {

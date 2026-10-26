@@ -1,5 +1,6 @@
 import type {
   BaseRecord,
+  CountMode,
   DataProvider,
   FilterParam,
   Identifier,
@@ -216,6 +217,11 @@ export interface SupabaseResourceConfig {
    * ```
    */
   source?: string | { rpc: string; args?: () => Record<string, unknown> };
+  /**
+   * How lists of this resource count their total (default `exact`). Use
+   * `estimated` for large tables, or `none` when no screen shows a count.
+   */
+  count?: CountMode;
   /** The columns read when the caller names none, e.g. embedded joins: `"*, person:people(full_name)"`. Default `"*"`. */
   select?: string;
   /**
@@ -313,8 +319,10 @@ interface CursorState {
   k: string;
   /** The last row's sort value (absent when `s` is null). */
   v?: string | number | boolean | null;
-  /** The last row's key value. */
+  /** The last row's key value (the first row's, for a cursor going back). */
   id: string | number;
+  /** "b": the rows before this one (a previous page). Absent: the rows after it. */
+  d?: "b";
 }
 
 const PLAIN_COLUMN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -333,6 +341,7 @@ function decodeCursor(cursor: string): CursorState | undefined {
     const state = JSON.parse(new TextDecoder().decode(bytes)) as CursorState;
     if (!state || typeof state !== "object" || typeof state.k !== "string" || !isIdentifier(state.id)) return undefined;
     if (state.o !== "asc" && state.o !== "desc") return undefined;
+    if (state.d !== undefined && state.d !== "b") return undefined;
     return state;
   } catch {
     return undefined;
@@ -351,6 +360,7 @@ function quoteFilterValue(value: string | number | boolean): string {
  * @internal Exported for tests.
  */
 export function keysetClauses(state: CursorState): string {
+  if (state.d === "b") return keysetClausesBefore(state);
   const k = state.k;
   const K = quoteFilterValue(state.id);
   if (state.s === null) return `${k}.${state.o === "asc" ? "gt" : "lt"}.${K}`;
@@ -367,6 +377,25 @@ export function keysetClauses(state: CursorState): string {
   const ties = afterInTies(`${s}.eq.${V}`);
   return state.o === "asc" ? `${s}.gt.${V},${ties},${s}.is.null` : `${s}.lt.${V},${ties}`;
 }
+
+/** The clauses selecting the rows before `state` in the same order (the mirror of keysetClauses). */
+function keysetClausesBefore(state: CursorState): string {
+  const k = state.k;
+  const K = quoteFilterValue(state.id);
+  if (state.s === null) return `${k}.${state.o === "asc" ? "lt" : "gt"}.${K}`;
+  const s = state.s;
+  const v = state.v;
+  const beforeInTies = (eq: string) => `and(${eq},${k}.lt.${K})`;
+  if (v === null || v === undefined) {
+    // Asc: nulls are last, so every non-null row and the earlier nulls come before.
+    // Desc: nulls are first, so only earlier nulls do.
+    const ties = beforeInTies(`${s}.is.null`);
+    return state.o === "asc" ? `${s}.not.is.null,${ties}` : ties;
+  }
+  const V = quoteFilterValue(v);
+  const ties = beforeInTies(`${s}.eq.${V}`);
+  return state.o === "asc" ? `${s}.lt.${V},${ties}` : `${s}.gt.${V},${ties},${s}.is.null`;
+}
 /** `"schema.table"` or `"table"` (schema `public`), as Realtime names them. */
 function realtimeTable(resource: string): { schema: string; table: string } {
   const dot = resource.indexOf(".");
@@ -377,6 +406,22 @@ function realtimeTable(resource: string): { schema: string; table: string } {
 }
 
 let realtimeChannelSeq = 0;
+
+/** How long after this client's own write a realtime event for that row is taken as its echo. */
+export const REALTIME_ECHO_MS = 2000;
+
+/** The realtime filter for a list's first equality filter on a plain column, or undefined. */
+function realtimeFilter(filters: FilterParam[] | undefined): string | undefined {
+  for (const f of filters ?? []) {
+    if (f.operator !== "eq" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) continue;
+    const v = f.value;
+    if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
+    // Realtime's filter grammar has no quoting: skip a value it would misread, or an empty one.
+    if (typeof v === "string" && (v === "" || /[,()]/.test(v))) continue;
+    return `${f.field}=eq.${String(v)}`;
+  }
+  return undefined;
+}
 const warnedRealtime = new Set<string>();
 
 /**
@@ -496,6 +541,11 @@ export function createSupabaseProvider(
 
   const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
 
+  /** How a list of `resource` counts its total: the caller's, else the resource's, else exact. */
+  function countMode(resource: string, params: ListParams): CountMode {
+    return params.count ?? configFor(resource).count ?? "exact";
+  }
+
   /** The relation PostgREST names in errors about a read of `resource`: its view, function or table. */
   function readName(resource: string): string {
     const source = configFor(resource).source;
@@ -524,7 +574,11 @@ export function createSupabaseProvider(
   }
 
   /** A read of `resource` from its configured source (table, view or function), with its default columns. */
-  function read(resource: string, columns: string | undefined, count?: "exact"): SupabaseQueryBuilder {
+  function read(
+    resource: string,
+    columns: string | undefined,
+    count?: "exact" | "estimated" | "planned",
+  ): SupabaseQueryBuilder {
     const config = configFor(resource);
     const cols = columns ?? config.select ?? "*";
     const source = config.source;
@@ -541,6 +595,53 @@ export function createSupabaseProvider(
   const configFor = (resource: string): SupabaseResourceConfig =>
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
+
+  /**
+   * Rows this client wrote just now, `${resource}\0${id}` → the realtime event their write sends
+   * and when. Each channel (one per filter) skips the first matching event once, so a later change
+   * to the same row (a trigger, a job, another person) is still heard.
+   */
+  const recentWrites = new Map<
+    string,
+    { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number; heardOn: Set<string>; openChannels: Set<object> }
+  >();
+
+  function noteWrite(event: WriteEvent): void {
+    const now = Date.now();
+    for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
+    const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
+    // Only the channels open now carry this write's echo; one opened later never saw the write.
+    const openChannels = new Set(
+      [...sharedChannels.entries()].filter(([t]) => t.startsWith(`${event.resource}\u0000`)).map(([, c]) => c as object),
+    );
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now, heardOn: new Set(), openChannels });
+  }
+  /** One realtime channel per resource and server filter, shared by every subscriber to it. */
+  const sharedChannels = new Map<
+    string,
+    { listeners: Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>; close: () => void }
+  >();
+
+  function isEcho(
+    resource: string,
+    id: unknown,
+    eventType: SupabaseRealtimePayload["eventType"],
+    topic: string,
+    channelObject: object | undefined,
+  ): boolean {
+    if (!isIdentifier(id)) return false;
+    const key = `${resource}\u0000${String(id)}`;
+    const mark = recentWrites.get(key);
+    // Only a channel that was open at the write carries its echo: one reopened on the same topic
+    // since then is a different object and never saw it.
+    if (!mark || mark.eventType !== eventType || mark.heardOn.has(topic) || !channelObject || !mark.openChannels.has(channelObject)) return false;
+    if (Date.now() - mark.at > REALTIME_ECHO_MS) {
+      recentWrites.delete(key);
+      return false;
+    }
+    mark.heardOn.add(topic);
+    return true;
+  }
 
   function realtimeEnabled(resource: string): boolean {
     if (typeof client.channel !== "function") return false;
@@ -631,6 +732,8 @@ export function createSupabaseProvider(
 
   /** After a committed write. Never turns it into a failure. */
   async function committed(event: WriteEvent): Promise<void> {
+    // Its realtime echo is this client's own write: it already refreshes through the write path.
+    if (event.id != null) noteWrite(event);
     if (!options.onWrite) return;
     try {
       await options.onWrite(event);
@@ -679,7 +782,7 @@ export function createSupabaseProvider(
     resource: string,
     params: ListParams,
     key: string | false,
-  ): Promise<{ data: unknown[]; total: number; nextCursor: string | null }> {
+  ): Promise<{ data: unknown[]; total: number; nextCursor: string | null; prevCursor: string | null }> {
     const { cursor } = params.pagination!;
     // The look-ahead row must fit under PostgREST's max-rows (maxPerPage), or
     // it is dropped and the list would end after one page. A keyset page can
@@ -705,7 +808,8 @@ export function createSupabaseProvider(
       }
     }
 
-    let query = read(resource, params.select, cursor ? undefined : "exact");
+    const mode = countMode(resource, params);
+    let query = read(resource, params.select, cursor || mode === "none" ? undefined : mode);
     query = applyFilters(query, params.filters);
     const search = searchClauses(resource, params);
     const keyset = after ? keysetClauses(after) : "";
@@ -713,39 +817,60 @@ export function createSupabaseProvider(
     if (search && keyset) query = query.or(`and(or(${search}),or(${keyset}))`);
     else if (search || keyset) query = query.or(search || keyset);
 
+    // Going back reads the rows before the cursor in the reverse order (nearest first), then
+    // turns them around.
+    const back = after?.d === "b";
     if (sortField) {
       // Pinned to Postgres's default null placement, which the keyset assumes.
-      query = query.order(sortField, { ascending: order === "asc", nullsFirst: order === "desc" });
-      query = query.order(key, { ascending: true });
+      const ascending = (order === "asc") !== back;
+      query = query.order(sortField, { ascending, nullsFirst: !ascending });
+      query = query.order(key, { ascending: !back });
     } else {
-      query = query.order(key, { ascending: order === "asc" });
+      query = query.order(key, { ascending: (order === "asc") !== back });
     }
     query = query.range(0, perPage);
 
     const result = (await query) as unknown as { data: unknown[] | null; error: unknown; count?: number | null };
     await throwIfReadError(result, resource, "getList");
     const rows = (result.data ?? []) as Record<string, unknown>[];
+    const more = rows.length > perPage;
     const page = rows.slice(0, perPage);
-    let nextCursor: string | null = null;
-    if (rows.length > perPage) {
-      const last = page[page.length - 1]!;
-      const id = last[key];
-      const v = sortField ? last[sortField] : undefined;
-      if (!isIdentifier(id) || (sortField && !(sortField in last))) {
-        return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);
-      }
-      if (v !== undefined && v !== null && typeof v === "object") {
-        return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
-      }
-      nextCursor = encodeCursor({
+    if (back) page.reverse();
+    // A cursor for the rows after or before `row`.
+    const cursorAt = (row: Record<string, unknown> | undefined, direction?: "b"): string | null | false => {
+      if (!row) return null;
+      const id = row[key];
+      const v = sortField ? row[sortField] : undefined;
+      if (!isIdentifier(id) || (sortField && !(sortField in row))) return false;
+      if (v !== undefined && v !== null && typeof v === "object") return false;
+      return encodeCursor({
         s: sortField,
         o: order,
         k: key,
         ...(sortField ? { v: (v ?? null) as CursorState["v"] } : {}),
         id,
+        ...(direction ? { d: direction } : {}),
       });
+    };
+    // Forward: more after the last row when the look-ahead found one; rows before the first
+    // whenever this wasn't the first page. Back: the mirror.
+    const next = back ? cursorAt(page[page.length - 1]) : more ? cursorAt(page[page.length - 1]) : null;
+    const prev = back ? (more ? cursorAt(page[0], "b") : null) : cursor ? cursorAt(page[0], "b") : null;
+    if (next === false || prev === false) {
+      const objectValued =
+        !!sortField && page.some((row) => sortField in row && row[sortField] !== null && typeof row[sortField] === "object");
+      if (objectValued) {
+        return refuseCursor(resource, `cursor paging can't sort by "${sortField}": its values aren't plain (text, number, date, boolean).`);
+      }
+      return refuseCursor(resource, `the selected columns must include "${key}"${sortField ? ` and "${sortField}"` : ""} to page by cursor.`);
     }
-    return { data: page, total: cursor ? -1 : (result.count ?? 0), nextCursor };
+    return {
+      data: page,
+      total: cursor || mode === "none" ? -1 : (result.count ?? 0),
+      ...(!cursor && (mode === "estimated" || mode === "planned") ? { totalIsEstimate: true } : {}),
+      nextCursor: next,
+      prevCursor: prev,
+    };
   }
 
   const provider: DataProvider = {
@@ -773,8 +898,9 @@ export function createSupabaseProvider(
       if (params.pagination && params.pagination.cursor !== undefined) {
         return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
       }
+      const mode = countMode(resource, params);
       const run = (key: string | false) => {
-        let query = read(resource, params.select, "exact");
+        let query = read(resource, params.select, mode === "none" ? undefined : mode);
 
         query = applyFilters(query, params.filters);
 
@@ -827,7 +953,11 @@ export function createSupabaseProvider(
       }
       await throwIfReadError(result, resource, "getList");
 
-      return { data: result.data ?? [], total: result.count ?? 0 } as never;
+      return {
+        data: result.data ?? [],
+        total: mode === "none" ? -1 : (result.count ?? 0),
+        ...(mode === "estimated" || mode === "planned" ? { totalIsEstimate: true } : {}),
+      } as never;
     },
 
     async getOne(resource, params) {
@@ -881,64 +1011,102 @@ export function createSupabaseProvider(
         return () => {};
       }
       const { schema, table } = realtimeTable(resource);
-      // No server-side `id=eq.` filter for one record: Realtime never
-      // delivers DELETE events through a filter, so the id is matched below.
-      // A unique topic: supabase-js hands back an existing channel for a
-      // topic already open, and removing it would end the other subscriber.
-      const channel = client.channel!(
-        `genesis:${resource}:${++realtimeChannelSeq}`,
-      ) as SupabaseRealtimeChannel;
-      let closed = false;
-      let subscribedOnce = false;
-      let interrupted = false;
-      const emit = (event: ResourceChangeEvent) => {
-        if (closed) return;
-        try {
-          callback(event);
-        } catch (error) {
-          console.error(`[SupabaseProvider] a realtime callback for "${resource}" threw:`, error);
+      // One record is matched below, not with a server-side `id=eq.` filter, so it can share the
+      // resource's channel. A list's first equality filter narrows the channel on the server.
+      // Not for a resource read from a view or function: the filter may name a column only the view
+      // has, and the channel watches the table.
+      const serverFilter =
+        params.id != null || configFor(resource).source !== undefined ? undefined : realtimeFilter(params.filters);
+      const topic = `${resource}\u0000${serverFilter ?? ""}`;
+      // The row is passed on only where it is the resource's own row: a resource read from a view
+      // or function shows other columns, so its listeners refetch instead.
+      const sendRecord = configFor(resource).source === undefined;
+      let shared = sharedChannels.get(topic);
+      if (!shared) {
+        const listeners = new Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>();
+        // A unique topic: supabase-js hands back an existing channel for a topic already open.
+        const channel = client.channel!(`genesis:${resource}:${++realtimeChannelSeq}`) as SupabaseRealtimeChannel;
+        let subscribedOnce = false;
+        let interrupted = false;
+        const broadcast = (event: ResourceChangeEvent, rowId?: unknown) => {
+          for (const l of listeners) {
+            if (l.id != null && isIdentifier(rowId) && String(rowId) !== String(l.id)) continue;
+            l.emit(event);
+          }
+        };
+        const onChange = (payload: SupabaseRealtimePayload) => {
+          // Realtime applies RLS to inserts and updates; a delete's old key goes to every
+          // subscriber, so a delete passes on only its id.
+          const row = payload.eventType === "DELETE" ? payload.old : payload.new;
+          const id = row?.["id"];
+          if (isEcho(resource, id, payload.eventType, topic, sharedChannels.get(topic))) return;
+          const type =
+            payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
+          const event: ResourceChangeEvent = isIdentifier(id)
+            ? sendRecord && type !== "deleted" && row
+              ? { type, id, record: row as BaseRecord }
+              : { type, id }
+            : { type };
+          broadcast(event, id);
+        };
+        if (serverFilter) {
+          // Only inserts are filtered. Realtime filters on the new row, so a filtered update would
+          // never report a row leaving the list (status open → closed); and it never delivers
+          // deletes through a filter. Both come unfiltered.
+          channel.on("postgres_changes", { event: "INSERT", schema, table, filter: serverFilter }, onChange);
+          channel.on("postgres_changes", { event: "UPDATE", schema, table }, onChange);
+          channel.on("postgres_changes", { event: "DELETE", schema, table }, onChange);
+        } else {
+          channel.on("postgres_changes", { event: "*", schema, table }, onChange);
         }
-      };
-      channel
-        .on(
-          "postgres_changes",
-          { event: "*", schema, table },
-          (payload) => {
-            // Only the id: the payload is a hint, never data to show. Realtime
-            // applies RLS to inserts and updates, but a delete's old key is
-            // sent to every subscriber, so nothing else is passed on.
-            const row = payload.eventType === "DELETE" ? payload.old : payload.new;
-            const id = row?.["id"];
-            if (params.id != null && isIdentifier(id) && String(id) !== String(params.id)) return;
-            const type =
-              payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
-            emit(isIdentifier(id) ? { type, id } : { type });
-          },
-        )
-        .subscribe((status) => {
+        channel.subscribe((status) => {
           if (status === "SUBSCRIBED") {
             // Back after a drop: changes made meanwhile were not sent.
-            if (subscribedOnce && interrupted) emit({ type: "changed" });
+            if (subscribedOnce && interrupted) broadcast({ type: "changed" });
             subscribedOnce = true;
             interrupted = false;
           } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
             interrupted = true;
           }
         });
+        shared = {
+          listeners,
+          close: () => {
+            try {
+              const done =
+                typeof client.removeChannel === "function" ? client.removeChannel(channel) : channel.unsubscribe?.();
+              // A failed removal (socket already gone) is nothing to report.
+              if (done && typeof (done as Promise<unknown>).catch === "function") {
+                (done as Promise<unknown>).catch(() => {});
+              }
+            } catch {
+              // As above.
+            }
+          },
+        };
+        sharedChannels.set(topic, shared);
+      }
+      let closed = false;
+      const listener = {
+        id: params.id,
+        emit: (event: ResourceChangeEvent) => {
+          if (closed) return;
+          try {
+            callback(event);
+          } catch (error) {
+            console.error(`[SupabaseProvider] a realtime callback for "${resource}" threw:`, error);
+          }
+        },
+      };
+      shared.listeners.add(listener);
+      const mine = shared;
       return () => {
         if (closed) return;
         closed = true;
-        try {
-          const done =
-            typeof client.removeChannel === "function"
-              ? client.removeChannel(channel)
-              : channel.unsubscribe?.();
-          // A failed removal (socket already gone) is nothing to report.
-          if (done && typeof (done as Promise<unknown>).catch === "function") {
-            (done as Promise<unknown>).catch(() => {});
-          }
-        } catch {
-          // As above.
+        mine.listeners.delete(listener);
+        if (mine.listeners.size === 0 && sharedChannels.get(topic) === mine) {
+          sharedChannels.delete(topic);
+          mine.close();
         }
       };
     },
@@ -1060,5 +1228,7 @@ export function createSupabaseProvider(
     },
   };
 
+  // How many write marks are held, for tests of the pruning. Not part of the provider contract.
+  Object.defineProperty(provider, "__recentWriteCount", { value: () => recentWrites.size, enumerable: false });
   return provider;
 }

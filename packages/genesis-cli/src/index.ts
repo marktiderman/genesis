@@ -24,6 +24,7 @@ export {
   parseTableComment,
   parseColumnComment,
   CommentSettingsError,
+  EmitError,
   type OpenApiDocument,
   type EmitOptions,
   type IntrospectedTable,
