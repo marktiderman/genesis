@@ -1,0 +1,39 @@
+.changeset/chat-279-review.md
+  s_c0870a827920ef::t_aacc72839229aa 1-8
+.changeset/chat-outbox-hosted.md
+  s_c0870a827920ef::t_834526fb42026b 11
+packages/chat/src/__tests__/review-279.test.ts
+  s_c0870a827920ef::t_9bc044f729f1b4 1-41
+packages/chat/src/core/outbox.ts
+  s_c0870a827920ef::t_79dcfcd18faa57 208-209
+packages/chat/src/core/transfer.ts
+  s_c0870a827920ef::t_ec70cbb852d81b 23-25,36,56
+packages/chat/src/native/__tests__/video-media.test.tsx
+  s_c0870a827920ef::t_e99c2a94a19d56 388
+packages/chat/src/native/attachment-cards.tsx
+  s_c0870a827920ef::t_325c5e275ac602 9-12,19-21,52-55,82-83
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_f4da06f4f808d6 123-128,131-132,134-136,216-219,227-237,239
+packages/chat/src/web/attachments.tsx
+  s_c0870a827920ef::t_fb4a1311018085 21,304,306,308-309,366
+packages/chat/src/web/inbox.tsx
+  s_c0870a827920ef::t_2a8469aa917897 14-15,59,117,128,135,141-143
+packages/chat/src/web/video.tsx
+  s_c0870a827920ef::t_0b81320c60afea 302-303,313-314,325,327,335
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f4e0a4fe6cee0bb6ff62cafd2fb4408eee73e33",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
