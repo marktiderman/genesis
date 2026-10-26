@@ -280,15 +280,18 @@ export function summarizeResponses(
         return map.get(value);
       };
       const find = (value: string, from: FieldBlock) => {
-        // Typed "Other" answers count together, under the question's Other label.
-        if (isOtherValue(from, value) && !byValue.has(value)) {
+        const known = byValue.get(value);
+        if (known) return known;
+        // Typed "Other" answers count together, under the question's Other label. (Checked only
+        // for values not already counted: isOtherValue looks through the question's options.)
+        if (isOtherValue(from, value)) {
           return (
             byValue.get(OTHER_BUCKET) ??
             add({ value: OTHER_BUCKET, label: (otherOption(field) ?? otherOption(from))!.label, count: 0 })
           );
         }
         // An option only an older version had: its label from that version.
-        return byValue.get(value) ?? add({ value, label: oldOption(from, value)?.label ?? value, count: 0 });
+        return add({ value, label: oldOption(from, value)?.label ?? value, count: 0 });
       };
       let count = 0;
       for (const { values } of answered) {
