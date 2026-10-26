@@ -387,8 +387,8 @@ function realtimeFilter(filters: FilterParam[] | undefined): string | undefined 
     if (f.operator !== "eq" || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(f.field)) continue;
     const v = f.value;
     if (typeof v !== "string" && typeof v !== "number" && typeof v !== "boolean") continue;
-    // Realtime's filter grammar has no quoting: skip a value it would misread.
-    if (typeof v === "string" && /[,()]/.test(v)) continue;
+    // Realtime's filter grammar has no quoting: skip a value it would misread, or an empty one.
+    if (typeof v === "string" && (v === "" || /[,()]/.test(v))) continue;
     return `${f.field}=eq.${String(v)}`;
   }
   return undefined;
@@ -558,24 +558,32 @@ export function createSupabaseProvider(
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
 
-  /** Rows this client wrote just now, `${resource}\0${id}` → when; their realtime echoes are skipped. */
-  const recentWrites = new Map<string, number>();
+  /**
+   * Rows this client wrote just now, `${resource}\0${id}` → the realtime event their write sends
+   * and when. Each mark is consumed by its first matching event, so a later change to the same row
+   * (a trigger, a job, another person) is still heard.
+   */
+  const recentWrites = new Map<string, { eventType: "INSERT" | "UPDATE" | "DELETE"; at: number }>();
+
+  function noteWrite(event: WriteEvent): void {
+    const now = Date.now();
+    for (const [key, mark] of recentWrites) if (now - mark.at > REALTIME_ECHO_MS) recentWrites.delete(key);
+    const eventType = event.kind === "create" ? "INSERT" : event.kind === "delete" ? "DELETE" : "UPDATE";
+    recentWrites.set(`${event.resource}\u0000${String(event.id)}`, { eventType, at: now });
+  }
   /** One realtime channel per resource and server filter, shared by every subscriber to it. */
   const sharedChannels = new Map<
     string,
     { listeners: Set<{ emit: (event: ResourceChangeEvent) => void; id?: Identifier }>; close: () => void }
   >();
 
-  function isEcho(resource: string, id: unknown): boolean {
+  function isEcho(resource: string, id: unknown, eventType: SupabaseRealtimePayload["eventType"]): boolean {
     if (!isIdentifier(id)) return false;
     const key = `${resource}\u0000${String(id)}`;
-    const at = recentWrites.get(key);
-    if (at === undefined) return false;
-    if (Date.now() - at > REALTIME_ECHO_MS) {
-      recentWrites.delete(key);
-      return false;
-    }
-    return true;
+    const mark = recentWrites.get(key);
+    if (!mark || mark.eventType !== eventType) return false;
+    recentWrites.delete(key);
+    return Date.now() - mark.at <= REALTIME_ECHO_MS;
   }
 
   function realtimeEnabled(resource: string): boolean {
@@ -668,7 +676,7 @@ export function createSupabaseProvider(
   /** After a committed write. Never turns it into a failure. */
   async function committed(event: WriteEvent): Promise<void> {
     // Its realtime echo is this client's own write: it already refreshes through the write path.
-    if (event.id != null) recentWrites.set(`${event.resource}\u0000${String(event.id)}`, Date.now());
+    if (event.id != null) noteWrite(event);
     if (!options.onWrite) return;
     try {
       await options.onWrite(event);
@@ -921,7 +929,10 @@ export function createSupabaseProvider(
       const { schema, table } = realtimeTable(resource);
       // One record is matched below, not with a server-side `id=eq.` filter, so it can share the
       // resource's channel. A list's first equality filter narrows the channel on the server.
-      const serverFilter = params.id != null ? undefined : realtimeFilter(params.filters);
+      // Not for a resource read from a view or function: the filter may name a column only the view
+      // has, and the channel watches the table.
+      const serverFilter =
+        params.id != null || configFor(resource).source !== undefined ? undefined : realtimeFilter(params.filters);
       const topic = `${resource}\u0000${serverFilter ?? ""}`;
       // The row is passed on only where it is the resource's own row: a resource read from a view
       // or function shows other columns, so its listeners refetch instead.
@@ -944,7 +955,7 @@ export function createSupabaseProvider(
           // subscriber, so a delete passes on only its id.
           const row = payload.eventType === "DELETE" ? payload.old : payload.new;
           const id = row?.["id"];
-          if (isEcho(resource, id)) return;
+          if (isEcho(resource, id, payload.eventType)) return;
           const type =
             payload.eventType === "INSERT" ? "created" : payload.eventType === "UPDATE" ? "updated" : "deleted";
           const event: ResourceChangeEvent = isIdentifier(id)
@@ -955,9 +966,11 @@ export function createSupabaseProvider(
           broadcast(event, id);
         };
         if (serverFilter) {
-          // Realtime never delivers deletes through a filter, so they come unfiltered.
+          // Only inserts are filtered. Realtime filters on the new row, so a filtered update would
+          // never report a row leaving the list (status open → closed); and it never delivers
+          // deletes through a filter. Both come unfiltered.
           channel.on("postgres_changes", { event: "INSERT", schema, table, filter: serverFilter }, onChange);
-          channel.on("postgres_changes", { event: "UPDATE", schema, table, filter: serverFilter }, onChange);
+          channel.on("postgres_changes", { event: "UPDATE", schema, table }, onChange);
           channel.on("postgres_changes", { event: "DELETE", schema, table }, onChange);
         } else {
           channel.on("postgres_changes", { event: "*", schema, table }, onChange);

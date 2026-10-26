@@ -78,6 +78,20 @@ describe("listCouldChange", () => {
     }
   });
 
+  it("never narrows on numbers, dates or timestamps: they format differently in a payload and a read", () => {
+    const qc = new QueryClient();
+    const cases: [unknown[], Record<string, unknown>][] = [
+      [[{ field: "points", operator: "eq", value: 5 }], { id: "t1", points: 5.0 }],
+      [[{ field: "due_on", operator: "eq", value: "2026-10-26" }], { id: "t1", due_on: "2026-10-26T00:00:00" }],
+      [[{ field: "amount", operator: "eq", value: "10" }], { id: "t1", amount: "10.00" }],
+    ];
+    for (const [filters, row] of cases) {
+      const key = k.list({ filters } as never);
+      qc.setQueryData(key, { data: [], total: 0 });
+      expect(listCouldChange(query(qc, key), [row])).toBe(true);
+    }
+  });
+
   it("records and other reads could always change", () => {
     const qc = new QueryClient();
     qc.setQueryData(k.detail("t1"), { id: "t1" });

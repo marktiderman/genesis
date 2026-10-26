@@ -66,16 +66,26 @@ export function patchCachedRow(queryClient: QueryClient, resource: string, recor
   }
 }
 
+/**
+ * A value this function can compare safely: text, a uuid or a boolean. Numbers, dates and
+ * timestamps format differently in a realtime payload and in a PostgREST read, so they never narrow.
+ */
+function comparable(v: unknown): v is string | boolean {
+  if (typeof v === "boolean") return true;
+  return typeof v === "string" && !/^\d{4}-\d{2}-\d{2}/.test(v) && !/^-?\d+(\.\d+)?$/.test(v);
+}
+
 /** Whether `record` passes the filters this function can read; any other filter counts as a pass. */
 function passes(record: Row, filters: readonly FilterParam[] | undefined): boolean {
   for (const f of filters ?? []) {
     if (!(f.field in record)) continue;
     const v = record[f.field];
-    if (f.operator === "eq" && String(v) !== String(f.value)) return false;
-    if (f.operator === "neq" && String(v) === String(f.value)) return false;
     if (f.operator === "is_null" && v !== null) return false;
     if (f.operator === "is_not_null" && v === null) return false;
-    if (f.operator === "in" && !f.value.map(String).includes(String(v))) return false;
+    if (!comparable(v)) continue;
+    if (f.operator === "eq" && comparable(f.value) && v !== f.value) return false;
+    if (f.operator === "neq" && comparable(f.value) && v === f.value) return false;
+    if (f.operator === "in" && f.value.every(comparable) && !f.value.includes(v)) return false;
   }
   return true;
 }

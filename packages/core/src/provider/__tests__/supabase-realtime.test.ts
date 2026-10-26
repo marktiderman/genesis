@@ -147,13 +147,13 @@ describe("subscribe: the channel", () => {
     expect(channels).toHaveLength(2);
   });
 
-  it("a list's first equality filter narrows the channel on the server; deletes still arrive", () => {
+  it("a list's first equality filter narrows inserts on the server; updates and deletes arrive unfiltered", () => {
     const { p } = provider({ realtime: true });
     const cb = vi.fn();
     p.subscribe!("tasks", { filters: [{ field: "title", operator: "contains", value: "x" }, { field: "person_id", operator: "eq", value: "p1" }] }, cb);
     expect(channels[0]!.bindings.map((b) => b.filter)).toEqual([
       { event: "INSERT", schema: "public", table: "tasks", filter: "person_id=eq.p1" },
-      { event: "UPDATE", schema: "public", table: "tasks", filter: "person_id=eq.p1" },
+      { event: "UPDATE", schema: "public", table: "tasks" },
       { event: "DELETE", schema: "public", table: "tasks" },
     ]);
     // Another filter value is another channel; the same one is shared.
@@ -163,6 +163,23 @@ describe("subscribe: the channel", () => {
     // A value Realtime's filter grammar can't carry falls back to the whole table.
     p.subscribe!("tasks", { filters: [{ field: "title", operator: "eq", value: "a,b" }] }, vi.fn());
     expect(channels[2]!.filter).toEqual({ event: "*", schema: "public", table: "tasks" });
+    // An empty value would make a malformed filter: the whole table instead (same channel as above).
+    p.subscribe!("tasks", { filters: [{ field: "title", operator: "eq", value: "" }] }, vi.fn());
+    expect(channels).toHaveLength(3);
+  });
+
+  it("a row leaving a filtered list is still reported (updates aren't filtered on the new row)", () => {
+    const { p } = provider({ realtime: true });
+    const cb = vi.fn();
+    p.subscribe!("tasks", { filters: [{ field: "status", operator: "eq", value: "open" }] }, cb);
+    channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", status: "closed" } });
+    expect(cb).toHaveBeenCalledWith(expect.objectContaining({ type: "updated", id: "t1" }));
+  });
+
+  it("no server filter for a resource read from a view: the filter may name a column only the view has", () => {
+    const { p } = provider({ realtime: true, resources: { tasks: { source: "tasks_with_people" } } });
+    p.subscribe!("tasks", { filters: [{ field: "person_name", operator: "eq", value: "Ann" }] }, vi.fn());
+    expect(channels[0]!.bindings.map((b) => b.filter)).toEqual([{ event: "*", schema: "public", table: "tasks" }]);
   });
 
   it("one record: no server filter (it would drop deletes); the id is matched here, deletes included", () => {
@@ -214,6 +231,28 @@ describe("subscribe: events", () => {
     expect(events).toEqual([{ type: "updated", id: 1 }]);
   });
 
+  it("an echo must match the write's kind, and expires", async () => {
+    vi.useFakeTimers();
+    try {
+      const { p } = provider({
+        realtime: true,
+        resources: { tasks: { update: async (id) => ({ id, title: "mine" }) } },
+      });
+      const events: ResourceChangeEvent[] = [];
+      p.subscribe!("tasks", {}, (e) => events.push(e));
+      await p.update("tasks", { id: "t1", data: { title: "mine" } });
+      // A delete of that row is someone else's: heard.
+      channels[0]!.change!({ eventType: "DELETE", new: {}, old: { id: "t1" } });
+      expect(events).toEqual([{ type: "deleted", id: "t1" }]);
+      await p.update("tasks", { id: "t3", data: { title: "mine" } });
+      vi.advanceTimersByTime(2500);
+      channels[0]!.change!({ eventType: "UPDATE", new: { id: "t3", title: "late" } });
+      expect(events.at(-1)).toEqual(expect.objectContaining({ type: "updated", id: "t3" }));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("skips the echo of this client's own write, then hears that row again", async () => {
     vi.useFakeTimers();
     try {
@@ -227,7 +266,7 @@ describe("subscribe: events", () => {
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "mine" } });
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t2", title: "theirs" } });
       expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2"]);
-      vi.advanceTimersByTime(2500);
+      // The mark is used up: a second update to t1 (a trigger, another person) is heard at once.
       channels[0]!.change!({ eventType: "UPDATE", new: { id: "t1", title: "someone else" } });
       expect(events.map((e) => ("id" in e ? e.id : null))).toEqual(["t2", "t1"]);
     } finally {
