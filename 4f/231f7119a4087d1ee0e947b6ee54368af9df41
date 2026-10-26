@@ -1,0 +1,25 @@
+packages/chat/src/native/__tests__/organise-screens.test.tsx
+  s_1f35d570c63beb::t_fd60ca78c02459 278-289
+packages/chat/src/native/search-screen.tsx
+  s_1f35d570c63beb::t_875fd19b387cf4 91-118,121-146,148-165,167-171
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1f35d570c63beb::t_0c6d77f9035118 319,322,328-333
+.changeset/chat-search-screen-inset.md
+  s_1f35d570c63beb::t_bce16b545deb5b 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f231f7119a4087d1ee0e947b6ee54368af9df41",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
