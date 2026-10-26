@@ -1,0 +1,175 @@
+.claude/settings.json
+  s_1f35d570c63beb::t_ff1c1b5c34aa87 13-23
+.github/pull_request_template.md
+  s_1f35d570c63beb::t_277052c0c6aa56 5,7-9
+.github/workflows/claude-code-review.yml
+  s_1f35d570c63beb::t_e66686363f7657 1-2,24-26
+AGENTS.md
+  s_2550badb988043::t_7f5c63324a432a 12-35,40
+CONTRIBUTING.md
+  s_1f35d570c63beb::t_adaac54e4fa076 3-7
+README.md
+  s_1f35d570c63beb::t_b6bd3d536287e8 79
+apps/sample/app/data/primitives.json
+  s_1f35d570c63beb::t_4d880c4f2d4789 17324
+apps/sample/app/lib/portfolio-data.ts
+  s_1f35d570c63beb::t_48c928f4d8bd9c 142
+docs/FRAMEWORK.md
+  s_1f35d570c63beb::t_7c73a525e26f80 1,3-66,68-120,124-127
+docs/README.md
+  s_1f35d570c63beb::t_798fa4fcd128ec 3-7
+docs/adr/0001-one-feature-gate.md
+  s_1f35d570c63beb::t_97d4dcfd35001c 37-40
+docs/component-reference.md
+  s_1f35d570c63beb::t_d9a6e4707a8980 1325,1331
+features.json
+  s_1f35d570c63beb::t_b6d833686e80d0 2027-2088,4471-4527
+features.ts
+  s_1f35d570c63beb::t_201634ce913f17 894-917,1962-1988
+packages/chat/CHANGELOG.md
+  s_1f35d570c63beb::t_1aa93aa1e36c58 3-16
+packages/chat/package.json
+  s_1f35d570c63beb::t_d5bf5ed283cbc2 3
+packages/core/CHANGELOG.md
+  s_1f35d570c63beb::t_7d62013da62f06 3-14
+packages/core/README.md
+  s_1f35d570c63beb::t_ec1ca6585cbf78 556-558,560
+packages/core/package.json
+  s_1f35d570c63beb::t_17225906e72d18 3
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_1f35d570c63beb::t_c31909e0bb10bb 116,126-153,201-221
+packages/core/src/provider/index.ts
+  s_1f35d570c63beb::t_589048254a44ee 80
+packages/core/src/provider/write-helpers.ts
+  s_1f35d570c63beb::t_2cdadf4b94ef92 83-93,96-103,107-109,116,119,132-135,138,140-145
+packages/features/CHANGELOG.md
+  s_1f35d570c63beb::t_461ad091a75b91 3-14
+packages/features/README.md
+  s_1f35d570c63beb::t_8c1643f0923dde 160-163,222-250
+packages/features/package.json
+  s_1f35d570c63beb::t_8922393a3314d4 3
+packages/features/src/__tests__/content-packs.test.ts
+  s_1f35d570c63beb::t_808dfb3b5befa2 1-68
+packages/features/src/__tests__/gate.test.tsx
+  s_1f35d570c63beb::t_3049e723df670e 232-262
+packages/features/src/blocks-entry.ts
+  s_1f35d570c63beb::t_fd4c0aba2a854e 9
+packages/features/src/content-packs.ts
+  s_1f35d570c63beb::t_42566db9c24f29 1-234
+packages/features/src/gate.ts
+  s_1f35d570c63beb::t_065eec3a3138a2 13-19,71-72,81-82,175-176,186-192,315-316,318,321-322,328
+packages/features/src/index.ts
+  s_1f35d570c63beb::t_65d7d2a245022a 88-101
+packages/forms/src/__tests__/hardening.test.ts
+  s_1f35d570c63beb::t_74e7c522ea4aa5 118-125,127-135
+packages/genesis-cli/CHANGELOG.md
+  s_1f35d570c63beb::t_2bfa233f4aa020 3-24
+packages/genesis-cli/README.md
+  s_1f35d570c63beb::t_9abde4353a892f 138-160,442,505-537
+packages/genesis-cli/package.json
+  s_1f35d570c63beb::t_ce8016ba3f8469 3
+packages/genesis-cli/src/blocks/add.ts
+  s_1f35d570c63beb::t_c30e3fdbef0825 14,186,188-189,231,317
+packages/genesis-cli/src/blocks/discover.ts
+  s_1f35d570c63beb::t_de8b2c945b7793 14,76,78-79,128-129,138,146-147,150,153-155,196
+packages/genesis-cli/src/blocks/local.ts
+  s_1f35d570c63beb::t_7b23c635a03a84 1-148
+packages/genesis-cli/src/blocks/manifest.ts
+  s_1f35d570c63beb::t_b24c1b1303f43c 107,110-111,116-117
+packages/genesis-cli/src/blocks/migrate.ts
+  s_1f35d570c63beb::t_4fca39c84b4128 14,45,59-60
+packages/genesis-cli/src/blocks/owned.ts
+  s_1f35d570c63beb::t_1ccf654a9a8e6b 19,67,75,127
+packages/genesis-cli/src/cli.ts
+  s_1f35d570c63beb::t_441e216f3bc0c7 187-188,197
+packages/genesis-cli/src/doctor/config.ts
+  s_1f35d570c63beb::t_40415fc248b299 150,157,162,218-219
+packages/genesis-cli/src/doctor/index.ts
+  s_1f35d570c63beb::t_a0bc5ae080f699 29,75-76,94,135
+packages/genesis-cli/src/doctor/packages.ts
+  s_1f35d570c63beb::t_a1474b18a5dca5 1-380
+packages/genesis-cli/src/doctor/rules.ts
+  s_1f35d570c63beb::t_e7b5e14904772c 46-56
+packages/genesis-cli/src/doctor/scan.ts
+  s_1f35d570c63beb::t_342aea4710f63f 4,60-68
+packages/genesis-cli/src/doctor/types.ts
+  s_1f35d570c63beb::t_e69e1e52aae00a 69-75,105,208-209
+packages/genesis-cli/src/scaffolder.ts
+  s_1f35d570c63beb::t_8c6dc3b28c1bc8 405
+packages/genesis-cli/src/upgrade/index.ts
+  s_1f35d570c63beb::t_ef108468ac9c0e 29,180,234
+packages/genesis-cli/test/blocks-add.test.ts
+  s_1f35d570c63beb::t_3932da8ef45c31 105,110
+packages/genesis-cli/test/blocks-local.test.ts
+  s_1f35d570c63beb::t_bc3f89e6b0c9b5 1-97
+packages/genesis-cli/test/doctor-packages.test.ts
+  s_1f35d570c63beb::t_eaab430d5f72d5 1-325
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_1f35d570c63beb::t_53f80bd8cd3636 916-920,922-930,932-933
+packages/genesis/CHANGELOG.md
+  s_1f35d570c63beb::t_9dc183f3856b89 3-24
+packages/genesis/package.json
+  s_1f35d570c63beb::t_50873d65859ad9 3
+packages/native/CHANGELOG.md
+  s_1f35d570c63beb::t_969063358b2f8a 3-20
+packages/native/package.json
+  s_1f35d570c63beb::t_3f1da2ed8a5778 3
+packages/notifications/CHANGELOG.md
+  s_1f35d570c63beb::t_5b2078b597d553 3-16
+packages/notifications/package.json
+  s_1f35d570c63beb::t_01239d69a51fea 3
+packages/product/CHANGELOG.md
+  s_1f35d570c63beb::t_0f246f91e1a130 3-16
+packages/product/package.json
+  s_2c334912fcb08f::t_df64dc871db68b 3
+packages/sites/CHANGELOG.md
+  s_1f35d570c63beb::t_cb09f76b0338e0 3-16
+packages/sites/package.json
+  s_1f35d570c63beb::t_d925b39b515985 3
+packages/supabase/CHANGELOG.md
+  s_1f35d570c63beb::t_4fc1f02443b162 3-16
+packages/supabase/package.json
+  s_1f35d570c63beb::t_a5b463c2671ff7 3
+packages/support/CHANGELOG.md
+  s_1f35d570c63beb::t_c9194dabeca1e9 3-16
+packages/support/package.json
+  s_1f35d570c63beb::t_99550e6cb2d88b 3
+packages/ui/CHANGELOG.md
+  s_1f35d570c63beb::t_a39bb065fbc41e 3-10
+packages/ui/SKILL.md
+  s_1f35d570c63beb::t_fd56733dbf0f5b 8
+packages/ui/package.json
+  s_1f35d570c63beb::t_1b29d1ad49d8b1 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "dd3004570c6cfb57077cc59b07fa00bc48817db3",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
