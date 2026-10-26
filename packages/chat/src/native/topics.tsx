@@ -98,6 +98,9 @@ export function ChatTopicBar({ topics, value, onValueChange, canManage = false, 
   const latestValue = useRef(value);
   latestValue.current = value;
   useEffect(() => reveal(value), [value, reveal]);
+  const trackOffset = (e: { nativeEvent: { contentOffset: { x: number } } }) => {
+    view.current.offset = e.nativeEvent.contentOffset.x;
+  };
   const onChipLayout = (key: string) => (e: LayoutChangeEvent) => {
     const { x, width } = e.nativeEvent.layout;
     chips.current.set(key, { x, width });
@@ -159,10 +162,11 @@ export function ChatTopicBar({ topics, value, onValueChange, canManage = false, 
         style={{ flex: 1 }}
         onLayout={(e: LayoutChangeEvent) => {
           view.current.width = e.nativeEvent.layout.width;
+          reveal(latestValue.current);
         }}
-        onScroll={(e: { nativeEvent: { contentOffset: { x: number } } }) => {
-          view.current.offset = e.nativeEvent.contentOffset.x;
-        }}
+        onScroll={trackOffset}
+        onScrollEndDrag={trackOffset}
+        onMomentumScrollEnd={trackOffset}
         scrollEventThrottle={64}
       >
         <NativeChipGroup mode="single" value={value ?? ALL} onChange={(v) => onValueChange(v === ALL ? null : (v as string))} className="flex-nowrap" testID={`${testID}-group`}>

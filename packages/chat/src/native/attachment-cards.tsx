@@ -81,7 +81,8 @@ function bareAttachment(kind: string): ChatAttachment {
 export function attachmentPreview(body: string, attachment: string | ChatAttachment | null | undefined, kinds: Record<string, ChatAttachmentKind> | undefined, deleted = false): string {
   const kind = typeof attachment === "string" ? attachment : attachment?.kind;
   const text = previewText(body, kind, deleted);
-  if (deleted || !kind || !kinds || !Object.prototype.hasOwnProperty.call(kinds, kind) || body.trim()) return text;
+  // Text that reads as something (not only markdown marks) is the preview, as previewText has it.
+  if (deleted || !kind || !kinds || !Object.prototype.hasOwnProperty.call(kinds, kind) || previewText(body, null)) return text;
   const a = typeof attachment === "string" ? bareAttachment(attachment) : attachment!;
   const title = cardTitle(kinds[kind], a);
   return title && title !== kind ? title : text;

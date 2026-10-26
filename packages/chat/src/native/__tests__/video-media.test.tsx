@@ -54,7 +54,10 @@ function fakeVideo() {
     }),
   };
   const enterFullscreen = vi.fn(async () => undefined);
-  const VideoView = forwardRef<unknown, { testID?: string }>(function VideoView({ testID }, ref) {
+  const view: { props: { onFullscreenEnter?: () => void; onFullscreenExit?: () => void } | null } = { props: null };
+  const VideoView = forwardRef<unknown, { testID?: string; onFullscreenEnter?: () => void; onFullscreenExit?: () => void }>(function VideoView(props, ref) {
+    const { testID } = props;
+    view.props = props;
     useImperativeHandle(ref, () => ({ enterFullscreen }));
     return <div data-testid={testID} />;
   });
@@ -68,7 +71,7 @@ function fakeVideo() {
     }),
     VideoView,
   };
-  return { video: video as unknown as ChatNativeModules["video"], player, enterFullscreen, sources };
+  return { video: video as unknown as ChatNativeModules["video"], player, enterFullscreen, sources, view };
 }
 
 function fakeCamera(granted = true) {
@@ -170,6 +173,19 @@ describe("ChatVideoPlayer", () => {
     act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("active"));
     view.unmount();
     expect(player.pause).toHaveBeenCalledTimes(2);
+  });
+
+  it("plays on in full screen, which Android reports as the app going to the background", () => {
+    const { video, player, view } = fakeVideo();
+    render(withModules({ video }, <ChatVideoPlayer id="a7" uri="https://x/v.mp4" provider="storage" status="ready" durationMs={3000} testID="v" />));
+    fireEvent.click(screen.getByTestId("v-poster"));
+    act(() => view.props?.onFullscreenEnter?.());
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("background"));
+    expect(player.pause).not.toHaveBeenCalled();
+    act(() => view.props?.onFullscreenExit?.());
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("background"));
+    expect(player.pause).toHaveBeenCalledTimes(1);
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("active"));
   });
 
   it("is paused by pauseChatPlayback, which leaves another screen's alone", () => {
@@ -367,6 +383,7 @@ describe("the bubble", () => {
     expect(attachmentPreview("", "check_in", kinds)).toBe("Check-in");
     expect(attachmentPreview("", "check_in", undefined)).toBe("Attachment");
     expect(attachmentPreview("how did it go?", "check_in", kinds)).toBe("how did it go?");
+    expect(attachmentPreview("**", "check_in", kinds)).toBe("Check-in"); // only markdown marks: no text
     expect(attachmentPreview("", "check_in", kinds, true)).toBe("Message deleted");
     expect(attachmentPreview("", "check_in", { check_in: { title: () => { throw new Error("x"); } } })).toBe("Attachment");
     const m = row({ attachments: [attachment({ id: "c1", kind: "check_in", provider: "none", ref: {} })] }).item;

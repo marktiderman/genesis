@@ -269,10 +269,18 @@ function ActiveVideo({
   const [muted, setMuted] = useState(false);
   const [rate, setRate] = useState(1);
   const ended = useRef(false);
+  // Full screen on Android is another activity: the app reads as backgrounded while it shows.
+  const fullScreenOpen = useRef(false);
+  const setUp = useRef(false);
 
   useEffect(() => {
-    claimPlayback(id, () => player.pause());
-    setPlayingId(id, true);
+    // The first time, the player was just told to play; set up again (a remount that keeps the
+    // player), it says for itself whether it plays.
+    const now = setUp.current ? Boolean(player.playing) : true;
+    setUp.current = true;
+    setPlaying(now);
+    setPlayingId(id, now);
+    if (now) claimPlayback(id, () => player.pause());
     const subs = [
       player.addListener("playingChange", ((payload: { isPlaying: boolean }) => {
         setPlaying(payload.isPlaying);
@@ -292,9 +300,9 @@ function ActiveVideo({
         if (payload.status === "error") latestBroken.current();
       }) as (payload: never) => void),
     ];
-    // Not on in the background: a video plays only while you can see it.
+    // Not on in the background: a video plays only while you can see it (full screen aside).
     const appSub = AppState?.addEventListener?.("change", (next: string) => {
-      if (next === "background") {
+      if (next === "background" && !fullScreenOpen.current) {
         try {
           player.pause();
         } catch {
@@ -340,7 +348,21 @@ function ActiveVideo({
   const { VideoView } = video;
   return (
     <View testID={`${testID}-active`} style={style}>
-      <VideoView ref={viewRef} player={player} nativeControls={false} contentFit="cover" allowsPictureInPicture={false} style={{ width: "100%", height: "100%" }} testID={`${testID}-view`} />
+      <VideoView
+        ref={viewRef}
+        player={player}
+        nativeControls={false}
+        contentFit="cover"
+        allowsPictureInPicture={false}
+        onFullscreenEnter={() => {
+          fullScreenOpen.current = true;
+        }}
+        onFullscreenExit={() => {
+          fullScreenOpen.current = false;
+        }}
+        style={{ width: "100%", height: "100%" }}
+        testID={`${testID}-view`}
+      />
       <Pressable
         testID={`${testID}-surface`}
         accessibilityRole="button"

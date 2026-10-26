@@ -201,6 +201,8 @@ export interface ExpoVideoLike {
     contentFit?: "contain" | "cover" | "fill";
     nativeControls?: boolean;
     allowsPictureInPicture?: boolean;
+    onFullscreenEnter?: () => void;
+    onFullscreenExit?: () => void;
     testID?: string;
   }>;
 }

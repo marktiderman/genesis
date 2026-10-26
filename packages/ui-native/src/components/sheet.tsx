@@ -297,7 +297,7 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitCon
       onRequestClose={requestClose}
     >
       <SafeAreaProvider>
-        <KeyboardAvoidingView behavior={ios ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end" }}>
+        <KeyboardPanel ios={ios}>
           <Pressable
             testID={`${id}-backdrop`}
             accessibilityRole="button"
@@ -323,9 +323,22 @@ function ModalSheet({ open, onOpenChange, disableBackdropDismiss = false, fitCon
             />
             {children}
           </SheetBody>
-        </KeyboardAvoidingView>
+        </KeyboardPanel>
       </SafeAreaProvider>
     </Modal>
+  );
+}
+
+/**
+ * The bottom panel's frame: on iOS it moves up with the keyboard, less the home indicator's
+ * inset the sheet already pads, so it sits on the keyboard without a gap.
+ */
+function KeyboardPanel({ ios, children }: { ios: boolean; children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <KeyboardAvoidingView behavior={ios ? "padding" : undefined} keyboardVerticalOffset={ios ? -insets.bottom : 0} style={{ flex: 1, justifyContent: "flex-end" }}>
+      {children}
+    </KeyboardAvoidingView>
   );
 }
 
