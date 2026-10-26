@@ -1,12 +1,15 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Fragment, useState, type ReactNode } from "react";
+import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
 
 /**
- * Empties the query cache for a new viewer: cancels what's in flight, then
- * removes every query. Call it in the sign-in and sign-out actions, before the
- * session changes, when the app has no `ViewerScope`.
+ * Empties the query cache for a new viewer: sends the old viewer's waiting
+ * undoable writes (the session is still theirs), cancels reads in flight,
+ * then removes every query. Call it in the sign-in and sign-out actions,
+ * before the session changes.
  */
 export async function clearViewerCache(queryClient: QueryClient): Promise<void> {
+  await flushPendingWrites(queryClient);
   await queryClient.cancelQueries();
   queryClient.clear();
 }
@@ -48,6 +51,10 @@ export function ViewerScope({ viewer, persistedViewer, fallback = null, children
     // Nothing for the new viewer is mounted yet, so emptying now can't strand
     // a fetch; the old viewer's screens unmount with this render.
     if (!keep) {
+      // The session already belongs to the new viewer: the old one's unsent
+      // writes must never go out under it. (clearViewerCache, run before the
+      // session changes, sends them instead.)
+      dropPendingWrites(queryClient);
       void queryClient.cancelQueries();
       queryClient.clear();
     }

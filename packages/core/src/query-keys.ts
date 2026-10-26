@@ -75,7 +75,8 @@ function same(a: unknown, b: unknown): boolean {
 function fieldMatches(have: unknown, want: unknown): boolean {
   if (same(have, want)) return true;
   if (!Array.isArray(have)) return false;
-  if (Array.isArray(want)) return want.every((w) => have.some((h) => same(h, w)));
+  // An empty list asks for an empty list, not "any list".
+  if (Array.isArray(want)) return want.length > 0 && want.every((w) => have.some((h) => same(h, w)));
   return have.some((h) => same(h, want));
 }
 
@@ -119,7 +120,8 @@ export function defineQueryKeys<const D extends string, Q extends QueryDefs>(dom
           const [d, k, f] = query.queryKey as readonly unknown[];
           if (d !== domain || (kind !== undefined && k !== kind)) return false;
           if (!f || typeof f !== "object") return Object.keys(fields).length === 0;
-          return Object.entries(fields).every(([name, want]) => fieldMatches((f as Fields)[name], want));
+          // A key without the field never matches it, even when the value asked for is undefined.
+          return Object.entries(fields).every(([name, want]) => name in f && fieldMatches((f as Fields)[name], want));
         },
       };
     },
