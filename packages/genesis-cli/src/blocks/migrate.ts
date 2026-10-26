@@ -11,6 +11,7 @@
  */
 import * as path from "node:path";
 import { findBlock, packageDir } from "./discover.js";
+import { localPackageNames } from "./local.js";
 import { readPackageFile } from "./files.js";
 import { readLock, writeLock } from "./lock.js";
 import { GENESIS_PACKAGE } from "./manifest.js";
@@ -41,6 +42,7 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   const warnings: string[] = [];
   const ids = [...new Set([...Object.keys(lock.blocks), ...(options.blocks ?? [])])];
   const sources: SourceMigration[] = [];
+  const local = localPackageNames(root);
   for (const id of ids) {
     const pkg = lock.blocks[id]?.package;
     try {
@@ -54,8 +56,8 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   for (const copy of readAppMigrations(root)) {
     const t = copy.tracked;
     if (!t || sources.some((s) => s.package === t.package && s.file === t.file)) continue;
-    if (!GENESIS_PACKAGE.test(t.package) || !validHeaderFile(t.file)) {
-      warnings.push(`${copy.path}: its genesis-migration header names ${t.package} ${t.file}, which isn't a Genesis package's NNNN_name.sql; skipped.`);
+    if (!(GENESIS_PACKAGE.test(t.package) || local.has(t.package)) || !validHeaderFile(t.file)) {
+      warnings.push(`${copy.path}: its genesis-migration header names ${t.package} ${t.file}, which isn't a Genesis or local package's NNNN_name.sql; skipped.`);
       continue;
     }
     const dir = packageDir(root, t.package);
