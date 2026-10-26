@@ -1,10 +1,10 @@
 {
   "name": "@marktiderman/genesis-features",
-  "version": "0.3.0",
+  "version": "0.4.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "A typed feature registry: defineFeatures and defineFlags in one code file that running code imports, defineBlock and resolveBlocks for blocks (/blocks, free of zod), generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Part of the Genesis framework.",
+  "description": "A typed feature registry: defineFeatures and defineFlags in one code file that running code imports, defineBlock and resolveBlocks for blocks (/blocks, free of zod), the feature gate (featureOn, /gate, zod-free, with React hooks at /gate/react), generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -27,6 +27,14 @@
     "./blocks": {
       "types": "./dist/blocks.d.ts",
       "import": "./dist/blocks.js"
+    },
+    "./gate": {
+      "types": "./dist/gate.d.ts",
+      "import": "./dist/gate.js"
+    },
+    "./gate/react": {
+      "types": "./dist/gate-react.d.ts",
+      "import": "./dist/gate-react.js"
     },
     "./node": {
       "types": "./dist/node.d.ts",

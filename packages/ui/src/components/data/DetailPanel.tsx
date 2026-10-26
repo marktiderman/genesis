@@ -3,6 +3,7 @@ import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import { Pencil, Trash2, X } from "lucide-react";
 import { cn } from "../../utils";
+import { useUiMessages, type UiMessages } from "../../messages";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../ui/dialog";
 import { Sheet, SheetContent, SheetTitle, SheetDescription } from "../ui/sheet";
 
@@ -79,9 +80,9 @@ function keyToLabel(key: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return "—";
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+function formatValue(value: unknown, m: UiMessages): string {
+  if (value === null || value === undefined) return m.common.empty;
+  if (typeof value === "boolean") return value ? m.common.yes : m.common.no;
   if (value instanceof Date) return value.toLocaleDateString();
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);
@@ -100,8 +101,9 @@ function renderTitleBlock(
   layout: "inline" | "dialog" | "sheet",
   title: string | undefined,
   subtitle: string | undefined,
+  fallbackTitle: string,
 ) {
-  const titleText = title || "Detail panel";
+  const titleText = title || fallbackTitle;
 
   if (layout === "dialog") {
     return (
@@ -154,6 +156,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
   width = "md",
   layout = "sheet",
 }: DetailPanelProps<T>) {
+  const m = useUiMessages();
   if (!open || !item) return null;
 
   const renderContent = () => {
@@ -174,7 +177,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
                 <dd className="mt-1 text-sm text-foreground">
                   {field.render
                     ? field.render(item[field.key], item)
-                    : formatValue(item[field.key])}
+                    : formatValue(item[field.key], m)}
                 </dd>
               </div>
             </div>
@@ -195,7 +198,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
                 {keyToLabel(key)}
               </dt>
               <dd className="mt-1 text-sm text-foreground">
-                {formatValue(value)}
+                {formatValue(value, m)}
               </dd>
             </div>
           </div>
@@ -206,7 +209,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
 
   const header = (
     <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
-      <div className="min-w-0">{renderTitleBlock(layout, title, subtitle)}</div>
+      <div className="min-w-0">{renderTitleBlock(layout, title, subtitle, m.detail.fallbackTitle)}</div>
       <div className="flex items-center gap-1 shrink-0">
         {onEdit && (
           <Button
@@ -215,7 +218,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
             size="icon"
             className="h-8 w-8"
             onClick={() => onEdit(item)}
-            aria-label="Edit"
+            aria-label={m.common.edit}
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -227,7 +230,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
             size="icon"
             className="h-8 w-8 text-destructive hover:text-destructive"
             onClick={() => onDelete(item)}
-            aria-label="Delete"
+            aria-label={m.common.delete}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
@@ -238,7 +241,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
           size="icon"
           className="h-8 w-8"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={m.common.close}
         >
           <X className="h-4 w-4" />
         </Button>
@@ -302,7 +305,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
   return (
     <div
       role="region"
-      aria-label={title || "Detail panel"}
+      aria-label={title || m.detail.fallbackTitle}
       className={cn(
         "flex flex-col rounded-lg border border-border bg-card",
         widthClasses[width],

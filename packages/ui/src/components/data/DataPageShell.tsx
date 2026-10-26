@@ -1,5 +1,6 @@
 import type { ComponentProps, ComponentType, ReactNode } from "react";
 import { cn } from "../../utils";
+import { fillMessage, useUiMessages } from "../../messages";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { EmptyState } from "./EmptyState";
@@ -138,6 +139,7 @@ export function DataPageShell({
   className,
   header,
 }: DataPageShellProps) {
+  const m = useUiMessages();
   const entity = entityName || title.toLowerCase();
   // `header === null` ejects the header, and the doc on `header` promises the
   // filter row survives that. It only does in the standard branch, where
@@ -215,7 +217,7 @@ export function DataPageShell({
         // Shaped like the view it stands in for, so a list inside a panel or
         // tab doesn't reserve a page of card placeholders.
         <div data-testid="page-loader" role="status" aria-busy="true">
-          <span className="sr-only">Loading…</span>
+          <span className="sr-only">{m.common.loading}</span>
           {viewMode === "grid" ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -245,14 +247,14 @@ export function DataPageShell({
         >
           <AlertTriangle className="h-10 w-10 text-destructive mb-3" aria-hidden />
           <p className="mb-1 text-sm font-medium text-foreground">
-            Something went wrong
+            {m.page.errorTitle}
           </p>
           <p className="mb-4 text-sm text-muted-foreground">
-            {errorMessage || `Failed to load ${entity}s. Please try again.`}
+            {errorMessage || fillMessage(m.page.errorBody, { entity })}
           </p>
           {onRetry && (
             <Button variant="outline" size="sm" onClick={onRetry}>
-              <RefreshCw className="mr-1 h-4 w-4" aria-hidden /> Retry
+              <RefreshCw className="mr-1 h-4 w-4" aria-hidden /> {m.page.retry}
             </Button>
           )}
         </div>

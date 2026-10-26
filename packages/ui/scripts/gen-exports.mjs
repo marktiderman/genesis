@@ -8,7 +8,7 @@
  * just the one component. The map is SCRIPT-GENERATED but committed static —
  * run `node scripts/gen-exports.mjs` after adding/removing a component.
  *
- * The curated subpaths (`.`, `./data`, `./patterns`, `./layout`, `./hooks`,
+ * The curated subpaths (`.`, `./data`, `./patterns`, `./layout`, `./resource`, `./hooks`,
  * `./utils`, `./status-colors`, `./provider`, `./styles.css`) are preserved
  * verbatim.
  *
@@ -102,6 +102,9 @@ const LAYOUT_SUBPATH_COMPONENTS = [
   // A deliberate new entrypoint: genesis-sites renders marketing bands on the
   // server and imports this file alone, not the layout barrel (AppShell and its peers).
   "band",
+  // A deliberate new entrypoint: builders (genesis-forms-builder) import the
+  // three-column layout alone, not the layout barrel.
+  "builder-layout",
   "dashboard-page",
   "detail-page",
   "form-page",
@@ -182,6 +185,16 @@ const baseExports = {
   "./layout": {
     types: "./dist/components/layout/index.d.ts",
     import: "./dist/components/layout/index.js",
+  },
+  // The resource workspace (a form's, a course's page: header, readiness, settings,
+  // share) and its pure rules, safe on a server. Each needs its `tsup.config.ts` entry.
+  "./resource": {
+    types: "./dist/components/resource/index.d.ts",
+    import: "./dist/components/resource/index.js",
+  },
+  "./resource/rules": {
+    types: "./dist/components/resource/rules.d.ts",
+    import: "./dist/components/resource/rules.js",
   },
   "./hooks": {
     types: "./dist/hooks/index.d.ts",

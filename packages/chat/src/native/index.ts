@@ -16,7 +16,8 @@
  * Video messages: `ChatVideoRecorder` (expo-camera), `ChatVideoPlayer`
  * (expo-video, HLS), uploads through `ChatProvider videoUpload` with
  * `chunkedPut`; link previews (`ChatLinkPreviewCard`) and the app's own
- * attachment cards (`ChatAttachmentCard`).
+ * attachment cards (`ChatAttachmentCard`), or their own drawing through the
+ * `attachment` slot (`ChatThreadScreen slots`).
  *
  * Optional peers, passed in rather than imported: expo-audio,
  * expo-image-picker, expo-haptics, expo-clipboard, expo-camera, expo-video,
@@ -26,14 +27,14 @@
  * @stability Beta
  */
 export { ChatInboxScreen, inboxRow, type ChatInboxScreenProps } from "./inbox-screen";
-export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, type ChatThreadScreenProps } from "./thread-screen";
+export { ChatThreadScreen, threadListMode, nearBottom, AT_BOTTOM_POINTS, type ChatThreadScreenProps, type ChatThreadScreenSlots } from "./thread-screen";
 export { chatThreadStackOptions, useChatThreadStackOptions, type ChatThreadStackOptionsProps } from "./stack-options";
 export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSheetProps } from "./start-sheet";
 export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
 export { VoiceNotePlayer, claimPlayback, releasePlayback, pauseChatPlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
-export { MessageAttachments, attachmentPaths, type BubbleAttachment } from "./media";
+export { MessageAttachments, attachmentPaths, VoiceTranscript, transcriptIsLong, TRANSCRIPT_LINES, type BubbleAttachment, type VoiceTranscriptProps } from "./media";
 export {
   ChatMediaViewer,
   ChatPhotoViewer,
@@ -72,7 +73,30 @@ export { ChatVideoPlayer, videoState, videoSource, muxStreamUrl, muxPosterUrl, t
 export { chunkedPut, fileSource, nextOffset, createVideoUploads, videoUploads, type VideoUploadError, type MintedUpload, useVideoUploads, recordedVideoFile, VIDEO_CHUNK_BYTES, type ByteSource, type ChunkedPutOptions, type RecordedVideo, type VideoUploadTask, type VideoUploads, type StartVideoInput, type OutboxSend } from "./video-upload";
 export { VideoUploadTray, type VideoUploadTrayProps } from "./video-upload-tray";
 export { ChatLinkPreviewCard, previewToShow, linkPreviewIds, openChatLink, linkHost, type ChatLinkPreviewCardProps } from "./link-preview";
-export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, cardAction, cardTitle, attachmentPreview, messagePreview, type ChatAttachmentCardProps, type ChatCardContext, type OpenAttachment } from "./attachment-cards";
+export {
+  ChatAttachmentCard,
+  AppAttachment,
+  CardError,
+  useCardRuns,
+  slotUrl,
+  CARD_ACTION_TIMEOUT_MS,
+  type CardRunOptions,
+  splitCardAttachments,
+  attachmentKindOf,
+  BUILT_IN_KINDS,
+  isOpenableHref,
+  cardAction,
+  cardTitle,
+  attachmentPreview,
+  messagePreview,
+  type ChatAttachmentCardProps,
+  type ChatAttachmentSlot,
+  type ChatAttachmentSlotProps,
+  type AppAttachmentProps,
+  type CardRunState,
+  type ChatCardContext,
+  type OpenAttachment,
+} from "./attachment-cards";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 export {

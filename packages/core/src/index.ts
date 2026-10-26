@@ -33,5 +33,15 @@ export type {
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
 
+// Query keys
+export {
+  defineQueryKeys,
+  resourceKeys,
+  type KeyScope,
+  type KeyFilter,
+  type QueryKeys,
+  type ScopedKey,
+} from "./query-keys";
+
 // Utils
 export { titleCase } from "./utils";

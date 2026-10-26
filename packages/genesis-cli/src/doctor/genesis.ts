@@ -9,11 +9,13 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import * as path from "node:path";
 import { DoctorConfigError } from "./config.js";
-import type { DoctorConfig, GenesisFacts } from "./types.js";
+import type { CompanionPackage, DoctorConfig, GenesisFacts } from "./types.js";
 
 export const DEFAULT_UI_PACKAGE = "@marktiderman/genesis-ui";
 export const NATIVE_UI_PACKAGE = "@marktiderman/genesis-ui-native";
 export const DESIGN_SYSTEM_PACKAGE = "@marktiderman/genesis-design-system";
+/** Component packages read beside `uiPackage` by default: their components are Genesis too. */
+export const DEFAULT_COMPONENT_PACKAGES = ["@marktiderman/genesis-forms-studio"];
 
 /**
  * Raw tags checked when Genesis ships a same-named component. `form` is left
@@ -93,7 +95,23 @@ export function loadGenesis(root: string, config: DoctorConfig): GenesisFacts {
     tokens,
     rawTags,
     palette: loadPalette(root),
+    companions: loadCompanions(root, config, uiPackage),
   };
+}
+
+/** The installed `componentPackages` other than `uiPackage`. One that isn't installed or built is skipped. */
+function loadCompanions(root: string, config: DoctorConfig, uiPackage: string): CompanionPackage[] {
+  const out: CompanionPackage[] = [];
+  for (const name of config.componentPackages ?? DEFAULT_COMPONENT_PACKAGES) {
+    if (name === uiPackage) continue;
+    try {
+      const pkg = readPackageExports(root, name);
+      if (pkg) out.push({ package: name, version: pkg.version, components: pkg.components });
+    } catch (err) {
+      if (!(err instanceof DoctorConfigError)) throw err;
+    }
+  }
+  return out;
 }
 
 /** An installed package's exports, from its declarations (every subpath), or null when it isn't installed. */

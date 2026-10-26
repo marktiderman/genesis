@@ -132,7 +132,7 @@ export interface LoadedConfig {
   dir: string;
 }
 
-const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build"] as const;
+const STRING_LISTS = ["src", "extensions", "ignore", "tokenFiles", "ignoreTokenPrefixes", "localPrimitiveDirs", "build", "componentPackages"] as const;
 const STRINGS = ["uiPackage", "rulesDoc"] as const;
 const KNOWN = new Set<string>([
   ...STRING_LISTS,
@@ -147,10 +147,11 @@ const KNOWN = new Set<string>([
   "packs",
   "native",
   "supabase",
+  "routesDir",
   "$schema",
   "$comment",
 ]);
-const LEVELS = new Set(["error", "warn", "off"]);
+const LEVELS = new Set(["error", "warn", "info", "off"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
 const PACKS = new Set(["native", "supabase"]);
 /** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
@@ -309,6 +310,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   for (const key of STRINGS) {
     if (c[key] !== undefined && typeof c[key] !== "string") fail(`"${key}" must be a string`);
   }
+  if (c.routesDir !== undefined) c.routesDir = appPath(c.routesDir, `"routesDir"`, fail);
   if (c.rawTags !== undefined) {
     if (!isObject(c.rawTags)) fail(`"rawTags" must be an object`);
     for (const [tag, v] of Object.entries(c.rawTags as object)) {
@@ -326,7 +328,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
   if (c.rules !== undefined) {
     if (!isObject(c.rules)) fail(`"rules" must be an object of rule → level`);
     for (const [rule, level] of Object.entries(c.rules as object)) {
-      if (!LEVELS.has(level as string)) fail(`rules.${rule} must be "error", "warn" or "off"`);
+      if (!LEVELS.has(level as string)) fail(`rules.${rule} must be "error", "warn", "info" or "off"`);
     }
   }
   if (c.allow !== undefined) {

@@ -7,7 +7,7 @@
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState, type ReactNode } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ClipboardList, GitBranch, Home, Inbox, ListChecks, Settings, Users } from "lucide-react";
 
 import { AppShell, type AppShellProps, type NavItem } from "../AppShell";
@@ -372,6 +372,36 @@ describe("phone bar vs an app-wide mobileNavItems", () => {
   });
 });
 
+describe("hideOnPhone", () => {
+  it("leaves an item out of the phone bar but keeps it in the tab row", () => {
+    function Page() {
+      useAppShellSubNav([
+        { to: "/forms/f1/edit", label: "Questions" },
+        { to: "/forms/f1/edit/logic", label: "Logic and endings", hideOnPhone: true },
+        { to: "/forms/f1/edit/responses", label: "Responses" },
+      ]);
+      return null;
+    }
+    renderShell("/forms/f1/edit/logic", { subNav: "tabs", children: <Page /> });
+    expect(tabs().getAllByRole("link").map((a: HTMLElement) => a.textContent)).toEqual([
+      "Questions",
+      "Logic and endings",
+      "Responses",
+    ]);
+    expect(bottomBar().getAllByRole("link").map((a: HTMLElement) => a.getAttribute("aria-label") ?? a.textContent)).toEqual([
+      "Back to Forms",
+      "Questions",
+      "Responses",
+    ]);
+    // The hidden panel's parent tab shows as current on the phone bar.
+    const current = bottomBar()
+      .getAllByRole("link")
+      .filter((a: HTMLElement) => a.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0]!.getAttribute("aria-label") ?? current[0]!.textContent).toMatch(/Questions$/);
+  });
+});
+
 describe("sub-navigation on phones", () => {
   it("switches the bottom bar to the children, led by a back item to the parent", () => {
     renderShell("/forms/f1/edit/logic");
@@ -502,5 +532,99 @@ describe("page header slot: AppShellPageHeader", () => {
     });
     expect(tabs().queryByText("layout chip")).toBeNull();
     expect(tabs().getByText("page chip")).toBeTruthy();
+  });
+});
+
+describe("end slot on phones: AppShellSubNavEnd", () => {
+  function mockViewport(phone: boolean) {
+    vi.spyOn(window, "matchMedia").mockImplementation(
+      (query: string) =>
+        ({
+          // useIsMobile asks "(max-width: 767px)"; the shell's own desktop
+          // check asks "(min-width: 768px)".
+          matches: query.includes("max-width") ? phone : !phone,
+          media: query,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+        }) as unknown as MediaQueryList,
+    );
+  }
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const Page = () => (
+    <>
+      <AppShellPageHeader>
+        <h1>E2E Saturday check-in</h1>
+      </AppShellPageHeader>
+      <AppShellSubNavEnd>
+        <button type="button">2 issues to fix</button>
+      </AppShellSubNavEnd>
+      <p>body</p>
+    </>
+  );
+
+  it("moves the chip under the page header on phones, visible and focusable, with the row hidden", () => {
+    mockViewport(true);
+    renderShell("/forms/f1/edit", { children: <Page /> });
+    // The tab row stays hidden on phones (the bottom bar carries the children).
+    const row = screen.getByTestId("app-shell-sub-nav");
+    expect(row.parentElement!.className).toMatch(/(^|\s)hidden(\s|$)/);
+    expect(screen.getByTestId("app-shell-mobile-back")).toBeTruthy();
+    // The chip is in the phone strip, once, outside the hidden row.
+    const strip = screen.getByTestId("app-shell-sub-nav-end-phone");
+    const chips = screen.getAllByRole("button", { name: "2 issues to fix" });
+    expect(chips).toHaveLength(1);
+    expect(strip.contains(chips[0]!)).toBe(true);
+    expect(row.contains(chips[0]!)).toBe(false);
+    let el: HTMLElement | null = strip;
+    while (el) {
+      expect(el.className).not.toMatch(/(^|\s)hidden(\s|$)/);
+      el = el.parentElement;
+    }
+    chips[0]!.focus();
+    expect(document.activeElement).toBe(chips[0]);
+    // Under the page header, above the page content.
+    const title = screen.getByRole("heading", { name: "E2E Saturday check-in" });
+    expect(title.compareDocumentPosition(strip) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(strip.compareDocumentPosition(screen.getByText("body")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("keeps the chip in the tab row on desktop, with no phone strip", () => {
+    mockViewport(false);
+    renderShell("/forms/f1/edit", { children: <Page /> });
+    expect(screen.queryByTestId("app-shell-sub-nav-end-phone")).toBeNull();
+    const chips = screen.getAllByRole("button", { name: "2 issues to fix" });
+    expect(chips).toHaveLength(1);
+    expect(tabs().getByRole("button", { name: "2 issues to fix" })).toBe(chips[0]);
+  });
+
+  it("adds no strip and no row slot when no end-slot content is mounted", () => {
+    mockViewport(true);
+    renderShell("/forms/f1/edit");
+    expect(screen.queryByTestId("app-shell-sub-nav-end-phone")).toBeNull();
+    const row = screen.getByTestId("app-shell-sub-nav");
+    // Just the tab list: no end wrapper.
+    expect(row.children).toHaveLength(1);
+  });
+
+  it("keeps the phone bar behaviour when the app turns the bottom bar off", () => {
+    mockViewport(true);
+    renderShell("/forms/f1/edit", {
+      options: { ...chrome, showMobileBottomNav: false },
+      children: <Page />,
+    });
+    // The row is visible on phones then, so the chip stays in it.
+    expect(screen.queryByTestId("app-shell-sub-nav-end-phone")).toBeNull();
+    expect(tabs().getByRole("button", { name: "2 issues to fix" })).toBeTruthy();
+  });
+
+  it("leaves the default section mode unchanged on phones: no strip, no chip", () => {
+    mockViewport(true);
+    renderShell("/forms/f1/edit", { options: legacy, children: <Page /> });
+    expect(screen.queryByTestId("app-shell-sub-nav")).toBeNull();
+    expect(screen.queryByTestId("app-shell-sub-nav-end-phone")).toBeNull();
+    expect(screen.queryByRole("button", { name: "2 issues to fix" })).toBeNull();
   });
 });

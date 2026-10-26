@@ -1,10 +1,10 @@
 {
   "name": "@marktiderman/genesis-supabase",
-  "version": "0.3.1",
+  "version": "0.6.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), a background-job queue with schedules (genesis_jobs), the feature registry in the database for the feature gate (features, entitlements, flag values, feature_on), and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -31,12 +31,17 @@
     "./blocks": {
       "types": "./dist/blocks.d.ts",
       "import": "./dist/blocks.js"
+    },
+    "./jobs": {
+      "types": "./dist/jobs.d.ts",
+      "import": "./dist/jobs.js"
     }
   },
   "files": [
     "dist",
     "functions",
     "migrations",
+    "sql",
     "README.md"
   ],
   "dependencies": {
@@ -127,6 +132,64 @@
         ],
         "steps": [
           "Give tenant_features your membership rule in a migration of your own: create private.genesis_tenant_admin(tenant uuid, person uuid) returns boolean, and revoke execute on it from public, anon, authenticated (genesis-supabase README, Tenant feature switches). Without it nobody can change a switch."
+        ]
+      },
+      "jobs": {
+        "feature": {
+          "name": "Background jobs",
+          "summary": "A job queue (enqueue, claim with leases, retry with backoff) and named schedules that call the app's job route with a secret.",
+          "keywords": [
+            "background jobs",
+            "cron",
+            "queue",
+            "scheduled tasks"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0007_genesis_jobs.sql",
+            "test": "migrations/tests/0007_genesis_jobs.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Add one job route with createJobsHandler from @marktiderman/genesis-supabase/jobs, and set GENESIS_JOBS_SECRET on the server.",
+          "For schedules: enable pg_cron and pg_net, add the Vault secrets genesis_jobs_url (the route's base URL) and genesis_jobs_secret (the same secret), then call genesis_schedule_job(name, cron, job) in a migration."
+        ]
+      },
+      "feature-mirror": {
+        "feature": {
+          "name": "Registry in the app's database",
+          "summary": "The feature registry mirrored into the database on deploy, entitlements, per-tenant flag values and SQL feature_on(), for the feature gate.",
+          "keywords": [
+            "feature gate",
+            "entitlements",
+            "flags",
+            "feature_on"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "requires": [
+          "tenant-features"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0008_genesis_feature_registry.sql",
+            "test": "migrations/tests/0008_genesis_feature_registry.test.sql"
+          }
+        ],
+        "steps": [
+          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME }). Grant paid features by writing feature_entitlements from your billing webhook."
         ]
       }
     }

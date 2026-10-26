@@ -4,9 +4,10 @@
  * check or search what is generated from it. The logic lives in
  * `@marktiderman/genesis-features/node`; this file finds and loads things.
  *
- * Settings come from `package.json` → `"genesisFeatures"` (any
- * `FeatureProjectOptions` field that is a path, a list or a switch, plus
- * `registry` and `flagsFile`); command-line options win.
+ * Settings come from the `features` block of `genesis.config.json`, then
+ * `package.json` → `"genesisFeatures"` (any `FeatureProjectOptions` field that
+ * is a path, a list or a switch, plus `registry` and `flagsFile`); command-line
+ * options win over both.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";

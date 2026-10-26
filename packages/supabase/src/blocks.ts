@@ -20,15 +20,38 @@ export const accountBlock = defineBlock({
   platforms: ["web", "native"],
   contributes: {
     migrations: [
-      { package: PACKAGE, file: "migrations/0001_genesis_account_deletion.sql", test: "migrations/tests/0001_genesis_account_deletion.test.sql" },
+      {
+        package: PACKAGE,
+        file: "migrations/0001_genesis_account_deletion.sql",
+        test: "migrations/tests/0001_genesis_account_deletion.test.sql",
+      },
       // With Sign in with Apple, with the genesis-apple-revoke function beside it.
-      { package: PACKAGE, file: "migrations/0003_genesis_apple_token_revocation.sql", test: "migrations/tests/0003_genesis_apple_token_revocation.test.sql" },
+      {
+        package: PACKAGE,
+        file: "migrations/0003_genesis_apple_token_revocation.sql",
+        test: "migrations/tests/0003_genesis_apple_token_revocation.test.sql",
+      },
     ],
     privacy: {
       collects: [
-        { type: "email address", purposes: ["app functionality"], linked: true, tracking: false },
-        { type: "user id", purposes: ["app functionality"], linked: true, tracking: false },
-        { type: "name", purposes: ["app functionality"], linked: true, tracking: false },
+        {
+          type: "email address",
+          purposes: ["app functionality"],
+          linked: true,
+          tracking: false,
+        },
+        {
+          type: "user id",
+          purposes: ["app functionality"],
+          linked: true,
+          tracking: false,
+        },
+        {
+          type: "name",
+          purposes: ["app functionality"],
+          linked: true,
+          tracking: false,
+        },
       ],
       notes: [
         "People delete their account from inside the app; their login and the rows that cascade from it go with it.",
@@ -47,7 +70,58 @@ export const accountBlock = defineBlock({
 export const tenantFeaturesBlock = defineBlock({
   id: "tenant-features",
   contributes: {
-    migrations: [{ package: PACKAGE, file: "migrations/0004_genesis_tenant_features.sql", test: "migrations/tests/0004_genesis_tenant_features.test.sql" }],
-    privacy: { notes: ["Keeps who changed a tenant's switches; a deleted person's changes stay, without the person."] },
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0004_genesis_tenant_features.sql",
+        test: "migrations/tests/0004_genesis_tenant_features.test.sql",
+      },
+    ],
+    privacy: {
+      notes: [
+        "Keeps who changed a tenant's switches; a deleted person's changes stay, without the person.",
+      ],
+    },
+  },
+});
+
+/**
+ * The feature registry block: the registry mirrored into the app's database
+ * on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`,
+ * for the feature gate. Needs the tenant features block.
+ *
+ * @stability Beta
+ */
+export const featureMirrorBlock = defineBlock({
+  id: "feature-mirror",
+  requires: ["tenant-features"],
+  contributes: {
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0008_genesis_feature_registry.sql",
+        test: "migrations/tests/0008_genesis_feature_registry.test.sql",
+      },
+    ],
+    privacy: {
+      notes: [
+        "Stores which tenants hold which paid features and flag values; no personal data.",
+      ],
+    },
+  },
+});
+
+/**
+ * The jobs block: a background-job queue and named schedules that call the
+ * app's job route. Server only; the route is `createJobsHandler` from `/jobs`.
+ *
+ * @stability Beta
+ */
+export const jobsBlock = defineBlock({
+  id: "jobs",
+  platforms: ["web"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0007_genesis_jobs.sql", test: "migrations/tests/0007_genesis_jobs.test.sql" }],
+    privacy: { notes: ["Job payloads hold ids, never content or secrets; finished jobs are deleted after 14 days."] },
   },
 });

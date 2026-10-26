@@ -24,7 +24,7 @@ function stampUseClient(file: string) {
 }
 
 export default defineConfig({
-  entry: { index: "src/index.ts", blocks: "src/blocks-entry.ts", node: "src/node.ts", react: "src/react.tsx" },
+  entry: { index: "src/index.ts", blocks: "src/blocks-entry.ts", gate: "src/gate-entry.ts", "gate-react": "src/gate-react.tsx", node: "src/node.ts", react: "src/react.tsx" },
   format: ["esm"],
   dts: true,
   sourcemap: true,
@@ -32,5 +32,8 @@ export default defineConfig({
   treeshake: true,
   target: "es2022",
   external: [/^@marktiderman\//, "react", "react-dom", "lucide-react", "zod", /^node:/],
-  onSuccess: async () => stampUseClient("dist/react.js"),
+  onSuccess: async () => {
+    stampUseClient("dist/react.js");
+    stampUseClient("dist/gate-react.js");
+  },
 });

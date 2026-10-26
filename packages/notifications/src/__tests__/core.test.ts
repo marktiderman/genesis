@@ -33,7 +33,7 @@ describe("defineNotifications", () => {
   it("mirrors types as rows, with critical from the category", () => {
     const rows = registry.toTypeRows();
     expect(rows.find((r) => r.key === "security.new_sign_in")).toMatchObject({ critical: true, transactional: false, category: "security" });
-    expect(rows.find((r) => r.key === "chat.message")).toMatchObject({ email_delay_seconds: 600, ios_category: "message", channels: { in_app: true, push: true, email: true } });
+    expect(rows.find((r) => r.key === "chat.message")).toMatchObject({ email_delay_seconds: 600, ios_category: "messages", channels: { in_app: true, push: true, email: true } });
     expect(rows.find((r) => r.key === "forms.receipt")).toMatchObject({ transactional: true, secret_link: true });
   });
 
@@ -46,7 +46,7 @@ describe("defineNotifications", () => {
 
   it("defines device categories with Reply and Mark as read, and a channel per category", () => {
     expect(registry.deviceCategories()).toEqual([
-      { identifier: "message", actions: [{ id: "reply", title: "Reply", textInput: { placeholder: "Message", submitTitle: "Send" } }, { id: "mark_read", title: "Mark as read" }] },
+      { identifier: "messages", actions: [{ id: "reply", title: "Reply", textInput: { placeholder: "Message", submitTitle: "Send" } }, { id: "mark_read", title: "Mark as read" }] },
     ]);
     expect(registry.androidChannels().find((c) => c.id === "messages")).toEqual({ id: "messages", name: "Messages", importance: "high" });
   });

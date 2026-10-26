@@ -132,6 +132,45 @@ export {
   type SettingsPageProps,
   type SettingsPageSection,
 } from "./components/layout/settings-page";
+export {
+  BuilderLayout,
+  type BuilderLayoutProps,
+  type BuilderLayoutSlotProps,
+} from "./components/layout/builder-layout";
+
+// Resource workspace — the page around one publishable thing (a form, a course, a lesson,
+// a worksheet). Also at `@marktiderman/genesis-ui/resource` (and its pure rules at
+// `/resource/rules`).
+export {
+  Chip,
+  ResourceHeader,
+  ReadinessChip,
+  ResponsesToolbar,
+  HeadlineNumbers,
+  SummaryCard,
+  FollowUpList,
+  ResourceSettingsPage,
+  SettingsSection,
+  ShareDialog,
+  SAVE_STATE_LABEL,
+  readinessOf,
+  readinessChip,
+  dayLabel,
+  prefilledUrl,
+  embedSnippet,
+  type ResourceHeaderProps,
+  type ResponsesView,
+  type HeadlineNumber,
+  type FollowUpEntry,
+  type ResourceSettingsSection,
+  type SaveState,
+  type ChipTone,
+  type Readiness,
+  type ReadinessFinding,
+  type ReadinessOptions,
+  type ReadinessLabels,
+  type PrefillChoice,
+} from "./components/resource";
 
 // Utilities
 export { cn } from "./utils";
@@ -152,3 +191,4 @@ export {
   type SearchParamsAdapter,
 } from "./navigation";
 export * from "./slots";
+export * from "./messages";

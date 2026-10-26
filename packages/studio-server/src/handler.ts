@@ -35,6 +35,7 @@ const STATUS: Record<ErrorResponse["error"]["outcome"], number> = {
   forbidden: 403,
   not_found: 404,
   conflict: 409,
+  duplicate: 409,
   gone: 410,
   invalid: 422,
   audit_failed: 500,

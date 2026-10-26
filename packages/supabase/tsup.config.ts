@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", native: "src/native.ts", blocks: "src/blocks.ts" },
+  entry: { index: "src/index.ts", native: "src/native.ts", blocks: "src/blocks.ts", jobs: "src/jobs.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,

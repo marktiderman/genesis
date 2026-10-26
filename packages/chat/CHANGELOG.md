@@ -1,5 +1,65 @@
 # @marktiderman/genesis-chat
 
+## 0.3.0
+
+### Minor Changes
+
+- 2ef7db1: - Native: an `attachment` slot for the app's own attachment kinds (`ChatThreadScreen slots={{ attachment }}`, `MessageBubble attachmentSlot`), the twin of the web slot. It gets the web slot's props (`attachment`, `message`, `url`, `mine`) plus `kind`, the kind's `action` ready to call, `run(task)` with `pending` and `error` for the app's own actions (tick a task), `fallback` (the card it would have been) and `testID`. It draws every kind the package doesn't draw, registered or not; `null` hides unregistered kinds; a slot that throws shows the card. The kind's action stays the bubble's VoiceOver action. The default card's button is 44 points tall and shows busy while an `onPress` that returns a promise runs, and an error line if it rejects.
+  - A kind's `action().onPress` may return a promise (the web card catches its rejection).
+  - Native reply quotes, the reply bar and the jump announcement name an app kind by its `label`, as the inbox and the long-press sheet do.
+  - Native voice notes show their transcript under the player ("Transcribing…" until it is ready), folded to three lines with "Show more", and the bubble reads it to VoiceOver.
+  - `ChatErrorBoundary` moved to `src/react/error-boundary.tsx` (no DOM) so native shares it; `/web` still exports it.
+- b8ab65a: Native attachment slot, after review:
+  - A slot that threw tries again once its attachment, message, kind or slot changes (`ChatErrorBoundary resetKeys`), instead of keeping the card for the row's life.
+  - A slot that returns null draws nothing for that attachment and leaves the bubble's label and VoiceOver actions; a message left with nothing to show (also one that is only an unregistered kind under `slots={{ attachment: null }}`) is not drawn or read.
+  - The slot's `url` is http(s) only, else null (`slotUrl`).
+  - A card action still running after 30 seconds stops being busy and reads `cardActionTimedOut`; `cardActionTimeoutMs` on `ChatThreadScreen` and `MessageBubble` changes it (0 for never).
+  - A voice note's transcript folds behind "Show more" by its measured line count (an unclamped copy laid out out of sight), not its length.
+
+### Patch Changes
+
+- 4f231f7: `ChatSearchScreen` clears a large-title or see-through (Liquid Glass) navigation bar: its search field, hint, loading and empty states now sit in the results list (the field as its header), whose automatic content inset moves them below the bar, as `InboxPage` does. Before, the field was a plain view at the top of the screen and drew behind the navigation bar, where it couldn't be tapped.
+- a85f1c7: Docs. genesis-chat: the README covers `/native` (Beta: its screens and their main props), lists migration 0003 and names the push category `messages`. genesis-native: the rich push plugin's first-build steps for the Notification Service Extension (enable Communication Notifications on `<bundle id>.NotificationService`, then `eas credentials` to make its profile). genesis-notifications: a push carries a type's `push.ids` (and, with previews shown, `push.display` and `mutableContent`), and the Notification Service Extension works with it through genesis-native.
+- b3b8712: Chat pushes sent through genesis-notifications now get Reply, Mark as read and the Communication Notification:
+
+  - Chat's Mark read action id is `mark_read`, the same as `MESSAGE_ACTIONS` (device ids take no "-"). A notification already on a phone with the old `mark-read` still marks read.
+  - The docs and examples put `MESSAGE_ACTIONS` under the `messages` id, the category chat's push handler and genesis-native's notification service extension look for. Before, they said `message`, so on that path Mark read did nothing and the extension skipped the push. If your registry copied the old example, rename `actions: { message: MESSAGE_ACTIONS }` to `messages` and the type's `actions: "message"` to `"messages"`.
+
+## 0.2.2
+
+### Patch Changes
+
+- Updated dependencies [d67b516]
+  - @marktiderman/genesis-features@0.4.0
+
+## 0.2.1
+
+### Patch Changes
+
+- 2ce9ff8: Migration 0003: `genesis_chat.search_messages` also returns `thread_root_id`, so a search hit inside a reply thread opens that thread. (Moved out of 0002, which is released as it stands.)
+- 177829a: - `refetchConversation` (and so `refetchAccess`, the offline Retry) refetches the conversation, topics, availability, members, role and pins, never the message lists: a refetch had replaced loaded history and merged live messages with one fresh page.
+  - The web inbox previews a message that is only an app card by its kind's `label`, else its title, as native does: both use the same previews module (`src/react/previews.ts`).
+  - `ChatVideoRecorder`'s `videoUpload` says it must match the provider's (or the provider needs a `hostedUpload`).
+- 4f4e0a4: - An app attachment kind's `title`, `subtitle` and `action` get `{ mine }` (`ChatCardContext`, now in `/react`) on the web too, so your own check-in can drop its button. A kind's optional `label` names it in previews (the native and web inbox, the long-press sheet); its title by default.
+  - Upload answers: 408 is retried like a 5xx, 429 waits as rate limited (`GS429`) instead of blocking the conversation as a refusal.
+  - Upload progress moves in whole percents, so the chat tree re-renders at most 100 times per file.
+  - `ChatProvider` reads `videoUpload`, `hostedUpload`, `upload`, `readFile` and `persistFile` at call time: an inline `videoUpload.create` closing over a refreshed token keeps working.
+- 28439ee: Chat on native, from a simulator check: a video pauses when the app goes to the background and when it unmounts, and `ChatThreadScreen focused={false}` (the navigator's `useIsFocused()`) pauses what the thread is playing, since a tab switch keeps it mounted (`pauseChatPlayback`). Each scheduled row's Cancel names its message. The long-press sheet's caption has room under the sheet's top edge and names an app card by its kind's title, as the inbox preview now does (`attachmentPreview`). A newly added topic's chip scrolls into view. The topic and schedule sheets fit their content. A closed topic with no messages says it is closed. App attachment kinds get `{ mine }` as a second argument (`ChatCardContext`), so the sender's card can drop its button.
+
+  genesis-ui-native: `NativeSheet fitContent`, a sheet as tall as its content (on iOS a bottom panel over a scrim, kept above the keyboard; under `NativeSheetProvider`, the library's dynamic sizing).
+
+- 93f7243: Native team requests for chat's core, react, web and server:
+
+  - A hosted video joins the outbox at start: a `LocalFile` marked `hosted` goes through the outbox's `hostedUpload` (`ChatProvider hostedUpload`, or `hostedUploadFrom(videoUpload)` by default), the message is sent at once in order with the attachment pending, and the upload is saved with it, so a relaunch carries it on (`resume`) and re-sends with the same clientId. The web video recorder uses it.
+  - Upload progress: `client.upload(..., { onProgress, signal })` (XMLHttpRequest to a signed upload URL where there is one), passed to the `upload` hook too, shown as `PendingMessage.files[i].progress` and a bar on web pending bubbles.
+  - `fakeVideoProvider()` in `/server`: a dev-only `VideoProvider` with a mountable upload handler and `markReady`, refusing `NODE_ENV=production` unless forced.
+  - `useScheduled().schedule` takes native file URIs and the provider's `upload` hook, as `send` does.
+  - Search hits carry `threadRootId` (`genesis_chat.search_messages` returns `thread_root_id`; migration 0003), and the web thread opens a reply's thread.
+  - A failed scheduled message can be removed: the memory client matches `cancel_scheduled`, and the web scheduled list offers Remove.
+
+- 85a9ea5: The access Retry (`refetchAccess`, also `refetchConversation`) refetches every lookup of a conversation, so the away line and the rest recover too. Migration 0003 also broadcasts any change to a message's moderation, however it's made, so a hidden message updates live.
+- 8ef3ad2: The 0002 pgTAP test checks the push badge's kind exclusion against a real recipient, a new direct message, instead of an assertion that could never fail. Copy `migrations/tests/0002_genesis_chat_coaching.test.sql` again.
+
 ## 0.2.0
 
 ### Minor Changes

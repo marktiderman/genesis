@@ -336,12 +336,12 @@ Upgrading Genesis upgrades the checks.
 
 | Option | |
 | --- | --- |
-| `--strict` | Fail on warnings too. |
-| `--json` | Print `{ ok, genesis, errors, warnings, findings, unused }`. Build output is captured, not streamed. |
+| `--strict` | Fail on warnings too. `info` findings never fail. |
+| `--json` | Print `{ ok, genesis, errors, warnings, infos, findings, unused }`; each finding has its `level` (`error`, `warn` or `info`). Build output is captured, not streamed. |
 | `--build` | After the checks, run `doctor.build` commands, or the app's `typecheck` then `build` scripts. A build that itself runs the doctor doesn't recurse. |
 | `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
-| `--print-genesis` | Print the components, tokens, raw tags and palette read from Genesis, and exit. |
+| `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
 
@@ -358,10 +358,58 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `raw-color` | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry. |
 | `undefined-token` | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored. |
 | `shadowed-export` | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it. |
+| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving the app's dependency graph the way Node does, from each package's real folder (starting from the app's own `package.json`), so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. A copy reached only through dev tooling (the app's `devDependencies`, or anything under `@marktiderman/genesis-cli`, wherever it's listed) is `[dev only]`: every path to it from the app runs through declared tooling (test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, or the CLI). Other devDependencies count as runtime: a bundler ships what the app imports from them. When exactly one copy is reached from a declared runtime dependency and every other copy is dev-only, the finding is `info` (it can't split the app's contexts). Anything else warns, a copy reached through an undeclared hoisted package included. An app with no runtime dependencies at all (a bundled SPA listing everything in `devDependencies`) has its devDependencies taken as runtime. A copy that only walking up the folders finds is left out: in an app with its own install inside another app's folder (a lockfile of its own, like `apps/mobile`), a peer dependency the app doesn't declare or install is unmet rather than met by the parent's copy, and the parent's CLI isn't followed unless the app declares it. A regular dependency that resolves up to the parent still counts. |
+| `peer-range-mismatch` | warn | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x - ||`, prereleases only when the range names one). A mismatch inside a dev-only copy (the CLI's own tree) is `info`. |
+| `hand-rolled-sub-nav` | warn | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)). |
+| `local-genesis-copy` | warn | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
+| `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
+| `page-layout` | warn | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
+| `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything. |
 
 It also prints **Available but unused**: the Genesis components no file imports. Check it
 before building something.
+
+The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
+folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`).
+**TanStack Router**: flat `a.$id.tsx` or folders, `route.tsx` layouts, `__root.tsx`, `-private`
+files skipped, a trailing `_` un-nesting a segment, and `posts.lazy.tsx` paired with `posts.tsx`
+as one route (findings point at the lazy file, which holds the component). **Next.js `app/`**
+(chosen when the folder has `page` / `layout` files and no `__root`): `layout.tsx` around
+`page.tsx`, `[id]` params, `(group)` and `@slot` folders dropped from the path; private
+`_folders` and the special files (`error`, `global-error`, `loading`, `not-found`, `template`,
+`default`, `route` handlers, metadata files) aren't routes. **Next.js `pages/`**: `_app` is the
+layout; `_document`, `_error`, `404`, `500` and `api/` aren't pages.
+
+A route whose component is imported (`component: CoursesPage`, `export { default } from …`)
+renders; only a route that renders nothing but `<Navigate>` / `<Redirect>` / `<Outlet>` (or no
+component) is redirect-only. A route is a layout when it is a layout file, a pathless `_layout`
+route, or renders an `<Outlet>` itself or in the component it imports. `__root` and Next's
+`layout` files are pure layouts, as is a pathless route or one whose only markup around the
+`<Outlet>` is a wrapper (`<div className="space-y-4"><Outlet /></div>`); a route with content of
+its own beside the outlet (text, a heading, a list or table), `posts/route.tsx` included, is a page
+too, and `page-layout` and `hand-rolled-sub-nav` check it. Next's `(group)` and `@slot` folders
+aren't URL segments, but a group's layout wraps only the routes in that group.
+
+What a route renders is followed through the app's modules up to six deep: the imports of the
+components it renders (or names as `component:`), `lazy(() => import(…))` /
+`lazyRouteComponent(…)`, re-exports and barrels, through relative paths, tsconfig/jsconfig
+`paths` and `baseUrl` (following `extends`, to a file or a package's config), package.json
+`imports` and the `@/`, `~/`, `#/` defaults. Imports it only calls (data helpers, hooks) aren't
+followed, and an `import(…)` inside a string, comment, template or regex literal isn't one (the
+tokenizer reads regex literals and JSX text such as `Rock 'n roll`; a file it can't read for sure
+is treated as unknown). An import that is neither an
+app file nor an installed or declared package makes that route unsure, and the route rules don't
+report it; it never makes a route a layout. Past six modules the trail stops as a one-hop check
+would: the route is reported.
+
+`hand-rolled-sub-nav` and `page-layout` are warnings (failures under `--strict`) and
+`resource-workspace` is `info`. Opt out with `rules`
+(`{ "page-layout": "off" }`) or a justified `allow` entry for one file:
+
+```json
+{ "rule": "hand-rolled-sub-nav", "file": "src/routes/_shell/onboarding.tsx", "reason": "A wizard's steps, not sections." }
+```
 
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
 `__mocks__`, `*.d.ts` and `*.gen.*`. Comments are ignored by every rule.
@@ -400,7 +448,7 @@ keep `raw-color`).
 
 | Rule | Level | What it flags |
 | --- | --- | --- |
-| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
+| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`, which points to `NativeLoadingState`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
 | `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`. |
 | `native-custom-header` | warn | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors. |
 | `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
@@ -416,6 +464,8 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-rls` | error | A table in an exposed schema whose row level security is off once every migration has run: never enabled, or disabled later. Renames (`alter table … rename to`, `set schema`) and drops are followed. RLS enabled by dynamic SQL (a `do $$ … execute format('alter table %I enable row level security', t) … $$` loop) can't be traced, so such a block counts as enabling it for every table created before it. |
 | `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
 | `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
+| `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
+| `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
 added, modified or is untracked since the merge base. `since` (a file name or timestamp prefix)
@@ -468,7 +518,9 @@ migrations never fail a build. In CI, check out with full history and fetch the 
 | `rawTags` | | `{ "img": "Avatar" }` adds a mapping; `{ "select": false }` stops checking a tag. |
 | `forbiddenImports` | | `{ "<regexp>": "message" }`, added to the defaults. |
 | `localPrimitiveDirs` | `["src/components/ui"]` | |
-| `rules` | | `{ "<rule>": "error" \| "warn" \| "off" }` for any rule, built-in or yours. |
+| `routesDir` | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` | The web routes folder the route rules read. |
+| `componentPackages` | `["@marktiderman/genesis-forms-studio"]` | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
+| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. |
 | `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. |
 | `patterns` | | Declarative rules, below. |
 | `rulesDoc` | | A markdown file of declarative rules, below. |

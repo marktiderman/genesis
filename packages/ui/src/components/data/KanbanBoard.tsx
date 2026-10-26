@@ -16,6 +16,7 @@ import { Badge } from "../ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from "../../utils";
 import { useAnnouncer } from "../patterns/use-announcer";
+import { fillMessage, useUiMessages } from "../../messages";
 
 export type ColumnStatus = "neutral" | "warning" | "success" | "info" | "destructive" | "primary";
 
@@ -83,7 +84,7 @@ const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : us
 export function KanbanBoard<T>({
   columns,
   renderCard,
-  emptyMessage = "No items",
+  emptyMessage: emptyMessageProp,
   className,
   getKey,
   onMoveItem,
@@ -96,11 +97,26 @@ export function KanbanBoard<T>({
   // A keyboard pick-up: the card stays put and `target` is the column it
   // would drop into.
   const [grabbed, setGrabbed] = useState<{ key: string; from: string; target: string } | null>(null);
+  const m = useUiMessages();
+  const k = m.kanban;
+  const emptyMessage = emptyMessageProp ?? k.noItems;
   const { message: announcement, announce } = useAnnouncer();
   const handles = useRef(new Map<string, HTMLButtonElement>());
   // A card moved from the keyboard lands in another column, a new element;
   // its handle gets focus back once it renders there.
   const refocus = useRef<string | null>(null);
+  // Which move the pending refocus belongs to: a slower, earlier move of the
+  // same card that fails must not cancel the refocus a later move set up.
+  const refocusMove = useRef(0);
+  // Bumped when a move settles, so the refocus check runs once more after the caller's update.
+  const [, setSettledTick] = useState(0);
+  // The column the card was in when its move started: until it shows up
+  // somewhere else, the move is still saving.
+  const refocusFrom = useRef<string | null>(null);
+  // The move behind the pending refocus has settled. If the card is still where it was once the
+  // board has re-rendered (the caller kept it there), there is nothing left to wait for.
+  const refocusSettled = useRef(false);
+  const moves = useRef(0);
   const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
   // Dragging needs stable keys to find the dropped item again.
@@ -116,11 +132,18 @@ export function KanbanBoard<T>({
   };
   const labelOf = (key: string) => {
     const found = find(key);
-    return found && getItemLabel ? getItemLabel(found.item) : "Card";
+    return found && getItemLabel ? getItemLabel(found.item) : k.card;
   };
   const columnLabel = (key: string) => columns.find((c) => c.key === key)?.label ?? key;
 
   const move = (item: T, to: string, name: string) => {
+    const id = ++moves.current;
+    const key = getKey?.(item);
+    if (key !== undefined && refocus.current === key) {
+      refocusMove.current = id;
+      refocusFrom.current = find(key)?.column.key ?? null;
+      refocusSettled.current = false;
+    }
     let result: void | Promise<void>;
     try {
       result = onMoveItem?.(item, to);
@@ -129,8 +152,22 @@ export function KanbanBoard<T>({
     }
     // The caller reports the failure; the card simply stays put.
     void Promise.resolve(result).then(
-      () => announce(`${name} moved to ${columnLabel(to)}.`),
-      () => announce(`Couldn’t move ${name}.`),
+      () => {
+        if (key !== undefined && refocus.current === key && refocusMove.current === id) {
+          refocusSettled.current = true;
+          // Re-check after the caller's update has had its render.
+          setSettledTick((n) => n + 1);
+        }
+        announce(fillMessage(k.moved, { name, column: columnLabel(to) }));
+      },
+      () => {
+        // Nothing moved, so there is no new handle to focus; a pending
+        // refocus would otherwise grab focus the next time it reaches body.
+        if (key !== undefined && refocus.current === key && refocusMove.current === id) {
+          refocus.current = null;
+        }
+        announce(fillMessage(k.moveFailed, { name }));
+      },
     );
   };
 
@@ -151,22 +188,20 @@ export function KanbanBoard<T>({
   // ── Keyboard pick-up on the handle ──
   const pickUp = (key: string, from: string) => {
     setGrabbed({ key, from, target: from });
-    announce(
-      `${labelOf(key)} picked up in ${columnLabel(from)}. Use the left and right arrow keys to choose a column, Space to drop, Escape to cancel.`,
-    );
+    announce(fillMessage(k.pickedUp, { name: labelOf(key), column: columnLabel(from) }));
   };
   const aim = (index: number) => {
     if (!grabbed) return;
     const column = columns[Math.max(0, Math.min(columns.length - 1, index))];
     if (!column || column.key === grabbed.target) return;
     setGrabbed({ ...grabbed, target: column.key });
-    announce(`Over ${column.label}, column ${columns.indexOf(column) + 1} of ${columns.length}.`);
+    announce(fillMessage(k.over, { column: column.label, n: columns.indexOf(column) + 1, count: columns.length }));
   };
   const drop = () => {
     if (!grabbed) return;
     setGrabbed(null);
     if (grabbed.target === grabbed.from) {
-      announce(`${labelOf(grabbed.key)} dropped back in ${columnLabel(grabbed.from)}.`);
+      announce(fillMessage(k.droppedBack, { name: labelOf(grabbed.key), column: columnLabel(grabbed.from) }));
       return;
     }
     refocus.current = grabbed.key;
@@ -175,7 +210,7 @@ export function KanbanBoard<T>({
   const cancel = () => {
     if (!grabbed) return;
     setGrabbed(null);
-    announce(`Move cancelled. ${labelOf(grabbed.key)} stays in ${columnLabel(grabbed.from)}.`);
+    announce(fillMessage(k.cancelled, { name: labelOf(grabbed.key), column: columnLabel(grabbed.from) }));
   };
 
   // Escape while a card is picked up must not also close a surrounding
@@ -205,18 +240,28 @@ export function KanbanBoard<T>({
   useIsomorphicLayoutEffect(() => {
     const key = refocus.current;
     if (!key) return;
-    const handle = handles.current.get(key);
-    if (!handle) return;
-    // Wait while the card is still in its old column (an async move).
-    if (handle.isConnected && document.activeElement === handle) {
+    const found = find(key);
+    if (!found) {
+      // The card left the board (filtered out, or moved to a column that
+      // isn't shown): nothing to put focus back on.
       refocus.current = null;
       return;
     }
-    const active = document.activeElement;
-    if (active === null || active === document.body) {
-      handle.focus();
-      refocus.current = null;
+    // Still in the column it left: the move is saving (or failed, which
+    // clears this). Wait.
+    if (found.column.key === refocusFrom.current) {
+      // Saved, yet still in its old column: the caller didn't move it. Stop waiting, so a later
+      // move by someone else can't pull focus to it.
+      if (refocusSettled.current) refocus.current = null;
+      return;
     }
+    const handle = handles.current.get(key);
+    if (!handle) return;
+    const active = document.activeElement;
+    // Arrived. Moving it remounted the card, dropping focus to the page:
+    // give it back. If the user has moved on to something else, leave it.
+    if (active === null || active === document.body) handle.focus();
+    refocus.current = null;
   });
 
   const onHandleKeyDown = (event: KeyboardEvent, key: string, from: string) => {
@@ -261,7 +306,7 @@ export function KanbanBoard<T>({
     if (event.pointerType === "mouse" || grabbed || dragging) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     setDragging({ key, from, pointer: event.pointerId });
-    announce(`${labelOf(key)} picked up in ${columnLabel(from)}.`);
+    announce(fillMessage(k.pickedUpTouch, { name: labelOf(key), column: columnLabel(from) }));
   };
   const onHandlePointerMove = (event: PointerEvent) => {
     if (dragging?.pointer !== event.pointerId) return;
@@ -275,7 +320,7 @@ export function KanbanBoard<T>({
     setDragging(null);
     setOver(null);
     if (to && to !== from) moveKey(key, to);
-    else announce(`${labelOf(key)} dropped back in ${columnLabel(from)}.`);
+    else announce(fillMessage(k.droppedBack, { name: labelOf(key), column: columnLabel(from) }));
   };
   const onHandlePointerCancel = (event: PointerEvent) => {
     if (dragging?.pointer !== event.pointerId) return;
@@ -340,7 +385,7 @@ export function KanbanBoard<T>({
             ) : (
               column.items.map((item, i) => {
                 const key = keyOf(item, i);
-                const name = getItemLabel?.(item) ?? "card";
+                const name = getItemLabel?.(item) ?? k.cardInLabel;
                 const isGrabbed = grabbed?.key === key;
                 return (
                 <div
@@ -371,7 +416,7 @@ export function KanbanBoard<T>({
                         if (node) handles.current.set(key, node);
                         else handles.current.delete(key);
                       }}
-                      aria-label={`Pick up ${name}`}
+                      aria-label={fillMessage(k.pickUp, { name })}
                       aria-describedby={instructionsId}
                       data-grabbed={isGrabbed || undefined}
                       className={cn(
@@ -395,13 +440,13 @@ export function KanbanBoard<T>({
                   {movable && columns.length > 1 && (
                     <DropdownMenu>
                       <DropdownMenuTrigger
-                        aria-label={`Move ${name}`}
+                        aria-label={fillMessage(k.move, { name })}
                         className="absolute right-1.5 top-1.5 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <ArrowRightLeft className="h-3.5 w-3.5" aria-hidden />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Move to</DropdownMenuLabel>
+                        <DropdownMenuLabel>{k.moveTo}</DropdownMenuLabel>
                         {columns
                           .filter((c) => c.key !== column.key)
                           .map((c) => (
@@ -409,7 +454,7 @@ export function KanbanBoard<T>({
                               key={c.key}
                               onSelect={() => {
                                 refocus.current = key;
-                                move(item, c.key, getItemLabel?.(item) ?? "Card");
+                                move(item, c.key, getItemLabel?.(item) ?? k.card);
                               }}
                             >
                               {c.label}
@@ -431,8 +476,7 @@ export function KanbanBoard<T>({
     {movable && (
       <>
         <p id={instructionsId} hidden>
-          Space or Enter picks the card up. Left and right arrows, Home and End choose a column. Space or Enter drops
-          it, Escape puts it back. Alt with an arrow moves it one column.
+          {k.instructions}
         </p>
         <div aria-live="polite" aria-atomic="true" className="sr-only">
           {announcement}

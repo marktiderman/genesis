@@ -1,18 +1,13 @@
 import { z } from "zod";
 import { cycleProblems, requirementProblem } from "./graph";
 import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
+import { statusOn } from "./status";
+import { FEATURE_STATUSES, FLAG_KINDS, type FeatureAccess, type FeatureStatus, type FlagKind, type FlagValue } from "./types";
 
-/**
- * Where a feature is in its life. The order is the board's column order.
- * `idea` is captured but not agreed: it is in the list so `find` turns it up
- * before someone builds the same thing twice.
- *
- * @stability Beta
- */
-export const FEATURE_STATUSES = ["idea", "planned", "building", "beta", "live", "deprecated", "retired"] as const;
+// The plain types live in their own zod-free file, shared with the gate.
+export { FEATURE_STATUSES, FLAG_KINDS, type FeatureAccess, type FeatureStatus, type FlagKind, type FlagValue };
 
-/** @stability Beta */
-export type FeatureStatus = (typeof FEATURE_STATUSES)[number];
+
 
 /**
  * When a planned or building feature is due, without dates: the roadmap's
@@ -33,13 +28,6 @@ export type FeatureHorizon = (typeof FEATURE_HORIZONS)[number];
  */
 export type FeatureVisibility = "internal" | "customer" | "public" | `client:${string}`;
 
-/**
- * Who gets a feature: everyone, or one paid plan. The feature id doubles as
- * the billing entitlement's lookup key (a Stripe `lookup_key`).
- *
- * @stability Beta
- */
-export type FeatureAccess = "all" | { plan: string };
 
 /**
  * Pointers from a feature to where it lives. `code` paths are relative to the
@@ -143,20 +131,8 @@ export interface FeatureDef {
   slots?: readonly string[];
 }
 
-/**
- * Why a flag exists. `release` and `experiment` flags need `expires`, `ops`
- * flags need a `runbook`, and `permission` flags fail `check`: paid access
- * belongs in entitlements (`access`), not flags.
- *
- * @stability Beta
- */
-export const FLAG_KINDS = ["release", "experiment", "ops", "permission"] as const;
 
-/** @stability Beta */
-export type FlagKind = (typeof FLAG_KINDS)[number];
 
-/** A flag's default: anything an OpenFeature flag can hold. */
-export type FlagValue = boolean | string | number | { readonly [key: string]: unknown };
 
 /**
  * One flag. `feature` names the {@link FeatureDef} it belongs to; a feature's
@@ -476,13 +452,8 @@ export interface FindOptions {
   status?: FeatureStatus;
 }
 
-/** A feature's status on one platform, or undefined when it isn't there. @stability Beta */
-export function statusOn(def: FeatureDef, platform: FeaturePlatform): FeatureStatus | undefined {
-  if (def.platforms) return def.platforms[platform];
-  // Registries often call the server "node" in `apps`.
-  const apps = def.apps.map((a) => (a === "node" ? "server" : a));
-  return apps.includes(platform) ? def.status : undefined;
-}
+// A feature's status on one platform: in its own zod-free file so the gate shares it.
+export { statusOn };
 
 /**
  * Features matching `term` in their id, aliases, name, keywords, summary,

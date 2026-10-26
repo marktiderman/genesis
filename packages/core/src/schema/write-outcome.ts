@@ -16,6 +16,9 @@ import type { DataRow } from "./types";
  * - `forbidden`: the row is visible and unchanged, but the app or the
  *   database does not let this user make this change. Only reported when
  *   that is proven, never assumed from "zero rows changed".
+ * - `duplicate`: a row with the same unique key already exists (`23505`).
+ *   A caller keeping "one live row per key" (a draft, a natural-key upsert)
+ *   adopts the existing row instead; `fields` still names the clashing field.
  * - `invalid`: the store rejected the value (type, constraint, not-null).
  * - `audit_failed`: the audit entry could not be written, so the edit was
  *   rolled back with it.
@@ -26,6 +29,7 @@ export type WriteOutcome =
   | "conflict"
   | "gone"
   | "forbidden"
+  | "duplicate"
   | "invalid"
   | "audit_failed"
   | "unauthenticated"

@@ -130,8 +130,12 @@ export interface ChatCardContext {
 export interface ChatAttachmentKind {
   title(attachment: ChatAttachment, ctx?: ChatCardContext): string;
   subtitle?(attachment: ChatAttachment, ctx?: ChatCardContext): string | null | undefined;
-  /** The card's button: a link (`href`) or a handler (`onPress`). */
-  action?(attachment: ChatAttachment, ctx?: ChatCardContext): { label: string; href?: string; onPress?: () => void } | null | undefined;
+  /**
+   * The card's button: a link (`href`) or a handler (`onPress`). On native the button is also the
+   * bubble's VoiceOver action, and a handler that returns a promise shows the card as busy until
+   * it settles (and a short error if it rejects).
+   */
+  action?(attachment: ChatAttachment, ctx?: ChatCardContext): { label: string; href?: string; onPress?: () => void | Promise<unknown> } | null | undefined;
   /** What previews call it (the inbox's last message, "Check-in"); the title by default. */
   label?: string;
 }

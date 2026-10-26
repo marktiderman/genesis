@@ -1,5 +1,28 @@
 # @marktiderman/genesis-notifications
 
+## 0.2.0
+
+### Minor Changes
+
+- 48c4c90: `notificationsPushPreferences(supabase)` (from `/native`): the push block's `loadPreferences` / `savePreferences` on this package's preferences row, for an app that registers devices its own way: `createPush({ backend: { register, forget, ...notificationsPushPreferences(supabase) } })`, and Settings → Notifications reads and saves the notifier's preferences. `notificationsPushBackend` is now built on it (no change in behavior). Type `PushPreferencesBackend`.
+
+### Patch Changes
+
+- e1de4c1: - `native-screen-layout` counts a route as a screen through `NativeLoadingState` only when a full-screen loading state is all it renders (header options and fragments aside). A route that also renders other content, imports it, or uses `fullScreen={false}` still needs a Genesis layout.
+  - Docs: `ScreenContainer`'s `loading` is for first loads (the body is unmounted while it's on); `loadingLabel` is visible and read aloud, so pass translated text; spread `notificationsPushPreferences` after your own keys.
+- a85f1c7: Docs. genesis-chat: the README covers `/native` (Beta: its screens and their main props), lists migration 0003 and names the push category `messages`. genesis-native: the rich push plugin's first-build steps for the Notification Service Extension (enable Communication Notifications on `<bundle id>.NotificationService`, then `eas credentials` to make its profile). genesis-notifications: a push carries a type's `push.ids` (and, with previews shown, `push.display` and `mutableContent`), and the Notification Service Extension works with it through genesis-native.
+- b3b8712: Chat pushes sent through genesis-notifications now get Reply, Mark as read and the Communication Notification:
+
+  - Chat's Mark read action id is `mark_read`, the same as `MESSAGE_ACTIONS` (device ids take no "-"). A notification already on a phone with the old `mark-read` still marks read.
+  - The docs and examples put `MESSAGE_ACTIONS` under the `messages` id, the category chat's push handler and genesis-native's notification service extension look for. Before, they said `message`, so on that path Mark read did nothing and the extension skipped the push. If your registry copied the old example, rename `actions: { message: MESSAGE_ACTIONS }` to `messages` and the type's `actions: "message"` to `"messages"`.
+
+## 0.1.2
+
+### Patch Changes
+
+- Updated dependencies [d67b516]
+  - @marktiderman/genesis-features@0.4.0
+
 ## 0.1.1
 
 ### Patch Changes

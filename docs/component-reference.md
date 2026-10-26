@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 146 components · 492 other exports · 361 standalone types across 11 packages and entry points.
+**Totals:** 151 components · 536 other exports · 400 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,43 +23,59 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 
 **Barrel:** [`packages/core/src/index.ts`](../packages/core/src/index.ts)
 
-### Components (2)
+### Components (3)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
+| [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 
-### Other exports (32)
+### Other exports (49)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`callRpc`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
+| [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | value | — | _(no summary)_ |
 | [`createLocalStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | localStorage adapter with SSR safety. |
 | [`createMemoryStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | In-memory adapter for testing and SSR. |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
+| [`createOrAdopt`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
 | [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | The Supabase data provider. Reads and writes go through the client you pass, under that client's session and RLS. |
 | [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
+| [`DEFAULT_DRAFT_DELAY_MS`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
+| [`DEFAULT_RPC_MESSAGES`](../packages/core/src/provider/write-helpers.ts) | const | — | The words shown for a code when the caller gives none. A guard's own `raise exception` (P0001) keeps its words. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
+| [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
+| [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
+| [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
+| [`dropPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Drops every write on this client not yet sent, without reporting them: the viewer who made them is gone, so they must never be sent (or re-applied) under the next one. Writes already sending finish under the old session. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
+| [`flushPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | value | — | _(no summary)_ |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
+| [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
+| [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
+| [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
@@ -67,9 +83,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
+| [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
+| [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (81)
+### Types (97)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -79,6 +97,8 @@ export type { AuditEntry };
 export type { BaseRecord };
 export type { BulkChange };
 export type { BulkResult };
+export type { CallRpcOptions };
+export type { CreateOrAdoptOptions };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
@@ -87,6 +107,12 @@ export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
+export type { DraftAdoption };
+export type { DraftOptions };
+export type { DraftSeed };
+export type { DraftState };
+export type { DraftStatus };
+export type { DraftValue };
 export type { FieldPermissions };
 export type { FieldReference };
 export type { FieldSchema };
@@ -102,6 +128,8 @@ export type { Identifier };
 export type { ImportParams };
 export type { InfinitePageParam };
 export type { InvalidationKey };
+export type { KeyFilter };
+export type { KeyScope };
 export type { ListParams };
 export type { ListResult };
 export type { LiveOptions };
@@ -112,6 +140,7 @@ export type { NullFilter };
 export type { PaginationParam };
 export type { PostgrestFieldErrors };
 export type { ProviderCapabilities };
+export type { QueryKeys };
 export type { RangeFilter };
 export type { ReadOutcome };
 export type { RecordComment };
@@ -124,7 +153,9 @@ export type { ResourceSchema };
 export type { ResourceSummary };
 export type { RowAction };
 export type { RowFailure };
+export type { RpcClient };
 export type { ScalarFilter };
+export type { ScopedKey };
 export type { SelectOption };
 export type { SortParam };
 export type { StorageAdapter };
@@ -140,6 +171,7 @@ export type { SupabaseWriteContext };
 export type { UndoableWrite };
 export type { UpdateParams };
 export type { UpdateResult };
+export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseOneOptions };
@@ -150,6 +182,8 @@ export type { UseResourceReturn };
 export type { UseUnsavedChangesGuardOptions };
 export type { UseUnsavedChangesGuardReturn };
 export type { UseWizardReturn };
+export type { UseWriteOptions };
+export type { UseWriteReturn };
 export type { VersionField };
 export type { WidgetHint };
 export type { WizardStep };
@@ -237,7 +271,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (40)
+### Components (42)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -245,6 +279,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
+| [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -264,6 +299,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`PasswordToggleFieldInput`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldInputProps` | Experimental | PasswordToggleFieldInput — the field itself. |
 | [`PasswordToggleFieldSlot`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldSlotProps` | Experimental | PasswordToggleFieldSlot — renders one of two nodes depending on visibility. |
 | [`PasswordToggleFieldToggle`](../packages/ui/src/components/ui/password-toggle-field.tsx) | `PasswordToggleFieldToggleProps` | Experimental | PasswordToggleFieldToggle — the show/hide button. |
+| [`ResourceHeader`](../packages/ui/src/components/resource/index.ts) | `ResourceHeaderProps` | — | _(no summary)_ |
 | [`Section`](../packages/ui/src/components/layout/section.tsx) | `SectionProps` | Beta | Section — a titled region of a page: heading, optional description, optional trailing actions, and the content itself. |
 | [`SettingsPage`](../packages/ui/src/components/layout/settings-page.tsx) | `SettingsPageProps` | Beta | SettingsPage — a sectioned settings surface with a nav rail for jumping between sections. |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
@@ -282,7 +318,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (245)
+### Other exports (264)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -339,6 +375,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
+| [`Chip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`Collapsible`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
 | [`CollapsibleContent`](../packages/ui/src/components/ui/collapsible.tsx) | value | — | _(no summary)_ |
@@ -368,6 +405,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ContextMenuSubContent`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
 | [`ContextMenuSubTrigger`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
 | [`ContextMenuTrigger`](../packages/ui/src/components/ui/context-menu.tsx) | value | — | _(no summary)_ |
+| [`dayLabel`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`Dialog`](../packages/ui/src/components/ui/dialog.tsx) | value | — | _(no summary)_ |
@@ -406,6 +444,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DropdownMenuSubContent`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`DropdownMenuSubTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`DropdownMenuTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
+| [`embedSnippet`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`fillMessage`](../packages/ui/src/messages.tsx) | function | — | Fills `{name}` placeholders; an unknown placeholder is left as written. |
+| [`FollowUpList`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`FormDescription`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormError`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormField`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
@@ -416,6 +457,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`H2`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H3`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
 | [`H4`](../packages/ui/src/components/ui/typography.tsx) | value | — | _(no summary)_ |
+| [`HeadlineNumbers`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`HoverCard`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardContent`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
 | [`HoverCardTrigger`](../packages/ui/src/components/ui/hover-card.tsx) | value | — | _(no summary)_ |
@@ -473,13 +515,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Popover`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
 | [`PopoverContent`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
 | [`PopoverTrigger`](../packages/ui/src/components/ui/popover.tsx) | value | — | _(no summary)_ |
+| [`prefilledUrl`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Progress`](../packages/ui/src/components/ui/progress.tsx) | value | — | _(no summary)_ |
 | [`RadioGroup`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
 | [`RadioGroupItem`](../packages/ui/src/components/ui/radio-group.tsx) | value | — | _(no summary)_ |
+| [`readinessChip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ReadinessChip`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`readinessOf`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`ResizableHandle`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/ui/src/navigation.tsx) | value | — | _(no summary)_ |
+| [`resolveUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue with overrides merged over the English. |
+| [`ResourceSettingsPage`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ResponsesToolbar`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`SAVE_STATE_LABEL`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`ScrollArea`](../packages/ui/src/components/ui/scroll-area.tsx) | value | — | _(no summary)_ |
 | [`sectionHeadingVariants`](../packages/ui/src/components/layout/section.tsx) | value | — | _(no summary)_ |
 | [`Select`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
@@ -491,6 +541,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SelectTrigger`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
 | [`SelectValue`](../packages/ui/src/components/ui/select.tsx) | value | — | _(no summary)_ |
 | [`Separator`](../packages/ui/src/components/ui/separator.tsx) | value | — | _(no summary)_ |
+| [`SettingsSection`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`ShareDialog`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Sheet`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
 | [`SheetClose`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
 | [`SheetContent`](../packages/ui/src/components/ui/sheet.tsx) | value | — | _(no summary)_ |
@@ -508,6 +560,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`splitVariants`](../packages/ui/src/components/layout/split.tsx) | value | — | _(no summary)_ |
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`statusBadgeVariants`](../packages/ui/src/components/patterns/status-badge.tsx) | const | — | _(no summary)_ |
+| [`SummaryCard`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Switch`](../packages/ui/src/components/ui/switch.tsx) | value | — | _(no summary)_ |
 | [`Table`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableBody`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
@@ -530,25 +583,39 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui/src/components/ui/toggle.tsx) | value | — | _(no summary)_ |
 | [`ToolbarToggleGroup`](../packages/ui/src/components/ui/toolbar.tsx) | const | Beta | ToolbarToggleGroup — a set of pressed/unpressed controls inside a toolbar (the classic bold / italic / underline cluster). |
 | [`toolbarVariants`](../packages/ui/src/components/ui/toolbar.tsx) | const | — | _(no summary)_ |
+| [`UiMessagesProvider`](../packages/ui/src/messages.tsx) | function | — | Rewords or translates Genesis UI's components below it. Nested providers build on the one above, so a section can change a few words. |
 | [`useBrowserSearchParams`](../packages/ui/src/navigation.tsx) | function | Beta | Browser-native {@link SearchParamsAdapter} built on the History API. Reads the current query string and writes updates via `pushState`/`replaceState`, staying reactive to `popstate` events. No router required. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
+| [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (18)
+### Types (31)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
 export type { ChartConfig };
+export type { ChipTone };
 export type { CommandPaletteItem };
+export type { FollowUpEntry };
 export type { GenesisLinkProps };
+export type { HeadlineNumber };
 export type { IsPathActiveOptions };
 export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { PrefillChoice };
+export type { Readiness };
+export type { ReadinessFinding };
+export type { ReadinessLabels };
+export type { ReadinessOptions };
 export type { ResolvedNavigation };
+export type { ResourceSettingsSection };
+export type { ResponsesView };
+export type { SaveState };
 export type { SearchParamsAdapter };
 export type { SettingsPageSection };
 export type { SortableListItemContext };
@@ -557,6 +624,7 @@ export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
 export type { StatusBadgeStatus };
+export type { UiMessagesOverrides };
 ```
 
 ---
@@ -694,7 +762,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (94)
+### Components (96)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -738,6 +806,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeDropdownMenuItem`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuItemProps` | — | _(no summary)_ |
 | [`NativeDropdownMenuTrigger`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuTriggerProps` | — | _(no summary)_ |
 | [`NativeEmptyState`](../packages/ui-native/src/components/empty-state.tsx) | `NativeEmptyStateProps` | — | _(no summary)_ |
+| [`NativeFullScreenModal`](../packages/ui-native/src/components/full-screen-modal.tsx) | `NativeFullScreenModalProps` | Beta | _(no summary)_ |
 | [`NativeGlassSurface`](../packages/ui-native/src/components/glass-surface.tsx) | `NativeGlassSurfaceProps` | — | _(no summary)_ |
 | [`NativeHeaderCard`](../packages/ui-native/src/components/header-card.tsx) | `NativeHeaderCardProps` | — | _(no summary)_ |
 | [`NativeIcon`](../packages/ui-native/src/components/icon.tsx) | `NativeIconProps` | — | _(no summary)_ |
@@ -746,6 +815,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeInput`](../packages/ui-native/src/components/input.tsx) | `NativeInputProps` | — | _(no summary)_ |
 | [`NativeLabel`](../packages/ui-native/src/components/label.tsx) | `NativeLabelProps` | — | _(no summary)_ |
 | [`NativeListItem`](../packages/ui-native/src/components/list-item.tsx) | `NativeListItemProps` | — | _(no summary)_ |
+| [`NativeLoadingState`](../packages/ui-native/src/components/loading-state.tsx) | `NativeLoadingStateProps` | — | _(no summary)_ |
 | [`NativeNumberInput`](../packages/ui-native/src/components/number-input.tsx) | `NativeNumberInputProps` | — | _(no summary)_ |
 | [`NativePagination`](../packages/ui-native/src/components/pagination.tsx) | `NativePaginationProps` | — | _(no summary)_ |
 | [`NativePopover`](../packages/ui-native/src/components/popover.tsx) | `NativePopoverProps` | — | _(no summary)_ |
@@ -793,7 +863,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (45)
+### Other exports (46)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -811,6 +881,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
 | [`formatInboxTime`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
+| [`FULL_SCREEN_DARK`](../packages/ui-native/src/components/full-screen-modal.tsx) | const | — | The dark tone's backdrop: media reads best on true black in light and dark mode alike. |
 | [`getInboxPageStackOptions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | `<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll. |
 | [`getNotificationsPageStackOptions`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a NotificationsPage. Wires a "Mark all read" action via `headerRight` when `onMarkAllRead` is passed. |
 | [`getSettingsPageStackOptions`](../packages/ui-native/src/layouts/settings-page.tsx) | function | — | Convenience helper for callers that want to wire `<Stack.Screen options={...}>` without re-importing composeHeaderOptions. Defaults `large: true` and `scrollEdgeBehavior: "match"` to match the Apple HIG large-title settings pattern out o... |
@@ -845,7 +916,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (59)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -883,6 +954,7 @@ export type { NativeComboboxOption };
 export type { NativeEmptyStateVariant };
 export type { NativeIconName };
 export type { NativeInlineAlertVariant };
+export type { NativeLoadingStateEdge };
 export type { NativeSegmentedControlOption };
 export type { NativeSheetLibrary };
 export type { NativeStepperStep };
@@ -1231,7 +1303,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (36)
+### Other exports (43)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1251,22 +1323,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
 | [`FEATURE_PLATFORMS`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`FEATURE_STATUSES`](../packages/features/src/model.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
+| [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
 | [`FLAG_KINDS`](../packages/features/src/model.ts) | const | Beta | Why a flag exists. `release` and `experiment` flags need `expires`, `ops` flags need a `runbook`, and `permission` flags fail `check`: paid access belongs in entitlements (`access`), not flags. |
 | [`flagSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FlagDef}. Cross-flag rules live in {@link defineFlags}. |
 | [`flagsForFeature`](../packages/features/src/model.ts) | function | Beta | The names of the flags that belong to a feature, in declaration order. |
+| [`fromSnapshot`](../packages/features/src/gate.ts) | function | Beta | One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta |
+| [`gateSnapshot`](../packages/features/src/gate.ts) | function | Beta | _(no summary)_ |
+| [`isSnapshotStale`](../packages/features/src/gate.ts) | function | Beta | Whether a snapshot is older than `maxAgeMs`: refresh it then. A client (an extension worker, a tab left open) keeps a snapshot, replaces it when it is stale, after sign-in or a tenant switch, and right after a refusal. |
 | [`MARKETING_BLOCK_END`](../packages/features/src/generate.ts) | const | — | Marks the end of the generated marketing block. |
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
+| [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
 | [`requiresProblems`](../packages/features/src/graph.ts) | function | Beta | Self-requirements, unknown requirements and cycles through `requires`, as problem strings (`a.requires: …`). Each cycle is reported once, from where the depth-first search found it: `a.requires: a cycle: a → b → a`. |
 | [`resolveBlocks`](../packages/features/src/blocks.ts) | function | Beta | The blocks that are on, checked and merged: |
-| [`statusOn`](../packages/features/src/model.ts) | function | Beta | A feature's status on one platform, or undefined when it isn't there. @stability Beta |
+| [`SHIPPED_STATUSES`](../packages/features/src/gate.ts) | const | Beta | The statuses in which a feature is on. A deprecated feature still works until it is retired. @stability Beta |
+| [`statusOn`](../packages/features/src/model.ts) | value | — | _(no summary)_ |
 | [`toAgentsMarkdown`](../packages/features/src/generate.ts) | function | Beta | The marker-delimited block for AGENTS.md: deliberately short. It points agents at `find` and the skill and gives counts, never the whole list, so AGENTS.md stays small however many features there are. |
 | [`toJson`](../packages/features/src/generate.ts) | function | Beta | The registry as JSON, for tools that can't import TypeScript. Stable: no timestamps, features in declaration order, so `check` can compare it. It is also the record of every id ever used, which keeps ids permanent. |
 | [`toMarketingMarkdown`](../packages/features/src/generate.ts) | function | Beta | A benefit-led feature list for a README or a marketing page: public, shipped features with a tagline, highlights first, grouped by category. |
@@ -1274,7 +1353,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (32)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1306,7 +1385,16 @@ export type { FlagDef };
 export type { FlagKind };
 export type { FlagValue };
 export type { Flags };
+export type { GateAnswer };
+export type { GateContext };
+export type { GateFeature };
+export type { GateFlag };
+export type { GateReason };
+export type { GateRegistry };
+export type { GateSnapshot };
+export type { GateSnapshotOptions };
 export type { GenerateOptions };
+export type { IdSet };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };

@@ -1,5 +1,80 @@
 # @marktiderman/genesis-cli
 
+## 1.11.2
+
+### Patch Changes
+
+- 6f725f8: `genesis doctor` native pack: `native-raw-primitive` points a raw `ActivityIndicator` to `NativeLoadingState` first (then `NativeSkeleton`, `NativeProgress`), and `native-screen-layout` counts a route that renders `NativeLoadingState` as a screen.
+- e1de4c1: - `native-screen-layout` counts a route as a screen through `NativeLoadingState` only when a full-screen loading state is all it renders (header options and fragments aside). A route that also renders other content, imports it, or uses `fullScreen={false}` still needs a Genesis layout.
+  - Docs: `ScreenContainer`'s `loading` is for first loads (the body is unmounted while it's on); `loadingLabel` is visible and read aloud, so pass translated text; spread `notificationsPushPreferences` after your own keys.
+
+## 1.11.1
+
+### Patch Changes
+
+- 67a06cd: `genesis doctor`, from the third #314 review:
+
+  - `duplicate-genesis-package` / `peer-range-mismatch`: devDependencies count as runtime (a bundler ships what the app imports from them) unless they are tooling: test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, the Genesis CLI. A duplicate under a UI package listed in devDependencies warns again.
+  - The route trail's tokenizer reads regex literals and JSX text (`Rock 'n roll`, backticks, `{done}/{total}`) without losing its place, and treats a file it can't read for sure as unknown instead of guessing.
+  - Answers cut short by an import cycle are cached by the modules they skipped, so cyclic import graphs no longer run several times slower.
+
+- 2eae42f: `genesis doctor`: in an app with its own install inside another app's folder (growth90's `apps/mobile`), `duplicate-genesis-package` and `peer-range-mismatch` count only copies the app's own dependency graph resolves to. An undeclared, uninstalled peer dependency is unmet rather than met by the parent's `node_modules`, and the Genesis CLI's tree is followed only when the app declares the CLI. A regular dependency that resolves up to the parent still counts. Workspace members (no lockfile of their own) are unchanged.
+- Updated dependencies [773e809]
+  - @marktiderman/genesis-features@0.4.1
+
+## 1.11.0
+
+### Minor Changes
+
+- b196c02: Doctor's supabase pack flags a view in an exposed schema that runs as its owner (no `security_invoker = true` once every migration has run): such a view reads past row level security. New rule `migration-view-rls`.
+
+## 1.10.0
+
+### Minor Changes
+
+- 57b3e5a: `genesis doctor` route and install rules, from the #303 and #314 reviews. Minor: some routes and copies are newly checked, so `--strict` can newly fail.
+
+  - A route whose component is imported (`component: CoursesPage`, a re-exported default) renders; it is no longer read as redirect-only and skipped.
+  - TanStack `posts.lazy.tsx` is paired with `posts.tsx` as one route (segments `posts`, not `posts/lazy`).
+  - A route rendering its own content around an `<Outlet>` is a page as well as a layout: `page-layout` and `hand-rolled-sub-nav` check it. Only pure layouts are skipped.
+  - Next.js: private `_folders`, `(groups)`, `@slots` and the special files (error, loading, not-found, template, default, route handlers) aren't routes.
+  - `duplicate-genesis-package`: copies reached only through dev tooling (devDependencies, the Genesis CLI's own tree) are dev-only; when exactly one copy is left at runtime the finding is `info`, and every other copy is reached only through declared devDependencies (an undeclared hoisted path makes it warn), otherwise it warns. An app with no runtime dependencies (everything in devDependencies) has them taken as runtime. `peer-range-mismatch` inside a dev-only copy is `info` too.
+  - The route rules follow what a route renders through imports of rendered components, lazy imports, re-exports and barrels (relative, tsconfig `paths`, package.json `imports`, `@/` `~/` `#/`), and tsconfig `baseUrl` and `extends`, up to six modules deep; an unresolvable import makes only that route unsure (never a layout), `import()` in strings and comments is ignored, and past six modules the route is reported as before.
+  - A wrapper around an `<Outlet>` is a layout, not a page; an `<Outlet>` in an imported layout component makes the route a layout; a folder `route.tsx` with its own content is checked; `export default R` of a local redirect is redirect-only.
+  - Next.js: only `page` and `layout` files under `app/` are routes, and a `(group)` layout wraps only its group.
+
+### Patch Changes
+
+- Updated dependencies [d67b516]
+  - @marktiderman/genesis-features@0.4.0
+
+## 1.9.0
+
+### Minor Changes
+
+- d54328d: The doctor's supabase pack adds `migration-testing-kit`: an error when a migration uses `genesis_testing`, the pgTAP kit that belongs in `supabase/tests` only.
+- 89ea12c: `genesis doctor` catches structural copies of Genesis. They are warnings (failures under `--strict`), except `resource-workspace`, which is `info`.
+
+  A new `info` level is reported (in the text report, with `--json` `infos` and each finding's `level`) but never fails a run, `--strict` included. `rules` accepts it for any rule.
+
+  The new rules:
+
+  - `hand-rolled-sub-nav`: a route inside the AppShell layout that switches its sections with its own page-level `TabsList` / `SubNavTabs` instead of `useAppShellSubNav` and `AppShellPageHeader`.
+  - `local-genesis-copy`: an app component definition (it renders JSX, and it is exported or outside the routes folder) named like a genesis-ui or forms-studio component (`ResourceHeader`, `SettingsSection`, `StatusBadge`, …). A route's own `errorComponent` and similar are not copies.
+  - `duplicate-genesis-package`: more than one loadable copy of a Genesis package, found by following resolution through npm/yarn/bun trees, pnpm's store (workspace sub-apps included) and bun's isolated store, with the paths and the ranges that caused it.
+  - `peer-range-mismatch`: an installed Genesis package whose peer range on another Genesis package isn't met by the installed peer, with the package, range and installed version.
+  - `resource-workspace` (info): detail pages beside one that uses `AppShellPageHeader` but don't.
+  - `page-layout`: a route inside the AppShell with no Genesis page layout, itself, through one local import, or from a layout route around it.
+
+  New settings: `routesDir` and `componentPackages`; `--print-genesis` lists the companion packages' components.
+
+- a4dd4aa: `genesis doctor` adds the `iso-date-slice` rule, a warning. It flags a day cut from an ISO timestamp (`toISOString().slice(0, 10)`, `.substring(0, 10)`, `.split("T")[0]` and the like). That is the day in UTC, not the person's. Use `personDay` or `dayIn` from `@marktiderman/genesis-core/dates` instead. Test files are skipped. Where UTC is what you mean, allow it with a reason.
+
+### Patch Changes
+
+- Updated dependencies [6c180f6]
+  - @marktiderman/genesis-studio-server@0.3.1
+
 ## 1.8.0
 
 ### Minor Changes

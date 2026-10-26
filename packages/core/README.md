@@ -106,6 +106,39 @@ const provider = createSupabaseProvider(supabase, {
 Both hooks also take an `invalidates` option for keys one screen cares about:
 `useResource("tasks", { invalidates: [["me"]] })`.
 
+### Reading from a view or a function
+
+A list often needs more than one table: a join, a count, a total. Give the resource a `source` and
+keep everything else (paging, filters, search, sort, "showing N of M", cursors, live updates,
+Retry): PostgREST filters a view or a set-returning function like a table. Writes still go to the
+table, and realtime still watches it.
+
+```ts
+createSupabaseProvider(supabase, {
+  resources: {
+    // A view joining tasks to people and counting comments.
+    tasks: { source: "tasks_with_people" },
+    // A function returning rows; args are read on every request.
+    course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroupId() }) } },
+    // Embedded joins as the default columns (a caller's `select` still wins).
+    sessions: { select: "*, client:people(full_name)" },
+  },
+});
+```
+
+**Keep RLS on.** A plain view runs as its owner, and a `security definer` function as its definer, so
+either reads past row-level security and shows every row. Create the view
+`with (security_invoker = true)` and the function `security invoker` (or have it filter by
+`auth.uid()` itself):
+
+```sql
+create view public.tasks_with_people with (security_invoker = true) as
+  select t.*, p.full_name as person_name from public.tasks t join public.people p on p.id = t.person_id;
+```
+
+Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
+columns the table's row has, so a form built from the view row never sends `person_name` back.
+
 ### Handling failures
 
 ```ts
@@ -117,6 +150,7 @@ try {
       case "forbidden": /* hide the control, say why */ break;
       case "gone": /* close the record, refresh the list */ break;
       case "invalid": /* show error.message by the form */ break;
+      case "duplicate": /* adopt the existing row, or show error.fields by the form */ break;
       case "unauthenticated": /* send to sign-in */ break;
       default: /* show error.message */
     }
@@ -354,3 +388,206 @@ leave; asks with `window.confirm` otherwise). For other state,
 `useUnsavedChangesGuard({ when, message, confirm })` gives the same
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
+
+## Test your data contract
+
+`@marktiderman/genesis-core/testing` checks your own provider keeps the data rules, against your
+real schema (a local Supabase in CI). Its pgTAP twin is genesis-supabase's `genesis_testing`; both
+use the same fixture people (`FIXTURE_USERS`: owner, staff, client, stranger), so seed them once
+with `select genesis_testing.create_users();`.
+
+Each check passes only on evidence and throws a `ContractError` otherwise, so it works in vitest,
+jest or node:test. A wrong resource, a missing row or a typo fails instead of passing. The control and system
+writes are real (and `expectServerOwned` puts its value back): run the checks on test data.
+
+A refusal must read as plain words, so a provider that passes the database's raw text through (an
+RLS insert refusal says `new row violates row-level security policy …`) fails `expectRefused`. Map
+it to a plain message in the provider; that failure is the kit doing its job.
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { createSupabaseProvider } from "@marktiderman/genesis-core/provider";
+import {
+  expectBinned, expectNeverShows, expectRefused, expectServerOwned, fixtureAccessToken,
+} from "@marktiderman/genesis-core/testing";
+
+// The local stack's legacy JWT secret (`supabase status`); never a production one.
+const providerFor = async (who: "owner" | "client" | "stranger") => {
+  const token = await fixtureAccessToken(who, { secret: process.env.SUPABASE_JWT_SECRET! });
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  return createSupabaseProvider(client, { binTables: ["notes"] });
+};
+
+const client = await providerFor("client");
+const owner = await providerFor("owner");
+const stranger = await providerFor("stranger");
+const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
+
+// A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
+// no row), the control runs the same write as someone who may make it and must change a row.
+await expectRefused((p) => p.update("tasks", { id, data: { title: "x" } }), { as: stranger, control: owner });
+// A column only the server sets stays as it was (the system proves it can change it first).
+await expectServerOwned({ as: client, system, resource: "tasks", id, field: "status", value: "done" });
+// A private value never shows, reports included: read the list around it, not the row by id.
+await expectNeverShows(client.getList("group_progress", {}), "private-marker-7");
+// A delete on a bin table keeps the row.
+await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDeleted("notes", id) });
+```
+
+| Check | Passes when |
+| --- | --- |
+| `expectRefused(write, { as?, control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write and changes a row |
+| `expectAllowed(write)` | it resolves |
+| `expectServerOwned({ as, system, … })` | `system` can change the value (then puts it back), and it's unchanged after `as` tries; refused or put back both count |
+| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused; a read that found nothing fails |
+| `expectSees(read, n)` | the read returns exactly `n` rows |
+| `expectBinned({ as, resource, id, inBin })` | `as` sees the row, deletes it, can't read it back, and `inBin()` confirms it's still stored |
+| `expectPlainMessage(error)` | the message has no raw database text or error codes |
+
+## Autosave a draft
+
+`useDraft` saves one row as someone edits it: an answer to a questionnaire, a
+note, a journal entry. The app supplies the writes (`create`, `update`), so it
+works with any backend. What it guarantees:
+
+- **When it saves:** a moment after the last change (`delayMs`, default 800).
+  Only one write runs at a time. The first save adds the row and later ones
+  change it. Nothing is written when the value is unchanged, and no row is
+  added for an empty value (`isEmpty`).
+- **Another tab started the row:** the first write fails as a duplicate (a
+  `duplicate` write outcome, or `isDuplicate`). `adopt` then merges into that
+  row, writing only the fields changed here (`dirty`), or reports it already
+  finished, and the draft stops.
+- **The server's copy wins** (sent elsewhere, returned by a reviewer): pass a
+  new `revision`. The draft starts again from `seed`, and `discarded` tells the
+  page that unsaved edits were dropped. `onRevision` can merge them instead.
+  A new revision that is only this draft's own save coming back (the same row,
+  holding what was saved) keeps every edit, so a revision built from the row's
+  id is safe across the first save's refetch. A revision that brings another
+  row first saves the edits pending here to the row they belong to (`idOf`,
+  default `row.id`).
+  `key` changes whenever the value is replaced from outside, so remount the
+  editor on it.
+- **Failures:** network failures are retried with backoff. Refusals
+  (forbidden, gone, invalid) aren't retried; they set `status: "error"` and a
+  plain `error`.
+- **Leaving the page** saves what's pending: on `pagehide` and `beforeunload`
+  (with `keepalive` passed to `update`), and on unmount.
+- **`commit(write)`** is the final write, a submit. It waits for any write in
+  flight and stops autosave once it succeeds. If it fails, autosave carries on.
+- **`enabled: false`** writes nothing: someone else's draft, or one already
+  sent.
+
+```tsx
+const draft = useDraft({
+  seed: { row: entry, value: entry?.answers ?? {} },
+  revision: `${entry?.id}:${entry?.status}`,
+  enabled: entry?.status !== "sent",
+  create: (answers) => api.addEntry(answers),
+  update: (row, answers) => api.saveEntry(row.id, answers),
+  toValue: (row) => row.answers,
+  onSaved: (row) => queryClient.setQueryData(["entry", row.id], row),
+});
+
+<Editor key={draft.key} value={draft.value} onChange={draft.set} />
+<Button onClick={() => draft.commit((row, answers) => api.send(row, answers))}>Send</Button>
+```
+
+`DraftController` is the same logic without React, for tests or other
+frameworks.
+
+## Query keys
+
+Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
+one person shows to another.
+
+```ts
+import { ViewerScope, defineQueryKeys, resourceKeys } from "@marktiderman/genesis-core";
+
+export const worksheetKeys = defineQueryKeys("worksheet-items", {
+  // The fields that make one query distinct. Sort arrays: order never makes two keys.
+  lessonParts: (people: string[]) => ({ people: [...people].sort() }),
+  byEntry: (entryId: string) => ({ entryId }),
+});
+
+// Reading: keys exist only for a scope. `viewer` is required; `group` and `day` when the read depends on them.
+useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).lessonParts(people), queryFn });
+
+// Invalidating:
+queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
+queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });  // one kind
+queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));    // every key with this person, multi-person keys included
+queryClient.invalidateQueries(worksheetKeys.where({ entryId }, "byEntry"));  // narrowed to one query
+queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // what useResource / useOne cache
+
+// Once, around the signed-in app: screens mount only for a known viewer, and a sign-out or a new
+// person unmounts them and empties the cache first. (Resource keys carry no viewer; this keeps them apart.)
+<ViewerScope viewer={session === undefined ? undefined : (session?.user.id ?? null)}>
+  <App />
+</ViewerScope>
+```
+
+Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, kind?)` matches a
+field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
+value, or for an array value an array field containing every item. Never a substring.
+
+With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
+`persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
+writes while the session is still theirs. `ViewerScope` drops those unsent writes instead (by then the
+session is the new viewer's), so prefer `clearViewerCache` in a sign-out action when undo is on.
+
+## One-off writes
+
+For the writes a resource page doesn't make: a database function, "one live row per key", or a few
+writes in a row. They fail with a `DataWriteError` in plain words, like the provider's own writes.
+
+```ts
+import { callRpc, createOrAdopt, useWrite } from "@marktiderman/genesis-core";
+
+// A database function. Your words for a code win; a guard's own `raise exception` (P0001) keeps its
+// words; 42501, 22023 and a missing function get plain defaults; anything else a generic sentence.
+await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "This course hasn't started yet." } });
+
+// One live row per key: create it, or adopt the row already there (merging in what you return).
+const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
+  key: ["person_id", "lesson_id"],
+  merge: (existing) => (existing.body ? null : { body }),
+});
+
+// In a component: pending, plain error words, and invalidation after a success.
+const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
+  invalidates: [["course-steps"], resourceKeys("tasks").all],
+});
+<Button onClick={() => release.fire(id)} disabled={release.pending}>Release</Button>
+```
+
+`run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
+time: a second click while it runs gets the same promise, not a second write.
+
+## Days and time zones (`/dates`)
+
+A day is a `YYYY-MM-DD` string: the date on one time zone's clock. `new Date().toISOString().slice(0, 10)`
+gives the day in UTC. For an evening in the Americas that is already tomorrow, and for a morning in
+Asia it is still yesterday. A server's own zone is usually UTC too. `@marktiderman/genesis-core/dates`
+always takes the zone, so you can't fall into that by accident:
+
+```ts
+import { personDay, dayIn, dayRangeIn, addDays, startOfWeek } from "@marktiderman/genesis-core/dates";
+
+const today = personDay(profile);                 // the person's saved zone, else the device's, else UTC
+const yesterday = addDays(today, -1);
+const week = startOfWeek(today);                  // Monday; startOfWeek(today, 0) for Sunday
+const { start, end } = dayRangeIn(today, profile.timeZone); // the instants, for created_at >= start and < end
+```
+
+- `personDay(person, at?)` and `personTimeZone(person)`: the person's `timeZone` when the runtime
+  knows it, else `deviceTimeZone()`, else UTC. On a server, always pass the person's zone.
+- `dayIn(zone, at?)` and `wallClock(zone, at?)`: what the calendar and the clock say in `zone`.
+- `startOfDayIn(day, zone)` and `dayRangeIn(day, zone)`: the instants a day starts and ends.
+  Daylight-saving days are 23 or 25 hours long, and where midnight is skipped the day starts at the
+  first instant that exists.
+- `addDays`, `daysBetween`, `weekdayOf`, `startOfWeek` and `isDay`: plain calendar arithmetic on
+  `YYYY-MM-DD` strings, with no zone involved. They refuse days that don't exist, such as `2026-02-30`.
+
+In SQL, the same day is `(now() at time zone person_zone)::date`.
