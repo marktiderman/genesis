@@ -1,0 +1,35 @@
+packages/supabase/migrations/tests/0012_genesis_meetings.test.sql
+  s_26495fc9681b7e::t_aec533ce24b621 1-127
+packages/supabase/migrations/0012_genesis_meetings.sql
+  s_26495fc9681b7e::t_36a1d6a7e1ccde 1-422
+.changeset/genesis-meetings.md
+  s_26495fc9681b7e::t_87f8cffc04da79 1-15
+AGENTS.md
+  s_26495fc9681b7e::t_5efb4d6e40ab0c 16
+features.json
+  s_26495fc9681b7e::t_d5d31e736444b4 4054-4120
+features.ts
+  s_26495fc9681b7e::t_7790f61c7eb3a9 1766-1793
+packages/supabase/package.json
+  s_26495fc9681b7e::t_9ee6a8fddecee0 304-340
+packages/supabase/src/blocks.ts
+  s_26495fc9681b7e::t_f3cb48ccb276ae 212-239
+packages/supabase/src/index.ts
+  s_26495fc9681b7e::t_851b2fc0bb41eb 205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2f5726fce8556ae344be617fa5c3067400d7ca32",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
