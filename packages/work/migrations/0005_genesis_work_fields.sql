@@ -10,7 +10,8 @@
 --   namespace '<app>'   an app's or a content pack's fields (for example 'my-app'), added and
 --                       written only by server code, so people can read them but not change them.
 --
--- Values live in each row's `custom` jsonb, keyed '<namespace>.<key>', with a GIN index. The
+-- Values live in each row's `custom` jsonb (a session's in session_details, so guests never see
+-- them), keyed '<namespace>.<key>', with a GIN index. The
 -- database checks a value's shape against its field type (text, number, yes or no, a list); the
 -- full validation (options, lengths, ranges) runs on the server with the genesis-forms engine. A
 -- key with no active definition is refused, so `custom` never becomes a dumping ground. A field
@@ -74,23 +75,24 @@ create index field_definitions_created_by_idx on genesis_work.field_definitions 
 -- The custom column on each extendable table ----------------------------------------------------
 
 alter table genesis_work.pursuits add column custom jsonb not null default '{}'::jsonb
-  constraint pursuits_custom_object check (jsonb_typeof(custom) = 'object');
+  constraint pursuits_custom_object check (jsonb_typeof(custom) = 'object' and octet_length(custom::text) <= 65536);
 alter table genesis_work.work_items add column custom jsonb not null default '{}'::jsonb
-  constraint work_items_custom_object check (jsonb_typeof(custom) = 'object');
+  constraint work_items_custom_object check (jsonb_typeof(custom) = 'object' and octet_length(custom::text) <= 65536);
 alter table genesis_work.metrics add column custom jsonb not null default '{}'::jsonb
-  constraint metrics_custom_object check (jsonb_typeof(custom) = 'object');
-alter table genesis_work.sessions add column custom jsonb not null default '{}'::jsonb
-  constraint sessions_custom_object check (jsonb_typeof(custom) = 'object');
+  constraint metrics_custom_object check (jsonb_typeof(custom) = 'object' and octet_length(custom::text) <= 65536);
+-- A session's custom values sit with its details, so guests never read them.
+alter table genesis_work.session_details add column custom jsonb not null default '{}'::jsonb
+  constraint session_details_custom_object check (jsonb_typeof(custom) = 'object' and octet_length(custom::text) <= 65536);
 
-create index pursuits_custom_idx on genesis_work.pursuits using gin (custom jsonb_path_ops);
-create index work_items_custom_idx on genesis_work.work_items using gin (custom jsonb_path_ops);
-create index metrics_custom_idx on genesis_work.metrics using gin (custom jsonb_path_ops);
-create index sessions_custom_idx on genesis_work.sessions using gin (custom jsonb_path_ops);
+create index pursuits_custom_idx on genesis_work.pursuits using gin (custom);
+create index work_items_custom_idx on genesis_work.work_items using gin (custom);
+create index metrics_custom_idx on genesis_work.metrics using gin (custom);
+create index session_details_custom_idx on genesis_work.session_details using gin (custom);
 
 comment on column genesis_work.pursuits.custom is 'Custom field values, keyed <namespace>.<key>. @genesis {"label": "Custom fields"}';
 comment on column genesis_work.work_items.custom is 'Custom field values, keyed <namespace>.<key>. @genesis {"label": "Custom fields"}';
 comment on column genesis_work.metrics.custom is 'Custom field values, keyed <namespace>.<key>. @genesis {"label": "Custom fields"}';
-comment on column genesis_work.sessions.custom is 'Custom field values, keyed <namespace>.<key>. @genesis {"label": "Custom fields"}';
+comment on column genesis_work.session_details.custom is 'Custom field values, keyed <namespace>.<key>. @genesis {"label": "Custom fields"}';
 
 -- Checks ---------------------------------------------------------------------------------------
 
@@ -119,6 +121,7 @@ as $$
     when field_type in ('number', 'rating', 'nps', 'scale') then jsonb_typeof(value) = 'number'
     when field_type = 'yes-no' then jsonb_typeof(value) = 'boolean'
     when field_type in ('multi-choice', 'list') then jsonb_typeof(value) = 'array'
+      and not exists (select 1 from jsonb_array_elements(value) e where jsonb_typeof(e) not in ('string', 'number', 'boolean'))
     when field_type = 'table' then jsonb_typeof(value) = 'array'
     else false
   end
@@ -138,6 +141,7 @@ declare
   ns text;
   fkey text;
   ftype text;
+  target_table text := case tg_table_name when 'session_details' then 'sessions' else tg_table_name end;
 begin
   for k, v in select e.key, e.value from jsonb_each(new.custom) e loop
     -- Only keys that are new or changed are checked, so retiring a field leaves old values alone.
@@ -150,9 +154,9 @@ begin
     ns := split_part(k, '.', 1);
     fkey := split_part(k, '.', 2);
     select d.field_type into ftype from genesis_work.field_definitions d
-     where d.tenant_id = new.tenant_id and d.target = tg_table_name and d.namespace = ns and d.key = fkey and d.active;
+     where d.tenant_id = new.tenant_id and d.target = target_table and d.namespace = ns and d.key = fkey and d.active;
     if ftype is null then
-      raise exception 'No custom field % on %', k, tg_table_name using errcode = '22023';
+      raise exception 'No custom field % on %', k, target_table using errcode = '22023';
     end if;
     if not private.genesis_work_field_value_ok(ftype, v) then
       raise exception 'The value of % isn''t a %', k, ftype using errcode = '22023';
@@ -179,7 +183,7 @@ create trigger work_items_check_custom before insert or update of custom on gene
   for each row execute function private.genesis_work_check_custom();
 create trigger metrics_check_custom before insert or update of custom on genesis_work.metrics
   for each row execute function private.genesis_work_check_custom();
-create trigger sessions_check_custom before insert or update of custom on genesis_work.sessions
+create trigger session_details_check_custom before insert or update of custom on genesis_work.session_details
   for each row execute function private.genesis_work_check_custom();
 
 -- Definitions: field_type from the field, who made it, the fixed tenant, and only server code
@@ -201,9 +205,15 @@ begin
     if tg_op = 'INSERT' then
       new.created_by := auth.uid();
       new.created_at := now();
+      new.source_pack := null;
+      new.source_version := null;
+      new.source_key := null;
     else
       new.created_by := old.created_by;
       new.created_at := old.created_at;
+      new.source_pack := old.source_pack;
+      new.source_version := old.source_version;
+      new.source_key := old.source_key;
     end if;
   end if;
   if tg_op = 'UPDATE' then
@@ -211,8 +221,7 @@ begin
       raise exception 'A custom field''s tenant, table, namespace and key never change' using errcode = '22023';
     end if;
     if new.field_type is distinct from old.field_type then
-      execute format('select exists (select 1 from genesis_work.%I r where r.tenant_id = $1 and r.custom ? $2)', old.target)
-        into in_use using old.tenant_id, old.namespace || '.' || old.key;
+      in_use := private.genesis_work_field_in_use(old.tenant_id, old.target, old.namespace || '.' || old.key);
       if in_use then
         raise exception 'A custom field''s type is fixed once rows hold values for it' using errcode = '22023';
       end if;
@@ -227,10 +236,50 @@ create trigger field_definitions_guard
   before insert or update on genesis_work.field_definitions
   for each row execute function private.genesis_work_field_definitions_guard();
 
+-- Whether any row of a tenant holds a value for a field. The table comes from a fixed list, never
+-- from input.
+create or replace function private.genesis_work_field_in_use(tenant uuid, target text, field_key text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case target
+    when 'pursuits' then exists (select 1 from genesis_work.pursuits r where r.tenant_id = tenant and r.custom ? field_key)
+    when 'work_items' then exists (select 1 from genesis_work.work_items r where r.tenant_id = tenant and r.custom ? field_key)
+    when 'metrics' then exists (select 1 from genesis_work.metrics r where r.tenant_id = tenant and r.custom ? field_key)
+    when 'sessions' then exists (select 1 from genesis_work.session_details r where r.tenant_id = tenant and r.custom ? field_key)
+    else false
+  end
+$$;
+
+-- A field is deleted only while no row holds a value for it (otherwise retire it), so deleting
+-- and re-adding can't change a field's type under existing values.
+create or replace function private.genesis_work_field_definitions_delete_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if private.genesis_work_field_in_use(old.tenant_id, old.target, old.namespace || '.' || old.key) then
+    raise exception 'A custom field rows still hold values for is retired, not deleted' using errcode = '22023';
+  end if;
+  return old;
+end;
+$$;
+
+create trigger field_definitions_delete_guard
+  before delete on genesis_work.field_definitions
+  for each row execute function private.genesis_work_field_definitions_delete_guard();
+
 revoke execute on function private.genesis_work_fields_caller_is_person() from public, anon, authenticated;
 revoke execute on function private.genesis_work_field_value_ok(text, jsonb) from public, anon, authenticated;
 revoke execute on function private.genesis_work_check_custom() from public, anon, authenticated;
 revoke execute on function private.genesis_work_field_definitions_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_work_field_in_use(uuid, text, text) from public, anon, authenticated;
+revoke execute on function private.genesis_work_field_definitions_delete_guard() from public, anon, authenticated;
 
 -- Access ---------------------------------------------------------------------------------------
 -- A tenant's fields are the tenant's own rows: whoever may read the tenant's own rows reads them,
@@ -241,9 +290,13 @@ alter table genesis_work.field_definitions enable row level security;
 create policy field_definitions_read on genesis_work.field_definitions for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = field_definitions.tenant_id and r.owner_id = field_definitions.tenant_id));
-create policy field_definitions_write on genesis_work.field_definitions for all to authenticated
+create policy field_definitions_write_insert on genesis_work.field_definitions for insert to authenticated
+  with check (namespace = 'tenant' and private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy field_definitions_write_update on genesis_work.field_definitions for update to authenticated
   using (namespace = 'tenant' and private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'))
   with check (namespace = 'tenant' and private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy field_definitions_write_delete on genesis_work.field_definitions for delete to authenticated
+  using (namespace = 'tenant' and private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
 
 revoke all on genesis_work.field_definitions from public, anon, authenticated;
 grant select, insert, update, delete on genesis_work.field_definitions to authenticated;

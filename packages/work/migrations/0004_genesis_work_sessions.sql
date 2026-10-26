@@ -25,7 +25,8 @@
 --   - rate a session: each attendee, their own rating only, once it's live or ended;
 --   - leave a session: each attendee, their own row.
 -- An invitee who may not read the session's owner comes in only as a guest (set by a writer): a
--- guest sees the session and its links, and only their own attendee row. A facilitator or scribe
+-- guest sees the session and its links, and only their own attendee row; never its notes,
+-- recording or transcript (session_details). A facilitator or scribe
 -- is an attendee or someone who may read the owner. A session type is used only by someone who
 -- may read it, so a private type's agenda never leaks.
 --
@@ -101,9 +102,6 @@ create table genesis_work.sessions (
   ended_at timestamptz,
   facilitator_id uuid references auth.users (id) on delete set null,
   scribe_id uuid references auth.users (id) on delete set null,
-  notes text,
-  recording_url text,
-  transcript_url text,
   created_by uuid default auth.uid() references auth.users (id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -159,6 +157,25 @@ create table genesis_work.session_links (
 
 comment on table genesis_work.session_links is
   'A session''s pre-work, worksheets, resources and collaboration spaces. Genesis sessions.';
+
+-- What only the session's owner side sees: notes, the recording and the transcript. A guest
+-- reads the session (title, time, agenda, step) and its links, never these.
+create table genesis_work.session_details (
+  session_id uuid primary key references genesis_work.sessions (id) on delete cascade,
+  tenant_id uuid not null,
+  person_id uuid,
+  team_id uuid,
+  organization_id uuid,
+  notes text,
+  recording_url text,
+  transcript_url text,
+  updated_at timestamptz not null default now()
+);
+
+comment on table genesis_work.session_details is
+  'A session''s notes, recording and transcript, for its owner side only (never guests). Genesis work.';
+
+create index session_details_tenant_owner_idx on genesis_work.session_details (tenant_id, coalesce(person_id, team_id, organization_id));
 
 create index session_types_tenant_owner_idx on genesis_work.session_types (tenant_id, coalesce(person_id, team_id, organization_id));
 create index session_types_created_by_idx on genesis_work.session_types (created_by);
@@ -343,12 +360,18 @@ begin
   end if;
   new.tenant_id := t; new.person_id := p; new.team_id := tm; new.organization_id := o;
 
-  if private.genesis_sessions_caller_is_person() then
+  if private.genesis_sessions_caller_is_person() and tg_table_name <> 'session_details' then
     if tg_op = 'INSERT' then
       new.created_at := now();
     else
       new.created_at := old.created_at;
     end if;
+  end if;
+  if tg_table_name = 'session_details' then
+    if private.genesis_sessions_caller_is_person() and not private.genesis_owner_allows(t, p, tm, o, 'write') then
+      raise exception 'permission denied for table session_details' using errcode = '42501';
+    end if;
+    new.updated_at := now();
   end if;
 
   if tg_table_name = 'session_attendees' then
@@ -387,9 +410,41 @@ create trigger session_attendees_guard
 create trigger session_links_guard
   before insert or update on genesis_work.session_links
   for each row execute function private.genesis_session_parts_guard();
+create trigger session_details_guard
+  before insert or update on genesis_work.session_details
+  for each row execute function private.genesis_session_parts_guard();
+
+-- When server code moves a session to another owner, its attendees, links and details move with
+-- it, so the old owner side can no longer read or change them.
+create or replace function private.genesis_sessions_carry_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update genesis_work.session_attendees a
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where a.session_id = new.id;
+  update genesis_work.session_links l
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where l.session_id = new.id;
+  update genesis_work.session_details d
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where d.session_id = new.id;
+  return null;
+end;
+$$;
+
+create trigger sessions_carry_owner
+  after update of person_id, team_id, organization_id on genesis_work.sessions
+  for each row
+  when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
+  execute function private.genesis_sessions_carry_owner();
 
 revoke execute on function private.genesis_sessions_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_session_parts_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_sessions_carry_owner() from public, anon, authenticated;
 revoke execute on function private.genesis_sessions_person_can(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
 revoke execute on function private.genesis_sessions_caller_is_person() from public, anon, authenticated;
 revoke execute on function private.genesis_session_members(uuid) from public, anon, authenticated;
@@ -402,23 +457,32 @@ alter table genesis_work.session_types enable row level security;
 alter table genesis_work.sessions enable row level security;
 alter table genesis_work.session_attendees enable row level security;
 alter table genesis_work.session_links enable row level security;
+alter table genesis_work.session_details enable row level security;
 
 create policy session_types_read on genesis_work.session_types for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = session_types.tenant_id
                    and r.owner_id = coalesce(session_types.person_id, session_types.team_id, session_types.organization_id)));
-create policy session_types_write on genesis_work.session_types for all to authenticated
+create policy session_types_write_insert on genesis_work.session_types for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_types_write_update on genesis_work.session_types for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_types_write_delete on genesis_work.session_types for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy sessions_read on genesis_work.sessions for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = sessions.tenant_id
                    and r.owner_id = coalesce(sessions.person_id, sessions.team_id, sessions.organization_id))
          or private.genesis_sessions_attends(id));
-create policy sessions_write on genesis_work.sessions for all to authenticated
+create policy sessions_write_insert on genesis_work.sessions for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy sessions_write_update on genesis_work.sessions for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy sessions_write_delete on genesis_work.sessions for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy session_attendees_read on genesis_work.session_attendees for select to authenticated
   using (user_id = (select auth.uid())
@@ -427,9 +491,13 @@ create policy session_attendees_read on genesis_work.session_attendees for selec
                       and r.owner_id = coalesce(session_attendees.person_id, session_attendees.team_id, session_attendees.organization_id)));
 create policy session_attendees_leave on genesis_work.session_attendees for delete to authenticated
   using (user_id = (select auth.uid()));
-create policy session_attendees_manage on genesis_work.session_attendees for all to authenticated
+create policy session_attendees_manage_insert on genesis_work.session_attendees for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_attendees_manage_update on genesis_work.session_attendees for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_attendees_manage_delete on genesis_work.session_attendees for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy session_attendees_rate on genesis_work.session_attendees for update to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
@@ -438,15 +506,33 @@ create policy session_links_read on genesis_work.session_links for select to aut
                  where r.tenant_id = session_links.tenant_id
                    and r.owner_id = coalesce(session_links.person_id, session_links.team_id, session_links.organization_id))
          or private.genesis_sessions_attends(session_id));
-create policy session_links_write on genesis_work.session_links for all to authenticated
+create policy session_links_write_insert on genesis_work.session_links for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_links_write_update on genesis_work.session_links for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_links_write_delete on genesis_work.session_links for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
-revoke all on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links
-  from public, anon, authenticated;
-grant select, insert, update, delete on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links
-  to authenticated;
-grant all on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links to service_role;
+-- Details: the owner side only. Guests and other attendees who can't read the owner never see them.
+create policy session_details_read on genesis_work.session_details for select to authenticated
+  using (exists (select 1 from private.genesis_owner_readable() r
+                 where r.tenant_id = session_details.tenant_id
+                   and r.owner_id = coalesce(session_details.person_id, session_details.team_id, session_details.organization_id)));
+create policy session_details_insert on genesis_work.session_details for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_details_update on genesis_work.session_details for update to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+create policy session_details_delete on genesis_work.session_details for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
+
+revoke all on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links,
+  genesis_work.session_details from public, anon, authenticated;
+grant select, insert, update, delete on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links,
+  genesis_work.session_details to authenticated;
+grant all on genesis_work.session_types, genesis_work.sessions, genesis_work.session_attendees, genesis_work.session_links,
+  genesis_work.session_details to service_role;
 
 -- Ratings ---------------------------------------------------------------------------------------
 
