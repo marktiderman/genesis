@@ -1,0 +1,43 @@
+.changeset/ui-native-button-a11y.md
+  s_8252619ce79a86::t_b49c396c2e5846 1-5
+apps/genesis-rn-starter/__tests__/components/product-demo.test.tsx
+  s_8252619ce79a86::t_5ebe1e4ec8c419 24
+packages/product/README.md
+  s_8252619ce79a86::t_498f1468a9c119 83-84,90-92,98-100
+packages/product/src/__tests__/app.test.ts
+  s_8252619ce79a86::t_e14cd310b89b83 162,175,189,197,234-307
+packages/product/src/__tests__/native.test.tsx
+  s_8252619ce79a86::t_239a1fcb3198a6 3-5,15-18,57,75,78,85,105,161,186-270
+packages/product/src/app.ts
+  s_8252619ce79a86::t_3422266419d51b 87-102,105,298-301,318-319,383-396,452-454,457-458,460,463,490,492,497-500,504,512
+packages/product/src/index.ts
+  s_8252619ce79a86::t_885489fd66125d 16
+packages/product/src/native/copy.ts
+  s_8252619ce79a86::t_93d79cd6c3cb0b 10-12
+packages/product/src/native/idea-board.tsx
+  s_8252619ce79a86::t_974010e82eba3d 8,33-37,57,59-60,64,66-73,84-85,125-130,132-134,164,168-176
+packages/product/src/native/roadmap.tsx
+  s_8252619ce79a86::t_661f10f9121906 47,79,91-93
+packages/product/src/native/whats-new.tsx
+  s_8252619ce79a86::t_4008e3f36987b2 35,58-62
+packages/ui-native/src/components/__tests__/button-a11y.test.tsx
+  s_8252619ce79a86::t_490022f7022fbb 1-17
+packages/ui-native/src/components/button.tsx
+  s_8252619ce79a86::t_b7ab9f9d4bd22b 7,64-68,80,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "daa5783fbde237522d242a93a4ee50bc012a7e17",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
