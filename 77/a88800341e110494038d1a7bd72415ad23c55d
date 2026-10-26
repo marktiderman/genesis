@@ -1,0 +1,36 @@
+packages/genesis-cli/src/doctor/packages.ts
+  s_f5a91deb5a46ce::t_af6e50c7fb537d 28,37-38,46-48,69-70,77-90,92-99,101-115,129-130,132-133,137-145,169,173,190-209,213-232,283,308-310,312-324,328,354-355,357
+  s_f5a91deb5a46ce::t_9f02ac8656bd17 24,91,311
+  s_f5a91deb5a46ce::t_62687defc2c239 336-342
+packages/genesis-cli/src/doctor/scan.ts
+  s_f5a91deb5a46ce::t_62687defc2c239 61-68
+packages/genesis-cli/test/blocks-local.test.ts
+  s_f5a91deb5a46ce::t_62687defc2c239 50,53,81-96
+  s_f5a91deb5a46ce::t_115d0d53d4a987 97
+packages/genesis-cli/src/doctor/rules.ts
+  s_f5a91deb5a46ce::t_af6e50c7fb537d 54-56
+packages/genesis-cli/test/doctor-packages.test.ts
+  s_f5a91deb5a46ce::t_33293a9c0a0d76 3,207-245,247-274
+  s_f5a91deb5a46ce::t_9f02ac8656bd17 63,88,187,246
+  s_f5a91deb5a46ce::t_eeff58ffa97ae4 275
+packages/genesis-cli/src/blocks/local.ts
+  s_f5a91deb5a46ce::t_53c021b7d57350 8-12,48,74-83,108,118-119,121-122
+packages/genesis-cli/README.md
+  s_f5a91deb5a46ce::t_394b4a3c2dacd7 523-527,529,531-534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "77a88800341e110494038d1a7bd72415ad23c55d",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
