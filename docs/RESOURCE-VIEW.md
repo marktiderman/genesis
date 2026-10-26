@@ -1,6 +1,6 @@
 # ResourceView: one description per resource, one line per screen
 
-Design v0.2, 2026-10-26. Status: **proposal, revised after review**. Nothing here is built yet.
+Design v0.3, 2026-10-26. Status: **approved by the maintainer; building**. v0.3 adds what the first adopter's lists need (presets with filters, grouping, manual rank, footer totals).
 
 v0.2 folds in three adversarial reviews (security, speed and scale, API design) and reviews from
 the data, layout, native, extension and coordination owners. What changed from v0.1 is listed at
@@ -100,6 +100,10 @@ export const brandsView = defineView(resources.brands, {
   (zod). `validate` only adds rules.
 - **Computed columns** (`columns: { full_name: { value: (r) => ... } }`) and **row actions**
   (decorating the resource's `actions`) are part of the view.
+- **Presets carry filters as well as columns.** `presets: { short: { filter: { term: "short" }, columns: [...] } }` show as tabs (team or private, short- or long-term, this quarter).
+- **Grouping:** `groupBy: "owner_id"`, with group headers and counts.
+- **Manual order:** `orderBy: { field: "rank", manual: true }` turns on drag to reorder, plus keyboard pick-up and the Move menu, on SortableList's engine (one drag engine). The rank is written through the provider.
+- **Footer totals:** `totals: (rows) => ...` for a figure such as a week's completion %.
 - **`summary(row)`** gives a one-line title and chips for pickers, notifications, extension page
   bars and other non-list surfaces. It defaults to `labelField` plus a few columns.
 
@@ -324,7 +328,7 @@ already a working screen.
 | 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) | Scout |
 | 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts | Port |
 | 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView | Shell with app owners |
-| later | `ResourceWorkspace` (workspace header from the same view), grouping, conditional form fields | — |
+| later | `ResourceWorkspace` (workspace header from the same view), tree mode for nested records, conditional form fields | — |
 
 Web phase 1 is about 5 days. Each phase ships as its own release.
 
