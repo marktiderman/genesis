@@ -18,6 +18,27 @@ import {
 } from "../server/index";
 import { sha256Hex } from "../server/crypto";
 import { USER, registry } from "./fixtures";
+import { defineNotifications } from "../core/index";
+
+const richRegistry = defineNotifications({
+  categories: { messages: { label: "Messages" } },
+  types: {
+    "chat.rich": {
+      category: "messages",
+      channels: { in_app: true, push: true },
+      render: (d) => ({
+        title: String(d.sender_name ?? "Someone"),
+        body: String(d.preview ?? ""),
+        url: `/messages/${String(d.conversation_id)}`,
+        push: {
+          ids: { conversationId: String(d.conversation_id), messageId: "m7", seq: 7, type: "spoofed" },
+          display: { senderName: String(d.sender_name ?? ""), senderAvatar: "https://cdn.example.test/sam.png", nested: { no: 1 } as unknown as string },
+          mutableContent: true,
+        },
+      }),
+    },
+  },
+});
 
 const UNSUB = { url: "https://app.example.test/notifications/unsubscribe", secret: "u".repeat(32) };
 
@@ -151,6 +172,21 @@ describe("push", () => {
       expect(m.body).toBeUndefined();
       expect(JSON.stringify(m)).not.toContain("See you at six");
     }
+  });
+
+  it("adds a type's push extras: ids always, display values and rich push only with previews shown", async () => {
+    const { store } = fakeStore({ push: [job({ type: "chat.rich" }), job({ id: "d2", type: "chat.rich", hide_previews: true })] });
+    const push = fakePush();
+    await createNotificationRunner({ store, registry: richRegistry, push: { provider: push.provider } }).runPush();
+    const [shown, hidden] = push.sent.flat();
+    expect(shown).toMatchObject({ mutableContent: true, data: { conversationId: "c42", messageId: "m7", seq: 7, senderName: "Sam", senderAvatar: "https://cdn.example.test/sam.png" } });
+    // The notifier's own keys win, and only flat values travel.
+    expect(shown!.data!.type).toBe("chat.rich");
+    expect(shown!.data).not.toHaveProperty("nested");
+    expect(hidden!.mutableContent).toBeUndefined();
+    expect(hidden!.data).toMatchObject({ conversationId: "c42", messageId: "m7", seq: 7 });
+    expect(hidden!.data).not.toHaveProperty("senderName");
+    expect(hidden!.data).not.toHaveProperty("senderAvatar");
   });
 
   it("collapses per conversation with the collapse key", async () => {
