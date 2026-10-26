@@ -335,6 +335,15 @@ describe("defineView actions", () => {
     expect(() => view.canAction("explode", row)).toThrow(ViewDefinitionError);
   });
 
+  it("copies the actions, so changing the list passed in changes nothing", () => {
+    const list = [{ name: "a", label: "A" }];
+    const v = defineView(brands, { actions: list });
+    list[0]!.label = "Changed";
+    list.push({ name: "b", label: "B" });
+    expect(v.actions()).toEqual([{ name: "a", label: "A" }]);
+    expect(Object.isFrozen(v.definition.actions)).toBe(true);
+  });
+
   it("has no actions by default", () => {
     expect(defineView(brands).actions()).toEqual([]);
   });

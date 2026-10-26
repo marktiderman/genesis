@@ -141,6 +141,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       Object.entries(definition.presets ?? {}).map(([k, p]) => [k, Object.freeze({ ...p, ...(p.filter ? { filter: Object.freeze({ ...p.filter }) } : {}) })]),
     ),
   ) as NonNullable<ViewDefinition<C, Row>["presets"]>;
+  const actionList = Object.freeze(
+    (Array.isArray(definition.actions) ? definition.actions : []).map((a) => (a && typeof a === "object" ? Object.freeze({ ...a }) : a)),
+  );
 
   // ── Check every name once ────────────────────────────────────────────
   const problems: string[] = [];
@@ -178,7 +181,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   if (facts.labelField) known(facts.labelField, "the contract's labelField");
   const actionSeen = new Set<string>();
   if (definition.actions !== undefined && !Array.isArray(definition.actions)) problems.push("actions isn't a list");
-  (Array.isArray(definition.actions) ? definition.actions : []).forEach((action, i) => {
+  actionList.forEach((action, i) => {
     const where = `actions[${i}]`;
     if (!action || typeof action !== "object") {
       problems.push(`${where} isn't an action`);
@@ -298,9 +301,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const guard = guards[action];
     return guard && row ? guard(row) : true;
   }
-  const actionGuards = new Map((definition.actions ?? []).map((a) => [a.name, a.can]));
+  const actionGuards = new Map(actionList.map((a) => [a.name, a.can]));
   const resolvedActions: readonly ResolvedViewAction[] = Object.freeze(
-    (definition.actions ?? []).map((a) =>
+    actionList.map((a) =>
       Object.freeze({
         name: a.name,
         label: a.label,
@@ -328,6 +331,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       presets,
       ...(definition.form ? { form: formItems } : {}),
       ...(definition.scope ? { scope: Object.freeze([...definition.scope]) } : {}),
+      ...(definition.actions ? { actions: actionList } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,
