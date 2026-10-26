@@ -172,7 +172,7 @@ language sql
 stable
 set search_path = ''
 as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+  select current_setting('role', true) = 'authenticated'
 $$;
 
 -- Whether the signed-in person is an attendee of a session.
@@ -354,7 +354,7 @@ create policy session_attendees_manage on public.session_attendees for all to au
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy session_attendees_rate on public.session_attendees for update to authenticated
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
 create policy session_links_read on public.session_links for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
