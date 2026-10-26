@@ -37,6 +37,7 @@
     "dist",
     "functions",
     "migrations",
+    "sql",
     "README.md"
   ],
   "dependencies": {

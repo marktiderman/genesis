@@ -15,6 +15,7 @@ on:
       - ".github/workflows/supabase-ci.yml"
       - ".github/workflows/ci-templates-self-test.yml"
       - ".github/ci-fixture/**"
+      - "packages/supabase/sql/**"
       - "templates/ci/**"
   workflow_dispatch:
 
