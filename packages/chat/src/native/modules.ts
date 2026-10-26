@@ -10,6 +10,9 @@
  *   import * as Clipboard from "expo-clipboard";            // copy, paste a picture
  *   import { KeyboardAvoidingView } from "react-native-keyboard-controller";
  *   import AsyncStorage from "@react-native-async-storage/async-storage"; // drafts
+ *   import * as Sharing from "expo-sharing";                // share a photo
+ *   import * as MediaLibrary from "expo-media-library";     // save a photo
+ *   import NetInfo from "@react-native-community/netinfo";  // retry when back online
  *
  * FlashList and expo-image come from GenesisNativeApp's `modules` (genesis-ui-native's
  * GenesisModulesProvider), the same objects every Genesis list and image uses.
@@ -124,6 +127,23 @@ export interface DraftStorageLike {
   multiRemove?(keys: readonly string[]): Promise<void>;
 }
 
+/** `import * as Sharing from "expo-sharing"`: the system share sheet for a file on the phone. */
+export interface SharingLike {
+  isAvailableAsync(): Promise<boolean>;
+  shareAsync(url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }): Promise<void>;
+}
+
+/** `import * as MediaLibrary from "expo-media-library"`: save to Photos (asks for add-only access). */
+export interface MediaLibraryLike {
+  requestPermissionsAsync(writeOnly?: boolean): Promise<{ granted: boolean }>;
+  saveToLibraryAsync(localUri: string): Promise<void>;
+}
+
+/** `NetInfo` from @react-native-community/netinfo: tells chat when the connection comes back. */
+export interface NetInfoLike {
+  addEventListener(listener: (state: { isConnected: boolean | null; isInternetReachable?: boolean | null }) => void): () => void;
+}
+
 /** Each optional: without one its feature is hidden (no mic without audio, no attach without a picker). */
 export interface ChatNativeModules {
   audio?: ExpoAudioLike;
@@ -132,6 +152,17 @@ export interface ChatNativeModules {
   clipboard?: ClipboardLike;
   keyboardAvoidingView?: KeyboardAvoidingLike;
   drafts?: DraftStorageLike;
+  /** Share in the photo viewer (with `downloadFile` for photos not on the phone). */
+  sharing?: SharingLike;
+  /** Save in the photo viewer (with `downloadFile`). */
+  mediaLibrary?: MediaLibraryLike;
+  /**
+   * Copies a photo from its signed link to the phone and returns the file:// URI, for sharing
+   * and saving (expo-file-system: `(await File.downloadFileAsync(url, Paths.cache, { idempotent: true })).uri`).
+   */
+  downloadFile?: (url: string) => Promise<string>;
+  /** Unsent messages are retried when the connection comes back (`ChatAutoRetry`). */
+  netInfo?: NetInfoLike;
 }
 
 export type HapticEvent = "send" | "record-start" | "record-lock" | "record-cancel" | "select" | "error";

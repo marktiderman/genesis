@@ -7,15 +7,15 @@
  * `ChatProvider` (from `/react`) and `ChatNativeProvider` (the native modules,
  * copy and people).
  * Rung 2: the parts (`ChatComposer`, `MessageBubble`, `MessageActionsSheet`,
- * `VoiceNotePlayer`, `ChatMediaViewer`, `ChatStartSheet`) in your own screen.
+ * `VoiceNotePlayer`, `ChatPhotoViewer`, `ChatEmojiPicker`, `ChatStartSheet`) in your own screen.
  * Rung 3: the logic (`composerReducer`, `recorderStep`, `buildThreadRows`,
  * `messageActionsFor`, `useVoiceRecorder`, `useChatComposer`).
  * Glue: `createTusUpload` (resumable uploads for `ChatProvider upload`) and
  * the push block's `messages` category, actions and reply handler.
  *
  * Optional peers, passed in rather than imported: expo-audio,
- * expo-image-picker, expo-haptics, expo-clipboard,
- * react-native-keyboard-controller; FlashList and expo-image through
+ * expo-image-picker, expo-haptics, expo-clipboard, expo-sharing,
+ * expo-media-library, NetInfo, react-native-keyboard-controller; FlashList and expo-image through
  * GenesisNativeApp's `modules`.
  *
  * @stability Beta
@@ -28,7 +28,39 @@ export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
 export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
-export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
+export { MessageAttachments, attachmentPaths, type BubbleAttachment } from "./media";
+export {
+  ChatMediaViewer,
+  ChatPhotoViewer,
+  galleryFor,
+  shouldDismiss,
+  pinchScale,
+  panLimit,
+  isLocalUri,
+  DISMISS_DISTANCE,
+  DISMISS_VELOCITY,
+  MAX_ZOOM,
+  type ChatMediaViewerProps,
+  type ChatPhoto,
+  type ChatPhotoViewerProps,
+} from "./photo-viewer";
+export { ChatEmojiPicker, ChatEmojiPickerSheet, type ChatEmojiPickerProps, type ChatEmojiPickerSheetProps } from "./emoji-picker";
+export {
+  EMOJI_CATEGORIES,
+  emojiInCategory,
+  emojiEntry,
+  searchEmoji,
+  pushRecentEmoji,
+  recentEmojiKey,
+  loadRecentEmoji,
+  saveRecentEmoji,
+  insertAtSelection,
+  RECENT_EMOJI_MAX,
+  type EmojiCategoryId,
+  type EmojiEntry,
+} from "./emoji";
+export { ChatAccessError, type ChatAccessErrorProps } from "./access-error";
+export { ChatAutoRetry, useChatAutoRetry, isOnline, type ChatAutoRetryOptions, type AppStateLike } from "./auto-retry";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 export {
@@ -90,4 +122,4 @@ export {
   type ChatPushResponseLike,
   type NotificationCategoriesLike,
 } from "./push";
-export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent } from "./modules";
+export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type SharingLike, type MediaLibraryLike, type NetInfoLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent } from "./modules";

@@ -253,14 +253,16 @@ describe("supabase/migrations", () => {
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
   });
 
-  it("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, last (it adopts the push tables)", () => {
+  it("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, after every other package's (it adopts the push tables)", () => {
     const shipped = (rel: string) => readFileSync(join(notificationsPackage, "migrations", rel), "utf8");
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_notifications.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shipped("0001_genesis_notifications.sql"));
     expect(read("supabase/tests/database/genesis_notifications.test.sql")).toBe(shipped("tests/0001_genesis_notifications.test.sql"));
     const order = filesUnder("supabase/migrations").sort();
-    expect(order.at(-1)).toBe(copies[0]);
+    // The starter's own migrations (chat_people) may follow; every package's copy comes first.
+    const packaged = order.filter((f) => /_genesis_[a-z_]+\.sql$/.test(f));
+    expect(packaged.at(-1)).toBe(copies[0]);
   });
 
   it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
@@ -368,6 +370,29 @@ describe("chat", () => {
     expect(read("src/lib/push.ts")).toContain("starter.features.chat ? [chatPushCategory()] : []");
     expect(read("src/lib/push.ts")).toContain("onResponse: onChatPushResponse");
     expect(read("src/lib/chat.tsx")).toContain("starter.features.chat && starter.features.push");
+  });
+
+  it("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_chat_people.sql"));
+    expect(copies).toHaveLength(1);
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat.sql")));
+    const sql = read(copies[0]!);
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).toMatch(/revoke execute on function public\.chat_people\(uuid\[\]\) from public, anon;/);
+    expect(read("supabase/tests/database/chat_people.test.sql")).toContain("select plan(");
+    const chat = read("src/lib/chat.tsx");
+    expect(chat).toContain('supabase.rpc("chat_people"');
+    expect(chat).toContain("loadPeople = loadChatPeople");
+  });
+
+  it("forgets unsent messages on sign-out and retries them on return and reconnect", () => {
+    const chat = read("src/lib/chat.tsx");
+    expect(chat).not.toContain("TODO(chat clearOutbox)");
+    expect(chat).toContain("void clearChatOutbox(who)");
+    expect(chat).toContain("<ChatAutoRetry />");
+    expect(chat).toMatch(/netInfo: NetInfo/);
   });
 
   it("keeps expo-audio, expo-image-picker and expo-clipboard in the build whichever way the switch is", () => {

@@ -2,11 +2,11 @@
  * @feat:chat
  * Pictures and files in a message: photos as a grid of NativeImage (expo-image
  * when the app gave it) over signed links from `useFileUrls`, a local preview
- * while one still uploads, a tap opening the full-screen viewer; voice notes
+ * while one still uploads, a tap opening the full-screen viewer (photo-viewer.tsx); voice notes
  * as VoiceNotePlayer; other files as a row with their name.
  */
 import { Pressable, View, useWindowDimensions } from "react-native";
-import { NativeIcon, NativeImage, NativeSheet, NativeText } from "@marktiderman/genesis-ui-native/components";
+import { NativeIcon, NativeImage, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration } from "../core/media";
 import type { AttachmentInput, ChatAttachment } from "../core/types";
@@ -138,36 +138,4 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
   );
 }
 
-export interface ChatMediaViewerProps {
-  /** The picture to show; null closes the viewer. */
-  image: { uri: string; alt: string } | null;
-  onClose: () => void;
-  testID?: string;
-}
-
-/** A picture at full size, in a sheet: swipe down or tap Close. */
-export function ChatMediaViewer({ image, onClose, testID = "chat-media-viewer" }: ChatMediaViewerProps) {
-  const { copy } = useChatNative();
-  const { width, height } = useWindowDimensions();
-  return (
-    <NativeSheet open={image !== null} onOpenChange={(open) => (open ? undefined : onClose())} testID={testID}>
-      <View style={{ alignItems: "flex-end" }}>
-        <Pressable
-          testID={`${testID}-close`}
-          accessibilityRole="button"
-          accessibilityLabel={copy.closeViewer}
-          onPress={onClose}
-          style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
-        >
-          <NativeIcon name="close" size={22} />
-        </Pressable>
-      </View>
-      {image ? (
-        <View style={{ alignItems: "center" }}>
-          <NativeImage src={image.uri} alt={image.alt} width={width - 32} height={Math.round(height * 0.72)} contentFit="contain" testID={`${testID}-image`} />
-        </View>
-      ) : null}
-    </NativeSheet>
-  );
-}
-
+// ChatMediaViewer (one picture) is in photo-viewer.tsx, over the full-screen ChatPhotoViewer.

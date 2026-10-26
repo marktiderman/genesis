@@ -498,4 +498,6 @@ declare module "lucide-react-native" {
   export const Play: ComponentType<IconProps>;
   export const Reply: ComponentType<IconProps>;
   export const SquarePen: ComponentType<IconProps>;
+  export const Download: ComponentType<IconProps>;
+  export const Smile: ComponentType<IconProps>;
 }

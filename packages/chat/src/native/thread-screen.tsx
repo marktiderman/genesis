@@ -7,8 +7,8 @@
  * place while earlier ones load at the top; day separators, the "New messages" line,
  * grouped bubbles with names and avatars in groups, who is typing or
  * recording, retry and delete on a send that failed, the long-press sheet and
- * swipe to reply, pictures in a full-screen viewer, and the composer above
- * the keyboard. Render it as the screen's only content, under the
+ * swipe to reply, a message's photos in the full-screen viewer, and the composer above
+ * the keyboard (or, when your role couldn't be read, Retry). Render it as the screen's only content, under the
  * navigator's header with `useChatThreadStackOptions` (an opaque bar).
  *
  * Not inverted: FlashList 2 keeps the first visible row in place when rows
@@ -30,7 +30,9 @@ import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
 import { ChatPeopleScope, useChatNative } from "./context";
 import { useChatComposer } from "./use-composer";
-import { attachmentPaths, ChatMediaViewer } from "./media";
+import { ChatAccessError } from "./access-error";
+import { attachmentPaths } from "./media";
+import { ChatPhotoViewer, galleryFor, type ChatPhoto } from "./photo-viewer";
 import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic } from "./modules";
@@ -130,7 +132,8 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const composer = useChatComposer(conversationId, threadRootId, userId);
   const { setReply } = composer;
   const [actionsFor, setActionsFor] = useState<ChatMessage | null>(null);
-  const [viewer, setViewer] = useState<{ uri: string; alt: string } | null>(null);
+  const [viewer, setViewer] = useState<{ photos: ChatPhoto[]; index: number } | null>(null);
+  const [retryingAccess, setRetryingAccess] = useState(false);
   // Where this screen starts on the window: the keyboard offset when the app gives none.
   const rootRef = useRef<{ measureInWindow?: (callback: (x: number, y: number) => void) => void } | null>(null);
   const [measuredTop, setMeasuredTop] = useState(0);
@@ -212,7 +215,16 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const onSwipeReply = useCallback(() => haptic(modules.haptics, "select"), [modules.haptics]);
   const onRetry = useCallback((clientId: string) => void retry(clientId), [retry]);
   const onDiscard = useCallback((clientId: string) => void discard(clientId), [discard]);
-  const onOpenImage = useCallback((uri: string, alt: string) => setViewer({ uri, alt }), []);
+  // Read when a photo is tapped, so the handler stays stable for MessageBubble's memo.
+  const forGallery = useRef({ messages: conv.messages, urls });
+  forGallery.current = { messages: conv.messages, urls };
+  const onOpenImage = useCallback(
+    (uri: string, alt: string) => {
+      const { messages, urls: signed } = forGallery.current;
+      setViewer(galleryFor(messages, signed, uri, alt, (a) => (a.name ? `${copy.photo}, ${a.name}` : copy.photo)));
+    },
+    [copy.photo],
+  );
   // Files that didn't survive a relaunch: photos and videos can be picked again; anything else can only be deleted.
   const { reattach } = conv;
   const picker = modules.imagePicker;
@@ -263,11 +275,15 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
-  // Unknown while access loads: the composer waits quietly instead of saying you can't post.
-  // TODO(chat accessError): when useConversation exposes `accessError` and `refetchAccess` (the chat
-  // owner's PR), show the error here with a Retry that calls `refetchAccess`, instead of waiting
-  // quietly forever on an access read that failed.
+  // Unknown while access loads: the composer waits quietly instead of saying you can't post. A
+  // read that failed (and no role known from before) offers Retry in the composer's place.
   const canPost = conv.accessLoading ? null : conv.canPost;
+  const accessFailed = Boolean(conv.accessError) && conv.role === null && !conv.accessLoading;
+  const { refetchAccess } = conv;
+  const retryAccess = useCallback(() => {
+    setRetryingAccess(true);
+    void Promise.resolve(refetchAccess()).finally(() => setRetryingAccess(false));
+  }, [refetchAccess]);
   const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const offset = keyboardVerticalOffset ?? measuredTop;
@@ -326,8 +342,12 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               />
             )}
           </View>
+          {accessFailed ? (
+            <ChatAccessError onRetry={retryAccess} retrying={retryingAccess} testID={`${testID}-access-error`} />
+          ) : (
           <ChatComposer
             composer={composer}
+            userId={userId}
             canPost={canPost}
             disabledReason={disabledReason}
             role={conv.role}
@@ -341,6 +361,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
             signalRecording={conv.signalRecording}
             testID={`${testID}-composer`}
           />
+          )}
         </KeyboardAvoiding>
         <MessageActionsSheet
           message={actionsFor}
@@ -350,7 +371,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onAction={onAction}
           testID={`${testID}-actions`}
         />
-        <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+        <ChatPhotoViewer photos={viewer?.photos ?? null} initialIndex={viewer?.index} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
       </SafeAreaView>
     </ChatPeopleScope>
   );

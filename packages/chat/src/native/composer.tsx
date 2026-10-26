@@ -4,6 +4,7 @@
  * library or camera and a pasted picture (attached as thumbnails), what the
  * message replies to, Send with a haptic, and, with expo-audio, the mic: hold
  * to record, slide left to cancel, slide up to lock and record hands-free.
+ * The emoji button opens the full picker, which types where the cursor is.
  * When the person can't post, it says why instead of taking input.
  */
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -16,6 +17,8 @@ import type { ChatRole } from "../core/types";
 import { canSend, fileFromDataUri, filesFromAssets, toSend } from "./composer-state";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { insertAtSelection } from "./emoji";
+import { ChatEmojiPickerSheet } from "./emoji-picker";
 import { haptic, type ExpoAudioLike } from "./modules";
 import { liveBars } from "./recorder-machine";
 import type { ChatComposerHandle } from "./use-composer";
@@ -31,6 +34,8 @@ export interface ChatComposerProps {
   onSend: (payload: ReturnType<typeof toSend>) => void;
   signalTyping?: () => void;
   signalRecording?: () => void;
+  /** The signed-in person (`useChat().userId`), whose recent emoji the picker keeps. */
+  userId?: string | null;
   testID?: string;
 }
 
@@ -79,12 +84,21 @@ function ComposerWithVoice(props: ChatComposerProps & { audio: ExpoAudioLike }) 
   return <ComposerBody {...props} voice={voice} />;
 }
 
-function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
+function ComposerBody({ composer, canPost, onSend, signalTyping, voice, userId, testID = "chat-composer" }: ChatComposerProps & { voice: Voice | null }) {
   const { modules, copy } = useChatNative();
   const colors = useThemeRoles();
   const { state, dispatch } = composer;
   const [attachOpen, setAttachOpen] = useState(false);
   const [canPaste, setCanPaste] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  // Where the cursor is, so an emoji from the picker goes there.
+  const selection = useRef<{ start: number; end: number } | null>(null);
+  const insertEmoji = (emoji: string) => {
+    const next = insertAtSelection(state.text, selection.current, emoji);
+    selection.current = { start: next.cursor, end: next.cursor };
+    dispatch({ type: "text", text: next.text });
+    signalTyping?.();
+  };
   const ready = canPost === true;
   const sendable = canSend(state, ready);
   const recording = voice && voice.state.phase !== "idle";
@@ -210,6 +224,9 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
                 dispatch({ type: "text", text });
                 if (text) signalTyping?.();
               }}
+              onSelectionChange={(e) => {
+                selection.current = e.nativeEvent.selection;
+              }}
               placeholder={copy.placeholder}
               placeholderTextColor={colors.tertiaryLabel as string}
               accessibilityLabel={copy.placeholder}
@@ -229,6 +246,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
                 backgroundColor: colors.surface,
               }}
             />
+            <IconButton testID={`${testID}-emoji`} icon="smile" label={copy.addEmoji} onPress={() => setEmojiOpen(true)} color={colors.secondaryLabel} disabled={!ready} />
           </>
         )}
         {sendable && !recording ? (
@@ -239,6 +257,7 @@ function ComposerBody({ composer, canPost, onSend, signalTyping, voice, testID =
           <IconButton testID={`${testID}-send`} icon="arrow-up" label={copy.send} onPress={send} filled color={colors.tint} disabled />
         )}
       </View>
+      <ChatEmojiPickerSheet open={emojiOpen} onClose={() => setEmojiOpen(false)} onSelect={insertEmoji} userId={userId} testID={`${testID}-emoji-sheet`} />
       <NativeSheet open={attachOpen} onOpenChange={setAttachOpen} testID={`${testID}-attach-sheet`}>
         <View>
           {modules.imagePicker ? (
@@ -265,7 +284,7 @@ function IconButton({
   disabled = false,
   testID,
 }: {
-  icon: "plus" | "arrow-up" | "close" | "trash" | "mic";
+  icon: "plus" | "arrow-up" | "close" | "trash" | "mic" | "smile";
   label: string;
   onPress: () => void;
   color: unknown;
