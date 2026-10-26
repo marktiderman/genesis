@@ -523,4 +523,11 @@ export const Alert = {
   >(),
 };
 
+// Mockable action sheet (iOS): tests read the options and call the captured callback.
+export const ActionSheetIOS = {
+  showActionSheetWithOptions: _vi.fn<
+    (options: { options: string[]; cancelButtonIndex?: number; destructiveButtonIndex?: number | number[]; title?: string }, callback: (index: number) => void) => void
+  >(),
+};
+
 export default {};

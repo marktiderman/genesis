@@ -16,7 +16,7 @@
 import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Alert, Platform, Pressable, SectionList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
+import { encodeRecordKey, type BaseRecord, type DataRow } from "@marktiderman/genesis-core";
 import { isTimeZone, personTimeZone } from "@marktiderman/genesis-core/dates";
 import { useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { NativeBadge } from "../../components/badge";
@@ -88,7 +88,14 @@ const IOS_GROUP_MARGIN = 16;
 const GROUP_RADIUS = Number.parseFloat(String(Platform.Version)) >= 26 ? 26 : 10;
 const IOS = Platform.OS === "ios";
 
-const keyExtractor = (row: Row) => String((row as DataRow).id);
+// Rows are keyed by the view's key fields (`keyFields`), so composite keys never collide.
+const recordKey = (view: AnyResourceView<Row>, row: Row) => {
+  try {
+    return String(encodeRecordKey(view.contract, row as DataRow));
+  } catch {
+    return String((row as DataRow).id);
+  }
+};
 
 /**
  * A native list screen from a view:
@@ -217,6 +224,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   } = props;
   void _zone;
   const state = useNativeResourceView<T>(view, options);
+  const keyExtractor = useCallback((row: T) => recordKey(view as AnyResourceView<Row>, row), [view]);
   const messages = useNativeResourceViewMessages();
   const colors = useThemeRoles();
   const cell = useDisplayCell();
@@ -467,7 +475,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
         fields={sheet?.mode === "edit" ? editFields : createFields}
         initial={sheet?.mode === "edit" ? ((editRow.data as Row | undefined) ?? (editRow.isError ? sheet.row : undefined)) : undefined}
         loading={editLoading}
-        recordKey={sheet?.row ? String((sheet.row as DataRow).id) : "new"}
+        recordKey={sheet?.row ? recordKey(view as AnyResourceView<Row>, sheet.row) : "new"}
         onCancel={() => setSheet(null)}
         onSave={async (values, dirty) => {
           const result = await state.save(sheet?.mode ?? "create", values, sheet?.row, dirty);

@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 133
+      "count": 134
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 78
+      "count": 79
     }
   },
   "primitives": [
@@ -3917,6 +3917,265 @@
       ]
     },
     {
+      "slug": "native-resource-workspace",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/NativeResourceWorkspace.tsx",
+      "stability": "stable",
+      "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n<NativeResourceWorkspace workspace={brandWorkspace} row={brand} />\n```",
+      "primaryComponent": "NativeResourceWorkspace",
+      "components": [
+        {
+          "name": "NativeResourceWorkspaceMenu",
+          "summary": "The header menu: a button that lists the workspace's actions. On iOS an action sheet\n(ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert\nshows at most three buttons. A refused action stays listed and explains why when pressed.",
+          "props": [
+            {
+              "name": "row",
+              "type": "Row",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "workspace",
+              "type": "AnyWorkspace<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "((action: string, row: T) => false | Allowed)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule: `false` hides an action, a sentence refuses it. Only narrows."
+            },
+            {
+              "name": "messages",
+              "type": "Partial<{ actions: string; cancel: string; save: string; notChanged: string; failed: string; noRunner: string; checks: string; checkDone: string; checkTodo: string; allSections: string; notANumber: string; ready: string; problems: (count: number) => string; warnings: (count: number) => string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onAction",
+              "type": "((name: string, row: T) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Runs an allowed (and confirmed) action. Default: the provider's `runAction`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "getNativeResourceWorkspaceStackOptions",
+          "summary": "`<Stack.Screen options>` for a workspace: the record's title in the navigation bar and the\nactions in the header menu.\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n```",
+          "props": [
+            {
+              "name": "row",
+              "type": "Row",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "workspace",
+              "type": "AnyWorkspace<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "((action: string, row: T) => false | Allowed)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule: `false` hides an action, a sentence refuses it. Only narrows."
+            },
+            {
+              "name": "headerLeft",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the left of the nav bar."
+            },
+            {
+              "name": "headerOptions",
+              "type": "Record<string, unknown>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Direct passthrough merged INTO the resolved options object. Wins over named props."
+            },
+            {
+              "name": "headerRight",
+              "type": "(() => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Custom node rendered on the right of the nav bar."
+            },
+            {
+              "name": "large",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When true, iOS uses large-title mode + scroll-edge appearance."
+            },
+            {
+              "name": "messages",
+              "type": "Partial<{ actions: string; cancel: string; save: string; notChanged: string; failed: string; noRunner: string; checks: string; checkDone: string; checkTodo: string; allSections: string; notANumber: string; ready: string; problems: (count: number) => string; warnings: (count: number) => string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onAction",
+              "type": "((name: string, row: T) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Runs an allowed (and confirmed) action. Default: the provider's `runAction`."
+            },
+            {
+              "name": "scrollEdgeBehavior",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "iOS scroll-edge behavior. `\"match\"` collapses, `\"transparent\"` always transparent, `\"opaque\"` always opaque."
+            }
+          ]
+        },
+        {
+          "name": "NativeResourceWorkspace",
+          "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n<NativeResourceWorkspace workspace={brandWorkspace} row={brand} />\n```",
+          "props": [
+            {
+              "name": "row",
+              "type": "Row",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record, as the screen loaded it. A save refreshes it through the cache."
+            },
+            {
+              "name": "workspace",
+              "type": "AnyWorkspace<T>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "lists",
+              "type": "Partial<Record<string, Partial<Omit<NativeResourceViewProps<Row>, \"view\" | \"filter\">>>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "More props for a list section's NativeResourceView, by section id."
+            },
+            {
+              "name": "messages",
+              "type": "Partial<{ actions: string; cancel: string; save: string; notChanged: string; failed: string; noRunner: string; checks: string; checkDone: string; checkTodo: string; allSections: string; notANumber: string; ready: string; problems: (count: number) => string; warnings: (count: number) => string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onOpenSection",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "With more than four sections: push that section's route (the pushed screen passes `section`).\nWithout it, the section opens in place with an \"All sections\" row to go back."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After a settings section saved, with the stored row."
+            },
+            {
+              "name": "onSectionChange",
+              "type": "((id: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The segmented control changed section."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The section to show. With up to four sections, the segmented control's value (default the\nfirst). With more, the pushed section; without it, the list of sections."
+            },
+            {
+              "name": "slots",
+              "type": "Partial<Record<string, ReactNode>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own sections, by id."
+            },
+            {
+              "name": "switcher",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the sections: a switcher between records."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "parseSettingNumber",
+          "summary": "A number as typed: \"1.5\" or, with a comma as the decimal mark, \"1,5\". Anything else (an empty\nstring aside) is an error, never NaN.",
+          "props": []
+        },
+        {
+          "name": "defaultNativeResourceWorkspaceMessages",
+          "summary": "The words NativeResourceWorkspace shows. Override any of them with `messages`.",
+          "props": []
+        },
+        {
+          "name": "notChanged",
+          "summary": "`{noun}`: the record's noun. When a save changed no rows.",
+          "props": []
+        },
+        {
+          "name": "noRunner",
+          "summary": "`{name}`: the action. When the provider can't run actions and the screen gave no `onAction`.",
+          "props": []
+        },
+        {
+          "name": "allSections",
+          "summary": "The back row of a section opened from the list of sections.",
+          "props": []
+        },
+        {
+          "name": "problems",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "warnings",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "SEGMENTED_SECTIONS_MAX",
+          "summary": "Up to this many sections show as a segmented control; more are pushed rows.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "nav-bar",
       "aliases": [],
       "surface": "native",
@@ -6660,7 +6919,7 @@
           "props": [
             {
               "name": "actions",
-              "type": "() => readonly RowAction[]",
+              "type": "() => readonly ResolvedViewAction[]",
               "required": true,
               "defaultValue": null,
               "description": "The view's actions, in order, frozen."
@@ -13622,6 +13881,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "workspace",
+              "type": "DeepPartial<{ save: string; saved: string; notChanged: string; run: string; noRunner: string; checks: string; checkDone: string; checkTodo: string; notANumber: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         },
@@ -13636,7 +13902,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 8 more ...; sortable: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 9 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -15223,6 +15489,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "leading",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Before the title, in the leading area: a switcher between records, say."
             },
             {
               "name": "onPreview",
@@ -17990,6 +18263,115 @@
               "required": false,
               "defaultValue": null,
               "description": "Persist key for density / page size via `useViewSettings`.\nDefaults to `resource` or a slug of `title`."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-workspace",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/ResourceWorkspace.tsx",
+      "stability": "stable",
+      "summary": "One record's screen from a workspace:\n\n```tsx\n<ResourceWorkspace workspace={brandWorkspace} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+      "primaryComponent": "ResourceWorkspace",
+      "components": [
+        {
+          "name": "ResourceWorkspace",
+          "summary": "One record's screen from a workspace:\n\n```tsx\n<ResourceWorkspace workspace={brandWorkspace} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+          "props": [
+            {
+              "name": "row",
+              "type": "Row",
+              "required": true,
+              "defaultValue": null,
+              "description": "The record, as the screen loaded it (`useOne`). A save refreshes it through the cache."
+            },
+            {
+              "name": "section",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The section showing now: the route's segment."
+            },
+            {
+              "name": "sectionHref",
+              "type": "(id: string) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "Each section's route, for the shell's tabs: `(id) => \\`/brands/${brand.id}/${id}\\``."
+            },
+            {
+              "name": "workspace",
+              "type": "ResourceWorkspace<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "can",
+              "type": "((action: string, row: T) => false | Allowed)",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own rule for a header action. It only narrows the view's guards: `false` hides\nthe action, a sentence refuses it with that reason."
+            },
+            {
+              "name": "lists",
+              "type": "Partial<Record<string, Partial<Omit<ResourceViewProps, \"view\" | \"filter\">>>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "More props for a list section's ResourceView, by section id."
+            },
+            {
+              "name": "onAction",
+              "type": "((name: string, row: T) => unknown)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Runs a header action once allowed (and confirmed). Default: the provider's `runAction`. A\nrejection shows inline."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After a settings section saved, with the stored row."
+            },
+            {
+              "name": "parent",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The breadcrumb's parent link: one element, so the host's router renders it."
+            },
+            {
+              "name": "readinessLabels",
+              "type": "ReadinessLabels",
+              "required": false,
+              "defaultValue": null,
+              "description": "The readiness chip's words."
+            },
+            {
+              "name": "slots",
+              "type": "Partial<Record<string, ReactNode>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The screen's own sections, by id (sections with neither list nor settings)."
+            },
+            {
+              "name": "switcher",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "In the header's leading area, before the title: a switcher between records."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
             }
           ]
         }

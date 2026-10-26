@@ -54,6 +54,7 @@ export {
   getNativeResourceWorkspaceStackOptions,
   defaultNativeResourceWorkspaceMessages,
   SEGMENTED_SECTIONS_MAX,
+  parseSettingNumber,
   type NativeResourceWorkspaceProps,
   type NativeResourceWorkspaceHeaderProps,
   type NativeResourceWorkspaceMessages,

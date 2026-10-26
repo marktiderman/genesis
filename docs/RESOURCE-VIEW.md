@@ -347,24 +347,28 @@ export const brandWorkspace = defineWorkspace(brandsView, {
 ```
 
 - **Checked at start-up** (`ViewDefinitionError`): settings fields must be in
-  `view.writable("edit")`, header actions must be view actions, section ids are unique, a section
-  is a list, settings or a slot (never two), and sections don't nest (no workspace inside one).
-- **Helpers** the renderers share: `headerFor(row)` (the summary plus actions with their guards),
-  `settingsFields(id?)` (the view's edit form, narrowed), `settingsPatch(id, values)` (only the
-  listed keys), `listFilter(id, row)`, `readinessFor(row)` (chip tones only) and
-  `readinessSummary(row)` for core's `readinessChip`, which web and native both draw.
+  `view.writable("edit")` and edit in place (not JSON, a list, a link or sensitive), header actions
+  must be view actions, section ids are unique, a section has only `id`, `label` and one of `list`
+  or `settings`, and sections don't nest.
+- **Helpers** the renderers share: `headerFor(row, { can, runnable, served })` (the summary plus
+  actions, narrowed by the view's guards, the screen's `can` and what the provider serves),
+  `settingsFields(id?)`, `settingsLocked(row)` (the view's `can("update")` reason, shown with the
+  settings read-only), `settingsPatch(id, values)`, `recordId(row)` (by the key fields),
+  `listFilter(id, row)` (at least one key, single values; checked in development),
+  `readinessFor(row)` and `readinessSummary(row)`.
 - **List sections** pass `listFilter(id, row)` as the child list's `filter`, which also fills
   those fields, hidden, on create.
-- **Web** `<ResourceWorkspace workspace row section sectionHref />`: the header in
+- **Web** `<ResourceWorkspace workspace row section sectionHref can? onAction? />`: the header in
   `AppShellPageHeader` through `ResourceHeader` (a `switcher` in its leading area), sections as
-  the shell's tabs through `useAppShellSubNav`, list sections as embedded `ResourceView`, settings
-  as `SettingsRow` and `ToggleRow`, readiness as the `ReadinessChip` in the tab row's end slot.
+  the shell's tabs, list sections as embedded `ResourceView`, settings as `SettingsRow` and
+  `ToggleRow`, readiness as the `ReadinessChip`.
 - **Native** `<NativeResourceWorkspace workspace row />` with
-  `getNativeResourceWorkspaceStackOptions` for the title and the header menu: up to four sections
-  as a segmented control, more as pushed rows, list sections as embedded `NativeResourceView`,
-  settings as inset grouped rows, readiness as the same summary chip.
-- **Saving** sends only the section's changed, listed keys. A save that matches no rows is a
-  refusal, shown inline.
+  `getNativeResourceWorkspaceStackOptions` for the title and the header menu (an action sheet on
+  iOS, a sheet of rows elsewhere, destructive actions marked; one action runs at a time): up to
+  four sections as a segmented control; more as rows that push through `onOpenSection`, or open
+  in place with an "All sections" row back.
+- **Saving** sends only the section's changed, listed, visible keys. A save that matches no rows
+  is a refusal, shown inline; a number field never saves NaN.
 
 ## Native
 

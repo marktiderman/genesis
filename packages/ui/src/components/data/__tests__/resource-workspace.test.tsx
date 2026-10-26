@@ -14,7 +14,7 @@ import { AppShell, type NavItem } from "../../layout/AppShell";
 import type { NavigationNode } from "../../../navigation";
 import { ResourceWorkspace } from "../resource-view";
 
-type Brand = { id: string; name: string; website: string | null; public: boolean; is_default: boolean; notes: string | null };
+type Brand = { id: string; name: string; website: string | null; public: boolean; is_default: boolean; notes: string | null; score?: number | null };
 type Product = { id: string; brand_id: string; title: string };
 
 const brands = defineResource<Brand>()({
@@ -28,6 +28,7 @@ const brands = defineResource<Brand>()({
     { name: "public", type: "boolean", hasDefault: true },
     { name: "is_default", type: "boolean", hasDefault: true },
     { name: "notes", type: "string", nullable: true },
+    { name: "score", type: "number", nullable: true },
   ],
 });
 const products = defineResource<Product>()({
@@ -45,6 +46,7 @@ const brandsView = defineView(brands, {
   actions: [
     { name: "archive", label: "Archive", confirm: "Archive this brand?", can: (b) => (b.is_default ? "The default brand stays." : true) },
     { name: "publish", label: "Publish" },
+    { name: "purge", label: "Purge", destructive: true },
   ],
 });
 const productsView = defineView(products, { columns: { default: ["title"] } });
@@ -198,5 +200,59 @@ describe("ResourceWorkspace", () => {
     expect(screen.getByText("Archive this brand?")).toBeTruthy();
     fireEvent.click(screen.getByTestId("resource-workspace-confirm"));
     await waitFor(() => expect(onAction).toHaveBeenCalledWith("archive", { ...brand, is_default: false }));
+  });
+});
+
+describe("ResourceWorkspace review fixes", () => {
+  const second = defineWorkspace(
+    defineView(brands, {
+      fields: { website: { visible: (v) => v["public"] === true } },
+      can: { update: (b) => (b.is_default ? "Locked." : true) },
+      actions: [{ name: "publish", label: "Publish" }, { name: "purge", label: "Purge", destructive: true }],
+    }),
+    { sections: [{ id: "settings", label: "Settings", settings: ["public", "website", "notes", "score"] }] },
+  );
+  const render2 = (r: Brand, p: DataProvider, extra: Record<string, unknown> = {}) =>
+    renderWorkspace("settings", p, { workspace: second as never, row: r, ...extra });
+
+  it("shows settings read-only with the reason when the view refuses update", () => {
+    const p = provider();
+    render2(brand, p);
+    expect(screen.getByTestId("resource-workspace-settings-locked").textContent).toBe("Locked.");
+    expect(screen.queryByTestId("resource-workspace-settings-save")).toBeNull();
+    expect((screen.getByTestId("resource-workspace-settings-notes-input") as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("leaves a field hidden by `visible` out of the save", async () => {
+    const p = provider();
+    render2({ ...brand, is_default: false, public: true }, p);
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://x.example" } });
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-notes-input"), { target: { value: "hello" } });
+    // Turning public off hides the website: its edit is dropped.
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-public-input"));
+    expect(screen.queryByTestId("resource-workspace-settings-website-input")).toBeNull();
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledWith("brands", { id: "b1", data: { public: false, notes: "hello" } }));
+  });
+
+  it("never saves NaN from a number field", () => {
+    render2({ ...brand, is_default: false }, provider());
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-score-input"), { target: { value: "1e" } });
+    expect((screen.getByTestId("resource-workspace-settings-save") as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("hides actions nothing can run, and those the screen turns off; styles destructive ones", () => {
+    const { unmount } = render2(brand, provider({ runAction: undefined }));
+    expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull();
+    unmount();
+    render2(brand, provider(), { can: (name: string) => (name === "publish" ? false : true) });
+    expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull();
+    expect(screen.getByTestId("resource-workspace-action-purge").className).toMatch(/destructive/);
+  });
+
+  it("hides actions the provider doesn't serve, when it says", async () => {
+    render2(brand, provider({ describe: vi.fn(async () => ({ ...brands, access: {}, actions: [{ name: "purge", label: "Purge" }] })) as never }));
+    await waitFor(() => expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull());
+    expect(screen.getByTestId("resource-workspace-action-purge")).toBeTruthy();
   });
 });

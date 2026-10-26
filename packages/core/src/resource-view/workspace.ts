@@ -3,9 +3,10 @@
 // a slot the screen fills) and readiness checks. Checked once and frozen like defineView, with no
 // React, so web and native draw the same screen from it.
 
-import type { DataRow, ResourceContract } from "../schema/types";
+import { encodeRecordKey } from "../schema/keys";
+import type { Identifier } from "../provider/types";
+import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { ViewDefinitionError } from "./define-view";
-import { readinessOf, type Readiness } from "./readiness";
 import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, ViewTone } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a child list can be any resource
@@ -45,6 +46,8 @@ export type WorkspaceSection<Row extends DataRow = DataRow, Name extends string 
 
 /** One readiness check: "Has a logo", ok or not, and why not. */
 export interface WorkspaceReadinessItem {
+  /** A stable key for the check; default its position and title. */
+  id?: string;
   title: string;
   ok: boolean;
   reason?: string;
@@ -72,6 +75,7 @@ export interface WorkspaceHeaderAction {
   readonly label: string;
   readonly confirm?: string;
   readonly description?: string;
+  readonly destructive?: boolean;
   /** `true`, or the view guard's reason. Only narrows what the server allows. */
   readonly allowed: Allowed;
 }
@@ -84,8 +88,27 @@ export interface WorkspaceHeader {
   readonly actions: readonly WorkspaceHeaderAction[];
 }
 
+/** What a screen and its provider add to the header: they only narrow the view's guards. */
+export interface WorkspaceHeaderOptions<Row extends DataRow = DataRow> {
+  /** The screen's own rule: `false` hides the action, a sentence refuses it with that reason. */
+  can?: (action: string, row: Row) => Allowed | boolean;
+  /** Whether anything can run actions here (the screen's `onAction`, or the provider's `runAction`). `false` hides them all. */
+  runnable?: boolean;
+  /** The action names the provider reports serving (`ResourceSchema.actions`), when it reports them. Others are hidden. */
+  served?: readonly string[];
+}
+
+/** One chip's terms for the checks, until genesis-core/resource's `readinessOf` is used here. */
+export interface WorkspaceReadinessSummary {
+  readonly state: "ready" | "problems" | "warnings";
+  /** Unmet checks of that kind (0 when ready). */
+  readonly count: number;
+}
+
 /** A readiness check with its tone resolved. */
 export interface ResolvedReadinessItem {
+  /** Stable, for list keys: the check's `id`, or its position and title. */
+  readonly key: string;
   readonly title: string;
   readonly ok: boolean;
   readonly reason?: string;
@@ -100,7 +123,14 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
   readonly headerActions: readonly string[];
   readonly hasReadiness: boolean;
   section(id: string): ResolvedWorkspaceSection | undefined;
-  headerFor(row: Row): WorkspaceHeader;
+  /** The record's address for the provider: its key fields (`keyFields`), composite keys encoded. */
+  recordId(row: Row): Identifier;
+  /**
+   * Why settings can't be saved for this row: the view's `can("update", row)` reason, or `null`
+   * when they can. Renderers then show the settings read-only with the reason.
+   */
+  settingsLocked(row: Row): string | null;
+  headerFor(row: Row, options?: WorkspaceHeaderOptions<Row>): WorkspaceHeader;
   /**
    * Settings fields as the view's form resolves them (`view.form("edit")`), in the order listed:
    * one section's, or every settings section's without an id.
@@ -108,19 +138,37 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
   settingsFields(sectionId?: string): readonly ResolvedFormField[];
   /** Only the section's listed keys that `values` has: what a save sends. */
   settingsPatch(sectionId: string, values: Readonly<Record<string, unknown>>): Record<string, unknown>;
-  /** A list section's filter for this row. */
+  /**
+   * A list section's filter for this row. In development, a filter with no key, or a value that
+   * isn't a string, number, boolean or null, throws: it would show every child row.
+   */
   listFilter(sectionId: string, row: Row): WorkspaceFilter;
   /** The readiness checks for this row, tones resolved; empty without `readiness`. */
   readinessFor(row: Row): readonly ResolvedReadinessItem[];
   /**
-   * The checks in one chip's terms (`readinessOf`): an unmet `danger` check is a problem, any
-   * other unmet check one to look at. `null` without `readiness`. Draw it with `readinessChip`.
+   * The checks in one chip's terms (the shape of `readinessOf`'s result): an unmet `danger`
+   * check is a problem, any other unmet check one to look at. `null` without `readiness`.
    */
-  readinessSummary(row: Row): Readiness | null;
+  readinessSummary(row: Row): WorkspaceReadinessSummary | null;
 }
 
 const WORKSPACE = Symbol.for("genesis.resource-workspace");
+/** The reason shown when a guard refuses without one. */
+const REFUSED = "This isn't allowed.";
 const TONES: ReadonlySet<string> = new Set<ViewTone>(["success", "warning", "danger", "info", "muted"]);
+const SECTION_KEYS: ReadonlySet<string> = new Set(["id", "label", "list", "settings"]);
+const dev = () => process.env.NODE_ENV !== "production";
+
+/** Why a field can't be a setting edited in place, or null when it can. */
+function unsettable(field: FieldSchema | undefined): string | null {
+  if (!field) return null;
+  const facts = field as FieldSchema & { sensitive?: boolean };
+  if (field.type === "json") return "is JSON";
+  if (field.array) return "is a list";
+  if (field.references || field.type === "relation") return "is a link";
+  if (facts.sensitive) return "is sensitive";
+  return null;
+}
 
 /** Whether a value is a workspace (`defineWorkspace`'s result). */
 export function isWorkspace(value: unknown): value is ResourceWorkspace {
@@ -188,6 +236,8 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
       problems.push(`${label} holds a workspace; sections don't nest`);
       return;
     }
+    const unknown = Object.keys(s).filter((k) => !SECTION_KEYS.has(k));
+    if (unknown.length) problems.push(`${label} has ${unknown.map((k) => `"${k}"`).join(", ")}, which isn't a section key (id, label, list, settings)`);
     const hasList = s.list !== undefined;
     const hasSettings = s.settings !== undefined;
     if (hasList && hasSettings) {
@@ -212,11 +262,13 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
       }
       if (s.settings.length === 0) problems.push(`${label}.settings lists no fields`);
       for (const field of s.settings as readonly string[]) {
-        if (!writable.has(field)) problems.push(`${label}.settings names "${field}", which the view can't write on edit`);
+        const why = unsettable(view.field(field));
+        if (why) problems.push(`${label}.settings names "${field}", which ${why}; it needs an editor of its own`);
+        else if (!writable.has(field)) problems.push(`${label}.settings names "${field}", which the view can't write on edit`);
         if (settingsSeen.has(field)) problems.push(`settings lists "${field}" twice`);
         settingsSeen.add(field);
       }
-      if (name) sections.push(Object.freeze({ id: name, label: s.label, kind: "settings", settings: Object.freeze([...s.settings]) }));
+      if (name) sections.push(Object.freeze({ id: name, label: s.label, kind: "settings", settings: Object.freeze((s.settings as readonly string[]).map(String)) }));
       return;
     }
     if (name) sections.push(Object.freeze({ id: name, label: s.label, kind: "slot" }));
@@ -264,35 +316,57 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     return out;
   };
 
-  const headerFor = (row: Row): WorkspaceHeader => {
+  const headerFor = (row: Row, options: WorkspaceHeaderOptions<Row> = {}): WorkspaceHeader => {
     const summary = view.summary(row);
+    const served = options.served ? new Set(options.served) : null;
+    const actions: WorkspaceHeaderAction[] = [];
+    if (options.runnable !== false) {
+      for (const name of headerActions) {
+        if (served && !served.has(name)) continue;
+        const own = options.can?.(name, row);
+        if (own === false) continue;
+        // Guards only narrow: the screen's refusal wins, then the view's.
+        const allowed: Allowed = typeof own === "string" ? own || REFUSED : view.canAction(name, row);
+        actions.push(Object.freeze({ ...actionByName.get(name)!, allowed }));
+      }
+    }
     return Object.freeze({
       title: summary.title,
       ...(summary.subtitle !== undefined ? { subtitle: summary.subtitle } : {}),
       chips: Object.freeze([...(summary.chips ?? [])]),
-      actions: Object.freeze(
-        headerActions.map((name) => Object.freeze({ ...actionByName.get(name)!, allowed: view.canAction(name, row) })),
-      ),
+      actions: Object.freeze(actions),
     });
   };
 
   const readinessFor = (row: Row): readonly ResolvedReadinessItem[] => {
     if (!readiness) return Object.freeze([]);
-    const items = readiness(row);
-    const bad = items.filter((item) => item.tone !== undefined && !TONES.has(item.tone));
-    if (bad.length) {
-      throw new ViewDefinitionError(where, bad.map((item) => `readiness "${item.title}" has tone "${String(item.tone)}", which isn't a chip tone`));
-    }
     return Object.freeze(
-      items.map((item) =>
-        Object.freeze({
+      readiness(row).map((item, i) => {
+        let tone = item.tone ?? (item.ok ? "success" : "warning");
+        if (!TONES.has(tone)) {
+          if (dev()) console.warn(`[genesis-core] ${where}: readiness "${item.title}" has tone "${String(tone)}", which isn't a chip tone; showing it muted.`);
+          tone = "muted";
+        }
+        return Object.freeze({
+          key: item.id ?? `${i}:${item.title}`,
           title: item.title,
           ok: Boolean(item.ok),
           ...(item.reason !== undefined ? { reason: item.reason } : {}),
-          tone: item.tone ?? (item.ok ? "success" : "warning"),
-        }),
-      ),
+          tone,
+        });
+      }),
     );
+  };
+
+  // TODO: use genesis-core/resource's readinessOf once the pure resource rules move there.
+  const readinessSummary = (row: Row): WorkspaceReadinessSummary | null => {
+    if (!readiness) return null;
+    let problems = 0;
+    let warnings = 0;
+    for (const r of readinessFor(row)) if (!r.ok) r.tone === "danger" ? problems++ : warnings++;
+    if (problems) return Object.freeze({ state: "problems", count: problems });
+    if (warnings) return Object.freeze({ state: "warnings", count: warnings });
+    return Object.freeze({ state: "ready", count: 0 });
   };
 
   return Object.freeze({
@@ -302,6 +376,11 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     headerActions,
     hasReadiness: Boolean(readiness),
     section: (id: string) => byId.get(id),
+    recordId: (row: Row) => encodeRecordKey(view.contract, row),
+    settingsLocked: (row: Row) => {
+      const allowed = view.can("update", row);
+      return allowed === true ? null : typeof allowed === "string" && allowed.trim() ? allowed : REFUSED;
+    },
     headerFor,
     settingsFields,
     settingsPatch: (sectionId: string, values: Readonly<Record<string, unknown>>) => {
@@ -312,12 +391,21 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     listFilter: (sectionId: string, row: Row) => {
       const filter = filters.get(sectionId);
       if (!filter) throw new ViewDefinitionError(where, [`no list section "${sectionId}"`]);
-      return Object.freeze({ ...filter(row) });
+      const out = filter(row);
+      if (dev()) {
+        const entries = out && typeof out === "object" ? Object.entries(out) : [];
+        const bad = entries.filter(([, v]) => !(v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean"));
+        if (entries.length === 0 || bad.length) {
+          throw new ViewDefinitionError(where, [
+            entries.length === 0
+              ? `sections.${sectionId}.list.filter gave no keys, which would list every row`
+              : `sections.${sectionId}.list.filter gives ${bad.map(([k]) => `"${k}"`).join(", ")} no single value`,
+          ]);
+        }
+      }
+      return Object.freeze({ ...out });
     },
     readinessFor,
-    readinessSummary: (row: Row) =>
-      readiness
-        ? readinessOf(readinessFor(row).filter((r) => !r.ok).map((r) => ({ level: r.tone === "danger" ? ("error" as const) : ("warning" as const) })))
-        : null,
+    readinessSummary,
   }) as ResourceWorkspace<C, Row>;
 }

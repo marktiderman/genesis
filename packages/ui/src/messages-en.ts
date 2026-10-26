@@ -162,6 +162,7 @@ export const uiMessages = {
     checks: "Checks",
     checkDone: "Done",
     checkTodo: "To do",
+    notANumber: "Enter a number.",
   },
 };
 

@@ -6,14 +6,19 @@
 //   - a list section → an embedded NativeResourceView of the child view, filtered by the row;
 //   - a settings section → inset grouped settings rows, saving only its listed keys, a zero-row
 //     save shown inline as a refusal;
-//   - readiness → the web's summary chip (core's readinessChip), then the checks while any is unmet.
+//   - readiness → a summary chip, then the checks while any is unmet.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
-import { useMemo, useState, type ReactNode } from "react";
-import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
-import { useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useDataProvider, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import { readinessChip, type ReadinessLabels, type ResourceWorkspace as Workspace, type WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import type {
+  Allowed,
+  ResourceWorkspace as Workspace,
+  WorkspaceHeaderAction,
+  WorkspaceReadinessSummary,
+} from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -21,6 +26,7 @@ import { NativeInlineAlert } from "../../components/inline-alert";
 import { NativeInput } from "../../components/input";
 import { NativeListItem } from "../../components/list-item";
 import { NativeSegmentedControl } from "../../components/segmented-control";
+import { NativeSheet } from "../../components/sheet";
 import { NativeSelect, NativeSelectContent, NativeSelectItem, NativeSelectTrigger } from "../../components/select";
 import { NativeSwitch } from "../../components/switch";
 import { NativeText } from "../../components/text";
@@ -50,6 +56,13 @@ export const defaultNativeResourceWorkspaceMessages = {
   checks: "Checks",
   checkDone: "Done",
   checkTodo: "To do",
+  /** The back row of a section opened from the list of sections. */
+  allSections: "All sections",
+  notANumber: "Enter a number.",
+  // The readiness chip (genesis-ui's readinessChip words; to share genesis-core/resource's once it has them).
+  ready: "Ready to publish",
+  problems: (count: number) => `${count} ${count === 1 ? "problem" : "problems"} to fix`,
+  warnings: (count: number) => `${count} to check`,
 };
 export type NativeResourceWorkspaceMessages = typeof defaultNativeResourceWorkspaceMessages;
 
@@ -63,68 +76,147 @@ export interface NativeResourceWorkspaceHeaderProps<T extends Row = Row> {
   row: T;
   /** Runs an allowed (and confirmed) action. Default: the provider's `runAction`. */
   onAction?: (name: string, row: T) => unknown;
+  /** The screen's own rule: `false` hides an action, a sentence refuses it. Only narrows. */
+  can?: (action: string, row: T) => Allowed | boolean;
   messages?: Partial<NativeResourceWorkspaceMessages>;
 }
 
-/** Runs header actions: guards explain, confirms ask, failures show in an alert. */
-function useHeaderActions<T extends Row>({ workspace, row, onAction, messages }: NativeResourceWorkspaceHeaderProps<T>) {
+/** Runs header actions: guards explain, confirms ask, one at a time, failures in an alert. */
+function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messages }: NativeResourceWorkspaceHeaderProps<T>) {
   const words = { ...defaultNativeResourceWorkspaceMessages, ...messages };
   const provider = useDataProvider();
   const queryClient = useQueryClient();
   const view = workspace.view;
+  // Actions show only where something can run them, and only those the provider serves when it says.
+  const capabilities = useCapabilities(view.resource, { enabled: !onAction && !!provider.capabilities });
+  const described = useQuery({
+    queryKey: ["__describe", view.resource],
+    queryFn: () => provider.describe!(view.resource),
+    enabled: !onAction && !!provider.describe,
+    staleTime: Infinity,
+  });
+  const actions = workspace.headerFor(row as T & DataRow, {
+    runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
+    ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
+    ...(can ? { can: (name: string) => can(name, row) } : {}),
+  }).actions;
+  // One action at a time: a second press while one runs does nothing.
+  const running = useRef(false);
+  const [pending, setPending] = useState(false);
   const run = async (a: WorkspaceHeaderAction) => {
+    if (running.current) return;
+    running.current = true;
+    setPending(true);
     try {
       if (onAction) await onAction(a.name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: (row as DataRow).id as string, action: a.name });
+      else if (provider.runAction) await provider.runAction(view.resource, { id: workspace.recordId(row as T & DataRow), action: a.name });
       else throw new DataWriteError("error", fill(words.noRunner, { name: a.label }));
       await queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
     } catch (error) {
       Alert.alert(a.label, refusalMessage(error, words.failed));
+    } finally {
+      running.current = false;
+      setPending(false);
     }
   };
   const press = (a: WorkspaceHeaderAction) => {
+    if (running.current) return;
     if (a.allowed !== true) return Alert.alert(a.label, a.allowed);
     if (!a.confirm) return void run(a);
+    // Two buttons: within Android's three (React Native docs, Alert).
     Alert.alert(a.confirm, a.description, [
       { text: words.cancel, style: "cancel" },
-      { text: a.label, onPress: () => void run(a) },
+      { text: a.label, style: a.destructive ? "destructive" : "default", onPress: () => void run(a) },
     ]);
   };
-  return { actions: workspace.headerFor(row as T & DataRow).actions, press, words };
+  return { actions, press, pending, words };
 }
 
+/** Prefixes accessibility action names, so an action named "activate" never replaces the button's own. */
+const A11Y_PREFIX = "action:";
+
 /**
- * The header menu: a button that lists the workspace's actions. A refused action stays listed
- * and explains why when pressed. For the navigation bar's `headerRight`.
+ * The header menu: a button that lists the workspace's actions. On iOS an action sheet
+ * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
+ * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
 export function NativeResourceWorkspaceMenu<T extends Row = Row>(props: NativeResourceWorkspaceHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
-  const { actions, press, words } = useHeaderActions(props);
+  const { actions, press, pending, words } = useHeaderActions(props);
+  const [open, setOpen] = useState(false);
   if (actions.length === 0) return null;
-  const open = () =>
-    Alert.alert(props.workspace.headerFor(props.row as T & DataRow).title, undefined, [
-      ...actions.map((a) => ({
-        text: a.allowed === true ? a.label : `${a.label} (${a.allowed})`,
-        onPress: () => press(a),
-      })),
-      { text: words.cancel, style: "cancel" as const },
-    ]);
+  const labelOf = (a: WorkspaceHeaderAction) => (a.allowed === true ? a.label : `${a.label} (${a.allowed})`);
+  const show = () => {
+    if (Platform.OS === "ios") {
+      const destructive = actions.flatMap((a, i) => (a.destructive ? [i] : []));
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: props.workspace.headerFor(props.row as T & DataRow).title,
+          options: [...actions.map(labelOf), words.cancel],
+          cancelButtonIndex: actions.length,
+          ...(destructive.length ? { destructiveButtonIndex: destructive } : {}),
+        },
+        (index) => {
+          const a = actions[index];
+          if (a) press(a);
+        },
+      );
+    } else {
+      setOpen(true);
+    }
+  };
   return (
-    <Pressable
-      testID={testID}
-      accessibilityRole="button"
-      accessibilityLabel={words.actions}
-      accessibilityActions={actions.map((a) => ({ name: a.name, label: a.allowed === true ? a.label : `${a.label}: ${a.allowed}` }))}
-      onAccessibilityAction={(event) => {
-        const a = actions.find((x) => x.name === event.nativeEvent.actionName);
-        if (a) press(a);
-      }}
-      onPress={open}
-      hitSlop={8}
-      className="min-h-[44px] min-w-[44px] items-center justify-center"
-    >
-      <NativeIcon name="more" label={words.actions} />
-    </Pressable>
+    <>
+      <Pressable
+        testID={testID}
+        accessibilityRole="button"
+        accessibilityLabel={words.actions}
+        accessibilityState={{ disabled: pending, busy: pending }}
+        disabled={pending}
+        accessibilityActions={actions.map((a) => ({ name: `${A11Y_PREFIX}${a.name}`, label: a.allowed === true ? a.label : `${a.label}: ${a.allowed}` }))}
+        onAccessibilityAction={(event) => {
+          const name = event.nativeEvent.actionName;
+          const a = name.startsWith(A11Y_PREFIX) ? actions.find((x) => `${A11Y_PREFIX}${x.name}` === name) : undefined;
+          if (a) press(a);
+        }}
+        onPress={show}
+        hitSlop={8}
+        className="min-h-[44px] min-w-[44px] items-center justify-center"
+      >
+        <NativeIcon name="more" label={words.actions} />
+      </Pressable>
+      <NativeSheet open={open} onOpenChange={setOpen} testID={`${testID}-sheet`}>
+        <View style={{ paddingVertical: 8 }}>
+          {actions.map((a) => (
+            <Pressable
+              key={a.name}
+              testID={`${testID}-${a.name}`}
+              accessibilityRole="button"
+              accessibilityLabel={a.allowed === true ? a.label : `${a.label}: ${a.allowed}`}
+              onPress={() => {
+                setOpen(false);
+                press(a);
+              }}
+              className="min-h-[48px] justify-center px-4"
+            >
+              <NativeText preset="body" className={a.destructive ? "text-destructive" : undefined}>
+                {a.label}
+              </NativeText>
+              {a.allowed !== true ? (
+                <NativeText preset="caption" className="text-muted-foreground">
+                  {a.allowed}
+                </NativeText>
+              ) : null}
+            </Pressable>
+          ))}
+          <Pressable testID={`${testID}-cancel`} accessibilityRole="button" onPress={() => setOpen(false)} className="min-h-[48px] justify-center px-4">
+            <NativeText preset="body" className="text-muted-foreground">
+              {words.cancel}
+            </NativeText>
+          </Pressable>
+        </View>
+      </NativeSheet>
+    </>
   );
 }
 
@@ -139,8 +231,8 @@ export function NativeResourceWorkspaceMenu<T extends Row = Row>(props: NativeRe
 export function getNativeResourceWorkspaceStackOptions<T extends Row>(
   props: NativeResourceWorkspaceHeaderProps<T> & Omit<ScreenHeaderProps, "headerTitle">,
 ): Record<string, unknown> {
-  const { workspace, row, onAction, messages, ...header } = props;
-  const menu = { workspace, row, ...(onAction ? { onAction } : {}), ...(messages ? { messages } : {}) };
+  const { workspace, row, onAction, can, messages, ...header } = props;
+  const menu = { workspace, row, ...(onAction ? { onAction } : {}), ...(can ? { can } : {}), ...(messages ? { messages } : {}) };
   return composeHeaderOptions({
     ...header,
     headerTitle: workspace.headerFor(row as T & DataRow).title,
@@ -161,7 +253,10 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
   section?: string;
   /** The segmented control changed section. */
   onSectionChange?: (id: string) => void;
-  /** With more than four sections: push that section's route. */
+  /**
+   * With more than four sections: push that section's route (the pushed screen passes `section`).
+   * Without it, the section opens in place with an "All sections" row to go back.
+   */
   onOpenSection?: (id: string) => void;
   /** After a settings section saved, with the stored row. */
   onSaved?: (row: T) => void;
@@ -171,8 +266,6 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
   slots?: Partial<Record<string, ReactNode>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
-  /** The readiness chip's words (the web's `readinessChip` labels). */
-  readinessLabels?: ReadinessLabels;
   messages?: Partial<NativeResourceWorkspaceMessages>;
   testID?: string;
 }
@@ -186,7 +279,7 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
  * ```
  */
 export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResourceWorkspaceProps<T>) {
-  const { workspace, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, readinessLabels, messages, testID = "native-resource-workspace" } = props;
+  const { workspace, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
   const words = { ...defaultNativeResourceWorkspaceMessages, ...messages };
   const colors = useThemeRoles();
   const queryClient = useQueryClient();
@@ -198,7 +291,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
   const active = activeId ? workspace.section(activeId) : undefined;
   const readiness = workspace.readinessFor(record);
   const summary = workspace.readinessSummary(record);
-  const chip = summary ? readinessChip(summary, readinessLabels) : null;
+  const chip = summary ? readinessWords(summary, words) : null;
 
   const choose = (id: string) => {
     if (many && onOpenSection) return onOpenSection(id);
@@ -219,7 +312,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
       {readiness.some((r) => !r.ok) ? (
         <Group testID={`${testID}-checks`} title={words.checks}>
           {readiness.map((r, i) => (
-            <Cell key={r.title} last={i === readiness.length - 1}>
+            <Cell key={r.key} last={i === readiness.length - 1}>
               <NativeListItem
                 testID={`${testID}-check-${i}`}
                 title={r.title}
@@ -259,15 +352,33 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
         </Group>
       </ScrollView>
     );
-  } else if (active?.kind === "list") {
+  }
+  // A section opened in place from the list of sections: a row back to the list.
+  const back =
+    many && local !== undefined && section === undefined ? (
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Group testID={`${testID}-back`}>
+          <Cell last>
+            <NativeListItem
+              testID={`${testID}-all-sections`}
+              title={words.allSections}
+              leading={<NativeIcon name="chevron-left" />}
+              onPress={() => setLocal(undefined)}
+              className="bg-transparent"
+            />
+          </Cell>
+        </Group>
+      </View>
+    ) : null;
+  if (active?.kind === "list") {
     body = (
       <NativeResourceView
         key={active.id}
         view={active.view}
-        title={false}
-        filter={workspace.listFilter(active.id, record)}
         testID={`${testID}-list`}
         {...lists?.[active.id]}
+        title={false}
+        filter={workspace.listFilter(active.id, record)}
       />
     );
   } else if (active?.kind === "settings") {
@@ -275,7 +386,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         <SettingsGroup
           // A fresh draft per record and section.
-          key={`${String(record.id)}:${active.id}`}
+          key={`${String(workspace.recordId(record))}:${active.id}`}
           workspace={workspace}
           sectionId={active.id}
           row={record}
@@ -295,6 +406,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
   return (
     <View testID={testID} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
       {top}
+      {back}
       <View style={{ flex: 1 }}>{body}</View>
     </View>
   );
@@ -325,16 +437,20 @@ function SettingsGroup({
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
     return workspace.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
   }, [workspace, view, sectionId]);
+  // The view's update guard: when it refuses, the settings are read-only with its reason.
+  const locked = workspace.settingsLocked(row);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.key, row[f.key]])));
+  const [invalid, setInvalid] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const shown = fields.filter((f) => !f.visible || f.visible(draft));
   const changed: Values = {};
   for (const f of shown) if (draft[f.key] !== row[f.key]) changed[f.key] = draft[f.key];
-  const dirty = Object.keys(changed).length > 0;
+  const dirty = Object.keys(changed).length > 0 && !shown.some((f) => invalid[f.key]);
 
-  const set = (key: string, value: unknown) => {
+  const set = (key: string, value: unknown, error?: string) => {
     setRefusal(null);
+    setInvalid(({ [key]: _old, ...rest }) => (error ? { ...rest, [key]: error } : rest));
     setDraft((d) => ({ ...d, [key]: value }));
   };
   const save = async () => {
@@ -342,7 +458,7 @@ function SettingsGroup({
     setRefusal(null);
     try {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: row.id as string, data: workspace.settingsPatch(sectionId, changed) });
+      const result = await provider.update(view.resource, { id: workspace.recordId(row), data: workspace.settingsPatch(sectionId, changed) });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
       else onSaved(result.data as DataRow);
@@ -356,40 +472,84 @@ function SettingsGroup({
   return (
     <View style={{ gap: 12 }}>
       {refusal ? <NativeInlineAlert testID={`${testID}-refusal`} variant="destructive" description={refusal} /> : null}
+      {locked !== null ? <NativeInlineAlert testID={`${testID}-locked`} variant="info" description={locked} /> : null}
       <Group testID={`${testID}-group`} title={workspace.section(sectionId)?.label}>
         {shown.map((f, i) => (
           <Cell key={f.key} last={i === shown.length - 1}>
-            <SettingRow field={f} value={draft[f.key]} onChange={(v) => set(f.key, v)} testID={`${testID}-${f.key}`} />
+            <SettingRow
+              field={f}
+              nullable={Boolean(view.field(f.key)?.nullable)}
+              value={draft[f.key]}
+              error={invalid[f.key]}
+              disabled={locked !== null}
+              words={words}
+              onChange={(v, error) => set(f.key, v, error)}
+              testID={`${testID}-${f.key}`}
+            />
           </Cell>
         ))}
       </Group>
-      <NativeButton testID={`${testID}-save`} disabled={!dirty || saving} loading={saving} onPress={() => void save()}>
-        {words.save}
-      </NativeButton>
+      {locked === null ? (
+        <NativeButton testID={`${testID}-save`} disabled={!dirty || saving} loading={saving} onPress={() => void save()}>
+          {words.save}
+        </NativeButton>
+      ) : null}
     </View>
   );
 }
 
-function SettingRow({ field: f, value, onChange, testID }: { field: NativeFormField; value: unknown; onChange: (v: unknown) => void; testID: string }) {
-  const empty = f.required ? "" : null;
+/**
+ * A number as typed: "1.5" or, with a comma as the decimal mark, "1,5". Anything else (an empty
+ * string aside) is an error, never NaN.
+ */
+export function parseSettingNumber(text: string): number | null {
+  const t = text.trim();
+  const normalised = /^-?\d+,\d+$/.test(t) ? t.replace(",", ".") : t;
+  const n = normalised === "" ? Number.NaN : Number(normalised);
+  return Number.isFinite(n) ? n : null;
+}
+
+function SettingRow({
+  field: f,
+  nullable,
+  value,
+  error,
+  disabled,
+  words,
+  onChange,
+  testID,
+}: {
+  field: NativeFormField;
+  nullable: boolean;
+  value: unknown;
+  error?: string | undefined;
+  disabled: boolean;
+  words: NativeResourceWorkspaceMessages;
+  onChange: (v: unknown, error?: string) => void;
+  testID: string;
+}) {
+  // An emptied field is null when the column allows it, as on the web.
+  const empty = nullable ? null : "";
+  const [typed, setTyped] = useState(() => (value == null ? "" : String(value)));
   if (f.kind === "switch") {
     return (
       <NativeListItem
         testID={testID}
         title={f.label}
         className="bg-transparent"
-        trailing={<NativeSwitch testID={`${testID}-input`} aria-label={f.label} checked={value === true} onCheckedChange={onChange} />}
+        disabled={disabled}
+        trailing={<NativeSwitch testID={`${testID}-input`} aria-label={f.label} checked={value === true} disabled={disabled} onCheckedChange={(v) => onChange(v)} />}
       />
     );
   }
   const text = value == null ? "" : String(value);
   let control: ReactNode;
   if (f.kind === "segmented") {
-    control = <NativeSegmentedControl testID={`${testID}-input`} options={f.options ?? []} value={text} onChange={onChange} />;
+    control = <NativeSegmentedControl testID={`${testID}-input`} options={f.options ?? []} value={text} disabled={disabled} onChange={(v) => onChange(v)} />;
   } else if (f.kind === "select") {
     control = (
-      <NativeSelect value={text} onValueChange={onChange}>
-        <NativeSelectTrigger testID={`${testID}-input`} placeholder={f.label} />
+      <NativeSelect value={text} onValueChange={(v) => onChange(v)}>
+        <NativeSelectTrigger testID={`${testID}-input`} placeholder={f.label} disabled={disabled} />
         <NativeSelectContent>
           {(f.options ?? []).map((o) => (
             <NativeSelectItem key={o.value} value={o.value}>
@@ -400,28 +560,67 @@ function SettingRow({ field: f, value, onChange, testID }: { field: NativeFormFi
       </NativeSelect>
     );
   } else if (f.kind === "textarea") {
-    control = <NativeTextarea testID={`${testID}-input`} accessibilityLabel={f.label} value={text} maxLength={f.max} onChangeText={(t) => onChange(t === "" ? empty : t)} />;
+    control = (
+      <NativeTextarea
+        testID={`${testID}-input`}
+        accessibilityLabel={f.label}
+        editable={!disabled}
+        value={text}
+        maxLength={f.max}
+        onChangeText={(t) => onChange(t === "" ? empty : t)}
+      />
+    );
+  } else if (f.kind === "number") {
+    control = (
+      <NativeInput
+        testID={`${testID}-input`}
+        accessibilityLabel={f.label}
+        editable={!disabled}
+        value={typed}
+        keyboardType="decimal-pad"
+        error={error}
+        onChangeText={(t) => {
+          setTyped(t);
+          if (t.trim() === "") return onChange(empty);
+          const n = parseSettingNumber(t);
+          return n === null ? onChange(t, words.notANumber) : onChange(n);
+        }}
+      />
+    );
   } else {
     control = (
       <NativeInput
         testID={`${testID}-input`}
         accessibilityLabel={f.label}
+        editable={!disabled}
         value={text}
         maxLength={f.max}
         autoCapitalize={f.kind === "text" ? "sentences" : "none"}
-        keyboardType={f.kind === "number" ? "numeric" : f.kind === "email" ? "email-address" : f.kind === "url" ? "url" : "default"}
-        onChangeText={(t) => onChange(t === "" ? empty : f.kind === "number" ? Number(t) : t)}
+        keyboardType={f.kind === "email" ? "email-address" : f.kind === "url" ? "url" : "default"}
+        onChangeText={(t) => onChange(t === "" ? empty : t)}
       />
     );
   }
   return (
-    <View testID={testID} style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6 }}>
+    <View testID={testID} style={{ paddingHorizontal: 16, paddingVertical: 10, gap: 6, opacity: disabled ? 0.6 : 1 }}>
       <NativeText preset="body-sm" className="font-medium">
         {f.label}
       </NativeText>
       {control}
     </View>
   );
+}
+
+/** The summary chip's words and tone. */
+function readinessWords(summary: WorkspaceReadinessSummary, words: NativeResourceWorkspaceMessages) {
+  switch (summary.state) {
+    case "ready":
+      return { label: words.ready, tone: "success" as const };
+    case "problems":
+      return { label: words.problems(summary.count), tone: "danger" as const };
+    case "warnings":
+      return { label: words.warnings(summary.count), tone: "warning" as const };
+  }
 }
 
 // ── Inset grouped pieces (SettingsPage's look) ────────────────────────

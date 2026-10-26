@@ -29,15 +29,6 @@ export type {
   ViewTone,
 } from "./types";
 export { defineWorkspace, isWorkspace } from "./workspace";
-export {
-  readinessChip,
-  readinessOf,
-  type ChipTone,
-  type Readiness,
-  type ReadinessFinding,
-  type ReadinessLabels,
-  type ReadinessOptions,
-} from "./readiness";
 export type {
   ResolvedReadinessItem,
   ResolvedWorkspaceSection,
@@ -46,6 +37,8 @@ export type {
   WorkspaceFilter,
   WorkspaceHeader,
   WorkspaceHeaderAction,
+  WorkspaceHeaderOptions,
+  WorkspaceReadinessSummary,
   WorkspaceListSection,
   WorkspaceReadinessItem,
   WorkspaceSection,

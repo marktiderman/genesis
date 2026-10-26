@@ -373,6 +373,19 @@ declare module "react-native" {
     ): void;
   };
 
+  export interface ActionSheetIOSOptions {
+    title?: string;
+    message?: string;
+    options: string[];
+    cancelButtonIndex?: number;
+    destructiveButtonIndex?: number | number[];
+    disabledButtonIndices?: number[];
+  }
+
+  export const ActionSheetIOS: {
+    showActionSheetWithOptions(options: ActionSheetIOSOptions, callback: (buttonIndex: number) => void): void;
+  };
+
   export class FlatList<T> extends React.Component<FlatListProps<T>> {}
   export class SectionList<
     T,

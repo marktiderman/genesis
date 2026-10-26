@@ -29,6 +29,13 @@ export function initialsOf(name: string | undefined): string {
   return pair.map((l) => (l.toUpperCase().length === l.length ? l.toUpperCase() : l)).join("");
 }
 
+/** An image source: `isSafeUrl`, and only http(s) or a root-relative path (never mailto, tel or `#x`). */
+function isImageSrc(src: unknown): src is string {
+  if (!isSafeUrl(src)) return false;
+  const value = src.trim();
+  return value.startsWith("/") || /^https?:/i.test(value);
+}
+
 /**
  * What to draw for a summary's picture:
  *
@@ -45,6 +52,6 @@ export function rowPicture(summary: RowSummary): RowPicture | null {
   const image = summary.image;
   if (!image) return null;
   const initials = initialsOf(image.name);
-  if (isSafeUrl(image.src)) return { kind: "image", src: image.src.trim(), alt: image.alt ?? "", fallback: initials };
+  if (isImageSrc(image.src)) return { kind: "image", src: image.src.trim(), alt: image.alt ?? "", fallback: initials };
   return initials ? { kind: "initials", text: initials } : null;
 }

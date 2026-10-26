@@ -2,9 +2,9 @@
  * defineWorkspace: one record's screen from a view. Checked once and frozen; the helpers give
  * every platform the same header, settings and readiness.
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { defineView, defineWorkspace, isWorkspace, readinessChip, readinessOf, ViewDefinitionError } from "../resource-view";
+import { defineView, defineWorkspace, isWorkspace, ViewDefinitionError } from "../resource-view";
 import { defineResource } from "../schema/types";
 
 type Brand = {
@@ -16,6 +16,7 @@ type Brand = {
   updated_at: string;
 };
 type Product = { id: string; brand_id: string; title: string };
+type Rich = Brand & { meta: unknown; tags: string[]; owner_id: string | null; secret: string | null };
 
 const brands = defineResource<Brand>()({
   name: "public.brands",
@@ -40,6 +41,18 @@ const products = defineResource<Product>()({
   ],
 });
 
+const rich = defineResource<Rich>()({
+  name: "public.brands",
+  key: "id",
+  fields: [
+    ...brands.fields,
+    { name: "meta", type: "json", nullable: true },
+    { name: "tags", type: "string", array: true, nullable: true },
+    { name: "owner_id", type: "string", nullable: true, references: { resource: "public.people", field: "id" } },
+    { name: "secret", type: "string", nullable: true, sensitive: true },
+  ],
+});
+
 const brandsView = defineView(brands, {
   fields: { website: { label: "Website", max: 200 } },
   summary: (b) => ({ title: b.name, subtitle: b.website ?? undefined, chips: [{ label: "Brand", tone: "info" }] }),
@@ -61,7 +74,7 @@ const workspace = defineWorkspace(brandsView, {
     { id: "activity", label: "Activity" },
   ],
   readiness: (b) => [
-    { title: "Has a website", ok: !!b.website, reason: "Add the website." },
+    { id: "website", title: "Has a website", ok: !!b.website, reason: "Add the website." },
     { title: "Has a name", ok: !!b.name },
     { title: "Is public", ok: b.public, tone: "danger" },
   ],
@@ -119,20 +132,87 @@ describe("defineWorkspace", () => {
 
   it("resolves readiness tones, chip tones only", () => {
     expect(workspace.readinessFor(row)).toEqual([
-      { title: "Has a website", ok: false, reason: "Add the website.", tone: "warning" },
-      { title: "Has a name", ok: true, tone: "success" },
-      { title: "Is public", ok: false, tone: "danger" },
+      { key: "website", title: "Has a website", ok: false, reason: "Add the website.", tone: "warning" },
+      { key: "1:Has a name", title: "Has a name", ok: true, tone: "success" },
+      { key: "2:Is public", title: "Is public", ok: false, tone: "danger" },
     ]);
     const odd = defineWorkspace(brandsView, {
       sections: [{ id: "a", label: "A" }],
       readiness: () => [{ title: "Odd", ok: true, tone: "purple" as never }],
     });
-    expect(() => odd.readinessFor(row)).toThrow(/isn't a chip tone/);
+    // A bad tone falls back to a neutral one, with a development warning.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    expect(odd.readinessFor(row)[0]!.tone).toBe("muted");
+    expect(warn.mock.calls[0]![0]).toMatch(/isn't a chip tone/);
+    warn.mockRestore();
     expect(workspace.readinessSummary(row)).toEqual({ state: "problems", count: 1 });
     expect(workspace.readinessSummary({ ...row, public: true })).toEqual({ state: "warnings", count: 1 });
     expect(workspace.readinessSummary({ ...row, public: true, website: "https://x.example" })).toEqual({ state: "ready", count: 0 });
     expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessFor(row)).toEqual([]);
     expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessSummary(row)).toBeNull();
+  });
+});
+
+describe("defineWorkspace review fixes", () => {
+  it("freezes the sections and each settings list", () => {
+    expect(Object.isFrozen(workspace.sections)).toBe(true);
+    const settings = workspace.section("settings");
+    expect(settings?.kind === "settings" && Object.isFrozen(settings.settings)).toBe(true);
+    expect(Object.isFrozen(workspace.headerActions)).toBe(true);
+  });
+
+  it("locks settings when the view refuses update, with the reason", () => {
+    const locked = defineWorkspace(defineView(brands, { can: { update: (b) => (b.is_default ? "Locked." : true) } }), {
+      sections: [{ id: "s", label: "S", settings: ["name"] }],
+    });
+    expect(locked.settingsLocked(row)).toBe("Locked.");
+    expect(locked.settingsLocked({ ...row, is_default: false })).toBeNull();
+    const silent = defineWorkspace(defineView(brands, { can: { update: () => "" } }), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
+    expect(silent.settingsLocked(row)).toBe("This isn't allowed.");
+  });
+
+  it("addresses the record by its key fields", () => {
+    expect(workspace.recordId(row)).toBe("b1");
+    const pairs = defineResource<{ a: string; b: string; name: string }>()({
+      name: "public.pairs",
+      key: ["a", "b"],
+      fields: [
+        { name: "a", type: "string" },
+        { name: "b", type: "string" },
+        { name: "name", type: "string" },
+      ],
+    });
+    const ws = defineWorkspace(defineView(pairs), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
+    expect(ws.recordId({ a: "x", b: "y", name: "n" })).toBe('["x","y"]');
+  });
+
+  it("narrows header actions by the screen's can and by the provider", () => {
+    const all = defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] });
+    const free = { ...row, is_default: false };
+    expect(all.headerFor(free, { can: (name) => (name === "duplicate" ? false : true) }).actions.map((a) => a.name)).toEqual(["archive"]);
+    expect(all.headerFor(free, { can: (name) => (name === "archive" ? "Not today." : true) }).actions[0]!.allowed).toBe("Not today.");
+    // The screen can't widen: the view's refusal stays.
+    expect(all.headerFor(row, { can: () => true }).actions[0]!.allowed).toBe("The default brand stays.");
+    expect(all.headerFor(free, { runnable: false }).actions).toEqual([]);
+    expect(all.headerFor(free, { served: ["duplicate"] }).actions.map((a) => a.name)).toEqual(["duplicate"]);
+  });
+
+  it("refuses an empty list filter, or one without single values, in development", () => {
+    const bad = defineWorkspace(brandsView, {
+      sections: [
+        { id: "all", label: "All", list: { view: productsView, filter: () => ({}) } },
+        { id: "odd", label: "Odd", list: { view: productsView, filter: () => ({ brand_id: ["b1"] as never }) } },
+      ],
+    });
+    expect(() => bad.listFilter("all", row)).toThrow(/gave no keys, which would list every row/);
+    expect(() => bad.listFilter("odd", row)).toThrow(/"brand_id" no single value/);
+    const env = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      expect(bad.listFilter("all", row)).toEqual({});
+    } finally {
+      process.env.NODE_ENV = env;
+    }
   });
 });
 
@@ -157,6 +237,24 @@ describe("defineWorkspace checks", () => {
     expect(problems).toContain('sections.s.settings names "id"');
     expect(problems).toContain('sections.s.settings names "colour"');
     expect(problems).toContain('settings lists "name" twice');
+  });
+
+  it("settings can't be JSON, lists, links or sensitive fields, even when the form lists them", () => {
+    const richView = defineView(rich, { form: ["name", "meta", "tags", "owner_id", "secret"] });
+    const problems = problemsOf(() =>
+      defineWorkspace(richView, { sections: [{ id: "s", label: "S", settings: ["name", "meta", "tags", "owner_id", "secret"] }] }),
+    );
+    expect(problems).toContain('"meta", which is JSON');
+    expect(problems).toContain('"tags", which is a list');
+    expect(problems).toContain('"owner_id", which is a link');
+    expect(problems).toContain('"secret", which is sensitive');
+    expect(problems).not.toContain('"name"');
+  });
+
+  it("rejects keys a section doesn't have", () => {
+    expect(problemsOf(() => defineWorkspace(brandsView, { sections: [{ id: "s", label: "S", setting: ["name"] } as never] }))).toContain(
+      'sections.s has "setting", which isn\'t a section key',
+    );
   });
 
   it("header actions must be view actions", () => {
@@ -221,13 +319,3 @@ describe("defineWorkspace checks", () => {
   });
 });
 
-describe("readiness in core", () => {
-  it("readinessOf and readinessChip give the same words as before", () => {
-    expect(readinessOf([])).toEqual({ state: "ready", count: 0 });
-    expect(readinessOf([{ level: "error" }, { level: "warning" }])).toEqual({ state: "problems", count: 1 });
-    expect(readinessOf([{ level: "warning", code: "none" }], { emptyCode: "none" })).toEqual({ state: "empty", count: 0 });
-    expect(readinessOf([{ level: "warning" }], { pending: true })).toEqual({ state: "pending", count: 0 });
-    expect(readinessChip({ state: "problems", count: 2 })).toEqual({ label: "2 problems to fix", tone: "danger" });
-    expect(readinessChip({ state: "ready", count: 0 }, { ready: "Ready to send" })).toEqual({ label: "Ready to send", tone: "success" });
-  });
-});

@@ -8,9 +8,9 @@
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useDataProvider, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type { ResolvedFormField, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import type { Allowed, ResolvedFormField, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
 import { SettingsRow } from "../../patterns/settings-row";
@@ -54,6 +54,11 @@ export interface ResourceWorkspaceProps<T extends Row = Row> {
    * rejection shows inline.
    */
   onAction?: (name: string, row: T) => unknown;
+  /**
+   * The screen's own rule for a header action. It only narrows the view's guards: `false` hides
+   * the action, a sentence refuses it with that reason.
+   */
+  can?: (action: string, row: T) => Allowed | boolean;
   /** After a settings section saved, with the stored row. */
   onSaved?: (row: T) => void;
   /** The breadcrumb's parent link: one element, so the host's router renders it. */
@@ -77,13 +82,26 @@ export interface ResourceWorkspaceProps<T extends Row = Row> {
  * ```
  */
 export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceProps<T>) {
-  const { workspace, row, section, sectionHref, onAction, onSaved, parent, switcher, slots, lists, readinessLabels, testID = "resource-workspace" } = props;
+  const { workspace, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
   const m = useUiMessages();
   const provider = useDataProvider();
   const queryClient = useQueryClient();
   const view = workspace.view;
-  const header = workspace.headerFor(record);
+  const id = workspace.recordId(record);
+  // Actions show only where something can run them, and only those the provider serves when it says.
+  const capabilities = useCapabilities(view.resource, { enabled: !onAction && !!provider.capabilities });
+  const described = useQuery({
+    queryKey: ["__describe", view.resource],
+    queryFn: () => provider.describe!(view.resource),
+    enabled: !onAction && !!provider.describe,
+    staleTime: Infinity,
+  });
+  const header = workspace.headerFor(record, {
+    runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
+    ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
+    ...(can ? { can: (name: string) => can(name, row) } : {}),
+  });
   const readiness = workspace.readinessFor(record);
   const [showChecks, setShowChecks] = useState(false);
   const [confirming, setConfirming] = useState<WorkspaceHeaderAction | null>(null);
@@ -94,7 +112,7 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
     async (a: WorkspaceHeaderAction) => {
       if (onAction) return onAction(a.name, row);
       if (!provider.runAction) throw new DataWriteError("error", fillMessage(m.workspace.noRunner, { name: a.label }));
-      return provider.runAction(view.resource, { id: record.id as string, action: a.name });
+      return provider.runAction(view.resource, { id, action: a.name });
     },
     { invalidates: [resourceKeys(view.resource).all] },
   );
@@ -118,7 +136,7 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
           actions={header.actions.map((a) => (
             <Button
               key={a.name}
-              variant="outline"
+              variant={a.destructive ? "destructive" : "outline"}
               disabled={a.allowed !== true || action.pending}
               title={a.allowed === true ? a.description : a.allowed}
               onClick={() => start(a)}
@@ -144,7 +162,7 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
       {showChecks && readiness.length ? (
         <SettingsSection title={m.workspace.checks}>
           {readiness.map((r) => (
-            <SettingsRow key={r.title} label={r.title} description={r.ok ? undefined : r.reason}>
+            <SettingsRow key={r.key} label={r.title} description={r.ok ? undefined : r.reason}>
               <Chip tone={r.tone} testID={`${testID}-check-${r.ok ? "ok" : "todo"}`}>
                 {r.ok ? m.workspace.checkDone : m.workspace.checkTodo}
               </Chip>
@@ -157,14 +175,14 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
         <ResourceView
           key={active.id}
           view={active.view}
+          {...lists?.[active.id]}
           layout="embedded"
           filter={workspace.listFilter(active.id, record)}
-          {...lists?.[active.id]}
         />
       ) : active?.kind === "settings" ? (
         <SettingsForm
           // A fresh draft per record and section (react.dev, "Resetting state with a key").
-          key={`${String(record.id)}:${active.id}`}
+          key={`${String(id)}:${active.id}`}
           workspace={workspace}
           sectionId={active.id}
           title={active.label}
@@ -223,7 +241,10 @@ function SettingsForm({
   const provider = useDataProvider();
   const view = workspace.view;
   const fields = workspace.settingsFields(sectionId);
+  // The view's update guard: when it refuses, the settings are read-only with its reason.
+  const locked = workspace.settingsLocked(row);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])));
+  const [invalid, setInvalid] = useState<Record<string, string>>({});
   const changed = useMemo(() => {
     const out: Values = {};
     for (const f of fields) {
@@ -233,13 +254,13 @@ function SettingsForm({
     }
     return out;
   }, [fields, draft, row]);
-  const dirty = Object.keys(changed).length > 0;
+  const dirty = Object.keys(changed).length > 0 && Object.keys(invalid).length === 0;
 
   const save = useWrite(
     async (values: Values) => {
       // Only the section's listed keys, never anything else the row or draft holds.
       const data = workspace.settingsPatch(sectionId, values);
-      const result = await provider.update(view.resource, { id: row.id as string, data });
+      const result = await provider.update(view.resource, { id: workspace.recordId(row), data });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
@@ -249,8 +270,9 @@ function SettingsForm({
     { onSuccess: (saved) => onSaved(saved) },
   );
 
-  const set = (name: string, value: unknown) => {
+  const set = (name: string, value: unknown, error?: string) => {
     save.reset();
+    setInvalid(({ [name]: _old, ...rest }) => (error ? { ...rest, [name]: error } : rest));
     setDraft((d) => ({ ...d, [name]: value }));
   };
 
@@ -259,8 +281,21 @@ function SettingsForm({
       {fields
         .filter((f) => !f.visible || f.visible(draft))
         .map((f) => (
-          <SettingField key={f.field.name} field={f} value={draft[f.field.name]} onChange={(v) => set(f.field.name, v)} testID={`${testID}-${f.field.name}`} />
+          <SettingField
+            key={f.field.name}
+            field={f}
+            value={draft[f.field.name]}
+            error={invalid[f.field.name]}
+            disabled={locked !== null}
+            onChange={(v, error) => set(f.field.name, v, error)}
+            testID={`${testID}-${f.field.name}`}
+          />
         ))}
+      {locked !== null ? (
+        <p className="py-3 text-sm text-muted-foreground" data-testid={`${testID}-locked`}>
+          {locked}
+        </p>
+      ) : (
       <div className="flex items-center justify-end gap-3 py-3">
         {save.error ? (
           <Alert variant="destructive" className="flex-1" data-testid={`${testID}-error`}>
@@ -271,6 +306,7 @@ function SettingsForm({
           {m.workspace.save}
         </Button>
       </div>
+      )}
     </SettingsSection>
   );
 }
@@ -288,23 +324,28 @@ const INPUT_TYPE: Partial<Record<ResolvedFormField["display"], string>> = {
 function SettingField({
   field: f,
   value,
+  error,
+  disabled,
   onChange,
   testID,
 }: {
   field: ResolvedFormField;
   value: unknown;
-  onChange: (value: unknown) => void;
+  error?: string | undefined;
+  disabled: boolean;
+  onChange: (value: unknown, error?: string) => void;
   testID: string;
 }) {
+  const m = useUiMessages();
   const id = `${testID}-input`;
   if (f.display === "boolean") {
-    return <ToggleRow label={f.label} checked={value === true} onCheckedChange={onChange} testID={id} rowTestID={testID} />;
+    return <ToggleRow label={f.label} checked={value === true} onCheckedChange={(v) => onChange(v)} disabled={disabled} testID={id} rowTestID={testID} />;
   }
   const empty = f.field.nullable ? null : "";
   if (f.field.enumValues?.length) {
     return (
-      <SettingsRow label={f.label} htmlFor={id} testID={testID}>
-        <Select value={value == null ? "" : String(value)} onValueChange={(v) => onChange(v)}>
+      <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled}>
+        <Select value={value == null ? "" : String(value)} onValueChange={(v) => onChange(v)} disabled={disabled}>
           <SelectTrigger id={id} className="w-48" data-testid={id}>
             <SelectValue />
           </SelectTrigger>
@@ -321,10 +362,11 @@ function SettingField({
   }
   if (f.display === "longText") {
     return (
-      <SettingsRow label={f.label} htmlFor={id} testID={testID}>
+      <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled}>
         <Textarea
           id={id}
           data-testid={id}
+          disabled={disabled}
           className="w-72"
           value={value == null ? "" : String(value)}
           maxLength={f.max}
@@ -335,18 +377,24 @@ function SettingField({
   }
   const type = INPUT_TYPE[f.display] ?? "text";
   return (
-    <SettingsRow label={f.label} htmlFor={id} testID={testID}>
+    <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled} description={error}>
       <Input
         id={id}
         data-testid={id}
         className="w-72"
+        disabled={disabled}
+        aria-invalid={error ? true : undefined}
         type={type}
         required={f.required}
         maxLength={f.max}
         value={value == null ? "" : String(value)}
         onChange={(e) => {
           const raw = e.target.value;
-          onChange(raw === "" ? empty : type === "number" ? Number(raw) : raw);
+          if (raw === "") return onChange(empty);
+          if (type !== "number") return onChange(raw);
+          // Never NaN: a value that isn't a number keeps the text and blocks the save.
+          const n = Number(raw.trim());
+          return Number.isFinite(n) ? onChange(n) : onChange(raw, m.workspace.notANumber);
         }}
       />
     </SettingsRow>
