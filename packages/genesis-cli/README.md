@@ -135,6 +135,29 @@ no backslashes, and a file that resolves (through a symlink) outside its package
 runtime block is made by a function (`createPush`) keeps a test that its manifest says what the
 block declares.
 
+### Local packages
+
+An app's own workspace packages can be Genesis-style packages too. List them in
+`genesis.config.json`, as app-relative folders or folders ending in `/*`:
+
+```json
+{ "localPackages": ["packages/*"] }
+```
+
+A local package declares blocks the way a Genesis package does:
+- a `genesis.blocks` manifest in its package.json and a `./blocks` export;
+- its own `migrations/NNNN_name.sql`, each with a pgTAP test.
+
+Then:
+- `genesis add <block>` and `genesis migrate` copy its migrations and tests like any package's,
+  with a `genesis-migration` header naming the local package. Nothing is installed: it lives in
+  the app's repo.
+- `genesis doctor` scans its source with every rule, and the [`packages` pack](#rule-packs)
+  holds it to a package's standard: no app imports, declared dependencies, tested and never-edited
+  migrations, registered in `features.ts`, and a changeset or version bump with every change.
+- A local package keeps package shape, so publishing it later (GitHub Packages or npm) needs no
+  restructuring.
+
 ### genesis add
 
 `genesis add <block>` plans, prints the plan, asks (or `--yes`), then:
@@ -422,7 +445,7 @@ Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__f
 
 ### Rule packs
 
-Two packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
+Three packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
 (they are not auto-detected, so adding `expo` or a `supabase/` folder never changes a build's
 result on its own):
 
@@ -484,6 +507,39 @@ migrations never fail a build. In CI, check out with full history and fetch the 
   with: { fetch-depth: 0 }
 - run: git fetch origin main
 ```
+
+**`packages`**, for the app's [local packages](#local-packages). Each one is held to a
+Genesis package's standard. The change rules compare against a base ref, given as
+`genesis doctor --base origin/main` (or `doctor.packages.base`). Without one, or when git
+can't compare, they report a single info finding ("change gate skipped") and never fail:
+
+```json
+{ "localPackages": ["packages/*"], "doctor": { "packs": ["packages"] } }
+```
+
+```bash
+genesis doctor --strict --base origin/main
+```
+
+A file whose literals can't be parsed for sure is skipped, and type-only imports never count
+as dependencies.
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `package-app-import` | error | A package importing the app's own code: `@/…`, `~/…`, a relative path that leaves the package, or an alias (the package's own tsconfig `paths`) that points outside it. package.json `#imports` and aliases that stay inside the package are its own files. |
+| `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies` (`workspace:` ranges count). Node built-ins and type-only imports (multi-line too) are fine. |
+| `package-export-missing` | error | An `exports` target that doesn't exist. Build output (`./dist/…`, `./build/…`) and patterns are left alone. |
+| `package-block-invalid` | error | A `genesis.blocks` declaration that isn't a valid block manifest. |
+| `package-migration-test` | error | A migration without a pgTAP test: a block migration with no `test` (or a missing one), or any `migrations/NNNN_name.sql` without `migrations/tests/NNNN_name.test.sql`. |
+| `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
+| `package-untagged-tests` | warn | A package whose tests name no feature (`@feat:<id>`). |
+| `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
+| `package-migration-edited` | warn | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. |
+| `package-unversioned-change` | warn | With a base ref: files in the package changed but neither a higher `version` nor a new changeset naming it in its front matter did; a changeset without a `Features:` line; or blocks or exports changed without a change to `features.ts`. Run CI with `--strict` so these fail. |
+
+Symlinks inside a package aren't followed, and a `packages/*` folder without a usable package.json (or a name) is skipped. `localPackages` entries may climb out of the app (`../../packages/*`) as long as they stay in its repository.
+
+Every other rule also scans local packages' source, as it does the app's.
 
 ### Config
 

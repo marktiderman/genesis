@@ -254,6 +254,21 @@ describe("defineView review fixes", () => {
     expect(listed.writable("create")).toEqual(["name"]);
   });
 
+  it("keeps a link named in the form read-only until there's a picker", () => {
+    const c = {
+      name: "notes",
+      key: "id",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "body", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c, { form: ["body", "owner_id"] });
+    expect(v.form("create").find((f) => f.field.name === "owner_id")!.readOnly).toBe(true);
+    expect(v.writable("create")).toEqual(["body"]);
+  });
+
   it("guesses common singulars", () => {
     const guess = (name: string) => defineView({ name, key: "id", fields: [{ name: "id", type: "string" }] }).noun;
     expect(["statuses", "series", "addresses", "boxes", "movies", "categories", "classes", "tasks", "people", "work_items"].map(guess)).toEqual([

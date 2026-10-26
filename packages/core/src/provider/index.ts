@@ -78,6 +78,7 @@ export {
   type RpcClient,
   type CallRpcOptions,
   type CreateOrAdoptOptions,
+  type CreateOrAdoptResult,
 } from "./write-helpers";
 
 // React context

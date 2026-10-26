@@ -96,3 +96,48 @@ describe("useResource defaultPage / defaultSearch", () => {
     expect(result.current.params.search).toEqual({ query: "wri", fields: ["title"] });
   });
 });
+
+describe("useResourceForm — an edit never blanks what it didn't load", () => {
+  const fields = [
+    { key: "title", type: "text" as const },
+    { key: "notes", type: "text" as const },
+  ];
+  const edit = (updates?: "loaded" | "all") => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    // A list row that didn't load `notes`.
+    const { result } = renderHook(
+      () => useResourceForm({ resource: "tasks", action: "edit", id: "t1", initialData: { id: "t1", title: "Write" }, fields, ...(updates ? { updates } : {}) }),
+      { wrapper },
+    );
+    return { result, update };
+  };
+
+  it("leaves out a field the record didn't carry and nobody touched", async () => {
+    const { result, update } = edit();
+    await act(async () => {
+      await result.current.handleSave({ title: "Rewrite", notes: "" });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "Rewrite" });
+  });
+
+  it("sends that field once the person changes it", async () => {
+    const { result, update } = edit();
+    act(() => {
+      result.current.form.setValue("notes", "Mine");
+    });
+    await act(async () => {
+      await result.current.handleSave({ title: "Write", notes: "Mine" });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "Write", notes: "Mine" });
+  });
+
+  it('`updates: "all"` sends every field, as before', async () => {
+    const { result, update } = edit("all");
+    await act(async () => {
+      await result.current.handleSave({ title: "Rewrite", notes: "" });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "Rewrite", notes: "" });
+  });
+});
+
