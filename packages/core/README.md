@@ -106,6 +106,26 @@ const provider = createSupabaseProvider(supabase, {
 Both hooks also take an `invalidates` option for keys one screen cares about:
 `useResource("tasks", { invalidates: [["me"]] })`.
 
+### Reading from a view or a function
+
+A list often needs more than one table: a join, a count, a total. Give the resource a `source` and
+keep everything else (paging, filters, search, sort, "showing N of M", cursors, live updates,
+Retry): PostgREST filters a view or a set-returning function like a table. Writes still go to the
+table, and realtime still watches it.
+
+```ts
+createSupabaseProvider(supabase, {
+  resources: {
+    // A view joining tasks to people and counting comments.
+    tasks: { source: "tasks_with_people" },
+    // A function returning rows; args are read on every request.
+    course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroupId() }) } },
+    // Embedded joins as the default columns (a caller's `select` still wins).
+    sessions: { select: "*, client:people(full_name)" },
+  },
+});
+```
+
 ### Handling failures
 
 ```ts
