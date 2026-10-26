@@ -1,0 +1,123 @@
+.changeset/feature-registry-hardening.md
+  s_1f35d570c63beb::t_bbf391d8409e6d 2,5
+.changeset/native-resource-view-fixes.md
+  s_1f35d570c63beb::t_956a095f6426bd 1-8
+.github/workflows/claude-code-review.yml
+  s_1f35d570c63beb::t_3c82ca9eb0361f 1-2,24-26
+AGENTS.md
+  s_1f35d570c63beb::t_1b5a32405fc265 40
+apps/sample/app/data/primitives.json
+  s_1f35d570c63beb::t_5942abf4903b1f 3843
+features.json
+  s_1f35d570c63beb::t_f779399cc9c532 2025-2086
+features.ts
+  s_1f35d570c63beb::t_cc340a9773127b 894-917
+packages/chat/CHANGELOG.md
+  s_1f35d570c63beb::t_9e446b13bde7f0 3-9
+packages/chat/package.json
+  s_1f35d570c63beb::t_d6c6894ef1c624 3
+packages/core/CHANGELOG.md
+  s_1f35d570c63beb::t_19fb3bcc4efdd2 3-8
+packages/core/README.md
+  s_1f35d570c63beb::t_3cb4bc69bab077 571-572
+packages/core/package.json
+  s_1f35d570c63beb::t_3dce50b363b1ec 3
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_1f35d570c63beb::t_1a3d6eff54aab3 201-221
+packages/core/src/provider/write-helpers.ts
+  s_1f35d570c63beb::t_6ff8ba89d2236f 88-93,132-135
+packages/features/CHANGELOG.md
+  s_1f35d570c63beb::t_b7e37010c67500 3-8
+packages/features/README.md
+  s_1f35d570c63beb::t_4e292361b3a7dc 222-250
+packages/features/package.json
+  s_1f35d570c63beb::t_1772de2294ab0b 3
+packages/features/src/__tests__/content-packs.test.ts
+  s_1f35d570c63beb::t_be1903116690e2 1-68
+packages/features/src/blocks-entry.ts
+  s_1f35d570c63beb::t_f6a8a40aafe4b8 9
+packages/features/src/content-packs.ts
+  s_1f35d570c63beb::t_77da84b5c3b412 1-234
+packages/features/src/index.ts
+  s_1f35d570c63beb::t_30fc4289e490fa 88-101
+packages/forms/src/__tests__/hardening.test.ts
+  s_1f35d570c63beb::t_1556a0ac897b5a 118-125,127-135
+packages/genesis-cli/CHANGELOG.md
+  s_1f35d570c63beb::t_30add038c27c3f 3-16
+packages/genesis-cli/package.json
+  s_1f35d570c63beb::t_3500ad24da6f2f 3
+packages/genesis-cli/src/blocks/local.ts
+  s_1f35d570c63beb::t_ec685da074bb41 114-116
+packages/genesis-cli/src/doctor/packages.ts
+  s_1f35d570c63beb::t_da478b7c9dbce7 38,206-209,245-248,252,282-293,341-343
+packages/genesis-cli/test/doctor-packages.test.ts
+  s_1f35d570c63beb::t_10ce22a40485dd 96-99,279-325
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_1f35d570c63beb::t_ba7737aafa3897 925-929,931-939,941-942
+packages/genesis/CHANGELOG.md
+  s_1f35d570c63beb::t_3d01e65db9edb1 3-12
+packages/genesis/package.json
+  s_1f35d570c63beb::t_30c09b7c341329 3
+packages/native/CHANGELOG.md
+  s_1f35d570c63beb::t_fedc21e9180d6b 3-11
+packages/native/package.json
+  s_1f35d570c63beb::t_63fba26f284ce8 3
+packages/notifications/CHANGELOG.md
+  s_1f35d570c63beb::t_68aea3ec112dd1 3-9
+packages/notifications/package.json
+  s_1f35d570c63beb::t_31a9e375f43a0b 3
+packages/product/CHANGELOG.md
+  s_1f35d570c63beb::t_a9220285ff64a9 3-9
+packages/product/package.json
+  s_1f35d570c63beb::t_279606dee0a205 3
+packages/sites/CHANGELOG.md
+  s_1f35d570c63beb::t_a9fee2a220787f 3-9
+packages/sites/package.json
+  s_1f35d570c63beb::t_93532254035ff2 3
+packages/supabase/CHANGELOG.md
+  s_1f35d570c63beb::t_ccd3614794b7ce 3-9
+packages/supabase/README.md
+  s_1f35d570c63beb::t_245285d04785aa 598-604,613-620,631
+packages/supabase/migrations/0014_genesis_feature_registry_hardening.sql
+  s_1f35d570c63beb::t_51715644496db6 1-124
+packages/supabase/migrations/tests/0014_genesis_feature_registry_hardening.test.sql
+  s_1f35d570c63beb::t_7d0153a90e7ffe 1-54
+packages/supabase/package.json
+  s_1f35d570c63beb::t_7f0ef7a6c9d865 3,189-192,196
+packages/supabase/src/blocks.ts
+  s_1f35d570c63beb::t_93e6d5797baeac 105-109
+packages/supabase/src/feature-registry.ts
+  s_1f35d570c63beb::t_fbdfc87ed98045 80-82,123
+packages/support/CHANGELOG.md
+  s_1f35d570c63beb::t_aa2a4d698a0f77 3-9
+packages/support/package.json
+  s_1f35d570c63beb::t_7c93750ff63875 3
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_1f35d570c63beb::t_56c86bbe16f03f 93-95,98-99,123-124
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_1f35d570c63beb::t_980473bb654ba8 359-361,437-442
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_1f35d570c63beb::t_82570a6abefc7c 183,708-815
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_1f35d570c63beb::t_3b7a97728b1a4e 48-51,80-83,135-136,153-155,199-205,216,242,291-293
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1f35d570c63beb::t_3dd8726ac85cc5 359-361,364,375-386
+packages/ui-native/types/react-native.d.ts
+  s_1f35d570c63beb::t_829bd100e5b6af 269-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ae7c26681eb4739bccd0fa42e136a66706a6032",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
