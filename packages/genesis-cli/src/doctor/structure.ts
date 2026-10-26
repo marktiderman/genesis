@@ -19,10 +19,13 @@ const CONTAINER = /(?:Card|CardContent|Dialog|DialogContent|Sheet|SheetContent|D
 const SWITCHER = /<(TabsList|SubNavTabs)(?=[\s>/])/g;
 const SHELL = /<AppShell(?=[\s>/])/;
 const GENESIS_PACKAGE = /^@marktiderman\/genesis(?:-[\w-]+)?(?:\/|$)/;
-/** A web page layout: an exported component named `…Page` or `…PageShell` (not the breadcrumb's `BreadcrumbPage`). */
-const PAGE_LAYOUT = /^(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)$/;
+/**
+ * A web page layout: an exported component named `…Page` or `…PageShell` (not the breadcrumb's
+ * `BreadcrumbPage`), or `ResourceView`, which draws a ResourcePage from a view.
+ */
+const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView)$/;
 /** A package screen built on a Genesis layout: a `…Page` / `…Screen` / `…Workspace` imported from a Genesis package. */
-const PACKAGE_SCREEN = /^(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)$/;
+const PACKAGE_SCREEN = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)|ResourceView)$/;
 
 const isNative = (ctx: DoctorContext) => ctx.config.packs?.includes("native") ?? false;
 const rendersRe = (names: Iterable<string>) => {
