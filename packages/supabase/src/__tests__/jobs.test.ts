@@ -1,6 +1,6 @@
 // @feat:jobs
 import { describe, expect, it, vi } from "vitest";
-import { JobsError, PermanentJobError, createJobsHandler, enqueueJob, runJobs, verifyJobRequest, type JobsClient } from "../jobs";
+import { JobsError, PermanentJobError, createJobsHandler, enqueueJob, runJobs, signJobRequest, verifyJobRequest, type JobsClient } from "../jobs";
 
 type Call = { fn: string; args: Record<string, unknown> };
 
@@ -69,7 +69,7 @@ describe("runJobs", () => {
         ["e", "failed", null],
       ].sort(),
     );
-    expect(report).toEqual({ claimed: 5, done: 1, retried: 2, failed: 2, stale: 0 });
+    expect(report).toEqual({ claimed: 5, done: 1, retried: 2, failed: 2, stale: 0, unsettled: 0 });
     expect(log.mock.calls.flat().join("\n")).not.toContain('"n"');
   });
 
@@ -78,9 +78,23 @@ describe("runJobs", () => {
     expect(await runJobs(client, { handlers: { ok: () => undefined } })).toMatchObject({ claimed: 1, done: 0, stale: 1 });
   });
 
+  it("carries on when a settle fails, and never settles a job twice", async () => {
+    const settled: string[] = [];
+    const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => {
+      if (fn === "genesis_jobs_claim") return { data: [job("a", "ok"), job("b", "ok")], error: null };
+      settled.push(String(args["p_id"]));
+      return args["p_id"] === "a" ? { data: null, error: { message: "network" } } : { data: true, error: null };
+    });
+    const handled: string[] = [];
+    const report = await runJobs({ rpc } as JobsClient, { handlers: { ok: (j) => void handled.push(j.id) }, log: () => {} });
+    expect(handled.sort()).toEqual(["a", "b"]);
+    expect(settled.sort()).toEqual(["a", "b"]);
+    expect(report).toMatchObject({ claimed: 2, done: 1, unsettled: 1 });
+  });
+
   it("does nothing without handlers", async () => {
     const { client, calls } = fakeQueue([job("a", "ok")]);
-    expect(await runJobs(client, { handlers: {} })).toEqual({ claimed: 0, done: 0, retried: 0, failed: 0, stale: 0 });
+    expect(await runJobs(client, { handlers: {} })).toEqual({ claimed: 0, done: 0, retried: 0, failed: 0, stale: 0, unsettled: 0 });
     expect(calls).toEqual([]);
   });
 });
@@ -100,6 +114,24 @@ describe("verifyJobRequest", () => {
     expect((await verifyJobRequest(request("Bearer wrong"), options))?.status).toBe(401);
     expect((await verifyJobRequest(request(), options))?.status).toBe(401);
     expect((await verifyJobRequest(request("Basic new-secret"), options))?.status).toBe(401);
+  });
+
+  it("takes any case and spacing for the scheme", async () => {
+    expect(await verifyJobRequest(request("bearer   new-secret"), { secret: "new-secret" })).toBeNull();
+    expect(await verifyJobRequest(request("BEARER new-secret"), { secret: "new-secret" })).toBeNull();
+  });
+
+  it("accepts a signature for this job within five minutes, and nothing else", async () => {
+    const now = 1_800_000_000;
+    const options = { secret: "s", previousSecret: "old", now: () => now };
+    const signed = await signJobRequest("s", "digests", now - 100);
+    expect(signed).toMatch(/^GenesisJob t=1799999900,sig=[0-9a-f]{64}$/);
+    expect(await verifyJobRequest(request(signed), options, "digests")).toBeNull();
+    expect(await verifyJobRequest(request(await signJobRequest("old", "digests", now)), options, "digests")).toBeNull();
+    expect((await verifyJobRequest(request(signed), options, "cleanup"))?.status).toBe(401);
+    expect((await verifyJobRequest(request(signed), options))?.status).toBe(401);
+    expect((await verifyJobRequest(request(await signJobRequest("s", "digests", now - 301)), options, "digests"))?.status).toBe(401);
+    expect((await verifyJobRequest(request(await signJobRequest("wrong", "digests", now)), options, "digests"))?.status).toBe(401);
   });
 
   it("refuses everything when no secret is configured", async () => {
@@ -126,6 +158,12 @@ describe("createJobsHandler", () => {
     expect(await (await handle(request("Bearer s", { url: "https://x.test/api/jobs" }), "digests")).json()).toMatchObject({ job: "digests" });
     const res = await handle(request("Bearer s", { url: "https://x.test/api/jobs", body: JSON.stringify({ job: "digests" }) }));
     expect(await res.json()).toMatchObject({ job: "digests" });
+  });
+
+  it("runs a job signed for it, and refuses a signature for another job", async () => {
+    const signedFor = async (job: string) => signJobRequest("s", job);
+    expect((await handle(request(await signedFor("digests")))).status).toBe(200);
+    expect((await handle(request(await signedFor("broken")))).status).toBe(401);
   });
 
   it("answers 401, 404 and 405 before running anything", async () => {

@@ -10,16 +10,24 @@
 --    The runner half is `runJobs` in @marktiderman/genesis-supabase/jobs.
 --
 -- 2. Schedules. genesis_schedule_job(name, cron, job) asks pg_cron to POST to the app's job route
---    (`<url>/<job>`) through pg_net, with the bearer secret the route checks. The URL and the
---    secret are read from Vault by name at call time, never stored in cron's table:
+--    (`<url>/<job>`) through pg_net. The request carries no secret: it is signed,
+--    `Authorization: GenesisJob t=<unix seconds>,sig=<hex HMAC-SHA256 of "<t>.<job>">`, with the
+--    secret the route checks. A signature is good for that one job for five minutes, so the copy
+--    pg_net keeps in its queue until it sends (net.http_request_queue, readable by more roles than
+--    you'd think) is worth little. The URL and the secret are read from Vault by name at call
+--    time and never stored in cron's table:
 --
 --      select vault.create_secret('https://app.example.com/api/jobs', 'genesis_jobs_url');
 --      select vault.create_secret('<a long random secret>', 'genesis_jobs_secret');
 --      select genesis_schedule_job('send-digests', '*/5 * * * *', 'digests');
 --
 --    The app's route is `createJobsHandler` in @marktiderman/genesis-supabase/jobs, which
---    checks the same secret (and a previous one while you rotate it). pg_cron and pg_net are
---    only needed for schedules: the queue works without them.
+--    checks the signature (or a plain bearer secret, for a platform cron or a person). pg_cron,
+--    pg_net and pgcrypto are only needed for schedules: the queue works without them. Schedules
+--    are cron jobs named `genesis-job:<name>`, so these functions never touch another cron job.
+--    The 14-day purge is scheduled only if pg_cron is there when this runs; enable pg_cron later
+--    and schedule it yourself: select cron.schedule('genesis-jobs-purge', '20 4 * * *',
+--    'select private.genesis_jobs_purge()');
 --
 -- Access: the queue has row level security on, no policies and no grants to anon or
 -- authenticated. Everything goes through the functions below, granted by name to service_role
@@ -40,6 +48,7 @@ create table private.genesis_jobs (
     constraint genesis_jobs_kind_format check (kind ~ '^[a-z][a-z0-9]*([-_.:][a-z0-9]+)*$' and char_length(kind) <= 100),
   payload jsonb not null default '{}'::jsonb,
   -- One job per (kind, key) while it is queued or running: a second enqueue returns the first.
+  -- Once the job is done, failed or cancelled the key is free again.
   idempotency_key text
     constraint genesis_jobs_idempotency_key_length check (char_length(idempotency_key) between 1 and 200),
   status text not null default 'pending'
@@ -70,7 +79,7 @@ revoke all on table private.genesis_jobs from public, anon, authenticated;
 
 -- Queues one job and returns its id. With an idempotency key, a job of the same kind and key
 -- that is still pending or running is returned instead of a new one.
-create function public.genesis_job_enqueue(
+create or replace function public.genesis_job_enqueue(
   p_kind text,
   p_payload jsonb default '{}'::jsonb,
   p_run_after timestamptz default null,
@@ -113,7 +122,7 @@ end $$;
 -- leased for p_lease_seconds to one new claim id. Due: pending and past run_after, or running
 -- with a lease that ran out (`redelivery`: the last attempt may have done the work). A job whose
 -- lease ran out on its last attempt fails as lease_expired instead of coming back for ever.
-create function public.genesis_jobs_claim(
+create or replace function public.genesis_jobs_claim(
   p_kinds text[] default null,
   p_limit integer default 25,
   p_lease_seconds integer default 300
@@ -161,7 +170,7 @@ end $$;
 -- Records what happened to a claimed job. p_outcome: 'done'; 'retry' (back to pending after
 -- p_retry_after_seconds, or failed when out of attempts); 'failed' (permanent). Returns false,
 -- changing nothing, when the claim is stale (the lease ran out and the job was claimed again).
-create function public.genesis_jobs_settle(
+create or replace function public.genesis_jobs_settle(
   p_id uuid,
   p_claim_id uuid,
   p_outcome text,
@@ -202,7 +211,7 @@ begin
 end $$;
 
 -- Cancels a job that hasn't run yet. A running job finishes its attempt; true when cancelled.
-create function public.genesis_job_cancel(p_id uuid) returns boolean
+create or replace function public.genesis_job_cancel(p_id uuid) returns boolean
 language sql
 security definer
 set search_path = ''
@@ -217,7 +226,7 @@ $$;
 
 -- Deletes finished jobs (done, failed, cancelled) older than p_keep. Scheduled below when pg_cron
 -- is there; returns how many went.
-create function private.genesis_jobs_purge(p_keep interval default interval '14 days') returns integer
+create or replace function private.genesis_jobs_purge(p_keep interval default interval '14 days') returns integer
 language sql
 security definer
 set search_path = ''
@@ -230,9 +239,10 @@ as $$
   select count(*)::integer from gone
 $$;
 
--- POSTs {"job": p_job} to <genesis_jobs_url>/<p_job> with the bearer genesis_jobs_secret, both
--- read from Vault now. Returns pg_net's request id. What cron runs for each schedule.
-create function private.genesis_jobs_call(p_job text) returns bigint
+-- POSTs {"job": p_job} to <genesis_jobs_url>/<p_job>, signed with genesis_jobs_secret (both read
+-- from Vault now; the secret itself is never sent). Returns pg_net's request id. What cron runs for
+-- each schedule.
+create or replace function private.genesis_jobs_call(p_job text) returns bigint
 language plpgsql
 security definer
 set search_path = ''
@@ -240,6 +250,8 @@ as $$
 declare
   base text;
   secret text;
+  stamp text;
+  signature text;
   request bigint;
 begin
   if p_job is null or p_job !~ '^[a-z][a-z0-9]*([-_][a-z0-9]+)*$' or char_length(p_job) > 100 then
@@ -256,17 +268,22 @@ begin
   if base is null or secret is null then
     raise exception 'genesis_jobs_call: set the Vault secrets genesis_jobs_url and genesis_jobs_secret' using errcode = '55000';
   end if;
+  if to_regprocedure('extensions.hmac(text, text, text)') is null then
+    raise exception 'genesis_jobs_call: pgcrypto is not installed (create extension pgcrypto with schema extensions)' using errcode = '55000';
+  end if;
+  stamp := floor(extract(epoch from clock_timestamp()))::bigint::text;
+  execute 'select encode(extensions.hmac($1, $2, ''sha256''), ''hex'')' into signature using stamp || '.' || p_job, secret;
   execute 'select net.http_post(url := $1, body := $2, headers := $3, timeout_milliseconds := 10000)'
     into request
     using rtrim(base, '/') || '/' || p_job,
           jsonb_build_object('job', p_job),
-          jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || secret);
+          jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'GenesisJob t=' || stamp || ',sig=' || signature);
   return request;
 end $$;
 
--- Schedules (or reschedules) p_job on a cron schedule under the cron job name p_name. Returns
--- cron's job id.
-create function public.genesis_schedule_job(p_name text, p_schedule text, p_job text) returns bigint
+-- Schedules (or reschedules) p_job on a cron schedule, as the cron job `genesis-job:<p_name>`.
+-- Returns cron's job id.
+create or replace function public.genesis_schedule_job(p_name text, p_schedule text, p_job text) returns bigint
 language plpgsql
 security definer
 set search_path = ''
@@ -284,12 +301,12 @@ begin
     raise exception 'genesis_schedule_job: pg_cron is not installed (create extension pg_cron)' using errcode = '55000';
   end if;
   execute 'select cron.schedule($1, $2, $3)' into scheduled
-    using p_name, p_schedule, format('select private.genesis_jobs_call(%L)', p_job);
+    using 'genesis-job:' || p_name, p_schedule, format('select private.genesis_jobs_call(%L)', p_job);
   return scheduled;
 end $$;
 
--- Removes a schedule made by genesis_schedule_job. True when one was there.
-create function public.genesis_unschedule_job(p_name text) returns boolean
+-- Removes a schedule made by genesis_schedule_job (only `genesis-job:` cron jobs). True when one was there.
+create or replace function public.genesis_unschedule_job(p_name text) returns boolean
 language plpgsql
 security definer
 set search_path = ''
@@ -300,9 +317,12 @@ begin
   if to_regnamespace('cron') is null then
     return false;
   end if;
-  execute 'select exists (select 1 from cron.job where jobname = $1)' into removed using p_name;
+  if p_name is null or p_name !~ '^[a-z][a-z0-9]*([-_][a-z0-9]+)*$' or char_length(p_name) > 100 then
+    return false;
+  end if;
+  execute 'select exists (select 1 from cron.job where jobname = $1)' into removed using 'genesis-job:' || p_name;
   if removed then
-    execute 'select cron.unschedule($1)' using p_name;
+    execute 'select cron.unschedule($1)' using 'genesis-job:' || p_name;
   end if;
   return removed;
 end $$;

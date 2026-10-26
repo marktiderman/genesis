@@ -5,7 +5,7 @@
 -- is installed and pass as skipped when it isn't.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(46);
 
 -- Access: only the service role reaches the queue, and only through the functions.
 select ok(not has_function_privilege('anon', 'public.genesis_job_enqueue(text, jsonb, timestamptz, text, integer)', 'execute'), 'anon cannot enqueue');
@@ -80,13 +80,49 @@ select ok(public.genesis_job_cancel((select id from ids where name = 'cancel')),
 update private.genesis_jobs set finished_at = now() - interval '30 days';
 select is(private.genesis_jobs_purge(), 2, 'finished jobs older than 14 days are purged');
 
--- Schedules.
+-- Schedules. cron.job is read through a function so this file parses without pg_cron.
+create function pg_temp.cron_has(p_name text) returns boolean language plpgsql as $$
+declare found boolean;
+begin
+  execute 'select exists (select 1 from cron.job where jobname = $1)' into found using p_name;
+  return found;
+end $$;
 select throws_ok($$ select public.genesis_schedule_job('Bad Name', '* * * * *', 'x') $$, '22023', null, 'a schedule name is lowercase');
 select throws_ok($$ select private.genesis_jobs_call('../admin') $$, '22023', null, 'a job name is never a path');
 select case when to_regnamespace('cron') is null
   then skip('pg_cron is not installed', 1)
-  else ok(public.genesis_schedule_job('genesis-jobs-test', '*/5 * * * *', 'digests') > 0
-          and public.genesis_unschedule_job('genesis-jobs-test'), 'schedules and unschedules through pg_cron') end;
+  else ok(public.genesis_schedule_job('genesis-jobs-test', '*/5 * * * *', 'digests') > 0, 'schedules through pg_cron') end;
+select case when to_regnamespace('cron') is null
+  then skip('pg_cron is not installed', 1)
+  else ok(pg_temp.cron_has('genesis-job:genesis-jobs-test'), 'a schedule is the cron job genesis-job:<name>') end;
+create temp table unscheduled as select case when to_regnamespace('cron') is null then null else public.genesis_unschedule_job('genesis-jobs-test') end as removed;
+select case when to_regnamespace('cron') is null
+  then skip('pg_cron is not installed', 1)
+  else ok((select removed from unscheduled)
+          and not pg_temp.cron_has('genesis-job:genesis-jobs-test'), 'unschedules it') end;
+select case when to_regnamespace('cron') is null
+  then skip('pg_cron is not installed', 1)
+  else ok(not public.genesis_unschedule_job('genesis-jobs-purge'), 'never touches a cron job it did not make') end;
+
+-- A call is signed, never carrying the secret. Needs Vault, pg_net and pgcrypto; skipped without.
+-- pg_net's queue, read through a function so this file parses without pg_net.
+create function pg_temp.last_call_signed() returns boolean language plpgsql as $$
+declare ok boolean;
+begin
+  execute $q$select url = 'http://127.0.0.1:9/api/jobs/digests'
+                and headers->>'Authorization' ~ '^GenesisJob t=[0-9]+,sig=[0-9a-f]{64}$'
+                and headers::text !~ 'genesis-test-secret'
+           from net.http_request_queue order by id desc limit 1$q$ into ok;
+  return ok;
+end $$;
+create temp table call_ready as select to_regclass('vault.secrets') is not null and to_regnamespace('net') is not null
+  and to_regprocedure('extensions.hmac(text, text, text)') is not null as ready;
+select case when not (select ready from call_ready)
+  then skip('Vault, pg_net or pgcrypto is not installed', 1)
+  else lives_ok($$ select vault.create_secret('http://127.0.0.1:9/api/jobs/', 'genesis_jobs_url'), vault.create_secret('genesis-test-secret', 'genesis_jobs_secret'), private.genesis_jobs_call('digests') $$, 'a call queues a request') end;
+select case when not (select ready from call_ready)
+  then skip('Vault, pg_net or pgcrypto is not installed', 1)
+  else ok(pg_temp.last_call_signed(), 'posts to <url>/<job>, signed, with no secret in the queue') end;
 
 insert into private.genesis_jobs select * from saved_jobs;
 select * from finish();

@@ -621,12 +621,28 @@ const report = await runJobs(admin, {
 - **Outcomes.** A handler that returns nothing is done. One that throws is retried with jittered
   backoff (30 s, doubling, at most an hour) until `maxAttempts`, which defaults to 8.
   `PermanentJobError` or `{ failed }` stops it at once.
-- **Idempotency.** An idempotency key makes a repeated enqueue return the job already queued.
-- **Clean-up.** Finished jobs are deleted after 14 days, when pg_cron is installed.
+- **Idempotency.** An idempotency key makes a repeated enqueue return the job already queued. It
+  only dedupes while that job is pending or running: once it is done, failed or cancelled, the key
+  is free again.
+- **Clean-up.** Finished jobs are deleted after 14 days. That is scheduled only if pg_cron was
+  installed when the migration ran. If you enable pg_cron later, schedule
+  `select private.genesis_jobs_purge()` yourself.
 - **Logs.** Nothing about a payload is logged, so payloads should hold ids and never secrets.
 
-**One job route.** `createJobsHandler` checks `Authorization: Bearer <secret>` in constant time. It
-also accepts `previousSecret` while you rotate the secret. Then it runs the job the route names:
+- **Settle failures.** If recording an outcome fails, the job is counted as `unsettled` and comes
+  back when its lease runs out. The run carries on, and only a failed claim throws.
+
+**One job route.** `createJobsHandler` runs the job the route names, but only if the request passes
+one of two constant-time checks:
+
+- **Signed for that job.** `Authorization: GenesisJob t=<unix seconds>,sig=<hex HMAC-SHA256 of
+  "<t>.<job>">` is good for five minutes. This is what schedules send, and `signJobRequest` builds
+  it from your own code.
+- **The plain secret.** `Authorization: Bearer <secret>` (any case) is for a platform cron or a
+  person running a job by hand.
+
+`previousSecret` is accepted too while you rotate the secret, so remove it once every caller has the
+new one.
 
 ```ts
 const handle = createJobsHandler({
@@ -644,8 +660,11 @@ export const POST = ({ request, params }) => handle(request, params.job);
 It answers 401 for a wrong or missing secret, and 500 when no secret is set. An unknown job gets
 404, and a failure gets 500 with no detail (the error goes to `log`).
 
-**Schedules.** pg_cron calls the route through pg_net. The URL and the secret are read from Vault
-each time, so they never sit in `cron.job`:
+**Schedules.** pg_cron calls the route through pg_net, which needs pgcrypto too (Supabase has it
+in `extensions`). The URL and the secret are read from Vault each time, so they never sit in
+`cron.job`. The request carries a five-minute signature for that one job, never the secret itself.
+That matters because pg_net keeps each request's headers in `net.http_request_queue` until it sends
+them, and on some images other roles can read that table.
 
 ```sql
 create extension if not exists pg_cron;
@@ -657,8 +676,11 @@ select genesis_schedule_job('purge-uploads', '15 3 * * *', 'purge-uploads');
 ```
 
 The Vault secrets belong to each environment, so create them by hand in each project and never in
-a migration. `genesis_schedule_job` with an existing name replaces that schedule, and
-`genesis_unschedule_job(name)` removes it. A platform cron (Vercel, Cloudflare) can call the same
+a migration.
+
+- A schedule is the cron job `genesis-job:<name>`. Calling `genesis_schedule_job` with an existing
+  name replaces it.
+- `genesis_unschedule_job(name)` removes one, and never touches a cron job it didn't make. A platform cron (Vercel, Cloudflare) can call the same
 route instead: it sends GET with the bearer.
 
 **Access.** The queue table has RLS on, no policies, and no grants to `anon` or `authenticated`.

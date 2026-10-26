@@ -6,10 +6,10 @@
  * - `enqueueJob`: queue work from server code (triggers enqueue in SQL).
  * - `runJobs`: claim due jobs, run each kind's handler, settle each one, with
  *   backoff on failure. Never throws for one job's failure.
- * - `createJobsHandler`: the app's one job route. It checks the bearer secret
- *   (a previous one too, while you rotate it) and runs the named job, which a
- *   pg_cron schedule (`genesis_schedule_job`), a platform cron or a person
- *   with the secret calls.
+ * - `createJobsHandler`: the app's one job route. It checks the request is
+ *   signed for the job (`genesis_schedule_job` signs; the secret never
+ *   travels) or carries the bearer secret (a platform cron, a person), with a
+ *   previous secret accepted while you rotate it, and runs the named job.
  *
  * ```ts
  * // src/routes/api/jobs/$job.ts (any server route that hands over a Request)
@@ -138,6 +138,8 @@ export interface RunJobsReport {
   failed: number;
   /** Settles refused because the lease ran out first (another run has the job). */
   stale: number;
+  /** Settles that failed (the database unreachable): those jobs come back when their lease runs out. */
+  unsettled: number;
 }
 
 /** 30 s, doubling per attempt, ±20% jitter, at most an hour. */
@@ -152,14 +154,15 @@ function messageOf(error: unknown): string {
 
 /**
  * Claim due jobs of the handled kinds, run them, and settle each: done, a
- * retry after backoff, or failed. One job's failure never stops the others,
- * and nothing about a payload is logged.
+ * retry after backoff, or failed. One job's failure, or a failure to record
+ * it, never stops the others; only a failed claim throws. Nothing about a
+ * payload is logged.
  *
  * @stability Beta
  */
 export async function runJobs(client: JobsClient, options: RunJobsOptions): Promise<RunJobsReport> {
   const kinds = Object.keys(options.handlers);
-  const report: RunJobsReport = { claimed: 0, done: 0, retried: 0, failed: 0, stale: 0 };
+  const report: RunJobsReport = { claimed: 0, done: 0, retried: 0, failed: 0, stale: 0, unsettled: 0 };
   if (kinds.length === 0) return report;
   const backoff = options.backoff ?? defaultBackoff;
   const log = options.log ?? ((line: string) => console.error(line));
@@ -187,24 +190,36 @@ export async function runJobs(client: JobsClient, options: RunJobsOptions): Prom
     else report.failed++;
   };
 
-  const runOne = async (job: Claimed) => {
+  type Settle = ["done" | "retry" | "failed", number | null, string | null];
+
+  // What the handler says, as a settle. Only the handler runs inside this try.
+  const outcomeOf = async (job: Claimed): Promise<Settle> => {
     const handler = options.handlers[job.kind];
     const { claim_id: _claim, ...seen } = job;
     try {
       const outcome = handler ? await handler(seen) : { failed: `no handler for ${job.kind}` };
       if (outcome && "failed" in outcome) {
         log(`[jobs] ${job.kind} ${job.id} attempt ${job.attempt} failed: ${outcome.failed}`);
-        await settle(job, "failed", null, outcome.failed.slice(0, 1000));
-      } else if (outcome && "retryAfterSeconds" in outcome) {
-        await settle(job, "retry", Math.max(0, Math.round(outcome.retryAfterSeconds)), outcome.error ?? null);
-      } else {
-        await settle(job, "done", null, null);
+        return ["failed", null, outcome.failed.slice(0, 1000)];
       }
+      if (outcome && "retryAfterSeconds" in outcome) return ["retry", Math.max(0, Math.round(outcome.retryAfterSeconds)), outcome.error ?? null];
+      return ["done", null, null];
     } catch (error) {
       const message = messageOf(error);
       log(`[jobs] ${job.kind} ${job.id} attempt ${job.attempt}: ${message}`);
-      if (error instanceof PermanentJobError) await settle(job, "failed", null, message);
-      else await settle(job, "retry", backoff(job.attempt), message);
+      return error instanceof PermanentJobError ? ["failed", null, message] : ["retry", backoff(job.attempt), message];
+    }
+  };
+
+  const runOne = async (job: Claimed) => {
+    const [outcome, retryAfter, error] = await outcomeOf(job);
+    try {
+      await settle(job, outcome, retryAfter, error);
+    } catch (failure) {
+      // The queue didn't take the outcome: the lease runs out and the job comes back as a
+      // redelivery. The other jobs in this run carry on.
+      report.unsettled++;
+      log(`[jobs] ${job.kind} ${job.id}: could not record ${outcome}: ${messageOf(failure)}`);
     }
   };
 
@@ -230,27 +245,69 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 
 /** @stability Beta */
 export interface VerifyJobRequestOptions {
-  /** The secret callers send as `Authorization: Bearer <secret>`. Unset refuses every request (500). */
+  /** The job secret. Unset refuses every request (500). */
   secret: string | undefined;
-  /** The secret before a rotation, accepted too until you remove it. */
+  /** The secret before a rotation, accepted too. Remove it once every caller has the new one. */
   previousSecret?: string | undefined;
+  /** How far a signed request's time may be from now, in seconds. Default 300. */
+  maxSkewSeconds?: number;
+  /** Now, in seconds (for tests). */
+  now?: () => number;
+}
+
+const hex = (bytes: ArrayBuffer) => Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
+
+async function hmacHex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", key, encoder.encode(message)));
 }
 
 /**
- * Checks `Authorization: Bearer <secret>` in constant time against the
- * secret and the previous one. Returns `null` when it matches, else the
- * response to send: 401, or 500 when no secret is configured.
+ * The `Authorization` value a scheduler sends for `job`: `GenesisJob
+ * t=<unix seconds>,sig=<hex HMAC-SHA256 of "<t>.<job>">`. What
+ * `genesis_schedule_job` sends; for calling a job route from your own code.
  *
  * @stability Beta
  */
-export async function verifyJobRequest(request: Request, options: VerifyJobRequestOptions): Promise<Response | null> {
+export async function signJobRequest(secret: string, job: string, now: number = Math.floor(Date.now() / 1000)): Promise<string> {
+  return `GenesisJob t=${now},sig=${await hmacHex(secret, `${now}.${job}`)}`;
+}
+
+/**
+ * Checks a request's `Authorization` in constant time against the secret and
+ * the previous one. Two forms: `GenesisJob t=…,sig=…`, signed for `job` within
+ * `maxSkewSeconds` (what schedules send: the secret never travels), or
+ * `Bearer <secret>` (a platform cron, a person). The scheme's case and extra
+ * spaces don't matter. Returns `null` when it passes, else the response to
+ * send: 401, or 500 when no secret is configured.
+ *
+ * @stability Beta
+ */
+export async function verifyJobRequest(request: Request, options: VerifyJobRequestOptions, job?: string): Promise<Response | null> {
   if (!options.secret) return Response.json({ error: "The job secret is not configured." }, { status: 500 });
-  const token = /^Bearer ([^\s,]+)$/.exec(request.headers.get("authorization") ?? "")?.[1];
-  if (!token) return Response.json({ error: "Unauthorized." }, { status: 401 });
-  const given = await digest(token);
-  const current = sameBytes(given, await digest(options.secret));
-  const previous = options.previousSecret ? sameBytes(given, await digest(options.previousSecret)) : false;
-  return current || previous ? null : Response.json({ error: "Unauthorized." }, { status: 401 });
+  const secrets = [options.secret, ...(options.previousSecret ? [options.previousSecret] : [])];
+  const header = (request.headers.get("authorization") ?? "").trim();
+  const unauthorized = () => Response.json({ error: "Unauthorized." }, { status: 401 });
+
+  const bearer = /^bearer\s+([^\s,]+)$/i.exec(header)?.[1];
+  if (bearer) {
+    const given = await digest(bearer);
+    let ok = false;
+    for (const secret of secrets) ok = sameBytes(given, await digest(secret)) || ok;
+    return ok ? null : unauthorized();
+  }
+
+  const signed = /^genesisjob\s+t=(\d{1,12})\s*,\s*sig=([0-9a-f]{64})$/i.exec(header);
+  if (signed && job) {
+    const t = Number(signed[1]);
+    const now = options.now?.() ?? Math.floor(Date.now() / 1000);
+    if (Math.abs(now - t) > (options.maxSkewSeconds ?? 300)) return unauthorized();
+    const given = await digest(signed[2]!.toLowerCase());
+    let ok = false;
+    for (const secret of secrets) ok = sameBytes(given, await digest(await hmacHex(secret, `${t}.${job}`))) || ok;
+    return ok ? null : unauthorized();
+  }
+  return unauthorized();
 }
 
 /** One named job a route can run. Its return value (JSON) is the response body. @stability Beta */
@@ -267,9 +324,9 @@ export interface JobsHandlerOptions extends VerifyJobRequestOptions {
 const JOB_NAME = /^[a-z][a-z0-9]*([-_][a-z0-9]+)*$/;
 
 /**
- * The app's job route: checks the secret, then runs the job named by the
- * route (`name`, e.g. a path param), the body's `job`, or the URL's last
- * segment. GET and POST (platform crons send GET). Answers 401, 404 for an
+ * The app's job route: checks the request is signed for (or carries the
+ * secret of) the job named by the route (`name`, e.g. a path param), the
+ * body's `job`, or the URL's last segment, then runs it. GET and POST (platform crons send GET). Answers 401, 404 for an
  * unknown job, 405, 200 with the job's result, or 500 with no detail.
  *
  * @stability Beta
@@ -280,12 +337,14 @@ export function createJobsHandler(options: JobsHandlerOptions): (request: Reques
     if (request.method !== "GET" && request.method !== "POST") {
       return Response.json({ error: "Use GET or POST." }, { status: 405, headers: { Allow: "GET, POST" } });
     }
-    const refused = await verifyJobRequest(request, options);
-    if (refused) return refused;
-
-    const raw = request.method === "POST" ? await request.json().catch(() => null) : null;
+    const raw = request.method === "POST" ? await request.clone().json().catch(() => null) : null;
     const body = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
     const job = name ?? (typeof body["job"] === "string" ? body["job"] : new URL(request.url).pathname.split("/").filter(Boolean).at(-1));
+
+    // The signature is for one job name, so check it against the name the route will run.
+    const refused = await verifyJobRequest(request, options, job);
+    if (refused) return refused;
+
     const run = job && JOB_NAME.test(job) && Object.hasOwn(options.jobs, job) ? options.jobs[job] : undefined;
     if (!run) return Response.json({ error: "No such job." }, { status: 404 });
 
