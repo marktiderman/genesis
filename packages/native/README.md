@@ -454,6 +454,16 @@ typed text, the link and the notifier's notification id. A backend that sets
 `usesInstallationId` gets this install's id (made once, kept across sign-ins)
 as `register`'s fourth argument; `supabasePushBackend` doesn't.
 
+An app with its own device functions (its own `register` / `forget` RPCs) doesn't
+stub `loadPreferences` / `savePreferences`: it spreads in the notifier's, and
+Settings → Notifications works.
+
+```ts
+import { notificationsPushPreferences } from "@marktiderman/genesis-notifications/native";
+
+const backend: PushBackend = { register, forget, ...notificationsPushPreferences(supabase) };
+```
+
 ```ts
 // lib/push.ts
 import * as Notifications from "expo-notifications";
