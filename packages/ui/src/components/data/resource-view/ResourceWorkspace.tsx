@@ -19,7 +19,7 @@ import { Chip } from "../../resource/chip";
 import { ReadinessChip } from "../../resource/ReadinessChip";
 import { ResourceHeader } from "../../resource/ResourceHeader";
 import { SettingsSection } from "../../resource/ResourceSettingsPage";
-import type { ReadinessLabels } from "../../resource/status";
+import type { ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import { Alert, AlertDescription } from "../../ui/alert";
 import {
   AlertDialog,

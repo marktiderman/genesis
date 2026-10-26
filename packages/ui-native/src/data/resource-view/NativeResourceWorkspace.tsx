@@ -13,12 +13,8 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type {
-  Allowed,
-  ResourceWorkspace as Workspace,
-  WorkspaceHeaderAction,
-  WorkspaceReadinessSummary,
-} from "@marktiderman/genesis-core/resource-view";
+import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
+import type { Allowed, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -43,28 +39,46 @@ type Values = Record<string, unknown>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; the row is what matters here
 type AnyWorkspace<T extends Row> = Workspace<ResourceContract<any>, T & DataRow>;
 
-/** The words NativeResourceWorkspace shows. Override any of them with `messages`. */
-export const defaultNativeResourceWorkspaceMessages = {
+/**
+ * The words NativeResourceWorkspace shows. Override any of them with `messages`. The readiness
+ * chip's keys (`ready`, `empty`, `pending`, `problems`, `warnings`) are genesis-core/resource's
+ * `readinessChip` labels: unset, they use its defaults.
+ */
+export interface NativeResourceWorkspaceMessages extends ReadinessLabels {
+  actions: string;
+  cancel: string;
+  save: string;
+  /** `{noun}`: the record's noun. When a save changed no rows. */
+  notChanged: string;
+  failed: string;
+  /** `{name}`: the action. When the provider can't run actions and the screen gave no `onAction`. */
+  noRunner: string;
+  checks: string;
+  checkDone: string;
+  checkTodo: string;
+  /** The back row of a section opened from the list of sections. */
+  allSections: string;
+  notANumber: string;
+}
+
+export const defaultNativeResourceWorkspaceMessages: NativeResourceWorkspaceMessages = {
   actions: "Actions",
   cancel: "Cancel",
   save: "Save",
-  /** `{noun}`: the record's noun. When a save changed no rows. */
   notChanged: "This {noun} was not changed.",
   failed: "That didn't work. Try again.",
-  /** `{name}`: the action. When the provider can't run actions and the screen gave no `onAction`. */
   noRunner: "{name} isn't available here.",
   checks: "Checks",
   checkDone: "Done",
   checkTodo: "To do",
-  /** The back row of a section opened from the list of sections. */
   allSections: "All sections",
   notANumber: "Enter a number.",
-  // The readiness chip (genesis-ui's readinessChip words; to share genesis-core/resource's once it has them).
-  ready: "Ready to publish",
-  problems: (count: number) => `${count} ${count === 1 ? "problem" : "problems"} to fix`,
-  warnings: (count: number) => `${count} to check`,
+  ready: undefined,
+  empty: undefined,
+  pending: undefined,
+  problems: undefined,
+  warnings: undefined,
 };
-export type NativeResourceWorkspaceMessages = typeof defaultNativeResourceWorkspaceMessages;
 
 /** Up to this many sections show as a segmented control; more are pushed rows. */
 export const SEGMENTED_SECTIONS_MAX = 4;
@@ -291,7 +305,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
   const active = activeId ? workspace.section(activeId) : undefined;
   const readiness = workspace.readinessFor(record);
   const summary = workspace.readinessSummary(record);
-  const chip = summary ? readinessWords(summary, words) : null;
+  const chip = summary ? readinessChip(summary, words) : null;
 
   const choose = (id: string) => {
     if (many && onOpenSection) return onOpenSection(id);
@@ -609,18 +623,6 @@ function SettingRow({
       {control}
     </View>
   );
-}
-
-/** The summary chip's words and tone. */
-function readinessWords(summary: WorkspaceReadinessSummary, words: NativeResourceWorkspaceMessages) {
-  switch (summary.state) {
-    case "ready":
-      return { label: words.ready, tone: "success" as const };
-    case "problems":
-      return { label: words.problems(summary.count), tone: "danger" as const };
-    case "warnings":
-      return { label: words.warnings(summary.count), tone: "warning" as const };
-  }
 }
 
 // ── Inset grouped pieces (SettingsPage's look) ────────────────────────

@@ -38,7 +38,6 @@ export type {
   WorkspaceHeader,
   WorkspaceHeaderAction,
   WorkspaceHeaderOptions,
-  WorkspaceReadinessSummary,
   WorkspaceListSection,
   WorkspaceReadinessItem,
   WorkspaceSection,

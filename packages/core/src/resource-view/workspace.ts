@@ -5,6 +5,7 @@
 
 import { encodeRecordKey } from "../schema/keys";
 import type { Identifier } from "../provider/types";
+import { readinessOf, type Readiness } from "../resource";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { ViewDefinitionError } from "./define-view";
 import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, ViewTone } from "./types";
@@ -98,13 +99,6 @@ export interface WorkspaceHeaderOptions<Row extends DataRow = DataRow> {
   served?: readonly string[];
 }
 
-/** One chip's terms for the checks, until genesis-core/resource's `readinessOf` is used here. */
-export interface WorkspaceReadinessSummary {
-  readonly state: "ready" | "problems" | "warnings";
-  /** Unmet checks of that kind (0 when ready). */
-  readonly count: number;
-}
-
 /** A readiness check with its tone resolved. */
 export interface ResolvedReadinessItem {
   /** Stable, for list keys: the check's `id`, or its position and title. */
@@ -146,10 +140,11 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
   /** The readiness checks for this row, tones resolved; empty without `readiness`. */
   readinessFor(row: Row): readonly ResolvedReadinessItem[];
   /**
-   * The checks in one chip's terms (the shape of `readinessOf`'s result): an unmet `danger`
-   * check is a problem, any other unmet check one to look at. `null` without `readiness`.
+   * The checks in one chip's terms (genesis-core/resource's `readinessOf`): an unmet `danger`
+   * check is a problem, any other unmet check one to look at. `null` without `readiness`. Draw
+   * it with `readinessChip`.
    */
-  readinessSummary(row: Row): WorkspaceReadinessSummary | null;
+  readinessSummary(row: Row): Readiness | null;
 }
 
 const WORKSPACE = Symbol.for("genesis.resource-workspace");
@@ -358,16 +353,14 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     );
   };
 
-  // TODO: use genesis-core/resource's readinessOf once the pure resource rules move there.
-  const readinessSummary = (row: Row): WorkspaceReadinessSummary | null => {
-    if (!readiness) return null;
-    let problems = 0;
-    let warnings = 0;
-    for (const r of readinessFor(row)) if (!r.ok) r.tone === "danger" ? problems++ : warnings++;
-    if (problems) return Object.freeze({ state: "problems", count: problems });
-    if (warnings) return Object.freeze({ state: "warnings", count: warnings });
-    return Object.freeze({ state: "ready", count: 0 });
-  };
+  const readinessSummary = (row: Row): Readiness | null =>
+    readiness
+      ? readinessOf(
+          readinessFor(row)
+            .filter((r) => !r.ok)
+            .map((r) => ({ level: r.tone === "danger" ? ("error" as const) : ("warning" as const) })),
+        )
+      : null;
 
   return Object.freeze({
     [WORKSPACE]: true,
