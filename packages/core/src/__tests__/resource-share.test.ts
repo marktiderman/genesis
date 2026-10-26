@@ -1,6 +1,6 @@
 // @feat:resource-workspace
 import { describe, expect, it } from "vitest";
-import { embedSnippet, prefilledUrl } from "../share";
+import { embedSnippet, prefilledUrl } from "../resource";
 
 describe("Share helpers", () => {
   it("adds prefilled values to a link, leaving empty ones out", () => {

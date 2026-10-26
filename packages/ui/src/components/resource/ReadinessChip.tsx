@@ -1,6 +1,6 @@
 import { Check, CircleAlert, TriangleAlert } from "lucide-react";
 import { Chip } from "./chip";
-import { readinessChip, type Readiness, type ReadinessLabels } from "./status";
+import { readinessChip, type Readiness, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 
 /**
  * "Ready to publish", or how many problems to fix: for the trailing slot of a resource

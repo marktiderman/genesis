@@ -77,9 +77,9 @@ export interface FeatureRegistryDocument {
 /** @stability Beta */
 export interface SyncFeatureRegistryOptions {
   /**
-   * When this deployment started serving, in milliseconds (`Date.now()` at server start), not its
-   * build time: an instant rollback to an older build then syncs as the newest. Older versions
-   * than the last sync are refused.
+   * This build's version: an increasing number such as the build time in milliseconds, so an old
+   * production deployment (Vercel keeps VERCEL_ENV=production on every one) can't sync over a newer
+   * one. Older versions than the last sync are refused.
    */
   version: number;
   /** Allow a registry that drops more than a fifth of the features (at least 3). Default false. */
@@ -120,7 +120,7 @@ async function sha256(text: string): Promise<string> {
  *
  * ```ts
  * import registry from "../features.json";
- * if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: Date.now() });
+ * if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
  * ```
  *
  * @stability Beta

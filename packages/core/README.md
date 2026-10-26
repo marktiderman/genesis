@@ -139,6 +139,13 @@ create view public.tasks_with_people with (security_invoker = true) as
 Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
 columns the table's row has, so a form built from the view row never sends `person_name` back.
 
+### Counting totals
+
+`total` is exact by default, which scans every matching row. For a large table, set
+`resources.<name>.count` to `"estimated"` (or `"planned"`): the database's statistics answer
+instantly and `totalIsEstimate` is true, so a screen can say "about 90,000". `"none"` skips the
+count (`total` is -1). A caller can override per request with `getList(resource, { count })`.
+
 ### Handling failures
 
 ```ts
@@ -531,6 +538,13 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
+`ViewerScope` also carries **where** the viewer is working: `scope={{ practiceId }}` (or
+`personId`, `spaceId`, a `personIds` set). Read it with `useViewerScope()`; screens turn it into
+server filters and create defaults. It never decides access, and changing it remounts nothing.
+Pass the viewer's saved `timeZone` too: `useViewerScope().day` is today on their clock (kept current
+when the page comes back into view, and across midnight), and `keys.for(useViewerScope())` uses it
+as the key's `day`, so no screen works out "today" itself.
+
 With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
 `persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
 sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
@@ -568,6 +582,24 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
 time: a second click while it runs gets the same promise, not a second write.
+
+## Resource page rules (`/resource`)
+
+The pure rules behind a resource page (a form, a course, a lesson, a worksheet), with no React,
+so a server or a phone app can use them: `readinessOf(findings, { emptyCode, pending })` and
+`readinessChip(readiness, labels)` (the readiness chip's words and tone), `SAVE_STATE_LABEL`,
+`dayLabel` ("Today", "Yesterday", "Oct 21"), `prefilledUrl` and `embedSnippet` (the Share
+dialog's links), and the types `ChipTone`, `SaveState`, `Readiness`, `ReadinessFinding`,
+`ReadinessOptions`, `ReadinessLabels`, `PrefillChoice`, `HeadlineNumber` (a headline number as
+data) and `HeadlineTone`. genesis-ui's `/resource` components draw them, and
+`@marktiderman/genesis-ui/resource/rules` re-exports the same functions.
+
+```ts
+import { readinessChip, readinessOf } from "@marktiderman/genesis-core/resource";
+
+readinessChip(readinessOf(findings, { emptyCode: "no-lessons" }), { empty: "Add a lesson" });
+// → { label: "Add a lesson", tone: "muted" }
+```
 
 ## Days and time zones (`/dates`)
 

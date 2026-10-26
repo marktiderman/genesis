@@ -595,11 +595,13 @@ Migration `0008_genesis_feature_registry.sql` (needs 0004) gives the feature gat
 way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
 - **The mirror.** `features` and `feature_flags` copy `features.json`, written only by `sync_feature_registry`
-  with the service key. Run it from **production deployments only**, when one starts serving, with
-  `Date.now()` as the version (not the build time), so an instant rollback syncs as the newest. The same
-  registry again changes nothing; an empty registry, or one dropping more than a fifth of the features, is
-  refused unless `allowShrink`. Nothing is deleted: a removed feature or flag is marked `in_registry = false`,
-  and a flag's tenant values stay.
+  with the service key. Run it from **production deployments only**, with the **build time** as the version.
+  Vercel sets `VERCEL_ENV=production` on every production deployment, old ones included, so an instance-start
+  time would let a cold start of an old URL sync a stale registry; a build time can't. After an instant
+  rollback the database keeps the newer registry until the next deploy (only SQL's status and entitlement
+  checks read it). The same registry again changes nothing; an empty registry, or one dropping more than a
+  fifth of the features, is refused unless `allowShrink`. Nothing is deleted: a removed feature or flag is
+  marked `in_registry = false`; its tenant values stay, and (0014) its platform value is cleared.
 - **Paid access.** `feature_entitlements` (tenant, feature, source, `active`, optional `ends_at`). Your billing
   webhook writes it with the service key.
 - **Flag values.** `tenant_flag_values` overrides a flag's default for one tenant (service key).
@@ -608,7 +610,14 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
   over many rows use the once-per-statement pair instead:
   `using ((select feature_shipped('exports')) and team_id = any (array(select feature_entitled_tenants('exports'))))`
   (drop the second half for a free feature). Switches and flags are not checked here: server code enforces them.
-- **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features, and
+- **Who is asking (0014).** Server code is told apart from a person by the request's role
+  (`current_setting('role')`, set per request by PostgREST), never by `request.jwt.claims`: a role that bypasses
+  row security, or a connection that never switched role, is server code; everyone else must be a member. So any database login that
+  connects directly, without switching role, is trusted as server code: give people API access only, never a
+  direct database login. The
+  functions use `auth.jwt()` and `auth.uid()`, so they need Supabase's `auth` schema (not bare Postgres).
+- **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features (and
+  `feature_shipped` answers them only for those), and
   only `id, name, status, visibility, access_plan, platforms, in_registry`; the full record stays server side.
 - **The snapshot's input.** `feature_gate_state(tenant)` returns the tenant's switches off, entitlements and
   flag values, to its members (with their own JWT, so browsers and extensions can call it) and the service role.
@@ -619,7 +628,7 @@ import { gateSnapshot } from "@marktiderman/genesis-features/gate";
 import registry from "../features.json";
 
 // When a production deployment starts serving (never from a preview):
-if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: Date.now() });
+if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
 
 const state = await featureGateState(supabase, teamId); // per session
 const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });

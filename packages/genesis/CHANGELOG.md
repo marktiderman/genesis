@@ -1,5 +1,31 @@
 # @marktiderman/genesis
 
+## 0.9.13
+
+### Patch Changes
+
+- Updated dependencies [4712a93]
+- Updated dependencies [eb4d080]
+- Updated dependencies [c098d74]
+- Updated dependencies [2bf5afd]
+- Updated dependencies [f8df3a4]
+- Updated dependencies [f0146a4]
+- Updated dependencies [35145a1]
+- Updated dependencies [54447e8]
+- Updated dependencies [31e6a0a]
+- Updated dependencies [10cfaef]
+- Updated dependencies [a93108d]
+- Updated dependencies [bcb938c]
+- Updated dependencies [af29d35]
+- Updated dependencies [5503a00]
+- Updated dependencies [32bdd36]
+- Updated dependencies [32bdd36]
+- Updated dependencies [4712a93]
+- Updated dependencies [32bdd36]
+  - @marktiderman/genesis-core@1.13.0
+  - @marktiderman/genesis-ui@2.18.0
+  - @marktiderman/genesis-ui-native@2.6.0
+
 ## 0.9.12
 
 ### Patch Changes

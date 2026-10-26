@@ -348,36 +348,64 @@ export const FlatList = <T,>(props: {
 
 export const SectionList = <T,>(props: {
   sections?: { title: string; data: T[] }[];
-  renderItem?: (info: { item: T; index: number; section: { title: string } }) => React.ReactNode;
+  renderItem?: (info: { item: T; index: number; section: { title: string; data: T[] } }) => React.ReactNode;
   renderSectionHeader?: (info: { section: { title: string; data: T[] } }) => React.ReactNode;
   keyExtractor?: (item: T, index: number) => string;
   stickySectionHeadersEnabled?: boolean;
+  ListHeaderComponent?: React.ReactNode | React.ComponentType;
+  ListFooterComponent?: React.ReactNode | React.ComponentType;
+  ListEmptyComponent?: React.ReactNode | React.ComponentType;
+  refreshControl?: React.ReactNode;
+  onStartReached?: (info: { distanceFromStart: number }) => void;
+  onEndReached?: () => void;
+  maintainVisibleContentPosition?: { minIndexForVisible: number } | null;
   testID?: string;
 }) => {
-  const { sections = [], renderItem, renderSectionHeader, keyExtractor, stickySectionHeadersEnabled, testID } = props;
+  const { sections = [], renderItem, renderSectionHeader, keyExtractor, stickySectionHeadersEnabled, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, onStartReached, onEndReached, maintainVisibleContentPosition, testID } = props;
+  // Slots render like FlatList's: an element as is, a component type as <C />.
+  const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
+    typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
+  const empty = sections.every((section) => section.data.length === 0);
   return React.createElement(
     "div",
     {
       "data-testid": testID,
       role: "list",
       "data-sticky-section-headers": stickySectionHeadersEnabled === undefined ? undefined : String(stickySectionHeadersEnabled),
+      "data-maintain-visible-content-position": maintainVisibleContentPosition ? JSON.stringify(maintainVisibleContentPosition) : undefined,
+      // Scrolling stands in as custom events: `startreached` and `endreached` call the handlers.
+      ref: (node: HTMLElement | null) => {
+        if (!node) return;
+        const el = node as HTMLElement & { __start?: () => void; __end?: () => void };
+        if (el.__start) el.removeEventListener("startreached", el.__start);
+        if (el.__end) el.removeEventListener("endreached", el.__end);
+        el.__start = () => onStartReached?.({ distanceFromStart: 0 });
+        el.__end = () => onEndReached?.();
+        el.addEventListener("startreached", el.__start);
+        el.addEventListener("endreached", el.__end);
+      },
     },
-    sections.flatMap((section, si) => [
-      React.createElement(
-        "div",
-        { key: `header-${si}` },
-        renderSectionHeader?.({ section })
-      ),
-      ...section.data.map((item, ii) =>
-        React.createElement(
-          "div",
-          {
-            key: keyExtractor ? keyExtractor(item, ii) : `${si}-${ii}`,
-          },
-          renderItem?.({ item, index: ii, section })
-        )
-      ),
-    ])
+    refreshControl ?? null,
+    slot(ListHeaderComponent),
+    ...(empty
+      ? [slot(ListEmptyComponent)]
+      : sections.flatMap((section, si) => [
+          React.createElement(
+            "div",
+            { key: `header-${si}` },
+            renderSectionHeader?.({ section })
+          ),
+          ...section.data.map((item, ii) =>
+            React.createElement(
+              "div",
+              {
+                key: keyExtractor ? keyExtractor(item, ii) : `${si}-${ii}`,
+              },
+              renderItem?.({ item, index: ii, section })
+            )
+          ),
+        ])),
+    slot(ListFooterComponent)
   );
 };
 
@@ -494,6 +522,11 @@ export const Appearance = {
 
 export const KeyboardAvoidingView = (props: AnyProps) =>
   React.createElement("div", { ...toDom(props) });
+
+export const Linking = {
+  openURL: _vi.fn(async (_url: string) => {}),
+  canOpenURL: _vi.fn(async (_url: string) => true),
+};
 
 // Mockable Alert.alert — tests assert via `Alert.alert.mock.calls` and
 // trigger button onPress by invoking the captured handler.

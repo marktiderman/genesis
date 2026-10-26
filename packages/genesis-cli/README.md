@@ -343,10 +343,16 @@ comment on column public.customers.notes is
   'Private to staff. @genesis {"label": "Internal notes", "widget": "textarea"}';
 ```
 
-The text before `@genesis` stays the description. Tables take `label`, `labelField` and
-`description`; columns take `label`, `description` and `widget`. Anything else is an error that
-names the table or column. These settings are generator input only: the checked-in file is what
-ships.
+The text before `@genesis` stays the description. Tables take `label`, `labelField`, `noun`,
+`nounPlural` and `description` (strings). Columns take `label`, `description` and `widget`
+(strings), plus `readonly` (true for a column only the server writes: a UI shows it read-only) and
+`sensitive` (true to keep it out of lists, exports and previews unless a screen asks). Anything
+else is an error that names the table or column. These settings are generator input only: the
+checked-in file is what ships.
+
+Each resource is emitted as its own `as const satisfies ResourceContract<Row>` constant (so a bad
+setting, like an unknown `widget`, fails to compile), with a row type and a field-name union
+(`PublicBrandsField`), and `contracts` collects them by `schema.table`.
 
 ## genesis doctor
 

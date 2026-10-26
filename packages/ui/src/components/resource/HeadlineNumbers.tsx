@@ -1,18 +1,19 @@
 import type { ReactNode } from "react";
+import type { HeadlineNumber as CoreHeadlineNumber, HeadlineTone } from "@marktiderman/genesis-core/resource";
 import { Skeleton } from "../ui/skeleton";
 import { cn } from "../../utils";
 
-/** One headline number: a label, the number, and a short line under it. */
-export interface HeadlineNumber {
-  key: string;
-  label: string;
+/**
+ * One headline number: a label, the number, and a short line under it. The data half
+ * (`string | number` values) is `@marktiderman/genesis-core/resource`'s `HeadlineNumber`,
+ * which a server or a phone can build; here `value` and `detail` may be any React node.
+ */
+export interface HeadlineNumber extends Omit<CoreHeadlineNumber, "value" | "detail"> {
   value: ReactNode;
   detail?: ReactNode;
-  /** The detail's colour: good news, bad news, a warning, or plain. Default plain. */
-  tone?: "positive" | "negative" | "warning" | "muted" | undefined;
 }
 
-const TONE: Record<NonNullable<HeadlineNumber["tone"]>, string> = {
+const TONE: Record<HeadlineTone, string> = {
   positive: "text-emerald-700 dark:text-emerald-300",
   negative: "text-red-700 dark:text-red-300",
   warning: "text-amber-800 dark:text-amber-200",
