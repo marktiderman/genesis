@@ -1,0 +1,23 @@
+.changeset/sheet-max-height.md
+  s_8252619ce79a86::t_d54dbbe17772ef 1-5
+packages/ui-native/src/components/__tests__/sheet.test.tsx
+  s_8252619ce79a86::t_803ace02d1d3e6 161,183-184
+packages/ui-native/src/components/sheet.tsx
+  s_8252619ce79a86::t_15a7ea5d097dde 41,217-218
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0241351a3cda2fa62342db016451af9b9b7060f",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
