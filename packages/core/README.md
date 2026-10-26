@@ -389,6 +389,61 @@ leave; asks with `window.confirm` otherwise). For other state,
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
 
+## Test your data contract
+
+`@marktiderman/genesis-core/testing` checks your own provider keeps the data rules, against your
+real schema (a local Supabase in CI). Its pgTAP twin is genesis-supabase's `genesis_testing`; both
+use the same fixture people (`FIXTURE_USERS`: owner, staff, client, stranger), so seed them once
+with `select genesis_testing.create_users();`.
+
+Each check passes only on evidence and throws a `ContractError` otherwise, so it works in vitest,
+jest or node:test. A wrong resource, a missing row or a typo fails instead of passing. The control and system
+writes are real (and `expectServerOwned` puts its value back): run the checks on test data.
+
+A refusal must read as plain words, so a provider that passes the database's raw text through (an
+RLS insert refusal says `new row violates row-level security policy …`) fails `expectRefused`. Map
+it to a plain message in the provider; that failure is the kit doing its job.
+
+```ts
+import { createClient } from "@supabase/supabase-js";
+import { createSupabaseProvider } from "@marktiderman/genesis-core/provider";
+import {
+  expectBinned, expectNeverShows, expectRefused, expectServerOwned, fixtureAccessToken,
+} from "@marktiderman/genesis-core/testing";
+
+// The local stack's legacy JWT secret (`supabase status`); never a production one.
+const providerFor = async (who: "owner" | "client" | "stranger") => {
+  const token = await fixtureAccessToken(who, { secret: process.env.SUPABASE_JWT_SECRET! });
+  const client = createClient(url, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } });
+  return createSupabaseProvider(client, { binTables: ["notes"] });
+};
+
+const client = await providerFor("client");
+const owner = await providerFor("owner");
+const stranger = await providerFor("stranger");
+const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
+
+// A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
+// no row), the control runs the same write as someone who may make it and must change a row.
+await expectRefused((p) => p.update("tasks", { id, data: { title: "x" } }), { as: stranger, control: owner });
+// A column only the server sets stays as it was (the system proves it can change it first).
+await expectServerOwned({ as: client, system, resource: "tasks", id, field: "status", value: "done" });
+// A private value never shows, reports included: read the list around it, not the row by id.
+await expectNeverShows(client.getList("group_progress", {}), "private-marker-7");
+// A delete on a bin table keeps the row.
+await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDeleted("notes", id) });
+```
+
+| Check | Passes when |
+| --- | --- |
+| `expectRefused(write, { as?, control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write and changes a row |
+| `expectAllowed(write)` | it resolves |
+| `expectServerOwned({ as, system, … })` | `system` can change the value (then puts it back), and it's unchanged after `as` tries; refused or put back both count |
+| `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused; a read that found nothing fails |
+| `expectSees(read, n)` | the read returns exactly `n` rows |
+| `expectBinned({ as, resource, id, inBin })` | `as` sees the row, deletes it, can't read it back, and `inBin()` confirms it's still stored |
+| `expectPlainMessage(error)` | the message has no raw database text or error codes |
+
 ## Autosave a draft
 
 `useDraft` saves one row as someone edits it: an answer to a questionnaire, a
