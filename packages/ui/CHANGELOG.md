@@ -1,5 +1,47 @@
 # @marktiderman/genesis-ui
 
+## 2.17.0
+
+### Minor Changes
+
+- 2d59f5e: ResourcePage gains `variant="embedded"` for a list inside another page: a tab, a card or a side panel. In one prop it sets:
+
+  - **A toolbar header:** the create button, plus the table/cards toggle only when there is a `renderCard`. No title, count, view settings or header options menu.
+  - **No filter row,** unless the list passes `filters`, `statusFilter` or `searchFields`.
+  - **`keyboardNavigation` off,** since j/k shortcuts belong to the page.
+
+  An explicit `header`, `keyboardNavigation`, `slots.filters` or `slotProps.shell.headerOptions` still wins. `useResourceTable` applies the same keyboard default.
+
+- 50db0d0: A message catalogue for genesis-ui's data components. Wrap the app once to reword or translate them:
+
+  ```tsx
+  <UiMessagesProvider messages={{ page: { loadMore: "Mehr laden" }, kanban: { moveTo: "Verschieben nach" } }}>
+  ```
+
+  - **What it covers:** about 120 strings, including screen-reader announcements, in ResourcePage, DataPageShell, DataTable, KanbanBoard, SortableList, ConfirmDeleteDialog, DetailPanel, DataFilters, DataBulkBar, ViewToggle and ViewSettings.
+  - **How it works:** the same shape as the support and chat packages' copy. There's an English catalogue (`uiMessages`), and overrides replace any part of it, with `{name}` placeholders.
+  - **Nesting:** nested providers build on the one above.
+  - **Exports:** `resolveUiMessages`, `fillMessage` and `useUiMessages`.
+  - **Props still win:** props that already name a piece of copy, such as `createLabel`, `emptyMessage`, `searchPlaceholder` and `confirmDelete.*`, take priority over the catalogue.
+  - **No visible change:** without a provider, every string is the same as before.
+
+### Patch Changes
+
+- 7eb6b99: - **KanbanBoard focus:** when a move saves but the caller keeps the card where it was, the board stops waiting to put focus back. A later move of that card by someone else can no longer pull focus to it.
+  - **Embedded ResourcePage:** sorting by a column header no longer brings up the filter row. Only a search or a status filter counts as filtering.
+- a1ef92b: Fixes from a review of the data layer:
+
+  - **Create:** `useResourceTable`'s `create` is undefined when `can("create")` refuses, matching ResourcePage, which hides its button. A headless layout no longer offers a create the page wouldn't.
+  - **KanbanBoard focus:** after a failed move, or a card that leaves the board, KanbanBoard drops its pending refocus, so focus no longer jumps to that card's handle later.
+  - **Imports:** ResourcePage no longer imports hooks it doesn't call, so no logic appears to live in the page.
+
+- 9033d75: Follow-ups from review:
+
+  - **ResourcePage `variant="embedded"`:** the filter row now also shows for saved views and whenever the list is already filtered (such as a `?q=` arriving from the URL), so a filtered list always shows why and how to clear it. An explicit `header="page"` keeps the full header, count and view settings included.
+  - **KanbanBoard focus:** after a move that saves asynchronously, focus returns to the card once it arrives in its new column. An earlier failed move of the same card no longer cancels a later move's refocus.
+
+- 7315f5b: AppShell: `<AppShellSubNavEnd>` content (a page's readiness chip) now renders on phones. Below `md` the tab row is hidden behind the bottom bar, and the end slot used to be hidden with it, so a disabled Publish button gave no reason. On phones the slot now moves to a compact strip under `<AppShellPageHeader>`; it is still one portal target, so the chip is never rendered twice. Desktop, an empty slot and the default `"section"` mode are unchanged.
+
 ## 2.16.0
 
 ### Minor Changes
