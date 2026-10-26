@@ -318,6 +318,8 @@ create or replace function genesis_testing.probe_never_shows(_query text, _marke
 returns jsonb language plpgsql set search_path = '' as $$
 declare
   _text text;
+  _esc text;
+  _shown boolean;
   _state text;
   _err text;
 begin
@@ -343,8 +345,13 @@ begin
       'detail', case when genesis_testing.is_refusal(_state) then 'refused: ' || _err
         else 'raised ' || _err || ', which isn''t a refusal: fix the query' end);
   end if;
-  return pg_catalog.jsonb_build_object('pass', pg_catalog.strpos(_text, _marker) = 0,
-    'detail', case when pg_catalog.strpos(_text, _marker) = 0 then 'not shown'
+  -- The rows are serialized as JSON, which escapes quotes, backslashes and control characters,
+  -- so look for the marker as JSON writes it too.
+  _esc := pg_catalog.to_jsonb(_marker)::text;
+  _esc := pg_catalog.substr(_esc, 2, pg_catalog.length(_esc) - 2);
+  _shown := pg_catalog.strpos(_text, _marker) > 0 or pg_catalog.strpos(_text, _esc) > 0;
+  return pg_catalog.jsonb_build_object('pass', not _shown,
+    'detail', case when not _shown then 'not shown'
                    else pg_catalog.format('%L appears in: %s', _marker, pg_catalog.left(_text, 300)) end);
 end $$;
 
@@ -446,8 +453,10 @@ declare
 begin
   return next genesis_testing.allows(_sql, null, _description || ' (the system, no signed-in user)');
   foreach _s in array coalesce(_settings, array[]::text[]) loop
+    -- Split on the first '=' only: the value may contain '=' itself.
     return next genesis_testing.allows_with_setting(_sql, pg_catalog.split_part(_s, '=', 1),
-      pg_catalog.split_part(_s, '=', 2), _user, pg_catalog.format('%s (%s)', _description, _s));
+      pg_catalog.substr(_s, pg_catalog.strpos(_s, '=') + 1), _user,
+      pg_catalog.format('%s (%s)', _description, _s));
   end loop;
 end $$;
 

@@ -3,7 +3,7 @@
 -- Run: load genesis_testing.sql, then this file, in one database with pgTAP.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(39);
 
 select genesis_testing.create_users();
 
@@ -118,11 +118,17 @@ select is((genesis_testing.probe_allows(
   $$update public.gt_notes set body = body where id = '00000000-0000-4000-9000-000000000001'$$,
   genesis_testing.user_id('client'), 2) ->> 'pass')::boolean, false, 'allows checks the minimum rows changed');
 
+select genesis_testing.allows_system_paths(
+  $$select 1 where coalesce(current_setting('gt.mode', true), 'a=b') = 'a=b'$$,
+  array['gt.mode=a=b'], genesis_testing.user_id('client'), 'a setting value may contain =');
+
 -- never_shows and sees ---------------------------------------------------------------------------
 select genesis_testing.never_shows('select * from public.gt_report_good()', 'SECRET-DIARY',
   genesis_testing.user_id('owner'), 'the good report hides private notes');
 select is((genesis_testing.probe_never_shows('select * from public.gt_report_leaky()', 'SECRET-DIARY',
   genesis_testing.user_id('owner')) ->> 'pass')::boolean, false, 'never_shows catches a leaky report');
+select is((genesis_testing.probe_never_shows($$select 'say "hi"' as v$$, 'say "hi"',
+  genesis_testing.user_id('owner')) ->> 'pass')::boolean, false, 'never_shows finds a marker JSON escapes');
 select genesis_testing.never_shows_anon('select * from public.gt_notes', 'SECRET-DIARY',
   'anon sees no notes (RLS, no anon policy)');
 select genesis_testing.sees('select * from public.gt_notes', genesis_testing.user_id('client'), 2,
