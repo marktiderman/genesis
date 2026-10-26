@@ -173,15 +173,16 @@ create index work_items_created_by_idx on public.work_items (created_by);
 
 -- Guards ---------------------------------------------------------------------------------------
 
--- Whether the caller is a signed-in person (not server code or a migration), from the request's
--- role, so it holds inside security definer functions too.
+-- Whether the caller is a signed-in person (not server code or a migration): the session's role,
+-- which security definer functions don't change and a session can't set without being granted
+-- that role. Never the JWT claims, which a session can overwrite with set_config.
 create or replace function private.genesis_pursuits_caller_is_person()
 returns boolean
 language sql
 stable
 set search_path = ''
 as $$
-  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+  select current_setting('role', true) = 'authenticated'
 $$;
 
 -- A parent link, checked as the table owner (so a pursuit hidden from the caller still counts)
