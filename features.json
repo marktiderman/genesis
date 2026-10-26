@@ -4252,8 +4252,8 @@
       "flags": []
     },
     {
-      "id": "content-packs",
-      "name": "Content packs",
+      "id": "content-pack-install",
+      "name": "Content pack install",
       "summary": "genesis_work.install_content_pack / uninstall_content_pack, installed_packs, metric_templates and labels: a pack (defined in code) installs session types, metric templates, custom fields and labels into a tenant's own editable rows, each keeping its source pack, version, key and content hash. Installing again or a newer version is idempotent and additive and keeps what the tenant changed; uninstalling removes only untouched, unused items and never people's data. Server code installs; tenants read and edit the rows.",
       "category": "Productivity",
       "status": "building",
@@ -4278,6 +4278,7 @@
       "requires": [
         "supabase-kit",
         "owner-access",
+        "content-packs",
         "sessions",
         "metrics",
         "custom-fields"

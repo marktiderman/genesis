@@ -1844,8 +1844,8 @@ export const features = defineFeatures({
       docs: ["packages/work/migrations/0002_genesis_work_metrics.sql"],
     },
   },
-  "content-packs": {
-    name: "Content packs",
+  "content-pack-install": {
+    name: "Content pack install",
     summary: "genesis_work.install_content_pack / uninstall_content_pack, installed_packs, metric_templates and labels: a pack (defined in code) installs session types, metric templates, custom fields and labels into a tenant's own editable rows, each keeping its source pack, version, key and content hash. Installing again or a newer version is idempotent and additive and keeps what the tenant changed; uninstalling removes only untouched, unused items and never people's data. Server code installs; tenants read and edit the rows.",
     category: "Productivity",
     status: "building",
@@ -1854,7 +1854,7 @@ export const features = defineFeatures({
     keywords: ["content packs", "templates", "starter content", "taxonomy", "install"],
     platforms: { server: "building", web: "building", native: "building" },
     entry: { web: "@marktiderman/genesis-work", native: "@marktiderman/genesis-work" },
-    requires: ["supabase-kit", "owner-access", "sessions", "metrics", "custom-fields"],
+    requires: ["supabase-kit", "owner-access", "content-packs", "sessions", "metrics", "custom-fields"],
     contributes: ["table: genesis_work.installed_packs", "table: genesis_work.metric_templates", "table: genesis_work.labels", "rpc: install_content_pack", "rpc: uninstall_content_pack"],
     owner: "mark",
     apps: ["web", "native", "server"],

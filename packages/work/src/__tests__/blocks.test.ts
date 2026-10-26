@@ -2,12 +2,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { contentPacksBlock, customFieldsBlock, metricsBlock, pursuitsBlock, sessionsBlock, statusUpdatesBlock } from "../blocks";
+import { contentPackInstallBlock, customFieldsBlock, metricsBlock, pursuitsBlock, sessionsBlock, statusUpdatesBlock } from "../blocks";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 describe("genesis-work blocks", () => {
-  const blocks = [pursuitsBlock, metricsBlock, statusUpdatesBlock, sessionsBlock, customFieldsBlock, contentPacksBlock];
+  const blocks = [pursuitsBlock, metricsBlock, statusUpdatesBlock, sessionsBlock, customFieldsBlock, contentPackInstallBlock];
 
   it("every migration and its pgTAP test exists", () => {
     for (const block of blocks) {

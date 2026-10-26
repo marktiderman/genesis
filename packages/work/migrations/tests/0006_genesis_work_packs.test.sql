@@ -1,4 +1,4 @@
--- @feat:content-packs
+-- @feat:content-pack-install
 -- pgTAP test for 0006_genesis_work_packs.sql (needs genesis-supabase 0009 and genesis-work 0001 to
 -- 0005 applied first). It writes only its own users, tenants and hooks and rolls back.
 begin;

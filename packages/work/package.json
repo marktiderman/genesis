@@ -239,9 +239,9 @@
           "Validate custom values on the server with the genesis-forms engine before writing; the database checks only their shape and that a field exists."
         ]
       },
-      "content-packs": {
+      "content-pack-install": {
         "feature": {
-          "name": "Content packs",
+          "name": "Content pack install",
           "summary": "Install a content pack (session types, metric templates, custom fields, labels) into a tenant's own editable rows; updates are additive and keep what the tenant changed; uninstalling removes only untouched, unused items.",
           "keywords": [
             "content packs",

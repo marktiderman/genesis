@@ -93,8 +93,8 @@ export const customFieldsBlock = defineBlock({
  *
  * @stability Experimental
  */
-export const contentPacksBlock = defineBlock({
-  id: "content-packs",
+export const contentPackInstallBlock = defineBlock({
+  id: "content-pack-install",
   requires: ["sessions", "metrics", "custom-fields"],
   platforms: ["web", "native", "server"],
   contributes: {
