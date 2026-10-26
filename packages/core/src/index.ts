@@ -20,6 +20,7 @@ export type {
   FieldReference,
   FieldSchema,
   ResourceContract,
+  RowOf,
   ResourceAccess,
   ResourceRelation,
   VersionField,
@@ -32,6 +33,7 @@ export type {
   RecordComment,
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
+export { defineResource } from "./schema/types";
 
 // Query keys
 export {
