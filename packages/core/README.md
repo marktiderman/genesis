@@ -553,7 +553,11 @@ await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "Thi
 const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
   key: ["person_id", "lesson_id"],
   merge: (existing) => (existing.body ? null : { body }),
+  final: (existing) => existing.status === "submitted", // finished: handed back with final: true, never written over
+  // For a partial unique index (soft delete, a kind column), filter the lookup to the rows it covers.
+  scope: [{ field: "deleted_at", operator: "is_null" }],
 });
+// Key fields that are null match rows where they're null.
 
 // In a component: pending, plain error words, and invalidation after a success.
 const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {

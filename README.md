@@ -76,7 +76,7 @@ import { Button } from "@marktiderman/genesis-ui";
 
 ## Extending
 
-Genesis is a starting point. If it ever becomes a ceiling, that is a bug in genesis, not a reason to fork it — **REUSE > EXTEND > INVENT** only holds if extending is actually available.
+Genesis is a starting point. If it ever becomes a ceiling, that is a bug in genesis, not a reason to fork it — **REUSE > EXTEND > INVENT** only holds if extending is actually available. Why, and how to decide where code goes: [The Genesis Way](./docs/FRAMEWORK.md).
 
 Every pattern component offers a **ladder**. When a rung stops fitting you step _down one rung_, never off it:
 

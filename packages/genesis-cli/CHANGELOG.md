@@ -1,5 +1,27 @@
 # @marktiderman/genesis-cli
 
+## 1.12.1
+
+### Patch Changes
+
+- d53bdab: The packages pack's follow-ups: a nested app's change gate sees a local package at the repository root; an `export type` without a semicolon no longer hides the import after it; `.js` export targets are left alone (they may be unbuilt output); a `localPackages` entry that leaves the repository is refused, not skipped; a version bump without a changeset asks for one with a `Features:` line; and `links.code` paths count from the repository root.
+- Updated dependencies [7cdf0fe]
+  - @marktiderman/genesis-features@0.6.0
+
+## 1.12.0
+
+### Minor Changes
+
+- 693856d: Local packages: list an app's own workspace packages in genesis.config.json `localPackages` (`["packages/*"]`) and Genesis treats them like its own. They declare blocks and migrations that `genesis add` and `genesis migrate` copy (nothing is installed), every doctor rule scans their source, and the new `packages` doctor pack (change rules with `genesis doctor --base <ref>`) holds each one to a package's standard: `package-app-import`, `package-undeclared-dependency`, `package-migration-test`, `package-migration-number`, `package-migration-edited`, `package-unregistered`, and `package-unversioned-change`, the gate that fails a change with neither a version bump nor a changeset naming the package.
+
+## 1.11.3
+
+### Patch Changes
+
+- 6543b28: Say "reuse, then extend, then invent" everywhere, and point to The Genesis Way (`docs/FRAMEWORK.md`, Part 1). The CLAUDE.md that `genesis init` writes and genesis-ui's agent skill now use the same words.
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
 ## 1.11.2
 
 ### Patch Changes

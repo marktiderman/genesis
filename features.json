@@ -2025,6 +2025,68 @@
       "flags": []
     },
     {
+      "id": "content-packs",
+      "name": "Content packs",
+      "summary": "defineContentPack declares versioned data that fills installed blocks (session types and agendas, metric templates, custom field definitions, forms, roadmap templates, labels), checked for its shape, stable keys, references and the blocks it needs; contentPackProblems also refuses a pack whose blocks aren't installed. Zod-free, in /blocks. Installers (genesis-work) copy a pack into a tenant's editable rows with its source.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "layer": "tool",
+      "keywords": [
+        "defineContentPack",
+        "content pack",
+        "templates",
+        "starter content",
+        "taxonomy",
+        "labels",
+        "install"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-features/blocks",
+        "native": "@marktiderman/genesis-features/blocks",
+        "server": "@marktiderman/genesis-features/blocks"
+      },
+      "requires": [
+        "define-block"
+      ],
+      "contributes": [
+        "fn: defineContentPack",
+        "fn: contentPackProblems",
+        "fn: contentPackBlocks"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "defineContentPack throws one ContentPackError listing every problem: id, semver version, publisher, label keys, duplicate or malformed keys per section and per agenda or roadmap item, field targets and visibility, roadmap refs, and a section whose block requires doesn't list.",
+        "contentPackProblems with the installed blocks refuses a pack that needs a block the tenant doesn't have."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/features/src/content-packs.ts"
+        ],
+        "docs": [
+          "packages/features/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "feature-gate",
       "name": "Feature gate",
       "summary": "One answer to \"is this feature on here?\": featureOn(registry, context, id) checks status, platform, the tenant's switch, release flags and last entitlement, in that order, and returns { on, reason, unlock }. The same function runs in browsers, phones, Node and edge functions (/gate, no zod); React reads a server-made snapshot through FeatureGateProvider, useFeature and FeatureGate (/gate/react); server code refuses with requireFeature and FeatureOff.",
@@ -4400,6 +4462,63 @@
           "packages/genesis-cli/src/blocks/add.ts",
           "packages/genesis-cli/src/blocks/manifest.ts",
           "packages/genesis-cli/src/blocks/discover.ts"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "local-packages",
+      "name": "Local packages",
+      "summary": "An app's own workspace packages, listed in genesis.config.json localPackages, treated like Genesis packages: they declare blocks and migrations that genesis add and genesis migrate copy, every doctor rule scans them, and the packages pack holds each to a package's standard (no app imports, declared dependencies, tested and never-edited migrations, registered in features.ts, and a changeset or version bump with every change).",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "layer": "tool",
+      "keywords": [
+        "localPackages",
+        "workspace package",
+        "client package",
+        "monorepo",
+        "packages pack",
+        "change gate",
+        "changeset"
+      ],
+      "platforms": {
+        "cli": "building"
+      },
+      "requires": [
+        "cli-doctor",
+        "cli-migrate",
+        "define-block"
+      ],
+      "contributes": [
+        "config: localPackages",
+        "doctor pack: packages"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "localPackages lists folders or folder/*; a folder without package.json is skipped, two folders with one name are refused, and entries leaving the app are refused.",
+        "genesis add and genesis migrate copy a local block's migrations and tests with a header naming the local package, and install nothing.",
+        "The packages pack reports app imports, undeclared dependencies, untested or duplicate-numbered or edited migrations, unregistered packages, and changes with neither a version bump nor a changeset naming the package."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/blocks/local.ts",
+          "packages/genesis-cli/src/doctor/packages.ts"
         ],
         "docs": [
           "packages/genesis-cli/README.md"

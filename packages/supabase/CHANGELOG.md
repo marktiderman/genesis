@@ -1,5 +1,19 @@
 # @marktiderman/genesis-supabase
 
+## 0.6.2
+
+### Patch Changes
+
+- Updated dependencies [7cdf0fe]
+  - @marktiderman/genesis-features@0.6.0
+
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
 ## 0.6.0
 
 ### Minor Changes

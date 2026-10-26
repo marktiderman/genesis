@@ -10,5 +10,16 @@
         ]
       }
     ]
+  },
+  "extraKnownMarketplaces": {
+    "genesis": {
+      "source": {
+        "source": "github",
+        "repo": "marktiderman/genesis-plugin"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "genesis@genesis": true
   }
 }

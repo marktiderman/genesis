@@ -1,5 +1,27 @@
 # @marktiderman/genesis
 
+## 0.9.12
+
+### Patch Changes
+
+- Updated dependencies [7cdf0fe]
+- Updated dependencies [a9e6ea7]
+  - @marktiderman/genesis-features@0.6.0
+  - @marktiderman/genesis-core@1.12.0
+  - @marktiderman/genesis-native@0.4.4
+
+## 0.9.11
+
+### Patch Changes
+
+- Updated dependencies [e35cabb]
+- Updated dependencies [bc5a348]
+- Updated dependencies [6543b28]
+  - @marktiderman/genesis-core@1.11.0
+  - @marktiderman/genesis-features@0.5.0
+  - @marktiderman/genesis-ui@2.17.1
+  - @marktiderman/genesis-native@0.4.3
+
 ## 0.9.10
 
 ### Patch Changes

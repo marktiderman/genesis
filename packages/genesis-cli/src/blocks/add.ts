@@ -11,6 +11,7 @@
  * Everything goes through a plan first, so `--dry-run` prints exactly what a
  * real run does, and a run without `--yes` asks before it writes.
  */
+import { localPackageNames } from "./local.js";
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fragmentMarkers, mergeFragment, skillName } from "./agents.js";
@@ -182,8 +183,10 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   const deps = appDependencies(root);
   const pm = detectPackageManager(root);
   const specs: string[] = [];
+  const local = localPackageNames(root);
   for (const name of found.manifest.packages) {
-    if (deps[name]) continue;
+    // A local package lives in the app's repository: nothing to install.
+    if (deps[name] || local.has(name)) continue;
     const pin = pinnedVersion(root, name);
     specs.push(pin ? `${name}@${pin.version}` : name);
   }
@@ -225,7 +228,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
       if (registry) registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
     }
     const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
-    log.info(`${manifest.id}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
+    log.info(`${manifest.id}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "local" ? "local package" : from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
     if (command) log.info(`  install: ${shellLine(command)}${install ? "" : " (skipped: --no-install)"}`);
     log.info(formatMigrationRows(migrations.rows).replace(/^/gm, "  "));
     for (const c of migrations.creates) if (c.kind === "test") print("+", c.path, "(pgTAP test)");
@@ -311,7 +314,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     } else edited.push(registry);
   }
   // Recorded only once its files could be read: a block added before its package is installed isn't added yet.
-  if (found.from === "installed") lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
+  if (found.from === "installed" || found.from === "local") lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
   else steps.unshift(`Install ${manifest.packages.join(" and ")}, then run genesis add ${manifest.id} again to copy its files.`);
   const lockBefore = readApp(root, LOCK_FILE);
   writeLock(root, lock);

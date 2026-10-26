@@ -26,6 +26,7 @@ import { starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
 import { planMigrations, TESTS_DIR } from "../blocks/migrations.js";
 import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from "../blocks/owned.js";
+import { localPackageNames } from "../blocks/local.js";
 import { detectPackageManager, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
@@ -176,7 +177,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   checkSubstitutions(lock.substitutions);
   const bases = new Map<string, string>();
   for (const [file, entry] of Object.entries(lock.files)) {
-    if (ownedKeyProblem(file, entry.source)) continue;
+    if (ownedKeyProblem(file, entry.source, localPackageNames(root))) continue;
     const text = sourceText(root, entry.source, lock.substitutions);
     if (text !== null && sha256(text) === entry.sha256) bases.set(file, text);
   }
@@ -230,7 +231,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
       continue;
     }
-    const problem = ownedKeyProblem(file, entry.source);
+    const problem = ownedKeyProblem(file, entry.source, localPackageNames(root));
     const theirs = problem ? null : sourceText(root, entry.source, lock.substitutions);
     const dir = problem ? null : packageDir(root, parseSource(entry.source).package);
     const version = dir ? packageVersion(dir) : undefined;

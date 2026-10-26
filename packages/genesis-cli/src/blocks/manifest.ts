@@ -104,16 +104,17 @@ const strings = (v: unknown): v is string[] => Array.isArray(v) && v.every((s) =
  * Check one raw manifest (from package.json, or merged with a declaration)
  * and return it whole. `home` is the declaring package.
  */
-export function parseManifest(home: string, id: string, raw: unknown, version?: string): BlockManifest {
+export function parseManifest(home: string, id: string, raw: unknown, version?: string, options: { local?: boolean } = {}): BlockManifest {
   const problems: string[] = [];
   const at = `${home} genesis.blocks.${id}`;
-  if (!GENESIS_PACKAGE.test(home)) problems.push(`${home}: only Genesis packages (@marktiderman/genesis*) declare blocks`);
+  // The app's own local packages (genesis.config.json `localPackages`) declare blocks too.
+  if (!GENESIS_PACKAGE.test(home) && !options.local) problems.push(`${home}: only Genesis packages (@marktiderman/genesis*) and the app's local packages declare blocks`);
   if (!BLOCK_ID.test(id)) problems.push(`${at}: "${id}" is not a feature id`);
   if (!isObject(raw)) throw new ManifestError([...problems, `${at}: must be an object`]);
   const pkgOf = (value: unknown, where: string): string => {
     if (value === undefined) return home;
-    if (typeof value !== "string" || !GENESIS_PACKAGE.test(value)) {
-      problems.push(`${where}: package must be a Genesis package, not ${JSON.stringify(value)}`);
+    if (typeof value !== "string" || !(GENESIS_PACKAGE.test(value) || (options.local && value === home))) {
+      problems.push(`${where}: package must be a Genesis package${options.local ? " or this local package" : ""}, not ${JSON.stringify(value)}`);
       return home;
     }
     return value;

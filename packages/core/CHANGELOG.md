@@ -1,5 +1,17 @@
 # @marktiderman/genesis-core
 
+## 1.12.0
+
+### Minor Changes
+
+- a9e6ea7: `createOrAdopt` takes `scope`: extra filters on the adopt lookup for a partial unique index (e.g. `deleted_at is null`, `kind = 'worksheet'`), so the row adopted is the one the index actually covers.
+
+## 1.11.0
+
+### Minor Changes
+
+- e35cabb: `createOrAdopt` takes `final(existing)`: a row already there that's finished (a sent answer) comes back with `final: true` and is never merged into. The result now always carries `final`.
+
 ## 1.10.0
 
 ### Minor Changes
