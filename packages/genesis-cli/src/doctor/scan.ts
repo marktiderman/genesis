@@ -1,6 +1,7 @@
 /**
  * Collects the app files the doctor checks.
  */
+import { localPackages } from "../blocks/local.js";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { LINE_COMMENT_EXTS, stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
@@ -56,6 +57,8 @@ export function scanFiles(root: string, config: DoctorConfig): SourceFile[] {
     if (statSync(abs).isDirectory()) walk(abs);
     else visit(abs);
   }
+  // The app's local packages are the app's code too: every rule reads them.
+  for (const pkg of localPackages(root)) walk(pkg.dir);
   return files;
 }
 

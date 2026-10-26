@@ -135,6 +135,29 @@ no backslashes, and a file that resolves (through a symlink) outside its package
 runtime block is made by a function (`createPush`) keeps a test that its manifest says what the
 block declares.
 
+### Local packages
+
+An app's own workspace packages can be Genesis-style packages too. List them in
+`genesis.config.json`, as app-relative folders or folders ending in `/*`:
+
+```json
+{ "localPackages": ["packages/*"] }
+```
+
+A local package declares blocks the way a Genesis package does:
+- a `genesis.blocks` manifest in its package.json and a `./blocks` export;
+- its own `migrations/NNNN_name.sql`, each with a pgTAP test.
+
+Then:
+- `genesis add <block>` and `genesis migrate` copy its migrations and tests like any package's,
+  with a `genesis-migration` header naming the local package. Nothing is installed: it lives in
+  the app's repo.
+- `genesis doctor` scans its source with every rule, and the [`packages` pack](#rule-packs)
+  holds it to a package's standard: no app imports, declared dependencies, tested and never-edited
+  migrations, registered in `features.ts`, and a changeset or version bump with every change.
+- A local package keeps package shape, so publishing it later (GitHub Packages or npm) needs no
+  restructuring.
+
 ### genesis add
 
 `genesis add <block>` plans, prints the plan, asks (or `--yes`), then:
@@ -416,7 +439,7 @@ Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__f
 
 ### Rule packs
 
-Two packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
+Three packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
 (they are not auto-detected, so adding `expo` or a `supabase/` folder never changes a build's
 result on its own):
 
@@ -478,6 +501,26 @@ migrations never fail a build. In CI, check out with full history and fetch the 
   with: { fetch-depth: 0 }
 - run: git fetch origin main
 ```
+
+**`packages`**, for the app's [local packages](#local-packages). Each one is held to a
+Genesis package's standard. The changes are compared against `packages.base`, which defaults
+to `origin/main`:
+
+```json
+{ "localPackages": ["packages/*"], "doctor": { "packs": ["packages"], "packages": { "base": "origin/main" } } }
+```
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `package-app-import` | error | A package importing the app's own code: `@/…`, `~/…`, or a relative path that leaves the package. |
+| `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies`. Node built-ins are fine. |
+| `package-migration-test` | error | A block migration with no `test`, or a `test` that doesn't exist. |
+| `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
+| `package-migration-edited` | error | A package migration that existed at the merge base and was changed, deleted or renamed. Add a new migration instead. |
+| `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
+| `package-unversioned-change` | error | Files in the package changed since the merge base, but neither its `version` nor a new `.changeset/*.md` naming it did. This is the gate that makes every change to a package say what changed. |
+
+Every other rule also scans local packages' source, as it does the app's.
 
 ### Config
 

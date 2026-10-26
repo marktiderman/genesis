@@ -26,6 +26,7 @@ import {
 } from "./rules.js";
 import { checkNativePack } from "./native.js";
 import { scanFiles } from "./scan.js";
+import { checkPackagesPack } from "./packages.js";
 import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
 import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
@@ -129,6 +130,7 @@ export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
+    packages: { name: "packages", check: checkPackagesPack },
   };
   return [
     { name: "layout", check: checkProjectLayout },

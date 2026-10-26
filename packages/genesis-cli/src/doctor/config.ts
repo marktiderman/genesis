@@ -9,6 +9,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
+import { validateLocalPackages } from "../blocks/local.js";
 import type { DoctorConfig } from "./types.js";
 
 /** A genesis.config.json that can't be read or has a block of the wrong shape. */
@@ -122,6 +123,8 @@ export interface GenesisConfigFile {
   raw: Record<string, unknown>;
   links?: GenesisLinks;
   privacy?: GenesisPrivacy;
+  /** The app's own packages, as folders or `folder/*` (see blocks/local.ts). */
+  localPackages?: string[];
 }
 
 export interface LoadedConfig {
@@ -147,17 +150,19 @@ const KNOWN = new Set<string>([
   "packs",
   "native",
   "supabase",
+  "packages",
   "routesDir",
   "$schema",
   "$comment",
 ]);
 const LEVELS = new Set(["error", "warn", "info", "off"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
-const PACKS = new Set(["native", "supabase"]);
+const PACKS = new Set(["native", "supabase", "packages"]);
 /** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
 const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list">> = {
   native: { routerRoot: "path" },
   supabase: { migrations: "path", base: "string", exposedSchemas: "list", since: "string" },
+  packages: { base: "string" },
 };
 
 /** An app-relative folder in POSIX form (`./app/` → `app`); absolute paths and paths leaving the app are rejected. */
@@ -213,6 +218,13 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   const out: GenesisConfigFile = { raw };
   if (raw.links !== undefined) out.links = validateLinks(raw.links, file);
   if (raw.privacy !== undefined) out.privacy = validatePrivacy(raw.privacy, file);
+  if (raw.localPackages !== undefined) {
+    try {
+      out.localPackages = validateLocalPackages(raw.localPackages, file);
+    } catch (err) {
+      throw new GenesisConfigError((err as Error).message);
+    }
+  }
   return out;
 }
 
