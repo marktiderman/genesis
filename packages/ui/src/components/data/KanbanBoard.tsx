@@ -101,6 +101,13 @@ export function KanbanBoard<T>({
   // A card moved from the keyboard lands in another column, a new element;
   // its handle gets focus back once it renders there.
   const refocus = useRef<string | null>(null);
+  // Which move the pending refocus belongs to: a slower, earlier move of the
+  // same card that fails must not cancel the refocus a later move set up.
+  const refocusMove = useRef(0);
+  // The column the card was in when its move started: until it shows up
+  // somewhere else, the move is still saving.
+  const refocusFrom = useRef<string | null>(null);
+  const moves = useRef(0);
   const instructionsId = useId();
   const keyOf = (item: T, index: number) => (getKey ? getKey(item) : String(index));
   // Dragging needs stable keys to find the dropped item again.
@@ -121,6 +128,12 @@ export function KanbanBoard<T>({
   const columnLabel = (key: string) => columns.find((c) => c.key === key)?.label ?? key;
 
   const move = (item: T, to: string, name: string) => {
+    const id = ++moves.current;
+    const key = getKey?.(item);
+    if (key !== undefined && refocus.current === key) {
+      refocusMove.current = id;
+      refocusFrom.current = find(key)?.column.key ?? null;
+    }
     let result: void | Promise<void>;
     try {
       result = onMoveItem?.(item, to);
@@ -133,7 +146,9 @@ export function KanbanBoard<T>({
       () => {
         // Nothing moved, so there is no new handle to focus; a pending
         // refocus would otherwise grab focus the next time it reaches body.
-        if (getKey && refocus.current === getKey(item)) refocus.current = null;
+        if (key !== undefined && refocus.current === key && refocusMove.current === id) {
+          refocus.current = null;
+        }
         announce(`Couldn’t move ${name}.`);
       },
     );
@@ -210,23 +225,23 @@ export function KanbanBoard<T>({
   useIsomorphicLayoutEffect(() => {
     const key = refocus.current;
     if (!key) return;
-    const handle = handles.current.get(key);
-    if (!handle) {
+    const found = find(key);
+    if (!found) {
       // The card left the board (filtered out, or moved to a column that
       // isn't shown): nothing to put focus back on.
-      if (!find(key)) refocus.current = null;
-      return;
-    }
-    // Wait while the card is still in its old column (an async move).
-    if (handle.isConnected && document.activeElement === handle) {
       refocus.current = null;
       return;
     }
+    // Still in the column it left: the move is saving (or failed, which
+    // clears this). Wait.
+    if (found.column.key === refocusFrom.current) return;
+    const handle = handles.current.get(key);
+    if (!handle) return;
     const active = document.activeElement;
-    if (active === null || active === document.body) {
-      handle.focus();
-      refocus.current = null;
-    }
+    // Arrived. Moving it remounted the card, dropping focus to the page:
+    // give it back. If the user has moved on to something else, leave it.
+    if (active === null || active === document.body) handle.focus();
+    refocus.current = null;
   });
 
   const onHandleKeyDown = (event: KeyboardEvent, key: string, from: string) => {

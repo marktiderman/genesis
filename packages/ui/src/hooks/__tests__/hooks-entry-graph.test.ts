@@ -17,6 +17,19 @@ function resolveImport(from: string, spec: string): string | null {
   return null;
 }
 
+/**
+ * True when a statement brings in nothing at runtime: `import { type A, type B } from`.
+ * A default or namespace import beside the braces (`import RP, { type X } from`) is a value.
+ */
+export function isTypeOnly(statement: string): boolean {
+  const head = statement.replace(/\s+from\s+["'][^"']+["']\s*$/, "").replace(/^\s*(?:import|export)\s+/, "");
+  const braces = head.match(/\{([^}]*)\}/);
+  if (!braces) return false;
+  const outside = head.replace(braces[0], "").replace(/,/g, "").trim();
+  if (outside) return false;
+  return braces[1]!.split(",").every((part) => !part.trim() || /^type\s/.test(part.trim()));
+}
+
 /** Relative modules reachable through value imports and re-exports. */
 function valueGraph(entry: string): Set<string> {
   const seen = new Set<string>();
@@ -30,15 +43,24 @@ function valueGraph(entry: string): Set<string> {
     seen.add(file);
     const text = readFileSync(file, "utf8");
     for (const match of text.matchAll(pattern)) {
-      // `import { type A, type B } from` brings in nothing at runtime.
-      const clause = match[0].match(/\{([^}]*)\}/)?.[1];
-      if (clause && clause.split(",").every((part) => !part.trim() || /^type\s/.test(part.trim()))) continue;
+      if (isTypeOnly(match[0])) continue;
       const target = resolveImport(file, match[1]!);
       if (target) queue.push(target);
     }
   }
   return seen;
 }
+
+describe("isTypeOnly", () => {
+  it("treats only all-type braces as type-only", () => {
+    expect(isTypeOnly('import { type A, type B } from "./x"')).toBe(true);
+    expect(isTypeOnly('import { type A, b } from "./x"')).toBe(false);
+    expect(isTypeOnly('import RP, { type X } from "./ResourcePage"')).toBe(false);
+    expect(isTypeOnly('import * as RP from "./ResourcePage"')).toBe(false);
+    expect(isTypeOnly('export { type A } from "./x"')).toBe(true);
+    expect(isTypeOnly('export * from "./x"')).toBe(false);
+  });
+});
 
 describe("the /hooks entry", () => {
   it("does not load ResourcePage or its markup", () => {

@@ -203,6 +203,48 @@ describe("KanbanBoard keyboard pick-up", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
+  it("keeps the refocus of a later move when an earlier move of the same card fails", async () => {
+    const pending: { resolve: () => void; reject: (e: Error) => void }[] = [];
+    function Board() {
+      const [cols, setCols] = useState(columns);
+      return (
+        <KanbanBoard<Card>
+          columns={cols}
+          getKey={(c) => c.id}
+          getItemLabel={(c) => c.name}
+          renderCard={(c) => <div>{c.name}</div>}
+          onMoveItem={(item, to) =>
+            new Promise<void>((resolve, reject) => {
+              pending.push({
+                resolve: () => {
+                  setCols((prev) =>
+                    prev.map((c) => ({
+                      ...c,
+                      items: c.key === to ? [...c.items, item] : c.items.filter((i) => i.id !== item.id),
+                    })),
+                  );
+                  resolve();
+                },
+                reject,
+              });
+            })
+          }
+        />
+      );
+    }
+    render(<Board />);
+    handle("Ana").focus();
+    fireEvent.keyDown(handle("Ana"), { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(handle("Ana"), { key: "ArrowRight", altKey: true });
+    expect(pending).toHaveLength(2);
+    // The first attempt fails; the second lands and the card moves.
+    await act(async () => pending[0]!.reject(new Error("conflict")));
+    (document.activeElement as HTMLElement).blur();
+    await act(async () => pending[1]!.resolve());
+    expect(within(screen.getByRole("region", { name: "Done" })).getByText("Ana")).toBeTruthy();
+    expect(document.activeElement).toBe(handle("Ana"));
+  });
+
   it("ignores a pointer click on the handle", () => {
     const onMoveItem = vi.fn();
     renderBoard(onMoveItem);

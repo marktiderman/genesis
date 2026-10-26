@@ -14662,7 +14662,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
@@ -18120,7 +18120,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
@@ -18749,7 +18749,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win);\n- no filter row, unless you pass `filters`, `statusFilter` or\n  `searchFields`;\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
