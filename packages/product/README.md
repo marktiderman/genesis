@@ -67,6 +67,50 @@ publish: draft notes as a comment on the open version PR, then, after a successf
 diff starts from the previous `release/*` tag (the first time, the last version packages merge),
 so the job checks out with `fetch-depth: 0`. See docs/RELEASING.md, "Release notes".
 
+## Telling people it shipped (an app's own database)
+
+On a repo whose ideas are GitHub issues, `--notify --yes` is the notice: its "Shipped in release …"
+comment tells the issue's author and everyone subscribed. Don't also call `notify()` there.
+
+An app whose ideas live in its own database (people with logins or emails) tells them through
+genesis-notifications. The app owns its registry and spreads in product's fragment, the way it
+composes features: type `product.idea_shipped` in category `product_updates`, not critical and not
+transactional, so preferences, quiet hours and the unsubscribe link apply. In the feed and by
+email by default, with push offered as an opt-in.
+
+```ts
+import { defineNotifications } from "@marktiderman/genesis-notifications";
+import { notify, cancelNotification } from "@marktiderman/genesis-notifications/server";
+import { productNotifications, notifyShipped, cancelShipped } from "@marktiderman/genesis-product/server";
+
+export const notifications = defineNotifications({
+  categories: { ...productNotifications.categories, /* the app's own */ },
+  types: { ...productNotifications.types, /* the app's own */ },
+});
+
+// Once per shipped feature, to everyone who asked for or voted on it (deduplicated, 1,000 a call).
+await notifyShipped((input) => notify(supabase, input, { registry: notifications }), {
+  release: "2026-10-26",
+  feature,             // a CatalogFeature: its tagline (or summary) is the body
+  recipients: askers,  // user ids, { userId }, or { email, name }
+  url: "/whats-new",   // a path on the app; anything else throws (the notifier would drop it)
+});
+
+// The release was withdrawn: stop what hasn't gone out, and take it out of the feed (archive is on by default).
+await cancelShipped((input) => cancelNotification(supabase, input), { release: "2026-10-26", featureId: feature.id });
+```
+
+Run genesis-notifications' `syncNotificationTypes` after adding the fragment (on deploy), or
+`notify` refuses the type. The key is `shipped:<release>:<feature>` (neither may contain `:`), so
+a re-run sends nobody a second one, and the same feature shipped again under a new release name
+notifies again. A cancel stops only what is still waiting: email goes as soon as the runner picks
+it up, so most of it has usually gone. The sent rows stay, so re-publish a withdrawn release under
+a new name; under the same one nobody is told again. Pass a `tenantId` (a uuid) to both calls, or
+to neither. `/server` and the core (`.`) export
+the same things: the registry is imported by the web and the phone too, and neither does I/O.
+This package doesn't depend on genesis-notifications; the shapes are structural and tested against
+it.
+
 ## Native screens (`/native`)
 
 The idea board, the Now / Next / Later roadmap and "what's new" for a React Native app, made of
@@ -124,6 +168,5 @@ The RN starter has a demo behind `productDemo` (off by default) in `starter.conf
 
 - No database source and no insights captured from support reports. The board issue is markdown;
   the native screens read an injected source (no web screens yet).
-- No notifications beyond GitHub's own: `--notify` comments on the issue, which tells its
-  author and everyone subscribed to it.
+- Nothing calls `notifyShipped` yet: the askers come from a database source, which isn't built.
 - Demand counts votes once per person per issue, but not yet once per person per feature.

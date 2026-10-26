@@ -23,6 +23,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
@@ -69,6 +73,7 @@
     }
   },
   "devDependencies": {
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.9.0",
