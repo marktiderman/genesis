@@ -7,7 +7,7 @@
 -- takes part; f6 is a facilitator; 07 views; 08 is in nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(76);
+select plan(79);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c1' || n)::uuid, 'authenticated', 'authenticated', 'genesis-collab-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -273,6 +273,21 @@ select is((select count(*)::int from genesis_collab.members where member_id = pg
 delete from auth.users where id = pg_temp.person('c4');
 select is((select count(*)::int from genesis_collab.contributions where author_id = pg_temp.person('c4')), 0,
   'and so do its contributions');
+
+-- ── Best practices (Supabase RLS guide) ───────────────────────────────────────
+
+select is((select count(*)::int from pg_catalog.pg_proc p
+           where p.pronamespace in ('genesis_collab'::regnamespace, 'genesis_collab_private'::regnamespace) and p.prosecdef
+             and not coalesce(p.proconfig, '{}') @> array['search_path=""']),
+  0, 'every security definer function pins search_path to empty');
+select is((select array_agg(p.proname::text order by p.proname) from pg_catalog.pg_proc p
+           where p.pronamespace = 'genesis_collab'::regnamespace and p.proname like '\_%'
+             and has_function_privilege('authenticated', p.oid, 'execute')),
+  null, 'no internal helper is callable by signed-in people');
+select is((select array_agg(p.proname::text order by p.proname) from pg_catalog.pg_proc p
+           where p.pronamespace = 'genesis_collab'::regnamespace
+             and has_function_privilege('anon', p.oid, 'execute')),
+  null, 'and nothing is callable by anon');
 
 select * from finish();
 rollback;

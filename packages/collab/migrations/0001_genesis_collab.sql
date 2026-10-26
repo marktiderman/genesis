@@ -82,6 +82,13 @@ comment on schema genesis_collab is 'Genesis Collab: shared spaces, their member
 
 grant usage on schema genesis_collab to authenticated, service_role;
 
+-- Internal helpers live in a schema of their own that the Data API never exposes (Supabase's
+-- RLS guide: keep security definer helpers out of exposed schemas). Nobody but the owner and
+-- the service role may use it.
+create schema if not exists genesis_collab_private;
+revoke all on schema genesis_collab_private from public, anon, authenticated;
+grant usage on schema genesis_collab_private to service_role;
+
 -- ── Registered kinds ──────────────────────────────────────────────────────────
 
 create table genesis_collab.audience_kinds (
@@ -253,7 +260,7 @@ revoke execute on function genesis_collab.register_subject(text, text, regproced
 -- ── Membership ────────────────────────────────────────────────────────────────
 
 -- Everyone in a space with their strongest role, through audiences included. Internal.
-create function genesis_collab._people(p_space uuid)
+create function genesis_collab_private.people(p_space uuid)
 returns table (person_id uuid, role text) language plpgsql stable security definer set search_path = '' as $$
 declare
   m record;
@@ -291,30 +298,30 @@ begin
       case u.r when 'owner' then 4 when 'facilitator' then 3 when 'participant' then 2 else 1 end desc;
 end $$;
 
-revoke execute on function genesis_collab._people(uuid) from public, anon, authenticated;
+revoke execute on function genesis_collab_private.people(uuid) from public, anon, authenticated;
 
 -- The server: the service role, or database code (a migration, a trigger, a job) running as a
 -- role that isn't one of the API's. Read from the session's role, never from the JWT claims,
 -- which a direct SQL session can set to anything.
-create function genesis_collab._is_server()
+create function genesis_collab_private.is_server()
 returns boolean language sql stable set search_path = '' as $$
   select coalesce(nullif(current_setting('role', true), ''), 'none') not in ('authenticated', 'anon')
 $$;
-revoke execute on function genesis_collab._is_server() from public, anon, authenticated;
+revoke execute on function genesis_collab_private.is_server() from public, anon, authenticated;
 
 -- A signed-in person may ask the rules about themselves only, never probe someone else's
 -- access. Only the server may ask about anyone. Fails closed.
-create function genesis_collab._only_self(p_person uuid)
+create function genesis_collab_private.only_self(p_person uuid)
 returns void language plpgsql stable set search_path = '' as $$
 begin
   if p_person is not distinct from auth.uid() and auth.uid() is not null then return; end if;
-  if genesis_collab._is_server() then return; end if;
+  if genesis_collab_private.is_server() then return; end if;
   raise exception 'you can only ask about yourself' using errcode = '42501';
 end $$;
-revoke execute on function genesis_collab._only_self(uuid) from public, anon, authenticated;
+revoke execute on function genesis_collab_private.only_self(uuid) from public, anon, authenticated;
 
 -- A person's role in a space (null: not in it). Internal: role_of below is the public one.
-create function genesis_collab._role(p_space uuid, p_person uuid)
+create function genesis_collab_private.role(p_space uuid, p_person uuid)
 returns text language plpgsql stable security definer set search_path = '' as $$
 declare
   r text;
@@ -348,14 +355,14 @@ begin
   return r;
 end $$;
 
-revoke execute on function genesis_collab._role(uuid, uuid) from public, anon, authenticated;
+revoke execute on function genesis_collab_private.role(uuid, uuid) from public, anon, authenticated;
 
 -- A person's role in a space (null: not in it). People may ask about themselves only.
 create function genesis_collab.role_of(p_space uuid, p_person uuid default auth.uid())
 returns text language plpgsql stable security definer set search_path = '' as $$
 begin
-  perform genesis_collab._only_self(p_person);
-  return genesis_collab._role(p_space, p_person);
+  perform genesis_collab_private.only_self(p_person);
+  return genesis_collab_private.role(p_space, p_person);
 end $$;
 
 -- ── The rules ─────────────────────────────────────────────────────────────────
@@ -387,10 +394,10 @@ begin
     return 'contribute_first';
   end if;
   if s.reveal = 'after_all' and (s.closes_at is null or s.closes_at > now()) then
-    select count(*) into expected from genesis_collab._people(p_space) p where p.role = 'participant';
+    select count(*) into expected from genesis_collab_private.people(p_space) p where p.role = 'participant';
     select count(distinct c.author_id) into sent
     from genesis_collab.contributions c
-    join genesis_collab._people(p_space) p on p.person_id = c.author_id and p.role = 'participant'
+    join genesis_collab_private.people(p_space) p on p.person_id = c.author_id and p.role = 'participant'
     where c.space_id = p_space and c.period = coalesce(p_period, '') and c.sent_at is not null;
     if sent < expected then return 'waiting_for_others'; end if;
   end if;
@@ -416,7 +423,7 @@ declare
   s genesis_collab.spaces;
   role_ text;
 begin
-  perform genesis_collab._only_self(p_person);
+  perform genesis_collab_private.only_self(p_person);
   select * into c from genesis_collab.contributions where id = p_contribution;
   if c.id is null or p_person is null then return false; end if;
   if c.author_id = p_person then return true; end if;
@@ -483,7 +490,7 @@ begin
     where s.id = any (spaces_)
       and exists (select 1 from genesis_collab.contributions c where c.space_id = s.id and c.kind = p_kind)
   loop
-    role_ := genesis_collab._role(sp.id, me);
+    role_ := genesis_collab_private.role(sp.id, me);
     if role_ in ('owner', 'facilitator') then
       return query select c.ref_id from genesis_collab.contributions c
         where c.space_id = sp.id and c.kind = p_kind and c.author_id <> me
@@ -548,10 +555,10 @@ begin
   if role_ is null then return; end if;
   select * into s from genesis_collab.spaces sp where sp.id = p_space;
   if s.visibility <> 'hidden' or role_ in ('owner', 'facilitator') then
-    select count(*) into n_expected from genesis_collab._people(p_space) p where p.role = 'participant';
+    select count(*) into n_expected from genesis_collab_private.people(p_space) p where p.role = 'participant';
     select count(distinct c.author_id) into n_sent
     from genesis_collab.contributions c
-    join genesis_collab._people(p_space) p on p.person_id = c.author_id and p.role = 'participant'
+    join genesis_collab_private.people(p_space) p on p.person_id = c.author_id and p.role = 'participant'
     where c.space_id = p_space and c.period = coalesce(p_period, '') and c.sent_at is not null;
   end if;
   return query select s.id, s.tenant_id, s.subject_type, s.subject_id, s.title,
@@ -587,7 +594,7 @@ begin
        where c.space_id = p_space and c.period = coalesce(p_period, '')
          and c.author_id = p.person_id and c.sent_at is not null
          and (not c.private or genesis_collab.role_of(p_space, me) in ('owner', 'facilitator')))
-    from genesis_collab._people(p_space) p
+    from genesis_collab_private.people(p_space) p
     where genesis_collab.role_of(p_space, me) in ('owner', 'facilitator') or p.role = 'participant'
     order by p.person_id;
 end $$;
@@ -617,19 +624,19 @@ end $$;
 
 -- ── Writes ────────────────────────────────────────────────────────────────────
 
-create function genesis_collab._log(p_space uuid, p_action text, p_detail jsonb default '{}')
+create function genesis_collab_private.log(p_space uuid, p_action text, p_detail jsonb default '{}')
 returns void language sql security definer set search_path = '' as $$
   insert into genesis_collab.events (space_id, actor, action, detail) values (p_space, auth.uid(), p_action, p_detail)
 $$;
-revoke execute on function genesis_collab._log(uuid, text, jsonb) from public, anon, authenticated;
+revoke execute on function genesis_collab_private.log(uuid, text, jsonb) from public, anon, authenticated;
 
 -- Whether the caller may change a space: its owner, or the server.
-create function genesis_collab._may_run(p_space uuid, p_roles text[])
+create function genesis_collab_private.may_run(p_space uuid, p_roles text[])
 returns boolean language sql stable security definer set search_path = '' as $$
-  select genesis_collab._is_server()
+  select genesis_collab_private.is_server()
     or (auth.uid() is not null and genesis_collab.role_of(p_space, auth.uid()) = any (p_roles))
 $$;
-revoke execute on function genesis_collab._may_run(uuid, text[]) from public, anon, authenticated;
+revoke execute on function genesis_collab_private.may_run(uuid, text[]) from public, anon, authenticated;
 
 -- Start a space. The creator becomes its owner. Refused (42501) unless the subject type's
 -- create check says yes, or the caller is the server.
@@ -642,7 +649,7 @@ create function genesis_collab.create_space(
 declare
   t genesis_collab.subject_types;
   me uuid := auth.uid();
-  allowed boolean := genesis_collab._is_server();
+  allowed boolean := genesis_collab_private.is_server();
   new_id uuid;
 begin
   select * into t from genesis_collab.subject_types where subject_type = p_subject_type;
@@ -665,7 +672,7 @@ begin
     insert into genesis_collab.members (space_id, member_kind, member_id, role, added_by)
     values (new_id, 'person', me, 'owner', me);
   end if;
-  perform genesis_collab._log(new_id, 'create');
+  perform genesis_collab_private.log(new_id, 'create');
   return new_id;
 end $$;
 
@@ -676,7 +683,7 @@ create function genesis_collab.set_policy(
   p_opens_at timestamptz default null, p_closes_at timestamptz default null, p_title text default null
 ) returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not genesis_collab._may_run(p_space, array['owner']) then
+  if not genesis_collab_private.may_run(p_space, array['owner']) then
     raise exception 'only the space''s owner can change how it''s shared' using errcode = '42501';
   end if;
   update genesis_collab.spaces set
@@ -690,7 +697,7 @@ begin
     closes_at = coalesce(p_closes_at, closes_at),
     title = coalesce(p_title, title)
   where id = p_space;
-  perform genesis_collab._log(p_space, 'policy', jsonb_strip_nulls(jsonb_build_object(
+  perform genesis_collab_private.log(p_space, 'policy', jsonb_strip_nulls(jsonb_build_object(
     'visibility', p_visibility, 'reveal', p_reveal, 'anonymous', p_anonymous, 'min_group', p_min_group,
     'history', p_history, 'live', p_live, 'opens_at', p_opens_at, 'closes_at', p_closes_at)));
 end $$;
@@ -699,7 +706,7 @@ end $$;
 create function genesis_collab.add_member(p_space uuid, p_member_kind text, p_member_id uuid, p_role text default 'participant')
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not genesis_collab._may_run(p_space, array['owner']) then
+  if not genesis_collab_private.may_run(p_space, array['owner']) then
     raise exception 'only the space''s owner can add people' using errcode = '42501';
   end if;
   if p_member_kind <> 'person' and not exists (select 1 from genesis_collab.audience_kinds where kind = p_member_kind) then
@@ -708,14 +715,14 @@ begin
   insert into genesis_collab.members (space_id, member_kind, member_id, role, added_by)
   values (p_space, p_member_kind, p_member_id, p_role, auth.uid())
   on conflict (space_id, member_kind, member_id) do update set role = excluded.role;
-  perform genesis_collab._log(p_space, 'add_member', jsonb_build_object('kind', p_member_kind, 'id', p_member_id, 'role', p_role));
+  perform genesis_collab_private.log(p_space, 'add_member', jsonb_build_object('kind', p_member_kind, 'id', p_member_id, 'role', p_role));
 end $$;
 
 -- Remove someone or an audience (owner). The last owner stays.
 create function genesis_collab.remove_member(p_space uuid, p_member_kind text, p_member_id uuid)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not genesis_collab._may_run(p_space, array['owner']) then
+  if not genesis_collab_private.may_run(p_space, array['owner']) then
     raise exception 'only the space''s owner can remove people' using errcode = '42501';
   end if;
   if exists (select 1 from genesis_collab.members m
@@ -725,29 +732,29 @@ begin
   end if;
   delete from genesis_collab.members m
   where m.space_id = p_space and m.member_kind = p_member_kind and m.member_id = p_member_id;
-  perform genesis_collab._log(p_space, 'remove_member', jsonb_build_object('kind', p_member_kind, 'id', p_member_id));
+  perform genesis_collab_private.log(p_space, 'remove_member', jsonb_build_object('kind', p_member_kind, 'id', p_member_id));
 end $$;
 
 -- Reveal, or hide again (facilitator or owner).
 create function genesis_collab.reveal(p_space uuid, p_revealed boolean default true)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not genesis_collab._may_run(p_space, array['owner', 'facilitator']) then
+  if not genesis_collab_private.may_run(p_space, array['owner', 'facilitator']) then
     raise exception 'only the facilitator can reveal answers' using errcode = '42501';
   end if;
   update genesis_collab.spaces set revealed_at = case when p_revealed then now() end where id = p_space;
-  perform genesis_collab._log(p_space, case when p_revealed then 'reveal' else 'unreveal' end);
+  perform genesis_collab_private.log(p_space, case when p_revealed then 'reveal' else 'unreveal' end);
 end $$;
 
 -- Lock (no more contributions) or reopen (facilitator or owner).
 create function genesis_collab.lock(p_space uuid, p_locked boolean default true)
 returns void language plpgsql security definer set search_path = '' as $$
 begin
-  if not genesis_collab._may_run(p_space, array['owner', 'facilitator']) then
+  if not genesis_collab_private.may_run(p_space, array['owner', 'facilitator']) then
     raise exception 'only the facilitator can lock or reopen a space' using errcode = '42501';
   end if;
   update genesis_collab.spaces set locked_at = case when p_locked then now() end where id = p_space;
-  perform genesis_collab._log(p_space, case when p_locked then 'lock' else 'reopen' end);
+  perform genesis_collab_private.log(p_space, case when p_locked then 'lock' else 'reopen' end);
 end $$;
 
 -- Record (or update) a contribution: a pointer to the app's own row. It's recorded for the
@@ -761,7 +768,7 @@ create function genesis_collab.contribute(
 ) returns uuid language plpgsql security definer set search_path = '' as $$
 declare
   me uuid := auth.uid();
-  server boolean := genesis_collab._is_server();
+  server boolean := genesis_collab_private.is_server();
   k genesis_collab.contribution_kinds;
   author uuid;
   s genesis_collab.spaces;
@@ -775,7 +782,7 @@ begin
   if author is null or (not server and author is distinct from me) then
     raise exception 'that isn''t yours to add' using errcode = '42501';
   end if;
-  if coalesce(genesis_collab._role(p_space, author), 'viewer') = 'viewer' then
+  if coalesce(genesis_collab_private.role(p_space, author), 'viewer') = 'viewer' then
     raise exception 'you can''t add to this space' using errcode = '42501';
   end if;
   select * into s from genesis_collab.spaces where id = p_space;
@@ -813,6 +820,7 @@ end $$;
 -- ── Grants ────────────────────────────────────────────────────────────────────
 
 revoke execute on all functions in schema genesis_collab from public, anon;
+revoke execute on all functions in schema genesis_collab_private from public, anon, authenticated;
 grant execute on function
   genesis_collab.role_of(uuid, uuid),
   genesis_collab.gate(uuid, text, uuid),
@@ -838,7 +846,7 @@ grant execute on all functions in schema genesis_collab to service_role;
 
 -- ── Account deletion ──────────────────────────────────────────────────────────
 
-create function genesis_collab._on_user_deleted()
+create function genesis_collab_private.on_user_deleted()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
   delete from genesis_collab.members where member_kind = 'person' and member_id = old.id;
@@ -846,4 +854,4 @@ begin
 end $$;
 
 create trigger genesis_collab_user_deleted after delete on auth.users
-for each row execute function genesis_collab._on_user_deleted();
+for each row execute function genesis_collab_private.on_user_deleted();

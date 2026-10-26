@@ -23,6 +23,23 @@ in your tables and this package decides who reads them.
 - The core (`import { gateOf, canSee, mayAggregate, showsNames, describePolicy } from
   "@marktiderman/genesis-collab"`): the same rules for the interface, pure.
 
+## Exposing it to the Data API
+
+To call the functions from the client (`supabase.schema("genesis_collab").rpc(...)`), add
+`genesis_collab` to the project's exposed schemas. Don't run the blanket `grant all` from
+Supabase's custom schema guide on it: the migration grants exactly what's callable. Every
+function in `genesis_collab` checks the caller itself. The internal helpers live in
+`genesis_collab_private`, which is never exposed and which signed-in people can't use.
+
+Checked against Supabase's current guides (via Context7, `/supabase/supabase`):
+- "Row Level Security" and "RLS performance and best practices": security definer helpers pin
+  `search_path = ''` and live outside exposed schemas; the RLS example is scoped
+  `to authenticated` and uses `(select auth.uid())`; lists use `visible_refs` once per
+  statement rather than a per-row call; and the columns it filters on are indexed.
+- "Using custom schemas": usage is granted on the schema, and execute only on the API
+  functions.
+The pgTAP contract asserts the first two.
+
 ## The policy
 
 | Setting | Values |
