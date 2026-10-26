@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(40);
+select plan(46);
 
 -- People: a1 and b2 are members of tenant 1's team t1; a1 leads it. c3 belongs to tenant 2 only.
 -- d4 belongs to nothing.
@@ -167,6 +167,33 @@ select throws_ok(
   $$ update public.pursuits set parent_id = '00000000-0000-4000-b000-000000000003' where id = '00000000-0000-4000-b000-000000000002' $$,
   '22023', null, 'a parent must be in the same tenant');
 
+-- Links through a row the caller can't see (Gate's review) ----------------------------------
+-- X (team) -> Y (a1's own, hidden from b2) -> Z (team). b2 can't close Z -> X.
+select pg_temp.as_server();
+insert into public.pursuits (id, tenant_id, team_id, title) values
+  ('00000000-0000-4000-b000-000000000013', pg_temp.tenant(1), pg_temp.team(1), 'Z');
+insert into public.pursuits (id, tenant_id, person_id, title, parent_id) values
+  ('00000000-0000-4000-b000-000000000012', pg_temp.tenant(1), pg_temp.person('a1'), 'Y', '00000000-0000-4000-b000-000000000013');
+insert into public.pursuits (id, tenant_id, team_id, title, parent_id) values
+  ('00000000-0000-4000-b000-000000000011', pg_temp.tenant(1), pg_temp.team(1), 'X', '00000000-0000-4000-b000-000000000012');
+select pg_temp.sign_in('b2');
+select throws_ok(
+  $$ update public.pursuits set parent_id = '00000000-0000-4000-b000-000000000011' where id = '00000000-0000-4000-b000-000000000013' $$,
+  '22023', null, 'a loop through a pursuit the caller can''t see is still refused');
+select isnt_empty(
+  $$ update public.pursuits set title = 'X renamed' where id = '00000000-0000-4000-b000-000000000011' returning id $$,
+  'a pursuit under a hidden parent can still be renamed');
+select lives_ok(
+  $$ insert into public.pursuits (id, tenant_id, team_id, title, created_by)
+     values ('00000000-0000-4000-b000-000000000014', pg_temp.tenant(1), pg_temp.team(1), 'Spoof', pg_temp.person('a1')) $$,
+  'a member adds a pursuit naming someone else as its maker');
+select is((select created_by from public.pursuits where id = '00000000-0000-4000-b000-000000000014'), pg_temp.person('b2'),
+  'created_by is always the signed-in person');
+select pg_temp.as_server();
+select lives_ok(
+  $$ update public.pursuits set team_id = null, person_id = pg_temp.person('b2') where id = '00000000-0000-4000-b000-000000000014' $$,
+  'server code may move a pursuit to another owner');
+
 -- Work items ---------------------------------------------------------------------------------
 select pg_temp.sign_in('b2');
 select lives_ok(
@@ -194,6 +221,16 @@ select is((select completed_at from public.work_items where id = '00000000-0000-
 
 select pg_temp.sign_in('c3');
 select is((select count(*)::int from public.work_items), 0, 'another tenant''s member sees no work items');
+
+-- A hook that returns the wrong type fails closed -------------------------------------------
+select pg_temp.as_server();
+drop function private.genesis_owner_can(uuid, uuid, uuid, uuid, uuid, text);
+create function private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid, organization_id uuid, action text)
+returns text language sql stable set search_path = '' as $$ select 'maybe' $$;
+select pg_temp.sign_in('b2');
+select throws_ok(
+  $$ insert into public.pursuits (tenant_id, team_id, title) values (pg_temp.tenant(1), pg_temp.team(1), 'Broken hook') $$,
+  '42501', null, 'a hook that errors means no write');
 
 select * from finish();
 rollback;
