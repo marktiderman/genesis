@@ -15,7 +15,8 @@ import { Alert, View } from "react-native";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NativeButton, NativeInput } from "@marktiderman/genesis-ui-native/components";
 import type { InboxItem, InboxPageProps, ThreadMessage, ThreadPageProps } from "@marktiderman/genesis-ui-native/layouts";
-import type { SupportIdea, SupportReport } from "../client";
+import type { SupportIdea, SupportReply, SupportReport } from "../client";
+import type { SupportThreadInfo } from "../chat";
 import { fill } from "../copy";
 import { SUPPORT_QUERY_ROOT, useOptionalSupport, useSupport } from "./support";
 
@@ -109,18 +110,54 @@ type ThreadProps = Pick<ThreadPageProps, "messages" | "composer" | "closedNotice
   loading: boolean;
   /** Read, and there is no such report (deleted, or not the person's): leave the screen. */
   notFound: boolean;
+  /** `chat`: the thread runs on genesis-chat (the support-chat block), live; `replies`: support_replies, re-read every `pollMs`. */
+  mode: SupportThreadInfo["mode"] | null;
+  /** The report's genesis-chat conversation, for a screen that renders it with genesis-chat's own native parts. */
+  conversationId: string | null;
 };
+
+/**
+ * Where a report's thread lives: its genesis-chat conversation (the support-chat block, with a
+ * `chat` client given to `createSupport`), or support_replies. For a screen of your own that
+ * renders the conversation with `@marktiderman/genesis-chat/native` (ChatThreadScreen).
+ */
+export function useSupportConversation(reportId: string): { mode: SupportThreadInfo["mode"] | null; conversationId: string | null; loading: boolean; error: boolean } {
+  const { client } = useSupport();
+  const query = useQuery({ queryKey: key("thread", reportId), queryFn: () => client.thread(reportId), staleTime: Infinity });
+  return { mode: query.data?.mode ?? null, conversationId: query.data?.conversationId ?? null, loading: query.isPending, error: query.isError };
+}
+
+/** What a reply's files add to its text where the thread can only show photos. */
+function fileLabels(reply: SupportReply, copy: ReturnType<typeof useSupport>["copy"]): string[] {
+  return (reply.attachments ?? [])
+    .filter((a) => a.kind !== "image")
+    .map((a) => (a.kind === "voice" ? copy.thread.voiceNote : a.kind === "video" ? copy.thread.video : a.name || copy.thread.file));
+}
 
 const CLOSED = new Set(["addressed", "wont_fix"]);
 
-/** One report as a conversation: the report itself, then the replies. Marks it read as it opens and as replies arrive. */
+/**
+ * One report as a conversation: the report itself, then the replies. Marks it read as it opens
+ * and as replies arrive. On genesis-chat (the support-chat block) it updates live and shows the
+ * photos in replies; otherwise it re-reads support_replies every `pollMs`.
+ */
 export function useSupportThread(reportId: string, options: { pollMs?: number } = {}): ThreadProps {
   const block = useSupport();
   const { copy, client } = block;
   const queryClient = useQueryClient();
-  const poll = options.pollMs ?? 30_000;
+  const where = useQuery({ queryKey: key("thread", reportId), queryFn: () => client.thread(reportId), staleTime: Infinity });
+  const live = where.data?.mode === "chat";
+  // Live on chat; polled on support_replies (and while it's still being worked out).
+  const poll = live ? false : (options.pollMs ?? 30_000);
   const report = useQuery({ queryKey: key("report", reportId), queryFn: () => client.report(reportId), refetchInterval: poll });
-  const replies = useQuery({ queryKey: key("replies", reportId), queryFn: () => client.replies(reportId), refetchInterval: poll });
+  const replies = useQuery({ queryKey: key("replies", reportId), queryFn: () => client.replies(reportId), refetchInterval: poll, enabled: where.isFetched });
+  useEffect(() => {
+    if (!live) return;
+    return client.subscribe(reportId, () => {
+      void queryClient.invalidateQueries({ queryKey: key("replies", reportId) });
+      void queryClient.invalidateQueries({ queryKey: key("report", reportId) });
+    });
+  }, [client, reportId, live, queryClient]);
   const attachments = useQuery({ queryKey: key("attachments", reportId), queryFn: () => client.attachments(reportId), staleTime: 50 * 60_000 });
   const [draft, setDraft] = useState("");
   const [failed, setFailed] = useState<{ id: string; body: string; at: string }[]>([]);
@@ -156,13 +193,19 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
         .filter((a) => a.url)
         .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
     };
-    const rest: ThreadMessage[] = (replies.data ?? []).map((reply) => ({
-      id: reply.id,
-      body: reply.body,
-      mine: reply.mine,
-      authorName: reply.fromStaff ? copy.thread.support : undefined,
-      timestamp: reply.createdAt,
-    }));
+    // The person never receives internal notes; a staff member using this screen doesn't see them either.
+    const rest: ThreadMessage[] = (replies.data ?? [])
+      .filter((reply) => !reply.internal)
+      .map((reply) => ({
+        id: reply.id,
+        body: [reply.body, ...fileLabels(reply, copy)].filter((part) => part.trim()).join("\n"),
+        mine: reply.mine,
+        authorName: reply.fromStaff ? copy.thread.support : undefined,
+        timestamp: reply.createdAt,
+        attachments: (reply.attachments ?? [])
+          .filter((a) => a.kind === "image" && a.url)
+          .map((a) => ({ id: a.id, uri: a.url!, width: a.width ?? undefined, height: a.height ?? undefined, accessibilityLabel: copy.thread.screenshot })),
+      }));
     const pending: ThreadMessage[] = send.isPending && send.variables ? [{ id: "sending", body: send.variables, mine: true, timestamp: new Date().toISOString(), status: "sending" }] : [];
     const failedMessages: ThreadMessage[] = failed.map((f) => ({
       id: f.id,
@@ -185,6 +228,8 @@ export function useSupportThread(reportId: string, options: { pollMs?: number } 
     report: r,
     loading: report.isPending,
     notFound: report.isSuccess && r === null,
+    mode: where.data?.mode ?? null,
+    conversationId: where.data?.conversationId ?? null,
     labels: { you: copy.thread.you, sending: copy.thread.sending, notSent: copy.thread.notSent, retryHint: copy.thread.retryHint },
     messages,
     readAt: r?.staffReadAt ?? null,

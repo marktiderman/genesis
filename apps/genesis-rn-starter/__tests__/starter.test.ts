@@ -1,4 +1,4 @@
-// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback @feat:chat
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -12,7 +12,10 @@ const root = join(__dirname, "..");
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 // Wherever the package manager put it (hoisted to the workspace root here).
 const supabasePackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-supabase/package.json"));
+const notificationsPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-notifications/package.json"));
 const shippedSql = (path: string) => readFileSync(join(supabasePackage, "migrations", path), "utf8");
+const chatPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-chat/package.json"));
+const chatSql = (path: string) => readFileSync(join(chatPackage, "migrations", path), "utf8");
 
 function filesUnder(dir: string): string[] {
   return readdirSync(join(root, dir)).flatMap((name) => {
@@ -26,6 +29,13 @@ describe("root layout", () => {
     const lines = read("src/app/_layout.tsx").trimEnd().split("\n");
     expect(lines.length).toBeLessThanOrEqual(30);
     expect(lines.join("\n")).toContain("<GenesisNativeApp");
+  });
+});
+
+describe("migrations", () => {
+  it("each has its own version, so a new app's database applies every one", () => {
+    const versions = filesUnder("supabase/migrations").map((f) => f.split("/").pop()!.split("_")[0]!);
+    expect(new Set(versions).size).toBe(versions.length);
   });
 });
 
@@ -233,13 +243,26 @@ describe("supabase/migrations", () => {
     expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
   });
 
-  it("carries the push migration and its pgTAP test unchanged (the push block reads it), after the Apple one", () => {
+  it("carries the push migration unchanged, after the Apple one, without its pgTAP test (superseded by the notifications migration)", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_push.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shippedSql("0005_genesis_push.sql"));
-    expect(read("supabase/tests/database/genesis_push.test.sql")).toBe(shippedSql("tests/0005_genesis_push.test.sql"));
+    // Two of its assertions describe the token move and forget answer the notifications migration replaces.
+    expect(filesUnder("supabase/tests/database").some((f) => f.endsWith("genesis_push.test.sql"))).toBe(false);
     const order = filesUnder("supabase/migrations").sort();
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
+  });
+
+  it("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, after every other package's (it adopts the push tables)", () => {
+    const shipped = (rel: string) => readFileSync(join(notificationsPackage, "migrations", rel), "utf8");
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_notifications.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shipped("0001_genesis_notifications.sql"));
+    expect(read("supabase/tests/database/genesis_notifications.test.sql")).toBe(shipped("tests/0001_genesis_notifications.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    // The starter's own migrations (chat_people) may follow; every package's copy comes first.
+    const packaged = order.filter((f) => /_genesis_[a-z_]+\.sql$/.test(f));
+    expect(packaged.at(-1)).toBe(copies[0]);
   });
 
   it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
@@ -315,5 +338,96 @@ describe("support", () => {
     expect(read("app.config.ts")).not.toContain("features.support");
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["react-native-view-shot", "expo-sensors", "@marktiderman/genesis-support"]));
+  });
+});
+
+describe("chat", () => {
+  it("ships with chat on, its migration and pgTAP test copied unchanged after the support one, and genesis_chat served by the API", () => {
+    expect(starter.features.chat).toBe(true);
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(chatSql("0001_genesis_chat.sql"));
+    expect(read("supabase/tests/database/genesis_chat.test.sql")).toBe(chatSql("tests/0001_genesis_chat.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_support.sql")));
+    // Every chat migration the package ships, in order: without one, the starter's database lacks
+    // what the client calls, and `genesis init` leaves the chat block out.
+    const shipped = readdirSync(join(chatPackage, "migrations")).filter((f) => f.endsWith(".sql")).sort();
+    for (const file of shipped) {
+      const stem = file.replace(/^\d{4}_/, "");
+      const copy = filesUnder("supabase/migrations").filter((f) => f.endsWith(`_${stem}`));
+      expect(copy, file).toHaveLength(1);
+      expect(read(copy[0]!)).toBe(chatSql(file));
+      expect(read(`supabase/tests/database/${stem.replace(/\.sql$/, ".test.sql")}`)).toBe(chatSql(`tests/${file.replace(/\.sql$/, ".test.sql")}`));
+    }
+    expect(read("supabase/config.toml")).toMatch(/schemas = \[[^\]]*"genesis_chat"/);
+    expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
+  });
+
+  it("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat_coaching.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(chatSql("0002_genesis_chat_coaching.sql"));
+    expect(read("supabase/tests/database/genesis_chat_coaching.test.sql")).toBe(chatSql("tests/0002_genesis_chat_coaching.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBe(order.findIndex((f) => f.endsWith("_genesis_chat.sql")) + 1);
+  });
+
+  it("puts one chat over every signed-in tab, with Availability under Settings and search and broadcast in Messages", () => {
+    expect(read("src/app/(app)/_layout.tsx")).toContain("starter.features.chat ? <ChatRoot>{app}</ChatRoot> : app");
+    expect(read("src/app/(app)/messages/_layout.tsx")).not.toContain("<ChatRoot");
+    expect(read("src/app/(app)/settings/availability.tsx")).toContain('if (!starter.features.chat) return <Redirect href="/settings" />');
+    expect(read("src/app/(app)/settings/index.tsx")).toContain('router.push("/settings/availability" as Href)');
+    expect(read("src/app/(app)/messages/index.tsx")).toContain("<ChatBroadcastSheet");
+    expect(read("src/app/(app)/messages/[id].tsx")).toMatch(/<ChatThreadScreen key=\{id\} conversationId=\{id\} jumpTo=\{jumpTo\}/);
+  });
+
+  it("has the Messages tab and its routes, each sending you home when chat is off", () => {
+    expect(read("src/app/(app)/_layout.tsx")).toContain('name="messages" hidden={!starter.features.chat}');
+    for (const route of ["_layout", "index", "[id]", "search"]) {
+      expect(read(join("src/app/(app)/messages", `${route}.tsx`)), route).toContain("if (!starter.features.chat) return <Redirect");
+    }
+  });
+
+  it("starts each conversation's thread fresh: the screen is keyed by the conversation id", () => {
+    expect(read("src/app/(app)/messages/[id].tsx")).toMatch(/<ChatThreadScreen key=\{id\} conversationId=\{id\}/);
+  });
+
+  it("opens a message's push in its thread, and adds the messages category with Reply and Mark read when push is on", () => {
+    expect(read("src/lib/links.ts")).toContain('"/messages/:id": "/messages/:id"');
+    expect(read("src/lib/push.ts")).toContain("starter.features.chat ? [chatPushCategory()] : []");
+    expect(read("src/lib/push.ts")).toContain("onResponse: onChatPushResponse");
+    expect(read("src/lib/chat.tsx")).toContain("starter.features.chat && starter.features.push");
+  });
+
+  it("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_chat_people.sql"));
+    expect(copies).toHaveLength(1);
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_chat.sql")));
+    const sql = read(copies[0]!);
+    expect(sql).toContain("security definer");
+    expect(sql).toContain("set search_path = ''");
+    expect(sql).toMatch(/revoke execute on function public\.chat_people\(uuid\[\]\) from public, anon;/);
+    expect(read("supabase/tests/database/chat_people.test.sql")).toContain("select plan(");
+    const chat = read("src/lib/chat.tsx");
+    expect(chat).toContain('supabase.rpc("chat_people"');
+    expect(chat).toContain("loadPeople = loadChatPeople");
+    // An untitled two-person thread is called by the other person's name.
+    expect(read("src/app/(app)/messages/[id].tsx")).toContain("conversation?.title ?? otherName ?? copy.messages.threadTitle");
+  });
+
+  it("forgets unsent messages on sign-out and retries them on return and reconnect", () => {
+    const chat = read("src/lib/chat.tsx");
+    expect(chat).not.toContain("TODO(chat clearOutbox)");
+    expect(chat).toContain("void outboxes.clear(who)");
+    expect(chat).toContain("<ChatAutoRetry />");
+    expect(chat).toMatch(/netInfo: NetInfo/);
+  });
+
+  it("keeps expo-audio, expo-image-picker and expo-clipboard in the build whichever way the switch is", () => {
+    expect(read("app.config.ts")).not.toContain("features.chat");
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo-audio", "expo-image-picker", "expo-clipboard", "@marktiderman/genesis-chat"]));
   });
 });

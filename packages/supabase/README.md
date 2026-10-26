@@ -354,6 +354,16 @@ and release notes (`notes`, an array of `{ version, title?, body }`). Copy it in
 
 ## Push (the push block)
 
+> **Superseded by [`@marktiderman/genesis-notifications`](../notifications/README.md).** Its
+> migration adopts this one's three tables in place (adding columns, changing no row), replaces
+> `genesis_push_register` and `genesis_push_forget` with stricter versions (a token moves to
+> another login only from the same phone, and forget reveals nothing), and its runner replaces
+> the `genesis-push-send` function and the sender functions below. Migration 0005 and the
+> function stay here unchanged for apps that already run them; new apps take the notifications
+> block instead. When you move, remove 0005's pgTAP test from your app (two of its assertions
+> describe the old register and forget) and stop calling `genesis-push-send`.
+
+
 [`migrations/0005_genesis_push.sql`](./migrations/0005_genesis_push.sql) and the
 [`genesis-push-send`](./functions/genesis-push-send) Edge Function are the server half of
 `@marktiderman/genesis-native/push`. Copy the migration into your app's `supabase/migrations/`

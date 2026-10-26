@@ -6,6 +6,7 @@ export default defineConfig({
     react: "src/react/index.tsx",
     web: "src/web/index.ts",
     native: "src/native/index.ts",
+    push: "src/native/push.ts",
     server: "src/server/index.ts",
   },
   format: ["esm"],
@@ -26,5 +27,7 @@ export default defineConfig({
     /^@tanstack\//,
     /^@supabase\//,
     "lucide-react",
+    "frimousse",
+    "hls.js",
   ],
 });

@@ -35,7 +35,7 @@ describe("createChatRunner: push", () => {
     });
     const deliver = vi.fn(async (_n: ChatNotification) => {});
     const runner = createChatRunner({ supabase: sb.client, deliver, resolveName: (id) => names[id] });
-    expect(await runner.run()).toEqual({ claimed: 1, done: 1, failed: 0 });
+    expect(await runner.run()).toMatchObject({ claimed: 1, done: 1, failed: 0 });
     expect(deliver).toHaveBeenCalledTimes(1);
     expect(deliver.mock.calls[0]![0]).toEqual({
       category: "messages",
@@ -48,10 +48,11 @@ describe("createChatRunner: push", () => {
       title: "Ana",
       body: "see you at 6",
       senderId: "ana",
-      collapseKey: "chat:c1",
       threadKey: "c1",
       idempotencyKey: "push:m1",
       data: { url: "/messages/c1", conversationId: "c1", messageId: "m1", seq: null },
+      mutableContent: false,
+      categoryId: "messages",
     });
     // Only the kinds it handles are claimed; the effect is settled as done.
     expect(sb.rpcCalls[0]).toEqual({ fn: "claim_effects", args: { p_kinds: ["push", "transcribe", "storage.remove", "video.remove"], p_limit: 50 } });
@@ -68,6 +69,55 @@ describe("createChatRunner: push", () => {
     expect(deliver.mock.calls[0]![0]).toMatchObject({ title: "Cohort 4", body: "Ana: see you at 6" });
   });
 
+  it("sets a collapse key only when the app asks, and always carries the message id and seq", async () => {
+    const make = () =>
+      fakeSupabase({
+        rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo")] },
+        tables: { conversations: [{ id: "c1", kind: "group" }], messages: [{ id: "m1", seq: 42 }] },
+      });
+    const plain = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: make().client, deliver: plain }).run();
+    const n = plain.mock.calls[0]![0];
+    expect("collapseKey" in n).toBe(false);
+    expect(n.threadKey).toBe("c1");
+    expect(n.data).toMatchObject({ messageId: "m1", seq: 42, conversationId: "c1" });
+
+    const collapsing = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({ supabase: make().client, deliver: collapsing, collapse: true }).run();
+    expect(collapsing.mock.calls[0]![0].collapseKey).toBe("chat:c1");
+  });
+
+  it("asks for a push badge without the kinds the app leaves out of its own", async () => {
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
+      tables: { conversations: [{ id: "c1", kind: "group" }] },
+    });
+    await createChatRunner({ supabase: sb.client, deliver: vi.fn(async () => {}), badgeExcludeKinds: ["support"] }).run();
+    expect(sb.rpcCalls.find((c) => c.fn === "push_targets")?.args).toEqual({ p_message_id: "m1", p_badge_exclude_kinds: ["support"] });
+  });
+
+  it("builds an iOS rich push: the sender's name and photo, the group, and the message ids", async () => {
+    const conv = "0a1b2c3d-0000-4000-8000-000000000001";
+    const sb = fakeSupabase({
+      rpc: {
+        claim_effects: () => [effect(1, "push", { message_id: "m1" })],
+        push_targets: () => [{ ...target("bo", { title: "Cohort 4" }), conversation_id: conv }],
+      },
+      tables: { conversations: [{ id: conv, kind: "group" }] },
+    });
+    const deliver = vi.fn(async (_n: ChatNotification) => {});
+    await createChatRunner({
+      supabase: sb.client,
+      deliver,
+      resolveName: (id) => names[id],
+      resolveAvatar: () => "https://cdn.example.test/ana.jpg",
+    }).run();
+    const n = deliver.mock.calls[0]![0];
+    expect(n.mutableContent).toBe(true);
+    expect(n.categoryId).toBe("messages");
+    expect(n.data).toMatchObject({ conversationId: conv, messageId: "m1", senderId: "ana", senderName: "Ana", senderAvatar: "https://cdn.example.test/ana.jpg", groupName: "Cohort 4" });
+  });
+
   it("opens the app's own route when a notification is tapped", async () => {
     const sb = fakeSupabase({
       rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
@@ -81,7 +131,7 @@ describe("createChatRunner: push", () => {
   it("settles a message with no targets as done without delivering", async () => {
     const sb = fakeSupabase({ rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [] } });
     const deliver = vi.fn(async () => {});
-    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toEqual({ claimed: 1, done: 1, failed: 0 });
+    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toMatchObject({ claimed: 1, done: 1, failed: 0 });
     expect(deliver).not.toHaveBeenCalled();
   });
 
@@ -95,7 +145,7 @@ describe("createChatRunner: push", () => {
     const deliver = vi.fn(async (n: ChatNotification) => {
       if (n.messageId === "m1") throw new Error("push service down");
     });
-    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toEqual({ claimed: 3, done: 2, failed: 1 });
+    expect(await createChatRunner({ supabase: sb.client, deliver }).run()).toMatchObject({ claimed: 3, done: 2, failed: 1 });
     const settled = sb.rpcCalls.filter((c) => c.fn === "complete_effect").map((c) => c.args);
     expect(settled).toContainEqual({ p_id: 1, p_error: "push service down" });
     expect(settled).toContainEqual({ p_id: 2, p_error: null });

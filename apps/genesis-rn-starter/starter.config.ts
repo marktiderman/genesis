@@ -33,5 +33,6 @@ export default defineStarter({
     devtools: true,
     checkIn: true,
     support: true,
+    chat: true,
   },
 });

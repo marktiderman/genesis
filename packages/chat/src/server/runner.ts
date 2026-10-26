@@ -8,18 +8,41 @@
  *   transcribe      signed URL (10 min) → transcriber → update_attachment
  *   storage.remove  storage.from(bucket).remove([path]); not found is done
  *   video.remove    video.remove(provider id), when a video provider is given
+ *   moderate        the message's text and photos (signed URLs) → moderator → moderate_message;
+ *                   nothing to judge is `clean` (it releases the push held for the verdict), and
+ *                   a moderator still failing on the last attempt files `flagged` with the
+ *                   reason "moderation unavailable", so observers see it and the push goes
+ *   unfurl          unfurler(url) → save_link_preview (ok, failed or blocked)
+ *
+ * `moderate` and `unfurl` are claimed only when their adapter is given. Each run
+ * also posts due scheduled messages (due_scheduled, then post_scheduled each, as
+ * their sender) and, with `retention: true`, removes messages past their kind's
+ * retention (purge_expired); a failure there is reported, never thrown.
  *
  * Kinds it doesn't handle are never claimed, so an app's own runner can work
  * them. Effects run concurrently per kind, up to a cap; one failure never
  * stops the others. Errors are stored as short messages, never payloads.
  */
+import { chatPushPayload } from "../native/push";
 import { CHAT_BUCKET, CHAT_SCHEMA, type ChatSupabase } from "../core/client";
-import type { ChatDeliver, ChatEffect, ChatEffectKind, ChatNotification, ChatRunReport, Transcriber, VideoProvider } from "./types";
+import type {
+  ChatDeliver,
+  ChatEffect,
+  ChatEffectKind,
+  ChatNotification,
+  ChatRunReport,
+  LinkUnfurler,
+  Moderator,
+  Transcriber,
+  VideoProvider,
+} from "./types";
 
 /** `claim_effects` stops claiming an effect after this many attempts. */
 export const CHAT_MAX_ATTEMPTS = 8;
-const ALL_KINDS: readonly ChatEffectKind[] = ["push", "transcribe", "storage.remove", "video.remove"];
+const BASE_KINDS: readonly ChatEffectKind[] = ["push", "transcribe", "storage.remove", "video.remove"];
 const SIGNED_URL_SECONDS = 600;
+/** purge_expired calls per run, each removing up to `retentionBatch`. */
+const PURGE_ROUNDS = 10;
 
 export interface ChatRunnerOptions {
   /** A service-role supabase-js client (the runner reads past row level security). */
@@ -32,7 +55,17 @@ export interface ChatRunnerOptions {
   transcriptLanguage?: string | undefined;
   /** Hosted video (Mux), to remove an asset when its attachment goes. */
   video?: Pick<VideoProvider, "name" | "remove"> | undefined;
-  /** The kinds this runner works (default all four), so separate schedules can split them. */
+  /** Moderation for kinds that ask for it (`set_kind_options(kind, p_moderate => true)`): `openAiModerator(...)`. */
+  moderator?: Moderator | undefined;
+  /** Link previews: `createLinkUnfurler()`. Without one, `unfurl` effects are left unclaimed. */
+  unfurler?: LinkUnfurler | undefined;
+  /** Post due scheduled messages on each run (default true). */
+  scheduled?: boolean | undefined;
+  /** Remove messages past their kind's retention on each run (default false: run it once a day). */
+  retention?: boolean | undefined;
+  /** Messages removed per purge_expired call (default 1000); up to 10 calls a run. */
+  retentionBatch?: number | undefined;
+  /** The kinds this runner works (default the four base kinds, plus `moderate` and `unfurl` when their adapters are given). */
   kinds?: readonly ChatEffectKind[] | undefined;
   batch?: {
     /** Effects claimed per run (default 50, at most 500). */
@@ -42,8 +75,18 @@ export interface ChatRunnerOptions {
   };
   /** A person's display name, for push titles and group previews. */
   resolveName?: ((userId: string) => Promise<string | null | undefined> | string | null | undefined) | undefined;
+  /** A person's photo (an https URL), shown on iOS as the sender of a chat push. */
+  resolveAvatar?: ((userId: string) => Promise<string | null | undefined> | string | null | undefined) | undefined;
   /** Kinds that are one-to-one (default `["direct"]`): their push title is the sender's name. */
   directKinds?: readonly string[] | undefined;
+  /**
+   * Set `collapseKey` (`chat:<conversation id>`) so a conversation's newer push
+   * replaces the older one. Default false: on iOS the collapse id becomes the
+   * notification's identifier, and replies from one conversation's notifications collide.
+   */
+  collapse?: boolean | undefined;
+  /** Kinds left out of the push badge, matching the app's own badge (`useUnreadTotal({ excludeKinds })`). */
+  badgeExcludeKinds?: readonly string[] | undefined;
   /** Where a tapped notification opens (default `/messages/<conversationId>`). */
   linkFor?: ((conversationId: string, messageId: string) => string) | undefined;
   /** Safe log lines (effect ids, kinds, short errors). Default: nothing is logged. */
@@ -65,6 +108,12 @@ interface PushTarget {
   preview: string | null;
   mentioned: boolean | null;
   unread_total: number | null;
+}
+
+interface MessageRow {
+  id: string;
+  body: string | null;
+  deleted_at: string | null;
 }
 
 interface AttachmentRow {
@@ -99,7 +148,13 @@ async function pool<T>(items: readonly T[], limit: number, work: (item: T) => Pr
 
 export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   const { supabase, deliver } = options;
-  const kinds = [...(options.kinds ?? ALL_KINDS)];
+  const kinds = [
+    ...(options.kinds ?? [
+      ...BASE_KINDS,
+      ...(options.moderator ? (["moderate"] as const) : []),
+      ...(options.unfurler ? (["unfurl"] as const) : []),
+    ]),
+  ];
   const limit = Math.min(Math.max(options.batch?.limit ?? 50, 1), 500);
   const concurrency = Math.max(options.batch?.concurrency ?? 4, 1);
   const directKinds = new Set(options.directKinds ?? ["direct"]);
@@ -124,7 +179,11 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   async function push(effect: ChatEffect): Promise<void> {
     const messageId = str(effect.payload.message_id);
     if (!messageId) return;
-    const targets = (await rpc<PushTarget[] | null>("push_targets", { p_message_id: messageId })) ?? [];
+    const targets =
+      (await rpc<PushTarget[] | null>("push_targets", {
+        p_message_id: messageId,
+        ...(options.badgeExcludeKinds?.length ? { p_badge_exclude_kinds: options.badgeExcludeKinds } : {}),
+      })) ?? [];
     // Deleted, silent, or nobody to tell: done.
     if (targets.length === 0) return;
     const first = targets[0]!;
@@ -144,6 +203,27 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
     // The conversation's title; a direct conversation (or an untitled group) shows who wrote.
     const title = str(first.title) ?? senderName ?? "New message";
     const body = !direct && senderName ? `${senderName}: ${preview}` : preview;
+    let avatarUrl: string | null = null;
+    if (first.sender_id && options.resolveAvatar) {
+      try {
+        avatarUrl = str(await options.resolveAvatar(first.sender_id));
+      } catch {
+        avatarUrl = null;
+      }
+    }
+    let payload: ReturnType<typeof chatPushPayload>;
+    try {
+      payload = chatPushPayload({
+        conversationId,
+        messageId,
+        ...(seq != null ? { seq } : {}),
+        sender: first.sender_id && senderName ? { id: first.sender_id, name: senderName, avatarUrl } : undefined,
+        groupName: direct ? undefined : (str(first.title) ?? undefined),
+      });
+    } catch {
+      // Not a uuid (a test or an app's own ids): a plain push still goes out.
+      payload = { categoryId: "messages", threadId: conversationId, mutableContent: false, data: { url: `/messages/${conversationId}`, conversationId, messageId } };
+    }
     const notification: ChatNotification = {
       category: "messages",
       messageId,
@@ -152,10 +232,12 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       title,
       body,
       senderId: first.sender_id,
-      collapseKey: `chat:${conversationId}`,
+      ...(options.collapse ? { collapseKey: `chat:${conversationId}` } : {}),
       threadKey: conversationId,
       idempotencyKey: `push:${messageId}`,
-      data: { url: options.linkFor?.(conversationId, messageId) ?? `/messages/${conversationId}`, conversationId, messageId, seq },
+      data: { ...payload.data, url: options.linkFor?.(conversationId, messageId) ?? payload.data.url, seq },
+      mutableContent: payload.mutableContent,
+      categoryId: payload.categoryId,
     };
     await deliver(notification);
   }
@@ -217,6 +299,112 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
     await options.video.remove(providerId);
   }
 
+  async function moderate(effect: ChatEffect): Promise<void> {
+    const messageId = str(effect.payload.message_id);
+    if (!messageId) return;
+    if (!options.moderator) throw new Error("moderate: no moderator given");
+    const { data: message, error } = (await db()
+      .from("messages")
+      .select("id, body, deleted_at")
+      .eq("id", messageId)
+      .maybeSingle()) as Result<MessageRow>;
+    if (error) throw errorText("messages", error);
+    // Nothing to judge: say clean, which releases the push held for the verdict (none for a deleted message).
+    const clean = () => rpc("moderate_message", { p_message_id: messageId, p_result: "clean", p_reason: null });
+    if (!message || message.deleted_at) {
+      await clean();
+      return;
+    }
+    const { data: rows, error: attachmentsError } = (await db()
+      .from("attachments")
+      .select("id, kind, provider, path, mime")
+      .eq("message_id", messageId)
+      .order("position")) as Result<Pick<AttachmentRow, "id" | "kind" | "provider" | "path" | "mime">[]>;
+    if (attachmentsError) throw errorText("attachments", attachmentsError);
+    // Every photo (a message holds at most 20): one left out could carry what the verdict misses.
+    const photos = (rows ?? []).filter((a) => a.provider === "storage" && a.path && (a.kind === "image" || (a.mime ?? "").startsWith("image/")));
+    const imageUrls: string[] = [];
+    for (const photo of photos) {
+      const signed = (await supabase.storage.from(CHAT_BUCKET).createSignedUrl(photo.path!, SIGNED_URL_SECONDS)) as Result<{ signedUrl: string }>;
+      if (signed.error || !signed.data?.signedUrl) throw errorText("createSignedUrl", signed.error);
+      imageUrls.push(signed.data.signedUrl);
+    }
+    const text = message.body ?? "";
+    if (!text.trim() && imageUrls.length === 0) {
+      await clean();
+      return;
+    }
+    let verdict: Awaited<ReturnType<Moderator["moderate"]>>;
+    try {
+      verdict = await options.moderator.moderate({ text, imageUrls });
+    } catch (e) {
+      // The last attempt: never fail open silently. Observers get a report and the push goes.
+      if (effect.attempts >= CHAT_MAX_ATTEMPTS) {
+        await rpc("moderate_message", { p_message_id: messageId, p_result: "flagged", p_reason: "moderation unavailable" });
+      }
+      throw e;
+    }
+    await rpc("moderate_message", { p_message_id: messageId, p_result: verdict.result, p_reason: verdict.reason?.slice(0, 1000) ?? null });
+  }
+
+  async function unfurl(effect: ChatEffect): Promise<void> {
+    const url = str(effect.payload.url);
+    if (!url) return;
+    if (!options.unfurler) throw new Error("unfurl: no unfurler given");
+    // The table takes https links only; anything else is recorded nowhere.
+    if (!/^https:\/\//i.test(url) || url.length > 2000) return;
+    const preview = await options.unfurler.unfurl(url);
+    const ok = preview.status === "ok";
+    await rpc("save_link_preview", {
+      p_url: url,
+      p_status: preview.status,
+      p_title: ok ? (preview.title ?? null) : null,
+      p_description: ok ? (preview.description ?? null) : null,
+      p_image_url: ok ? (preview.imageUrl ?? null) : null,
+      p_site_name: ok ? (preview.siteName ?? null) : null,
+    });
+  }
+
+  async function postScheduled(report: ChatRunReport, errors: string[]): Promise<void> {
+    const counts = { due: 0, posted: 0, skipped: 0, failed: 0 };
+    report.scheduled = counts;
+    let due: string[];
+    try {
+      due = ((await rpc<unknown[] | null>("due_scheduled", { p_limit: limit })) ?? []).map((row) =>
+        typeof row === "string" ? row : String((row as Record<string, unknown>)?.due_scheduled ?? (row as Record<string, unknown>)?.id ?? ""),
+      );
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "due_scheduled: error");
+      return;
+    }
+    counts.due = due.length;
+    await pool(due, concurrency, async (id) => {
+      try {
+        // Null: refused (the reason is on the row), to be tried again, or taken by another runner.
+        const messageId = await rpc<string | null>("post_scheduled", { p_id: id });
+        if (messageId) counts.posted++;
+        else counts.skipped++;
+      } catch (e) {
+        counts.failed++;
+        log(`genesis-chat: posting scheduled ${id} failed: ${e instanceof Error ? e.message : "error"}`);
+      }
+    });
+  }
+
+  async function purge(report: ChatRunReport, errors: string[]): Promise<void> {
+    const batch = Math.min(Math.max(options.retentionBatch ?? 1000, 1), 10_000);
+    report.purged = 0;
+    try {
+      for (let round = 0; round < PURGE_ROUNDS; round++) {
+        const n = Number((await rpc<number | null>("purge_expired", { p_limit: batch })) ?? 0);
+        report.purged += n;
+        if (n < batch) break;
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "purge_expired: error");
+    }
+  }
+
   async function handle(effect: ChatEffect): Promise<void> {
     switch (effect.kind) {
       case "push":
@@ -227,6 +415,10 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
         return storageRemove(effect);
       case "video.remove":
         return videoRemove(effect);
+      case "moderate":
+        return moderate(effect);
+      case "unfurl":
+        return unfurl(effect);
       default:
         throw new Error(`no handler for ${effect.kind}`);
     }
@@ -235,6 +427,9 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   async function run(): Promise<ChatRunReport> {
     const claimed = (await rpc<ChatEffect[] | null>("claim_effects", { p_kinds: kinds, p_limit: limit })) ?? [];
     const report: ChatRunReport = { claimed: claimed.length, done: 0, failed: 0 };
+    const errors: string[] = [];
+    // Due messages go out alongside the outbox; their pushes are queued for the next run.
+    const scheduling = options.scheduled === false ? Promise.resolve() : postScheduled(report, errors);
     const byKind = new Map<string, ChatEffect[]>();
     for (const effect of claimed) byKind.set(effect.kind, [...(byKind.get(effect.kind) ?? []), effect]);
     await Promise.all(
@@ -260,6 +455,12 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
         }),
       ),
     );
+    await scheduling;
+    if (options.retention) await purge(report, errors);
+    if (errors.length > 0) {
+      report.errors = errors.map((e) => e.slice(0, 200));
+      for (const e of report.errors) log(`genesis-chat: ${e}`);
+    }
     return report;
   }
 

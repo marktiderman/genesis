@@ -30,13 +30,35 @@ export interface ChatNotification {
   /** The preview; in a group, prefixed with the sender's name ("Ana: see you"). */
   body: string;
   senderId: string | null;
-  /** `chat:<conversation id>`: a newer push replaces an older one where the platform can. */
-  collapseKey: string;
+  /**
+   * `chat:<conversation id>`, only when the runner's `collapse` is on: a newer push
+   * replaces an older one. Off by default, because on iOS it becomes the
+   * notification's identifier, so replies from two notifications of one
+   * conversation would collide.
+   */
+  collapseKey?: string | undefined;
   /** The conversation id: groups a conversation's pushes on the lock screen. */
   threadKey: string;
   /** `push:<message id>`: the same message is never pushed twice by a sender that dedupes. */
   idempotencyKey: string;
-  data: { url: string; conversationId: string; messageId: string; seq: number | null };
+  /**
+   * The push's data, built by `chatPushPayload` (genesis-chat/push): flat strings the iOS
+   * Notification Service Extension reads (sender name and https photo, group name) plus `seq`.
+   */
+  data: {
+    url: string;
+    conversationId: string;
+    messageId: string;
+    seq: number | null;
+    senderId?: string;
+    senderName?: string;
+    senderAvatar?: string;
+    groupName?: string;
+  };
+  /** Let the iOS extension rewrite it into a Communication Notification (sender photo). */
+  mutableContent?: boolean;
+  /** The notification category the native push block registers for chat (`messages`). */
+  categoryId?: string;
 }
 
 /**
@@ -80,8 +102,46 @@ export interface VideoProvider {
   handleWebhook(request: Request, context: { supabase: ChatSupabase }): Promise<Response>;
 }
 
+/** What moderation decided: `hidden` takes a message from members' view, `flagged` files a report only. */
+export type ModerationResult = "clean" | "flagged" | "hidden";
+
+/** A message to moderate: its text and signed URLs (10 minutes) for its photos. */
+export interface ModerateInput {
+  text: string;
+  imageUrls: string[];
+}
+
+export interface ModerationVerdict {
+  result: ModerationResult;
+  /** A short, safe reason for the report observers see ("harassment 0.93"). Never the message itself. */
+  reason?: string | undefined;
+}
+
+/** A moderation provider. Throw on failure: the effect is retried. */
+export interface Moderator {
+  readonly name: string;
+  moderate(input: ModerateInput): Promise<ModerationVerdict>;
+}
+
+/** One link's Open Graph data, as `save_link_preview` stores it. */
+export interface LinkPreview {
+  url: string;
+  /** `blocked`: the URL is not one the server may fetch (private address, not https). */
+  status: "ok" | "failed" | "blocked";
+  title?: string | null | undefined;
+  description?: string | null | undefined;
+  /** https only. */
+  imageUrl?: string | null | undefined;
+  siteName?: string | null | undefined;
+}
+
+/** Fetches a link's preview. Resolve `failed` or `blocked` rather than throw; a throw is retried. */
+export interface LinkUnfurler {
+  unfurl(url: string): Promise<LinkPreview>;
+}
+
 /** The outbox kinds the runner works. */
-export type ChatEffectKind = "push" | "transcribe" | "storage.remove" | "video.remove";
+export type ChatEffectKind = "push" | "transcribe" | "storage.remove" | "video.remove" | "moderate" | "unfurl";
 
 /** A claimed row of `genesis_chat.effects`. */
 export interface ChatEffect {
@@ -98,4 +158,14 @@ export interface ChatRunReport {
   done: number;
   /** Failed this time; retried later with backoff until the 8th attempt. */
   failed: number;
+  /**
+   * Scheduled messages that were due. `skipped`: not posted this run (refused, with the reason
+   * on the row; a passing error, tried again next run; or taken by another runner).
+   * `failed`: the call itself failed. Absent with `scheduled: false`.
+   */
+  scheduled?: { due: number; posted: number; skipped: number; failed: number } | undefined;
+  /** Messages removed past their kind's retention. Present only with `retention: true`. */
+  purged?: number | undefined;
+  /** Steps besides the outbox that failed this run (scheduled posting, retention), as short messages. */
+  errors?: string[] | undefined;
 }

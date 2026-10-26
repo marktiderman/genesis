@@ -28,6 +28,7 @@ export {
   useSuppressNotifications,
   type PushBlock,
   type PushChannel,
+  type PushDeviceCategory,
   type PushOptions,
   type PushRootProps,
   type PushSlots,
@@ -84,12 +85,14 @@ export {
   type PreferencesStatus,
   type PreferencesStore,
 } from "./preferences";
-export { pathForResponse, notificationData } from "./routing";
+export { richPushMessage, isRichPushUrl, RICH_PUSH_IMAGE_FIELDS, type RichPushData, type RichPushMessageLike } from "./payload";
+export { pathForResponse, notificationData, notificationAction, type NotificationAction } from "./routing";
 export { parseClock, formatClock, clockOf, dateAt, deviceTimeZone, minutesIn, isQuietAt } from "./quiet-hours";
 export type {
   ChannelInputLike,
   NotificationBehaviorLike,
   NotificationLike,
+  NotificationActionLike,
   NotificationResponseLike,
   NotificationsModuleLike,
   PermissionRequestLike,

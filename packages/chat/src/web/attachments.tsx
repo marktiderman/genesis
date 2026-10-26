@@ -18,8 +18,12 @@ import {
   cn,
 } from "@marktiderman/genesis-ui";
 import type { ChatAttachment, ChatMessage } from "../core/types";
+import type { ChatAttachmentKind } from "../react/index";
+import { ChatAttachmentCard, type ChatAttachmentCardProps } from "./cards";
+import { ChatErrorBoundary } from "./error-boundary";
 import { formatBytes } from "./format";
 import { isSafeHref } from "./markdown";
+import { ChatVideoPlayer } from "./video";
 import { VoiceNote } from "./voice-note";
 
 /** One attachment as the renderers draw it, sent or still uploading. */
@@ -211,17 +215,20 @@ export function Lightbox({ images, index, onIndexChange }: LightboxProps) {
   );
 }
 
+/** A video: a hosted one (Mux) streams once ready and says "Processing…" until then; a file plays from storage. */
 export function VideoAttachment({ view }: { view: AttachmentView }) {
+  const a = view.attachment;
+  const hosted = a != null && a.provider !== "storage" && a.provider !== "external" && a.provider !== "none";
   return (
-    <div className="relative w-[min(20rem,100%)] overflow-hidden rounded-xl bg-muted" data-testid="genesis-chat-video">
-      {view.url ? (
-        // eslint-disable-next-line jsx-a11y/media-has-caption -- transcripts are offered beside voice; video captions are the provider's
-        <video controls playsInline preload="metadata" poster={view.posterUrl ?? undefined} src={view.url} className="block max-h-80 w-full" aria-label={view.name ?? "Video"} />
-      ) : (
-        <span className="block aspect-video w-full animate-pulse bg-muted" />
-      )}
-      {view.pending ? <Uploading /> : null}
-    </div>
+    <ChatVideoPlayer
+      src={hosted ? null : view.url}
+      playbackId={hosted ? a.playbackId : null}
+      poster={view.posterUrl}
+      processing={hosted && a.status === "pending"}
+      failed={a?.status === "failed"}
+      uploading={!a && view.pending}
+      label={view.name ?? "Video"}
+    />
   );
 }
 
@@ -283,6 +290,34 @@ function LinkAttachment({ view, tone }: { view: AttachmentView; tone: "default" 
   );
 }
 
+/** The app's kind for this name: its own key only (never `constructor` from the prototype), with a `title` function. */
+export function attachmentKindOf(kinds: Record<string, ChatAttachmentKind> | undefined, kind: string): ChatAttachmentKind | null {
+  if (!kinds || !Object.prototype.hasOwnProperty.call(kinds, kind)) return null;
+  const k = kinds[kind];
+  return k && typeof k.title === "function" ? k : null;
+}
+
+/**
+ * What the app's kind says to draw for this attachment, or null when its functions throw or
+ * return the wrong shapes (the attachment's `ref` is whatever the sender put there).
+ */
+export function attachmentCardOf(k: ChatAttachmentKind, a: ChatAttachment): Pick<ChatAttachmentCardProps, "title" | "subtitle" | "action"> | null {
+  try {
+    const title = k.title(a);
+    if (typeof title !== "string") return null;
+    const sub = typeof k.subtitle === "function" ? k.subtitle(a) : null;
+    const act = typeof k.action === "function" ? k.action(a) : null;
+    const action =
+      act && typeof act === "object" && typeof act.label === "string" && (typeof act.href === "string" || typeof act.onPress === "function")
+        ? { label: act.label, href: typeof act.href === "string" ? act.href : undefined, onPress: typeof act.onPress === "function" ? act.onPress : undefined }
+        : null;
+    return { title, subtitle: typeof sub === "string" ? sub : null, action };
+  } catch (e) {
+    console.error(`genesis-chat: the "${a.kind}" card couldn't be drawn`, e);
+    return null;
+  }
+}
+
 export interface MessageAttachmentsProps {
   views: AttachmentView[];
   message?: ChatMessage;
@@ -290,10 +325,12 @@ export interface MessageAttachmentsProps {
   tone: "default" | "primary";
   /** For kinds the package doesn't draw; a generic card by default. */
   slot?: ComponentType<ChatAttachmentSlotProps> | null;
+  /** Cards for registered app kinds (ChatProvider `attachmentKinds`), drawn before the slot. */
+  kinds?: Record<string, ChatAttachmentKind>;
 }
 
 /** Every attachment of one message, photos grouped into one grid. */
-export function MessageAttachments({ views, message, mine, tone, slot }: MessageAttachmentsProps) {
+export function MessageAttachments({ views, message, mine, tone, slot, kinds }: MessageAttachmentsProps) {
   if (views.length === 0) return null;
   const images = views.filter((v) => v.kind === "image");
   const others = views.filter((v) => v.kind !== "image");
@@ -323,7 +360,18 @@ export function MessageAttachments({ views, message, mine, tone, slot }: Message
             return <LinkAttachment key={v.key} view={v} tone={tone} />;
           default:
             if (!v.attachment || !message) return <FileChip key={v.key} view={v} tone={tone} />;
-            return Custom ? <Custom key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} /> : null;
+            const generic = <GenericAttachment attachment={v.attachment} message={message} url={v.url} mine={mine} />;
+            const k = attachmentKindOf(kinds, v.kind);
+            if (k) {
+              const card = attachmentCardOf(k, v.attachment);
+              return card ? <ChatAttachmentCard key={v.key} {...card} tone={tone} /> : <GenericAttachment key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} />;
+            }
+            // The app's slot draws sender-controlled data: if it throws, the generic card stands in.
+            return Custom ? (
+              <ChatErrorBoundary key={v.key} fallback={generic}>
+                <Custom attachment={v.attachment} message={message} url={v.url} mine={mine} />
+              </ChatErrorBoundary>
+            ) : null;
         }
       })}
     </div>

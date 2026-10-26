@@ -1609,6 +1609,164 @@
       "flags": []
     },
     {
+      "id": "agent-rules",
+      "name": "Agent rules of engagement",
+      "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed.",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "tool",
+      "keywords": [
+        "agents",
+        "rules of engagement",
+        "process",
+        "claims",
+        "review",
+        "staging batch",
+        "team"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/agents"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-roadmap",
+      "name": "Product board",
+      "summary": "A Now / Next / Later board from features.ts (horizon and claimedBy), the top ideas ranked by demand, and the triage inbox, as markdown or the repo's \"Product board\" issue.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "tool",
+      "keywords": [
+        "roadmap",
+        "now next later",
+        "product board",
+        "prioritise",
+        "backlog",
+        "productboard"
+      ],
+      "requires": [
+        "feature-registry"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A planned or building feature appears under its horizon, a building one with no horizon under now, and ideas are ranked by demand.",
+        "An open idea or feedback issue with no feature id appears in the triage inbox."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/board.ts",
+          "packages/product/src/cli.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-insights",
+      "name": "Ideas and feedback as evidence",
+      "summary": "Ideas, feedback and bugs as signals linked to a FeatureId, with an importance from 1 to 3 and votes, behind a SignalSource contract; GitHub issues (issue forms, feature:<id> labels, 👍 as votes) are the first source.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "service",
+      "keywords": [
+        "insights",
+        "feedback",
+        "ideas",
+        "votes",
+        "demand",
+        "triage",
+        "issue forms"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "An issue made from the idea or feedback form becomes a signal; only a triager's feature:<id> label links it to a feature (the form's Feature field is a suggestion), and its votes are the people who gave it a 👍, not counting its author or bots.",
+        "Demand is each open signal's importance (1 when unset) plus its votes; closed signals don't count."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/index.ts",
+          "packages/product/src/model.ts",
+          "packages/product/src/node.ts",
+          ".github/ISSUE_TEMPLATE"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-releases",
+      "name": "Release notes that close the loop",
+      "summary": "Drafts release notes from the features that reached beta or live between two refs of features.json, thanks the idea issues they answer, and with --notify --yes closes those issues with a comment.",
+      "category": "Product",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "compass",
+      "layer": "tool",
+      "keywords": [
+        "release notes",
+        "changelog",
+        "what's new",
+        "close the loop",
+        "shipped"
+      ],
+      "requires": [
+        "product-insights"
+      ],
+      "owner": "compass",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Features that reached live or beta since the given ref are listed with their tagline, internal ones left out, each with the open asks it answers."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/product/src/release.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-introspect",
       "name": "genesis introspect",
       "summary": "Writes a checked-in contract of every table from the Postgres catalog or a PostgREST OpenAPI document; --check catches drift in CI.",
@@ -2728,11 +2886,66 @@
       "flags": []
     },
     {
+      "id": "support-chat",
+      "name": "Support threads on chat",
+      "summary": "A support report's conversation runs on genesis-chat (block support-chat, migration 0001_genesis_support_chat.sql in genesis-support): one conversation of kind support per report, the reporter its member, staff observers who reply and write internal notes, an assignee, live updates, photos, files and voice notes; the report stays the record and its status, reply times and read state are kept in step; existing replies are copied without push, and support_replies is mirrored both ways for one release.",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "block",
+      "keywords": [
+        "support inbox",
+        "help desk",
+        "ticket chat",
+        "internal notes",
+        "assignee",
+        "live support",
+        "support replies"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support/web-chat",
+        "native": "@marktiderman/genesis-support/native"
+      },
+      "extends": "support-feedback",
+      "requires": [
+        "support-feedback",
+        "chat"
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/support/migrations/0001_genesis_support_chat.sql",
+          "packages/support/src/chat.ts",
+          "packages/support/src/web-chat"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "chat",
       "name": "Chat",
       "summary": "@marktiderman/genesis-chat, in the app's own Supabase (the genesis_chat schema): conversations of kinds the app registers (direct, group, its own such as a cohort or a support ticket) with start and observer checks the app writes, members with roles and read state (last_read_seq), messages numbered per conversation with an idempotent client id, replies, one level of threads, topics, mentions, reactions, edits, tombstoned deletes and internal notes for observers; photos, files, voice notes with waveforms and videos in a private bucket; live hints on private Realtime topics with typing and recording signals; pins, saved messages and reports; an outbox (push, transcripts, storage cleanup) worked by a server runner. A headless core, React hooks, and web and native renderers on Genesis UI.",
       "category": "Social",
       "status": "building",
+      "horizon": "now",
       "claimedBy": "mark",
       "layer": "block",
       "keywords": [
@@ -2919,12 +3132,15 @@
         "On Android every category's channel exists, with private lock-screen visibility, before the permission prompt and the token request.",
         "A tapped notification's data.url goes through normalizeLink once (an unknown path opens /, another app's URL never opens); signed out, it is held and followed after sign-in.",
         "NotificationSettings saves a change at once and puts it back, saying so, when the save fails; replacing a part with a slot keeps its section, and null drops it.",
+        "With the rich push plugin, iOS shows a push's https image and a messages push as a Communication Notification with the sender's photo, and a failed download never drops the notification.",
         "Not yet delivered through Apple's or Google's push services: real delivery needs an EAS project with APNs and FCM credentials."
       ],
-      "reviewedAt": "2026-10-24",
+      "reviewedAt": "2026-10-25",
       "links": {
         "code": [
           "packages/native/src/push",
+          "packages/native/src/plugin",
+          "packages/native/ios/notification-service",
           "apps/genesis-rn-starter/src/lib/push.ts"
         ],
         "docs": [
@@ -2937,11 +3153,9 @@
     {
       "id": "push-sender",
       "name": "Push sender, devices and preferences",
-      "summary": "Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
+      "summary": "Superseded by notifications (genesis-notifications adopts these tables and replaces the sender). Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
       "category": "Engagement",
-      "status": "building",
-      "claimedBy": "mark",
-      "horizon": "now",
+      "status": "deprecated",
       "layer": "service",
       "keywords": [
         "push sender",
@@ -2956,7 +3170,7 @@
         "rls"
       ],
       "platforms": {
-        "server": "building"
+        "server": "deprecated"
       },
       "entry": {
         "server": "@marktiderman/genesis-supabase"
@@ -2987,6 +3201,151 @@
         ],
         "docs": [
           "packages/supabase/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "notifications",
+      "name": "Notifications",
+      "summary": "@marktiderman/genesis-notifications: one notifier for every domain. A domain says who and what (notify() over the security-definer genesis_notify, with an idempotency key per recipient, thread and collapse keys, a badge and a tenant); the notifier decides channel and timing: the in-app feed (which is also the outbox), Expo push and email, preferences by category and channel with tenant defaults and critical types always on, quiet hours across daylight saving, delay-then-skip-if-read for email, dedupe, retries on one shared runner (claim with SKIP LOCKED, jittered backoff, deferrals), receipts and dead-token pruning, erasure of people with or without a login, and a short delivery log. defineNotifications registers the types, the device action categories (Reply, Mark as read) and the Android channels. Hooks for React and React Native, a web bell, feed, preferences matrix and admin views (delivery log, suppression list, send a test) on genesis-ui, a native feed on genesis-ui-native's NotificationsPage. Push ownership moves here from migration 0005, which it adopts in place.",
+      "category": "Engagement",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "block",
+      "keywords": [
+        "notifications",
+        "notify",
+        "in-app feed",
+        "inbox",
+        "bell",
+        "unread count",
+        "push",
+        "email",
+        "preferences",
+        "quiet hours",
+        "outbox",
+        "idempotency",
+        "delivery log",
+        "realtime",
+        "erasure",
+        "collapse",
+        "badge"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-notifications/web",
+        "native": "@marktiderman/genesis-notifications/native",
+        "server": "@marktiderman/genesis-notifications/server"
+      },
+      "requires": [
+        "push",
+        "native-layouts",
+        "page-layouts",
+        "supabase-kit"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user",
+        "admin"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A notification is unique per recipient and idempotency key: the same key again creates nothing and queues nothing.",
+        "A person reads only their own feed rows; the delivery log shows admins status and a masked address, never content, a rendered email or a secret.",
+        "Preferences resolve as the person's choice for the category and channel, then the tenant's default, then the type's; a critical type ignores both; a choice made after queueing is honoured at send time.",
+        "A push in the person's quiet hours waits until they end (no attempt used), across daylight-saving changes; a transactional one goes through.",
+        "A secret never appears in notifications.data or a push: genesis_notify refuses secret-looking keys and links, and a one-time token travels encrypted on the email job and is cleared once it settles.",
+        "Erasing a person (by login, address or the domain's ref) deletes their notifications, send jobs, devices, receipts and preferences.",
+        "A push token moves to another login only when registered with the same install id, and every move is recorded; forget works signed out and reveals nothing.",
+        "cancelNotification cancels the pending jobs of an idempotency key (for some recipients, archiving the feed rows if asked); a cancelled job is never claimed and a sent one is left alone.",
+        "Not yet run against Expo or Resend with real credentials."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/notifications"
+        ],
+        "docs": [
+          "docs/NOTIFICATIONS.md",
+          "packages/notifications/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "notifications-email",
+      "name": "Notification email",
+      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own domain once verified: an ownership TXT record with the tenant's own token, SPF, DKIM and DMARC, one tenant per domain, never the app's shared domain), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (a 409 invalid_idempotent_request fails loudly), requests paced under Resend's rate limit, RFC 8058 one-click unsubscribe for the sending tenant on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
+      "category": "Engagement",
+      "status": "building",
+      "claimedBy": "mark",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "email",
+        "resend",
+        "react email",
+        "unsubscribe",
+        "list-unsubscribe",
+        "rfc 8058",
+        "bounce",
+        "complaint",
+        "suppression",
+        "spf",
+        "dkim",
+        "dmarc",
+        "sender domain",
+        "secret link",
+        "idempotency"
+      ],
+      "platforms": {
+        "server": "building"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-notifications/server"
+      },
+      "extends": "notifications",
+      "requires": [
+        "notifications"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A retry sends the stored first render with the same idempotency key; a stored render whose hash changed is never sent.",
+        "Mail that isn't transactional carries List-Unsubscribe and List-Unsubscribe-Post; the endpoint never unsubscribes on GET, and a forged token changes nothing.",
+        "Only a bounce Resend calls Permanent suppresses the address for all mail; a complaint for all but transactional mail.",
+        "A sender domain verifies only with the tenant's own ownership token, for one tenant at most, and never the app's shared domain.",
+        "Not yet sent through Resend with a real key."
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/notifications/src/server",
+          "packages/notifications/src/email"
+        ],
+        "docs": [
+          "docs/NOTIFICATIONS.md"
         ]
       },
       "access": "all",

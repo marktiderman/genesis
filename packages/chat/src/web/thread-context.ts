@@ -4,8 +4,10 @@
  * your role, signed file URLs, and the actions, so a row needs only its item.
  */
 import { createContext, useContext, type ComponentType } from "react";
-import type { ChatMessage, ChatRole } from "../core/types";
+import type { ChatLinkPreview, ChatMessage, ChatRole } from "../core/types";
+import type { ChatAttachmentKind } from "../react/index";
 import type { ChatAttachmentSlotProps } from "./attachments";
+import type { LinkPreviewImages } from "./cards";
 import type { ResolveUser } from "./format";
 
 export interface ThreadContextValue {
@@ -23,6 +25,15 @@ export interface ThreadContextValue {
   byId: Map<string, ChatMessage>;
   quickReactions: readonly string[];
   attachmentSlot?: ComponentType<ChatAttachmentSlotProps> | null;
+  /** Cards for the app's registered attachment kinds. */
+  attachmentKinds?: Record<string, ChatAttachmentKind>;
+  /** Link previews by message id, in link order. */
+  previews: Record<string, ChatLinkPreview[]>;
+  /** Where the full emoji picker loads its data from; no full picker without it. */
+  emojibaseUrl?: string;
+  /** Link preview images: off by default (see LinkPreviewImages). */
+  linkPreviewImages?: LinkPreviewImages;
+  linkPreviewProxyUrl?: (url: string) => string | null | undefined;
   highlightedId: string | null;
   editingId: string | null;
   reply(m: ChatMessage): void;

@@ -22,6 +22,7 @@ export interface ExpoPushMessage {
   collapseId?: string;
   channelId: string;
   categoryId: string;
+  mutableContent?: boolean;
 }
 
 export type ExpoPushTicket = { status: "ok"; id: string } | { status: "error"; message?: string; details?: { error?: string } };
@@ -65,9 +66,10 @@ export function createExpoDeliver(options: ExpoDeliverOptions): (n: ChatNotifica
         sound: options.sound === undefined ? "default" : options.sound,
         badge: badges.get(d.userId) ?? 0,
         threadId: notification.threadKey,
-        ...(options.collapse ? { collapseId: notification.collapseKey } : {}),
+        ...(notification.mutableContent ? { mutableContent: true } : {}),
+        ...(options.collapse ? { collapseId: notification.collapseKey ?? `chat:${notification.conversationId}` } : {}),
         channelId: options.channelId ?? "messages",
-        categoryId: options.categoryId ?? "messages",
+        categoryId: options.categoryId ?? notification.categoryId ?? "messages",
       }),
     );
     const tickets: ExpoDeliveryTicket[] = [];

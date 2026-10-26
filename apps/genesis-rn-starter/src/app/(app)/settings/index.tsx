@@ -4,7 +4,7 @@ import { Alert } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { useBlockSettings, useSession } from "@marktiderman/genesis-native";
 import { useBlockReload } from "@marktiderman/genesis-native/updates";
-import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAction } from "@marktiderman/genesis-ui-native";
+import { SettingsPage, getSettingsPageStackOptions, type SettingsPageDangerousAction, type SettingsPageRow } from "@marktiderman/genesis-ui-native";
 import starter from "../../../../starter.config";
 import { copy } from "@/copy";
 import { deleteAccount } from "@/lib/account";
@@ -23,10 +23,15 @@ export default function SettingsScreen() {
   // An update never reloads the app while the deletion request runs.
   useBlockReload(busy);
   const version = useAppVersion();
-  const blockSettings = useBlockSettings(
+  const blockSettings = useBlockSettings<SettingsPageRow>(
     [
       { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
-      { id: "general", rows: [] },
+      {
+        id: "general",
+        rows: starter.features.chat
+          ? [{ id: "availability", title: t.availability, subtitle: t.availabilitySubtitle, showChevron: true, onPress: () => router.push("/settings/availability" as Href), testID: "open-availability" }]
+          : [],
+      },
       // The support block's Send feedback and Help rows (`features.support`).
       { id: "support", title: copy.support.settings.section, rows: [] },
       {

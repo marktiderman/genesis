@@ -29,6 +29,9 @@ export type {
 export { NativeSheet, NativeSheetProvider, NativeSheetScrollView } from "./sheet";
 export type { NativeSheetLibrary, NativeSheetProps, NativeSheetProviderProps } from "./sheet";
 
+export { NativeFullScreenModal, FULL_SCREEN_DARK } from "./full-screen-modal";
+export type { NativeFullScreenModalProps } from "./full-screen-modal";
+
 export {
   NativePopover,
   NativePopoverTrigger,

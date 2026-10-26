@@ -12,6 +12,7 @@ const en = {
   tabs: {
     home: "Home",
     notifications: "Notifications",
+    messages: "Messages",
     settings: "Settings",
   },
   signIn: {
@@ -77,6 +78,8 @@ const en = {
     deletedTitle: "Account deleted",
     deletedBody: "Your account and its data have been deleted.",
     notifications: "Notifications",
+    availability: "Availability",
+    availabilitySubtitle: "Away message and working hours",
   },
   push: {
     settingsTitle: "Notifications",
@@ -104,6 +107,20 @@ const en = {
     feedback: { title: "Send feedback" },
     ideas: { title: "Idea board" },
     shipped: { title: "You asked, we shipped" },
+  },
+  // Chat's own strings (genesis-chat's `chatNativeCopy`); the ones here override its English.
+  chat: {
+    inboxTitle: "Messages",
+  },
+  messages: {
+    threadTitle: "Conversation",
+    searchTitle: "Search",
+    search: "Search messages",
+    searchThread: "Search this conversation",
+    broadcast: "Broadcast a message",
+    // A check-in sent in a conversation (an attachment of kind `check_in`), drawn as a card.
+    checkInCard: "Check-in",
+    checkInAnswer: "Answer",
   },
 } as const;
 

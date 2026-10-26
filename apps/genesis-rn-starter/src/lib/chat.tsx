@@ -1,0 +1,296 @@
+/**
+ * Chat (`features.chat`): the chat client on the app's Supabase, the native
+ * modules the chat screens use, resumable uploads, unsent messages kept on
+ * the phone, and the push glue (the `messages` category's Reply and Mark read).
+ * `src/app/(app)/_layout.tsx` mounts `ChatRoot` over the signed-in tabs (the
+ * Messages tab and Settings → Availability share it); `push.ts` adds the
+ * category and the reply handler.
+ *
+ * Names and avatars: genesis-chat stores user ids only. The starter reads them
+ * with `loadChatPeople`, through `public.chat_people` (migration
+ * `20261026000000_chat_people.sql`): the `name` and `avatar_url` a login's
+ * auth metadata carries, for people who share a conversation with you. An app
+ * with its own profiles passes its own `loadPeople` to `ChatRoot` instead.
+ *
+ * Unsent messages are retried when the app comes back to the front and when
+ * the connection comes back (`ChatAutoRetry`, with NetInfo), and forgotten on
+ * sign-out with the person's drafts.
+ */
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import * as Audio from "expo-audio";
+import * as Camera from "expo-camera";
+import * as Clipboard from "expo-clipboard";
+import * as ExpoCrypto from "expo-crypto";
+import { Directory, File, FileMode, Paths } from "expo-file-system";
+import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import * as Sharing from "expo-sharing";
+import * as Notifications from "expo-notifications";
+import * as Video from "expo-video";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect, type ReactNode } from "react";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { createChatClient, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "@marktiderman/genesis-chat";
+import { ChatProvider, useChat, type ChatProviderProps } from "@marktiderman/genesis-chat/react";
+import {
+  ChatAutoRetry,
+  ChatNativeProvider,
+  clearDrafts,
+  forgetRecentEmoji,
+  createTusUpload,
+  handleChatPushResponse,
+  videoUploads,
+  registerChatNotificationActions,
+  type ChatNativeModules,
+} from "@marktiderman/genesis-chat/native";
+import { useSession } from "@marktiderman/genesis-native";
+import starter from "../../starter.config";
+import { copy } from "@/copy";
+import { createChatOutboxes, outboxKey } from "./chat-outboxes";
+import { chatVideoUpload } from "./chat-video";
+import { env } from "./env";
+import { supabase } from "./supabase";
+
+export const chatClient = createChatClient(supabase);
+
+// Genesis describes each module by what it calls, so the packages' own (wider) types are cast once here.
+// Photos copied from their signed links to share them, in one folder cleared on sign-out.
+const SHARED_DIR = "genesis-chat-shared";
+// Pasted pictures kept for an unsent message (`persistFile`), named with this prefix.
+const PERSISTED_PREFIX = "genesis-chat-";
+
+const outboxes = createChatOutboxes(AsyncStorage);
+
+const modules: ChatNativeModules = {
+  audio: Audio as unknown as ChatNativeModules["audio"],
+  // The library only (add `launchCameraAsync` for "Take a photo"; the camera sentence is already in
+  // app.config.ts for video messages).
+  imagePicker: { launchImageLibraryAsync: ImagePicker.launchImageLibraryAsync } as unknown as ChatNativeModules["imagePicker"],
+  haptics: Haptics as unknown as ChatNativeModules["haptics"],
+  clipboard: Clipboard as unknown as ChatNativeModules["clipboard"],
+  keyboardAvoidingView: starter.features.keyboardScroll ? (KeyboardAvoidingView as unknown as ChatNativeModules["keyboardAvoidingView"]) : undefined,
+  drafts: AsyncStorage as unknown as ChatNativeModules["drafts"],
+  // Share in the photo viewer, from a copy in the cache. (Save to Photos needs expo-media-library
+  // and a photo-library-add permission sentence in app.config.ts: pass it as `mediaLibrary`.)
+  sharing: Sharing as unknown as ChatNativeModules["sharing"],
+  downloadFile: async (url) => {
+    const dir = new Directory(Paths.cache, SHARED_DIR);
+    dir.create({ idempotent: true });
+    return (await File.downloadFileAsync(url, dir, { idempotent: true })).uri;
+  },
+  netInfo: NetInfo as unknown as ChatNativeModules["netInfo"],
+  // Video messages: record in the thread (camera and microphone sentences in app.config.ts), play
+  // HLS and files in the bubble; link previews open in an in-app browser.
+  camera: Camera as unknown as ChatNativeModules["camera"],
+  video: Video as unknown as ChatNativeModules["video"],
+  webBrowser: WebBrowser as unknown as ChatNativeModules["webBrowser"],
+  openFile: (uri: string) => openFile(uri),
+};
+
+// Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
+const videoUpload = chatVideoUpload();
+
+// The app's own attachment kinds, drawn as cards in the thread. A check-in sent in a conversation
+// opens the check-in screen (`onOpenAttachment` in messages/[id].tsx).
+const attachmentKinds: NonNullable<ChatProviderProps["attachmentKinds"]> = {
+  check_in: {
+    title: () => copy.messages.checkInCard,
+    subtitle: (a) => (typeof a.ref.title === "string" ? a.ref.title : null),
+    action: () => (starter.features.checkIn ? { label: copy.messages.checkInAnswer } : null),
+  },
+};
+
+/** Unsent messages wait here between launches (per signed-in person). */
+function outboxStore(userId: string): OutboxStore {
+  const key = outboxKey(userId);
+  return {
+    load: async () => {
+      try {
+        return JSON.parse((await AsyncStorage.getItem(key)) ?? "[]") as QueuedMessage[];
+      } catch {
+        return [];
+      }
+    },
+    save: async (queue) => {
+      await AsyncStorage.setItem(key, JSON.stringify(queue)).catch(() => undefined);
+    },
+  };
+}
+
+const accessToken = async () => (await supabase.auth.getSession()).data.session?.access_token;
+
+/** A picked file opened for reading a chunk at a time, so a long video is never read whole into memory. */
+function openFile(uri: string) {
+  const handle = new File(uri).open(FileMode.ReadOnly);
+  return {
+    size: handle.size ?? 0,
+    read: async (offset: number, length: number) => {
+      handle.offset = offset;
+      return handle.readBytes(length);
+    },
+    close: () => handle.close(),
+  };
+}
+
+/**
+ * A file held as bytes (a pasted picture) copied into the cache directory, so an unsent message
+ * keeps it across a relaunch. The outbox only calls this for bytes; picked files are already URIs.
+ */
+async function persistFile(file: LocalFile): Promise<string> {
+  const data = file.data;
+  const bytes = data instanceof ArrayBuffer ? data : typeof data === "object" && typeof data.arrayBuffer === "function" ? await data.arrayBuffer() : null;
+  if (!bytes) throw new Error(`[chat] can't keep ${file.name}: no bytes to write`);
+  const safe = file.name.replace(/[^\w.-]+/g, "_").slice(-80) || "file";
+  const out = new File(Paths.cache, `genesis-chat-${ExpoCrypto.randomUUID()}-${safe}`);
+  out.create({ overwrite: true });
+  await out.write(new Uint8Array(bytes));
+  return out.uri;
+}
+
+type LoadPeople = NonNullable<ChatProviderProps["loadPeople"]>;
+
+/**
+ * Names and avatars from `public.chat_people`: only people who share a conversation with you
+ * (and you), only their name and avatar. Someone with no name in their metadata stays unnamed.
+ */
+export const loadChatPeople: LoadPeople = async (userIds) => {
+  // The starter's client has no generated Database types, so rpc() types its arguments as none.
+  const { data, error } = await supabase.rpc("chat_people", { p_user_ids: userIds } as never);
+  if (error) throw error;
+  const out: Awaited<ReturnType<LoadPeople>> = {};
+  for (const row of (data ?? []) as { user_id: string; name: string | null; avatar_url: string | null }[]) {
+    if (row.name) out[row.user_id] = { name: row.name, avatarUrl: row.avatar_url };
+  }
+  return out;
+};
+
+/**
+ * The providers the chat screens read: the signed-in person's chat, with its uploads and drafts.
+ * Before the session is known its children render without it (the Messages stack waits for a
+ * person itself).
+ */
+export function ChatRoot({ children, loadPeople = loadChatPeople }: { children: ReactNode; loadPeople?: LoadPeople }) {
+  const { userId } = useSession();
+  if (!userId) return <>{children}</>;
+  return (
+    <ChatForUser userId={userId} loadPeople={loadPeople}>
+      {children}
+    </ChatForUser>
+  );
+}
+
+const stores = new Map<string, { store: OutboxStore; upload: ReturnType<typeof createTusUpload> }>();
+function forUser(userId: string) {
+  let s = stores.get(userId);
+  if (!s) {
+    s = {
+      store: outboxStore(userId),
+      upload: createTusUpload({ supabaseUrl: env.supabaseUrl, apikey: env.supabasePublishableKey, userId, getAccessToken: accessToken, openFile, newId: ExpoCrypto.randomUUID }),
+    };
+    stores.set(userId, s);
+  }
+  return s;
+}
+
+function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeople?: LoadPeople; children: ReactNode }) {
+  const { store, upload } = forUser(userId);
+  return (
+    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople} videoUpload={videoUpload} attachmentKinds={attachmentKinds}>
+      <ShareOutbox userId={userId} />
+      <ChatNativeProvider modules={modules} copy={copy.chat}>
+        <ChatAutoRetry />
+        {children}
+      </ChatNativeProvider>
+    </ChatProvider>
+  );
+}
+
+// The outbox the Messages screens are using, per person, so a reply from a notification queues
+// in it (and shows in the open thread) instead of writing the saved copy behind its back.
+const liveOutboxes = new Map<string, Outbox>();
+function ShareOutbox({ userId }: { userId: string }) {
+  const { outbox, clearOutbox } = useChat();
+  // Kept past the Messages screens' unmount: signing out unmounts them before the layout sees it.
+  useEffect(() => {
+    outboxes.register(userId, clearOutbox);
+  }, [userId, clearOutbox]);
+  useEffect(() => {
+    liveOutboxes.set(userId, outbox);
+    return () => {
+      if (liveOutboxes.get(userId) === outbox) liveOutboxes.delete(userId);
+    };
+  }, [userId, outbox]);
+  return null;
+}
+
+// Who was signed in last, kept outside React: the layout that sees the sign-out may be a new instance.
+let lastChatUser: string | null = null;
+
+/** Chat's copies of pictures in the cache: shared photos and pasted ones kept for unsent messages. */
+function clearChatFiles() {
+  for (const entry of new Directory(Paths.cache).list()) {
+    if (entry.name === SHARED_DIR || entry.name.startsWith(PERSISTED_PREFIX)) entry.delete();
+  }
+}
+
+/**
+ * Chat drafts, unsent messages, recent emoji and copied pictures never outlive the person who
+ * wrote them on this phone: signing out (Settings, account deletion) clears theirs, and signing in clears everyone else's, which covers a session
+ * that ended while the app was closed and a switch from one person to another. Mounted once, in
+ * the signed-in layout.
+ */
+export function useClearChatOnSignOut() {
+  const { status, userId } = useSession();
+  useEffect(() => {
+    if (!starter.features.chat) return;
+    const onError = (e: unknown) => console.warn("[chat] clearing drafts:", e);
+    if (status === "signedIn" && userId) {
+      if (lastChatUser !== userId) {
+        void clearDrafts(modules.drafts!, { except: userId }, onError);
+        void outboxes.clearOthers(userId).catch(onError);
+      }
+      lastChatUser = userId;
+      return;
+    }
+    if (status !== "signedOut" || !lastChatUser) return;
+    const who = lastChatUser;
+    lastChatUser = null;
+    void clearDrafts(modules.drafts!, who, onError);
+    // Videos still uploading were theirs: they stop, and nothing is sent after sign-out.
+    videoUploads.cancelAll();
+    void outboxes.clear(who).catch(onError);
+    forgetRecentEmoji(who);
+    try {
+      clearChatFiles();
+    } catch (e) {
+      onError(e);
+    }
+  }, [status, userId]);
+}
+
+/**
+ * For createPush's `onResponse`: Reply and Mark read from a message's notification. A reply goes
+ * through the outbox: the live one when Messages is open, else one that can't be sent now is kept
+ * in the saved outbox, failed, and shows in its thread with Retry.
+ */
+export function onChatPushResponse(response: Parameters<typeof handleChatPushResponse>[0]) {
+  if (!starter.features.chat) return;
+  const onError = (e: unknown) => console.warn("[chat] push reply:", e);
+  void (async () => {
+    const userId = (await supabase.auth.getSession()).data.session?.user.id ?? null;
+    await handleChatPushResponse(response, {
+      client: chatClient,
+      notifications: Notifications,
+      onError,
+      outbox: userId ? () => liveOutboxes.get(userId) : null,
+      store: userId ? forUser(userId).store : null,
+      userId,
+    });
+  })().catch(onError);
+}
+
+// The Reply and Mark read buttons on a message's notification, registered once at start.
+if (starter.features.chat && starter.features.push) {
+  void registerChatNotificationActions(Notifications, undefined, (error) => console.warn("[chat] notification actions:", error));
+}

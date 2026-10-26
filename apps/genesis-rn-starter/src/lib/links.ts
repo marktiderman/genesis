@@ -31,6 +31,8 @@ export const links: LinkOptions = {
     ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
     // The check-in example's link (`genesis-starter://check-in?gym=hilltop` fills in the gym; `genesis-starter-dev://` in a development build).
     ...(starter.features.checkIn ? { "/check-in": "/check-in" } : {}),
+    // A message's push opens its thread (`data.url` = `/messages/<conversation>`).
+    ...(starter.features.chat ? { "/messages": "/messages", "/messages/:id": "/messages/:id" } : {}),
     "/settings": "/settings",
     ...(starter.features.push ? { "/settings/notifications": "/settings/notifications" } : {}),
   },
