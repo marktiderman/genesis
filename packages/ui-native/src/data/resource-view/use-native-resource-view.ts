@@ -34,9 +34,7 @@ type Filter = Readonly<Record<string, string | number | boolean | null>>;
 export const SEARCH_DEBOUNCE_MS = 300;
 
 export interface NativeResourceViewOptions<T extends Row = Row> {
-  /** A column preset the view defines, for the rows' fallback subtitle. Default: the tab's, then `default`. */
-  columns?: string;
-  /** A tab the view defines: its columns and its server filter. */
+  /** A tab the view defines: its server filter. */
   preset?: string;
   /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". */
   filter?: Filter;
@@ -99,11 +97,10 @@ export function useNativeResourceView<T extends Row = Row>(
   view: AnyResourceView<T>,
   options: NativeResourceViewOptions<T> = {},
 ): UseNativeResourceViewReturn<T> {
-  const { columns: columnPreset, preset, filter, perPage, searchFields: searchOption, can, live } = options;
+  const { preset, filter, perPage, searchFields: searchOption, can, live } = options;
   const messages = useNativeResourceViewMessages();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) throw new Error(`NativeResourceView(${view.resource}): no preset "${preset}"`);
-  const columns = useMemo(() => view.columns(columnPreset ?? tab?.columns ?? "default"), [view, columnPreset, tab]);
 
   // ── Reads: cursor pages, server filters, server search ──────────────────
   const tabFilter = tab?.filter as Filter | undefined;
@@ -190,7 +187,7 @@ export function useNativeResourceView<T extends Row = Row>(
     [removeRow],
   );
 
-  const item = useCallback((row: T) => rowItem(view, row, columns, messages), [view, columns, messages]);
+  const item = useCallback((row: T) => rowItem(view, row), [view]);
   const actions = useCallback<UseNativeResourceViewReturn<T>["actions"]>(
     (row, handlers) => swipeActionsFor(view, row, { messages, softDelete, editable, screen: can, ...handlers }),
     [view, messages, softDelete, editable, can],

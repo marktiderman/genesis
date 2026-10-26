@@ -1,7 +1,8 @@
 // @feat:native-components
 /**
  * NativeResourceView: a genesis-core view on native list pieces.
- * - summary and columns → NativeListItem, with the labelField-plus-two-columns fallback;
+ * - summary → NativeListItem (its subtitle only, never a raw column);
+ * - the peek draws view.columns() like the cells: `when`-false and sensitive values never show;
  * - groupBy → sections;
  * - guards → swipe actions, each refusal with its reason; delete wording follows the bin;
  * - form(mode) + writable(mode) → the form sheet; read-only columns are never inputs or sent;
@@ -72,6 +73,22 @@ const brands = defineResource<Brand>()({
     { name: "secret", type: "string", nullable: true },
     { name: "secret_visible", type: "boolean", hasDefault: true },
     { name: "updated_at", type: "datetime", hasDefault: true, readOnly: true },
+  ],
+});
+
+// The same rows with a sensitive note, a link and a JSON blob: derived forms and the peek leave them out.
+const notedBrands = defineResource<Brand & { notes: string | null; owner_id: string | null; meta: unknown }>()({
+  name: "brands",
+  key: "id",
+  labelField: "name",
+  fields: [
+    ...brands.fields.filter((f) => f.name !== "secret" && f.name !== "secret_visible" && f.name !== "updated_at"),
+    { name: "secret", type: "string", nullable: true },
+    { name: "secret_visible", type: "boolean", hasDefault: true, readOnly: true },
+    { name: "updated_at", type: "datetime", hasDefault: true, readOnly: true },
+    { name: "notes", type: "string", nullable: true, sensitive: true },
+    { name: "owner_id", type: "string", nullable: true, references: { resource: "people", field: "id" } },
+    { name: "meta", type: "json", nullable: true },
   ],
 });
 
@@ -166,19 +183,13 @@ function pressAlert(text: string) {
 
 describe("rows", () => {
   it("uses summary(row) for the title, subtitle and chips", () => {
-    const item = rowItem(summaryView, ROWS[0]!, summaryView.columns(), messages);
+    const item = rowItem(summaryView, ROWS[0]!);
     expect(item).toEqual({ id: "b1", title: "Northwind", subtitle: "Since 2026-01-02", chips: [{ label: "Live", tone: "success" }] });
   });
 
-  it("falls back to labelField plus the first two columns that have a value and aren't hidden", () => {
-    // Northwind: secret is hidden by `when`, so launched_on and status fill the subtitle.
-    const first = rowItem(plainView, ROWS[0]!, plainView.columns(), messages);
-    expect(first.title).toBe("Northwind");
-    expect(first.subtitle).toBe(`${formatDay("2026-01-02")} · Active`);
-    // Contoso: the secret shows, launched_on is empty, so secret and status.
-    expect(rowItem(plainView, ROWS[1]!, plainView.columns(), messages).subtitle).toBe("shown · Archived");
-    // The compact preset has only the title: no subtitle.
-    expect(rowItem(plainView, ROWS[0]!, plainView.columns("compact"), messages).subtitle).toBeUndefined();
+  it("shows no subtitle when the summary has none, never a raw column", () => {
+    const item = rowItem(plainView, ROWS[1]!);
+    expect(item).toEqual({ id: "b2", title: "Contoso", chips: [] });
   });
 
   it("draws rows as list items with the summary's chip", async () => {
@@ -268,6 +279,19 @@ describe("form sheet", () => {
     expect(formFieldsFor(plainView, "create").map((f) => f.key)).toEqual(["name", "status", "website", "launched_on"]);
   });
 
+  it("relies on form(): a derived form has no links, JSON, scope, sensitive or server-filled fields", () => {
+    const derived = defineView(notedBrands, { scope: ["practice_id"] });
+    expect(formFieldsFor(derived, "create").map((f) => f.key)).toEqual(["name", "status", "is_default", "website", "launched_on", "secret"]);
+    expect(formFieldsFor(derived, "edit").map((f) => f.key)).toEqual(["name", "status", "is_default", "website", "launched_on", "secret"]);
+  });
+
+  it("copies form() rather than changing it (core caches and freezes it)", () => {
+    const before = plainView.form("edit");
+    formFieldsFor(plainView, "edit").forEach((f) => (f.label = "changed"));
+    expect(plainView.form("edit")).toBe(before);
+    expect(before[0]!.label).toBe("Name");
+  });
+
   it("sends only writable keys: never read-only, key, scope or joined fields", () => {
     const fields = formFieldsFor(plainView, "edit");
     const values = { ...ROWS[1]!, joined_owner: "x", name: "Contoso 2", website: "" };
@@ -332,6 +356,24 @@ describe("urls and images", () => {
     expect(link.textContent).toBe("contoso.example");
     fireEvent.click(link);
     expect(Linking.openURL).toHaveBeenCalledWith("https://contoso.example");
+  });
+});
+
+describe("peek", () => {
+  it("shows view.columns() drawn like the cells: a when-false value and a sensitive field never appear", async () => {
+    const peekView = defineView(notedBrands, {
+      scope: ["practice_id"],
+      fields: { secret: { label: "Secret", when: (r) => r.secret_visible } },
+    });
+    const rows = [{ ...ROWS[0]!, secret: "hidden-value", notes: "private-note", owner_id: "o1", meta: { a: 1 } }];
+    const p = provider({ getList: vi.fn(async () => ({ data: rows, total: 1 })) as unknown as DataProvider["getList"] });
+    render(<NativeResourceView view={peekView} />, { wrapper: wrap(p) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b1"));
+    const peek = await screen.findByTestId("native-resource-view-peek");
+    expect(peek.textContent).toContain("Secret");
+    expect(peek.textContent).not.toContain("hidden-value");
+    expect(peek.textContent).not.toContain("private-note");
+    expect(peek.textContent).not.toContain("Notes");
   });
 });
 
