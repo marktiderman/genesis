@@ -90,9 +90,13 @@ export function NativeResourceFormSheet({
   // which would wipe what the person typed.
   const latest = useRef(defaults);
   latest.current = defaults;
+  // What the form started from, snapshotted at that reset: a later refetch moves `defaults` (someone
+  // else's change), but "changed" means changed by this person since the sheet opened.
+  const start = useRef(defaults);
   useEffect(() => {
     if (open && !loading) {
-      form.reset(latest.current);
+      start.current = latest.current;
+      form.reset(start.current);
       setRefusal(null);
     }
   }, [open, loading, recordKey, form]);
@@ -116,8 +120,8 @@ export function NativeResourceFormSheet({
       // Changed against what the sheet started from (as react-hook-form's dirty fields, without
       // depending on which parts of formState were read during render).
       const now = form.getValues();
-      const start = latest.current;
-      const dirty = new Set(fields.map((f) => f.key).filter((key) => !sameValue(now[key], start[key])));
+      const from = start.current;
+      const dirty = new Set(fields.map((f) => f.key).filter((key) => !sameValue(now[key], from[key])));
       const result = await onSave(now, dirty);
       if (result.ok) return;
       for (const [key, message] of Object.entries(result.fields)) form.setError(key, { type: "server", message });

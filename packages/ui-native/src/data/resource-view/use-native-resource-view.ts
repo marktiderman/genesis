@@ -45,8 +45,10 @@ export interface NativeResourceViewOptions<T extends Row = Row> {
   /** Rows per page. Default 25. */
   perPage?: number;
   /**
-   * Pages kept loaded when the provider pages by cursor: scrolling far drops pages from the front
-   * and scrolling back loads them again. Default 10.
+   * Pages kept loaded when the provider pages by cursor (and serves `prevCursor`): scrolling far
+   * drops pages from the front, and scrolling back to the top loads them again (`loadPrevious` on
+   * the list's `onStartReached`, with `maintainVisibleContentPosition` so the rows on screen stay
+   * put). Offset paging never drops pages. Default 10.
    */
   maxPages?: number;
   /** Fields the search box searches. Default: the view's `labelField`. */
@@ -75,6 +77,10 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
   loadMore: () => void;
   loadingMore: boolean;
   hasMore: boolean;
+  /** Pass to the list's `onStartReached`: loads back a page `maxPages` dropped from the front. */
+  loadPrevious: () => void;
+  loadingPrevious: boolean;
+  hasPrevious: boolean;
   /** What the search box shows (the server sees it 300 ms after the last keystroke). */
   search: string;
   setSearch: (text: string) => void;
@@ -126,6 +132,8 @@ export const DEFAULT_MAX_PAGES = 10;
 export function serverSort<T extends Row>(view: AnyResourceView<T>): { field: string; order: "asc" | "desc" } | undefined {
   const groupBy = view.definition.groupBy as string | undefined;
   const orderBy = view.definition.orderBy;
+  // TODO: within a group the view's orderBy is dropped (one sort only). Pass [groupBy, orderBy] once
+  // useInfiniteResource takes several sorts (the coming multi-sort, owned by core).
   if (groupBy) return { field: groupBy, order: orderBy?.field === groupBy ? (orderBy.direction ?? "asc") : "asc" };
   return orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc" } : undefined;
 }
@@ -142,7 +150,9 @@ export function useNativeResourceView<T extends Row = Row>(
   // ── Reads: cursor pages, server filters, server search ──────────────────
   const tabFilter = tab?.filter as Filter | undefined;
   const defaultFilters = useMemo(() => [...filterParams(tabFilter), ...filterParams(filter)], [tabFilter, filter]);
-  const createDefaults = useMemo(() => screenValues(tabFilter, filter), [tabFilter, filter]);
+  // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
+  const createKey = JSON.stringify(screenValues(tabFilter, filter));
+  const createDefaults = useMemo(() => JSON.parse(createKey) as Record<string, string | number | boolean>, [createKey]);
   const sort = useMemo(() => serverSort(view), [view]);
   const searchFields = useMemo(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
@@ -186,7 +196,13 @@ export function useNativeResourceView<T extends Row = Row>(
   const capabilities = useCapabilities(view.resource);
   const softDelete = capabilities.data?.softDelete === true;
 
-  const formFields = useCallback((mode: "create" | "edit") => formFieldsFor(view, mode), [view]);
+  // A create's form leaves out the fields the screen's filter fixes: the filter's value is what's
+  // saved, so an input for it would be overridden without a word (the web hides them too).
+  const formFields = useCallback(
+    (mode: "create" | "edit") =>
+      mode === "create" ? formFieldsFor(view, "create").filter((f) => !(f.key in createDefaults)) : formFieldsFor(view, "edit"),
+    [view, createDefaults],
+  );
   const editable = useMemo(() => formFieldsFor(view, "edit").some((f) => !f.readOnly), [view]);
   const canCreate = useMemo(
     () => (formFieldsFor(view, "create").length ? allowed(view, "create", undefined, can) : false),
@@ -197,7 +213,7 @@ export function useNativeResourceView<T extends Row = Row>(
   writers.current = pessimistic;
   const save = useCallback(
     async (mode: "create" | "edit", values: Readonly<Record<string, unknown>>, row?: T, dirty?: ReadonlySet<string>): Promise<SaveResult> => {
-      const fields = formFieldsFor(view, mode);
+      const fields = formFields(mode);
       const errors = validateValues(fields, values, messages);
       if (Object.keys(errors).length) return { ok: false, fields: errors };
       // A create is the person's writable values plus the screen's filter values, which win (the
@@ -223,7 +239,7 @@ export function useNativeResourceView<T extends Row = Row>(
         };
       }
     },
-    [view, messages, createDefaults],
+    [view, messages, createDefaults, formFields],
   );
 
   // useResource's writers change identity every render; a ref keeps `remove` (and so every row's
@@ -272,6 +288,9 @@ export function useNativeResourceView<T extends Row = Row>(
     loadMore: pages.fetchNextPage,
     loadingMore: pages.isFetchingNextPage,
     hasMore: pages.hasNextPage,
+    loadPrevious: pages.fetchPreviousPage,
+    loadingPrevious: query.isFetchingPreviousPage,
+    hasPrevious: pages.hasPreviousPage,
     search,
     setSearch,
     refusal,

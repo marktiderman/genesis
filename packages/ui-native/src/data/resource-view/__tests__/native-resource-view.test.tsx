@@ -180,8 +180,7 @@ function provider(overrides: Partial<DataProvider> = {}): DataProvider {
   };
 }
 
-function wrap(p: DataProvider) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+function wrap(p: DataProvider, queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })) {
   return ({ children }: { children: ReactNode }) => (
     <GenesisProvider provider={p} queryClient={queryClient}>
       {children}
@@ -704,5 +703,113 @@ describe("paging and search", () => {
       { field: "practice_id", operator: "eq", value: "p1" },
       { field: "status", operator: "is_null" },
     ]);
+  });
+});
+
+describe("review follow-ups", () => {
+  it("diffs a save against what the sheet opened with, so another writer's change isn't sent back", async () => {
+    let website = "https://contoso.example";
+    const p = provider({
+      getOne: vi.fn(async (_r, { id }) => ({ data: { ...ROWS.find((r) => r.id === id)!, website } })) as DataProvider["getOne"],
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(p, client) });
+    const row = await screen.findByTestId("native-resource-view-row-b2");
+    act(() => {
+      row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "edit" }));
+    });
+    const form = await screen.findByTestId("native-resource-view-form");
+    const name = (await within(form).findByTestId("native-resource-view-form-field-name")).querySelector("input")!;
+    fireEvent.change(name, { target: { value: "Contoso 2" } });
+    // Someone else changes the website; the record refetches while the sheet is open.
+    website = "https://changed.example";
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["brands"] });
+    });
+    await waitFor(() => expect((p.getOne as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(1));
+    fireEvent.click(within(form).getByTestId("native-resource-view-form-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalled());
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual({ id: "b2", data: { name: "Contoso 2" } });
+  });
+
+  // A provider that pages by cursor both ways: one row a page.
+  function cursorProvider() {
+    const pages: Record<string, { data: Brand[]; nextCursor: string | null; prevCursor: string | null }> = {
+      start: { data: [ROWS[0]!], nextCursor: "c2", prevCursor: null },
+      c1: { data: [ROWS[0]!], nextCursor: "c2", prevCursor: null },
+      c2: { data: [ROWS[1]!], nextCursor: "c3", prevCursor: "c1" },
+      c3: { data: [ROWS[2]!], nextCursor: null, prevCursor: "c2" },
+    };
+    const getList = vi.fn(async (_r: string, params: ListParams) => ({ ...pages[params.pagination?.cursor ?? "start"]!, total: 3 }));
+    return { getList, p: provider({ getList: getList as unknown as DataProvider["getList"] }) };
+  }
+
+  it("loads back a page maxPages dropped from the front", async () => {
+    const { getList, p } = cursorProvider();
+    const { result, rerender } = renderHook(() => useNativeResourceView(summaryView, { maxPages: 1, perPage: 1 }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.rows.map((r) => r.id)).toEqual(["b1"]));
+    // useInfiniteResource turns maxPages on once a render has seen the provider page by cursor.
+    rerender();
+    act(() => result.current.loadMore());
+    await waitFor(() => expect(result.current.rows.map((r) => r.id)).toEqual(["b2"]));
+    expect(result.current.hasPrevious).toBe(true);
+    act(() => result.current.loadPrevious());
+    await waitFor(() => expect(result.current.rows.map((r) => r.id)).toEqual(["b1"]));
+    expect(getList.mock.calls.at(-1)![1].pagination).toMatchObject({ cursor: "c1" });
+  });
+
+  it("wires the top of the list to the previous page and keeps the visible rows in place", async () => {
+    const { getList, p } = cursorProvider();
+    const { rerender } = render(<NativeResourceView view={summaryView} maxPages={1} perPage={1} />, { wrapper: wrap(p) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    // useInfiniteResource turns maxPages on once a render has seen the provider page by cursor.
+    rerender(<NativeResourceView view={summaryView} maxPages={1} perPage={1} />);
+    const list = screen.getByTestId("native-resource-view-list");
+    expect(JSON.parse(list.getAttribute("data-maintain-visible-content-position")!)).toEqual({ minIndexForVisible: 0 });
+    act(() => {
+      list.dispatchEvent(new CustomEvent("endreached"));
+    });
+    await screen.findByTestId("native-resource-view-row-b2");
+    await waitFor(() => expect(screen.queryByTestId("native-resource-view-row-b1")).toBeNull());
+    act(() => {
+      screen.getByTestId("native-resource-view-list").dispatchEvent(new CustomEvent("startreached"));
+    });
+    await screen.findByTestId("native-resource-view-row-b1");
+    expect(getList.mock.calls.at(-1)![1].pagination).toMatchObject({ cursor: "c1" });
+  });
+
+  it("leaves fields the screen's filter fixes out of the create form, and saves the filter's value", async () => {
+    const p = provider();
+    const { result } = renderHook(() => useNativeResourceView(plainView, { filter: { status: "archived" } }), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.rows).toHaveLength(3));
+    expect(result.current.formFields("create").map((f) => f.key)).toEqual(["name", "website", "launched_on"]);
+    // An edit still shows it: the filter only fills creates.
+    expect(result.current.formFields("edit").map((f) => f.key)).toContain("status");
+    await act(async () => {
+      expect(await result.current.save("create", { name: "Tailspin", status: "active" })).toEqual({ ok: true });
+    });
+    expect((p.create as ReturnType<typeof vi.fn>).mock.calls[0]![1].data).toMatchObject({ name: "Tailspin", status: "archived" });
+
+    render(<NativeResourceView view={plainView} filter={{ status: "archived" }} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-create"));
+    await screen.findByTestId("native-resource-view-form-field-name");
+    expect(screen.queryByTestId("native-resource-view-form-field-status")).toBeNull();
+  });
+
+  it("calls the latest onRowPress without redrawing the rows", async () => {
+    const summary = vi.fn((r: Brand) => ({ title: r.name }));
+    const counted = defineView(brands, { summary });
+    const first = vi.fn();
+    const second = vi.fn();
+    const Wrapper = wrap(provider());
+    const { rerender } = render(<NativeResourceView view={counted} onRowPress={first} />, { wrapper: Wrapper });
+    await screen.findByTestId("native-resource-view-row-b1");
+    const before = summary.mock.calls.length;
+    // A screen passing an inline handler gives a new function every render.
+    rerender(<NativeResourceView view={counted} onRowPress={second} />);
+    expect(summary.mock.calls.length).toBe(before);
+    fireEvent.click(screen.getByTestId("native-resource-view-row-b1"));
+    expect(second).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
+    expect(first).not.toHaveBeenCalled();
   });
 });
