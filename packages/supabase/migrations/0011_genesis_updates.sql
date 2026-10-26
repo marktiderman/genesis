@@ -116,7 +116,7 @@ begin
   else
     select x.tenant_id, x.person_id, x.team_id, x.organization_id into t, p, tm, o from public.metrics x where x.id = new.item_id;
   end if;
-  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+  if current_setting('role', true) = 'authenticated'
      and (t is null or (not private.genesis_owner_allows(t, p, tm, o, 'read')
                         and not private.genesis_updates_asked(new.item_kind, new.item_id))) then
     raise exception 'permission denied for %', tg_table_name using errcode = '42501';
@@ -126,7 +126,7 @@ begin
   end if;
   new.tenant_id := t; new.person_id := p; new.team_id := tm; new.organization_id := o;
 
-  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated' then
+  if current_setting('role', true) = 'authenticated' then
     if tg_op = 'INSERT' then
       new.created_at := now();
     else
@@ -168,7 +168,7 @@ begin
   -- Only an update from someone who may write the pursuit sets its health; an answer from
   -- someone who was only asked is a note.
   if new.item_kind = 'pursuit' and new.health is not null
-     and (coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') <> 'authenticated'
+     and (current_setting('role', true) is distinct from 'authenticated'
           or private.genesis_updates_person_can(new.author_id, new.tenant_id, new.person_id, new.team_id, new.organization_id, 'write')) then
     update public.pursuits p set health = new.health where p.id = new.item_id;
   end if;
@@ -262,26 +262,26 @@ alter table public.status_updates enable row level security;
 alter table public.update_requests enable row level security;
 
 create policy status_updates_read on public.status_updates for select to authenticated
-  using (author_id = auth.uid() or exists (select 1 from private.genesis_owner_readable() r
+  using (author_id = (select auth.uid()) or exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = status_updates.tenant_id
                    and r.owner_id = coalesce(status_updates.person_id, status_updates.team_id, status_updates.organization_id)));
 create policy status_updates_insert on public.status_updates for insert to authenticated
   with check (
-    author_id = auth.uid()
+    author_id = (select auth.uid())
     and (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write')
          or private.genesis_updates_asked(item_kind, item_id)));
 -- Updates are a record: nobody signed in edits or deletes them.
 
 create policy update_requests_read on public.update_requests for select to authenticated
-  using (asked_of = auth.uid()
+  using (asked_of = (select auth.uid())
          or exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = update_requests.tenant_id
                    and r.owner_id = coalesce(update_requests.person_id, update_requests.team_id, update_requests.organization_id)));
 create policy update_requests_insert on public.update_requests for insert to authenticated
-  with check (asked_by = auth.uid()
+  with check (asked_by = (select auth.uid())
               and private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'read'));
 create policy update_requests_cancel on public.update_requests for update to authenticated
-  using (asked_by = auth.uid()) with check (asked_by = auth.uid());
+  using (asked_by = (select auth.uid())) with check (asked_by = (select auth.uid()));
 
 revoke all on public.status_updates, public.update_requests from public, anon, authenticated;
 grant select, insert on public.status_updates to authenticated;
