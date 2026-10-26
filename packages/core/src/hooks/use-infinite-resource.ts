@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  keepPreviousData as keepPrevious,
   useInfiniteQuery,
   type InfiniteData,
   type UseInfiniteQueryResult,
@@ -42,6 +43,11 @@ export interface UseInfiniteResourceOptions {
   enabled?: boolean;
   /** Refetch the loaded pages when the provider reports a change. See `UseResourceOptions.live`. */
   live?: boolean | LiveOptions;
+  /**
+   * Keep the current rows on screen while a new search, sort or filter loads, instead of a
+   * loading state for each change. Default false.
+   */
+  keepPreviousData?: boolean;
 }
 
 /** Where one page starts: its offset page, and its cursor (`null` for the first). */
@@ -89,6 +95,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     searchFields,
     enabled = true,
     live,
+    keepPreviousData = false,
   } = options;
   const provider = useDataProvider();
 
@@ -151,6 +158,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
       return { page: lastParam.page + 1, cursor: null };
     },
     enabled,
+    ...(keepPreviousData ? { placeholderData: keepPrevious } : {}),
   });
 
   useLiveInvalidation(resource, live, enabled, { filters: params.filters }, [resource]);
