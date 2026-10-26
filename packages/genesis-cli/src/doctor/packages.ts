@@ -21,11 +21,11 @@
  * left alone rather than guessed at.
  */
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { builtinModules } from "node:module";
 import * as path from "node:path";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
-import { MIGRATION_FILE, rawBlocksOf } from "../blocks/manifest.js";
+import { MIGRATION_FILE, ManifestError, parseManifest, rawBlocksOf } from "../blocks/manifest.js";
 import { compareVersions, parseVersion } from "./semver.js";
 import { stripForImports } from "./trail.js";
 import type { DoctorContext } from "./types.js";
@@ -34,8 +34,8 @@ const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
 const SKIP_DIRS = new Set(["node_modules", "dist", "build", "coverage", ".turbo"]);
 const BUILTINS = new Set(builtinModules.flatMap((m) => [m, `node:${m}`]));
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)["']([^"']+)["']/g;
-/** `import type …` and `export type … from`: compile-time only, never a runtime dependency. */
-const TYPE_ONLY = /^\s*(?:import|export)\s+type\b/;
+/** `import type … from "x"` and `export type … from "x"`, across lines: compile-time only, never a runtime dependency. */
+const TYPE_ONLY = /\b(?:import|export)\s+type\b[^;"'`]*?\bfrom\s*["'][^"']+["']/g;
 
 /** Every source file in a package (not node_modules or build output), package-relative. */
 function sourceFiles(dir: string, rel = ""): string[] {
@@ -43,7 +43,9 @@ function sourceFiles(dir: string, rel = ""): string[] {
   for (const entry of readdirSync(path.join(dir, rel)).sort()) {
     if (entry.startsWith(".") || SKIP_DIRS.has(entry)) continue;
     const child = rel ? `${rel}/${entry}` : entry;
-    const stat = statSync(path.join(dir, child));
+    // Symlinks aren't followed (as scan.ts): no loops, nothing outside the package.
+    const stat = lstatSync(path.join(dir, child));
+    if (stat.isSymbolicLink()) continue;
     if (stat.isDirectory()) out.push(...sourceFiles(dir, child));
     else if (SOURCE.test(entry) && !entry.endsWith(".d.ts")) out.push(child);
   }
@@ -64,13 +66,53 @@ function git(root: string, args: string[]): string | null {
 interface PackageJson {
   name: string;
   version?: string;
+  exports?: unknown;
+  imports?: Record<string, unknown>;
   dependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   optionalDependencies?: Record<string, string>;
 }
 
+/** A pattern with one `*` (package.json `imports`, tsconfig `paths`) matched against a specifier: the `*` part, or null. */
+function matchPattern(pattern: string, spec: string): string | null {
+  const star = pattern.indexOf("*");
+  if (star < 0) return pattern === spec ? "" : null;
+  const head = pattern.slice(0, star);
+  const tail = pattern.slice(star + 1);
+  return spec.startsWith(head) && spec.endsWith(tail) && spec.length >= head.length + tail.length ? spec.slice(head.length, spec.length - tail.length) : null;
+}
+
+/** The package's own tsconfig `paths`, resolved to folders: alias pattern → absolute target patterns. */
+function tsconfigPaths(dir: string): Array<{ pattern: string; targets: string[] }> {
+  const file = path.join(dir, "tsconfig.json");
+  if (!existsSync(file)) return [];
+  try {
+    const text = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[\s{,[])\/\/[^\n]*/g, "$1").replace(/,(\s*[}\]])/g, "$1");
+    const options = (JSON.parse(text) as { compilerOptions?: { baseUrl?: string; paths?: Record<string, string[]> } }).compilerOptions ?? {};
+    const base = path.resolve(dir, options.baseUrl ?? ".");
+    return Object.entries(options.paths ?? {}).map(([pattern, targets]) => ({ pattern, targets: targets.map((t) => path.resolve(base, t)) }));
+  } catch {
+    return [];
+  }
+}
+
 function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson): void {
+  const aliases = tsconfigPaths(pkg.dir);
+  const subpathImports = Object.keys(json.imports ?? {});
+  /** Inside the package (true), outside it (false), or not an alias (null). */
+  const viaAlias = (spec: string): boolean | null => {
+    if (spec.startsWith("#")) return subpathImports.some((k) => matchPattern(k, spec) !== null) ? true : null;
+    for (const { pattern, targets } of aliases) {
+      const hit = matchPattern(pattern, spec);
+      if (hit === null) continue;
+      return targets.some((t) => {
+        const rel = path.relative(pkg.dir, t.replace("*", hit));
+        return !rel.startsWith("..") && !path.isAbsolute(rel);
+      });
+    }
+    return null;
+  };
   const declared = new Set([
     json.name,
     ...Object.keys(json.dependencies ?? {}),
@@ -84,11 +126,23 @@ function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
     const code = stripForImports(readFileSync(path.join(pkg.dir, file), "utf8"));
     if (code === null) continue;
     const at = `${pkg.rel}/${file}`;
+    const typeOnly = [...code.matchAll(TYPE_ONLY)].map((m) => [m.index!, m.index! + m[0].length] as const);
+    let offset = 0;
     code.split("\n").forEach((text, i) => {
-      if (TYPE_ONLY.test(text)) return;
+      const lineStart = offset;
+      offset += text.length + 1;
       for (const m of text.matchAll(IMPORT)) {
         const spec = m[1]!;
         const line = i + 1;
+        const at0 = lineStart + m.index!;
+        if (typeOnly.some(([a, b]) => at0 >= a && at0 < b)) continue;
+        const alias = viaAlias(spec);
+        if (alias === true) continue;
+        if (alias === false) {
+          ctx.report({ rule: "package-app-import", file: at, line, subject: spec, message: `${pkg.name} imports ${spec}, an alias that points outside the package` });
+          continue;
+        }
+        if (spec.startsWith("#")) continue;
         if (spec.startsWith("@/") || spec.startsWith("~/")) {
           ctx.report({ rule: "package-app-import", file: at, line, subject: spec, message: `${pkg.name} imports the app's own code (${spec}); a package may only use its own files and its declared dependencies` });
           continue;
@@ -112,9 +166,11 @@ function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
 }
 
 function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson): void {
+  const declaredFiles = new Set<string>();
   for (const [id, raw] of Object.entries(rawBlocksOf(json))) {
     const migrations = (raw as { migrations?: Array<{ file?: unknown; test?: unknown }> }).migrations ?? [];
     for (const m of migrations) {
+      if (typeof m.file === "string" && typeof m.test === "string") declaredFiles.add(m.file);
       if (typeof m.file === "string" && typeof m.test !== "string") {
         ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.file, message: `${pkg.name} block ${id}: ${m.file} has no pgTAP test; declare one as "test" beside it` });
       } else if (typeof m.test === "string" && !existsSync(path.join(pkg.dir, m.test))) {
@@ -131,7 +187,47 @@ function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJso
     const other = seen.get(m[1]!);
     if (other) ctx.report({ rule: "package-migration-number", file: `${pkg.rel}/migrations/${name}`, subject: m[1], message: `${pkg.name}: ${name} and ${other} share the number ${m[1]}; give each migration its own` });
     else seen.set(m[1]!, name);
+    // Every migration has a pgTAP test beside it, declared in a block or not.
+    if (!declaredFiles.has(`migrations/${name}`) && !existsSync(path.join(dir, "tests", name.replace(/\.sql$/, ".test.sql")))) {
+      ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/migrations/${name}`, subject: name, message: `${pkg.name}: ${name} has no pgTAP test (migrations/tests/${name.replace(/\.sql$/, ".test.sql")})` });
+    }
   }
+}
+
+/** Every export target that is a source path (not build output) exists. Build output (dist/, build/) is left alone: it may not be built yet. */
+function checkExports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson): void {
+  const targets: string[] = [];
+  const walk = (v: unknown) => {
+    if (typeof v === "string") targets.push(v);
+    else if (v && typeof v === "object") for (const x of Object.values(v)) walk(x);
+  };
+  walk(json.exports);
+  for (const t of targets) {
+    if (!t.startsWith("./") || t.includes("*") || /^\.\/(dist|build)\//.test(t)) continue;
+    if (!existsSync(path.join(pkg.dir, t))) {
+      ctx.report({ rule: "package-export-missing", file: `${pkg.rel}/package.json`, subject: t, message: `${pkg.name} exports ${t}, which doesn't exist` });
+    }
+  }
+}
+
+/** Its block declarations parse as a Genesis block manifest would. */
+function checkBlocks(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson): void {
+  for (const [id, raw] of Object.entries(rawBlocksOf(json))) {
+    try {
+      parseManifest(json.name, id, raw, json.version, { local: true });
+    } catch (err) {
+      if (!(err instanceof ManifestError)) throw err;
+      for (const problem of err.problems) ctx.report({ rule: "package-block-invalid", file: `${pkg.rel}/package.json`, subject: id, message: problem });
+    }
+  }
+}
+
+/** Its tests carry the feature they cover (`@feat:<id>`), so the registry's check can find them. */
+function checkTaggedTests(ctx: DoctorContext, pkg: LocalPackage): void {
+  const tests = sourceFiles(pkg.dir).filter((f) => /\.(test|spec)\.[cm]?[jt]sx?$/.test(f));
+  if (!tests.length) return;
+  const tagged = tests.some((f) => /@feat:[a-z]/.test(readFileSync(path.join(pkg.dir, f), "utf8")));
+  if (!tagged) ctx.report({ rule: "package-untagged-tests", level: "warn", file: pkg.rel, message: `${pkg.name}'s tests name no feature; tag them with // @feat:<feature id>` });
 }
 
 function checkRegistered(ctx: DoctorContext, pkg: LocalPackage): void {
@@ -184,7 +280,7 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
   for (const row of diff.split("\n").filter(Boolean)) {
     const [status, a] = row.split("\t");
     if (a && /\/migrations\/\d{4}_[a-z0-9_]+\.sql$/.test(a) && /^[MDRT]/.test(status!)) {
-      ctx.report({ rule: "package-migration-edited", file: a, message: `${a} existed on ${base} and was ${status!.startsWith("D") ? "deleted" : "changed"}; once a migration may have been applied, add a new one instead` });
+      ctx.report({ rule: "package-migration-edited", level: "warn", file: a, message: `${a} existed on ${base} and was ${status!.startsWith("D") ? "deleted" : "changed"}; once a migration may have been applied, add a new one instead` });
     }
   }
   if (!changed.length) return;
@@ -209,10 +305,27 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
         .filter((f) => f.endsWith(".md"))
         .map((f) => path.join(top, f))
     : [];
-  const named = changesets.some((p) => existsSync(p) && changesetNames(readFileSync(p, "utf8")).has(json.name));
+  const naming = changesets.filter((p) => existsSync(p) && changesetNames(readFileSync(p, "utf8")).has(json.name));
+  const named = naming.length > 0;
+  if (named && !naming.some((p) => /^Features:\s*\S/m.test(readFileSync(p, "utf8")))) {
+    ctx.report({ rule: "package-unversioned-change", level: "warn", file: path.relative(realpathSync(ctx.root), naming[0]!), message: `the changeset for ${pkg.name} has no "Features:" line; name the features it changes` });
+  }
+  // Blocks or exports changed: the registry (features.ts) should say so too.
+  let jsonBefore: { genesis?: unknown; exports?: unknown } | null = null;
+  try {
+    jsonBefore = before ? (JSON.parse(before) as { genesis?: unknown; exports?: unknown }) : null;
+  } catch {
+    jsonBefore = null;
+  }
+  const raw = json as unknown as { genesis?: unknown; exports?: unknown };
+  if (jsonBefore && (JSON.stringify(jsonBefore.genesis) !== JSON.stringify(raw.genesis) || JSON.stringify(jsonBefore.exports) !== JSON.stringify(raw.exports))) {
+    const registry = (git(ctx.root, ["diff", "--relative", "--name-only", mergeBase, "--", "features.ts", "src/features.ts"]) ?? "").trim();
+    if (!registry) ctx.report({ rule: "package-unversioned-change", level: "warn", file: `${pkg.rel}/package.json`, message: `${pkg.name}'s blocks or exports changed but features.ts didn't; update the features they belong to` });
+  }
   if (!bumped && !named) {
     ctx.report({
       rule: "package-unversioned-change",
+      level: "warn",
       file: `${pkg.rel}/package.json`,
       message: `${pkg.name} changed since ${base} (${changed.length} file${changed.length === 1 ? "" : "s"}) but neither its version nor a new changeset naming it did; add a changeset (or bump "version") saying what changed`,
     });
@@ -220,7 +333,13 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
 }
 
 export function checkPackagesPack(ctx: DoctorContext): void {
-  const packages = localPackages(ctx.root);
+  let packages: LocalPackage[];
+  try {
+    packages = localPackages(ctx.root);
+  } catch (err) {
+    ctx.report({ rule: "package-block-invalid", file: "genesis.config.json", message: (err as Error).message });
+    return;
+  }
   if (!packages.length) return;
   const base = ctx.base ?? ctx.config.packages?.base;
   const merge = base ? mergeBaseOf(ctx.root, base) : { reason: "no base ref (pass --base <ref>, e.g. --base origin/main)" };
@@ -232,7 +351,10 @@ export function checkPackagesPack(ctx: DoctorContext): void {
   for (const pkg of packages) {
     const json = JSON.parse(readFileSync(path.join(pkg.dir, "package.json"), "utf8")) as PackageJson;
     checkImports(ctx, pkg, json);
+    checkExports(ctx, pkg, json);
+    checkBlocks(ctx, pkg, json);
     checkMigrations(ctx, pkg, json);
+    checkTaggedTests(ctx, pkg);
     checkRegistered(ctx, pkg);
     if (base && "sha" in merge) checkChanges(ctx, pkg, json, base, merge.sha);
   }

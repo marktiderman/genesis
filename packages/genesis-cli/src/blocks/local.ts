@@ -5,6 +5,11 @@
  *
  *   { "localPackages": ["packages/*"] }
  *
+ * Entries are app-relative and may climb out of the app (`../../packages/*`) as long as
+ * they stay inside its repository, so a mobile app in `apps/mobile` can list the repo's
+ * packages. A folder without a usable package.json (none, unreadable, or no name) is
+ * skipped.
+ *
  * A local package declares blocks the same way a Genesis package does (a
  * `genesis.blocks` manifest in package.json and a `./blocks` export), and
  * `genesis add`, `genesis migrate` and `genesis doctor` read them beside the
@@ -40,7 +45,7 @@ export function validateLocalPackages(raw: unknown, source = "genesis.config.jso
     if (typeof entry !== "string" || !entry.trim()) throw new LocalPackagesError(`${where} must be a non-empty folder`);
     if (path.isAbsolute(entry) || /^[A-Za-z]:[\\/]/.test(entry)) throw new LocalPackagesError(`${where} must be relative to the app ("${entry}")`);
     const norm = path.posix.normalize(entry.replace(/\\/g, "/")).replace(/\/+$/, "");
-    if (norm === "." || norm === ".." || norm.startsWith("../")) throw new LocalPackagesError(`${where} must be a folder inside the app ("${entry}")`);
+    if (norm === "." || /^(\.\.\/)*\.\.$/.test(norm)) throw new LocalPackagesError(`${where} must name a package folder, not the app or a parent of it ("${entry}")`);
     const parts = norm.split("/");
     if (parts.some((p, k) => p.includes("*") && (p !== "*" || k !== parts.length - 1))) {
       throw new LocalPackagesError(`${where}: only a final "/*" is supported ("${entry}")`);
@@ -66,6 +71,16 @@ export function localPackageGlobs(root: string): string[] {
 
 const cache = new Map<string, LocalPackage[]>();
 
+/** The repository the app is in: the nearest folder up with `.git`, else the app itself. */
+function repositoryRoot(appRoot: string): string {
+  for (let dir = appRoot; ; ) {
+    if (existsSync(path.join(dir, ".git"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return appRoot;
+    dir = parent;
+  }
+}
+
 /**
  * The app's local packages, sorted by folder. A folder without a package.json,
  * or one that resolves outside the app (a symlink), is skipped. Two folders
@@ -90,7 +105,7 @@ export function localPackages(root: string): LocalPackage[] {
       dirs.add(path.join(appRoot, glob));
     }
   }
-  const real = realpathSync(appRoot);
+  const real = realpathSync(repositoryRoot(appRoot));
   const out: LocalPackage[] = [];
   const byName = new Map<string, string>();
   for (const dir of [...dirs].sort()) {
@@ -100,10 +115,11 @@ export function localPackages(root: string): LocalPackage[] {
     let pkg: { name?: unknown; version?: unknown };
     try {
       pkg = JSON.parse(readFileSync(manifest, "utf8")) as typeof pkg;
-    } catch (err) {
-      throw new LocalPackagesError(`${manifest} is not valid JSON: ${(err as Error).message}`);
+    } catch {
+      continue;
     }
-    if (typeof pkg.name !== "string" || !pkg.name) throw new LocalPackagesError(`${manifest}: a local package needs a name`);
+    // Not a package Genesis can name: left alone, never a reason to stop the run.
+    if (typeof pkg.name !== "string" || !pkg.name) continue;
     const rel = path.relative(appRoot, dir).split(path.sep).join("/");
     const other = byName.get(pkg.name);
     if (other) throw new LocalPackagesError(`${other} and ${rel} are both named ${pkg.name}`);

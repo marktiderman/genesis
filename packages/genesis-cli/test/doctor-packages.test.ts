@@ -1,6 +1,6 @@
 // @feat:local-packages
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { clearLocalPackagesCache } from "../src/blocks/local.js";
@@ -60,6 +60,7 @@ describe("packages pack", () => {
         "package-undeclared-dependency packages/os/src/index.ts dayjs",
         "package-undeclared-dependency packages/os/src/index.ts zod",
         "package-migration-test packages/os/package.json migrations/0001_acme_scorecard.sql",
+        "package-migration-test packages/os/migrations/0001_acme_other.sql 0001_acme_other.sql",
         "package-migration-number packages/os/migrations/0001_acme_scorecard.sql 0001",
         "package-unregistered packages/os",
       ].sort(),
@@ -84,7 +85,7 @@ describe("packages pack", () => {
     ]);
     // A changeset naming the package satisfies the gate.
     execFileSync("mkdir", ["-p", path.join(root, ".changeset")]);
-    writeFileSync(path.join(root, ".changeset/scorecard.md"), '---\n"@acme/os": patch\n---\n\nScorecard reads twice as fast.\n');
+    writeFileSync(path.join(root, ".changeset/scorecard.md"), '---\n"@acme/os": patch\n---\n\nScorecard reads twice as fast.\n\nFeatures: team-scorecard\n');
     clearLocalPackagesCache();
     result = await runDoctor({ root, config, base: "main" });
     expect(brief(result.findings)).toEqual(["package-migration-edited packages/os/migrations/0001_acme_scorecard.sql"]);
@@ -183,7 +184,7 @@ describe("change gate edge cases", () => {
     let result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual(["package-unversioned-change packages/os/package.json"]);
     execFileSync("mkdir", ["-p", path.join(repo, ".changeset")]);
-    writeFileSync(path.join(repo, ".changeset/os.md"), "---\n'@acme/os': patch\n---\n\nFaster reads.\n");
+    writeFileSync(path.join(repo, ".changeset/os.md"), "---\n'@acme/os': patch\n---\n\nFaster reads.\n\nFeatures: team-scorecard\n");
     result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual([]);
   });
@@ -201,5 +202,74 @@ describe("change gate edge cases", () => {
     clearLocalPackagesCache();
     const result = await runDoctor({ root, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual(["package-unversioned-change packages/os/package.json"]);
+  });
+});
+
+describe("Flare's review: false positives and spec", () => {
+  const run = (extra: Record<string, string>, config: DoctorConfig = PACKAGES) => runDoctor({ root: makeApp(null, { ...CLEAN, ...extra }), config });
+
+  it("a doctor run survives a nameless or broken package folder", async () => {
+    const result = await run({ "packages/nameless/package.json": "{}", "packages/broken/package.json": "{ nope" }, {});
+    expect(result.findings.filter((f) => f.rule === "plugin-error")).toEqual([]);
+  });
+
+  it("package.json #imports and the package's own tsconfig paths are internal", async () => {
+    const pkg = { ...PKG, imports: { "#internal/*": "./src/internal/*.ts" } };
+    const result = await run({
+      "packages/os/package.json": JSON.stringify(pkg),
+      "packages/os/tsconfig.json": '{ // comments are fine\n "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["./src/*"], "~app/*": ["../../src/*"] } } }',
+      "packages/os/src/index.ts": 'import { a } from "#internal/a";\nimport { b } from "@/read";\nimport { c } from "~app/c";\nexport { a, b, c };\n',
+    });
+    expect(brief(result.findings)).toEqual(["package-app-import packages/os/src/index.ts ~app/c"]);
+  });
+
+  it("a multi-line type-only import isn't a dependency", async () => {
+    const result = await run({ "packages/os/src/index.ts": 'import type {\n  A,\n  B,\n} from "zod";\nexport type { A, B };\n' });
+    expect(brief(result.findings)).toEqual([]);
+  });
+
+  it("doesn't follow symlinks, so a loop can't fail the run", async () => {
+    const root = makeApp(null, CLEAN);
+    mkdirSync(path.join(root, "packages/os/src/deep"), { recursive: true });
+    symlinkSync(path.join(root, "packages/os/src"), path.join(root, "packages/os/src/deep/loop"));
+    const result = await runDoctor({ root, config: PACKAGES });
+    expect(result.findings.filter((f) => f.rule === "plugin-error")).toEqual([]);
+  });
+
+  it("flags a missing export, an invalid block, untagged tests and an untested migration outside a block", async () => {
+    const pkg = { ...PKG, exports: { ".": "./src/index.ts", "./gone": "./src/gone.ts", "./built": "./dist/x.js" }, genesis: { blocks: { BadId: {} } } };
+    const result = await run({
+      "packages/os/package.json": JSON.stringify(pkg),
+      "packages/os/src/read.test.ts": 'import { read } from "./read";\nexport { read };\n',
+      "packages/os/migrations/0002_acme_extra.sql": "select 1;\n",
+    });
+    expect([...new Set(brief(result.findings))].sort()).toEqual(
+      [
+        "package-block-invalid packages/os/package.json BadId",
+        "package-export-missing packages/os/package.json ./src/gone.ts",
+        "package-migration-test packages/os/migrations/0002_acme_extra.sql 0002_acme_extra.sql",
+        "package-untagged-tests packages/os",
+      ].sort(),
+    );
+  });
+
+  it("the gate warns (fails only --strict), and wants a Features: line in the changeset", async () => {
+    const root = makeApp(null, CLEAN);
+    const g = (...args: string[]) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+    g("init", "-q", "-b", "main");
+    g("add", "-A");
+    g("commit", "-qm", "base");
+    g("checkout", "-qb", "work");
+    writeFileSync(path.join(root, "packages/os/src/read.ts"), "export const read = () => 5;\n");
+    let result = await runDoctor({ root, config: PACKAGES, base: "main" });
+    expect([result.ok, result.findings.find((f) => f.rule === "package-unversioned-change")?.level]).toEqual([true, "warn"]);
+    expect((await runDoctor({ root, config: PACKAGES, base: "main", strict: true })).ok).toBe(false);
+    mkdirSync(path.join(root, ".changeset"));
+    writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n');
+    result = await runDoctor({ root, config: PACKAGES, base: "main" });
+    expect(result.findings.filter((f) => f.rule === "package-unversioned-change").map((f) => f.message)).toEqual([expect.stringMatching(/no "Features:" line/)]);
+    writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n\nFeatures: team-scorecard\n');
+    result = await runDoctor({ root, config: PACKAGES, base: "main" });
+    expect(brief(result.findings)).toEqual([]);
   });
 });

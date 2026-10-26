@@ -520,13 +520,18 @@ as dependencies.
 
 | Rule | Level | What it flags |
 | --- | --- | --- |
-| `package-app-import` | error | A package importing the app's own code: `@/…`, `~/…`, or a relative path that leaves the package. |
-| `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies`. Node built-ins are fine. |
-| `package-migration-test` | error | A block migration with no `test`, or a `test` that doesn't exist. |
+| `package-app-import` | error | A package importing the app's own code: `@/…`, `~/…`, a relative path that leaves the package, or an alias (the package's own tsconfig `paths`) that points outside it. package.json `#imports` and aliases that stay inside the package are its own files. |
+| `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies` (`workspace:` ranges count). Node built-ins and type-only imports (multi-line too) are fine. |
+| `package-export-missing` | error | An `exports` target that doesn't exist. Build output (`./dist/…`, `./build/…`) and patterns are left alone. |
+| `package-block-invalid` | error | A `genesis.blocks` declaration that isn't a valid block manifest. |
+| `package-migration-test` | error | A migration without a pgTAP test: a block migration with no `test` (or a missing one), or any `migrations/NNNN_name.sql` without `migrations/tests/NNNN_name.test.sql`. |
 | `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
-| `package-migration-edited` | error | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. Add a new migration instead. |
+| `package-untagged-tests` | warn | A package whose tests name no feature (`@feat:<id>`). |
 | `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
-| `package-unversioned-change` | error | With a base ref: files in the package changed since the merge base, but neither its `version` nor a new `.changeset/*.md` naming it did. This is the gate that makes every change to a package say what changed. |
+| `package-migration-edited` | warn | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. |
+| `package-unversioned-change` | warn | With a base ref: files in the package changed but neither a higher `version` nor a new changeset naming it in its front matter did; a changeset without a `Features:` line; or blocks or exports changed without a change to `features.ts`. Run CI with `--strict` so these fail. |
+
+Symlinks inside a package aren't followed, and a `packages/*` folder without a usable package.json (or a name) is skipped. `localPackages` entries may climb out of the app (`../../packages/*`) as long as they stay in its repository.
 
 Every other rule also scans local packages' source, as it does the app's.
 

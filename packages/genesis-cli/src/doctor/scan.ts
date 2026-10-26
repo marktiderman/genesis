@@ -58,7 +58,14 @@ export function scanFiles(root: string, config: DoctorConfig): SourceFile[] {
     else visit(abs);
   }
   // The app's local packages are the app's code too: every rule reads them.
-  for (const pkg of localPackages(root)) walk(pkg.dir);
+  // A broken localPackages setting is the packages pack's to report; it never stops the scan.
+  let local: ReturnType<typeof localPackages> = [];
+  try {
+    local = localPackages(root);
+  } catch {
+    local = [];
+  }
+  for (const pkg of local) walk(pkg.dir);
   return files;
 }
 

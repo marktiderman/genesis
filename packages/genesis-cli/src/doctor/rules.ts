@@ -51,6 +51,9 @@ export const BUILTIN_RULES = [
   "package-migration-edited",
   "package-unregistered",
   "package-unversioned-change",
+  "package-export-missing",
+  "package-block-invalid",
+  "package-untagged-tests",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

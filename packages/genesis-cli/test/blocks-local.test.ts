@@ -47,10 +47,10 @@ describe("local packages", () => {
   });
 
   it("refuses entries that leave the app or use other globs", () => {
-    for (const bad of [["../x"], ["/abs"], ["packages/**/x"], ["node_modules/x"], "packages/*", [""]]) {
+    for (const bad of [[".."], ["../.."], ["/abs"], ["packages/**/x"], ["node_modules/x"], "packages/*", [""]]) {
       expect(() => validateLocalPackages(bad)).toThrow(LocalPackagesError);
     }
-    expect(validateLocalPackages(["./packages/*", "tools/os/"])).toEqual(["packages/*", "tools/os"]);
+    expect(validateLocalPackages(["./packages/*", "tools/os/", "../../packages/*"])).toEqual(["packages/*", "tools/os", "../../packages/*"]);
   });
 
   it("refuses two folders with the same package name", () => {
@@ -76,5 +76,22 @@ describe("local packages", () => {
     const again = await runMigrate({ root, now: NOW });
     expect(again.plan.rows.map((r) => r.state)).toEqual(["current"]);
     expect(again.warnings).toEqual([]);
+  });
+});
+
+describe("local packages: lenient discovery", () => {
+  beforeEach(() => clearLocalPackagesCache());
+
+  it("skips a folder whose package.json has no name or isn't JSON", () => {
+    const root = appWithLocalPackage();
+    writeTree(root, { "packages/nameless/package.json": "{}", "packages/broken/package.json": "{ not json" });
+    expect(localPackages(root).map((p) => p.name)).toEqual(["@acme/os"]);
+  });
+
+  it("lists packages above the app that stay inside its repository", () => {
+    const repo = appWithLocalPackage({});
+    writeTree(repo, { ".git/HEAD": "ref: refs/heads/main\n", "apps/mobile/genesis.config.json": JSON.stringify({ localPackages: ["../../packages/*"] }) });
+    const found = localPackages(path.join(repo, "apps/mobile"));
+    expect(found.map((p) => [p.name, p.rel])).toEqual([["@acme/os", "../../packages/os"]]);
   });
 });
