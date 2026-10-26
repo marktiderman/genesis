@@ -1,0 +1,29 @@
+packages/core/src/__tests__/query-keys.test.ts
+  s_a1b83c03f697d3::t_b3f7caf0859add 35-47
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_a1b83c03f697d3::t_aaf752a0cbf870 65-120
+packages/core/src/hooks/use-infinite-resource.ts
+  s_a1b83c03f697d3::t_05100d5b651792 143-146,148-150
+packages/core/src/hooks/viewer-scope.tsx
+  s_a1b83c03f697d3::t_8772b0548a44c5 4,89-92,118
+packages/core/src/provider/types.ts
+  s_a1b83c03f697d3::t_4a9c923514aef8 104-106
+packages/core/src/query-keys.ts
+  s_a1b83c03f697d3::t_14d90cf97b5051 27-31,62-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "104ec98344c89d64a11995c7327e221779fbec20",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
