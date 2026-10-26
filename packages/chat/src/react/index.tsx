@@ -259,7 +259,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
   );
 
   const conversation = useQuery({ queryKey: chatKeys.conversation(id), queryFn: () => client.conversation(id), enabled });
-  const members = useQuery({ queryKey: chatKeys.members(id), queryFn: () => client.members(id), enabled, staleTime: 60_000 });
+  const members = useQuery({ queryKey: chatKeys.members(id), queryFn: () => client.members(id), enabled, staleTime: 60_000, refetchOnMount: "always" });
   const kindRules = useQuery({
     queryKey: ["genesis-chat", "kind", conversation.data?.kind ?? ""],
     queryFn: () => client.kind(conversation.data!.kind),
@@ -352,7 +352,9 @@ export function useConversation(conversationId: string | null | undefined, opts:
 
   const list = useMemo(() => messages.data?.messages ?? [], [messages.data]);
   const latestSeq = list.length ? list[list.length - 1]!.seq : 0;
-  const myLastRead = members.data?.find((m) => m.userId === userId)?.lastReadSeq;
+  // Where "New" goes comes from your read place as fetched for this opening, never a cached
+  // copy from an earlier visit (which would draw the line above messages already read).
+  const myLastRead = members.isFetchedAfterMount ? members.data?.find((m) => m.userId === userId)?.lastReadSeq : undefined;
   useEffect(() => {
     if (readWhenOpened === null && myLastRead !== undefined) setReadWhenOpened(myLastRead);
   }, [myLastRead, readWhenOpened]);

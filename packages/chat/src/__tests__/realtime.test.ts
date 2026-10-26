@@ -8,8 +8,10 @@ function fakeRealtime() {
   const authed = new Promise<void>((r) => (release = r));
   const channel = {
     on: vi.fn(() => channel),
-    subscribe: vi.fn(() => {
+    status: undefined as undefined | ((s: string) => void),
+    subscribe: vi.fn((cb?: (s: string) => void) => {
       order.push("subscribe");
+      channel.status = cb;
       return channel;
     }),
     send: vi.fn(),
@@ -49,5 +51,20 @@ describe("joining private topics", () => {
     await tick();
     expect(f.channel.subscribe).not.toHaveBeenCalled();
     expect(f.supabase.removeChannel).toHaveBeenCalled();
+  });
+
+  it("drops typing signals until the channel has joined (no REST fallback)", async () => {
+    const f = fakeRealtime();
+    const ch = createChatClient(f.supabase).subscribeConversation("c1", "me", { onSignal: () => {} });
+    f.release();
+    await tick();
+    ch.signal("typing");
+    expect(f.channel.send).not.toHaveBeenCalled();
+    f.channel.status?.("SUBSCRIBED");
+    ch.signal("typing");
+    expect(f.channel.send).toHaveBeenCalledTimes(1);
+    f.channel.status?.("CHANNEL_ERROR");
+    ch.signal("typing");
+    expect(f.channel.send).toHaveBeenCalledTimes(1);
   });
 });
