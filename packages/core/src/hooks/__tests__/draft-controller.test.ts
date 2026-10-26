@@ -20,7 +20,7 @@ function store() {
         release();
       };
     },
-    create: vi.fn(async (answers: V): Promise<Row> => {
+    create: vi.fn(async (answers: V, _hints?: { keepalive: boolean }): Promise<Row> => {
       calls.push(`create ${JSON.stringify(answers)}`);
       if (gate) await gate;
       return { id: `r${next++}`, answers, status: "draft" };
@@ -326,6 +326,54 @@ describe("DraftController: review follow-ups", () => {
     await expect(d.commit(async () => Promise.reject(new Error("no")))).rejects.toThrow("no");
     await settle();
     expect(s.calls).toEqual(['create {"a":"x"}']);
+  });
+});
+
+describe("DraftController: Gate's review", () => {
+  it("never writes one row's edits into a row a revision brought in during a retry's wait", async () => {
+    const s = store();
+    const a: Row = { id: "A", answers: {}, status: "draft" };
+    s.update.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const { d } = draft({ seed: { row: a, value: {} }, revision: "A" }, s);
+    d.set({ x: "for A" });
+    await settle(800); // the first try fails; the retry waits 500 ms
+    const b: Row = { id: "B", answers: { x: "B's" }, status: "draft" };
+    d.reseed({ row: b, value: b.answers }, "B");
+    await settle(5000);
+    expect(s.update.mock.calls.map(([row]) => row.id)).not.toContain("B");
+    expect(d.getState()).toMatchObject({ row: { id: "B" }, value: { x: "B's" } });
+  });
+
+  it("keeps edits typed while the first save ran when the app's refetch brings that row back", async () => {
+    const { d, s } = draft({ revision: "none" });
+    const release = s.hold();
+    d.set({ a: "first" });
+    await settle(800); // create in flight
+    d.set({ a: "first, then more" });
+    // The app refetched and found the new row: its revision changed.
+    d.reseed({ row: { id: "r1", answers: { a: "first" }, status: "draft" }, value: { a: "first" } }, "r1:draft");
+    expect(d.getState()).toMatchObject({ value: { a: "first, then more" }, key: 0, discarded: false });
+    release();
+    await settle();
+    expect(s.calls).toEqual(['create {"a":"first"}', 'update r1 {"a":"first, then more"}']);
+  });
+
+  it("saves pending edits to their own row before moving to another", async () => {
+    const a: Row = { id: "A", answers: {}, status: "draft" };
+    const { d, s } = draft({ seed: { row: a, value: {} }, revision: "A" });
+    d.set({ x: "for A" });
+    const b: Row = { id: "B", answers: { x: "B's" }, status: "draft" };
+    d.reseed({ row: b, value: b.answers }, "B");
+    await settle();
+    expect(s.calls).toEqual(['update A {"x":"for A"}']);
+    expect(d.getState()).toMatchObject({ row: { id: "B" }, value: { x: "B's" }, discarded: false });
+  });
+
+  it("passes keepalive to the first write too", async () => {
+    const { d, s } = draft();
+    d.set({ a: "x" });
+    await d.flush({ keepalive: true });
+    expect(s.create.mock.calls[0]![1]).toEqual({ keepalive: true });
   });
 });
 

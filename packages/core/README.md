@@ -373,6 +373,11 @@ works with any backend. What it guarantees:
 - **The server's copy wins** (sent elsewhere, returned by a reviewer): pass a
   new `revision`. The draft starts again from `seed`, and `discarded` tells the
   page that unsaved edits were dropped. `onRevision` can merge them instead.
+  A new revision that is only this draft's own save coming back (the same row,
+  holding what was saved) keeps every edit, so a revision built from the row's
+  id is safe across the first save's refetch. A revision that brings another
+  row first saves the edits pending here to the row they belong to (`idOf`,
+  default `row.id`).
   `key` changes whenever the value is replaced from outside, so remount the
   editor on it.
 - **Failures:** network failures are retried with backoff. Refusals

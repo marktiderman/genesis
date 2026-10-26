@@ -35,12 +35,14 @@ export interface DraftOptions<V extends DraftValue, R> {
    * starts again from the new `seed`; see `onRevision`.
    */
   revision?: string | undefined;
-  /** The first write: add the row. */
-  create: (value: V) => Promise<R>;
+  /** The first write: add the row. `keepalive` is set for the save made as the page closes. */
+  create: (value: V, hints: { keepalive: boolean }) => Promise<R>;
   /** Later writes. `keepalive` is set for the save made as the page closes. */
   update: (row: R, value: V, hints: { keepalive: boolean }) => Promise<R>;
   /** The value a saved row holds. */
   toValue: (row: R) => V;
+  /** A row's identity, to tell the same row from another. Default: its `id`. */
+  idOf?: ((row: R) => unknown) | undefined;
   /**
    * The first write found a row already there (another tab started it): merge
    * into it, or report that it is already finished. `dirty` names the fields
@@ -121,6 +123,10 @@ export function isNetworkFailure(error: unknown): boolean {
   return error instanceof TypeError;
 }
 
+function defaultId(row: unknown): unknown {
+  return row && typeof row === "object" && "id" in row ? (row as { id: unknown }).id : row;
+}
+
 function isDuplicateOutcome(error: unknown): boolean {
   return isDataWriteError(error) && error.outcome === "duplicate";
 }
@@ -150,6 +156,8 @@ export class DraftController<V extends DraftValue, R> {
   private ended = false;
   /** Bumped by each new revision: a save that started before it lands on nothing. */
   private generation = 0;
+  /** The value of the write in flight, so a seed that is only that write coming back is known. */
+  private inflight: V | null = null;
   private listeners = new Set<() => void>();
 
   constructor(private readonly options: () => DraftOptions<V, R>) {
@@ -218,28 +226,44 @@ export class DraftController<V extends DraftValue, R> {
   };
 
   /**
-   * The server's seed again. Ignored unless `revision` changed; then the draft
-   * starts again from it, keeping only what `onRevision` returns.
+   * The server's seed again. Ignored unless `revision` changed. Then, in order:
+   * - the seed is this draft's own save coming back (the same row, holding what
+   *   was last saved or is being saved): take its row and keep every edit;
+   * - it is another row, with edits pending here: those are saved to the row
+   *   they belong to first, then the draft moves to the new one;
+   * - otherwise the server's copy wins: the draft starts again from it, keeping
+   *   only what `onRevision` returns.
    */
   readonly reseed = (seed: DraftSeed<V, R>, revision: string | undefined) => {
     if (revision === this.revision) return;
     this.revision = revision;
+    const opts = this.options();
+    const idOf = opts.idOf ?? defaultId;
+    const current = this.state.row;
+    const echo =
+      seed.row !== null &&
+      (current === null || idOf(seed.row) === idOf(current)) &&
+      (this.same(opts.toValue(seed.row), this.saved) ||
+        (this.inflight !== null && this.same(opts.toValue(seed.row), this.inflight)));
+    if (echo && (current !== null || this.inflight !== null)) {
+      this.patch({ row: seed.row });
+      return;
+    }
     this.generation++;
     this.clearTimer();
-    const opts = this.options();
     const pending = !this.same(this.state.value, this.saved);
+    if (pending && current !== null && seed.row !== null && idOf(seed.row) !== idOf(current) && this.active()) {
+      // Another row: what was typed belongs to the old one, so save it there first.
+      const value = this.state.value;
+      this.chain = this.chain
+        .then(() => opts.update(current, value, { keepalive: false }))
+        .then((row) => opts.onSaved?.(row))
+        .catch(() => undefined);
+      this.startFrom(seed, seed.value, false);
+      return;
+    }
     const kept = pending ? (opts.onRevision?.(this.state.value, seed) ?? null) : null;
-    this.saved = seed.row ? opts.toValue(seed.row) : seed.value;
-    this.dirty.clear();
-    this.ended = false;
-    this.patch({
-      row: seed.row,
-      value: kept ?? seed.value,
-      status: this.enabled() ? "idle" : "stopped",
-      error: null,
-      discarded: pending && kept === null,
-      key: this.state.key + 1,
-    });
+    this.startFrom(seed, kept ?? seed.value, pending && kept === null);
     if (kept !== null && this.pending()) this.schedule();
   };
 
@@ -253,6 +277,21 @@ export class DraftController<V extends DraftValue, R> {
       if (this.pending()) this.schedule();
     }
   };
+
+  private startFrom(seed: DraftSeed<V, R>, value: V, discarded: boolean) {
+    this.saved = seed.row ? this.options().toValue(seed.row) : seed.value;
+    this.dirty.clear();
+    this.ended = false;
+    this.inflight = null;
+    this.patch({
+      row: seed.row,
+      value,
+      status: this.enabled() ? "idle" : "stopped",
+      error: null,
+      discarded,
+      key: this.state.key + 1,
+    });
+  }
 
   private enabled() {
     return this.options().enabled ?? true;
@@ -294,8 +333,10 @@ export class DraftController<V extends DraftValue, R> {
     if (!this.state.row && isEmpty(value)) return;
     this.patch({ status: "saving" });
     const generation = this.generation;
+    this.inflight = value;
     try {
-      const { row, merged } = await this.write(value, keepalive);
+      const { row, merged } = await this.write(value, keepalive, this.state.row, generation);
+      this.inflight = null;
       // A new revision arrived while this ran: the server's copy won, so this result is stale.
       if (generation !== this.generation) return;
       const stored = opts.toValue(row);
@@ -314,26 +355,34 @@ export class DraftController<V extends DraftValue, R> {
       // Typed while this save ran, or merged: save again.
       if (this.pending()) this.schedule();
     } catch (error) {
+      if (generation === this.generation) this.inflight = null;
       if (error instanceof Halt || generation !== this.generation) return;
       this.patch({ status: "error", error: (opts.messageOf ?? plainMessage)(error) });
     }
   }
 
-  /** One save: change the row, or add it (merging on a duplicate), retrying network failures. */
-  private async write(value: V, keepalive: boolean): Promise<{ row: R; merged: boolean }> {
+  /**
+   * One save: change the row, or add it (merging on a duplicate), retrying network failures.
+   * The row is the one the save started with, never one a later revision brought in.
+   */
+  private async write(
+    value: V,
+    keepalive: boolean,
+    start: R | null,
+    generation: number,
+  ): Promise<{ row: R; merged: boolean }> {
     const opts = this.options();
     const retries = opts.retries ?? 3;
     const isRetryable = opts.isRetryable ?? isNetworkFailure;
     for (let attempt = 0; ; attempt++) {
       try {
-        if (this.state.row) {
-          return { row: await opts.update(this.state.row, value, { keepalive }), merged: false };
-        }
+        if (start) return { row: await opts.update(start, value, { keepalive }), merged: false };
         try {
-          return { row: await opts.create(value), merged: false };
+          return { row: await opts.create(value, { keepalive }), merged: false };
         } catch (error) {
           if (!opts.adopt || !(opts.isDuplicate ?? isDuplicateOutcome)(error)) throw error;
           const adopted = await opts.adopt(value, this.dirty);
+          if (generation !== this.generation) throw new Halt();
           if ("final" in adopted) {
             this.ended = true;
             this.saved = opts.toValue(adopted.final);
@@ -346,7 +395,8 @@ export class DraftController<V extends DraftValue, R> {
       } catch (error) {
         if (error instanceof Halt || attempt >= retries || !isRetryable(error)) throw error;
         await new Promise((resolve) => setTimeout(resolve, (opts.retryDelayMs ?? 500) * 2 ** attempt));
-        if (!this.active()) throw new Halt();
+        // A new revision while waiting: these edits no longer belong to the row it brought.
+        if (!this.active() || generation !== this.generation) throw new Halt();
       }
     }
   }
