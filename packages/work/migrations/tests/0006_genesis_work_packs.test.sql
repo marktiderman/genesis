@@ -3,7 +3,7 @@
 -- 0005 applied first). It writes only its own users, tenants and hooks and rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(23);
+select plan(29);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000000' || n)::uuid, 'authenticated', 'authenticated', 'genesis-packs-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -94,9 +94,28 @@ select is(genesis_work.install_content_pack(pg_temp.tenant(1),
     jsonb_set(pg_temp.pack('1.2.0', 75), '{metricTemplates,0,goalValue}', '60')) -> 'updated',
   '["metricTemplates.new_leads"]'::jsonb, 'a newer version updates what nobody changed');
 
+-- Refusals ---------------------------------------------------------------------------------
+select throws_ok($$ select genesis_work.install_content_pack(pg_temp.tenant(1), pg_temp.pack('1.0.0', 75)) $$,
+  '22023', null, 'an older version is refused');
+select throws_ok($$ select genesis_work.install_content_pack(pg_temp.tenant(1),
+    jsonb_set(pg_temp.pack('1.3.0', 75), '{sessionTypes,0,key}', '"../X Y"')) $$,
+  '22023', null, 'a malformed key is refused');
+select throws_ok($$ select genesis_work.install_content_pack(pg_temp.tenant(1),
+    jsonb_set(pg_temp.pack('1.3.0', 75), '{labels,pursuit.quarter}', '7')) $$,
+  '22023', null, 'a label is text');
+select throws_ok($$ select genesis_work.install_content_pack(pg_temp.tenant(1),
+    jsonb_set(pg_temp.pack('1.3.0', 75), '{id}', '"tenant"')) $$,
+  '22023', null, 'a pack can''t use the tenant''s namespace');
+select throws_ok($$ select genesis_work.install_content_pack(pg_temp.tenant(1),
+    jsonb_set(pg_temp.pack('1.3.0', 75), '{metricTemplates}', '{}')) $$,
+  '22023', null, 'a section is a list');
+
 -- Uninstalling ------------------------------------------------------------------------------
 insert into genesis_work.pursuits (tenant_id, organization_id, title, custom)
 values (pg_temp.tenant(1), pg_temp.tenant(1), 'Company goal', '{"team-rhythm.level": "company"}');
+select ok(genesis_work.install_content_pack(pg_temp.tenant(1),
+    jsonb_set(pg_temp.pack('1.3.0', 75), '{fieldDefinitions,0,field}', '{"type": "number"}')) -> 'kept' ? 'fieldDefinitions.level',
+  'a new type for a field rows hold values for is kept, not a failed install');
 select is(genesis_work.uninstall_content_pack(pg_temp.tenant(1), 'team-rhythm') -> 'kept',
   '["sessionTypes.weekly", "fieldDefinitions.level"]'::jsonb, 'uninstalling keeps customized and used items');
 select is((select count(*)::int from genesis_work.metric_templates where tenant_id = pg_temp.tenant(1)), 0, 'and removes the rest');

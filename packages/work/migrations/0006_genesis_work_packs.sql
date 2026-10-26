@@ -164,11 +164,47 @@ declare
   mt genesis_work.metric_templates;
   fd genesis_work.field_definitions;
   lb genesis_work.labels;
+  current_ver text;
+  section text;
 begin
   if tenant is null or pack is null or ver is null then
     raise exception 'A pack install needs a tenant, the pack''s id and its version' using errcode = '22023';
   end if;
+  -- The manifest is checked whole before anything is written.
+  if pack !~ '^[a-z][a-z0-9-]{0,39}$' or pack = 'tenant' then
+    raise exception 'A pack''s id is lowercase letters, digits and dashes, and isn''t "tenant": %', pack using errcode = '22023';
+  end if;
+  if ver !~ '^\d{1,6}\.\d{1,6}\.\d{1,6}$' then
+    raise exception 'A pack''s version is major.minor.patch, not %', ver using errcode = '22023';
+  end if;
+  foreach section in array array['sessionTypes', 'metricTemplates', 'fieldDefinitions'] loop
+    if jsonb_typeof(coalesce(manifest -> section, '[]'::jsonb)) <> 'array' then
+      raise exception 'A pack''s % is a list', section using errcode = '22023';
+    end if;
+    if exists (select 1 from jsonb_array_elements(coalesce(manifest -> section, '[]'::jsonb)) e
+                where jsonb_typeof(e) <> 'object' or coalesce(e ->> 'key', '') !~ '^[a-z][a-z0-9_]{0,59}$') then
+      raise exception 'Every item in a pack''s % has a key of lowercase letters, digits and underscores', section using errcode = '22023';
+    end if;
+    if (select count(distinct e ->> 'key') <> count(*) from jsonb_array_elements(coalesce(manifest -> section, '[]'::jsonb)) e
+         where section <> 'fieldDefinitions')
+       or (select count(distinct (e ->> 'target', e ->> 'key')) <> count(*)
+             from jsonb_array_elements(coalesce(manifest -> section, '[]'::jsonb)) e where section = 'fieldDefinitions') then
+      raise exception 'A pack''s % repeats a key', section using errcode = '22023';
+    end if;
+  end loop;
+  if jsonb_typeof(coalesce(manifest -> 'labels', '{}'::jsonb)) <> 'object'
+     or exists (select 1 from jsonb_each(coalesce(manifest -> 'labels', '{}'::jsonb)) e where jsonb_typeof(e.value) <> 'string') then
+    raise exception 'A pack''s labels map keys to text' using errcode = '22023';
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended('genesis_work_pack:' || tenant::text, 0));
+
+  -- Never back to an older version: that would overwrite rows with older content.
+  select p.version into current_ver from genesis_work.installed_packs p where p.tenant_id = tenant and p.pack_id = pack;
+  if current_ver is not null
+     and string_to_array(ver, '.')::int[] < string_to_array(current_ver, '.')::int[] then
+    raise exception 'Pack % % is installed; % is older', pack, current_ver, ver using errcode = '22023';
+  end if;
 
   -- Session types.
   for item in select * from jsonb_array_elements(coalesce(manifest -> 'sessionTypes', '[]'::jsonb)) loop
@@ -177,7 +213,7 @@ begin
       'description', item ->> 'description', 'default_minutes', (item ->> 'defaultMinutes')::int,
       'agenda', coalesce(item -> 'agenda', '[]'::jsonb));
     h := private.genesis_work_hash(content);
-    select * into st from genesis_work.session_types s where s.tenant_id = tenant and s.source_pack = pack and s.source_key = k;
+    select * into st from genesis_work.session_types s where s.tenant_id = tenant and s.source_pack = pack and s.source_key = k for update;
     if st.id is null then
       insert into genesis_work.session_types (tenant_id, organization_id, kind, name, description, default_minutes, agenda,
                                               source_pack, source_version, source_key, source_hash)
@@ -207,7 +243,7 @@ begin
       'goal_value', (item ->> 'goalValue')::numeric, 'goal_max', (item ->> 'goalMax')::numeric,
       'measure_kind', item ->> 'measureKind', 'rollup', coalesce(item ->> 'rollup', 'sum'));
     h := private.genesis_work_hash(content);
-    select * into mt from genesis_work.metric_templates m where m.tenant_id = tenant and m.template_key = k;
+    select * into mt from genesis_work.metric_templates m where m.tenant_id = tenant and m.template_key = k for update;
     if mt.id is null then
       insert into genesis_work.metric_templates (tenant_id, template_key, name, description, unit_type, unit, cadence,
         goal_direction, goal_value, goal_max, measure_kind, rollup, source_pack, source_version, source_hash)
@@ -239,14 +275,17 @@ begin
                                   'required', coalesce((item ->> 'required')::boolean, false));
     h := private.genesis_work_hash(content);
     select * into fd from genesis_work.field_definitions f
-     where f.tenant_id = tenant and f.target = item ->> 'target' and f.namespace = pack and f.key = k;
+     where f.tenant_id = tenant and f.target = item ->> 'target' and f.namespace = pack and f.key = k for update;
     if fd.id is null then
       insert into genesis_work.field_definitions (tenant_id, target, namespace, key, label, field, required,
                                                    source_pack, source_version, source_key, source_hash)
       values (tenant, item ->> 'target', pack, k, content ->> 'label', content -> 'field', (content ->> 'required')::boolean,
               pack, ver, k, h);
       added := added || ('fieldDefinitions.' || k);
-    elsif private.genesis_work_hash(private.genesis_work_field_content(fd)) is distinct from fd.source_hash then
+    elsif private.genesis_work_hash(private.genesis_work_field_content(fd)) is distinct from fd.source_hash
+       or ((content -> 'field' ->> 'type') is distinct from fd.field_type
+           and private.genesis_work_field_in_use(tenant, fd.target, pack || '.' || k)) then
+      -- Changed by the tenant, or a new type for a field rows already hold values for.
       kept := kept || ('fieldDefinitions.' || k);
     elsif fd.source_hash is distinct from h then
       update genesis_work.field_definitions f
@@ -262,7 +301,7 @@ begin
   -- Labels.
   for k, content in select e.key, e.value from jsonb_each(coalesce(manifest -> 'labels', '{}'::jsonb)) e loop
     h := private.genesis_work_hash(content);
-    select * into lb from genesis_work.labels l where l.tenant_id = tenant and l.label_key = k;
+    select * into lb from genesis_work.labels l where l.tenant_id = tenant and l.label_key = k for update;
     if lb.label_key is null then
       insert into genesis_work.labels (tenant_id, label_key, text, source_pack, source_version, source_hash)
       values (tenant, k, content #>> '{}', pack, ver, h);
@@ -279,7 +318,8 @@ begin
 
   insert into genesis_work.installed_packs (tenant_id, pack_id, version, installed_by)
   values (tenant, pack, ver, installed_by)
-  on conflict (tenant_id, pack_id) do update set version = excluded.version, updated_at = now();
+  on conflict (tenant_id, pack_id) do update
+    set version = excluded.version, installed_by = coalesce(excluded.installed_by, genesis_work.installed_packs.installed_by), updated_at = now();
 
   return jsonb_build_object('added', to_jsonb(added), 'updated', to_jsonb(updated), 'kept', to_jsonb(kept));
 end;
