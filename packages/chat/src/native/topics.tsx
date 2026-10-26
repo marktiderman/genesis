@@ -6,8 +6,8 @@
  * name field). `ChatThreadScreen` shows it when the conversation has topics, and reads the
  * messages of the topic chosen. The same rules as the web's `ChatTopicBar`.
  */
-import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ScrollView, View, type LayoutChangeEvent } from "react-native";
 import { NativeButton, NativeChip, NativeChipGroup, NativeIcon, NativeInput, NativeListItem, NativeSheet, NativeText, useToast } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { topicKey } from "../core/extras";
@@ -48,6 +48,17 @@ export function checkTopicName(title: string, topics: readonly ChatTopic[], rena
   return topics.some((t) => t.topic === key) ? { error: "exists" } : { key };
 }
 
+/**
+ * Where the bar scrolls to so a chip shows whole (with `margin` to spare), or null when it already
+ * does: a chip past the right edge comes in from the right, one before the left from the left.
+ */
+export function scrollToShow(chip: { x: number; width: number }, view: { offset: number; width: number }, margin = 8): number | null {
+  if (view.width <= 0) return null;
+  if (chip.x - margin < view.offset) return Math.max(0, chip.x - margin);
+  if (chip.x + chip.width + margin > view.offset + view.width) return Math.max(0, chip.x + chip.width + margin - view.width);
+  return null;
+}
+
 export interface ChatTopicBarProps {
   topics: ChatTopic[];
   /** The topic shown; null for "All". */
@@ -71,6 +82,28 @@ export function ChatTopicBar({ topics, value, onValueChange, canManage = false, 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const current = value ? (topics.find((t) => t.topic === value) ?? null) : null;
+
+  // The chosen chip is scrolled into view: a topic just added sits at the end, past the edge.
+  const scrollRef = useRef<{ scrollTo?: (o: { x: number; animated?: boolean }) => void } | null>(null);
+  const chips = useRef(new Map<string, { x: number; width: number }>());
+  const view = useRef({ offset: 0, width: 0 });
+  const reveal = useCallback((key: string | null) => {
+    const chip = chips.current.get(key ?? ALL);
+    if (!chip) return;
+    const to = scrollToShow(chip, view.current);
+    if (to === null) return;
+    view.current.offset = to;
+    scrollRef.current?.scrollTo?.({ x: to, animated: true });
+  }, []);
+  const latestValue = useRef(value);
+  latestValue.current = value;
+  useEffect(() => reveal(value), [value, reveal]);
+  const onChipLayout = (key: string) => (e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    chips.current.set(key, { x, width });
+    // A new topic is chosen before its chip exists: it is shown once the chip has its place.
+    if (key === (latestValue.current ?? ALL)) reveal(latestValue.current);
+  };
 
   const close = () => {
     if (busy) return;
@@ -117,25 +150,43 @@ export function ChatTopicBar({ topics, value, onValueChange, canManage = false, 
 
   return (
     <View testID={testID} style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.groupedBackground, paddingLeft: 8 }}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityLabel={copy.topics} contentContainerStyle={{ paddingVertical: 4, paddingRight: 8 }} style={{ flex: 1 }}>
+      <ScrollView
+        ref={scrollRef as never}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        accessibilityLabel={copy.topics}
+        contentContainerStyle={{ paddingVertical: 4, paddingRight: 8 }}
+        style={{ flex: 1 }}
+        onLayout={(e: LayoutChangeEvent) => {
+          view.current.width = e.nativeEvent.layout.width;
+        }}
+        onScroll={(e: { nativeEvent: { contentOffset: { x: number } } }) => {
+          view.current.offset = e.nativeEvent.contentOffset.x;
+        }}
+        scrollEventThrottle={64}
+      >
         <NativeChipGroup mode="single" value={value ?? ALL} onChange={(v) => onValueChange(v === ALL ? null : (v as string))} className="flex-nowrap" testID={`${testID}-group`}>
-          <NativeChip value={ALL} testID={`${testID}-all`}>
-            {copy.topicAll}
-          </NativeChip>
-          {topics.map((t) => (
-            <NativeChip key={t.topic} value={t.topic} testID={`${testID}-${t.topic}`}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                {t.closedAt ? <NativeIcon name="lock" size={13} color={colors.secondaryLabel} label={copy.topicClosed} /> : null}
-                <NativeText preset="body-sm" numberOfLines={1} style={{ maxWidth: 180, fontWeight: value === t.topic ? "600" : "400", color: value === t.topic ? colors.tint : colors.label }}>
-                  {t.title}
-                </NativeText>
-              </View>
+          <View onLayout={onChipLayout(ALL)}>
+            <NativeChip value={ALL} testID={`${testID}-all`}>
+              {copy.topicAll}
             </NativeChip>
+          </View>
+          {topics.map((t) => (
+            <View key={t.topic} onLayout={onChipLayout(t.topic)}>
+              <NativeChip value={t.topic} testID={`${testID}-${t.topic}`}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  {t.closedAt ? <NativeIcon name="lock" size={13} color={colors.secondaryLabel} label={copy.topicClosed} /> : null}
+                  <NativeText preset="body-sm" numberOfLines={1} style={{ maxWidth: 180, fontWeight: value === t.topic ? "600" : "400", color: value === t.topic ? colors.tint : colors.label }}>
+                    {t.title}
+                  </NativeText>
+                </View>
+              </NativeChip>
+            </View>
           ))}
         </NativeChipGroup>
       </ScrollView>
       {canManage && onSetTopic ? <ChatIconButton testID={`${testID}-menu`} icon="more" label={copy.topicOptions} onPress={() => setSheet({ step: "menu" })} /> : null}
-      <NativeSheet open={sheet !== null} onOpenChange={(o) => (o ? undefined : close())} testID={`${testID}-sheet`}>
+      <NativeSheet open={sheet !== null} onOpenChange={(o) => (o ? undefined : close())} fitContent testID={`${testID}-sheet`}>
         {sheet?.step === "name" ? (
           <View style={{ padding: 16, gap: 12 }}>
             <NativeText preset="h4" accessibilityRole="header">

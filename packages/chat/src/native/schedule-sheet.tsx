@@ -148,11 +148,7 @@ export function ChatScheduleSheet({ open, onOpenChange, onSchedule, now, testID 
   };
 
   return (
-    <NativeSheet
-      open={open}
-      onOpenChange={onOpenChange}
-      testID={testID}
-    >
+    <NativeSheet open={open} onOpenChange={onOpenChange} fitContent testID={testID}>
       <View style={{ paddingVertical: 8 }}>
         <View style={{ paddingHorizontal: 16, paddingBottom: 8, gap: 4 }}>
           <NativeText preset="h4" accessibilityRole="header">
@@ -234,6 +230,17 @@ export function ChatScheduledList({ conversationId, conversationTitle, testID = 
   );
 }
 
+/**
+ * Cancel's (or Remove's) label on a scheduled row: the message's text as well as its time, so
+ * each row's button says which message it takes back.
+ */
+export function scheduledActionLabel(item: ScheduledMessage, copy: Pick<ReturnType<typeof useChatNative>["copy"], "scheduledCancel" | "scheduledRemove" | "scheduledFor">): string {
+  const text = previewText(displayBody(item.body), item.attachments[0]?.kind ?? null);
+  const short = text.length > 60 ? `${text.slice(0, 59)}…` : text;
+  if (item.status === "failed") return [copy.scheduledRemove, short].filter(Boolean).join(", ");
+  return [copy.scheduledCancel, short, fill(copy.scheduledFor, { when: scheduleLabel(item.sendAt) })].filter(Boolean).join(", ");
+}
+
 function ScheduledRow({ item, where, onCancel, testID }: { item: ScheduledMessage; where: string | null; onCancel: () => void; testID: string }) {
   const { copy } = useChatNative();
   const colors = useThemeRoles();
@@ -261,7 +268,7 @@ function ScheduledRow({ item, where, onCancel, testID }: { item: ScheduledMessag
         <Pressable
           testID={`${testID}-cancel`}
           accessibilityRole="button"
-          accessibilityLabel={failed ? `${copy.scheduledRemove}, ${text}` : `${copy.scheduledCancel}, ${fill(copy.scheduledFor, { when })}`}
+          accessibilityLabel={scheduledActionLabel(item, copy)}
           onPress={onCancel}
           style={{ minHeight: 44, minWidth: 44, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" }}
         >

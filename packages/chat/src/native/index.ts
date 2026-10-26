@@ -32,7 +32,7 @@ export { ChatStartSheet, ChatStartButton, type ChatStartPerson, type ChatStartSh
 export { ChatComposer, type ChatComposerProps } from "./composer";
 export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from "./message-bubble";
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
-export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
+export { VoiceNotePlayer, claimPlayback, releasePlayback, pauseChatPlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
 export { MessageAttachments, attachmentPaths, type BubbleAttachment } from "./media";
 export {
   ChatMediaViewer,
@@ -72,7 +72,7 @@ export { ChatVideoPlayer, videoState, videoSource, muxStreamUrl, muxPosterUrl, t
 export { chunkedPut, fileSource, nextOffset, createVideoUploads, videoUploads, type VideoUploadError, type MintedUpload, useVideoUploads, recordedVideoFile, VIDEO_CHUNK_BYTES, type ByteSource, type ChunkedPutOptions, type RecordedVideo, type VideoUploadTask, type VideoUploads, type StartVideoInput, type OutboxSend } from "./video-upload";
 export { VideoUploadTray, type VideoUploadTrayProps } from "./video-upload-tray";
 export { ChatLinkPreviewCard, previewToShow, linkPreviewIds, openChatLink, linkHost, type ChatLinkPreviewCardProps } from "./link-preview";
-export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, cardAction, type ChatAttachmentCardProps, type OpenAttachment } from "./attachment-cards";
+export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, cardAction, cardTitle, attachmentPreview, messagePreview, type ChatAttachmentCardProps, type ChatCardContext, type OpenAttachment } from "./attachment-cards";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 export {

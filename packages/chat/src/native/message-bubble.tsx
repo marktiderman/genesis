@@ -17,7 +17,7 @@ import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { previewText, summarizeReactions } from "../core/thread";
 import type { ChatLinkPreview, ChatMessage, PendingFile } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
-import { cardAction, ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
+import { cardAction, cardTitle, ChatAttachmentCard, splitCardAttachments, type OpenAttachment } from "./attachment-cards";
 import { ChatLinkPreviewCard, linkHost, openChatLink } from "./link-preview";
 import { cycleVideoRate, fullScreenVideo, toggleVideo, toggleVideoMute, usePlayingVideo } from "./video-player";
 import { fill } from "./copy";
@@ -113,7 +113,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
   const photos = attachments.filter((a) => a.kind === "image" && a.uri && props.onOpenImage);
   const videos = attachments.filter((a) => a.kind === "video" && modules.video && (a.uri || a.playbackId));
   const playingVideo = usePlayingVideo(videos.map((a) => a.key));
-  const cardActions = message ? cards.map((a) => cardAction(kinds?.[a.kind], a, message, props.onOpenAttachment)) : [];
+  const cardActions = message ? cards.map((a) => cardAction(kinds?.[a.kind], a, message, props.onOpenAttachment, { mine })) : [];
   const playingVoice = usePlayingVoiceNote(voices.map((a) => a.key));
 
   // ---- Swipe to reply ----
@@ -166,7 +166,7 @@ function MessageBubbleImpl(props: MessageBubbleProps) {
     senderName,
     message?.deletedAt ? copy.deleted : displayBody(body),
     attachments.map((a) => (a.kind === "image" ? copy.photo : a.kind === "voice" ? copy.voice : a.kind === "video" ? copy.video : copy.file)).join(", "),
-    cards.map((a) => cardTitle(kinds?.[a.kind], a)).join(", "),
+    cards.map((a) => cardTitle(kinds?.[a.kind], a, { mine })).join(", "),
     preview ? fill(copy.linkPreview, { title: preview.title?.trim() || linkHost(preview.url), site: preview.siteName?.trim() || linkHost(preview.url) }) : null,
     time,
     message?.editedAt ? copy.edited : null,
@@ -362,13 +362,5 @@ function SmallAction({ label, onPress, color, testID }: { label: string; onPress
   );
 }
 
-/** A card's title for the bubble's label (an app kind that throws reads as its name). */
-function cardTitle(kind: ChatAttachmentKind | undefined, a: ChatMessage["attachments"][number]): string {
-  try {
-    return kind?.title(a) || a.name || a.kind;
-  } catch {
-    return a.name || a.kind;
-  }
-}
 
 export const MessageBubble = memo(MessageBubbleImpl);

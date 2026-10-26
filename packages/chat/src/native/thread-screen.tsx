@@ -52,6 +52,7 @@ import { ChatPhotoViewer, galleryFor, type ChatPhoto } from "./photo-viewer";
 import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic } from "./modules";
+import { pauseChatPlayback } from "./voice-player";
 import { buildThreadRows, type ThreadRow } from "./rows";
 
 /** How long an upload minted for a thrown-away take is kept for the next one. */
@@ -79,6 +80,12 @@ export interface ChatThreadScreenProps {
   availability?: boolean;
   /** An app attachment card's button (a form, a check-in), when its kind gives no `onPress`. */
   onOpenAttachment?: OpenAttachment;
+  /**
+   * Whether the screen is the one shown (the navigator's `useIsFocused()`). When it turns false a
+   * video or voice note of this thread that is playing pauses: switching tab keeps the screen
+   * mounted. Default true.
+   */
+  focused?: boolean;
   testID?: string;
 }
 
@@ -133,7 +140,7 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
 }
 
 export function ChatThreadScreen(props: ChatThreadScreenProps) {
-  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, testID = "chat-thread" } = props;
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, focused = true, testID = "chat-thread" } = props;
   const chat = useChat();
   const { userId, videoUpload, attachmentKinds, outbox } = chat;
   // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
@@ -209,6 +216,16 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const rows = useMemo(() => buildThreadRows(conv.items, { me: userId, firstUnreadId: conv.firstUnreadId, group }), [conv.items, userId, conv.firstUnreadId, group]);
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
+  // Out of sight (another tab, a screen pushed over it): what this thread is playing pauses.
+  // Players are keyed by attachment id, or `<clientId>:…` while the message is still sending.
+  const itemsNow = useRef(conv.items);
+  itemsNow.current = conv.items;
+  useEffect(() => {
+    if (focused) return;
+    pauseChatPlayback((id) =>
+      itemsNow.current.some((i) => (i.type === "message" ? i.message.attachments.some((a) => a.id === id) : i.type === "pending" && id.startsWith(`${i.pending.clientId}:`))),
+    );
+  }, [focused]);
   const byId = useMemo(() => new Map(conv.messages.map((m) => [m.id, m])), [conv.messages]);
   const linkIds = useMemo(() => linkPreviewIds(conv.messages), [conv.messages]);
   const previews = useLinkPreviews(linkIds);
@@ -456,7 +473,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
               <LoadingThread testID={`${testID}-loading`} />
             ) : empty ? (
               <View style={{ flex: 1, justifyContent: "center" }}>
-                <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={copy.threadEmptyBody} testID={`${testID}-empty`} />
+                <NativeEmptyState variant="first-run" title={copy.threadEmptyTitle} body={currentTopic?.closedAt ? copy.topicClosedNotice : copy.threadEmptyBody} testID={`${testID}-empty`} />
               </View>
             ) : (
               <List
@@ -543,6 +560,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           onClose={() => setActionsFor(null)}
           onReact={react}
           onAction={onAction}
+          attachmentKinds={attachmentKinds}
           testID={`${testID}-actions`}
         />
         <ChatPhotoViewer photos={viewer?.photos ?? null} initialIndex={viewer?.index} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />

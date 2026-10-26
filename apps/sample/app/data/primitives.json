@@ -5097,7 +5097,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/components/sheet.tsx",
       "stability": "beta",
-      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nBy default this is React Native's own `Modal`, which needs nothing mounted\nabove it: the system page sheet on iOS (swipe down to close) and a bottom\npanel over a scrim on Android (back button or a tap on the scrim closes\nit). Content gets its own safe area (`useSafeAreaInsets` inside the sheet\nis the sheet's), and the bottom inset is padded. Put scrolling content in\n`NativeSheetScrollView`. The sheet doesn't move above the keyboard.\n\n`@gorhom/bottom-sheet` (snap points, drag between heights) is used only\nwhen the app opts in by mounting `<NativeSheetProvider bottomSheet={…}>`\n(or passing `bottomSheet` to `GenesisNativeApp`), never because the\nlibrary happens to be installed: it throws on open unless its\n`BottomSheetModalProvider` is mounted, and it needs gesture-handler's\n`GestureHandlerRootView` at the root and Reanimated set up.\n`snapPoints` and `initialSnapIndex` apply only to that path.\n\nA sheet that is a screen of its own (a link can open it) belongs in the\nrouter instead: an expo-router screen with `presentation: \"formSheet\"` and\n`sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.",
+      "summary": "Sheet / BottomSheet — modal that slides up from the bottom.\n\nUse for non-blocking selections, filters, and short flows that benefit\nfrom preserving screen context. For blocking confirmations, use\n<NativeDialog>. For full-screen flows, use a navigation route.\n\nBy default this is React Native's own `Modal`, which needs nothing mounted\nabove it: the system page sheet on iOS (swipe down to close) and a bottom\npanel over a scrim on Android (back button or a tap on the scrim closes\nit). Content gets its own safe area (`useSafeAreaInsets` inside the sheet\nis the sheet's), and the bottom inset is padded. Put scrolling content in\n`NativeSheetScrollView`. The sheet doesn't move above the keyboard.\n\n`@gorhom/bottom-sheet` (snap points, drag between heights) is used only\nwhen the app opts in by mounting `<NativeSheetProvider bottomSheet={…}>`\n(or passing `bottomSheet` to `GenesisNativeApp`), never because the\nlibrary happens to be installed: it throws on open unless its\n`BottomSheetModalProvider` is mounted, and it needs gesture-handler's\n`GestureHandlerRootView` at the root and Reanimated set up.\n`snapPoints` and `initialSnapIndex` apply only to that path.\n\nA short menu or form passes `fitContent`: the sheet is as tall as what is in it.\n\nA sheet that is a screen of its own (a link can open it) belongs in the\nrouter instead: an expo-router screen with `presentation: \"formSheet\"` and\n`sheetAllowedDetents` (e.g. `[0.5, 1]`) is the system sheet with detents.",
       "primaryComponent": "NativeSheet",
       "components": [
         {
@@ -5137,6 +5137,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Keep the sheet open when the user taps the backdrop, swipes it down or presses Android back. Default false."
+            },
+            {
+              "name": "fitContent",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "As tall as its content (up to 90% of the screen) instead of the full page sheet, for a short\nmenu or form. On iOS this is a bottom panel over a scrim, like Android's (a tap on the scrim\nor the VoiceOver escape gesture closes it; it doesn't follow a swipe down), and it moves above\nthe keyboard. Under `NativeSheetProvider` the library sizes it (`enableDynamicSizing`) and\n`snapPoints` is ignored. Default false."
             },
             {
               "name": "initialSnapIndex",

@@ -6,10 +6,12 @@
  * playback id; a stored one plays from its signed link (or, while it uploads, from the
  * phone). Until Mux has processed it, it says so. One plays at a time, voice notes included:
  * it takes the same playback slot (`claimPlayback`), so starting it pauses a voice note and
- * the other way round. The bubble's VoiceOver actions reach it by id (`toggleVideo`).
+ * the other way round. The bubble's VoiceOver actions reach it by id (`toggleVideo`). It pauses
+ * when the app goes to the background and when it unmounts; the thread pauses it when the
+ * screen loses focus (`ChatThreadScreen focused`), since a tab switch keeps the screen mounted.
  */
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ActivityIndicator, Pressable, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, AppState, Pressable, View, useWindowDimensions } from "react-native";
 import { NativeIcon, NativeImage, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration, nextPlaybackRate } from "../core/media";
@@ -290,8 +292,24 @@ function ActiveVideo({
         if (payload.status === "error") latestBroken.current();
       }) as (payload: never) => void),
     ];
+    // Not on in the background: a video plays only while you can see it.
+    const appSub = AppState?.addEventListener?.("change", (next: string) => {
+      if (next === "background") {
+        try {
+          player.pause();
+        } catch {
+          // A player already released has nothing to pause.
+        }
+      }
+    });
     return () => {
       subs.forEach((s) => s.remove());
+      appSub?.remove?.();
+      try {
+        player.pause();
+      } catch {
+        // Released with the view: nothing left to pause.
+      }
       setPlayingId(id, false);
       releasePlayback(id);
     };
@@ -320,7 +338,7 @@ function ActiveVideo({
   };
   handles.current = { toggle, fullScreen, mute: toggleMute, rate: cycleRate };
   const { VideoView } = video;
-    return (
+  return (
     <View testID={`${testID}-active`} style={style}>
       <VideoView ref={viewRef} player={player} nativeControls={false} contentFit="cover" allowsPictureInPicture={false} style={{ width: "100%", height: "100%" }} testID={`${testID}-view`} />
       <Pressable

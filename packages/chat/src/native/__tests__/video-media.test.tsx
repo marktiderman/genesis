@@ -12,8 +12,11 @@ import type { ChatNativeModules } from "../modules";
 import { invertedRows, type ThreadRow } from "../rows";
 import { ChatVideoPlayer, videoState } from "../video-player";
 import { ChatVideoRecorder } from "../video-recorder";
-import { claimPlayback, activePlaybackId, releasePlayback } from "../voice-player";
-import { ChatAttachmentCard, isOpenableHref, splitCardAttachments } from "../attachment-cards";
+import { claimPlayback, activePlaybackId, pauseChatPlayback, releasePlayback } from "../voice-player";
+import { AppState } from "react-native";
+import { inboxRow } from "../inbox-screen";
+import { chatNativeCopy } from "../copy";
+import { attachmentPreview, ChatAttachmentCard, isOpenableHref, messagePreview, splitCardAttachments, type ChatCardContext } from "../attachment-cards";
 import { useChatComposer } from "../use-composer";
 import { createVideoUploads } from "../video-upload";
 import { VideoUploadTray } from "../video-upload-tray";
@@ -153,6 +156,31 @@ describe("ChatVideoPlayer", () => {
     const status = player.addListener.mock.calls.find((c) => c[0] === "statusChange")![1];
     act(() => status({ status: "error" }));
     expect(screen.getByTestId("v-broken").getAttribute("aria-label")).toBe("This video can't play right now.");
+  });
+
+  it("pauses when the app goes to the background, and when it unmounts", () => {
+    const { video, player } = fakeVideo();
+    const view = render(withModules({ video }, <ChatVideoPlayer id="a5" uri="https://x/v.mp4" provider="storage" status="ready" durationMs={3000} testID="v" />));
+    fireEvent.click(screen.getByTestId("v-poster"));
+    expect(player.pause).not.toHaveBeenCalled();
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("inactive"));
+    expect(player.pause).not.toHaveBeenCalled(); // Control Center, a system alert: it plays on
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("background"));
+    expect(player.pause).toHaveBeenCalledTimes(1);
+    act(() => (AppState as unknown as { __emit: (s: string) => void }).__emit("active"));
+    view.unmount();
+    expect(player.pause).toHaveBeenCalledTimes(2);
+  });
+
+  it("is paused by pauseChatPlayback, which leaves another screen's alone", () => {
+    const { video, player } = fakeVideo();
+    render(withModules({ video }, <ChatVideoPlayer id="a6" uri="https://x/v.mp4" provider="storage" status="ready" durationMs={3000} testID="v" />));
+    fireEvent.click(screen.getByTestId("v-poster"));
+    act(() => void pauseChatPlayback(["other"]));
+    expect(player.pause).not.toHaveBeenCalled();
+    act(() => void pauseChatPlayback((id) => id === "a6"));
+    expect(player.pause).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("v-play").getAttribute("aria-label")).toBe("Play video");
   });
 
   it("renders nothing without expo-video (the bubble keeps its row)", () => {
@@ -317,6 +345,37 @@ describe("the bubble", () => {
     expect(bubble.getAttribute("data-a11y-actions")).toContain("card-0");
     fireA11y(bubble, "card-0");
     expect(onOpenAttachment).toHaveBeenCalledTimes(2);
+  });
+
+  it("tells a kind the card is the sender's own, so it can drop its button there", () => {
+    const checkIn = attachment({ id: "c1", kind: "check_in", provider: "none", providerId: null, status: "ready", ref: {} });
+    const action = vi.fn((_a: ChatAttachment, ctx?: ChatCardContext) => (ctx?.mine ? null : { label: "Answer" }));
+    const subtitle = vi.fn((_a: ChatAttachment, ctx?: ChatCardContext) => (ctx?.mine ? "Sent" : null));
+    const kinds = { check_in: { title: () => "Check-in", subtitle, action } };
+    const theirs = render(withModules({}, <MessageBubble row={row({ attachments: [checkIn] })} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} onOpenAttachment={vi.fn()} testID="b" />));
+    expect(screen.getByTestId("b-card-0-action").textContent).toBe("Answer");
+    theirs.unmount();
+    render(withModules({}, <MessageBubble row={row({ senderId: ME, attachments: [checkIn] })} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={kinds} onOpenAttachment={vi.fn()} testID="b" />));
+    expect(screen.queryByTestId("b-card-0-action")).toBeNull();
+    expect(screen.getByTestId("b-card-0").textContent).toContain("Sent");
+    expect(screen.getByTestId("b-bubble").getAttribute("data-a11y-actions") ?? "").not.toContain("card-0");
+    expect(action).toHaveBeenLastCalledWith(checkIn, { mine: true });
+  });
+
+  it("previews an app kind by its title, not as Attachment (inbox and the long-press sheet)", () => {
+    const kinds = { check_in: { title: () => "Check-in" } };
+    expect(attachmentPreview("", "check_in", kinds)).toBe("Check-in");
+    expect(attachmentPreview("", "check_in", undefined)).toBe("Attachment");
+    expect(attachmentPreview("how did it go?", "check_in", kinds)).toBe("how did it go?");
+    expect(attachmentPreview("", "check_in", kinds, true)).toBe("Message deleted");
+    expect(attachmentPreview("", "check_in", { check_in: { title: () => { throw new Error("x"); } } })).toBe("Attachment");
+    const m = row({ attachments: [attachment({ id: "c1", kind: "check_in", provider: "none", ref: {} })] }).item;
+    expect(messagePreview((m as { message: ChatMessage }).message, kinds)).toBe("Check-in");
+    const inbox = inboxRow(
+      { conversationId: "c", kind: "direct", title: "Sam", otherUserId: null, unread: 0, mentioned: false, lastMessageAt: null, lastMessage: { id: "m", seq: 1, senderId: SAM, kind: "text", body: "", deleted: false, createdAt: "", attachment: "check_in" } } as never,
+      { me: ME, copy: chatNativeCopy, person: () => undefined, kinds },
+    );
+    expect(inbox.preview).toBe("Check-in");
   });
 
   it("shows a hosted video still on its way as Processing, not an empty bubble", () => {
