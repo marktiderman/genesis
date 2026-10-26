@@ -56,6 +56,7 @@ import { Button } from "@marktiderman/genesis-ui";
 - **Data views** — Tables, cards, boards and filters that share one set of conventions.
 - **DataProvider and hooks** — One data contract for every backend, with hooks for lists, records and forms.
 - **Supabase provider** — Supabase under row-level security, with honest write results.
+- **Query keys** (beta) — Invalidation that never misses, and no data across people.
 - **Switchboard** — Move a resource between backends without a rewrite.
 
 ### Forms

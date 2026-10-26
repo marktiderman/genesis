@@ -468,7 +468,7 @@ export interface FormProps {
   /**
    * Option lists this app supplies, by key, for choice questions whose
    * options come from the app (`props.optionsFrom: { source: "host", key }`),
-   * such as `{ coaches: [{ value: "8c1…", label: "Ada Lovelace" }] }`. Shown
+   * such as `{ staff: [{ value: "8c1…", label: "Ada Lovelace" }] }`. Shown
    * after the question's own options. Like `options`, read when the response
    * starts; unused with `engine` (pass `hostOptions` to `useForm` then). Check
    * answers on the server with the same lists (`validateSubmission`'s

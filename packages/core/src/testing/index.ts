@@ -100,36 +100,85 @@ const describeError = (error: unknown) =>
     ? `${error.outcome}${error.code ? ` (${error.code})` : ""}: ${error.message}`
     : String(error);
 
+/** Whether a write's result shows a row it changed: `{ data: row }` or a non-empty `data` list, with no `error`. */
+function changedARow(result: unknown): boolean {
+  if (!result || typeof result !== "object") return false;
+  const r = result as { data?: unknown; error?: unknown };
+  if (r.error !== undefined && r.error !== null) return false;
+  if (Array.isArray(r.data)) return r.data.length > 0;
+  return r.data !== null && typeof r.data === "object";
+}
+
+export interface ExpectRefusedOptions {
+  /** With a write function: who tries it (and must be refused). */
+  as?: DataProvider;
+  /**
+   * Proof a write that reached no row (`gone`) was refused, not mistyped.
+   * With a write function: a provider for someone who may make it, which runs
+   * the same function. With a promise: a function making the same write as
+   * that someone. Either way it must resolve with the row it changed. Its
+   * write is real: run the check on test data.
+   */
+  control?: DataProvider | (() => Promise<unknown>);
+}
+
 /**
  * The write is refused, in plain words: a refusal code (42501, P0001) or the
  * provider's `forbidden` / `unauthenticated`. A write that reaches no row
- * (`gone`) counts only with `control`: a run of the same write by someone who
- * may make it (an owner, the service role) that must succeed, so a typo'd id
- * or resource can't pass. The control's write is real: run it on test data.
- * Returns the refusal for more checks.
+ * (`gone`) counts only with a `control` that makes the same write and changes
+ * a row, so a typo'd id or resource can't pass. Pass the write as a function
+ * of a provider (with `as` and a control provider) to run exactly the same
+ * write both ways. Returns the refusal for more checks.
+ *
+ * ```ts
+ * await expectRefused((p) => p.update("tasks", { id, data: { title: "x" } }), { as: stranger, control: owner });
+ * ```
  */
 export async function expectRefused(
-  write: Promise<unknown>,
-  options: { control?: () => Promise<unknown> } = {},
+  write: Promise<unknown> | ((provider: DataProvider) => Promise<unknown>),
+  options: ExpectRefusedOptions = {},
 ): Promise<DataWriteError> {
+  let attempt: Promise<unknown>;
+  let control: (() => Promise<unknown>) | undefined;
+  if (typeof write === "function") {
+    if (!options.as) throw new ContractError("pass `as`: the provider that should be refused");
+    const by = options.control;
+    if (by !== undefined && typeof by === "function") {
+      throw new ContractError("with a write function, `control` is a provider that runs the same write");
+    }
+    attempt = write(options.as);
+    control = by ? () => write(by) : undefined;
+  } else {
+    attempt = write;
+    if (options.control !== undefined && typeof options.control !== "function") {
+      throw new ContractError("with a write promise, `control` is a function making the same write");
+    }
+    control = options.control;
+  }
   let result: unknown;
   try {
-    result = await write;
+    result = await attempt;
   } catch (error) {
     if (isRefusal(error)) {
       expectPlainMessage(error);
       return error;
     }
     if (isDataWriteError(error) && error.outcome === "gone") {
-      if (!options.control) {
+      if (!control) {
         throw new ContractError(
           `it reached no row (${error.message}); pass a control that can make the same write, or it could be a wrong id`,
         );
       }
+      let controlResult: unknown;
       try {
-        await options.control();
+        controlResult = await control();
       } catch (controlError) {
         throw new ContractError(`the control failed too (${describeError(controlError)}): nothing was refused`);
+      }
+      if (!changedARow(controlResult)) {
+        throw new ContractError(
+          `the control changed no row (${JSON.stringify(controlResult)?.slice(0, 200)}): nothing was refused`,
+        );
       }
       expectPlainMessage(error);
       return error;
@@ -206,6 +255,8 @@ export async function expectServerOwned(args: {
   }
   const after = await read();
   if (stable(after) !== stable(before)) {
+    // Put the value back, so a failed check doesn't change what the next one sees.
+    await system.update(resource, { id, data: { [field]: before } }).catch(() => undefined);
     throw new ContractError(`${resource}.${field} changed from ${stable(before)} to ${stable(after)}`);
   }
 }
@@ -232,6 +283,9 @@ export async function expectNeverShows(read: Promise<unknown>, marker: string): 
     throw new ContractError(`the read failed: ${describeError(error)}`);
   }
   if (result === undefined) throw new ContractError("the read returned nothing to look through");
+  if (result && typeof result === "object" && "error" in result && (result as { error: unknown }).error != null) {
+    throw new ContractError(`the read failed: ${JSON.stringify((result as { error: unknown }).error)?.slice(0, 200)}`);
+  }
   const text = JSON.stringify(result) ?? "";
   const escaped = JSON.stringify(marker).slice(1, -1);
   if (text.includes(marker) || text.includes(escaped)) {

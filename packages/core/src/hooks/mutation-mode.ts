@@ -21,6 +21,7 @@ import type { QueryClient, QueryKey } from "@tanstack/react-query";
 import type { BaseRecord, DataProvider, Identifier, ListResult } from "../provider/types";
 import type { AuditEntry, ProviderCapabilities } from "../schema/types";
 import { capabilitiesQueryKey } from "./use-capabilities";
+import { resourceKeys } from "../query-keys";
 
 export type MutationMode = "pessimistic" | "optimistic" | "undoable";
 
@@ -175,7 +176,7 @@ export function cachedRecord(
   resource: string,
   id: Identifier,
 ): BaseRecord | undefined {
-  for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource, "detail"] })) {
+  for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: resourceKeys(resource).details })) {
     if (isDetailKeyFor(key, resource, id) && value && typeof value === "object") return value as BaseRecord;
   }
   for (const [key, value] of queryClient.getQueriesData<unknown>({ queryKey: [resource] })) {
@@ -290,7 +291,7 @@ function endPending(reg: Registry, resource: string): void {
  * pending: their patches are re-applied to whatever the refetch brings.
  */
 export function invalidateResource(queryClient: QueryClient, resource: string): Promise<void> {
-  return queryClient.invalidateQueries({ queryKey: [resource] });
+  return queryClient.invalidateQueries({ queryKey: resourceKeys(resource).all });
 }
 
 function setProduced(reg: Registry, queryClient: QueryClient, key: QueryKey, value: unknown): void {

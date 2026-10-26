@@ -108,6 +108,43 @@ describe("expectRefused", () => {
     expect(err.outcome).toBe("gone");
   });
 
+  it("false pass: a control that resolves without changing a row fails", async () => {
+    const gone = () => Promise.reject(new DataWriteError("gone", "That task is gone."));
+    await fails(expectRefused(gone(), { control: async () => ({ data: [], error: null }) }), /control changed no row/);
+    await fails(expectRefused(gone(), { control: async () => ({ data: null, error: { code: "42703" } }) }), /control changed no row/);
+    await fails(expectRefused(gone(), { control: async () => undefined }), /control changed no row/);
+  });
+
+  it("a write function runs the same write as the user and as the control", async () => {
+    const { provider, system } = store({ id: "t1", title: "a" });
+    const hidden = { ...provider, update: async () => Promise.reject(new DataWriteError("gone", "That task is gone.")) } as unknown as DataProvider;
+    const writes: string[] = [];
+    const write = (p: DataProvider) => {
+      writes.push(p === hidden ? "user" : "control");
+      return p.update("tasks", { id: "t1", data: { title: "x" } });
+    };
+    expect((await expectRefused(write, { as: hidden, control: system })).outcome).toBe("gone");
+    expect(writes).toEqual(["user", "control"]);
+  });
+
+  it("false pass: with a write function, a typo'd id fails for the control too", async () => {
+    const { provider, system } = store({ id: "t1", title: "a" });
+    await fails(
+      expectRefused((p) => p.update("tasks", { id: "typo", data: { title: "x" } }), { as: provider, control: system }),
+      /control failed too/,
+    );
+  });
+
+  it("asks for the right kind of control", async () => {
+    const { provider, system } = store({ id: "t1" });
+    await fails(expectRefused((p) => p.update("tasks", { id: "t1", data: {} })), /pass `as`/);
+    await fails(
+      expectRefused((p) => p.update("tasks", { id: "t1", data: {} }), { as: provider, control: async () => ({}) }),
+      /control` is a provider/,
+    );
+    await fails(expectRefused(Promise.reject(new DataWriteError("gone", "Gone.")), { control: system }), /control` is a function/);
+  });
+
   it("false pass: invalid, duplicate and other errors are not refusals", async () => {
     await fails(
       expectRefused(Promise.reject(new DataWriteError("invalid", "Bad column.", { code: "42703" }))),
@@ -165,7 +202,11 @@ describe("expectServerOwned", () => {
 
   it("passes when the update runs but the value stays (a trigger put it back)", () => check(store(row, { writable: false })));
 
-  it("fails when the value changed", () => fails(check(store(row, { writable: true })), /changed from "open" to "done"/));
+  it("fails when the value changed, and puts it back", async () => {
+    const s = store(row, { writable: true });
+    await fails(check(s), /changed from "open" to "done"/);
+    expect((await s.system.getOne("tasks", { id: "t1" })).data.status).toBe("open");
+  });
 
   it("fails on an error that isn't a refusal", () =>
     fails(
@@ -221,6 +262,9 @@ describe("expectNeverShows", () => {
     const { provider } = store({ id: "n1", body: "secret-1" });
     await fails(expectNeverShows(provider.getOne("notes", { id: "typo" }), "secret-1"), /read failed: gone \(PGRST116\)/);
   });
+
+  it("false pass: a read that resolved with an error fails", () =>
+    fails(expectNeverShows(Promise.resolve({ data: null, error: { code: "42P01", message: "missing" } }), "secret-1"), /read failed/));
 
   it("fails on any other failure", () =>
     fails(expectNeverShows(Promise.reject(new DataReadError("invalid", "Bad column.")), "secret-1"), /read failed/));

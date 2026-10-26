@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import { cn } from "@marktiderman/genesis-ui";
+import { cn } from "../../utils";
 
 /**
  * One card of a summary column: an icon and a title, a short line on the right ("24
- * answers · average 4.1"), then whatever summarises it (bars, quotes, a split bar).
+ * responses · average 4.1"), then whatever summarises it (bars, quotes, a split bar).
  */
 export function SummaryCard({
   icon,

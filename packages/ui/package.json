@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -30,7 +30,7 @@
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.type-tests.json"
+    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json"
   },
   "exports": {
     ".": {
@@ -48,6 +48,14 @@
     "./layout": {
       "types": "./dist/components/layout/index.d.ts",
       "import": "./dist/components/layout/index.js"
+    },
+    "./resource": {
+      "types": "./dist/components/resource/index.d.ts",
+      "import": "./dist/components/resource/index.js"
+    },
+    "./resource/rules": {
+      "types": "./dist/components/resource/rules.d.ts",
+      "import": "./dist/components/resource/rules.js"
     },
     "./hooks": {
       "types": "./dist/hooks/index.d.ts",

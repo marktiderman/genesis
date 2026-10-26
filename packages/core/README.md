@@ -367,6 +367,10 @@ Each check passes only on evidence and throws a `ContractError` otherwise, so it
 jest or node:test. A wrong resource, a missing row or a typo fails instead of passing. The control and system
 writes are real (and `expectServerOwned` puts its value back): run the checks on test data.
 
+A refusal must read as plain words, so a provider that passes the database's raw text through (an
+RLS insert refusal says `new row violates row-level security policy …`) fails `expectRefused`. Map
+it to a plain message in the provider; that failure is the kit doing its job.
+
 ```ts
 import { createClient } from "@supabase/supabase-js";
 import { createSupabaseProvider } from "@marktiderman/genesis-core/provider";
@@ -387,10 +391,8 @@ const stranger = await providerFor("stranger");
 const system = createSupabaseProvider(createClient(url, serviceRoleKey)); // the server's own writes
 
 // A write the client may not make is refused, in plain words. When RLS hides the row (it reaches
-// no row), the control proves the same write works for someone who may make it.
-await expectRefused(stranger.update("tasks", { id, data: { title: "x" } }), {
-  control: () => owner.update("tasks", { id, data: { title: "x" } }),
-});
+// no row), the control runs the same write as someone who may make it and must change a row.
+await expectRefused((p) => p.update("tasks", { id, data: { title: "x" } }), { as: stranger, control: owner });
 // A column only the server sets stays as it was (the system proves it can change it first).
 await expectServerOwned({ as: client, system, resource: "tasks", id, field: "status", value: "done" });
 // A private value never shows, reports included: read the list around it, not the row by id.
@@ -401,10 +403,101 @@ await expectBinned({ as: client, resource: "notes", id, inBin: () => adminSeesDe
 
 | Check | Passes when |
 | --- | --- |
-| `expectRefused(write, { control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write |
+| `expectRefused(write, { as?, control? })` | it's refused (42501, a guard's P0001, or `forbidden` / `unauthenticated`) in plain words; reaching no row counts only when `control` makes the same write and changes a row |
 | `expectAllowed(write)` | it resolves |
 | `expectServerOwned({ as, system, … })` | `system` can change the value (then puts it back), and it's unchanged after `as` tries; refused or put back both count |
 | `expectNeverShows(read, marker)` | the marker appears nowhere in the result (raw or JSON-escaped), or the read is refused; a read that found nothing fails |
 | `expectSees(read, n)` | the read returns exactly `n` rows |
 | `expectBinned({ as, resource, id, inBin })` | `as` sees the row, deletes it, can't read it back, and `inBin()` confirms it's still stored |
 | `expectPlainMessage(error)` | the message has no raw database text or error codes |
+
+## Autosave a draft
+
+`useDraft` saves one row as someone edits it: an answer to a questionnaire, a
+note, a journal entry. The app supplies the writes (`create`, `update`), so it
+works with any backend. What it guarantees:
+
+- **When it saves:** a moment after the last change (`delayMs`, default 800).
+  Only one write runs at a time. The first save adds the row and later ones
+  change it. Nothing is written when the value is unchanged, and no row is
+  added for an empty value (`isEmpty`).
+- **Another tab started the row:** the first write fails as a duplicate (a
+  `duplicate` write outcome, or `isDuplicate`). `adopt` then merges into that
+  row, writing only the fields changed here (`dirty`), or reports it already
+  finished, and the draft stops.
+- **The server's copy wins** (sent elsewhere, returned by a reviewer): pass a
+  new `revision`. The draft starts again from `seed`, and `discarded` tells the
+  page that unsaved edits were dropped. `onRevision` can merge them instead.
+  A new revision that is only this draft's own save coming back (the same row,
+  holding what was saved) keeps every edit, so a revision built from the row's
+  id is safe across the first save's refetch. A revision that brings another
+  row first saves the edits pending here to the row they belong to (`idOf`,
+  default `row.id`).
+  `key` changes whenever the value is replaced from outside, so remount the
+  editor on it.
+- **Failures:** network failures are retried with backoff. Refusals
+  (forbidden, gone, invalid) aren't retried; they set `status: "error"` and a
+  plain `error`.
+- **Leaving the page** saves what's pending: on `pagehide` and `beforeunload`
+  (with `keepalive` passed to `update`), and on unmount.
+- **`commit(write)`** is the final write, a submit. It waits for any write in
+  flight and stops autosave once it succeeds. If it fails, autosave carries on.
+- **`enabled: false`** writes nothing: someone else's draft, or one already
+  sent.
+
+```tsx
+const draft = useDraft({
+  seed: { row: entry, value: entry?.answers ?? {} },
+  revision: `${entry?.id}:${entry?.status}`,
+  enabled: entry?.status !== "sent",
+  create: (answers) => api.addEntry(answers),
+  update: (row, answers) => api.saveEntry(row.id, answers),
+  toValue: (row) => row.answers,
+  onSaved: (row) => queryClient.setQueryData(["entry", row.id], row),
+});
+
+<Editor key={draft.key} value={draft.value} onChange={draft.set} />
+<Button onClick={() => draft.commit((row, answers) => api.send(row, answers))}>Send</Button>
+```
+
+`DraftController` is the same logic without React, for tests or other
+frameworks.
+
+## Query keys
+
+Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
+one person shows to another.
+
+```ts
+import { ViewerScope, defineQueryKeys, resourceKeys } from "@marktiderman/genesis-core";
+
+export const worksheetKeys = defineQueryKeys("worksheet-items", {
+  // The fields that make one query distinct. Sort arrays: order never makes two keys.
+  lessonParts: (people: string[]) => ({ people: [...people].sort() }),
+  byEntry: (entryId: string) => ({ entryId }),
+});
+
+// Reading: keys exist only for a scope. `viewer` is required; `group` and `day` when the read depends on them.
+useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).lessonParts(people), queryFn });
+
+// Invalidating:
+queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
+queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });  // one kind
+queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));    // every key with this person, multi-person keys included
+queryClient.invalidateQueries(worksheetKeys.where({ entryId }, "byEntry"));  // narrowed to one query
+queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // what useResource / useOne cache
+
+// Once, around the signed-in app: screens mount only for a known viewer, and a sign-out or a new
+// person unmounts them and empties the cache first. (Resource keys carry no viewer; this keeps them apart.)
+<ViewerScope viewer={session === undefined ? undefined : (session?.user.id ?? null)}>
+  <App />
+</ViewerScope>
+```
+
+Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, kind?)` matches a
+field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
+value, or for an array value an array field containing every item. Never a substring.
+
+With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
+viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes.
