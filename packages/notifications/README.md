@@ -96,7 +96,7 @@ await notify(admin, {
   type: "chat.message",
   recipients: memberIds,                    // user ids, or { email, name, ref } for people with no login
   data: { conversation_id, sender_name, preview },
-  idempotencyKey: `push:${messageId}`,       // unique per recipient: the same key again sends nothing more
+  idempotencyKey: `push:${messageId}`,       // per recipient, type and tenant: the same key again sends nothing more
   threadKey: conversationId,                // groups them on the lock screen
   collapseKey: `conversation:${conversationId}`, // a newer one replaces an unsent older one
   badge: unreadCount,                        // the caller counts
@@ -110,25 +110,46 @@ arguments from a domain's own SQL.
 To take back what hasn't gone out (a release rolled back, an event undone):
 
 ```ts
-await cancelNotification(admin, { idempotencyKey: `release:${releaseId}`, archive: true });
+await cancelNotification(admin, { type: "release.published", idempotencyKey: `release:${releaseId}`, tenantId, archive: true });
 ```
 
-Every pending send job made with that key (for everyone, or only `recipients`) becomes
-`cancelled` and is never claimed; a job already sent, or being sent at that moment, is left
-alone; `archive: true` archives the feed rows too (`genesis_notifications_cancel` in SQL).
+Every pending send job made with that type, tenant and key (for everyone, or only `recipients`)
+becomes `cancelled` and is never claimed; one being sent at that moment ends cancelled unless
+that attempt goes out (it is never retried); a job already sent is left alone; `archive: true`
+archives the feed rows too (`genesis_notifications_cancel` in SQL). Another tenant's
+notifications with the same key are never touched.
 
 ### Rules the notifier keeps
 
-- **Secrets never go in `data`, or in a push.** `genesis_notify` refuses keys like `token`,
-  `password`, `invite_link` and links carrying `?token=`/`sig=`/`code=`. Store a reference
+- **Secrets never go in `data`, or in a push.** `genesis_notify` (and `notify()` before it)
+  refuses any key ending in `token`, `code`, `secret`, `key`, `otp` or `password` (and
+  `signature`, `sig`, `invite_link` and the like), and any link, absolute or relative, with a
+  query or fragment parameter named that way (`/accept?inviteCode=`, `#access_token=`). This is
+  a backstop, not a guarantee: it catches the usual names, so keep secrets out by design, and
+  rename a display value it trips on (`country_code` → `country`). Store a reference
   (`{ response_id }`) and mark the type `secretLink: true`; the runner calls your
   `secretLinks[type]` at send time (`resolveSecretLink`). A token that exists only hashed in your
   tables is passed as `notify({ secret })`, to exactly one recipient: encrypted onto the email's
   send job with the Vault key, decrypted only when the runner claims it, cleared once the job
   settles. Keys are matched as words, so `inviteToken` is refused as well as `invite_token`.
 - **Retries are byte-identical.** An email is rendered once, at its first claim, and stored with
-  its hash; every retry sends the stored copy with the same idempotency key. Resend's 409
-  `invalid_idempotent_request` counts as sent; `concurrent_idempotent_requests` retries in 5 s.
+  its hash; every retry sends the stored copy with the same idempotency key. A secret link is
+  built afresh on each attempt, so **a `secretLinks` builder must be deterministic**: the same
+  link for the same notification every time. Resend's 409 `invalid_idempotent_request` (the key
+  with another body) fails the job loudly (`idempotency_body_changed`), never counting it as
+  sent; `concurrent_idempotent_requests` retries in 5 s. `resendProvider` paces its requests
+  (`perSecond`, default 5, under Resend's default 10 a second per team); two runners at once each
+  keep to their own pace.
+- **Links are the app's own.** A type's `render().url` must be a path (`/messages/42`): the push
+  carries it as is, the email resolves it against `appUrl`'s origin; anything else (another host,
+  `//host`, `javascript:`) is left out.
+- **Push stays within its lease.** Jobs are sent in Expo batches of 100 (a job's devices never
+  split), each batch's tickets recorded and its jobs settled on its own; no batch starts once the
+  lease is about to run out (those jobs come straight back). With `runBudgetMs` (your function's
+  wall-clock limit) a run claims again while claims come back full, and stops once the time left
+  is under the lease.
+- **One unreadable secret fails alone** (`secret_unreadable`); the rest of the claim goes out. No
+  Vault key at all raises, since that is the app's to fix.
 - **Transactional types** (`transactional: true`) have no unsubscribe link, and their email is
   sent whatever the person chose for the category (an unsubscribe never stops a receipt or a
   reset); they are never held by quiet hours or the email delay, and still reach someone who
@@ -137,8 +158,8 @@ alone; `archive: true` archives the feed rows too (`genesis_notifications_cancel
 - **A job is never stuck.** One whose lease ran out `maxAttempts` times (the runner died with it
   each time) fails as `lease_expired`.
 - **Erasure.** `genesis_notifications_erase(user, email, ref)` deletes a person's
-  notifications (with every send job), devices, receipts, preferences and device moves, logins
-  or not. The suppression list keeps only a hash, so a bounced address stays suppressed.
+  notifications (with every send job, and for a login also those addressed to its email),
+  devices, receipts, preferences and device moves, logins or not. The suppression list keeps only a hash, so a bounced address stays suppressed.
   `genesis_notifications_prune(keep, keep_rendered, keep_feed)` keeps the delivery log short
   (30 days, rendered bodies a day, by default); notifications that were never in a feed
   (email-only recipients) go with their send jobs.
@@ -147,15 +168,26 @@ alone; `archive: true` archives the feed rows too (`genesis_notifications_cancel
 
 One Resend key per app (`RESEND_API_KEY`). Each tenant has a sender identity in
 `notification_senders`: without its own domain, mail goes from the app's shared domain with the
-tenant's name as the from name and its reply-to; once its own domain is verified
-(`checkSenderDomain` reads SPF, DKIM and DMARC over DNS over HTTPS, and
-`genesis_notifications_set_sender_dns` records it), from that domain. Transactional and other mail
+tenant's name as the from name and its reply-to; once its own domain is verified, from that
+domain. Verifying proves the domain is the tenant's: `genesis_notifications_set_sender` gives
+the sender a `domain_token`, the tenant adds the TXT record `senderOwnershipRecord(domain,
+token)` (`_genesis-notifications.<domain>` = `genesis-notifications-verify=<token>`) beside
+Resend's records, and `checkSenderDomain(domain, { token, reservedDomains })` reads it with SPF,
+DKIM and DMARC over DNS over HTTPS; `genesis_notifications_set_sender_dns(tenant, domain,
+status, dns)` records the result for the domain checked. A domain is verified for one tenant at
+most, and never the app's own shared domains or one under them (`reservedDomains`; the runner
+refuses one too). Transactional and other mail
 go from separate shared domains (`domains: { transactional, other }`), tagged `stream`.
 
 Everything that isn't transactional carries `List-Unsubscribe` and
 `List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058) with a signed token; the endpoint
-never unsubscribes on a GET (link scanners follow links), only on the POST. A person with a login
-has the category's email turned off in their preferences; someone with none is suppressed for it.
+never unsubscribes on a GET (link scanners follow links), only on the POST. The token never
+carries an address: someone with no login is named by its SHA-256 (`emailHash`). The unsubscribe
+is for the tenant the email came from: a person with a login has that tenant's email of the
+category turned off (a choice in Settings turns it back on everywhere); someone with none is
+suppressed for the category and tenant. Only a bounce Resend calls `Permanent` suppresses an
+address for good. The provider's id is kept the moment a send returns, so a webhook that comes
+before the job settles still finds it.
 
 The provider is chosen per job (`email.providerFor`), so a tenant-owned Resend key kept in
 Vault can be added later without changing the runner. It isn't built.

@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(119);
+select plan(172);
 
 -- People: a1 and b2 have logins; c3 is an admin; "outside" has no login.
 insert into auth.users (id, aud, role, email, instance_id)
