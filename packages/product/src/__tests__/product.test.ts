@@ -172,6 +172,26 @@ describe("review fixes on #249 (@feat:product-releases)", () => {
     expect(() => catalogAt("HEAD", "../elsewhere.json", repo)).toThrow(/outside the repo/);
   });
 
+  it("throws, not [], when a partial clone can't fetch the catalog's contents (Release runs in a blob:none clone)", () => {
+    const source = mkdtempSync(join(tmpdir(), "product-src-"));
+    const run = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, stdio: "ignore" });
+    run(source, "init", "-q");
+    run(source, "config", "uploadpack.allowFilter", "true");
+    writeFileSync(join(source, "features.json"), JSON.stringify({ features: { a: { name: "A", status: "live" } } }));
+    run(source, "add", ".");
+    run(source, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "first");
+    const clone = join(mkdtempSync(join(tmpdir(), "product-clone-")), "c");
+    execFileSync("git", ["clone", "-q", "--filter=blob:none", "--no-checkout", `file://${source}`, clone], { stdio: "ignore" });
+    expect(catalogAt("HEAD", "features.json", clone).map((x) => x.id)).toEqual(["a"]);
+    // A second clone whose remote is gone: the blob can't be fetched, which is not "no catalog yet".
+    const offline = join(mkdtempSync(join(tmpdir(), "product-clone-")), "c");
+    execFileSync("git", ["clone", "-q", "--filter=blob:none", "--no-checkout", `file://${source}`, offline], { stdio: "ignore" });
+    run(offline, "remote", "set-url", "origin", `file://${join(tmpdir(), "product-no-such-remote")}`);
+    expect(() => catalogAt("HEAD", "features.json", offline)).toThrow();
+    // A file that isn't there at the ref is still [] in a partial clone, without a fetch.
+    expect(catalogAt("HEAD", "elsewhere.json", offline)).toEqual([]);
+  });
+
   it("treats an issue labelled both bug and idea as a bug, so a release never closes it", () => {
     const signal = issueToSignal({ number: 6, title: "x", html_url: "u", state: "open", created_at: "", labels: ["idea", "bug", "feature:export"] });
     expect(signal?.kind).toBe("bug");
