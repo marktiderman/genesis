@@ -1,0 +1,46 @@
+packages/features/src/types.ts
+  s_f5a91deb5a46ce::t_2c68f935c04ae5 1-40
+packages/features/src/gate.ts
+  s_f5a91deb5a46ce::t_2c68f935c04ae5 31,276-279,284-286
+packages/supabase/src/feature-registry.ts
+  s_f5a91deb5a46ce::t_a8a146a9a437e2 23-25,37-38,54-68
+packages/features/src/model.ts
+  s_f5a91deb5a46ce::t_2c68f935c04ae5 5-8
+packages/supabase/migrations/0008_genesis_feature_registry.sql
+  s_f5a91deb5a46ce::t_1d85c40c0cb8e9 82,217-246,262,313,332,383-384,393-394
+  s_f5a91deb5a46ce::t_d4c97a6db6a9e6 21-23,80-81,344-345,350-352
+packages/supabase/src/blocks.ts
+  s_f5a91deb5a46ce::t_c4bdfd0911c4b9 128-143
+packages/supabase/src/__tests__/feature-registry.test.ts
+  s_f5a91deb5a46ce::t_a8a146a9a437e2 38-51
+packages/supabase/migrations/tests/0008_genesis_feature_registry.test.sql
+  s_f5a91deb5a46ce::t_d7b41d8c25810c 8,129-143
+  s_f5a91deb5a46ce::t_8a0b7ec1043563 144
+packages/features/src/status.ts
+  s_f5a91deb5a46ce::t_2c68f935c04ae5 1
+packages/features/src/__tests__/gate.test.tsx
+  s_f5a91deb5a46ce::t_66183242f20b20 2-3,299-315
+  s_f5a91deb5a46ce::t_ab5ba2bb91a0c8 316-317
+packages/supabase/src/index.ts
+  s_f5a91deb5a46ce::t_a8a146a9a437e2 200
+.changeset/feature-gate-hardening.md
+  s_f5a91deb5a46ce::t_87751f9b73cf7f 1-5
+.changeset/feature-mirror.md
+  s_f5a91deb5a46ce::t_23ac263e951079 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8fc865fa2d7627850925fed20f03dd0188c57e44",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
