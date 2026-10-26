@@ -48,6 +48,8 @@ export async function callRpc<T = unknown>(
   try {
     result = await client.rpc(fn, args);
   } catch (error) {
+    // A client that already speaks DataWriteError (signed out, a refusal) keeps its outcome and code.
+    if (isDataWriteError(error)) throw error;
     throw new DataWriteError("error", RPC_FAILED, { cause: error });
   }
   if (!result || typeof result !== "object") {

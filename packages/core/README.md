@@ -356,34 +356,58 @@ leave; asks with `window.confirm` otherwise). For other state,
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
 
-<<<<<<< HEAD
-## One-off writes
+## Autosave a draft
 
-For the writes a resource page doesn't make: a database function, "one live row per key", or a few
-writes in a row. They fail with a `DataWriteError` in plain words, like the provider's own writes.
+`useDraft` saves one row as someone edits it: an answer to a questionnaire, a
+note, a journal entry. The app supplies the writes (`create`, `update`), so it
+works with any backend. What it guarantees:
 
-```ts
-import { callRpc, createOrAdopt, useWrite } from "@marktiderman/genesis-core";
+- **When it saves:** a moment after the last change (`delayMs`, default 800).
+  Only one write runs at a time. The first save adds the row and later ones
+  change it. Nothing is written when the value is unchanged, and no row is
+  added for an empty value (`isEmpty`).
+- **Another tab started the row:** the first write fails as a duplicate (a
+  `duplicate` write outcome, or `isDuplicate`). `adopt` then merges into that
+  row, writing only the fields changed here (`dirty`), or reports it already
+  finished, and the draft stops.
+- **The server's copy wins** (sent elsewhere, returned by a reviewer): pass a
+  new `revision`. The draft starts again from `seed`, and `discarded` tells the
+  page that unsaved edits were dropped. `onRevision` can merge them instead.
+  A new revision that is only this draft's own save coming back (the same row,
+  holding what was saved) keeps every edit, so a revision built from the row's
+  id is safe across the first save's refetch. A revision that brings another
+  row first saves the edits pending here to the row they belong to (`idOf`,
+  default `row.id`).
+  `key` changes whenever the value is replaced from outside, so remount the
+  editor on it.
+- **Failures:** network failures are retried with backoff. Refusals
+  (forbidden, gone, invalid) aren't retried; they set `status: "error"` and a
+  plain `error`.
+- **Leaving the page** saves what's pending: on `pagehide` and `beforeunload`
+  (with `keepalive` passed to `update`), and on unmount.
+- **`commit(write)`** is the final write, a submit. It waits for any write in
+  flight and stops autosave once it succeeds. If it fails, autosave carries on.
+- **`enabled: false`** writes nothing: someone else's draft, or one already
+  sent.
 
-// A database function. Your words for a code win; a guard's own `raise exception` (P0001) keeps its
-// words; 42501, 22023 and a missing function get plain defaults; anything else a generic sentence.
-await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "This course hasn't started yet." } });
-
-// One live row per key: create it, or adopt the row already there (merging in what you return).
-const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
-  key: ["person_id", "lesson_id"],
-  merge: (existing) => (existing.body ? null : { body }),
+```tsx
+const draft = useDraft({
+  seed: { row: entry, value: entry?.answers ?? {} },
+  revision: `${entry?.id}:${entry?.status}`,
+  enabled: entry?.status !== "sent",
+  create: (answers) => api.addEntry(answers),
+  update: (row, answers) => api.saveEntry(row.id, answers),
+  toValue: (row) => row.answers,
+  onSaved: (row) => queryClient.setQueryData(["entry", row.id], row),
 });
 
-// In a component: pending, plain error words, and invalidation after a success.
-const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
-  invalidates: [["course-steps"], resourceKeys("tasks").all],
-});
-<Button onClick={() => release.fire(id)} disabled={release.pending}>Release</Button>
+<Editor key={draft.key} value={draft.value} onChange={draft.set} />
+<Button onClick={() => draft.commit((row, answers) => api.send(row, answers))}>Send</Button>
 ```
 
-`run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`).
-=======
+`DraftController` is the same logic without React, for tests or other
+frameworks.
+
 ## Query keys
 
 Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
@@ -419,7 +443,36 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
-With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
-viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
-sign-out actions, before the session changes.
->>>>>>> origin/main
+With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
+`persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
+writes while the session is still theirs. `ViewerScope` drops those unsent writes instead (by then the
+session is the new viewer's), so prefer `clearViewerCache` in a sign-out action when undo is on.
+
+## One-off writes
+
+For the writes a resource page doesn't make: a database function, "one live row per key", or a few
+writes in a row. They fail with a `DataWriteError` in plain words, like the provider's own writes.
+
+```ts
+import { callRpc, createOrAdopt, useWrite } from "@marktiderman/genesis-core";
+
+// A database function. Your words for a code win; a guard's own `raise exception` (P0001) keeps its
+// words; 42501, 22023 and a missing function get plain defaults; anything else a generic sentence.
+await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "This course hasn't started yet." } });
+
+// One live row per key: create it, or adopt the row already there (merging in what you return).
+const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
+  key: ["person_id", "lesson_id"],
+  merge: (existing) => (existing.body ? null : { body }),
+});
+
+// In a component: pending, plain error words, and invalidation after a success.
+const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
+  invalidates: [["course-steps"], resourceKeys("tasks").all],
+});
+<Button onClick={() => release.fire(id)} disabled={release.pending}>Release</Button>
+```
+
+`run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
+time: a second click while it runs gets the same promise, not a second write.

@@ -71,6 +71,12 @@ describe("callRpc", () => {
     expect(dup.message).toBe("That already exists.");
   });
 
+  it("passes through a DataWriteError the client throws itself", async () => {
+    const signedOut = new DataWriteError("unauthenticated", "Sign in to continue.", { code: "PGRST301" });
+    const err = await failure(callRpc({ rpc: () => Promise.reject(signedOut) }, "f"));
+    expect(err).toBe(signedOut);
+  });
+
   it("reports a request that never arrived plainly", async () => {
     const err = await failure(callRpc({ rpc: () => Promise.reject(new TypeError("fetch failed")) }, "f"));
     expect(err.outcome).toBe("error");

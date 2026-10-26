@@ -58,8 +58,8 @@ import { MY_TEMPLATES } from "./form-templates"; // see "Templates" below
   checks are one column beside every panel, kept mounted across panels, so the device, layout and
   answers typed into it stay. Three columns fit from a 56rem (896px) builder, for example at 1280px
   beside a 256px sidebar; narrower, the preview goes under, and under 34rem everything stacks:
-  outline, editor, preview. The builder uses Tailwind container queries, so it fits whatever space
-  the host gives it.
+  outline, editor, preview. The builder uses Tailwind container queries (through genesis-ui's
+  `BuilderLayout`), so it fits whatever space the host gives it.
 - **Logic and endings** lists the rules as sentences of picker pills ("If [question] [is at most]
   [2] go to [What went wrong?]"), each with its kind (Jump, Show only when, Hide when), a handle to
   reorder it and a menu to change its kind, move or delete it; then the endings as cards, each

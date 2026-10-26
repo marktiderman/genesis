@@ -59,6 +59,8 @@ export {
   type SettingsPageProps,
   type SettingsPageSection,
 } from "./settings-page";
+// A builder's outline / editor / preview columns. Not a page: no tabs, rail or header.
+export { BuilderLayout, type BuilderLayoutProps, type BuilderLayoutSlotProps } from "./builder-layout";
 
 // Layout primitives (unopinionated bones)
 export { Stack, stackVariants, type StackProps } from "./stack";
