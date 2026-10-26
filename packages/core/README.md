@@ -556,6 +556,8 @@ const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_
   final: (existing) => existing.status === "submitted", // finished: handed back with final: true, never written over
 });
 // Key fields that are null match rows where they're null.
+// For a partial unique index (soft delete, a kind column), add `scope` filters to the lookup:
+// scope: [{ field: "deleted_at", operator: "is_null" }]
 
 // In a component: pending, plain error words, and invalidation after a success.
 const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
