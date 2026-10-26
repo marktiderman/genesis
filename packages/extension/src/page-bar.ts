@@ -61,7 +61,7 @@ export interface PageBarModel {
   actions?: PageBarAction[];
   /** The corner tab's text, e.g. "✓ Saved". */
   collapsedLabel: string;
-  /** The corner tab's accessible name (default: the title). */
+  /** What the corner tab names after its text (default: the title): "✓ Saved: <this>". */
   collapsedTitle?: string;
   collapsed?: boolean;
   /** `"compact"`: one 32px row with 12px text. */
@@ -130,13 +130,13 @@ export function renderPageBar(model: PageBarModel | null): void {
     .chip.bare.neutral { color: var(--gx-mark); }
     .reveal { opacity: 0; transition: opacity .12s; }
     .bar:hover .reveal, .bar:focus-within .reveal { opacity: 1; }
-    @media (hover: none) { .reveal { opacity: 1; } }
+    @media (any-hover: none) { .reveal { opacity: 1; } }
     svg { flex: none; }
     .bar.compact { min-height: 32px; padding: 0 8px 0 10px; font-size: 12px; box-shadow: 0 1px 4px rgba(15, 23, 42, .25); }
     .bar.compact .logo { width: 18px; height: 18px; border-radius: 5px; font-size: 11px; }
     .bar.compact .chip { padding: 1px 7px; font-size: 11px; }
     .bar.compact .chip.bare { padding: 0; }
-    .bar.compact .primary { height: 22px; padding: 0 10px; }
+    .bar.compact .primary { min-height: 24px; padding: 0 10px; }
     .bar.compact .icon { width: 24px; height: 24px; }
     .tab { pointer-events: auto; position: fixed; top: 8px; right: 8px; display: flex; align-items: center; gap: 6px;
       padding: 4px 10px 4px 4px; border-radius: 999px; background: var(--gx-bg); color: var(--gx-fg); font-size: 12px;
@@ -206,7 +206,11 @@ export function renderPageBar(model: PageBarModel | null): void {
   const drawTab = (): HTMLElement => {
     const tab = el("button", "tab");
     tab.title = model.title;
-    tab.setAttribute("aria-label", model.collapsedTitle || model.title);
+    // The visible text comes first, so voice control finds it by what it says (WCAG 2.5.3).
+    tab.setAttribute(
+      "aria-label",
+      `${model.collapsedLabel}: ${model.collapsedTitle || model.title}`,
+    );
     tab.append(
       el("span", "logo", model.mark),
       el("span", "", model.collapsedLabel),

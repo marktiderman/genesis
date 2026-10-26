@@ -517,7 +517,7 @@ describe("page bar", () => {
         { id: "details", label: "Show details", icon: "chevron-down" },
       ],
       collapsedLabel: "✓ Saved",
-      collapsedTitle: "Saved: A talk",
+      collapsedTitle: "A talk",
       density: "compact",
       shrinkIcon: "close",
     });
@@ -547,7 +547,7 @@ describe("page bar", () => {
     await new Promise((r) => setTimeout(r, 0));
     expect(sent).toEqual(["details", "collapse"]);
     expect(shadow.querySelector(".tab")?.getAttribute("aria-label")).toBe(
-      "Saved: A talk",
+      "✓ Saved: A talk",
     );
     renderPageBar(null);
   });
