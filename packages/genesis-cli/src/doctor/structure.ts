@@ -7,7 +7,8 @@
  */
 import { lineAt } from "./scan.js";
 import { routesDir, webRoutes, type RouteFile } from "./routes.js";
-import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx, viaOneImport } from "./source.js";
+import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx } from "./source.js";
+import { trailFor, type Reach } from "./trail.js";
 import type { DoctorContext } from "./types.js";
 
 /** Where the shell's sub-navigation is documented. */
@@ -30,13 +31,29 @@ const rendersRe = (names: Iterable<string>) => {
 };
 
 /**
+ * Whether `test` holds for one of the route's files (`posts.tsx`, `posts.lazy.tsx`) or a module they reach
+ * through imports, re-exports and barrels: `yes`, `no`, or `unknown` when the trail ran out.
+ */
+function routeReach(ctx: DoctorContext, r: RouteFile, test: (code: string) => boolean): Reach {
+  const trail = trailFor(ctx);
+  let unknown = false;
+  for (const f of r.files) {
+    const got = trail.reach(f, test);
+    if (got === "yes") return "yes";
+    if (got === "unknown") unknown = true;
+  }
+  return unknown ? "unknown" : "no";
+}
+const routeVia = (ctx: DoctorContext, r: RouteFile, test: (code: string) => boolean) => routeReach(ctx, r, test) === "yes";
+
+/**
  * Which routes render inside the AppShell: those under a layout route that
  * renders it (directly or through one local import). When no route renders it
  * but some app file does, the app mounts the shell elsewhere, so every route counts.
  * The shell's own layout route is not "inside" it.
  */
 function insideShell(ctx: DoctorContext, routes: RouteFile[]): (r: RouteFile) => boolean {
-  const shell = new Set(routes.filter((r) => viaOneImport(ctx.root, ctx.files, r.file, (code) => SHELL.test(code))));
+  const shell = new Set(routes.filter((r) => routeVia(ctx, r, (code) => SHELL.test(code))));
   const anyShell = shell.size === 0 && ctx.files.some((f) => SHELL.test(f.code));
   return (r) => !shell.has(r) && (anyShell || r.parents.some((p) => shell.has(p)));
 }
@@ -48,16 +65,20 @@ export function checkHandRolledSubNav(ctx: DoctorContext): void {
   if (routes.length === 0) return;
   const inShell = insideShell(ctx, routes);
   const ui = ctx.genesis.uiPackage;
+  // Every route in the shell, pages and layouts alike: a page that also renders an <Outlet> is a page, and a
+  // layout route drawing tabs over its children is the classic hand-rolled sub-nav.
   for (const r of routes) {
-    if (!inShell(r)) continue;
-    const code = r.file.code;
-    if (/\buseAppShellSubNav\s*\(/.test(code)) continue;
-    for (const m of code.matchAll(SWITCHER)) {
-      if (openElementsAt(code, m.index!, (n) => CONTAINER.test(n)).length > 0) continue;
+    if (!inShell(r) || r.files.some((f) => /\buseAppShellSubNav\s*\(/.test(f.code))) continue;
+    const hit = r.files
+      .flatMap((f) => [...f.code.matchAll(SWITCHER)].map((m) => ({ f, m })))
+      .find(({ f, m }) => openElementsAt(f.code, m.index!, (n) => CONTAINER.test(n)).length === 0);
+    if (hit) {
+      const { f, m } = hit;
+      const code = f.code;
       ctx.report({
         rule: "hand-rolled-sub-nav",
         level: "warn",
-        file: r.file.path,
+        file: f.path,
         line: lineAt(code, m.index!),
         subject: m[1],
         message:
@@ -65,7 +86,6 @@ export function checkHandRolledSubNav(ctx: DoctorContext): void {
           `and put the header in AppShellPageHeader (chips in AppShellSubNavEnd), from ${ui}/layout, so the sections are the shell's tab row ` +
           `and the phone's bottom bar. See ${SUB_NAV_DOCS}`,
       });
-      break;
     }
   }
 }
@@ -131,11 +151,12 @@ export function checkResourceWorkspaces(ctx: DoctorContext): void {
     byFolder.set(dir, [...(byFolder.get(dir) ?? []), r]);
   }
   for (const [dir, routes] of byFolder) {
-    const has = routes.filter((r) => viaOneImport(ctx.root, ctx.files, r.file, (code) => header.test(code)));
+    const reach = new Map(routes.map((r) => [r, routeReach(ctx, r, (code) => header.test(code))]));
+    const has = routes.filter((r) => reach.get(r) === "yes");
     if (has.length === 0) continue;
     const ref = has.map((r) => r.file.path.slice(dir.length + 1)).join(", ");
     for (const r of routes) {
-      if (has.includes(r)) continue;
+      if (reach.get(r) !== "no") continue;
       ctx.report({
         rule: "resource-workspace",
         level: "info",
@@ -169,16 +190,18 @@ export function checkPageLayouts(ctx: DoctorContext): void {
     for (const n of namedImportsFrom(code, GENESIS_PACKAGE)) if (PACKAGE_SCREEN.test(n)) names.add(n);
     return rendersRe(names)?.test(code) ?? false;
   };
-  const cache = new Map<RouteFile, boolean>();
+  const cache = new Map<RouteFile, Reach>();
   const provides = (r: RouteFile) => {
-    if (!cache.has(r)) cache.set(r, viaOneImport(ctx.root, ctx.files, r.file, rendersLayout));
+    if (!cache.has(r)) cache.set(r, routeReach(ctx, r, rendersLayout));
     return cache.get(r)!;
   };
   const list = [...layouts].sort();
   const named = list.length > 4 ? `${list.slice(0, 4).join(", ")}, …` : list.join(", ");
   for (const r of routes) {
-    if (r.layout || r.redirectOnly || !inShell(r)) continue;
-    if (provides(r) || r.parents.some(provides)) continue;
+    // Pure layouts are judged through their pages; a page that also renders an <Outlet> is checked like any other.
+    if (!r.page || r.redirectOnly || !inShell(r)) continue;
+    // Report only a sure "no": when a trail runs out (an alias we can't read, the depth limit), stay quiet.
+    if (provides(r) !== "no" || r.parents.some((p) => provides(p) !== "no")) continue;
     ctx.report({
       rule: "page-layout",
       level: "warn",
