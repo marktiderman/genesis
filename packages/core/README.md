@@ -583,6 +583,24 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
 time: a second click while it runs gets the same promise, not a second write.
 
+## Resource page rules (`/resource`)
+
+The pure rules behind a resource page (a form, a course, a lesson, a worksheet), with no React,
+so a server or a phone app can use them: `readinessOf(findings, { emptyCode, pending })` and
+`readinessChip(readiness, labels)` (the readiness chip's words and tone), `SAVE_STATE_LABEL`,
+`dayLabel` ("Today", "Yesterday", "Oct 21"), `prefilledUrl` and `embedSnippet` (the Share
+dialog's links), and the types `ChipTone`, `SaveState`, `Readiness`, `ReadinessFinding`,
+`ReadinessOptions`, `ReadinessLabels`, `PrefillChoice`, `HeadlineNumber` (a headline number as
+data) and `HeadlineTone`. genesis-ui's `/resource` components draw them, and
+`@marktiderman/genesis-ui/resource/rules` re-exports the same functions.
+
+```ts
+import { readinessChip, readinessOf } from "@marktiderman/genesis-core/resource";
+
+readinessChip(readinessOf(findings, { emptyCode: "no-lessons" }), { empty: "Add a lesson" });
+// → { label: "Add a lesson", tone: "muted" }
+```
+
 ## Days and time zones (`/dates`)
 
 A day is a `YYYY-MM-DD` string: the date on one time zone's clock. `new Date().toISOString().slice(0, 10)`

@@ -7,9 +7,11 @@ import type {
   Allowed,
   DisplayHint,
   ResourceView,
+  RowPicture,
   RowSummary,
   Viewer,
 } from "@marktiderman/genesis-core/resource-view";
+import { rowPicture } from "@marktiderman/genesis-core/resource-view";
 import type { InboxSwipeAction } from "../../layouts/inbox-page";
 import { displayText, isEmptyValue } from "./display";
 import { fill, type NativeResourceViewMessages } from "./messages";
@@ -25,6 +27,20 @@ export interface NativeResourceRowItem {
   /** `summary(row).subtitle`, the only subtitle: never a raw column. */
   subtitle?: string;
   chips: NonNullable<RowSummary["chips"]>;
+  /**
+   * `rowPicture(summary)`: an image (passed `isSafeUrl`, with initials to fall back to), initials,
+   * or null. On a phone only an http(s) image can load, so any other safe src (a root-relative
+   * path) draws its initials instead.
+   */
+  picture: RowPicture | null;
+}
+
+function nativePicture(summary: RowSummary): RowPicture | null {
+  const picture = rowPicture(summary);
+  if (picture?.kind === "image" && !/^https?:/i.test(picture.src)) {
+    return picture.fallback ? { kind: "initials", text: picture.fallback } : null;
+  }
+  return picture;
 }
 
 /**
@@ -38,6 +54,7 @@ export function rowItem<T extends Row>(view: AnyResourceView<T>, row: T): Native
     title: summary.title,
     ...(summary.subtitle ? { subtitle: summary.subtitle } : {}),
     chips: summary.chips ?? [],
+    picture: nativePicture(summary),
   };
 }
 

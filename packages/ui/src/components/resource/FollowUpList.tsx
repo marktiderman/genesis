@@ -3,7 +3,7 @@ import { Skeleton } from "../ui/skeleton";
 import { cn } from "../../utils";
 import { CircleCheck, Star, TriangleAlert } from "lucide-react";
 import { Chip } from "./chip";
-import type { ChipTone } from "./status";
+import type { ChipTone } from "@marktiderman/genesis-core/resource";
 
 /** One item in the follow-up list (a response, a submission), as the host describes it. */
 export interface FollowUpEntry {
