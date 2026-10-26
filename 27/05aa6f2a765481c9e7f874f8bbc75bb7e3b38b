@@ -1,0 +1,19 @@
+packages/supabase/migrations/tests/0014_genesis_feature_registry_hardening.test.sql
+  s_f5a91deb5a46ce::t_de182a02e9fc5e 6,31-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2705aa6f2a765481c9e7f874f8bbc75bb7e3b38b",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
