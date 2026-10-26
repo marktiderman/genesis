@@ -264,6 +264,43 @@
         "steps": [
           "Uses the same hooks as the pursuits block: private.genesis_readable_owners(viewer) and private.genesis_owner_can(...). Without them nobody signed in reads or writes."
         ]
+      },
+      "status-updates": {
+        "feature": {
+          "name": "Status updates",
+          "summary": "Dated updates (health and a note) on goals, projects, tasks, issues and metrics, and requests to a person for an update by a due time, answered by posting one.",
+          "keywords": [
+            "status update",
+            "check-in",
+            "update request",
+            "health",
+            "overdue"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "pursuits",
+          "metrics"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0011_genesis_updates.sql",
+            "test": "migrations/tests/0011_genesis_updates.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Needs the pursuits and metrics blocks and their hooks. For reminders, schedule a job (the jobs block) that reads update_requests_due and sends one notification per request."
+        ]
       }
     }
   },
