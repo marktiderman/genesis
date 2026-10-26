@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(50);
+select plan(53);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -223,6 +223,16 @@ select pg_temp.as_server();
 select is(genesis_chat.purge_expired(), 0, 'legal hold keeps everything');
 select genesis_chat.set_legal_hold(pg_temp.v('grp'), false);
 select ok(genesis_chat.purge_expired() > 0, 'without it, messages past the kind''s retention go');
+
+-- Inbox kinds ------------------------------------------------------------------------------------------
+
+select pg_temp.sign_in('b2');
+select ok(exists (select 1 from genesis_chat.inbox(p_kinds => array['direct'])) and
+          not exists (select 1 from genesis_chat.inbox(p_kinds => array['direct']) where kind <> 'direct'),
+          'the inbox narrows to the kinds asked for');
+select ok(not exists (select 1 from genesis_chat.inbox(p_exclude_kinds => array['cohort']) where kind = 'cohort'),
+          'and leaves out the kinds asked to');
+select ok(genesis_chat.unread_total(p_exclude_kinds => array['cohort', 'direct']) = 0, 'so does the badge');
 
 select * from finish();
 rollback;
