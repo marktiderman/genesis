@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 149 components · 518 other exports · 385 standalone types across 11 packages and entry points.
+**Totals:** 149 components · 524 other exports · 392 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -31,7 +31,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 
-### Other exports (35)
+### Other exports (41)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -47,23 +47,29 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
+| [`DEFAULT_DRAFT_DELAY_MS`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
+| [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
+| [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
+| [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
+| [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
+| [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
@@ -73,7 +79,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (85)
+### Types (92)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -91,6 +97,12 @@ export type { DataRow };
 export type { DataWriteErrorOptions };
 export type { DeleteParams };
 export type { DeleteResult };
+export type { DraftAdoption };
+export type { DraftOptions };
+export type { DraftSeed };
+export type { DraftState };
+export type { DraftStatus };
+export type { DraftValue };
 export type { FieldPermissions };
 export type { FieldReference };
 export type { FieldSchema };
@@ -148,6 +160,7 @@ export type { SupabaseWriteContext };
 export type { UndoableWrite };
 export type { UpdateParams };
 export type { UpdateResult };
+export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseOneOptions };

@@ -11,10 +11,14 @@ import { must, type PostgrestErrorLike } from "./index";
 export interface FeatureRegistryClient {
   // Loose on purpose, as in tenant-features: an app's generated types may not list these yet.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  rpc: (fn: any, ...rest: any[]) => PromiseLike<{ data: unknown; error: PostgrestErrorLike | null }>;
+  rpc: (
+    fn: any,
+    ...rest: any[]
+  ) => PromiseLike<{ data: unknown; error: PostgrestErrorLike | null }>;
 }
 
-type RpcResult = { data: unknown; error: null } | { data: null; error: PostgrestErrorLike };
+type RpcResult =
+  { data: unknown; error: null } | { data: null; error: PostgrestErrorLike };
 
 /**
  * A tenant's runtime state for the gate, shaped to spread into a
@@ -31,7 +35,10 @@ export interface FeatureGateState {
   flags: Record<string, unknown>;
 }
 
-const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : []);
+const strings = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string")
+    : [];
 
 /**
  * A tenant's switches, entitlements and flag values: `feature_gate_state`.
@@ -41,13 +48,21 @@ const strings = (value: unknown): string[] => (Array.isArray(value) ? value.filt
  *
  * @stability Beta
  */
-export async function featureGateState(client: FeatureRegistryClient, tenantId: string): Promise<FeatureGateState> {
-  const data = must((await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult) as Record<string, unknown> | null;
+export async function featureGateState(
+  client: FeatureRegistryClient,
+  tenantId: string,
+): Promise<FeatureGateState> {
+  const data = must(
+    (await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult,
+  ) as Record<string, unknown> | null;
   const flags = data?.flags;
   return {
     off: strings(data?.off),
     entitlements: strings(data?.entitled),
-    flags: flags && typeof flags === "object" && !Array.isArray(flags) ? { ...(flags as Record<string, unknown>) } : {},
+    flags:
+      flags && typeof flags === "object" && !Array.isArray(flags)
+        ? { ...(flags as Record<string, unknown>) }
+        : {},
   };
 }
 
@@ -64,8 +79,13 @@ export interface SyncFeatureRegistryOptions {
 }
 
 async function sha256(text: string): Promise<string> {
-  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+  const digest = await globalThis.crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(new Uint8Array(digest), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
 }
 
 /**
@@ -86,10 +106,24 @@ export async function syncFeatureRegistry(
   options: SyncFeatureRegistryOptions,
 ): Promise<boolean> {
   if (!Number.isSafeInteger(options.version) || options.version < 0) {
-    throw new TypeError("syncFeatureRegistry: version must be a non-negative integer");
+    throw new TypeError(
+      "syncFeatureRegistry: version must be a non-negative integer",
+    );
   }
   const features = [...document.features];
-  const flags = Object.entries(document.flags ?? {}).map(([key, flag]) => ({ key, ...flag }));
+  const flags = Object.entries(document.flags ?? {}).map(([key, flag]) => ({
+    key,
+    ...flag,
+  }));
   const hash = await sha256(JSON.stringify({ features, flags }));
-  return must((await client.rpc("sync_feature_registry", { version: options.version, hash, features, flags })) as RpcResult) === true;
+  return (
+    must(
+      (await client.rpc("sync_feature_registry", {
+        version: options.version,
+        hash,
+        features,
+        flags,
+      })) as RpcResult,
+    ) === true
+  );
 }
