@@ -1,5 +1,15 @@
 # @marktiderman/genesis-cli
 
+## 1.13.0
+
+### Minor Changes
+
+- 2bf5afd: Resource facts from `@genesis` comments: tables take `noun` and `nounPlural`, columns `readonly` and `sensitive` (booleans). `genesis introspect` emits each resource as `as const satisfies ResourceContract<Row>` with a field-name union, so a bad setting fails to compile; row types are now type aliases. Core's `ResourceContract` gains `label`, `labelField`, `noun` and `nounPlural`, and `FieldSchema` gains `readOnly` and `sensitive`.
+
+### Patch Changes
+
+- dda639d: `genesis doctor`: `page-layout` accepts `ResourceView` as a page layout, and `native-screen-layout` accepts `NativeResourceView`, so list screens built from a view pass.
+
 ## 1.12.1
 
 ### Patch Changes

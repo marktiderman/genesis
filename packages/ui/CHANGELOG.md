@@ -1,5 +1,73 @@
 # @marktiderman/genesis-ui
 
+## 2.18.0
+
+### Minor Changes
+
+- c098d74: ResourcePage `pagination="cursor"` now searches, sorts and filters on the server, as `pagination="server"` already did. Before, the toolbar's search, the status filter and a header sort worked only on the rows already loaded, so a match on an unloaded page never showed.
+
+  - **What happens now:** each change restarts from the first page with the server's count, and search waits for a pause in typing.
+  - **Search box:** it shows only when the list has `searchFields`, since the server needs to know which columns to match.
+  - **`useResourceTable`'s `total`:** in cursor mode it's the server's count of matches.
+
+  Cursor lists sort on the server only. Column headers aren't client-sortable there, since a header sort would reorder just the loaded rows, in an order the next page disagrees with. A URL sort on a computed column is ignored. A new search, sort or filter keeps the loaded rows on screen until it lands (core: `useInfiniteResource({ keepPreviousData })`). A shared link starts from its search and sort in one request.
+
+- 5503a00: `<ResourceView view={...} />`: a list screen from a `genesis-core/resource-view` view, in one line. It maps the view onto ResourcePage, so paging, search, the peek, the form, delete and slots are ResourcePage's, and every ResourcePage prop still works as an escape hatch.
+
+  **Screen settings:**
+  - `layout` (`page`, `embedded` or `compact`);
+  - `columns` (a preset);
+  - `preset` (a tab: columns plus a server filter);
+  - `filter` (server equality filters);
+  - `mode`.
+
+  **Behaviour:**
+  - Guards only narrow: the view's rule AND the screen's `can`.
+  - The form lists only writable fields, under the view's sections.
+
+  **Also new:**
+  - `useResourceView` and `useResourceViewProps` are the headless forms.
+  - `DisplayRenderersProvider` replaces how a display hint draws. Links and images go through `isSafeUrl`, and calendar days are formatted from their parts.
+
+  **Fixed:** `DateCell` showed a `YYYY-MM-DD` day as the day before for viewers west of UTC.
+
+### Patch Changes
+
+- bcb938c: **An edit never blanks what it didn't load.** `useResourceForm` (and so ResourcePage, ResourceView and ResourceForm) sends a field the opened record didn't carry only when the person changed it. A list that didn't load a column, or a value the server left out, can no longer be overwritten with an empty one by an unrelated edit. `updates: "all"` restores the old behaviour.
+
+  On a create, a field's `defaultValue` now wins over the blank template ResourcePage builds.
+
+  **ResourceView:**
+  - A link named in a view's form is read-only until there's a relation picker, so no one sends a hand-typed id.
+  - A screen's `filter` fills those fields on create.
+
+- af29d35: `genesis-core/resource-view`: `defineView(contract, {...})` describes what a resource means to people (labels, display hints, column presets, tabs, form sections, guards, summary) with no React, checked once and frozen. A name the contract doesn't have throws `ViewDefinitionError` at start-up.
+
+  `isSafeUrl` and `normalizeLinkUrl` move to core (`genesis-core/urls`, also the root), so native and the extension use the same link check; genesis-ui re-exports them. The CSV helpers move to `genesis-core/csv`, and a cell that starts with spaces and then a formula character is now neutralised too.
+
+- 32bdd36: `genesis-core/resource-view`: a view's `summary` can carry a picture, `image: { src?, name?, alt? }`. `rowPicture(summary)` says what to draw: the image when `isSafeUrl` accepts its `src` (with initials for when it fails to load), the initials of `name` when the `src` is unsafe or missing, or `null`. `alt` defaults to empty, so the picture is decorative. `initialsOf(name)` takes whole characters, so an emoji or accented letter is never split.
+
+  `genesis-ui`: `ResourceView` draws the summary's picture as an avatar beside the first column of the table.
+
+- 4712a93: `genesis-ui/resource/rules` and `genesis-ui/resource` re-export the pure resource rules from `@marktiderman/genesis-core/resource`, where they now live: the same names and functions, nothing deprecated. `HeadlineNumber` extends core's, with `value` and `detail` still any React node.
+
+  Features: resource-workspace
+
+- Updated dependencies [4712a93]
+- Updated dependencies [eb4d080]
+- Updated dependencies [c098d74]
+- Updated dependencies [2bf5afd]
+- Updated dependencies [f8df3a4]
+- Updated dependencies [f0146a4]
+- Updated dependencies [35145a1]
+- Updated dependencies [a93108d]
+- Updated dependencies [bcb938c]
+- Updated dependencies [af29d35]
+- Updated dependencies [32bdd36]
+- Updated dependencies [32bdd36]
+- Updated dependencies [32bdd36]
+  - @marktiderman/genesis-core@1.13.0
+
 ## 2.17.1
 
 ### Patch Changes
