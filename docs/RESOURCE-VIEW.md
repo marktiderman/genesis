@@ -302,6 +302,24 @@ The defaults are chosen for large data:
 - `describe()` and the batched permissions check are cached per user, scope and resource, so a
   popup opened many times a session doesn't pay round trips each time.
 
+## Alignment with Genesis Sites
+
+Sites already has the pattern this design needs, so ResourceView follows it rather than inventing
+a second one:
+
+| Sites (`defineSection`) | ResourceView (`defineView`) |
+| --- | --- |
+| A zod `schema` drives the editor's fields and checks | Validation is derived as a Standard Schema (zod), with `validate` adding rules |
+| `variants` and `presets` | `layout` and `presets` (columns plus filters) |
+| `version` plus `migrations` on stored props | `version` plus `migrations` on stored user preferences (saved views, column order) |
+| Manifests with no renderers (`sectionManifests()`) | View definitions with no React (`genesis-core/resource-view`) |
+| A registry from section type to renderer | Per-platform renderer registries keyed by display hint |
+
+Later, page types meet. A Sites section type `resource-list` (a view plus a preset) would let an
+admin page be composed like a landing page: a hero, headline numbers, then a list. The same
+document model and renderer registry would serve both public and admin pages. That isn't in phase
+1. The shapes above are chosen so it can be added without changing either side.
+
 ## Why not read the schema at run time
 
 Data Studio reads it at run time because it must work on any table. Product screens shouldn't:
