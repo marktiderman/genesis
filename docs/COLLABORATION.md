@@ -73,9 +73,16 @@ stays in one function.
 **Anonymous** (a flag): contents show without names, for honest team assessments and feedback
 rounds. The facilitator still sees names unless the owner turns that off too.
 
+**Minimum group** (applies to Totals and to anonymous spaces): combined results show only once at
+least 3 people other than the viewer have contributed (the minimum is a setting, never below 3).
+Below that, the view says how many have answered and nothing more. Otherwise a person in a group
+of two could work out the other's answer from the average and their own. The compare view and
+anonymous Full apply the same rule. A one-on-one can't be anonymous, so it shows names.
+
 **Private** (per contribution): the author keeps one contribution out of the shared view, at any
-level. If they do that at "Full", they don't see the others' private contributions either. Fair
-sharing works both ways.
+level, and no other participant ever sees it. At "Full", sharing works both ways: a participant
+whose own contribution for the period is private doesn't see the others' shared contributions
+either, until they share theirs. The gate shows `share_first`.
 
 ### History
 
