@@ -10,6 +10,13 @@
  *   4. flag         each of its boolean release or permission flags is true
  *   5. entitlement  a paid feature (`access: { plan }`) has an active entitlement
  *
+ * A feature that `requires` other features in the registry (a module's parts
+ * require the module) is also off while any of them is off: after its own
+ * status and platform, each required feature is asked the same way, and the
+ * first "no" comes back with `via` naming it. So switching a module off, or not
+ * paying for it, turns off every part with it, and the upsell names the module's
+ * plan.
+ *
  * Entitlement is last on purpose: an "upgrade to unlock" answer is only given
  * when paying is the one thing missing, so an upsell never promises a feature
  * that a switch or a flag would still keep off.
@@ -61,6 +68,8 @@ export interface GateAnswer {
   unlock?: { plan: string };
   /** The flag that turned it off, when the reason is `flag`. Server side only: snapshots leave it out. */
   flag?: string;
+  /** The required feature that turned it off (a module its part needs), when the "no" came from one. */
+  via?: string;
 }
 
 /** The fields of a feature the gate reads. A `FeatureDef` fits. @stability Beta */
@@ -69,6 +78,8 @@ export interface GateFeature {
   apps: readonly string[];
   platforms?: Partial<Record<FeaturePlatform, FeatureStatus>>;
   access?: FeatureAccess;
+  /** Ids this feature needs; those in the registry must be on too. */
+  requires?: readonly string[];
 }
 
 /** The fields of a flag the gate reads. A `FlagDef` fits. @stability Beta */
@@ -161,10 +172,8 @@ function prepare(registry: GateRegistry, context: GateContext): Prepared {
   };
 }
 
-function answer(
-  { registry, context, entitled, off }: Prepared,
-  id: string,
-): GateAnswer {
+function answer(prepared: Prepared, id: string, seen: ReadonlySet<string> = new Set()): GateAnswer {
+  const { registry, context, entitled, off } = prepared;
   const def = Object.hasOwn(registry.features, id)
     ? registry.features[id]
     : undefined;
@@ -174,6 +183,13 @@ function answer(
   const here = statusOn(def, context.platform);
   if (!here || !SHIPPED_STATUSES.includes(here))
     return { on: false, reason: "platform" };
+  // What it requires must be on too: a module's parts go off with the module.
+  // Ids outside the registry (blocks, infrastructure) don't gate; a cycle is cut.
+  for (const need of def.requires ?? []) {
+    if (need === id || seen.has(need) || !Object.hasOwn(registry.features, need)) continue;
+    const parent = answer(prepared, need, new Set([...seen, id]));
+    if (!parent.on) return { ...parent, via: parent.via ?? need };
+  }
   if (off(id)) return { on: false, reason: "tenant" };
   for (const [name, flag] of Object.entries(registry.flags ?? {})) {
     if (
@@ -296,16 +312,20 @@ export class FeatureOff extends Error {
   readonly feature: string;
   readonly reason: GateReason;
   readonly unlock?: { plan: string };
+  /** The required feature that turned it off, when one did. */
+  readonly via?: string;
   constructor(feature: string, answer: GateAnswer) {
+    const through = answer.via ? ` (through ${answer.via})` : "";
     super(
       answer.reason === "entitlement" && answer.unlock
-        ? `${feature} needs the ${answer.unlock.plan} plan`
-        : `${feature} is off (${answer.reason ?? "unknown"})`,
+        ? `${feature} needs the ${answer.unlock.plan} plan${through}`
+        : `${feature} is off (${answer.reason ?? "unknown"}${answer.via ? ` via ${answer.via}` : ""})`,
     );
     this.name = "FeatureOff";
     this.feature = feature;
     this.reason = answer.reason ?? "unknown";
     if (answer.unlock) this.unlock = answer.unlock;
+    if (answer.via) this.via = answer.via;
   }
 
   /** The HTTP status for this refusal: 402 when a plan unlocks it, else 403. */

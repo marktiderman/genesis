@@ -34,6 +34,10 @@ An id that isn't in the registry is off with reason `unknown`; the gate never th
 older snapshot can meet newer code. Entitlement is checked last so that an upgrade prompt is only shown
 when paying is the one thing missing: an upsell never promises a feature a switch or flag keeps off.
 
+A feature that `requires` other registry features is off while any of them is off. They are asked
+right after its own status and platform, and the answer carries `via` (the required feature that
+said no), so a module's parts go off with the module and an upsell names the module's plan.
+
 A snapshot lists only features that have shipped somewhere and leaves out flag names; it is plain
 JSON with the time it was made (`at`) and the registry version, so clients can store it and refresh
 it on their own schedule (a time limit, sign-in, a tenant switch, a refusal).
