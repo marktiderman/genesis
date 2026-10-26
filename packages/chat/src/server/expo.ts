@@ -65,7 +65,7 @@ export function createExpoDeliver(options: ExpoDeliverOptions): (n: ChatNotifica
         sound: options.sound === undefined ? "default" : options.sound,
         badge: badges.get(d.userId) ?? 0,
         threadId: notification.threadKey,
-        ...(options.collapse ? { collapseId: notification.collapseKey } : {}),
+        ...(options.collapse ? { collapseId: notification.collapseKey ?? `chat:${notification.conversationId}` } : {}),
         channelId: options.channelId ?? "messages",
         categoryId: options.categoryId ?? "messages",
       }),

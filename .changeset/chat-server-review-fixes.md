@@ -1,0 +1,5 @@
+---
+"@marktiderman/genesis-chat": patch
+---
+
+Chat server review fixes: the video upload handler mints the Mux passthrough itself (conversation and uploader) and the webhook matches an attachment only by its upload id, checking the binding; it requires `corsOrigin`, answers preflight and takes a `rateLimit` hook. In kinds that moderate, pushes wait for the verdict and hidden messages are never pushed, counted in badges or shown in the inbox; edits are moderated; a verdict never un-hides a message or files a duplicate report; a moderator failing on its last attempt files "moderation unavailable". Link previews are read through `link_previews_for(message_id)` only, and links carrying credentials are never fetched. The unfurler refuses named hosts it can't resolve unless `allowUnresolved`, times out DNS, blocks more IPv6 forms, checks og:image hosts and can pin connections with `guardedLookup`. The assistant neutralises tags in transcripts and leaves hidden messages out. A transient error no longer drops a scheduled message.
