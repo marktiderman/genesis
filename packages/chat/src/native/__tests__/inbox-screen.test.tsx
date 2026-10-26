@@ -16,7 +16,7 @@ afterEach(cleanup);
 const ME = "11111111-1111-4111-8111-111111111111";
 
 function fakeClient() {
-  const inbox = vi.fn(async () => []);
+  const inbox = vi.fn(async (_opts: Record<string, unknown>) => []);
   const client = {
     inbox,
     subscribeInbox: vi.fn(() => ({ unsubscribe: vi.fn() })),
