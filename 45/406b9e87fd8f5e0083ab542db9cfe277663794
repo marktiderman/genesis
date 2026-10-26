@@ -1,0 +1,65 @@
+packages/forms/src/__tests__/build-config.test.ts
+  s_1f35d570c63beb::t_e77d855e879b50 3-7,11-16,19,23-24,26-42
+packages/forms/src/__tests__/runner-contract.test.ts
+  s_1f35d570c63beb::t_5029d2fc345d90 1-114
+  s_1f35d570c63beb::t_d1db9c48fa3c28 115-117
+packages/notifications/src/runner/index.ts
+  s_1f35d570c63beb::t_6fd77bb106acad 2-6,8,11-49
+packages/forms/vitest.config.ts
+  s_1f35d570c63beb::t_e2c2cc4db73440 1,4-7,13-14
+  s_1f35d570c63beb::t_0fcdf6183fe2c6 15
+.changeset/runner-move-forms.md
+  s_1f35d570c63beb::t_adebd24cb9309b 1-5
+.changeset/runner-move-notifications.md
+  s_1f35d570c63beb::t_86082d3db0fa1a 1-7
+.changeset/runner-move-supabase.md
+  s_1f35d570c63beb::t_80db402b25d143 1-7
+packages/forms/package.json
+  s_1f35d570c63beb::t_e1467547d7592f 89
+packages/forms/src/destinations/runner.ts
+  s_1f35d570c63beb::t_c1df6f15af8114 24-27,39
+packages/forms/tsconfig.json
+  s_1f35d570c63beb::t_f04b9d5db8dbe8 16
+packages/forms/tsup.config.ts
+  s_1f35d570c63beb::t_a2be2f059886aa 4,6-8,11,24,26
+packages/notifications/README.md
+  s_1f35d570c63beb::t_1820276a810ff2 21
+packages/notifications/package.json
+  s_1f35d570c63beb::t_032fd477dfefaa 91,124
+packages/notifications/src/__tests__/runner-reexport.test.ts
+  s_1f35d570c63beb::t_77e7f82b79c64d 1-13
+packages/notifications/src/server/runner.ts
+  s_1f35d570c63beb::t_842997859d2c3f 3,32
+packages/supabase/README.md
+  s_1f35d570c63beb::t_5c2eb2a6875716 671-679
+packages/supabase/package.json
+  s_1f35d570c63beb::t_fa5196954f0ae5 7,38-41
+packages/supabase/src/__tests__/jobs.test.ts
+  s_1f35d570c63beb::t_2a5cce18bb84ea 95-137
+packages/supabase/src/__tests__/runner.test.ts
+  s_1f35d570c63beb::t_acdfd5a7bc735f 1,3,83-105
+packages/supabase/src/jobs.ts
+  s_1f35d570c63beb::t_a3a9d164d8d864 30-31,161-163,169-170,176-178,199-204,207-240,242-251
+packages/supabase/src/runner.ts
+  s_1f35d570c63beb::t_4691119d807041 1-311
+packages/supabase/tsup.config.ts
+  s_1f35d570c63beb::t_19114308472c2d 4
+pnpm-lock.yaml
+  s_1f35d570c63beb::t_0f90f1e9b1226a 806,808,1266-1268
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "45406b9e87fd8f5e0083ab542db9cfe277663794",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
