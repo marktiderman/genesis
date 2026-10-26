@@ -284,21 +284,37 @@ describe("GitHub source and writes (@feat:product-insights)", () => {
   });
 });
 
+/** Every module a file names: `from "x"`, a bare `import "x"`, `require("x")` and `import("x")`, either quote. */
+function importsOf(text: string): string[] {
+  const specs: string[] = [];
+  for (const m of text.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)(["'`])([^"'`]+)\1/g)) specs.push(m[2]!);
+  return specs;
+}
+
 describe("the core stays usable from React Native (@feat:product-roadmap)", () => {
-  it("imports nothing from node: and never pulls in ./node, through every module index reaches", () => {
+  it("finds every kind of import, so none slips past the walk", () => {
+    const probe = [`import a from 'single';`, `import "bare";`, `export * from "re-export";`, `const b = require("cjs");`, `const c = await import('dynamic');`, `import type { T } from "types";`].join("\n");
+    expect(importsOf(probe)).toEqual(["single", "bare", "re-export", "cjs", "dynamic", "types"]);
+  });
+
+
+  it("imports nothing from node:, React or React Native, and never pulls in ./node or ./native, through every module index reaches", () => {
     const seen = new Set<string>();
     const walk = (file: string) => {
       if (seen.has(file)) return;
       seen.add(file);
       const text = readFileSync(join(__dirname, "..", `${file}.ts`), "utf8");
-      for (const [, spec] of text.matchAll(/from\s+"([^"]+)"/g)) {
+      for (const spec of importsOf(text)) {
         expect(spec!.startsWith("node:"), `${file} imports ${spec}`).toBe(false);
         expect(spec, `${file} imports ./node`).not.toBe("./node");
+        expect(/^(react|react-native)(\/|$)/.test(spec!), `${file} imports ${spec}`).toBe(false);
+        expect(spec!.startsWith("./native"), `${file} imports ${spec}`).toBe(false);
+        expect(spec!.startsWith("@marktiderman/genesis-ui-native"), `${file} imports ${spec}`).toBe(false);
         if (spec!.startsWith("./")) walk(spec!.slice(2));
       }
     };
     walk("index");
-    expect([...seen].sort()).toEqual(["board", "index", "model", "release"]);
+    expect([...seen].sort()).toEqual(["app", "board", "index", "model", "release"]);
   });
 });
 
@@ -312,5 +328,14 @@ describe("board issue writes (@feat:product-roadmap)", () => {
     }) as unknown as typeof fetch;
     expect(await publishBoardIssue({ repo: "o/r", token: "t", fetch: fetchStub }, "Generated 2026-10-25 by x\nsame")).toBe("u3");
     expect(calls.every((c) => c.startsWith("GET"))).toBe(true);
+  });
+});
+
+describe("packaging (@feat:product-roadmap)", () => {
+  it("serves React Native the /native source (as genesis-ui-native and genesis-chat do), and ships it", () => {
+    const pkg = JSON.parse(readFileSync(join(__dirname, "../../package.json"), "utf8")) as { exports: Record<string, Record<string, string>>; files: string[] };
+    expect(pkg.exports["./native"]?.["react-native"]).toBe("./src/native/index.ts");
+    expect(readFileSync(join(__dirname, "../../src/native/index.ts"), "utf8")).toContain("useIdeaBoard");
+    expect(pkg.files).toContain("src");
   });
 });
