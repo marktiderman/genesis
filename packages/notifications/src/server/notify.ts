@@ -18,7 +18,7 @@ export interface NotifyOptions {
 /**
  * Queue a notification for each recipient. Resolves one result per recipient
  * that exists (a deleted login is left out); the same idempotency key again
- * resolves `created: false` and sends nothing more.
+ * (for the same type and tenant) resolves `created: false` and sends nothing more.
  *
  * @stability Beta
  */
@@ -51,8 +51,12 @@ export async function notify<K extends string>(client: RpcClient, input: NotifyI
 }
 
 export interface CancelInput {
+  /** The type the notifications were made with: a key is a domain's, per type. */
+  type: string;
   /** The key the notifications were made with. */
   idempotencyKey: string;
+  /** The tenant they were made for. Default: those made with no tenant (never another tenant's). */
+  tenantId?: string | null;
   /** Only these recipients (as `notify()` takes them). Default: everyone the key reached. */
   recipients?: readonly Recipient[];
   /** Archive the feed rows too. Default false. */
@@ -60,17 +64,21 @@ export interface CancelInput {
 }
 
 /**
- * Stop what hasn't gone out for an idempotency key (a release rolled back, an
- * event undone): every pending send job is marked cancelled and never claimed.
- * A job already sent, or being sent right now, is left alone. With `archive`,
- * the feed rows are archived too.
+ * Stop what hasn't gone out for a type, tenant and idempotency key (a release
+ * rolled back, an event undone): every pending send job is marked cancelled
+ * and never claimed. A job already sent is left alone; one being sent right
+ * now ends cancelled unless that attempt goes through (it is never retried).
+ * With `archive`, the feed rows are archived too.
  *
  * @stability Beta
  */
 export async function cancelNotification(client: RpcClient, input: CancelInput): Promise<{ cancelled: number; archived: number }> {
+  if (!input.type) throw new Error("cancelNotification: a type is required");
   if (!input.idempotencyKey || input.idempotencyKey.length > 200) throw new Error("cancelNotification: an idempotency key of 1 to 200 characters is required");
   const { data, error } = await client.rpc("genesis_notifications_cancel", {
+    p_type: input.type,
     p_idempotency_key: input.idempotencyKey,
+    p_tenant_id: input.tenantId ?? null,
     p_recipients: input.recipients ? recipientsToJson(input.recipients) : null,
     p_archive: input.archive ?? false,
   });

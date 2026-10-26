@@ -206,7 +206,8 @@ export function usePreferences(): UsePreferencesResult {
       return { before };
     },
     onError: (_e, _v, context) => queryClient.setQueryData(key, context?.before),
-    onSuccess: (saved) => queryClient.setQueryData(key, saved),
+    // Read back through `choices()` (which folds in 0005's category switches), never the raw row the save returns.
+    onSettled: () => queryClient.invalidateQueries({ queryKey: key }),
   });
   const rows = useMemo(() => preferenceRows(registry, query.data ?? {}), [registry, query.data]);
   return {
