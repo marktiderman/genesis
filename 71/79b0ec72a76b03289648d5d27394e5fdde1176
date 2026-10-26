@@ -1,0 +1,71 @@
+.changeset/publish-genesis-product.md
+  s_1f35d570c63beb::t_0cd09a1adb4ad9 1-5
+.changeset/runner-move-forms.md
+  s_1f35d570c63beb::t_ca65b2fa1c99bd 1-5
+.changeset/runner-move-notifications.md
+  s_1f35d570c63beb::t_c82848e038829d 1-7
+.changeset/runner-move-supabase.md
+  s_1f35d570c63beb::t_6052af1a7bf356 1-7
+packages/forms/package.json
+  s_1f35d570c63beb::t_df253d9e549d8a 89
+packages/forms/src/__tests__/build-config.test.ts
+  s_1f35d570c63beb::t_ada38389a8785e 3-7,11-16,19,23-24,26-44
+packages/forms/src/__tests__/runner-contract.test.ts
+  s_1f35d570c63beb::t_13508994ee727b 1-117
+packages/forms/src/destinations/runner.ts
+  s_1f35d570c63beb::t_0cbee331d50ac3 24-27,39
+packages/forms/tsconfig.json
+  s_1f35d570c63beb::t_26bfba80401355 16
+packages/forms/tsup.config.ts
+  s_1f35d570c63beb::t_949b422a1e58be 4,6-8,11,24,26-29
+packages/forms/vitest.config.ts
+  s_1f35d570c63beb::t_f70c81cbbe0e65 1,4-7,13-15
+packages/notifications/README.md
+  s_1f35d570c63beb::t_c132b3161f13e7 21
+packages/notifications/package.json
+  s_1f35d570c63beb::t_6482737bed0cab 91,124
+packages/notifications/src/__tests__/runner-reexport.test.ts
+  s_1f35d570c63beb::t_52b89ae7ca0310 1-13
+packages/notifications/src/runner/index.ts
+  s_1f35d570c63beb::t_5cd83677aa79db 2-6,8,11-49
+packages/notifications/src/server/runner.ts
+  s_1f35d570c63beb::t_feaa810d967acf 3,32
+packages/product/README.md
+  s_1f35d570c63beb::t_88acef2f72fc49 6-7
+packages/product/package.json
+  s_1f35d570c63beb::t_db91643baf5476 13-16
+packages/supabase/README.md
+  s_1f35d570c63beb::t_caf6ab09a560fa 671-679
+packages/supabase/package.json
+  s_1f35d570c63beb::t_506174680c121a 7,39-42
+packages/supabase/src/__tests__/jobs.test.ts
+  s_1f35d570c63beb::t_475006dd29e5f8 95-137
+packages/supabase/src/__tests__/runner.test.ts
+  s_1f35d570c63beb::t_4970baea366428 1-3,5,85-143
+packages/supabase/src/jobs.ts
+  s_1f35d570c63beb::t_204bf97a5cfb25 30-31,161-163,169-170,176-178,199-204,207-240,242-251
+packages/supabase/src/runner.ts
+  s_1f35d570c63beb::t_9334eed88d6fc4 1-311
+packages/supabase/tsup.config.ts
+  s_1f35d570c63beb::t_c217d4061fe0dd 4
+pnpm-lock.yaml
+  s_1f35d570c63beb::t_92d96eda0cc348 806,808,1266-1268
+scripts/__tests__/rn-starter-template.test.mjs
+  s_1f35d570c63beb::t_51d1101a8e8aee 10-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7179b0ec72a76b03289648d5d27394e5fdde1176",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
