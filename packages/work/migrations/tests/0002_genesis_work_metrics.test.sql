@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(48);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in nothing.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -203,6 +203,9 @@ select lives_ok(
   'server code moves a metric to another owner');
 select is((select person_id from genesis_work.metric_values where metric_id = '00000000-0000-4000-b000-000000000009'), pg_temp.person('b2'),
   'its values move with it');
+select throws_ok(
+  $$ update genesis_work.metrics set tenant_id = pg_temp.tenant(2) where id = '00000000-0000-4000-b000-000000000009' $$,
+  '22023', null, 'not even server code moves a metric to another tenant');
 select pg_temp.sign_in('a1');
 
 -- Goals over time ---------------------------------------------------------------------------
