@@ -234,16 +234,19 @@ export function useChat(): ChatContextValue {
 }
 
 /** Your conversations, live. `kind` narrows to one kind; `archived` shows the archived ones. */
-export function useInbox(opts: { kind?: string; archived?: boolean; limit?: number } = {}) {
+export function useInbox(opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number } = {}) {
   const { client } = useChat();
   const query = useQuery({ queryKey: chatKeys.inbox(opts), queryFn: () => client.inbox(opts), staleTime: 15_000 });
   return { items: query.data ?? [], isLoading: query.isLoading, error: query.error, refetch: query.refetch };
 }
 
 /** How many messages wait for you everywhere (for a badge), live. */
-export function useUnreadTotal(): number {
+export function useUnreadTotal(opts: { excludeKinds?: string[] } = {}): number {
   const { client } = useChat();
-  return useQuery({ queryKey: chatKeys.unread(), queryFn: () => client.unreadTotal(), staleTime: 15_000 }).data ?? 0;
+  return (
+    useQuery({ queryKey: [...chatKeys.unread(), opts.excludeKinds ?? []], queryFn: () => client.unreadTotal(opts), staleTime: 15_000 }).data ??
+    0
+  );
 }
 
 export interface UseConversationOptions {

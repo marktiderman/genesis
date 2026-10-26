@@ -281,20 +281,20 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     supabase: null as unknown as ChatSupabase,
     calls,
 
-    async inbox(opts: { kind?: string; archived?: boolean; limit?: number; before?: string } = {}) {
+    async inbox(opts: { kind?: string; kinds?: string[]; excludeKinds?: string[]; archived?: boolean; limit?: number; before?: string } = {}) {
       log("inbox", opts);
       await wait();
       if (opts.archived) return [];
       return [...convs.values()]
-        .filter((c) => !opts.kind || c.conversation.kind === opts.kind)
+        .filter((c) => keepKind(c.conversation.kind, opts))
         .map(inboxItem)
         .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.lastMessageAt ?? "").localeCompare(a.lastMessageAt ?? ""));
     },
     async observed() {
       return [];
     },
-    async unreadTotal() {
-      return [...convs.values()].reduce((n, c) => n + inboxItem(c).unread, 0);
+    async unreadTotal(opts: { excludeKinds?: string[] } = {}) {
+      return [...convs.values()].filter((c) => keepKind(c.conversation.kind, opts)).reduce((n, c) => n + inboxItem(c).unread, 0);
     },
     async conversation(id: string) {
       await wait();
@@ -697,4 +697,10 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     },
   };
   return client;
+}
+
+function keepKind(kind: string, opts: { kind?: string; kinds?: string[]; excludeKinds?: string[] }): boolean {
+  if (opts.kind && kind !== opts.kind) return false;
+  if (opts.kinds?.length && !opts.kinds.includes(kind)) return false;
+  return !opts.excludeKinds?.includes(kind);
 }

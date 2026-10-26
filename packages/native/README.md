@@ -563,6 +563,100 @@ Not covered: delivery through Apple's and Google's push services hasn't been
 tried (it needs an EAS project with APNs and FCM credentials), and there is no
 in-app inbox: that is `inbox-thread` in the repo's `features.ts`.
 
+### iOS rich push: photos, the sender's avatar, Communication Notifications
+
+`@marktiderman/genesis-native/rich-push-plugin` is an Expo config plugin that
+adds a Notification Service Extension to the iOS app. iOS runs the extension
+on each push that says `mutable-content: 1`, before it is shown, for up to
+about 30 seconds. The extension:
+
+- **attaches pictures.** It downloads `data.image` and `data.senderAvatar`
+  when they are https URLs (no credentials, at most 1024 characters; JPEG, PNG
+  or GIF; at most 10 MB) and attaches them. Only the avatar is read into memory
+  (at most 1 MB; a bigger one is still attached, but not drawn as the sender),
+  because the extension gets about 24 MB. A download that fails or is
+  late is skipped. The notification is always shown, with what the payload
+  already said, and is never dropped.
+- **makes chat pushes Communication Notifications.** A push in the `messages`
+  category with a `senderName` becomes an incoming `INSendMessageIntent`. It
+  carries the sender (`senderName`, `senderAvatar`, and `senderId` as the
+  handle), the conversation (`threadId`, else `data.conversationId`) and, in a
+  group, `groupName` (iOS draws its generic group picture). The extension then
+  calls `content.updating(from:)`. The
+  sender's photo shows on the notification, and Focus treats it as a message
+  (a person can let a Focus through). On a `messages` push the avatar is the
+  sender's photo; on any other push it is attached.
+- **downloads only what you allow.** With `imageHosts`, images come only from
+  those hosts and their subdomains. Without it, any https host is used. Set it
+  when a URL in a push can be one a person chose (an avatar URL they typed),
+  because that host would otherwise see each delivery.
+- **never fetches content.** It reads only the payload. With hidden previews
+  (`hidePreviews`, applied by the sender), the server sends neutral text and no
+  sender, group or picture fields, so there is nothing to show. If the
+  communication update is refused (for example, no entitlement), the plain
+  notification shows instead.
+
+**Setup.** Add the plugin after any plugin that changes the bundle id (the
+Genesis plugin's `APP_VARIANT` suffix), then prebuild:
+
+```ts
+plugins: [
+  "expo-notifications",
+  "@marktiderman/genesis-cli",
+  ["@marktiderman/genesis-native/rich-push-plugin", { imageHosts: ["yourproject.supabase.co"] }], // also: targetName, bundleIdSuffix, communication, deploymentTarget
+],
+```
+
+It runs on the app's own `expo` (`expo/config-plugins`), so it needs nothing
+else installed.
+
+What it sets:
+
+- **App:** the `com.apple.developer.usernotifications.communication`
+  entitlement and `NSUserActivityTypes: ["INSendMessageIntent"]` in
+  Info.plist. Both are skipped with `communication: false`, which keeps
+  attachments only.
+- **Extension:** a target named `GenesisNotificationService` in
+  `ios/GenesisNotificationService/` (the Swift from this package's
+  `ios/notification-service/`, an Info.plist declaring `INSendMessageIntent`
+  and `GenesisRichPushImageHosts`, and entitlements). Its bundle id
+  is `<app id>.NotificationService`. It uses the app's version, build number,
+  minimum iOS and team. The app embeds it and depends on it.
+- **EAS:** `extra.eas.build.experimental.ios.appExtensions`. The extension is
+  a separate bundle id, so it needs its own provisioning profile. EAS Build
+  reads this entry and creates the App ID, its capability and the profile with
+  the app's. You don't create them by hand. A local `expo run:ios` on a device
+  needs an Apple team (`ios.appleTeamId`) that can sign both.
+
+**The payload contract.** The sender sets `mutableContent: true`, or the
+extension never runs. `richPushMessage(message, { image, senderAvatar })`
+(also exported from `/push-payload`, which imports no React, for servers and
+edge functions) sets it and drops image URLs that aren't https. For chat,
+`chatPushPayload` from `@marktiderman/genesis-chat/push` builds the whole set:
+
+| Field | Where | Read by |
+| --- | --- | --- |
+| `mutableContent: true` | message (`mutable-content: 1`) | iOS: runs the extension |
+| `categoryId: "messages"` | message (`aps.category`) | the extension (Communication Notification), Reply and Mark read |
+| `threadId` | message (`aps.thread-id`), the conversation id | grouping, and the intent's conversation |
+| `data.image` | https | attached |
+| `data.senderAvatar` | https | the sender's photo (`messages`), else attached |
+| `data.senderName`, `data.senderId` | text, an opaque id | the intent's sender; without a name the push stays plain |
+| `data.groupName` | text, groups only | the intent's group name |
+| `data.conversationId`, `data.url`, `data.seq`, `data.messageId` | ids and the link | tap routing, Reply, Mark read |
+
+APNs takes 4 KB per push, so keep the URLs short (a storage path, not a long
+signed URL). Expo's push service delivers `data` under the APNs payload's
+`body` key. The
+extension reads it there, or from the payload's top level for a push sent to
+APNs directly.
+
+Not covered: the extension has been built and run on the iOS Simulator only.
+It hasn't been run on a device or from an EAS build. Whether EAS's build number
+increment reaches the extension (its `CURRENT_PROJECT_VERSION` is set at
+prebuild) hasn't been checked either. Donated conversations stay in Siri's
+suggestions after a person turns previews off.
+
 ## Blocks
 
 `blocks` takes `defineBlock` declarations (`@marktiderman/genesis-features/blocks`) a native shell

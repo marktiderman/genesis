@@ -62,6 +62,43 @@ export interface ChatNativeCopy {
   photo: string;
   file: string;
   video: string;
+  /** Video messages (recorder, upload, player), link previews and app attachment cards. */
+  recordVideo: string;
+  recordVideoHint: string;
+  startVideo: string;
+  stopVideo: string;
+  flipCamera: string;
+  closeRecorder: string;
+  cameraDenied: string;
+  openSettings: string;
+  cameraFailed: string;
+  videoTooShort: string;
+  /** "0:12 of 2:00", the recorder's timer. */
+  videoElapsed: string;
+  videoUploading: string;
+  videoUploadFailed: string;
+  videoOffline: string;
+  videoForbidden: string;
+  videoCantPlay: string;
+  /** A take that the camera didn't hand over. */
+  videoTakeFailed: string;
+  tryAgain: string;
+  cancelUpload: string;
+  videoProcessing: string;
+  videoFailed: string;
+  playVideo: string;
+  pauseVideo: string;
+  mute: string;
+  unmute: string;
+  fullScreen: string;
+  /** "Video, 0:42". */
+  videoMessage: string;
+  /** A link preview card's label: "{title}, {site}". */
+  linkPreview: string;
+  openLink: string;
+  /** The bubble's VoiceOver action for its link preview. */
+  openLinkAction: string;
+  attachmentCard: string;
   openImage: string;
   closeViewer: string;
   sending: string;
@@ -142,6 +179,37 @@ export const chatNativeCopy: ChatNativeCopy = {
   photo: "Photo",
   file: "File",
   video: "Video",
+  recordVideo: "Record a video",
+  recordVideoHint: "Tap to start and tap again to send, or hold and let go to send.",
+  startVideo: "Start recording",
+  stopVideo: "Stop and send",
+  flipCamera: "Switch camera",
+  closeRecorder: "Close the camera",
+  cameraDenied: "Turn on the camera and microphone for this app in Settings to record a video.",
+  openSettings: "Open Settings",
+  cameraFailed: "The camera couldn't start.",
+  videoTooShort: "That was too short to send. Hold longer, or tap to start and tap again to stop.",
+  videoElapsed: "{elapsed} of {limit}",
+  videoUploading: "Sending video, {percent}%",
+  videoUploadFailed: "The video didn't send.",
+  videoOffline: "The video didn't send. Check your connection and retry.",
+  videoForbidden: "You can't post in this conversation.",
+  videoCantPlay: "This video can't play right now.",
+  videoTakeFailed: "That take didn't record. Try again.",
+  tryAgain: "Try again",
+  cancelUpload: "Cancel video",
+  videoProcessing: "Processing video",
+  videoFailed: "This video couldn't be processed.",
+  playVideo: "Play video",
+  pauseVideo: "Pause video",
+  mute: "Mute",
+  unmute: "Unmute",
+  fullScreen: "Full screen",
+  videoMessage: "Video, {duration}",
+  linkPreview: "{title}, {site}",
+  openLink: "Opens the link",
+  openLinkAction: "Open link",
+  attachmentCard: "{title}, {subtitle}",
   openImage: "Open photo",
   closeViewer: "Close",
   sending: "Sending",

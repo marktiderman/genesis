@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", web: "src/web/index.ts", native: "src/native/index.ts" },
+  entry: { index: "src/index.ts", web: "src/web/index.ts", "web-chat": "src/web-chat/index.ts", native: "src/native/index.ts" },
   format: ["esm"],
   dts: true,
   sourcemap: true,

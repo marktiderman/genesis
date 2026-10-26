@@ -6,6 +6,7 @@
  */
 import { defineBlock, type BlockContributions, type BlockSettingsRow } from "@marktiderman/genesis-features/blocks";
 import { resolveSupportCopy, type SupportCopyOverrides } from "./copy";
+import { SUPPORT_CHAT_BLOCK_ID } from "./chat";
 
 /** The FeatureId of the support block (features.ts). */
 export const SUPPORT_BLOCK_ID = "support-feedback";
@@ -98,5 +99,22 @@ export function defineSupportBlock(options: SupportBlockOptions = {}) {
     id: SUPPORT_BLOCK_ID,
     requires: options.requires ?? ["account"],
     contributes: supportContributions(options),
+  });
+}
+
+/**
+ * The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of
+ * its own (the support block's thread route renders the conversation); it brings migration
+ * `0001_genesis_support_chat.sql` from this package, after 0006 and genesis-chat's migrations.
+ */
+export function defineSupportChatBlock(options: { requires?: readonly string[] } = {}) {
+  return defineBlock({
+    id: SUPPORT_CHAT_BLOCK_ID,
+    requires: options.requires ?? [SUPPORT_BLOCK_ID, "chat"],
+    contributes: {
+      migrations: [
+        { package: "@marktiderman/genesis-support", file: "migrations/0001_genesis_support_chat.sql", test: "migrations/tests/0001_genesis_support_chat.test.sql" },
+      ],
+    },
   });
 }

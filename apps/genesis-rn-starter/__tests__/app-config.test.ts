@@ -49,3 +49,30 @@ describe("app.config.ts per APP_VARIANT", () => {
     expect(new Set(links)).toEqual(new Set([scheme]));
   });
 });
+
+describe("chat's video messages", () => {
+  // The plugins write these in their mods, so the config is introspected the way `expo config --type introspect` does.
+  it("ask for the camera and microphone with the app's own sentences, which no other plugin deletes", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const load = createRequire(join(root, "package.json"));
+    const { getPrebuildConfigAsync } = load("@expo/prebuild-config") as { getPrebuildConfigAsync: (root: string, o: object) => Promise<{ exp: object }> };
+    const { compileModsAsync } = load("@expo/config-plugins") as { compileModsAsync: (exp: object, o: object) => Promise<{ ios?: { infoPlist?: Record<string, string> } }> };
+    const { exp } = await getPrebuildConfigAsync(root, { platforms: ["ios"] });
+    const plist = (await compileModsAsync(exp, { projectRoot: root, introspect: true, platforms: ["ios"], assertMissingModProviders: false })).ios?.infoPlist ?? {};
+    expect(plist.NSCameraUsageDescription).toBe("Record video messages to send in a conversation.");
+    expect(plist.NSMicrophoneUsageDescription).toBe("Record voice and video messages to send in a conversation.");
+  });
+});
+
+describe("iOS rich push (in the build whichever way the chat switch is)", () => {
+  it.each([
+    ["development", "com.example.genesisstarter.dev.NotificationService"],
+    ["production", "com.example.genesisstarter.NotificationService"],
+  ])("%s: Communication Notifications on the app, and the extension for EAS with the variant's id", (variant, extensionId) => {
+    const config = configFor(variant);
+    expect(config.ios?.entitlements?.["com.apple.developer.usernotifications.communication"]).toBe(true);
+    expect(config.ios?.infoPlist?.NSUserActivityTypes).toContain("INSendMessageIntent");
+    const extensions = (config.extra as { eas?: { build?: { experimental?: { ios?: { appExtensions?: { targetName: string; bundleIdentifier: string }[] } } } } })?.eas?.build?.experimental?.ios?.appExtensions;
+    expect(extensions).toEqual([expect.objectContaining({ targetName: "GenesisNotificationService", bundleIdentifier: extensionId })]);
+  });
+});

@@ -4,6 +4,8 @@ import {
   cancelNotification,
   checkSenderDomain,
   createNotificationsHandler,
+  emailHash,
+  senderOwnershipRecord,
   createUnsubscribeToken,
   emailEventOf,
   notify,
@@ -29,7 +31,17 @@ describe("unsubscribe tokens", () => {
     expect(await verifyUnsubscribeToken(SECRET, `${other}.${sig}`)).toBeNull();
     expect(await verifyUnsubscribeToken("x".repeat(32), token)).toBeNull();
     expect(await verifyUnsubscribeToken(SECRET, `${payload}`)).toBeNull();
-    await expect(createUnsubscribeToken("short", { email: "a@b.test", category: "x" })).rejects.toThrow(/32/);
+    await expect(createUnsubscribeToken("short", { userId: USER, category: "x" })).rejects.toThrow(/32/);
+  });
+  it("name someone with no login by their address's hash, never the address, and keep the tenant", async () => {
+    const hash = await emailHash(" Out@Example.test ");
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+    const token = await createUnsubscribeToken(SECRET, { emailHash: hash, category: "forms", tenantId: "t1" });
+    const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
+    expect(payload).not.toContain("@");
+    expect(payload.toLowerCase()).not.toContain("out");
+    expect(await verifyUnsubscribeToken(SECRET, token)).toEqual({ emailHash: hash, category: "forms", tenantId: "t1" });
+    await expect(createUnsubscribeToken(SECRET, { emailHash: "out@example.test", category: "forms" })).rejects.toThrow(/SHA-256/);
   });
   it("make RFC 8058 headers", () => {
     expect(unsubscribeHeaders("https://app.example.test/u", "tok")).toEqual({ "List-Unsubscribe": "<https://app.example.test/u?t=tok>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" });
@@ -55,6 +67,10 @@ describe("Resend webhooks", () => {
   it("read bounces, complaints and deliveries", () => {
     expect(emailEventOf({ type: "email.bounced", data: { email_id: "re_1", bounce: { type: "Permanent" } } })).toEqual({ providerId: "re_1", event: "bounced", permanent: true });
     expect(emailEventOf({ type: "email.bounced", data: { email_id: "re_1", bounce: { type: "Transient" } } })).toMatchObject({ permanent: false });
+    // Only an explicit Permanent suppresses for good.
+    expect(emailEventOf({ type: "email.bounced", data: { email_id: "re_1", bounce: { type: "Undetermined" } } })).toMatchObject({ permanent: false });
+    expect(emailEventOf({ type: "email.bounced", data: { email_id: "re_1" } })).toMatchObject({ permanent: false });
+    expect(emailEventOf({ type: "email.bounced", data: { email_id: "re_1", bounce: { type: "Suppressed" } } })).toMatchObject({ permanent: false });
     expect(emailEventOf({ type: "email.complained", data: { email_id: "re_2" } })).toMatchObject({ event: "complained" });
     expect(emailEventOf({ type: "email.opened", data: { email_id: "re_3" } })).toBeNull();
   });
@@ -82,7 +98,8 @@ describe("createNotificationsHandler", () => {
   it("never unsubscribes on GET (link scanners), and does on POST", async () => {
     const { store, runner } = deps();
     const handle = createNotificationsHandler({ store, runner, cronSecret: CRON, unsubscribeSecret: SECRET });
-    const token = await createUnsubscribeToken(SECRET, { email: "out@example.test", category: "forms" });
+    const hash = await emailHash("out@example.test");
+    const token = await createUnsubscribeToken(SECRET, { emailHash: hash, category: "forms", tenantId: "t1" });
     const get = await handle(new Request(`https://x.test/fn/unsubscribe?t=${token}`));
     expect(get.status).toBe(200);
     const html = await get.text();
@@ -92,7 +109,8 @@ describe("createNotificationsHandler", () => {
     expect(store.unsubscribe).not.toHaveBeenCalled();
     const post = await handle(new Request(`https://x.test/fn/unsubscribe?t=${token}`, { method: "POST", body: "List-Unsubscribe=One-Click", headers: { "content-type": "application/x-www-form-urlencoded" } }));
     expect(post.status).toBe(200);
-    expect(store.unsubscribe).toHaveBeenCalledWith(null, "out@example.test", "forms");
+    // For the tenant the email came from, by the address's hash.
+    expect(store.unsubscribe).toHaveBeenCalledWith(null, hash, "forms", "t1");
     expect((await handle(new Request("https://x.test/fn/unsubscribe?t=forged.token", { method: "POST" }))).status).toBe(400);
   });
 
@@ -139,13 +157,14 @@ describe("notify", () => {
     await expect(notify({ rpc }, { type: "forms.receipt", recipients: [{ email: "a@example.test" }, { email: "b@example.test" }], idempotencyKey: "k", secret: "x" }, { registry })).rejects.toThrow(/exactly one/);
     expect(rpc).not.toHaveBeenCalled();
   });
-  it("cancels by idempotency key, for some recipients, archiving if asked", async () => {
+  it("cancels by type, tenant and idempotency key, for some recipients, archiving if asked", async () => {
     const rpc = vi.fn(async () => ({ data: [{ cancelled: 2, archived: 1 }], error: null }));
-    expect(await cancelNotification({ rpc }, { idempotencyKey: "release:42", recipients: [USER], archive: true })).toEqual({ cancelled: 2, archived: 1 });
-    expect(rpc).toHaveBeenCalledWith("genesis_notifications_cancel", { p_idempotency_key: "release:42", p_recipients: [{ user_id: USER }], p_archive: true });
-    await cancelNotification({ rpc }, { idempotencyKey: "release:43" });
-    expect(rpc).toHaveBeenLastCalledWith("genesis_notifications_cancel", { p_idempotency_key: "release:43", p_recipients: null, p_archive: false });
-    await expect(cancelNotification({ rpc }, { idempotencyKey: "" })).rejects.toThrow(/idempotency key/);
+    expect(await cancelNotification({ rpc }, { type: "chat.message", idempotencyKey: "release:42", tenantId: "t1", recipients: [USER], archive: true })).toEqual({ cancelled: 2, archived: 1 });
+    expect(rpc).toHaveBeenCalledWith("genesis_notifications_cancel", { p_type: "chat.message", p_idempotency_key: "release:42", p_tenant_id: "t1", p_recipients: [{ user_id: USER }], p_archive: true });
+    await cancelNotification({ rpc }, { type: "chat.message", idempotencyKey: "release:43" });
+    expect(rpc).toHaveBeenLastCalledWith("genesis_notifications_cancel", { p_type: "chat.message", p_idempotency_key: "release:43", p_tenant_id: null, p_recipients: null, p_archive: false });
+    await expect(cancelNotification({ rpc }, { type: "chat.message", idempotencyKey: "" })).rejects.toThrow(/idempotency key/);
+    await expect(cancelNotification({ rpc }, { type: "", idempotencyKey: "k" })).rejects.toThrow(/type/);
   });
   it("mirrors the registry", async () => {
     const rpc = vi.fn(async () => ({ data: 4, error: null }));
@@ -155,19 +174,48 @@ describe("notify", () => {
 });
 
 describe("checkSenderDomain", () => {
-  it("checks SPF, DKIM and DMARC over DNS over HTTPS", async () => {
-    const records: Record<string, string> = {
-      "send.mail.example.test": '"v=spf1 include:amazonses.com ~all"',
-      "resend._domainkey.mail.example.test": '"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQ"',
-      "_dmarc.mail.example.test": '"v=DMARC1; p=none;"',
-    };
-    const fetch = vi.fn(async (url: string | URL | Request) => {
+  const TOKEN = "0123456789abcdef0123456789abcdef";
+  const reservedDomains = ["notify.app.example.test", "updates.app.example.test"];
+  const dns = (records: Record<string, string>) =>
+    vi.fn(async (url: string | URL | Request) => {
       const name = new URL(String(url)).searchParams.get("name")!;
       return new Response(JSON.stringify({ Answer: records[name] ? [{ type: 16, data: records[name] }] : [] }));
+    }) as unknown as typeof globalThis.fetch;
+  const resendRecords = {
+    "send.mail.example.test": '"v=spf1 include:amazonses.com ~all"',
+    "resend._domainkey.mail.example.test": '"p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQ"',
+    "_dmarc.mail.example.test": '"v=DMARC1; p=none;"',
+  };
+
+  it("needs the tenant's own ownership record, as well as SPF, DKIM and DMARC", async () => {
+    const proof = senderOwnershipRecord("mail.example.test", TOKEN);
+    expect(proof).toEqual({ type: "TXT", name: "_genesis-notifications.mail.example.test", value: `genesis-notifications-verify=${TOKEN}` });
+    const records: Record<string, string> = { ...resendRecords, [proof.name]: `"${proof.value}"` };
+    expect(await checkSenderDomain("mail.example.test", { token: TOKEN, reservedDomains, fetch: dns(records) })).toEqual({
+      ownership: true,
+      spf: true,
+      dkim: true,
+      dmarc: true,
+      reserved: false,
+      ok: true,
     });
-    expect(await checkSenderDomain("mail.example.test", { fetch: fetch as typeof globalThis.fetch })).toEqual({ spf: true, dkim: true, dmarc: true, ok: true });
     delete records["_dmarc.mail.example.test"];
-    expect(await checkSenderDomain("mail.example.test", { fetch: fetch as typeof globalThis.fetch })).toMatchObject({ dmarc: false, ok: false });
-    await expect(checkSenderDomain("not a domain")).rejects.toThrow();
+    expect(await checkSenderDomain("mail.example.test", { token: TOKEN, reservedDomains, fetch: dns(records) })).toMatchObject({ dmarc: false, ok: false });
+    await expect(checkSenderDomain("not a domain", { token: TOKEN, reservedDomains })).rejects.toThrow();
+  });
+
+  it("refuses a domain whose records another tenant set up: SPF, DKIM and DMARC alone never verify it", async () => {
+    // The records are the real owner's, with the owner's token, not this tenant's.
+    const records = { ...resendRecords, "_genesis-notifications.mail.example.test": `"genesis-notifications-verify=${"f".repeat(32)}"` };
+    expect(await checkSenderDomain("mail.example.test", { token: TOKEN, reservedDomains, fetch: dns(records) })).toMatchObject({ ownership: false, spf: true, ok: false });
+  });
+
+  it("never verifies the app's own shared domain, or one under it, and asks for both settings", async () => {
+    const fetch = dns({});
+    expect(await checkSenderDomain("updates.app.example.test", { token: TOKEN, reservedDomains, fetch })).toMatchObject({ reserved: true, ok: false });
+    expect(await checkSenderDomain("x.notify.app.example.test", { token: TOKEN, reservedDomains, fetch })).toMatchObject({ reserved: true, ok: false });
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(checkSenderDomain("mail.example.test", { token: "", reservedDomains })).rejects.toThrow(/token/);
+    await expect(checkSenderDomain("mail.example.test", { token: TOKEN, reservedDomains: [] })).rejects.toThrow(/reservedDomains/);
   });
 });

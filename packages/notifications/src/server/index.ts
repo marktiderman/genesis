@@ -37,11 +37,12 @@ export {
   type PushReceipt,
   type PushTicket,
 } from "./expo";
-export { resendProvider, RESEND_API, type EmailMessage, type EmailProvider, type EmailSendResult, type ResendOptions } from "./resend";
+export { createRateLimiter, type RateLimiter, type RateLimiterOptions } from "./rate";
+export { resendProvider, RESEND_API, RESEND_DEFAULT_PER_SECOND, type EmailMessage, type EmailProvider, type EmailSendResult, type ResendOptions } from "./resend";
 export { resolveSecretLink, SecretLinkError, SECRET_LINK_PLACEHOLDER, type SecretLinkRef, type SecretLinks } from "./secret-links";
-export { createUnsubscribeToken, verifyUnsubscribeToken, unsubscribeHeaders, type UnsubscribeClaims } from "./unsubscribe";
+export { createUnsubscribeToken, verifyUnsubscribeToken, unsubscribeHeaders, emailHash, type UnsubscribeClaims } from "./unsubscribe";
 export { verifyResendWebhook, emailEventOf, WEBHOOK_TOLERANCE_SECONDS } from "./webhook";
-export { checkSenderDomain, type DomainCheck, type DomainCheckOptions } from "./dns";
+export { checkSenderDomain, isReservedDomain, senderOwnershipRecord, SENDER_OWNERSHIP_HOST, type DomainCheck, type DomainCheckOptions } from "./dns";
 export {
   canonicalJson,
   defaultEmailTemplate,

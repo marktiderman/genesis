@@ -23,6 +23,7 @@
  * them. Effects run concurrently per kind, up to a cap; one failure never
  * stops the others. Errors are stored as short messages, never payloads.
  */
+import { chatPushPayload } from "../native/push";
 import { CHAT_BUCKET, CHAT_SCHEMA, type ChatSupabase } from "../core/client";
 import type {
   ChatDeliver,
@@ -76,6 +77,8 @@ export interface ChatRunnerOptions {
   };
   /** A person's display name, for push titles and group previews. */
   resolveName?: ((userId: string) => Promise<string | null | undefined> | string | null | undefined) | undefined;
+  /** A person's photo (an https URL), shown on iOS as the sender of a chat push. */
+  resolveAvatar?: ((userId: string) => Promise<string | null | undefined> | string | null | undefined) | undefined;
   /** Kinds that are one-to-one (default `["direct"]`): their push title is the sender's name. */
   directKinds?: readonly string[] | undefined;
   /**
@@ -84,6 +87,8 @@ export interface ChatRunnerOptions {
    * notification's identifier, and replies from one conversation's notifications collide.
    */
   collapse?: boolean | undefined;
+  /** Kinds left out of the push badge, matching the app's own badge (`useUnreadTotal({ excludeKinds })`). */
+  badgeExcludeKinds?: readonly string[] | undefined;
   /** Where a tapped notification opens (default `/messages/<conversationId>`). */
   linkFor?: ((conversationId: string, messageId: string) => string) | undefined;
   /** Safe log lines (effect ids, kinds, short errors). Default: nothing is logged. */
@@ -176,7 +181,11 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   async function push(effect: ChatEffect): Promise<void> {
     const messageId = str(effect.payload.message_id);
     if (!messageId) return;
-    const targets = (await rpc<PushTarget[] | null>("push_targets", { p_message_id: messageId })) ?? [];
+    const targets =
+      (await rpc<PushTarget[] | null>("push_targets", {
+        p_message_id: messageId,
+        ...(options.badgeExcludeKinds?.length ? { p_badge_exclude_kinds: options.badgeExcludeKinds } : {}),
+      })) ?? [];
     // Deleted, silent, or nobody to tell: done.
     if (targets.length === 0) return;
     const first = targets[0]!;
@@ -196,6 +205,27 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
     // The conversation's title; a direct conversation (or an untitled group) shows who wrote.
     const title = str(first.title) ?? senderName ?? "New message";
     const body = !direct && senderName ? `${senderName}: ${preview}` : preview;
+    let avatarUrl: string | null = null;
+    if (first.sender_id && options.resolveAvatar) {
+      try {
+        avatarUrl = str(await options.resolveAvatar(first.sender_id));
+      } catch {
+        avatarUrl = null;
+      }
+    }
+    let payload: ReturnType<typeof chatPushPayload>;
+    try {
+      payload = chatPushPayload({
+        conversationId,
+        messageId,
+        ...(seq != null ? { seq } : {}),
+        sender: first.sender_id && senderName ? { id: first.sender_id, name: senderName, avatarUrl } : undefined,
+        groupName: direct ? undefined : (str(first.title) ?? undefined),
+      });
+    } catch {
+      // Not a uuid (a test or an app's own ids): a plain push still goes out.
+      payload = { categoryId: "messages", threadId: conversationId, mutableContent: false, data: { url: `/messages/${conversationId}`, conversationId, messageId } };
+    }
     const notification: ChatNotification = {
       category: "messages",
       messageId,
@@ -207,7 +237,9 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
       ...(options.collapse ? { collapseKey: `chat:${conversationId}` } : {}),
       threadKey: conversationId,
       idempotencyKey: `push:${messageId}`,
-      data: { url: options.linkFor?.(conversationId, messageId) ?? `/messages/${conversationId}`, conversationId, messageId, seq },
+      data: { ...payload.data, url: options.linkFor?.(conversationId, messageId) ?? payload.data.url, seq },
+      mutableContent: payload.mutableContent,
+      categoryId: payload.categoryId,
     };
     await deliver(notification);
   }

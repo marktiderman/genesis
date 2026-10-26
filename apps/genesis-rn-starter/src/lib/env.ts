@@ -14,6 +14,9 @@ const values = {
   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
 };
 
+/** Optional: chat's hosted video uploads (`src/lib/chat-video.ts`). */
+const chatVideoUploadUrl = process.env.EXPO_PUBLIC_CHAT_VIDEO_UPLOAD_URL || null;
+
 /** The names of the settings that aren't set. */
 export const missingEnv = Object.entries(values)
   .filter(([, value]) => !value)
@@ -30,4 +33,5 @@ export const env = {
   // A placeholder keeps the client constructible until the boot step reports the missing value.
   supabaseUrl: values.EXPO_PUBLIC_SUPABASE_URL || "https://missing-supabase-url.invalid",
   supabasePublishableKey: values.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "missing-publishable-key",
+  chatVideoUploadUrl,
 };

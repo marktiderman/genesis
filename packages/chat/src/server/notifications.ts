@@ -31,7 +31,11 @@ export interface ChatNotifyInput {
     title: string;
     body: string;
     senderId: string | null;
+    senderName?: string;
+    senderAvatar?: string;
+    groupName?: string;
   };
+
   idempotencyKey: string;
   threadKey: string;
   collapseKey?: string;
@@ -64,7 +68,11 @@ export function chatNotifyInput(notification: ChatNotification, options: { type?
       title: notification.title,
       body: notification.body,
       senderId: notification.senderId,
+      ...(notification.data.senderName ? { senderName: notification.data.senderName } : {}),
+      ...(notification.data.senderAvatar ? { senderAvatar: notification.data.senderAvatar } : {}),
+      ...(notification.data.groupName ? { groupName: notification.data.groupName } : {}),
     },
+
     idempotencyKey: notification.idempotencyKey,
     threadKey: notification.threadKey,
     ...(notification.collapseKey ? { collapseKey: notification.collapseKey } : {}),
@@ -101,6 +109,22 @@ export const CHAT_NOTIFICATION_TYPES = {
       title: typeof data.title === "string" && data.title ? data.title : "New message",
       ...(typeof data.body === "string" && data.body ? { body: data.body } : {}),
       ...(typeof data.url === "string" ? { url: data.url } : {}),
+      // iOS rich push (genesis-chat/push's chatPushPayload fields): ids always travel (reply,
+      // mark read); the sender's name and photo and the group only when previews are shown.
+      push: {
+        ids: pick(data, ["conversationId", "messageId", "seq", "senderId"]),
+        display: pick(data, ["senderName", "senderAvatar", "groupName"]),
+        mutableContent: typeof data.senderName === "string" && data.senderName !== "",
+      },
     }),
   },
 } as const;
+
+function pick(data: Record<string, unknown>, keys: readonly string[]): Record<string, string | number> {
+  const out: Record<string, string | number> = {};
+  for (const k of keys) {
+    const v = data[k];
+    if (typeof v === "string" ? v !== "" : typeof v === "number" && Number.isFinite(v)) out[k] = v as string | number;
+  }
+  return out;
+}
