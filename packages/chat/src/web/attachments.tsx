@@ -19,7 +19,8 @@ import {
 } from "@marktiderman/genesis-ui";
 import type { ChatAttachment, ChatMessage } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
-import { ChatAttachmentCard } from "./cards";
+import { ChatAttachmentCard, type ChatAttachmentCardProps } from "./cards";
+import { ChatErrorBoundary } from "./error-boundary";
 import { formatBytes } from "./format";
 import { isSafeHref } from "./markdown";
 import { ChatVideoPlayer } from "./video";
@@ -289,6 +290,34 @@ function LinkAttachment({ view, tone }: { view: AttachmentView; tone: "default" 
   );
 }
 
+/** The app's kind for this name: its own key only (never `constructor` from the prototype), with a `title` function. */
+export function attachmentKindOf(kinds: Record<string, ChatAttachmentKind> | undefined, kind: string): ChatAttachmentKind | null {
+  if (!kinds || !Object.prototype.hasOwnProperty.call(kinds, kind)) return null;
+  const k = kinds[kind];
+  return k && typeof k.title === "function" ? k : null;
+}
+
+/**
+ * What the app's kind says to draw for this attachment, or null when its functions throw or
+ * return the wrong shapes (the attachment's `ref` is whatever the sender put there).
+ */
+export function attachmentCardOf(k: ChatAttachmentKind, a: ChatAttachment): Pick<ChatAttachmentCardProps, "title" | "subtitle" | "action"> | null {
+  try {
+    const title = k.title(a);
+    if (typeof title !== "string") return null;
+    const sub = typeof k.subtitle === "function" ? k.subtitle(a) : null;
+    const act = typeof k.action === "function" ? k.action(a) : null;
+    const action =
+      act && typeof act === "object" && typeof act.label === "string" && (typeof act.href === "string" || typeof act.onPress === "function")
+        ? { label: act.label, href: typeof act.href === "string" ? act.href : undefined, onPress: typeof act.onPress === "function" ? act.onPress : undefined }
+        : null;
+    return { title, subtitle: typeof sub === "string" ? sub : null, action };
+  } catch (e) {
+    console.error(`genesis-chat: the "${a.kind}" card couldn't be drawn`, e);
+    return null;
+  }
+}
+
 export interface MessageAttachmentsProps {
   views: AttachmentView[];
   message?: ChatMessage;
@@ -331,11 +360,18 @@ export function MessageAttachments({ views, message, mine, tone, slot, kinds }: 
             return <LinkAttachment key={v.key} view={v} tone={tone} />;
           default:
             if (!v.attachment || !message) return <FileChip key={v.key} view={v} tone={tone} />;
-            if (kinds?.[v.kind]) {
-              const k = kinds[v.kind]!;
-              return <ChatAttachmentCard key={v.key} title={k.title(v.attachment)} subtitle={k.subtitle?.(v.attachment)} action={k.action?.(v.attachment)} tone={tone} />;
+            const generic = <GenericAttachment attachment={v.attachment} message={message} url={v.url} mine={mine} />;
+            const k = attachmentKindOf(kinds, v.kind);
+            if (k) {
+              const card = attachmentCardOf(k, v.attachment);
+              return card ? <ChatAttachmentCard key={v.key} {...card} tone={tone} /> : <GenericAttachment key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} />;
             }
-            return Custom ? <Custom key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} /> : null;
+            // The app's slot draws sender-controlled data: if it throws, the generic card stands in.
+            return Custom ? (
+              <ChatErrorBoundary key={v.key} fallback={generic}>
+                <Custom attachment={v.attachment} message={message} url={v.url} mine={mine} />
+              </ChatErrorBoundary>
+            ) : null;
         }
       })}
     </div>

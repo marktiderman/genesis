@@ -189,6 +189,8 @@ export interface PendingMessage {
   createdAt: string;
   status: "sending" | "failed";
   error?: string;
+  /** The server refused it (not allowed, bad data): only a manual retry sends it again. */
+  permanent?: boolean;
   /** Local previews for files still uploading (object URLs or file URIs). */
   previews?: Record<number, string>;
   /** What each file is, in order, so a pending bubble can draw it (a voice note's duration and waveform, a file's name). */
@@ -284,7 +286,7 @@ export interface ChatAvailability {
 
 export type AvailabilityInput = Partial<Omit<ChatAvailability, "userId">>;
 
-/** One search result. `snippet` marks the matched words with « and ». */
+/** One search result. `snippet` marks the matched words with « and » (the text's own « and » arrive as ‹ and ›, so marks are always real). */
 export interface ChatSearchHit {
   messageId: string;
   conversationId: string;

@@ -3,7 +3,7 @@
  * Scheduled send on the web: the send button's menu (tomorrow 9 AM, Monday 9 AM, or a date
  * and time you pick), and `ChatScheduledList`, your messages waiting to go, each with Cancel.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, CalendarClock, ChevronUp, Clock, X } from "lucide-react";
 import {
   Button,
@@ -87,6 +87,10 @@ export function ChatScheduleMenu({ onSchedule, disabled, now }: ChatScheduleMenu
 function ScheduleDialog({ open, onOpenChange, onSchedule, now }: { open: boolean; onOpenChange: (o: boolean) => void; onSchedule: (at: Date) => void; now?: Date }) {
   const base = now ?? new Date();
   const [value, setValue] = useState(() => toLocalInput(new Date(base.getTime() + 60 * 60_000)));
+  // The default is an hour from when it opens, not from when the composer first drew.
+  useEffect(() => {
+    if (open) setValue(toLocalInput(new Date((now ?? new Date()).getTime() + 60 * 60_000)));
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
   const at = new Date(value);
   const ok = isSchedulable(at, now ?? new Date());
   return (

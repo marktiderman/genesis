@@ -611,7 +611,9 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       const q = query.trim().toLowerCase();
       if (q.length < 2) return [];
       const hits: ChatSearchHit[] = [];
-      const mark = (text: string) => {
+      // As search_messages does: the text's own « and » become ‹ and ›, so only real matches are marked.
+      const mark = (raw: string) => {
+        const text = raw.replace(/«/g, "‹").replace(/»/g, "›");
         const i = text.toLowerCase().indexOf(q);
         const start = Math.max(0, i - 40);
         return `${start > 0 ? "…" : ""}${text.slice(start, i)}«${text.slice(i, i + q.length)}»${text.slice(i + q.length, i + q.length + 60)}`;

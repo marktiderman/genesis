@@ -4,10 +4,10 @@
  * (each client's direct conversation), so each person gets it on their own and their reply
  * comes back to you privately. Pick conversations from the inbox (filter, select all), then send.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Megaphone, Search } from "lucide-react";
 import { Alert, AlertDescription, Button, Checkbox, EmptyState, Input, Label, Skeleton, Textarea, UserAvatar, cn, toast } from "@marktiderman/genesis-ui";
-import { CHAT_LIMITS } from "../core/media";
+import { CHAT_LIMITS, randomId } from "../core/media";
 import type { ChatInboxItem } from "../core/types";
 import { useBroadcast, useInbox } from "../react/index";
 import type { ResolveUser } from "./format";
@@ -30,6 +30,10 @@ export function ChatBroadcast({ resolveUser, kind, filter, onSent, className }: 
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [text, setText] = useState("");
   const [q, setQ] = useState("");
+  // One clientId per draft, kept until it goes: Send pressed again after a timeout (when the
+  // server may already have posted it) is the same broadcast, never a second one.
+  const draftId = useRef<string | null>(null);
+  const busy = useRef(false);
 
   const rows = useMemo(
     () =>
@@ -52,9 +56,12 @@ export function ChatBroadcast({ resolveUser, kind, filter, onSent, className }: 
 
   const submit = async () => {
     const body = text.trim();
-    if (!body || picked.size === 0) return;
+    if (!body || picked.size === 0 || busy.current) return;
+    busy.current = true;
+    draftId.current ??= randomId();
     try {
-      const ids = await send([...picked], body);
+      const ids = await send([...picked], body, { clientId: draftId.current });
+      draftId.current = null;
       const n = ids.length;
       if (n === picked.size) toast.success(n === 1 ? "Sent to 1 conversation" : `Sent to ${n} conversations`);
       else toast.warning(`Sent to ${n} of ${picked.size}`, { description: "You can't post in the others." });
@@ -63,6 +70,8 @@ export function ChatBroadcast({ resolveUser, kind, filter, onSent, className }: 
       setPicked(new Set());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't send");
+    } finally {
+      busy.current = false;
     }
   };
 
