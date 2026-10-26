@@ -577,7 +577,7 @@ describe("follow-ups from the #303 review", () => {
           name: "app",
           version: "1.0.0",
           dependencies: { "@marktiderman/genesis-features": "^0.3.0", "@marktiderman/genesis-chat": "^0.2.0" },
-          devDependencies: { "@marktiderman/genesis-cli": "1.3.0", "some-tool": "1.0.0" },
+          devDependencies: { "@marktiderman/genesis-cli": "1.3.0", vitest: "1.0.0" },
         }),
         "node_modules/@marktiderman/genesis-features/package.json": pkg("@marktiderman/genesis-features", "0.3.0"),
         "node_modules/@marktiderman/genesis-cli/package.json": pkg("@marktiderman/genesis-cli", "1.3.0", { "@marktiderman/genesis-features": "^0.1.1" }),
@@ -587,9 +587,9 @@ describe("follow-ups from the #303 review", () => {
           {},
           { "@marktiderman/genesis-ui": "^1.0.0" },
         ),
-        // Another dev tool's own copy.
-        "node_modules/some-tool/package.json": pkg("some-tool", "1.0.0", { "@marktiderman/genesis-chat": "^0.1.0" }),
-        "node_modules/some-tool/node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.1.0"),
+        // A test runner's own copy: tooling, so its tree doesn't ship.
+        "node_modules/vitest/package.json": pkg("vitest", "1.0.0", { "@marktiderman/genesis-chat": "^0.1.0" }),
+        "node_modules/vitest/node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.1.0"),
         "node_modules/@marktiderman/genesis-chat/package.json": pkg("@marktiderman/genesis-chat", "0.2.0"),
       });
       const copies = genesisInstalls(root);
@@ -866,9 +866,10 @@ describe("#314 re-review", () => {
       JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
     );
     const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+    // genesis-ui is a devDependency, but not tooling: a bundler ships it, so its nested core is runtime.
     expect(core.map((c) => [c.version, c.runtime, c.devOnly])).toEqual([
       ["1.7.0", false, false],
-      ["1.6.0", false, true],
+      ["1.6.0", true, false],
     ]);
     const result = await runDoctor({ root, config: {}, strict: true });
     expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => f.level)).toEqual(["warn"]);
@@ -889,5 +890,135 @@ describe("#314 re-review", () => {
     });
     const admin = webRoutes({ root: tan, config: {}, files: scanFiles(tan, {}) }).find((r) => r.file.path === "src/routes/admin.tsx")!;
     expect(admin).toMatchObject({ layout: true, page: false });
+  });
+});
+
+describe("trail: third-pass review", () => {
+  it("a cyclic import graph costs about what an acyclic one of the same size does", () => {
+    const N = 300;
+    const K = 8;
+    const graph = (cyclic: boolean) => {
+      const files: Record<string, string> = {};
+      for (let i = 0; i < N; i++) {
+        // Acyclic: each imports the next K. Cyclic: K/2 ahead and K/2 behind (wrapping), so nearly every path loops.
+        const deps = (cyclic ? Array.from({ length: K }, (_, j) => (j < K / 2 ? i + j + 1 : i - (j - K / 2) - 1)) : Array.from({ length: K }, (_, j) => i + j + 1))
+          .map((d) => (cyclic ? (d + N) % N : d))
+          .filter((d) => d < N && d !== i);
+        files[`src/c/C${i}.tsx`] =
+          deps.map((d) => `import { C${d} } from "./C${d}";`).join("\n") + `\nexport const C${i} = () => <div>${deps.map((d) => `<C${d} />`).join("")}</div>;`;
+      }
+      for (let r = 0; r < 60; r++) files[`src/r/R${r}.tsx`] = `import { C${(r * 7) % N} } from "../c/C${(r * 7) % N}";\nexport const R = () => <C${(r * 7) % N} />;`;
+      const root = makeApp(null, files);
+      const scanned = scanFiles(root, {});
+      return { root, routes: scanned.filter((f) => f.path.startsWith("src/r/")), scanned };
+    };
+    const layout = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
+    const time = (g: ReturnType<typeof graph>) => {
+      const best: number[] = [];
+      for (let run = 0; run < 3; run++) {
+        const trail = createTrail({ root: g.root, files: g.scanned });
+        const t0 = performance.now();
+        for (const r of g.routes) expect(trail.reach(r, layout)).toBe("no");
+        best.push(performance.now() - t0);
+      }
+      return Math.min(...best);
+    };
+    const acyclic = time(graph(false));
+    const cyclic = time(graph(true));
+    if (process.env.TRAIL_BENCH) process.stderr.write(`BENCH ${JSON.stringify({ acyclic, cyclic })}\n`);
+    // Relative, not a fixed budget: ~2.5-3x with cut answers cached, ~9x without.
+    expect(cyclic).toBeLessThan(acyclic * 4 + 25);
+  });
+
+  it("a cut answer is reused only while its cut modules are on the path (same answers in any order)", () => {
+    // X → Y → Z → X, Z → W (W renders the layout only when reached; Y alone has no route to it but through Z).
+    const root = app({
+      "src/X.tsx": `import { Y } from "./Y";\nexport const X = () => <Y />;`,
+      "src/Y.tsx": `import { Z } from "./Z";\nexport const Y = () => <Z />;`,
+      "src/Z.tsx": `import { X } from "./X";\nimport { W } from "./W";\nexport const Z = () => <><X /><W /></>;`,
+      "src/W.tsx": `export const W = () => <DetailPage title="w" />;`,
+      "src/V.tsx": `import { Y } from "./Y";\nexport const V = () => <Y />;`,
+    });
+    const files = scanFiles(root, {});
+    const get = (n: string) => files.find((f) => f.path === `src/${n}.tsx`)!;
+    const test = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
+    const orders = [
+      ["X", "V", "Y", "Z"],
+      ["V", "Z", "X", "Y"],
+      ["Z", "Y", "V", "X"],
+    ];
+    for (const order of orders) {
+      const trail = createTrail({ root, files });
+      expect(order.map((n) => trail.reach(get(n), test))).toEqual(order.map(() => "yes"));
+    }
+  });
+});
+
+describe("installs: third-pass review", () => {
+  const pkg = (name: string, version: string, deps: Record<string, string> = {}) => JSON.stringify({ name, version, dependencies: deps });
+  it("a bundled app's devDependencies ship: core ^1.7 in deps and genesis-ui (nested core 1.6) in devDeps warns", async () => {
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({
+        name: "app",
+        version: "1.0.0",
+        dependencies: { "@marktiderman/genesis-core": "^1.7.0" },
+        devDependencies: { "@marktiderman/genesis-ui": "^9.0.0", vite: "^7.0.0", vitest: "^3.0.0", "@types/react": "^19.0.0" },
+      }),
+      "node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.7.0"),
+      "node_modules/@marktiderman/genesis-ui/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+    });
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+      JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
+    );
+    const core = genesisInstalls(root).get("@marktiderman/genesis-core")!;
+    expect(core.map((c) => [c.version, c.runtime, c.devOnly])).toEqual([
+      ["1.7.0", true, false],
+      ["1.6.0", true, false],
+    ]);
+    const result = await runDoctor({ root, config: {}, strict: true });
+    expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => `${f.level} ${f.subject}`)).toEqual([
+      "warn @marktiderman/genesis-core",
+    ]);
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("tokenizer: third-pass review", () => {
+  it("reads regex literals, and backticks and apostrophes in JSX text, without losing its place", () => {
+    const code = [
+      `const re = /\`+/g; const half = a / b / c;`,
+      `export const Song = () => <p>Rock 'n roll, use \`npm i\` and/or <Inner /></p>;`,
+      `const t = css\`color: red\`;`,
+      `const lazyPage = lazy(() => import("./Page"));`,
+      `<Foo bar={x} /></Foo>`,
+      `<p>{done}/{total} done</p><Bar />`,
+      `<p> / <Baz /></p>`,
+    ].join("\n");
+    const out = stripForImports(code)!;
+    expect(out).not.toBeNull();
+    expect(out).toContain("<Inner />");
+    expect(out).toContain(`import("./Page")`);
+    expect(out).toContain("<Foo bar={x} /></Foo>");
+    expect(out).toContain("{done}/{total} done</p><Bar />");
+    expect(out).toContain("<p> / <Baz /></p>");
+    expect(out).not.toContain("color: red");
+    expect(out.length).toBe(code.length);
+  });
+
+  it("gives up (null) when it can't be sure, and the trail then reports nothing for that route", async () => {
+    expect(stripForImports(`<p>'Tis the season</p>\nconst x = 1;`)).toBeNull();
+    expect(stripForImports("const t = `never closed")).toBeNull();
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", version: "1.0.0", dependencies: { "@tanstack/react-router": "1" } }),
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/carols.tsx": `import { Carols } from "../../pages/Carols";\nexport const Route = createFileRoute("/carols")({ component: Carols });`,
+      "src/pages/Carols.tsx": `export const Carols = () => <main><p>'Tis the season</p></main>;`,
+      // Rock 'n roll used to blank the rest of the file and hide the layout below it.
+      "src/routes/_shell/songs.tsx": `import { Songs } from "../../pages/Songs";\nexport const Route = createFileRoute("/songs")({ component: Songs });`,
+      "src/pages/Songs.tsx": `import { Frame } from "./Frame";\nexport const Songs = () => <Frame><p>Rock 'n roll</p></Frame>;\n`,
+      "src/pages/Frame.tsx": `export const Frame = ({ children }) => <DetailPage title="Songs">{children}</DetailPage>;`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual([]);
   });
 });
