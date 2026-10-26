@@ -1,0 +1,207 @@
+{
+  "name": "@marktiderman/genesis-work",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Goals and projects, tasks and issues, metrics, status updates and sessions for Genesis apps, in the app's own Supabase (schema genesis_work): owned by a person, a team or the tenant through genesis-supabase's owner-access contract.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/work"
+  },
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./blocks": {
+      "types": "./dist/blocks.d.ts",
+      "import": "./dist/blocks.js",
+      "default": "./dist/blocks.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@marktiderman/genesis-features": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "blocks": {
+      "pursuits": {
+        "feature": {
+          "name": "Pursuits",
+          "summary": "Goals and projects (one table, either or both) with tasks, issues and milestones, owned by a person, a team or the tenant; who reads and writes is the app's hook.",
+          "keywords": [
+            "goals",
+            "projects",
+            "tasks",
+            "issues",
+            "milestones",
+            "quarterly priorities"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "owner-access"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_work_pursuits.sql",
+            "test": "migrations/tests/0001_genesis_work_pursuits.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Define private.genesis_readable_owners(viewer) and private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) in a migration, as the header of 0009 shows. Without them nobody signed in reads or writes.",
+          "Add genesis_work to your API's exposed schemas (supabase/config.toml [api] schemas)."
+        ]
+      },
+      "metrics": {
+        "feature": {
+          "name": "Metrics",
+          "summary": "Numbers tracked over time (a scorecard, a habit, a profit margin), one value per period, goals that change over time, owned by a person, a team or the tenant.",
+          "keywords": [
+            "metrics",
+            "kpi",
+            "scorecard",
+            "habits",
+            "trend"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "pursuits"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0002_genesis_work_metrics.sql",
+            "test": "migrations/tests/0002_genesis_work_metrics.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Uses the owner-access block's hooks: private.genesis_readable_owners(viewer) and private.genesis_owner_can(...). Without them nobody signed in reads or writes.",
+          "Add genesis_work to your API's exposed schemas (supabase/config.toml [api] schemas)."
+        ]
+      },
+      "status-updates": {
+        "feature": {
+          "name": "Status updates",
+          "summary": "Dated updates (health and a note) on goals, projects, tasks, issues and metrics, and requests to a person for an update by a due time, answered by posting one.",
+          "keywords": [
+            "status update",
+            "check-in",
+            "update request",
+            "health",
+            "overdue"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "pursuits",
+          "metrics"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0003_genesis_work_updates.sql",
+            "test": "migrations/tests/0003_genesis_work_updates.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Needs the pursuits and metrics blocks and their hooks. For reminders, schedule a job (the jobs block) that reads update_requests_due and sends one notification per request.",
+          "Add genesis_work to your API's exposed schemas (supabase/config.toml [api] schemas)."
+        ]
+      },
+      "sessions": {
+        "feature": {
+          "name": "Sessions",
+          "summary": "Sessions of any kind (a meeting, workshop, presentation, coaching call, one-on-one, class or planning day): types with agendas, a schedule and calendar event, the agenda copied at start, the live step, notes and recordings; attendees with presence and a 1-to-10 rating; links to pre-work and collaboration spaces.",
+          "keywords": [
+            "sessions",
+            "meetings",
+            "workshops",
+            "coaching calls",
+            "agenda",
+            "rating",
+            "attendance"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "pursuits"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0004_genesis_work_sessions.sql",
+            "test": "migrations/tests/0004_genesis_work_sessions.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Uses the owner-access block (genesis-supabase) and its app hooks. To share pre-work or a live worksheet with attendees, register private.genesis_session_members(session) as a collaboration audience.",
+          "Add genesis_work to your API's exposed schemas (supabase/config.toml [api] schemas)."
+        ]
+      }
+    }
+  }
+}

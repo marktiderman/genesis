@@ -1,11 +1,11 @@
--- Genesis metrics: public.metrics, public.metric_values and public.metric_goal_changes
+-- Genesis metrics: genesis_work.metrics, genesis_work.metric_values and genesis_work.metric_goal_changes
 --
 -- A metric is a number someone tracks over time: a weekly sales count, a monthly profit margin,
 -- a daily yes or no for a habit, a quarterly score. It has an owner, a unit, a cadence, a goal
 -- with a direction, and a source (typed in by hand, worked out by a formula, or filled by a
 -- sync job). Each period gets at most one value. Values over periods are the trend.
 --
--- Tenants and owners: as in 0009_genesis_pursuits, every metric belongs to one tenant and has
+-- Tenants and owners: as in 0001_genesis_work_pursuits, every metric belongs to one tenant and has
 -- exactly one owner, a person (person_id), a team (team_id) or the tenant (organization_id, equal
 -- to tenant_id). A value copies its metric's tenant and owner. Add your foreign keys in a later
 -- migration.
@@ -33,13 +33,14 @@
 -- (`genesis migrate` does it), after 0009. Never edit it once applied; change it with a new
 -- migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0010_genesis_metrics.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0002_genesis_work_metrics.test.sql`).
 
 create schema if not exists private;
+create schema if not exists genesis_work;
 
 -- Metrics --------------------------------------------------------------------------------------
 
-create table public.metrics (
+create table genesis_work.metrics (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   person_id uuid,
@@ -105,21 +106,21 @@ create table public.metrics (
     (source in ('sheet', 'quickbooks', 'hubspot')) = (connection_id is not null))
 );
 
-comment on table public.metrics is
+comment on table genesis_work.metrics is
   'Numbers tracked over time, owned by a person, a team or the tenant. Genesis metrics. @genesis {"label": "Metrics", "labelField": "name"}';
-comment on column public.metrics.measure_kind is 'Leading (input) or lagging (result). @genesis {"label": "Leading or lagging"}';
-comment on column public.metrics.template_key is 'The same number across teams, for rollups. @genesis {"label": "Template key"}';
+comment on column genesis_work.metrics.measure_kind is 'Leading (input) or lagging (result). @genesis {"label": "Leading or lagging"}';
+comment on column genesis_work.metrics.template_key is 'The same number across teams, for rollups. @genesis {"label": "Template key"}';
 
-create index metrics_tenant_owner_idx on public.metrics (tenant_id, coalesce(person_id, team_id, organization_id));
-create index metrics_template_idx on public.metrics (tenant_id, template_key) where template_key is not null;
-create index metrics_created_by_idx on public.metrics (created_by);
-create index metrics_connection_idx on public.metrics (connection_id) where connection_id is not null;
+create index metrics_tenant_owner_idx on genesis_work.metrics (tenant_id, coalesce(person_id, team_id, organization_id));
+create index metrics_template_idx on genesis_work.metrics (tenant_id, template_key) where template_key is not null;
+create index metrics_created_by_idx on genesis_work.metrics (created_by);
+create index metrics_connection_idx on genesis_work.metrics (connection_id) where connection_id is not null;
 
 -- Values ---------------------------------------------------------------------------------------
 
-create table public.metric_values (
+create table genesis_work.metric_values (
   id uuid primary key default gen_random_uuid(),
-  metric_id uuid not null references public.metrics (id) on delete cascade,
+  metric_id uuid not null references genesis_work.metrics (id) on delete cascade,
   -- Copied from the metric, for access; never written by the app.
   tenant_id uuid not null,
   person_id uuid,
@@ -145,18 +146,18 @@ create table public.metric_values (
   constraint metric_values_one_per_period unique (metric_id, period_start)
 );
 
-comment on table public.metric_values is
+comment on table genesis_work.metric_values is
   'One value per metric and period. Genesis metrics. @genesis {"label": "Metric values", "labelField": "period_start"}';
 
-create index metric_values_tenant_owner_idx on public.metric_values (tenant_id, coalesce(person_id, team_id, organization_id));
-create index metric_values_period_idx on public.metric_values (metric_id, period_start desc);
-create index metric_values_entered_by_idx on public.metric_values (entered_by);
+create index metric_values_tenant_owner_idx on genesis_work.metric_values (tenant_id, coalesce(person_id, team_id, organization_id));
+create index metric_values_period_idx on genesis_work.metric_values (metric_id, period_start desc);
+create index metric_values_entered_by_idx on genesis_work.metric_values (entered_by);
 
 -- Goal history ---------------------------------------------------------------------------------
 
-create table public.metric_goal_changes (
+create table genesis_work.metric_goal_changes (
   id bigint generated always as identity primary key,
-  metric_id uuid not null references public.metrics (id) on delete cascade,
+  metric_id uuid not null references genesis_work.metrics (id) on delete cascade,
   tenant_id uuid not null,
   person_id uuid,
   team_id uuid,
@@ -170,11 +171,11 @@ create table public.metric_goal_changes (
   changed_at timestamptz not null default now()
 );
 
-comment on table public.metric_goal_changes is
+comment on table genesis_work.metric_goal_changes is
   'Earlier goals of a metric, each with the period it applied until. Written by the database. Genesis metrics.';
 
-create index metric_goal_changes_metric_idx on public.metric_goal_changes (metric_id, until_period);
-create index metric_goal_changes_changed_by_idx on public.metric_goal_changes (changed_by);
+create index metric_goal_changes_metric_idx on genesis_work.metric_goal_changes (metric_id, until_period);
+create index metric_goal_changes_changed_by_idx on genesis_work.metric_goal_changes (changed_by);
 
 -- Guards ---------------------------------------------------------------------------------------
 
@@ -265,12 +266,12 @@ begin
   end if;
   if (new.unit_type is distinct from old.unit_type or new.cadence is distinct from old.cadence
       or new.year_start_month is distinct from old.year_start_month)
-     and exists (select 1 from public.metric_values v where v.metric_id = old.id) then
+     and exists (select 1 from genesis_work.metric_values v where v.metric_id = old.id) then
     raise exception 'A metric''s unit type, cadence and year start are fixed once it has values' using errcode = '22023';
   end if;
   if (new.goal_direction, new.goal_value, new.goal_max) is distinct from (old.goal_direction, old.goal_value, old.goal_max) then
     -- The old goal applied to every period before the one that contains today.
-    insert into public.metric_goal_changes (metric_id, tenant_id, person_id, team_id, organization_id,
+    insert into genesis_work.metric_goal_changes (metric_id, tenant_id, person_id, team_id, organization_id,
                                             until_period, goal_direction, goal_value, goal_max, changed_by)
     values (old.id, old.tenant_id, old.person_id, old.team_id, old.organization_id,
             private.genesis_metrics_period_of(old.cadence, private.genesis_metrics_today(), old.year_start_month),
@@ -282,7 +283,7 @@ end;
 $$;
 
 create trigger metrics_guard
-  before insert or update on public.metrics
+  before insert or update on genesis_work.metrics
   for each row execute function private.genesis_metrics_guard();
 
 -- When server code moves a metric to another owner, its values and goal history move with it, so
@@ -294,10 +295,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  update public.metric_values v
+  update genesis_work.metric_values v
      set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
    where v.metric_id = new.id;
-  update public.metric_goal_changes c
+  update genesis_work.metric_goal_changes c
      set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
    where c.metric_id = new.id;
   return null;
@@ -305,7 +306,7 @@ end;
 $$;
 
 create trigger metrics_carry_owner
-  after update of person_id, team_id, organization_id on public.metrics
+  after update of person_id, team_id, organization_id on genesis_work.metrics
   for each row
   when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
   execute function private.genesis_metrics_carry_owner();
@@ -326,7 +327,7 @@ begin
     raise exception 'A value never moves to another metric' using errcode = '22023';
   end if;
   select mt.tenant_id, mt.person_id, mt.team_id, mt.organization_id, mt.unit_type, mt.cadence, mt.year_start_month
-    into m from public.metrics mt where mt.id = new.metric_id;
+    into m from genesis_work.metrics mt where mt.id = new.metric_id;
   if private.genesis_metrics_caller_is_person()
      and (m.tenant_id is null
           or not private.genesis_owner_allows(m.tenant_id, m.person_id, m.team_id, m.organization_id, 'write')) then
@@ -357,12 +358,12 @@ end;
 $$;
 
 create trigger metric_values_guard
-  before insert or update on public.metric_values
+  before insert or update on genesis_work.metric_values
   for each row execute function private.genesis_metric_values_guard();
 
 -- Access ---------------------------------------------------------------------------------------
 
--- Access uses 0009's owner-access contract: private.genesis_owner_readable() and
+-- Access uses genesis-supabase's owner-access contract (0009_genesis_owner_access): private.genesis_owner_readable() and
 -- private.genesis_owner_allows(...). This file needs 0009.
 
 revoke execute on function private.genesis_metrics_guard() from public, anon, authenticated;
@@ -373,49 +374,49 @@ revoke execute on function private.genesis_metrics_period_of(text, date, smallin
 revoke execute on function private.genesis_metrics_carry_owner() from public, anon, authenticated;
 revoke execute on function private.genesis_metric_values_guard() from public, anon, authenticated;
 
-alter table public.metrics enable row level security;
-alter table public.metric_values enable row level security;
-alter table public.metric_goal_changes enable row level security;
+alter table genesis_work.metrics enable row level security;
+alter table genesis_work.metric_values enable row level security;
+alter table genesis_work.metric_goal_changes enable row level security;
 
-create policy metrics_read on public.metrics for select to authenticated
+create policy metrics_read on genesis_work.metrics for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metrics.tenant_id
                    and r.owner_id = coalesce(metrics.person_id, metrics.team_id, metrics.organization_id)));
-create policy metrics_insert on public.metrics for insert to authenticated
+create policy metrics_insert on genesis_work.metrics for insert to authenticated
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy metrics_update on public.metrics for update to authenticated
+create policy metrics_update on genesis_work.metrics for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy metrics_delete on public.metrics for delete to authenticated
+create policy metrics_delete on genesis_work.metrics for delete to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
-create policy metric_values_read on public.metric_values for select to authenticated
+create policy metric_values_read on genesis_work.metric_values for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metric_values.tenant_id
                    and r.owner_id = coalesce(metric_values.person_id, metric_values.team_id, metric_values.organization_id)));
 -- The values' owner columns are filled by the guard before the check runs.
-create policy metric_values_insert on public.metric_values for insert to authenticated
+create policy metric_values_insert on genesis_work.metric_values for insert to authenticated
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy metric_values_update on public.metric_values for update to authenticated
+create policy metric_values_update on genesis_work.metric_values for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy metric_values_delete on public.metric_values for delete to authenticated
+create policy metric_values_delete on genesis_work.metric_values for delete to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
-create policy metric_goal_changes_read on public.metric_goal_changes for select to authenticated
+create policy metric_goal_changes_read on genesis_work.metric_goal_changes for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metric_goal_changes.tenant_id
                    and r.owner_id = coalesce(metric_goal_changes.person_id, metric_goal_changes.team_id, metric_goal_changes.organization_id)));
 
-revoke all on public.metrics, public.metric_values, public.metric_goal_changes from public, anon, authenticated;
-grant select, insert, update, delete on public.metrics, public.metric_values to authenticated;
-grant select on public.metric_goal_changes to authenticated;
-revoke all on sequence public.metric_goal_changes_id_seq from public, anon, authenticated;
-grant all on public.metrics, public.metric_values, public.metric_goal_changes to service_role;
+revoke all on genesis_work.metrics, genesis_work.metric_values, genesis_work.metric_goal_changes from public, anon, authenticated;
+grant select, insert, update, delete on genesis_work.metrics, genesis_work.metric_values to authenticated;
+grant select on genesis_work.metric_goal_changes to authenticated;
+revoke all on sequence genesis_work.metric_goal_changes_id_seq from public, anon, authenticated;
+grant all on genesis_work.metrics, genesis_work.metric_values, genesis_work.metric_goal_changes to service_role;
 
 -- Each value against the goal in effect for its period ----------------------------------------
 
-create view public.metric_values_with_goal
+create view genesis_work.metric_values_with_goal
 with (security_invoker = true) as
 select
   v.id,
@@ -440,18 +441,18 @@ select
     else v.value between coalesce(v.goal_override, g.goal_value, m.goal_value)
                      and coalesce(v.goal_max_override, g.goal_max, m.goal_max)
   end as on_goal
-from public.metric_values v
-join public.metrics m on m.id = v.metric_id
+from genesis_work.metric_values v
+join genesis_work.metrics m on m.id = v.metric_id
 left join lateral (
   select c.goal_direction, c.goal_value, c.goal_max
-  from public.metric_goal_changes c
+  from genesis_work.metric_goal_changes c
   where c.metric_id = v.metric_id and c.until_period > v.period_start
   order by c.until_period asc, c.id asc
   limit 1
 ) g on true;
 
-comment on view public.metric_values_with_goal is
+comment on view genesis_work.metric_values_with_goal is
   'Each value with the goal in effect for its period and whether it met it. Genesis metrics.';
 
-revoke all on public.metric_values_with_goal from public, anon, authenticated;
-grant select on public.metric_values_with_goal to authenticated, service_role;
+revoke all on genesis_work.metric_values_with_goal from public, anon, authenticated;
+grant select on genesis_work.metric_values_with_goal to authenticated, service_role;

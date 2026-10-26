@@ -1,4 +1,4 @@
--- Genesis pursuits: public.pursuits and public.work_items
+-- Genesis work, pursuits: genesis_work.pursuits and genesis_work.work_items
 --
 -- A pursuit is something a person or a team works toward. It's a goal, a project, or both
 -- (is_goal, is_project): a goal carries success criteria, a project carries dates and work.
@@ -12,31 +12,12 @@
 -- itself (organization_id, which must equal tenant_id). This file names no table of yours: add
 -- your foreign keys in a later migration, for example
 --
---   alter table public.pursuits add foreign key (tenant_id) references public.organizations (id) on delete cascade;
---   alter table public.pursuits add foreign key (team_id) references public.teams (id) on delete cascade;
+--   alter table genesis_work.pursuits add foreign key (tenant_id) references public.organizations (id) on delete cascade;
+--   alter table genesis_work.pursuits add foreign key (team_id) references public.teams (id) on delete cascade;
 --
--- The owner-access contract (shared by every Genesis block whose rows have an owner; this file
--- defines it first):
---
---   Your app defines two hooks. Genesis never defines them.
---     private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid,
---                               organization_id uuid, action text) returns boolean
---       action is 'read' or 'write'.
---     private.genesis_readable_owners(viewer uuid) returns table (tenant_id uuid, owner_id uuid)
---       Every (tenant, owner) pair the viewer may read, across tenants.
---   Genesis ships two wrappers that blocks call. They fail closed: a missing hook, a hook that
---   errors or returns the wrong type, a null tenant or viewer, or an action other than 'read' or
---   'write' gives false or an empty set.
---     private.genesis_owner_readable() returns table (tenant_id uuid, owner_id uuid)
---       The signed-in viewer's set, from genesis_readable_owners(auth.uid()).
---     private.genesis_owner_allows(tenant uuid, person_id uuid, team_id uuid,
---                                  organization_id uuid, action text) returns boolean
---       genesis_owner_can(tenant, auth.uid(), person_id, team_id, organization_id, action).
---   Both are security definer with search_path ''. Only authenticated may execute them (row
---   security runs as the caller), and they only ever answer for auth.uid().
---
--- The app hooks: who may read and write a row is your app's answer, through those two functions,
--- which this file calls but doesn't define. Without them nobody signed in reads or writes anything, so a
+-- Access: this file needs genesis-supabase's 0009_genesis_owner_access, whose wrappers
+-- (genesis_owner_readable, genesis_owner_allows) every policy here calls. Who may read and write a
+-- row is your app's answer, through that file's two hooks. Without them nobody signed in reads or writes anything, so a
 -- fresh install fails closed, and so does a hook that errors. The service role (server code) is not limited by
 -- row security.
 --
@@ -68,19 +49,23 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0009_genesis_pursuits.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0001_genesis_work_pursuits.test.sql`).
 
 create schema if not exists private;
+create schema if not exists genesis_work;
+-- Expose genesis_work in your API's schemas (supabase/config.toml [api] schemas) to reach these
+-- tables from the client.
+grant usage on schema genesis_work to authenticated, service_role;
 
 -- Pursuits -------------------------------------------------------------------------------------
 
-create table public.pursuits (
+create table genesis_work.pursuits (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   person_id uuid,
   team_id uuid,
   organization_id uuid,
-  parent_id uuid references public.pursuits (id) on delete set null,
+  parent_id uuid references genesis_work.pursuits (id) on delete set null,
   title text not null
     constraint pursuits_title_length check (char_length(btrim(title)) between 1 and 300),
   description text,
@@ -112,26 +97,26 @@ create table public.pursuits (
   constraint pursuits_not_own_parent check (parent_id is distinct from id)
 );
 
-comment on table public.pursuits is
+comment on table genesis_work.pursuits is
   'Goals and projects, owned by a person, a team or the tenant. Genesis pursuits. @genesis {"label": "Pursuits", "labelField": "title"}';
-comment on column public.pursuits.is_goal is 'Has success criteria. @genesis {"label": "Goal"}';
-comment on column public.pursuits.is_project is 'Has dates and work. @genesis {"label": "Project"}';
-comment on column public.pursuits.health is 'On track, at risk or off track. @genesis {"label": "Health"}';
+comment on column genesis_work.pursuits.is_goal is 'Has success criteria. @genesis {"label": "Goal"}';
+comment on column genesis_work.pursuits.is_project is 'Has dates and work. @genesis {"label": "Project"}';
+comment on column genesis_work.pursuits.health is 'On track, at risk or off track. @genesis {"label": "Health"}';
 
-create index pursuits_tenant_owner_idx on public.pursuits (tenant_id, coalesce(person_id, team_id, organization_id));
-create index pursuits_parent_idx on public.pursuits (parent_id);
-create index pursuits_period_idx on public.pursuits (tenant_id, period_start);
-create index pursuits_created_by_idx on public.pursuits (created_by);
+create index pursuits_tenant_owner_idx on genesis_work.pursuits (tenant_id, coalesce(person_id, team_id, organization_id));
+create index pursuits_parent_idx on genesis_work.pursuits (parent_id);
+create index pursuits_period_idx on genesis_work.pursuits (tenant_id, period_start);
+create index pursuits_created_by_idx on genesis_work.pursuits (created_by);
 
 -- Work items -----------------------------------------------------------------------------------
 
-create table public.work_items (
+create table genesis_work.work_items (
   id uuid primary key default gen_random_uuid(),
   tenant_id uuid not null,
   person_id uuid,
   team_id uuid,
   organization_id uuid,
-  pursuit_id uuid references public.pursuits (id) on delete set null,
+  pursuit_id uuid references genesis_work.pursuits (id) on delete set null,
   kind text not null
     constraint work_items_kind check (kind in ('task', 'issue', 'milestone')),
   title text not null
@@ -160,16 +145,16 @@ create table public.work_items (
   constraint work_items_issue_fields check (kind = 'issue' or (term is null and decider_id is null and solution is null))
 );
 
-comment on table public.work_items is
+comment on table genesis_work.work_items is
   'Tasks, issues and milestones, alone or under a pursuit. Genesis pursuits. @genesis {"label": "Work items", "labelField": "title"}';
-comment on column public.work_items.rank is 'Manual order within a list. @genesis {"label": "Rank"}';
-comment on column public.work_items.term is 'Issues: short (this week) or long (this quarter or later). @genesis {"label": "Term"}';
+comment on column genesis_work.work_items.rank is 'Manual order within a list. @genesis {"label": "Rank"}';
+comment on column genesis_work.work_items.term is 'Issues: short (this week) or long (this quarter or later). @genesis {"label": "Term"}';
 
-create index work_items_tenant_owner_idx on public.work_items (tenant_id, coalesce(person_id, team_id, organization_id));
-create index work_items_pursuit_idx on public.work_items (pursuit_id);
-create index work_items_assignee_idx on public.work_items (assignee_id);
-create index work_items_open_idx on public.work_items (tenant_id, kind, status);
-create index work_items_created_by_idx on public.work_items (created_by);
+create index work_items_tenant_owner_idx on genesis_work.work_items (tenant_id, coalesce(person_id, team_id, organization_id));
+create index work_items_pursuit_idx on genesis_work.work_items (pursuit_id);
+create index work_items_assignee_idx on genesis_work.work_items (assignee_id);
+create index work_items_open_idx on genesis_work.work_items (tenant_id, kind, status);
+create index work_items_created_by_idx on genesis_work.work_items (created_by);
 
 -- Guards ---------------------------------------------------------------------------------------
 
@@ -198,7 +183,7 @@ declare
   hops integer := 0;
 begin
   perform pg_advisory_xact_lock(hashtextextended('genesis_pursuits:' || tenant::text, 0));
-  if not exists (select 1 from public.pursuits p where p.id = parent and p.tenant_id = tenant) then
+  if not exists (select 1 from genesis_work.pursuits p where p.id = parent and p.tenant_id = tenant) then
     raise exception 'A pursuit''s parent must be in the same tenant' using errcode = '22023';
   end if;
   while ancestor is not null loop
@@ -209,7 +194,7 @@ begin
     if hops > 100 then
       raise exception 'Pursuits nest at most 100 deep' using errcode = '22023';
     end if;
-    select p.parent_id into ancestor from public.pursuits p where p.id = ancestor;
+    select p.parent_id into ancestor from genesis_work.pursuits p where p.id = ancestor;
   end loop;
 end;
 $$;
@@ -222,7 +207,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if not exists (select 1 from public.pursuits p where p.id = pursuit and p.tenant_id = tenant) then
+  if not exists (select 1 from genesis_work.pursuits p where p.id = pursuit and p.tenant_id = tenant) then
     raise exception 'A work item''s pursuit must be in the same tenant' using errcode = '22023';
   end if;
 end;
@@ -267,7 +252,7 @@ end;
 $$;
 
 create trigger pursuits_guard
-  before insert or update on public.pursuits
+  before insert or update on genesis_work.pursuits
   for each row execute function private.genesis_pursuits_guard();
 
 create or replace function private.genesis_work_items_guard()
@@ -312,91 +297,45 @@ end;
 $$;
 
 create trigger work_items_guard
-  before insert or update on public.work_items
+  before insert or update on genesis_work.work_items
   for each row execute function private.genesis_work_items_guard();
 
 -- Access ---------------------------------------------------------------------------------------
-
--- The owner-access contract: the two fail-closed wrappers every Genesis block with owners calls.
-create or replace function private.genesis_owner_readable()
-returns table (tenant_id uuid, owner_id uuid)
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-begin
-  if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
-    return;
-  end if;
-  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
-exception when others then
-  return;
-end;
-$$;
-
-create or replace function private.genesis_owner_allows(tenant uuid, person_id uuid, team_id uuid, organization_id uuid, action text)
-returns boolean
-language plpgsql
-stable
-security definer
-set search_path = ''
-as $$
-declare
-  allowed boolean;
-begin
-  if auth.uid() is null or tenant is null or action is null or action not in ('read', 'write')
-     or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
-    return false;
-  end if;
-  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
-    into allowed using tenant, auth.uid(), person_id, team_id, organization_id, action;
-  return coalesce(allowed, false);
-exception when others then
-  return false;
-end;
-$$;
 
 revoke execute on function private.genesis_pursuits_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_work_items_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_pursuits_check_parent(uuid, uuid, uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_work_items_check_pursuit(uuid, uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_pursuits_caller_is_person() from public, anon, authenticated;
-revoke execute on function private.genesis_owner_readable() from public, anon, authenticated;
-revoke execute on function private.genesis_owner_allows(uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
--- Row security runs as the caller, so signed-in people need to execute the wrappers. That's safe:
--- they only ever answer for auth.uid().
-grant execute on function private.genesis_owner_readable() to authenticated;
-grant execute on function private.genesis_owner_allows(uuid, uuid, uuid, uuid, text) to authenticated;
 
-alter table public.pursuits enable row level security;
-alter table public.work_items enable row level security;
+alter table genesis_work.pursuits enable row level security;
+alter table genesis_work.work_items enable row level security;
 
 -- An exists form, so the planner can use the (tenant, owner) indexes.
-create policy pursuits_read on public.pursuits for select to authenticated
+create policy pursuits_read on genesis_work.pursuits for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = pursuits.tenant_id
                    and r.owner_id = coalesce(pursuits.person_id, pursuits.team_id, pursuits.organization_id)));
-create policy pursuits_insert on public.pursuits for insert to authenticated
+create policy pursuits_insert on genesis_work.pursuits for insert to authenticated
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy pursuits_update on public.pursuits for update to authenticated
+create policy pursuits_update on genesis_work.pursuits for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy pursuits_delete on public.pursuits for delete to authenticated
+create policy pursuits_delete on genesis_work.pursuits for delete to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
-create policy work_items_read on public.work_items for select to authenticated
+create policy work_items_read on genesis_work.work_items for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = work_items.tenant_id
                    and r.owner_id = coalesce(work_items.person_id, work_items.team_id, work_items.organization_id)));
-create policy work_items_insert on public.work_items for insert to authenticated
+create policy work_items_insert on genesis_work.work_items for insert to authenticated
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy work_items_update on public.work_items for update to authenticated
+create policy work_items_update on genesis_work.work_items for update to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
-create policy work_items_delete on public.work_items for delete to authenticated
+create policy work_items_delete on genesis_work.work_items for delete to authenticated
   using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
-revoke all on public.pursuits, public.work_items from public, anon, authenticated;
-grant select, insert, update, delete on public.pursuits, public.work_items to authenticated;
-grant all on public.pursuits, public.work_items to service_role;
+revoke all on genesis_work.pursuits, genesis_work.work_items from public, anon, authenticated;
+grant select, insert, update, delete on genesis_work.pursuits, genesis_work.work_items to authenticated;
+grant all on genesis_work.pursuits, genesis_work.work_items to service_role;
