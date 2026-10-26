@@ -166,6 +166,14 @@ describe("createJobsHandler", () => {
     expect((await handle(request(await signedFor("broken")))).status).toBe(401);
   });
 
+  it("trusts nothing but the job name on a signed call: no body in, no result out", async () => {
+    const seen = vi.fn(async (_ctx: { body: Record<string, unknown> }) => ({ secret: "result" }));
+    const h = createJobsHandler({ secret: "s", jobs: { digests: seen } });
+    const res = await h(request(await signJobRequest("s", "digests"), { body: JSON.stringify({ job: "other", personId: "p1" }) }));
+    expect(await res.json()).toEqual({ job: "digests", ok: true });
+    expect(seen.mock.calls[0]?.[0].body).toEqual({});
+  });
+
   it("answers 401, 404 and 405 before running anything", async () => {
     digests.mockClear();
     expect((await handle(request("Bearer nope"))).status).toBe(401);

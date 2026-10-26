@@ -310,7 +310,12 @@ export async function verifyJobRequest(request: Request, options: VerifyJobReque
   return unauthorized();
 }
 
-/** One named job a route can run. Its return value (JSON) is the response body. @stability Beta */
+/**
+ * One named job a route can run. Its return value (JSON) is the response's `result` for a
+ * bearer call; a signed call (a schedule) gets `{ job, ok: true }` and its `body` is always `{}`.
+ *
+ * @stability Beta
+ */
 export type NamedJob = (context: { request: Request; body: Record<string, unknown> }) => Promise<unknown> | unknown;
 
 /** @stability Beta */
@@ -337,7 +342,11 @@ export function createJobsHandler(options: JobsHandlerOptions): (request: Reques
     if (request.method !== "GET" && request.method !== "POST") {
       return Response.json({ error: "Use GET or POST." }, { status: 405, headers: { Allow: "GET, POST" } });
     }
-    const raw = request.method === "POST" ? await request.clone().json().catch(() => null) : null;
+    // A signed call (a schedule) is signed for the job name only, so nothing else it carries is
+    // trusted: its body is ignored, and its response carries no result (pg_net keeps responses
+    // in net._http_response, which other roles may read).
+    const signed = /^genesisjob\s/i.test((request.headers.get("authorization") ?? "").trim());
+    const raw = request.method === "POST" && !signed ? await request.clone().json().catch(() => null) : null;
     const body = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
     const job = name ?? (typeof body["job"] === "string" ? body["job"] : new URL(request.url).pathname.split("/").filter(Boolean).at(-1));
 
@@ -349,7 +358,8 @@ export function createJobsHandler(options: JobsHandlerOptions): (request: Reques
     if (!run) return Response.json({ error: "No such job." }, { status: 404 });
 
     try {
-      return Response.json({ job, result: (await run({ request, body })) ?? null });
+      const result = (await run({ request, body })) ?? null;
+      return Response.json(signed ? { job, ok: true } : { job, result });
     } catch (error) {
       log(`[jobs] ${job}: ${messageOf(error)}`);
       return Response.json({ job, error: "The job failed; see the server log." }, { status: 500 });

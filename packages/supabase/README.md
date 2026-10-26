@@ -644,6 +644,10 @@ one of two constant-time checks:
 `previousSecret` is accepted too while you rotate the secret, so remove it once every caller has the
 new one.
 
+A signed call is signed for the job name only, so the route trusts nothing else in it. The job gets
+an empty `body`, and the response is `{ job, ok: true }` with no result, because pg_net keeps responses
+in `net._http_response`. A bearer call gets its body, and the job's result comes back as `result`.
+
 ```ts
 const handle = createJobsHandler({
   secret: process.env.GENESIS_JOBS_SECRET,
