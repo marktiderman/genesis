@@ -134,6 +134,7 @@ and use it the same way.
 | A whole CRUD list page over a resource                        | `ResourcePage`                                                                     | `/data`                                                           |
 | Record detail side panel                                      | `DetailPanel`                                                                      | `/data`                                                           |
 | Dashboard / settings / form / detail page shape               | `DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`                          | `/dashboard-page`, `/settings-page`, `/form-page`, `/detail-page` |
+| A builder's outline, editor and live preview columns          | `BuilderLayout` (no tabs, rail or header: those are the shell's)                   | `/builder-layout`                                                 |
 | KPI tile                                                      | `StatCard`                                                                         | `/data`                                                           |
 | The page around one publishable thing (a form, a course, a lesson): header, readiness chip, headline numbers, summary cards, follow-ups, settings with jump links, Share | `ResourceHeader`, `ReadinessChip`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`, `ResponsesToolbar`, `ResourceSettingsPage`, `SettingsSection`, `ShareDialog` (+ `readinessOf`, `dayLabel`, `prefilledUrl` on the server) | `/resource` (`/resource/rules`)                                   |
 | Table cells: dates, numbers, money, badges, links, thumbnails | `DateCell`, `NumberCell`, `CurrencyCell`, `BadgeCell`, `LinkCell`, `ThumbnailCell` | `/data`                                                           |
@@ -147,6 +148,37 @@ and use it the same way.
 | Formatted text (lessons, notes): editor and read-only view    | `RichTextEditor`, `RichText` (+ `sanitizeRichTextDoc`, `richTextToHtml` on the server) | `/rich-text-editor`, `/rich-text`                                 |
 | Persisted page size / density                                 | `useViewSettings`                                                                  | `/hooks/use-view-settings`                                        |
 | Client-side links, navigate, URL filters on your router       | `ReactRouterLink` / `TanStackRouterLink` and their `use…Navigate`, `use…SearchParams`, `use…ActivePath` hooks | `/router/react-router`, `/router/tanstack-router`                 |
+
+## Builder columns
+
+`BuilderLayout` lays out a builder (forms, courses, lessons): `outline` on the left, `editor` in
+the centre (the only required slot), `preview` on the right. Container queries, so it follows
+the space it is given: three columns from a 56rem container (13rem / editor / 20rem), wider side
+columns from 76rem (16rem / editor / 24.5rem), the preview under the editor below 56rem, and
+everything stacked below 34rem. Outline and editor alone: 13rem from 34rem, 16rem from 48rem.
+The preview keeps its place in the tree, so swapping `editor` (another section, another selected
+item) never remounts it; `previewHidden` hides it without unmounting and gives its column to the
+editor. `sticky` pins the outline and/or preview (`{ preview: true }` for one), `scrollSticky`
+gives a pinned column its own scroll, and `outlineLabel` / `previewLabel` make them `nav` /
+`aside` landmarks. `outlineProps`, `editorProps` and `previewProps` pass a class or test id to
+each wrapper.
+
+It does not own tabs, the app rail or a header. A builder's sections go in `useAppShellSubNav`
+(or your own tabs inside `editor`), its title, status and actions in `AppShellPageHeader`. To
+keep one preview across sections, render one `BuilderLayout` around them and swap `editor`;
+nest an outline-and-editor `BuilderLayout` inside a section that has an outline (genesis-forms-builder
+does both).
+
+```tsx
+<BuilderLayout
+  outline={<StepList />}
+  outlineLabel="Outline"
+  editor={<StepEditor key={selectedId} />}
+  preview={<LivePreview />}
+  previewLabel="Preview"
+  sticky
+/>
+```
 
 ## Import rule
 

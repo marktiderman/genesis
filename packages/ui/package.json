@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.13.0",
+  "version": "2.14.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -133,6 +133,10 @@
     "./breadcrumb": {
       "types": "./dist/components/ui/breadcrumb.d.ts",
       "import": "./dist/components/ui/breadcrumb.js"
+    },
+    "./builder-layout": {
+      "types": "./dist/components/layout/builder-layout.d.ts",
+      "import": "./dist/components/layout/builder-layout.js"
     },
     "./button": {
       "types": "./dist/components/ui/button.d.ts",

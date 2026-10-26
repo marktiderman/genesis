@@ -17,6 +17,7 @@ import { parseForm, type FieldValidator, type FormDefinition, type ParseResult }
 import type { RendererRegistry } from "@marktiderman/genesis-forms-react";
 import type { FormBrand, FormTheme } from "@marktiderman/genesis-forms-web";
 import { Badge } from "@marktiderman/genesis-ui/badge";
+import { BuilderLayout } from "@marktiderman/genesis-ui/builder-layout";
 import { Button } from "@marktiderman/genesis-ui/button";
 import { Input } from "@marktiderman/genesis-ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@marktiderman/genesis-ui/tabs";
@@ -123,8 +124,8 @@ export interface FormBuilderProps {
    */
   outputs?: readonly OutputTarget[] | undefined;
   /**
-   * Option lists this app fills in when the form opens, such as a practice's
-   * current coaches. A choice question's options panel then offers "Options:
+   * Option lists this app fills in when the form opens, such as an
+   * organization's current staff. A choice question's options panel then offers "Options:
    * Typed here | From the app" and a picker of these lists; choosing one sets
    * `props.optionsFrom: { source: "host", key }`. The preview and the checks
    * use each list's `sample`. Pass the real lists to `<Form hostOptions>` and
@@ -492,8 +493,20 @@ export function FormBuilder({
       ) : null}
 
       {/* One preview for every panel, outside the tabs: switching panels keeps its device, layout and answers. */}
-      <div className="@container">
-      <div className={cn("grid items-start gap-6", hideAside ? null : "@min-[56rem]:grid-cols-[minmax(0,1fr)_20rem] @min-[76rem]:grid-cols-[minmax(0,1fr)_24.5rem]")}>
+      <BuilderLayout
+        sticky={{ preview: true }}
+        // Kept mounted when hidden (a host's own Settings layout), so the preview's state survives.
+        previewHidden={hideAside}
+        previewLabel="Preview and checks"
+        previewProps={{ className: "space-y-4", "data-testid": "builder-aside" }}
+        preview={
+          <>
+            <div className="empty:hidden">{tab === "logic" ? <FlowMap def={def} findings={shown} /> : null}</div>
+            {preview}
+            {checksList}
+          </>
+        }
+        editor={
       <Tabs defaultValue={tab} value={tab} onValueChange={(v) => setTab(v as BuilderTab)} className="min-w-0">
         {tabs ? (
           <TabsList className="flex h-auto w-full flex-wrap justify-start">
@@ -535,18 +548,8 @@ export function FormBuilder({
           </TabsContent>
         ) : null}
       </Tabs>
-      {/* Kept mounted when hidden (a host's own Settings layout), so the preview's state survives. */}
-      <aside
-        className={cn("min-w-0 space-y-4 @min-[56rem]:sticky @min-[56rem]:top-4", hideAside && "hidden")}
-        aria-label="Preview and checks"
-        data-testid="builder-aside"
-      >
-        <div className="empty:hidden">{tab === "logic" ? <FlowMap def={def} findings={shown} /> : null}</div>
-        {preview}
-        {checksList}
-      </aside>
-      </div>
-      </div>
+        }
+      />
     </div>
     </ChecksContext.Provider>
     </DraftsContext.Provider>
