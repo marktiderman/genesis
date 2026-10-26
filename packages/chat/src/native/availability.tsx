@@ -14,7 +14,6 @@ import {
   NativeCombobox,
   NativeDatePicker,
   NativeIcon,
-  NativeSkeleton,
   NativeSwitch,
   NativeText,
   NativeTextarea,
@@ -240,13 +239,11 @@ export function ChatAvailabilityScreen({ onSaved, testID = "chat-availability" }
     return list.map((z) => ({ value: z, label: z.replace(/_/g, " ") }));
   }, [zones, form.zone]);
 
+  // A moment while yours is read (cached after the first time): the form fills in once it's here.
   if (mineLoading || !loaded) {
     return (
       <SettingsSubPage testID={testID}>
-        <View testID={`${testID}-loading`} style={{ gap: 12 }}>
-          <NativeSkeleton height={88} className="w-full" />
-          <NativeSkeleton height={220} className="w-full" />
-        </View>
+        <View testID={`${testID}-loading`} accessibilityState={{ busy: true }} />
       </SettingsSubPage>
     );
   }

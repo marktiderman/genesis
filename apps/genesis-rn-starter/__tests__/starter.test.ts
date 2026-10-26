@@ -352,9 +352,27 @@ describe("chat", () => {
     expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
   });
 
+  it("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat_coaching.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(chatSql("0002_genesis_chat_coaching.sql"));
+    expect(read("supabase/tests/database/genesis_chat_coaching.test.sql")).toBe(chatSql("tests/0002_genesis_chat_coaching.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBe(order.findIndex((f) => f.endsWith("_genesis_chat.sql")) + 1);
+  });
+
+  it("puts one chat over every signed-in tab, with Availability under Settings and search and broadcast in Messages", () => {
+    expect(read("src/app/(app)/_layout.tsx")).toContain("starter.features.chat ? <ChatRoot>{app}</ChatRoot> : app");
+    expect(read("src/app/(app)/messages/_layout.tsx")).not.toContain("<ChatRoot");
+    expect(read("src/app/(app)/settings/availability.tsx")).toContain('if (!starter.features.chat) return <Redirect href="/settings" />');
+    expect(read("src/app/(app)/settings/index.tsx")).toContain('router.push("/settings/availability" as Href)');
+    expect(read("src/app/(app)/messages/index.tsx")).toContain("<ChatBroadcastSheet");
+    expect(read("src/app/(app)/messages/[id].tsx")).toMatch(/<ChatThreadScreen key=\{id\} conversationId=\{id\} jumpTo=\{jumpTo\}/);
+  });
+
   it("has the Messages tab and its routes, each sending you home when chat is off", () => {
     expect(read("src/app/(app)/_layout.tsx")).toContain('name="messages" hidden={!starter.features.chat}');
-    for (const route of ["_layout", "index", "[id]"]) {
+    for (const route of ["_layout", "index", "[id]", "search"]) {
       expect(read(join("src/app/(app)/messages", `${route}.tsx`)), route).toContain("if (!starter.features.chat) return <Redirect");
     }
   });

@@ -47,6 +47,15 @@ describe("settings screen", () => {
     expect(within(screen.getByTestId("delete-account")).getByText(t.deleteAccount)).toBeOnTheScreen();
   });
 
+  it("opens Availability (chat's away message and working hours) from its row", async () => {
+    const app = await renderApp("/settings", "person@example.com");
+    const row = await screen.findByTestId("open-availability");
+    expect(within(row).getByText(t.availability)).toBeOnTheScreen();
+    await userEvent.setup().press(row);
+    await expectPathname(app, "/settings/availability");
+    expect(await screen.findByTestId("chat-availability")).toBeOnTheScreen();
+  });
+
   it("signs out, and the app goes back to sign-in", async () => {
     const app = await renderApp("/settings", "person@example.com");
     await userEvent.setup().press(await screen.findByTestId("sign-out"));
