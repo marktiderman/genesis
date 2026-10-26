@@ -1,0 +1,29 @@
+.changeset/product-release-flow.md
+  s_1f35d570c63beb::t_9218dec19cfe9a 1-6
+.github/workflows/release.yml
+  s_1f35d570c63beb::t_1e0ccc8938b7d7 32-36,312-452
+docs/RELEASING.md
+  s_1f35d570c63beb::t_6baef3f8704098 26-62
+packages/product/README.md
+  s_1f35d570c63beb::t_ce4d006c9a8a6b 61-69
+packages/product/src/__tests__/product.test.ts
+  s_1f35d570c63beb::t_07a8a937ba9627 175-194
+packages/product/src/node.ts
+  s_1f35d570c63beb::t_a3b877189c4697 45-47,49,54-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6922c3402e1813f24414134c20d1fffe50f22bc0",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
