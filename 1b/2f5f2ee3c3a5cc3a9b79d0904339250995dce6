@@ -1,0 +1,49 @@
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_1c54e63655fc90 33,189-190
+packages/chat/src/native/__tests__/video-media.test.tsx
+  s_8252619ce79a86::t_3c9014d0286586 18-19,149-157,209-210,315-343,359,361,364,367-368,401-421
+packages/chat/src/native/__tests__/video-recorder-state.test.ts
+  s_8252619ce79a86::t_c0e017e72c9c0d 62,64,68-82
+packages/chat/src/native/__tests__/video-upload.test.ts
+  s_8252619ce79a86::t_32032fdf7a82d4 76-86,144,152-198
+packages/chat/src/native/attachment-cards.tsx
+  s_8252619ce79a86::t_c7a734a124df1c 6-7,29-33,36-56,81,107-108
+packages/chat/src/native/copy.ts
+  s_8252619ce79a86::t_8d8cfdbaf49fcc 80-85,99-100,195-199,211
+packages/chat/src/native/index.ts
+  s_8252619ce79a86::t_b0e40420d5a843 39-40,43
+packages/chat/src/native/link-preview.tsx
+  s_8252619ce79a86::t_6b4a202843326b 8-9,56
+packages/chat/src/native/media.tsx
+  s_8252619ce79a86::t_ea6fd4bbe39f4d 76-92
+packages/chat/src/native/message-bubble.tsx
+  s_8252619ce79a86::t_a782bca26c2345 20-22,25,53,98-102,110-111,164,180-182,185-186,194,197-200
+packages/chat/src/native/thread-screen.tsx
+  s_8252619ce79a86::t_f0ebe2d20c5506 33-36,287-295,297-302,304-305,309,314,381
+packages/chat/src/native/video-player.tsx
+  s_8252619ce79a86::t_995baa44608668 11,65-66,70-104,127-132,153-154,162-163,174-175,178,180,184,186,201,246,250,264-265,273,277,288-291,295,321
+packages/chat/src/native/video-recorder-state.ts
+  s_8252619ce79a86::t_dfd6ac0ddc0f85 8-9,24-26,38,67,113,115-116,121-124
+packages/chat/src/native/video-recorder.tsx
+  s_8252619ce79a86::t_bde09015c0788f 10,137-153,163,209-213,218,220
+packages/chat/src/native/video-upload-tray.tsx
+  s_8252619ce79a86::t_2c4d72be3e2b9c 7-8,17-18,23,26-40,50-58
+packages/chat/src/native/video-upload.ts
+  s_8252619ce79a86::t_39a8aea616d386 121,127-135,141-161,163-165,167,170-171,173,190-191,217-219,224-225,230-231,237-238,241,247-248,263,265,267-268,272-276,286,290-293,295,297-301,303-304,307,311,323-345,356,358,362,364-366,370,379,384,388,401-406,427-428,430-431
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b2f5f2ee3c3a5cc3a9b79d0904339250995dce6",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
