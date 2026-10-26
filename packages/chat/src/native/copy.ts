@@ -3,7 +3,10 @@
  * Every word the native chat screens say, in one catalog an app can override
  * (translate, rename "Message" to "Note"). `{name}` and `{count}` are filled in.
  */
-export interface ChatNativeCopy {
+import { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";
+
+/** Topics, scheduled send, availability, broadcast, search and moderation are in `ChatOrganiseCopy`. */
+export interface ChatNativeCopy extends ChatOrganiseCopy {
   inboxTitle: string;
   inboxEmptyTitle: string;
   inboxEmptyBody: string;
@@ -88,6 +91,7 @@ export interface ChatNativeCopy {
 }
 
 export const chatNativeCopy: ChatNativeCopy = {
+  ...chatOrganiseCopy,
   inboxTitle: "Messages",
   inboxEmptyTitle: "No conversations yet",
   inboxEmptyBody: "When someone messages you, or you start a conversation, it shows up here.",

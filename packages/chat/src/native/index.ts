@@ -91,3 +91,46 @@ export {
   type NotificationCategoriesLike,
 } from "./push";
 export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent } from "./modules";
+
+// Organising: topics, scheduled send, availability, broadcast, search and moderation.
+export { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";
+export { ChatIconButton, type ChatIconButtonProps } from "./icon-button";
+export { ChatTopicBar, canManageTopics, topicClosedFor, topicMenuFor, checkTopicName, type ChatTopicBarProps, type TopicMenuAction } from "./topics";
+export {
+  ChatScheduleSheet,
+  ChatScheduledList,
+  ChatScheduledBar,
+  useScheduleSend,
+  scheduleInputFrom,
+  defaultScheduleAt,
+  withDay,
+  withTime,
+  type ChatScheduleSheetProps,
+  type ChatScheduledListProps,
+  type ChatScheduledBarProps,
+} from "./schedule-sheet";
+export {
+  ChatAvailabilityScreen,
+  ChatAwayLine,
+  useAwayLine,
+  awayLineFor,
+  defaultWeek,
+  weekFromHours,
+  hoursFromWeek,
+  sameTimeDays,
+  formFrom,
+  availabilityInput,
+  timeZones,
+  deviceTimeZone,
+  clockToDate,
+  dateToClock,
+  type ChatAvailabilityScreenProps,
+  type ChatAwayLineProps,
+  type AvailabilityForm,
+  type DayHours,
+  type WeekHours,
+} from "./availability";
+export { ChatBroadcastSheet, broadcastOutcome, broadcastRows, type ChatBroadcastSheetProps } from "./broadcast-sheet";
+export { ChatSearchScreen, SearchSnippet, snippetText, type ChatSearchScreenProps } from "./search-screen";
+export { ModerationMarker, moderationNote, moderationText, type ModerationNote } from "./moderation";
+export { useJumpToMessage, rowIndexOf, type JumpTarget, type UseJumpOptions } from "./use-jump";

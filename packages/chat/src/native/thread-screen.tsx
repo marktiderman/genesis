@@ -16,6 +16,11 @@
  * it declares `autoscrollToTopThreshold` but never reads it), so in an inverted list a new message
  * at index 0 was pushed under the composer. Inverted, VoiceOver also read
  * each day's heading after its messages.
+ *
+ * Organising: a topic bar when the conversation has topics (the list shows the topic chosen; a
+ * closed one takes no posts from members), the away line under the header, scheduled send
+ * (touch and hold Send) with the thread's scheduled messages over the composer, `jumpTo` a
+ * message (a search result), and moderation's markers.
  */
 import { useCallback, useMemo, useRef, useState, type ComponentType } from "react";
 import { FlatList, KeyboardAvoidingView, Platform, Pressable, View, type LayoutChangeEvent, type NativeScrollEvent, type NativeSyntheticEvent } from "react-native";
@@ -24,7 +29,12 @@ import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToa
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine, previewText } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
-import { useChat, useConversation, useFileUrls, useMessageActions, usePeople, usePins } from "../react/index";
+import { useChat, useConversation, useFileUrls, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
+import { ChatAwayLine, useAwayLine } from "./availability";
+import { fill } from "./copy";
+import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule-sheet";
+import { canManageTopics, ChatTopicBar, topicClosedFor } from "./topics";
+import { useJumpToMessage, type JumpTarget } from "./use-jump";
 import type { MessageActionId } from "./actions";
 import { ChatComposer } from "./composer";
 import { composerDisabledReason, filesFromAssets, replyTargetFor } from "./composer-state";
@@ -46,6 +56,16 @@ export interface ChatThreadScreenProps {
    * the header's bottom).
    */
   keyboardVerticalOffset?: number;
+  /** Open at this message (a search result's `messageId` and `seq`): earlier pages load until it is held. */
+  jumpTo?: JumpTarget | null;
+  /** Only this topic's messages, with no topic bar. */
+  topic?: string;
+  /** Show the topic bar before the first topic exists, so an owner or admin can add one. */
+  showTopics?: boolean;
+  /** Scheduled send (touch and hold Send) and the scheduled list. Default true. */
+  scheduling?: boolean;
+  /** The away line under the header. Default true. */
+  availability?: boolean;
   testID?: string;
 }
 
@@ -69,6 +89,8 @@ interface ChatListProps {
   scrollEventThrottle?: number;
   onContentSizeChange?: (width: number, height: number) => void;
   onLayout?: (e: LayoutChangeEvent) => void;
+  extraData?: unknown;
+  onScrollToIndexFailed?: (info: { index: number; averageItemLength: number }) => void;
   testID?: string;
 }
 
@@ -97,9 +119,19 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
   return m.contentOffset.y + m.layoutMeasurement.height >= m.contentSize.height - slack;
 }
 
-export function ChatThreadScreen({ conversationId, threadRootId = null, keyboardVerticalOffset, testID = "chat-thread" }: ChatThreadScreenProps) {
+export function ChatThreadScreen(props: ChatThreadScreenProps) {
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, testID = "chat-thread" } = props;
   const { userId } = useChat();
-  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined });
+  const topicsState = useTopics(threadRootId ? null : conversationId);
+  const [chosenTopic, setChosenTopic] = useState<string | null>(null);
+  // A message to go to is looked for in All, not in the topic shown.
+  const [jumpedFor, setJumpedFor] = useState(jumpTo);
+  if (jumpTo !== jumpedFor) {
+    setJumpedFor(jumpTo);
+    if (jumpTo) setChosenTopic(null);
+  }
+  const topic = topicProp ?? chosenTopic ?? undefined;
+  const conv = useConversation(conversationId, { threadRootId: threadRootId ?? undefined, topic });
   const pins = usePins(conversationId);
   const messageActions = useMessageActions();
   const { modules, copy, person } = useChatNative();
@@ -109,7 +141,11 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   const genesis = useGenesisModules();
   const List = (genesis.list ?? FlatList) as unknown as ComponentType<ChatListProps>;
   const mode = threadListMode(Boolean(genesis.list), reducedMotion);
-  const listRef = useRef<{ scrollToEnd?: (o?: { animated?: boolean }) => void } | null>(null);
+  const listRef = useRef<{
+    scrollToEnd?: (o?: { animated?: boolean }) => void;
+    scrollToIndex?: (o: { index: number; animated?: boolean; viewPosition?: number }) => void;
+    scrollToOffset?: (o: { offset: number; animated?: boolean }) => void;
+  } | null>(null);
   // FlatList follows by hand: at the bottom (or not yet scrolled), new rows and a shorter list keep it there.
   const atBottom = useRef(true);
   // FlatList opens at the top and is moved to the bottom a frame later: until it has been, the top
@@ -231,6 +267,22 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     },
     [picker, copy, toast, reattach, fail],
   );
+  const observer = conv.role === "observer";
+  const { loadUntil } = conv;
+  const { highlightedId } = useJumpToMessage({
+    target: jumpTo,
+    rows,
+    loading: conv.isLoading,
+    has: useCallback((id: string) => byId.has(id), [byId]),
+    loadUntil,
+    scrollTo: (index) => requestAnimationFrame(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 })),
+    onStart: () => {
+      atBottom.current = false;
+      placed.current = true;
+    },
+    onGone: () => toast.show({ title: copy.messageGone }),
+    onError: fail,
+  });
   const reattachable = useCallback((files: readonly PendingFile[]) => files.every((f) => !f.lost || f.kind === "image" || f.kind === "video"), []);
 
   const renderItem = useCallback(
@@ -239,7 +291,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
       if (row.type === "unread") return <UnreadDivider label={copy.newMessages} testID={`${testID}-unread`} />;
       const m = row.item.type === "message" ? row.item.message : null;
       const replyTo = m?.replyToId ?? (row.item.type === "pending" ? row.item.pending.input.replyToId : null);
-      return (
+      const bubble = (
         <MessageBubble
           row={row}
           me={userId}
@@ -255,11 +307,19 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           onReattach={picker && row.item.type === "pending" && reattachable(row.item.pending.files ?? []) ? onReattach : undefined}
           onToggleReaction={allowed ? react : undefined}
           onOpenImage={onOpenImage}
+          observer={observer}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
+      return m && m.id === highlightedId ? (
+        <View testID={`${testID}-highlight`} style={{ backgroundColor: colors.fill }}>
+          {bubble}
+        </View>
+      ) : (
+        bubble
+      );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, observer, highlightedId, colors.fill],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -267,8 +327,16 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
   // TODO(chat accessError): when useConversation exposes `accessError` and `refetchAccess` (the chat
   // owner's PR), show the error here with a Retry that calls `refetchAccess`, instead of waiting
   // quietly forever on an access read that failed.
-  const canPost = conv.accessLoading ? null : conv.canPost;
-  const disabledReason = composerDisabledReason(canPost, conv.conversation, conv.role, copy);
+  const topics = topicsState.topics;
+  const currentTopic = topic ? (topics.find((t) => t.topic === topic) ?? null) : null;
+  const topicClosed = topicClosedFor(currentTopic, conv.role);
+  const showTopicBar = !threadRootId && topicProp === undefined && (topics.length > 0 || (showTopics && canManageTopics(conv.role)));
+  const canPost = topicClosed ? false : conv.accessLoading ? null : conv.canPost;
+  const disabledReason = topicClosed ? copy.topicClosedNotice : composerDisabledReason(canPost, conv.conversation, conv.role, copy);
+  const awayLine = useAwayLine(availability ? conversationId : null, conv.members, userId, nameOf);
+  // Scheduled send: not in a reply thread (a scheduled message has no thread).
+  const canSchedule = scheduling && !threadRootId && canPost === true;
+  const schedule = useScheduleSend({ conversationId, topic: topic ?? null, composer, enabled: scheduling && !threadRootId });
   const KeyboardAvoiding = (modules.keyboardAvoidingView ?? KeyboardAvoidingView) as ComponentType<Record<string, unknown>>;
   const offset = keyboardVerticalOffset ?? measuredTop;
   const keyboardProps = modules.keyboardAvoidingView
@@ -280,6 +348,10 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     <ChatPeopleScope userIds={peopleIds}>
       <SafeAreaView ref={rootRef as never} onLayout={measureTop} testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
         <KeyboardAvoiding style={{ flex: 1 }} {...keyboardProps}>
+          {showTopicBar ? (
+            <ChatTopicBar topics={topics} value={topic ?? null} onValueChange={setChosenTopic} canManage={canManageTopics(conv.role)} onSetTopic={topicsState.setTopic} testID={`${testID}-topics`} />
+          ) : null}
+          <ChatAwayLine text={awayLine} testID={`${testID}-away`} />
           <View style={{ flex: 1 }}>
             {conv.isLoading ? (
               <LoadingThread testID={`${testID}-loading`} />
@@ -303,6 +375,12 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
                 keyboardDismissMode="interactive"
                 contentContainerStyle={{ paddingVertical: 8 }}
                 maintainVisibleContentPosition={mode.maintainVisibleContentPosition}
+                extraData={highlightedId}
+                onScrollToIndexFailed={({ index, averageItemLength }) => {
+                  // FlatList hasn't measured that far up yet: get near it, then try again.
+                  listRef.current?.scrollToOffset?.({ offset: Math.max(0, index * averageItemLength - 200), animated: false });
+                  setTimeout(() => listRef.current?.scrollToIndex?.({ index, animated: !reducedMotion, viewPosition: 0.5 }), 250);
+                }}
                 {...(mode.followsByHand
                   ? {
                       scrollEventThrottle: 32,
@@ -326,8 +404,11 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
               />
             )}
           </View>
+          {scheduling && !threadRootId ? <ChatScheduledBar conversationId={conversationId} testID={`${testID}-scheduled`} /> : null}
           <ChatComposer
             composer={composer}
+            placeholder={currentTopic ? fill(copy.topicPlaceholder, { name: currentTopic.title }) : undefined}
+            onSchedule={canSchedule ? schedule.request : undefined}
             canPost={canPost}
             disabledReason={disabledReason}
             role={conv.role}
@@ -351,6 +432,7 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
           testID={`${testID}-actions`}
         />
         <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
+        {canSchedule ? <ChatScheduleSheet open={schedule.open} onOpenChange={schedule.setOpen} onSchedule={(at) => void schedule.scheduleAt(at)} testID={`${testID}-schedule`} /> : null}
       </SafeAreaView>
     </ChatPeopleScope>
   );
