@@ -16,6 +16,19 @@ vi.hoisted(() => {
   (globalThis as unknown as { process: { env: Record<string, string> } }).process.env.TZ = "America/Los_Angeles";
 });
 
+// Watch what the list asks useInfiniteResource for (maxPages, the sort), with the real hook underneath.
+const hooks = vi.hoisted(() => ({ infiniteOptions: [] as Record<string, unknown>[] }));
+vi.mock("@marktiderman/genesis-core/hooks", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@marktiderman/genesis-core/hooks")>();
+  return {
+    ...actual,
+    useInfiniteResource: (resource: string, options: Record<string, unknown>) => {
+      hooks.infiniteOptions.push(options);
+      return actual.useInfiniteResource(resource, options);
+    },
+  };
+});
+
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
@@ -40,6 +53,9 @@ import {
   rowItem,
   screenValues,
   sectionsFor,
+  serverSort,
+  formatInstant,
+  resolveZone,
   swipeActionsFor,
   useNativeResourceView,
   validateValues,
@@ -220,7 +236,8 @@ describe("sections", () => {
   it("draws a header per section", async () => {
     render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
     expect((await screen.findByTestId("native-resource-view-section-active")).textContent).toContain("Active");
-    expect(screen.getByTestId("native-resource-view-section-archived").textContent).toContain("1");
+    // Only loaded rows could be counted, so the header shows the title alone.
+    expect(screen.getByTestId("native-resource-view-section-archived").textContent).toBe("Archived");
   });
 });
 
@@ -312,8 +329,10 @@ describe("form sheet", () => {
     });
   });
 
-  it("opens with Cancel and Save, shows read-only fields as text, and saves only writable keys", async () => {
-    const p = provider();
+  it("opens over the row fetched by id, shows read-only fields as text, and sends only what changed", async () => {
+    // The list's select is narrower than the record: the website only comes with getOne.
+    const listRows = ROWS.map((r) => ({ ...r, website: null }));
+    const p = provider({ getList: vi.fn(async () => ({ data: listRows, total: listRows.length })) as unknown as DataProvider["getList"] });
     render(<NativeResourceView view={plainView} />, { wrapper: wrap(p) });
     const row = await screen.findByTestId("native-resource-view-row-b2");
     act(() => {
@@ -321,14 +340,83 @@ describe("form sheet", () => {
     });
     const form = await screen.findByTestId("native-resource-view-form");
     expect(within(form).getByTestId("native-resource-view-form-cancel")).toBeTruthy();
-    const updated = within(form).getByTestId("native-resource-view-form-field-updated_at");
+    const updated = await within(form).findByTestId("native-resource-view-form-field-updated_at");
+    expect(p.getOne).toHaveBeenCalledWith("brands", expect.objectContaining({ id: "b2" }));
     expect(updated.querySelector("input")).toBeNull();
     expect(within(form).getByTestId("native-resource-view-form-section-details").textContent).toContain("Details");
+    // The fetched website is in the form, though the list row had none.
+    const website = within(form).getByTestId("native-resource-view-form-field-website").querySelector("input")!;
+    expect(website.value).toBe("https://contoso.example");
+    fireEvent.change(within(form).getByTestId("native-resource-view-form-field-name").querySelector("input")!, { target: { value: "Contoso 2" } });
     fireEvent.click(within(form).getByTestId("native-resource-view-form-save"));
     await waitFor(() => expect(p.update).toHaveBeenCalled());
-    const sent = (p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1] as { id: string; data: Record<string, unknown> };
-    expect(sent.id).toBe("b2");
-    expect(Object.keys(sent.data).sort()).toEqual(["launched_on", "name", "status", "website"]);
+    expect((p.update as ReturnType<typeof vi.fn>).mock.calls[0]![1]).toEqual({ id: "b2", data: { name: "Contoso 2" } });
+  });
+
+  it("sends nothing when nothing changed", async () => {
+    const p = provider();
+    const { result } = renderHook(() => useNativeResourceView(plainView), { wrapper: wrap(p) });
+    await waitFor(() => expect(result.current.rows).toHaveLength(3));
+    await act(async () => {
+      expect(await result.current.save("edit", ROWS[1]!, ROWS[1]!, new Set())).toEqual({ ok: true });
+    });
+    expect(p.update).not.toHaveBeenCalled();
+  });
+
+  it("never puts a JSON or list field in the sheet, even when the form names it", () => {
+    type Tagged = { id: string; name: string; tags: string[] | null; meta: unknown };
+    const tagged = defineResource<Tagged>()({
+      name: "tagged",
+      key: "id",
+      labelField: "name",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "name", type: "string" },
+        { name: "tags", type: "string", array: true, nullable: true },
+        { name: "meta", type: "json", nullable: true },
+      ],
+    });
+    const taggedView = defineView(tagged, { form: ["name", "tags", "meta"] });
+    for (const mode of ["create", "edit"] as const) {
+      expect(formFieldsFor(taggedView, mode).map((f) => f.key)).toEqual(["name"]);
+      expect(writableValues(taggedView, mode, formFieldsFor(taggedView, mode), { name: "a", tags: "x,y", meta: "[object Object]" })).toEqual({
+        name: "a",
+      });
+    }
+  });
+
+  it("sends null for a cleared optional number or date", () => {
+    type Scored = { id: string; name: string; score: number | null; due_on: string | null };
+    const scored = defineResource<Scored>()({
+      name: "scored",
+      key: "id",
+      labelField: "name",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "name", type: "string" },
+        { name: "score", type: "number", nullable: true },
+        { name: "due_on", type: "datetime", dbType: "date", nullable: true },
+      ],
+    });
+    const scoredView = defineView(scored, {});
+    const fields = formFieldsFor(scoredView, "edit");
+    expect(fields.find((f) => f.key === "score")?.kind).toBe("number");
+    expect(writableValues(scoredView, "edit", fields, { name: "a", score: undefined, due_on: null }, new Set(["score", "due_on"]))).toEqual({
+      score: null,
+      due_on: null,
+    });
+  });
+
+  it("shows an empty date as a button to add one, and a set date can be cleared", async () => {
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-create"));
+    const add = await screen.findByTestId("native-resource-view-form-field-launched_on-set");
+    expect(add.textContent).toBe("Add a date");
+    fireEvent.click(add);
+    const clear = await screen.findByTestId("native-resource-view-form-field-launched_on-clear");
+    expect(clear.textContent).toBe("Clear launched on");
+    fireEvent.click(clear);
+    expect((await screen.findByTestId("native-resource-view-form-field-launched_on-set")).textContent).toBe("Add a date");
   });
 });
 
@@ -388,6 +476,10 @@ describe("urls and images", () => {
     expect(openableUrl("java\tscript:alert(1)")).toBeNull();
     expect(openableUrl("data:text/html,x")).toBeNull();
     expect(openableUrl("/relative")).toBeNull();
+    // These start like a link but isSafeUrl refuses them: whitespace, control characters, length.
+    expect(openableUrl("https://exa mple.com")).toBeNull();
+    expect(openableUrl("https://example.com/\u0000")).toBeNull();
+    expect(openableUrl(`https://example.com/${"a".repeat(2100)}`)).toBeNull();
     expect(openableUrl("https://contoso.example")).toBe("https://contoso.example");
     expect(openableUrl("mailto:a@b.example")).toBe("mailto:a@b.example");
   });
@@ -411,6 +503,53 @@ describe("urls and images", () => {
 });
 
 describe("peek", () => {
+  it("shows only the view's columns, never every key of the row", async () => {
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    const peek = await screen.findByTestId("native-resource-view-peek");
+    for (const label of ["Name", "Secret", "Launched On", "Status", "Website"]) expect(peek.textContent).toContain(label);
+    for (const hidden of ["Practice Id", "Is Default", "Secret Visible", "Updated At"]) expect(peek.textContent).not.toContain(hidden);
+  });
+
+  it("hides a when-false value in the peek, as in a cell", async () => {
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b1"));
+    const peek = await screen.findByTestId("native-resource-view-peek");
+    expect(peek.textContent).toContain("Secret");
+    expect(peek.textContent).not.toContain("hidden");
+  });
+
+  it("titles the peek with summary(row).title, not the raw labelField", async () => {
+    const titled = defineView(brands, { summary: (r) => ({ title: `${r.name} (brand)` }) });
+    render(<NativeResourceView view={titled} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain("Contoso (brand)");
+  });
+
+  it("shows a refused action with its reason, and the bin's wording", async () => {
+    const p = provider({ capabilities: vi.fn(async () => ({ softDelete: true })) as unknown as DataProvider["capabilities"] });
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(p.capabilities).toHaveBeenCalled());
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b1"));
+    const button = await screen.findByTestId("native-resource-view-peek-delete");
+    await waitFor(() => expect(button.textContent).toBe("Move to Bin"));
+    expect(screen.getByTestId("native-resource-view-peek-delete-reason").textContent).toBe("The default brand stays.");
+    fireEvent.click(button);
+    expect(alert).toHaveBeenLastCalledWith("Move to Bin", "The default brand stays.");
+  });
+
+  it("reads a practice-clock column on the practice's zone", async () => {
+    const clocked = defineView(brands, {
+      fields: { updated_at: { timeZone: "practice" } },
+      columns: { default: ["name", "updated_at"] },
+    });
+    render(<NativeResourceView view={clocked} practiceTimeZone="Asia/Tokyo" />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    const peek = await screen.findByTestId("native-resource-view-peek");
+    expect(peek.textContent).toContain(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo"));
+    expect(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo")).not.toBe(formatInstant("2026-01-02T10:00:00Z", "America/Los_Angeles"));
+  });
+
   it("shows view.columns() drawn like the cells: a when-false value and a sensitive field never appear", async () => {
     const peekView = defineView(notedBrands, {
       scope: ["practice_id"],
@@ -434,8 +573,22 @@ describe("calendar days", () => {
     expect([date.getFullYear(), date.getMonth(), date.getDate()]).toEqual([2026, 0, 2]);
     expect(dateToDay(date)).toBe("2026-01-02");
     expect(formatDay("2026-01-02")).toBe(new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(2026, 0, 2)));
+    // Only a whole day: a timestamp or trailing text isn't one.
+    expect(dayToDate("2026-01-02T00:00:00Z")).toBeNull();
+    expect(formatDay("2026-01-02junk")).toBe("2026-01-02junk");
     // What `new Date(day)` would have shown here: the day before.
     expect(new Date("2026-01-02").getDate()).toBe(1);
+  });
+});
+
+describe("clocks", () => {
+  it("resolves viewer and practice to the given zones, and an unknown name to the viewer's", () => {
+    const zones = { viewer: "America/Los_Angeles", practice: "Europe/Berlin" };
+    expect(resolveZone(undefined, zones)).toBe("America/Los_Angeles");
+    expect(resolveZone("viewer", zones)).toBe("America/Los_Angeles");
+    expect(resolveZone("practice", zones)).toBe("Europe/Berlin");
+    expect(resolveZone("Asia/Tokyo", zones)).toBe("Asia/Tokyo");
+    expect(resolveZone("Not/AZone", zones)).toBe("America/Los_Angeles");
   });
 });
 
@@ -472,7 +625,8 @@ describe("paging and search", () => {
     act(() => result.current.loadMore());
     await waitFor(() => expect(result.current.rows.map((r) => r.id)).toEqual(["b1", "b2", "b3"]));
     expect(getList.mock.calls[1]![1].pagination).toMatchObject({ cursor: "c2", perPage: 2 });
-    expect(getList.mock.calls[0]![1].sort).toEqual({ field: "name", order: "asc" });
+    // Grouped by status: the server sorts by it first, so page 2 never lands mid-section.
+    expect(getList.mock.calls[0]![1].sort).toEqual({ field: "status", order: "asc" });
     expect(result.current.hasMore).toBe(false);
   });
 
@@ -494,6 +648,52 @@ describe("paging and search", () => {
       expect((p.getList as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1].search).toEqual({ query: "Nor", fields: ["name"] }),
     );
     expect(result.current.search).toBe("Nor");
+  });
+
+  it("keeps at most 10 pages loaded by default, and takes the screen's number", () => {
+    hooks.infiniteOptions.length = 0;
+    renderHook(() => useNativeResourceView(plainView), { wrapper: wrap(provider()) });
+    expect(hooks.infiniteOptions.at(-1)).toMatchObject({ maxPages: 10, defaultSort: { field: "status", order: "asc" } });
+    renderHook(() => useNativeResourceView(summaryView, { maxPages: 3 }), { wrapper: wrap(provider()) });
+    expect(hooks.infiniteOptions.at(-1)).toMatchObject({ maxPages: 3 });
+  });
+
+  it("sorts by groupBy first, then by orderBy when there's no group", () => {
+    expect(serverSort(plainView)).toEqual({ field: "status", order: "asc" });
+    expect(serverSort(defineView(brands, { orderBy: { field: "name", direction: "desc" } }))).toEqual({ field: "name", order: "desc" });
+    expect(serverSort(defineView(brands, { groupBy: "status", orderBy: { field: "status", direction: "desc" } }))).toEqual({
+      field: "status",
+      order: "desc",
+    });
+    expect(serverSort(summaryView)).toBeUndefined();
+  });
+
+  it("doesn't redraw rows while the person types", async () => {
+    const summary = vi.fn((r: Brand) => ({ title: r.name }));
+    const counted = defineView(brands, { summary });
+    render(<NativeResourceView view={counted} />, { wrapper: wrap(provider()) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    const before = summary.mock.calls.length;
+    const input = screen.getByTestId("native-resource-view-search").querySelector("input")!;
+    fireEvent.change(input, { target: { value: "N" } });
+    fireEvent.change(input, { target: { value: "No" } });
+    expect(summary.mock.calls.length).toBe(before);
+  });
+
+  it("keeps the rows and shows a banner when a later read fails", async () => {
+    let calls = 0;
+    const p = provider({
+      getList: vi.fn(async () => {
+        calls += 1;
+        if (calls > 1) throw new Error("network down");
+        return { data: ROWS, total: ROWS.length };
+      }) as unknown as DataProvider["getList"],
+    });
+    render(<NativeResourceView view={plainView} />, { wrapper: wrap(p) });
+    await screen.findByTestId("native-resource-view-row-b1");
+    fireEvent.click(screen.getByTestId("native-resource-view-refresh"));
+    expect((await screen.findByTestId("native-resource-view-read-error")).textContent).toContain("These brands couldn't be loaded.");
+    expect(screen.getByTestId("native-resource-view-row-b1")).toBeTruthy();
   });
 
   it("sends the screen's filter to the server", async () => {

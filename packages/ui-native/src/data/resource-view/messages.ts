@@ -52,6 +52,13 @@ export interface NativeResourceViewMessages {
     tooLong: string;
     /** `{noun}`. A save failed with no message of its own. */
     saveFailed: string;
+    /** An empty day field's button. */
+    pickDate: string;
+    /** An empty date-and-time field's button. */
+    pickDateTime: string;
+    /** Empties an optional date. `{label}`. */
+    clear: string;
+    loading: string;
   };
   refusal: {
     /** `{noun}`. A delete failed with no message of its own. */
@@ -97,6 +104,10 @@ export const defaultNativeResourceViewMessages: NativeResourceViewMessages = {
     required: "{label} is required.",
     tooLong: "{label} can be at most {max} characters.",
     saveFailed: "This {noun} couldn't be saved. Try again.",
+    pickDate: "Add a date",
+    pickDateTime: "Add a date and time",
+    clear: "Clear {label}",
+    loading: "Loading",
   },
   refusal: {
     deleteFailed: "This {noun} couldn't be deleted. Try again.",
