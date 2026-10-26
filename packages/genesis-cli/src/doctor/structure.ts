@@ -7,7 +7,8 @@
  */
 import { lineAt } from "./scan.js";
 import { routesDir, webRoutes, type RouteFile } from "./routes.js";
-import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx, viaOneImport } from "./source.js";
+import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx } from "./source.js";
+import { trailFor, type Reach } from "./trail.js";
 import type { DoctorContext } from "./types.js";
 
 /** Where the shell's sub-navigation is documented. */
@@ -29,10 +30,21 @@ const rendersRe = (names: Iterable<string>) => {
   return list.length ? new RegExp(`<(?:${list.map((n) => n.replace(/[.$]/g, "\\$&")).join("|")})(?=[\\s>/])`) : null;
 };
 
-/** Whether `test` holds for one of the route's files (`posts.tsx`, `posts.lazy.tsx`) or a file one of them imports locally. */
-function routeVia(ctx: DoctorContext, r: RouteFile, test: (code: string) => boolean): boolean {
-  return r.files.some((f) => viaOneImport(ctx.root, ctx.files, f, test));
+/**
+ * Whether `test` holds for one of the route's files (`posts.tsx`, `posts.lazy.tsx`) or a module they reach
+ * through imports, re-exports and barrels: `yes`, `no`, or `unknown` when the trail ran out.
+ */
+function routeReach(ctx: DoctorContext, r: RouteFile, test: (code: string) => boolean): Reach {
+  const trail = trailFor(ctx);
+  let unknown = false;
+  for (const f of r.files) {
+    const got = trail.reach(f, test);
+    if (got === "yes") return "yes";
+    if (got === "unknown") unknown = true;
+  }
+  return unknown ? "unknown" : "no";
 }
+const routeVia = (ctx: DoctorContext, r: RouteFile, test: (code: string) => boolean) => routeReach(ctx, r, test) === "yes";
 
 /**
  * Which routes render inside the AppShell: those under a layout route that
@@ -139,11 +151,12 @@ export function checkResourceWorkspaces(ctx: DoctorContext): void {
     byFolder.set(dir, [...(byFolder.get(dir) ?? []), r]);
   }
   for (const [dir, routes] of byFolder) {
-    const has = routes.filter((r) => routeVia(ctx, r, (code) => header.test(code)));
+    const reach = new Map(routes.map((r) => [r, routeReach(ctx, r, (code) => header.test(code))]));
+    const has = routes.filter((r) => reach.get(r) === "yes");
     if (has.length === 0) continue;
     const ref = has.map((r) => r.file.path.slice(dir.length + 1)).join(", ");
     for (const r of routes) {
-      if (has.includes(r)) continue;
+      if (reach.get(r) !== "no") continue;
       ctx.report({
         rule: "resource-workspace",
         level: "info",
@@ -177,9 +190,9 @@ export function checkPageLayouts(ctx: DoctorContext): void {
     for (const n of namedImportsFrom(code, GENESIS_PACKAGE)) if (PACKAGE_SCREEN.test(n)) names.add(n);
     return rendersRe(names)?.test(code) ?? false;
   };
-  const cache = new Map<RouteFile, boolean>();
+  const cache = new Map<RouteFile, Reach>();
   const provides = (r: RouteFile) => {
-    if (!cache.has(r)) cache.set(r, routeVia(ctx, r, rendersLayout));
+    if (!cache.has(r)) cache.set(r, routeReach(ctx, r, rendersLayout));
     return cache.get(r)!;
   };
   const list = [...layouts].sort();
@@ -187,7 +200,8 @@ export function checkPageLayouts(ctx: DoctorContext): void {
   for (const r of routes) {
     // Pure layouts are judged through their pages; a page that also renders an <Outlet> is checked like any other.
     if (!r.page || r.redirectOnly || !inShell(r)) continue;
-    if (provides(r) || r.parents.some(provides)) continue;
+    // Report only a sure "no": when a trail runs out (an alias we can't read, the depth limit), stay quiet.
+    if (provides(r) !== "no" || r.parents.some((p) => provides(p) !== "no")) continue;
     ctx.report({
       rule: "page-layout",
       level: "warn",

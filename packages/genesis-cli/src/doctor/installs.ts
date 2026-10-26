@@ -91,7 +91,9 @@ function packagesIn(nodeModules: string): string[] {
  * nothing resolves to are left out: they never load.
  *
  * Runtime dependencies are followed first; what only the app's devDependencies
- * (or the Genesis CLI, wherever it's listed) reach afterwards is `devOnly`.
+ * (or the Genesis CLI, wherever it's listed) reach afterwards is `devOnly`. An
+ * app with no runtime dependencies at all (everything in devDependencies, as a
+ * bundled SPA may list them) has its devDependencies taken as runtime.
  */
 export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   const copies = new Map<string, GenesisInstall>();
@@ -132,8 +134,13 @@ export function genesisInstalls(root: string): Map<string, GenesisInstall[]> {
   };
 
   const app = readManifest(root);
-  const runtimeDeps = { ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
-  const devDeps = Object.fromEntries(Object.entries(app?.devDependencies ?? {}).filter(([n]) => !(n in runtimeDeps)));
+  let runtimeDeps: Record<string, string> = { ...app?.peerDependencies, ...app?.optionalDependencies, ...app?.dependencies };
+  let devDeps = Object.fromEntries(Object.entries(app?.devDependencies ?? {}).filter(([n]) => !(n in runtimeDeps)));
+  // A bundled app (a Vite SPA) may list everything as devDependencies: then they are what ships.
+  if (Object.keys(runtimeDeps).length === 0) {
+    runtimeDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => !DEV_TOOLS.has(n)));
+    devDeps = Object.fromEntries(Object.entries(devDeps).filter(([n]) => DEV_TOOLS.has(n)));
+  }
   for (const [name, range] of Object.entries(runtimeDeps)) {
     const dir = findPackageDir(root, name);
     if (dir) visit(dir, "the app", range, true);
@@ -165,7 +172,8 @@ export function checkDuplicatePackages(ctx: DoctorContext): void {
   for (const [name, copies] of genesisInstalls(ctx.root)) {
     if (copies.length < 2) continue;
     const runtime = copies.filter((c) => !c.devOnly);
-    if (runtime.length >= 2) {
+    // Info only when exactly one copy ships and the rest are dev tooling's; anything else is a real split.
+    if (runtime.length !== 1) {
       ctx.report({
         rule: "duplicate-genesis-package",
         level: "warn",

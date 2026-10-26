@@ -631,3 +631,134 @@ describe("follow-ups from the #303 review", () => {
     });
   });
 });
+
+describe("#314 review", () => {
+  const pkg = (name: string, version: string, deps: Record<string, string> = {}, peers: Record<string, string> = {}) =>
+    JSON.stringify({ name, version, dependencies: deps, peerDependencies: peers });
+  const route = (body: string, imports = "") => `${imports}\nexport const Route = createFileRoute("/x")({ component: () => ${body} });`;
+  const routesOf = (root: string) => Object.fromEntries(webRoutes({ root, config: {}, files: scanFiles(root, {}) }).map((r) => [r.file.path, r]));
+
+  describe("duplicates in an app that lists everything as devDependencies", () => {
+    it("still warns, and fails --strict (a Vite SPA's devDependencies ship)", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({
+          name: "spa",
+          version: "1.0.0",
+          devDependencies: { "@marktiderman/genesis-core": "^1.7.0", "@marktiderman/genesis-ui": "^9.9.9", vite: "^7.0.0" },
+        }),
+        "node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.7.0"),
+        "node_modules/@marktiderman/genesis-ui/node_modules/@marktiderman/genesis-core/package.json": pkg("@marktiderman/genesis-core", "1.6.0"),
+      });
+      // makeApp's genesis-ui fixture has no deps; give it the nested core's range.
+      writeFileSync(
+        path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+        JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "1.6.0" } }),
+      );
+      const result = await runDoctor({ root, config: {}, strict: true });
+      expect(result.findings.filter((f) => f.rule === "duplicate-genesis-package").map((f) => `${f.level} ${f.subject}`)).toEqual([
+        "warn @marktiderman/genesis-core",
+      ]);
+      expect(result.ok).toBe(false);
+      expect(genesisInstalls(root).get("@marktiderman/genesis-core")!.every((c) => !c.devOnly)).toBe(true);
+    });
+
+    it("warns when no copy ships but more than one is installed", async () => {
+      const root = makeApp(null, {
+        "package.json": JSON.stringify({ name: "app", version: "1.0.0", dependencies: { react: "^19.0.0" }, devDependencies: { "tool-a": "1", "tool-b": "1" } }),
+        "node_modules/tool-a/package.json": pkg("tool-a", "1.0.0", { "@marktiderman/genesis-forms": "^1.0.0" }),
+        "node_modules/tool-a/node_modules/@marktiderman/genesis-forms/package.json": pkg("@marktiderman/genesis-forms", "1.0.0"),
+        "node_modules/tool-b/package.json": pkg("tool-b", "1.0.0", { "@marktiderman/genesis-forms": "^0.9.0" }),
+        "node_modules/tool-b/node_modules/@marktiderman/genesis-forms/package.json": pkg("@marktiderman/genesis-forms", "0.9.0"),
+      });
+      const dup = (await run(root)).filter((f) => f.rule === "duplicate-genesis-package");
+      expect(dup.map((f) => `${f.level} ${f.subject}`)).toEqual(["warn @marktiderman/genesis-forms"]);
+    });
+  });
+
+  it("a wrapper layout (<div className><Outlet/></div>) is a layout, not a page", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/settings.tsx": route(`<div className="space-y-4"><Outlet /></div>`),
+      "src/routes/_shell/settings.profile.tsx": route(`<DetailPage title="Profile" />`),
+    });
+    expect(routesOf(root)["src/routes/_shell/settings.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(brief(await run(root), "page-layout")).toEqual([]);
+  });
+
+  it("follows the trail: two hops, barrels, lazyRouteComponent, tsconfig and package.json aliases; an unreadable alias is skipped", async () => {
+    const root = app({
+      "package.json": JSON.stringify({ name: "app", version: "1.0.0", imports: { "#ui/*": "./src/ui/*" }, dependencies: { "@tanstack/react-router": "1" } }),
+      "tsconfig.json": `{
+  // JSONC, as tsconfig is
+  "compilerOptions": { "baseUrl": ".", "paths": { "@app/*": ["src/*"], }, },
+}`,
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      // route → page component → barrel → wrapper → DetailPage
+      "src/routes/_shell/two.tsx": route(`<CoursesPage />`, `import { CoursesPage } from "@app/pages/CoursesPage";`),
+      "src/pages/CoursesPage.tsx": `import { Frame } from "../ui";\nexport function CoursesPage() { return <Frame />; }`,
+      "src/ui/index.ts": `export * from "./Frame";`,
+      "src/ui/Frame.tsx": `import { DetailPage } from "@marktiderman/genesis-ui";\nexport const Frame = () => <DetailPage title="x" />;`,
+      "src/routes/_shell/lazy.tsx": `export const Route = createFileRoute("/lazy")({ component: lazyRouteComponent(() => import("../../pages/LazyPage")) });`,
+      "src/pages/LazyPage.tsx": `export default function LazyPage() { return <DetailPage title="Lazy" />; }`,
+      "src/routes/_shell/hash.tsx": route(`<Framed />`, `import { Framed } from "#ui/Framed";`),
+      "src/ui/Framed.tsx": `export const Framed = () => <DashboardPage title="x" />;`,
+      // Neither installed, declared nor an alias we can read: unknown, so no finding.
+      "src/routes/_shell/lost.tsx": route(`<Mystery />`, `import { Mystery } from "@corp/mystery";`),
+      // A sure "no": the trail ends in app files and packages without a layout. A data helper it only
+    // calls isn't followed (even from an unreadable package), and "Start from" in a string isn't an import.
+      "src/routes/_shell/bare.tsx": route(`<Plain />`, `import { Plain } from "@app/pages/Plain";`),
+      "src/pages/Plain.tsx": `import { load } from "@corp/data-helpers";\nconst fields = [{ label: "Start from", type: "select" }];\nexport const Plain = () => <main>{load(fields)}</main>;`,
+    });
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/bare.tsx:0"]);
+  });
+
+  it("a layout whose <Outlet> is in an imported component wraps its children (_layout pathless routes too)", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/_layout.tsx": `import { AdminLayout } from "@/components/AdminLayout";\nexport const Route = createFileRoute("/_shell/_layout")({ component: AdminLayout });`,
+      "src/components/AdminLayout.tsx": `export function AdminLayout() { return <DetailPage title="Admin"><Outlet /></DetailPage>; }`,
+      "src/routes/_shell/_layout/users.tsx": route(`<UsersTable />`),
+      "src/routes/_shell/team.tsx": `import { TeamLayout } from "@/components/TeamLayout";\nexport const Route = createFileRoute("/_shell/team")({ component: TeamLayout });`,
+      "src/components/TeamLayout.tsx": `export function TeamLayout() { return <DashboardPage title="Team"><Outlet /></DashboardPage>; }`,
+      "src/routes/_shell/team.members.tsx": route(`<MembersTable />`),
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/_layout.tsx"]).toMatchObject({ layout: true, page: false });
+    expect(by["src/routes/_shell/team.tsx"]!.layout).toBe(true);
+    expect(by["src/routes/_shell/_layout/users.tsx"]!.parents.map((p) => p.file.path)).toContain("src/routes/_shell/_layout.tsx");
+    expect(brief(await run(root), "page-layout")).toEqual([]);
+  });
+
+  it("Next: a (group) layout wraps only its group, @slot pages don't collide, and colocated files aren't routes", async () => {
+    const page = (body: string) => `export default function Page() { return ${body}; }`;
+    const root = app({
+      "src/app/layout.tsx": `import { AppShell } from "@marktiderman/genesis-ui";\nexport default function Root({ children }) { return <AppShell navigation={[]}>{children}</AppShell>; }`,
+      "src/app/page.tsx": page(`<main>Home</main>`),
+      "src/app/(admin)/layout.tsx": `export default function Admin({ children }) { return <DetailPage title="Admin">{children}</DetailPage>; }`,
+      "src/app/(admin)/users/page.tsx": page(`<UsersTable />`),
+      "src/app/@modal/page.tsx": page(`<p>modal</p>`),
+      "src/app/courses/page.tsx": page(`<DetailPage title="Courses" />`),
+      "src/app/courses/CourseCard.tsx": `export function CourseCard() { return <div>card</div>; }`,
+    });
+    const by = routesOf(root);
+    expect(Object.keys(by)).not.toContain("src/app/courses/CourseCard.tsx");
+    expect(by["src/app/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/layout.tsx"]);
+    expect(by["src/app/(admin)/users/page.tsx"]!.parents.map((p) => p.file.path)).toEqual(["src/app/(admin)/layout.tsx", "src/app/layout.tsx"]);
+    expect(by["src/app/@modal/page.tsx"]).toMatchObject({ segments: [], tree: ["@modal"] });
+    // The home page has no layout of its own and the (admin) layout doesn't wrap it; the @slot page is the same.
+    expect(brief(await run(root), "page-layout")).toEqual(["src/app/@modal/page.tsx:0", "src/app/page.tsx:0"]);
+  });
+
+  it("a folder route.tsx with its own content around an <Outlet> is a page; export default of a local redirect is redirect-only", async () => {
+    const root = app({
+      "src/routes/_shell/route.tsx": SHELL_LAYOUT,
+      "src/routes/_shell/posts/route.tsx": route(`<section><h2>Posts</h2><ul><li>One</li></ul><Outlet /></section>`),
+      "src/routes/_shell/posts/$id.tsx": route(`<DetailPage title="Post" />`),
+      "src/routes/_shell/old.tsx": `function R() { return <Navigate to="/" />; }\nexport default R;`,
+    });
+    const by = routesOf(root);
+    expect(by["src/routes/_shell/posts/route.tsx"]).toMatchObject({ layout: true, page: true });
+    expect(by["src/routes/_shell/old.tsx"]!.redirectOnly).toBe(true);
+    expect(brief(await run(root), "page-layout")).toEqual(["src/routes/_shell/posts/route.tsx:0"]);
+  });
+});
