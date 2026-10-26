@@ -193,4 +193,4 @@ export {
   type TenantFeatures,
   type TenantFeaturesClient,
 } from "./tenant-features";
-export { accountBlock, tenantFeaturesBlock } from "./blocks";
+export { accountBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";

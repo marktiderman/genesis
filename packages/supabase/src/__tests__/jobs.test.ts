@@ -1,0 +1,146 @@
+// @feat:jobs
+import { describe, expect, it, vi } from "vitest";
+import { JobsError, PermanentJobError, createJobsHandler, enqueueJob, runJobs, verifyJobRequest, type JobsClient } from "../jobs";
+
+type Call = { fn: string; args: Record<string, unknown> };
+
+function fakeQueue(claimed: unknown[], settleResult = true) {
+  const calls: Call[] = [];
+  const rpc = vi.fn(async (fn: string, args: Record<string, unknown>) => {
+    calls.push({ fn, args });
+    if (fn === "genesis_jobs_claim") return { data: claimed, error: null };
+    if (fn === "genesis_jobs_settle") return { data: settleResult, error: null };
+    if (fn === "genesis_job_enqueue") return { data: "job-1", error: null };
+    return { data: null, error: { message: "unknown" } };
+  });
+  return { client: { rpc } as JobsClient, calls };
+}
+
+const job = (id: string, kind: string, attempt = 1) => ({ id, kind, payload: { n: id }, attempt, redelivery: false, claim_id: "c1" });
+const settles = (calls: Call[]) => calls.filter((c) => c.fn === "genesis_jobs_settle").map((c) => [c.args["p_id"], c.args["p_outcome"], c.args["p_retry_after_seconds"]]);
+
+describe("enqueueJob", () => {
+  it("queues a kind with its payload and options", async () => {
+    const { client, calls } = fakeQueue([]);
+    const runAfter = new Date("2026-01-01T00:00:00Z");
+    expect(await enqueueJob(client, "email.digest", { person: "p1" }, { runAfter, idempotencyKey: "p1:2026-01-01" })).toBe("job-1");
+    expect(calls[0]).toEqual({
+      fn: "genesis_job_enqueue",
+      args: { p_kind: "email.digest", p_payload: { person: "p1" }, p_run_after: "2026-01-01T00:00:00.000Z", p_idempotency_key: "p1:2026-01-01", p_max_attempts: 8 },
+    });
+  });
+
+  it("throws the queue's refusal", async () => {
+    const client = { rpc: async () => ({ data: null, error: { message: "permission denied", code: "42501" } }) } as JobsClient;
+    const failure = await enqueueJob(client, "x").catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(JobsError);
+    expect((failure as JobsError).code).toBe("42501");
+  });
+});
+
+describe("runJobs", () => {
+  it("claims only the handled kinds and settles each outcome", async () => {
+    const { client, calls } = fakeQueue([job("a", "ok"), job("b", "later"), job("c", "bad"), job("d", "throws", 2), job("e", "permanent")]);
+    const log = vi.fn();
+    const report = await runJobs(client, {
+      handlers: {
+        ok: async (j) => {
+          expect(j).toEqual({ id: "a", kind: "ok", payload: { n: "a" }, attempt: 1, redelivery: false });
+        },
+        later: () => ({ retryAfterSeconds: 90, error: "rate limited" }),
+        bad: () => ({ failed: "no such person" }),
+        throws: () => {
+          throw new Error("timeout");
+        },
+        permanent: () => {
+          throw new PermanentJobError("bad payload");
+        },
+      },
+      backoff: (attempt) => attempt * 100,
+      log,
+    });
+    expect(calls[0]).toEqual({ fn: "genesis_jobs_claim", args: { p_kinds: ["ok", "later", "bad", "throws", "permanent"], p_limit: 25, p_lease_seconds: 300 } });
+    expect(settles(calls).sort()).toEqual(
+      [
+        ["a", "done", null],
+        ["b", "retry", 90],
+        ["c", "failed", null],
+        ["d", "retry", 200],
+        ["e", "failed", null],
+      ].sort(),
+    );
+    expect(report).toEqual({ claimed: 5, done: 1, retried: 2, failed: 2, stale: 0 });
+    expect(log.mock.calls.flat().join("\n")).not.toContain('"n"');
+  });
+
+  it("counts a settle refused after the lease ran out as stale", async () => {
+    const { client } = fakeQueue([job("a", "ok")], false);
+    expect(await runJobs(client, { handlers: { ok: () => undefined } })).toMatchObject({ claimed: 1, done: 0, stale: 1 });
+  });
+
+  it("does nothing without handlers", async () => {
+    const { client, calls } = fakeQueue([job("a", "ok")]);
+    expect(await runJobs(client, { handlers: {} })).toEqual({ claimed: 0, done: 0, retried: 0, failed: 0, stale: 0 });
+    expect(calls).toEqual([]);
+  });
+});
+
+const request = (auth?: string, init: RequestInit & { url?: string } = {}) =>
+  new Request(init.url ?? "https://app.example.com/api/jobs/digests", {
+    method: init.method ?? "POST",
+    headers: auth ? { authorization: auth } : {},
+    body: init.body,
+  });
+
+describe("verifyJobRequest", () => {
+  it("accepts the secret and the previous one, and refuses anything else", async () => {
+    const options = { secret: "new-secret", previousSecret: "old-secret" };
+    expect(await verifyJobRequest(request("Bearer new-secret"), options)).toBeNull();
+    expect(await verifyJobRequest(request("Bearer old-secret"), options)).toBeNull();
+    expect((await verifyJobRequest(request("Bearer wrong"), options))?.status).toBe(401);
+    expect((await verifyJobRequest(request(), options))?.status).toBe(401);
+    expect((await verifyJobRequest(request("Basic new-secret"), options))?.status).toBe(401);
+  });
+
+  it("refuses everything when no secret is configured", async () => {
+    expect((await verifyJobRequest(request("Bearer "), { secret: undefined }))?.status).toBe(500);
+    expect((await verifyJobRequest(request("Bearer x"), { secret: "" }))?.status).toBe(500);
+  });
+});
+
+describe("createJobsHandler", () => {
+  const digests = vi.fn(async () => ({ sent: 3 }));
+  const broken = vi.fn(async () => {
+    throw new Error("database down, row 42");
+  });
+  const log = vi.fn();
+  const handle = createJobsHandler({ secret: "s", jobs: { digests, broken }, log });
+
+  it("runs the job the URL names and returns its result", async () => {
+    const res = await handle(request("Bearer s"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ job: "digests", result: { sent: 3 } });
+  });
+
+  it("prefers the route's name, then the body's job", async () => {
+    expect(await (await handle(request("Bearer s", { url: "https://x.test/api/jobs" }), "digests")).json()).toMatchObject({ job: "digests" });
+    const res = await handle(request("Bearer s", { url: "https://x.test/api/jobs", body: JSON.stringify({ job: "digests" }) }));
+    expect(await res.json()).toMatchObject({ job: "digests" });
+  });
+
+  it("answers 401, 404 and 405 before running anything", async () => {
+    digests.mockClear();
+    expect((await handle(request("Bearer nope"))).status).toBe(401);
+    expect((await handle(request("Bearer s", { url: "https://x.test/api/jobs/toString" }))).status).toBe(404);
+    expect((await handle(request("Bearer s", { url: "https://x.test/api/jobs/missing" }))).status).toBe(404);
+    expect((await handle(request("Bearer s", { method: "DELETE" }))).status).toBe(405);
+    expect(digests).not.toHaveBeenCalled();
+  });
+
+  it("hides a job's error from the caller and logs it", async () => {
+    const res = await handle(request("Bearer s", { url: "https://x.test/api/jobs/broken" }));
+    expect(res.status).toBe(500);
+    expect(JSON.stringify(await res.json())).not.toContain("row 42");
+    expect(log).toHaveBeenCalledWith("[jobs] broken: Error: database down, row 42");
+  });
+});
