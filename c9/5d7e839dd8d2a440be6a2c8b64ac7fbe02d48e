@@ -1,0 +1,46 @@
+packages/features/src/index.ts
+  s_f5a91deb5a46ce::t_ccddfc30c3fe95 76,85
+docs/component-reference.md
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 7,26,32,34,41,53,62,76,109-110,121,135,1271,1291-1292,1299-1301,1308,1312-1313,1321,1353-1360,1362
+packages/features/tsup.config.ts
+  s_f5a91deb5a46ce::t_ccddfc30c3fe95 35-38
+packages/features/src/gate-react.tsx
+  s_f5a91deb5a46ce::t_ccddfc30c3fe95 4-6
+docs/adr/0001-one-feature-gate.md
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 33-39,94-98
+  s_f5a91deb5a46ce::t_ee63dab9573c8c 25-31
+  s_f5a91deb5a46ce::t_5d5945d13b98f4 32
+features.json
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 2027,2078
+features.ts
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 896,912
+packages/features/src/__tests__/gate.test.tsx
+  s_f5a91deb5a46ce::t_d1e87d2d8f88f5 177,180,193-195,203-208,227,231-232,245-246,251
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 184,196-202,209-226,233-238,240-244,247-249,252-257,261-266
+  s_f5a91deb5a46ce::t_ebbfd3f3781986 11,14
+packages/features/README.md
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 126-129,132,140-143,146-147
+.changeset/feature-gate.md
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 5
+packages/features/src/gate.ts
+  s_f5a91deb5a46ce::t_21d6e4298aa9df 49,94-95,125-128,134-136,156-161,164-165,186-187,190-191,207-211,248,253-255,276-280,288-290
+  s_f5a91deb5a46ce::t_ccddfc30c3fe95 199,269-275,281-282
+  s_f5a91deb5a46ce::t_b8f15f6a1bbffe 9-15,23-24,44,62,87-93,120-124,129-133,144-145,148-155,162-163,177,185,189,197-198,212-242,250-252,256-268,285,337-338
+  s_f5a91deb5a46ce::t_9347665aff3b86 196,200-203
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c95d7e839dd8d2a440be6a2c8b64ac7fbe02d48e",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
