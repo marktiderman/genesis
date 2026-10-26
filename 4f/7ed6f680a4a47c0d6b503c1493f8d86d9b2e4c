@@ -1,0 +1,49 @@
+.changeset/chat-native-organise.md
+  s_8252619ce79a86::t_a62845a278aee4 1-13
+apps/genesis-rn-starter/__tests__/components/settings.test.tsx
+  s_8252619ce79a86::t_4699fe07b2bf70 50-58
+apps/genesis-rn-starter/__tests__/inline-copy.ts
+  s_8252619ce79a86::t_b1dbd37ec97bab 17
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_d1541c27e3a78c 355-372,375
+apps/genesis-rn-starter/src/app/(app)/_layout.tsx
+  s_8252619ce79a86::t_eb78bfc52e6e61 7,14-15,41,45-46,48
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_bd716186e8766a 1-2,4,11-14,16,19,22,26-37,43
+apps/genesis-rn-starter/src/app/(app)/messages/_layout.tsx
+  s_8252619ce79a86::t_bdaeb4d06ea1ea 2,5,7,9-10
+apps/genesis-rn-starter/src/app/(app)/messages/index.tsx
+  s_8252619ce79a86::t_98bec50b36a5b6 1-2,4,9-14,16,20-30,32
+apps/genesis-rn-starter/src/app/(app)/messages/search.tsx
+  s_8252619ce79a86::t_200ec9ebb6d5d3 1-27
+apps/genesis-rn-starter/src/app/(app)/settings/availability.tsx
+  s_8252619ce79a86::t_39bbdd38637f41 1-16
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_8252619ce79a86::t_592c9b0aff911d 7,26,29-34
+apps/genesis-rn-starter/src/copy.ts
+  s_8252619ce79a86::t_e59720eb01fe71 81-82,117-120
+apps/genesis-rn-starter/src/lib/chat.tsx
+  s_8252619ce79a86::t_713c4c67a52174 5-7,103-107,110
+apps/genesis-rn-starter/supabase/migrations/20261025000050_genesis_chat_coaching.sql
+  s_8252619ce79a86::t_88dcb202dba74c 1-861
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_coaching.test.sql
+  s_8252619ce79a86::t_8edb7cce3bb642 1-228
+packages/chat/src/native/availability.tsx
+  s_8252619ce79a86::t_b60843e0a70c36 242,246
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f7ed6f680a4a47c0d6b503c1493f8d86d9b2e4c",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
