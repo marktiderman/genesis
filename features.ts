@@ -743,7 +743,7 @@ export const features = defineFeatures({
       "An open idea or feedback issue with no feature id appears in the triage inbox.",
     ],
     reviewedAt: "2026-10-25",
-    links: { code: ["packages/product/src/board.ts", "packages/product/src/cli.ts"] },
+    links: { code: ["packages/product/src/board.ts", "packages/product/src/cli.ts", "packages/product/src/app.ts", "packages/product/src/native"] },
   },
   "product-insights": {
     name: "Ideas and feedback as evidence",

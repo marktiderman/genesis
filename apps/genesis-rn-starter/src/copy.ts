@@ -108,6 +108,24 @@ const en = {
     ideas: { title: "Idea board" },
     shipped: { title: "You asked, we shipped" },
   },
+  // The product demo (`features.productDemo`): sample data for @marktiderman/genesis-product's screens.
+  productDemo: {
+    settingsRow: "Product demo",
+    settingsRowSubtitle: "Ideas and the roadmap, over sample data",
+    title: "Product",
+    ideasTab: "Ideas",
+    roadmapTab: "Roadmap",
+    ideas: {
+      darkMode: { title: "Dark mode", body: "Follow the phone's light or dark setting." },
+      calendar: { title: "Add sessions to my calendar", body: "One tap to put a booking in my phone's calendar." },
+      widgets: { title: "Home screen widget", body: "See today's plan without opening the app." },
+    },
+    roadmap: {
+      search: { title: "Search", summary: "Find any message, note or file." },
+      offline: { title: "Works offline", summary: "Read and write without a connection; it syncs when you're back." },
+      sharing: { title: "Share a plan", summary: "Send a plan to someone outside the app." },
+    },
+  },
   // Chat's own strings (genesis-chat's `chatNativeCopy`); the ones here override its English.
   chat: {
     inboxTitle: "Messages",

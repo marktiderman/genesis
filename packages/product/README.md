@@ -58,6 +58,52 @@ const markdown = renderBoard(board, { date: "2026-10-25" });
 The core (`.`) has no React and no I/O. `/node` reads the catalog from a file or a git ref, maps
 GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
+## Native screens (`/native`)
+
+The idea board, the Now / Next / Later roadmap and "what's new" for a React Native app, made of
+genesis-ui-native only (`InboxPage`, `NativeSegmentedControl`, `NativeSheet`). React, React Native
+and genesis-ui-native are optional peers; native modules are passed in, never imported.
+
+```tsx
+import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import { IdeaBoardScreen, RoadmapScreen, createVoteQueue, storageVoteQueueStore } from "@marktiderman/genesis-product/native";
+
+// Once, outside render: votes are kept on the phone until they reach the source.
+const votes = createVoteQueue({ source, store: storageVoteQueueStore(AsyncStorage) });
+
+<IdeaBoardScreen source={source} queue={votes} haptics={Haptics}
+  onReconnect={(run) => NetInfo.addEventListener((s) => { if (s.isConnected) run(); })} />
+<RoadmapScreen source={source} haptics={Haptics} />
+```
+
+- **Data** comes through a `ProductSource` (`ideas`, `vote`, `unvote`, `roadmap`, `whatsNew`). There
+  is no Supabase source yet; `memoryProductSource(seed)` is for tests and demos, and
+  `roadmapFromBoard(buildBoard(...))` turns the board into roadmap rows.
+- **Idea board** (`useIdeaBoard` for InboxPage props, or `IdeaBoardScreen`): each row shows "N votes"
+  and a vote button at its end; swipe, long press and screen readers get the same vote. A vote shows
+  at once with a light haptic and goes through the vote queue: saved, sent on start, after each vote
+  and on reconnect, and toggling back before it is sent sends nothing. A refusal that retrying won't
+  fix (`VoteRefusedError`, or an HTTP 4xx other than 408 and 429) is dropped and rolled back, with an
+  error haptic; anything else waits for the next flush.
+- **Roadmap** (`useRoadmap`, `RoadmapScreen`): a segmented control over the rows; a tap opens the
+  item in a sheet.
+- **What's new** (`createProductWhatsNew`, `ProductWhatsNew`): once per app version plus over-the-air
+  update (`whatsNewKey`, e.g. `1.4.0+3f2a…` or `1.4.0+embedded`). A first install remembers the key
+  and shows nothing; a new key fetches its notes then, never from the bundle, and opens the sheet
+  when there are any. To hang it off genesis-native's updates block, turn the block's own sheet off
+  and render this one with the same modules:
+
+  ```tsx
+  createUpdates({ whatsNew: false, application: Application, updates: Updates, … });
+  const whatsNew = createProductWhatsNew({ source, storage: AsyncStorage,
+    key: whatsNewKey({ application: Application, updates: Updates }) });
+  <ProductWhatsNew store={whatsNew} />   // inside GenesisNativeApp
+  ```
+
+The RN starter has a demo behind `productDemo` (off by default) in `starter.config.ts`.
+
 ## Not yet
 
 - Releases aren't wired into this repo's release flow yet. The plan, from the review: release.yml
@@ -67,8 +113,8 @@ GitHub issues to signals, and writes the board issue and the "shipped" comments.
   publish, never before. A CI run of `release` needs `fetch-depth: 0` for the tags.
 - Not on npm: an app installs it once the owner publishes it (see Status above).
 
-- No database source, no insights captured from support reports, and no screens: the board is
-  markdown.
+- No database source and no insights captured from support reports. The board issue is markdown;
+  the native screens read an injected source (no web screens yet).
 - No notifications beyond GitHub's own: `--notify` comments on the issue, which tells its
   author and everyone subscribed to it.
 - Demand counts votes once per person per issue, but not yet once per person per feature.

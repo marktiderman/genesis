@@ -285,7 +285,7 @@ describe("GitHub source and writes (@feat:product-insights)", () => {
 });
 
 describe("the core stays usable from React Native (@feat:product-roadmap)", () => {
-  it("imports nothing from node: and never pulls in ./node, through every module index reaches", () => {
+  it("imports nothing from node:, React or React Native, and never pulls in ./node or ./native, through every module index reaches", () => {
     const seen = new Set<string>();
     const walk = (file: string) => {
       if (seen.has(file)) return;
@@ -294,11 +294,14 @@ describe("the core stays usable from React Native (@feat:product-roadmap)", () =
       for (const [, spec] of text.matchAll(/from\s+"([^"]+)"/g)) {
         expect(spec!.startsWith("node:"), `${file} imports ${spec}`).toBe(false);
         expect(spec, `${file} imports ./node`).not.toBe("./node");
+        expect(/^(react|react-native)(\/|$)/.test(spec!), `${file} imports ${spec}`).toBe(false);
+        expect(spec!.startsWith("./native"), `${file} imports ${spec}`).toBe(false);
+        expect(spec!.startsWith("@marktiderman/genesis-ui-native"), `${file} imports ${spec}`).toBe(false);
         if (spec!.startsWith("./")) walk(spec!.slice(2));
       }
     };
     walk("index");
-    expect([...seen].sort()).toEqual(["board", "index", "model", "release"]);
+    expect([...seen].sort()).toEqual(["app", "board", "index", "model", "release"]);
   });
 });
 

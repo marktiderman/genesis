@@ -1679,7 +1679,9 @@
       "links": {
         "code": [
           "packages/product/src/board.ts",
-          "packages/product/src/cli.ts"
+          "packages/product/src/cli.ts",
+          "packages/product/src/app.ts",
+          "packages/product/src/native"
         ]
       },
       "access": "all",
