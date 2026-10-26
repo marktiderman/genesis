@@ -10,6 +10,7 @@ export * from "./types";
 export { createChatRunner, CHAT_MAX_ATTEMPTS, type ChatRunner, type ChatRunnerOptions } from "./runner";
 export { deepgramTranscriber, openAiTranscriber, type DeepgramOptions, type OpenAiTranscriberOptions } from "./transcribers";
 export { muxVideo, verifyMuxSignature, muxPlaybackUrl, muxPlaybackToken, type MuxVideoOptions, type MuxSigningKey } from "./mux";
+export { fakeVideoProvider, type FakeVideoProviderOptions, type FakeReadyOptions } from "./fake-video";
 export {
   createExpoDeliver,
   deadTokens,

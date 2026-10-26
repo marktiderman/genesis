@@ -8,9 +8,18 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChatClient, ConversationChannel, MessagePage } from "../core/client";
-import { createOutbox, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "../core/outbox";
+import {
+  createOutbox,
+  type HostedUpload,
+  type LocalFile,
+  type Outbox,
+  type OutboxStore,
+  type QueuedMessage,
+  type StorageUpload,
+} from "../core/outbox";
+import { sendBytes } from "../core/transfer";
 import { currentActivity, firstUnreadId, mergeThread, throttle, upsertMessages, type ThreadItem } from "../core/thread";
-import { randomId } from "../core/media";
+import { attachmentKindFor, randomId } from "../core/media";
 import type {
   AvailabilityInput,
   ChatActivity,
@@ -76,12 +85,39 @@ export function belongsTo(key: readonly unknown[], m: ChatMessage): boolean {
 }
 
 /**
- * Hosted video uploads (Mux direct uploads): your server makes an upload and returns its URL;
- * the renderer PUTs the recording there and sends `{ kind: "video", provider: "mux", providerId,
- * status: "pending" }`. Without it, videos go to storage as files.
+ * Hosted video uploads (Mux direct uploads): your server makes an upload and returns its URL
+ * (`createVideoUploadHandler` in /server). A video the composer marks `hosted` is sent through
+ * the outbox at once, in order, with `{ kind: "video", provider, providerId, status: "pending" }`,
+ * while its bytes are PUT to that URL (see `hostedUploadFrom`). Without it, videos go to storage
+ * as files.
  */
 export interface ChatVideoUpload {
   create(conversationId: string): Promise<{ url: string; providerId: string; provider: "mux" }>;
+}
+
+/**
+ * The outbox's `hostedUpload` from a `ChatVideoUpload`: mints the upload (or, resuming, reuses
+ * the one minted before), resolves at once with its id, and PUTs the whole file to its URL in
+ * the background (XMLHttpRequest where there is one, for progress). A native file URI is read
+ * with `readFile`. Native apps with chunked, resumable uploads pass their own `hostedUpload`.
+ */
+export function hostedUploadFrom(
+  videoUpload: ChatVideoUpload,
+  options: { readFile?: (uri: string) => Promise<Blob | ArrayBuffer>; fetch?: typeof fetch } = {},
+): HostedUpload {
+  return async (conversationId, file, { signal, onProgress, resume }) => {
+    const minted = resume?.url
+      ? { url: resume.url, providerId: resume.providerId, provider: resume.provider }
+      : await videoUpload.create(conversationId);
+    const done = (async () => {
+      const body =
+        typeof file.data === "string"
+          ? await (options.readFile ?? (() => Promise.reject(new Error("This file can't be read on this device"))))(file.data)
+          : file.data;
+      await sendBytes(minted.url, body, { method: "PUT", headers: { "Content-Type": file.contentType }, signal, onProgress, fetch: options.fetch });
+    })();
+    return { provider: minted.provider, providerId: minted.providerId, status: "pending", url: minted.url, done };
+  };
 }
 
 /** What an app attachment kind's card shows (a form, a check-in): plain data, drawn by each renderer. */
@@ -118,8 +154,17 @@ export interface ChatProviderProps {
   outboxStore?: OutboxStore;
   /** Reads a native file URI for upload. */
   readFile?: (uri: string) => Promise<Blob | ArrayBuffer>;
-  /** Replaces the plain upload (resumable uploads on native). `signal` aborts when the message is discarded or the outbox cleared. */
-  upload?: (conversationId: string, file: LocalFile, opts?: { signal?: AbortSignal }) => Promise<string>;
+  /**
+   * Replaces the plain upload (resumable uploads on native). `signal` aborts when the message is
+   * discarded or the outbox cleared; `onProgress(sent, total)` fills the pending bubble's bar.
+   */
+  upload?: StorageUpload;
+  /**
+   * Starts a hosted upload for files marked `hosted` (see HostedUpload): resolve with
+   * `{ provider, providerId, status: "pending", url?, done }` once the upload id exists. Default:
+   * `hostedUploadFrom(videoUpload)` when `videoUpload` is given.
+   */
+  hostedUpload?: HostedUpload;
   /** Makes client ids (default: a random UUID that works without crypto.randomUUID). */
   newId?: () => string;
   /** Keeps a byte file (a pasted image, a recording) across launches: write it, return a URI. */
@@ -148,6 +193,7 @@ export function ChatProvider({
   outboxStore,
   readFile,
   upload,
+  hostedUpload,
   newId,
   persistFile,
   releasePreview,
@@ -168,6 +214,7 @@ export function ChatProvider({
         store: outboxStore,
         readFile,
         upload,
+        hostedUpload: hostedUpload ?? (videoUpload ? hostedUploadFrom(videoUpload, { readFile }) : undefined),
         newId,
         persistFile,
         releasePreview,
@@ -611,11 +658,12 @@ export function useTopics(conversationId: string | null | undefined) {
 
 /**
  * Your scheduled messages (in one conversation, or all), soonest first, with `schedule` and
- * `cancel`. `schedule` uploads byte files first (`LocalFile.data` a Blob or ArrayBuffer; a
- * native URI goes through the provider's `readFile`), then schedules them with the message.
+ * `cancel` (which also removes one that failed). `schedule` uploads its files to storage first,
+ * the way `send` does (the provider's `upload` hook, or a native URI read through `readFile`),
+ * then schedules them with the message. A file marked `hosted` goes to storage too.
  */
 export function useScheduled(conversationId?: string | null, opts: { enabled?: boolean } = {}) {
-  const { client, userId } = useChat();
+  const { client, outbox } = useChat();
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: chatKeys.scheduled(conversationId),
@@ -628,15 +676,14 @@ export function useScheduled(conversationId?: string | null, opts: { enabled?: b
     async (input: Omit<ScheduleInput, "clientId"> & { clientId?: string }, files: LocalFile[] = []) => {
       const attachments = [...(input.attachments ?? [])];
       for (const f of files) {
-        if (typeof f.data === "string") throw new Error("Scheduled files must be bytes (a Blob or ArrayBuffer)");
-        const path = await client.upload(input.conversationId, userId, f.data, { name: f.name, contentType: f.contentType });
-        attachments.push({ ...f.meta, kind: f.meta?.kind ?? (f.contentType.startsWith("image/") ? "image" : f.contentType.startsWith("video/") ? "video" : f.contentType.startsWith("audio/") ? "voice" : "file"), path, name: f.meta?.name ?? f.name, mime: f.contentType });
+        const path = await outbox.uploadFile(input.conversationId, f);
+        attachments.push({ ...f.meta, kind: f.meta?.kind ?? attachmentKindFor(f.contentType), path, name: f.meta?.name ?? f.name, mime: f.contentType });
       }
       const id = await client.schedule({ ...input, clientId: input.clientId ?? randomId(), attachments });
       await refresh();
       return id;
     },
-    [client, refresh, userId],
+    [client, outbox, refresh],
   );
   const cancel = useCallback(
     async (id: string) => {

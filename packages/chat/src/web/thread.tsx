@@ -127,15 +127,18 @@ export interface ChatThreadProps {
   threadRootId?: string;
   /** One topic's messages. */
   topic?: string;
-  /** Shown on messages that have replies, to open their thread. */
-  onOpenThread?: (message: ChatMessage) => void;
+  /**
+   * Shown on messages that have replies, to open their thread. Also called when a search result
+   * is a reply in a thread, with `jumpTo` (that reply) for the thread's own ChatThread.
+   */
+  onOpenThread?: (message: ChatMessage, opts?: { jumpTo?: { messageId: string; seq: number } }) => void;
   /** The quick reactions; 👍 ❤️ 😂 😮 😢 🙏 by default. */
   quickReactions?: readonly string[];
   placeholder?: string;
   /** Show the topic bar even before the first topic exists (so an owner can add one). */
   showTopics?: boolean;
   /** Scroll to this message once it's loaded (a search result across conversations); `seq` lets earlier pages load to reach it. */
-  jumpTo?: { messageId: string; seq?: number } | null;
+  jumpTo?: { messageId: string; seq?: number; threadRootId?: string | null } | null;
   /** A search button in the header. Default true. */
   search?: boolean;
   /** Scheduled send in the composer. Default true. */
@@ -221,7 +224,7 @@ export function ChatThread({
   slots,
   className,
 }: ChatThreadProps) {
-  const { userId: me, attachmentKinds } = useChat();
+  const { userId: me, attachmentKinds, client: chatClient } = useChat();
   const topicsState = useTopics(threadRootId ? null : conversationId);
   const [chosenTopic, setChosenTopic] = useState<string | null>(null);
   const topic = topicProp ?? chosenTopic ?? undefined;
@@ -394,9 +397,34 @@ export function ChatThread({
 
   // A message to reach: loads earlier pages until it is here (leaving a topic it isn't in), then scrolls to it.
   type Jump = { messageId: string; seq?: number; phase: "new" | "loading" | "loaded" };
-  const [pendingJump, setPendingJump] = useState<Jump | null>(jumpToProp ? { ...jumpToProp, phase: "new" } : null);
+  /**
+   * A reply in a thread isn't on this timeline: open its thread (onOpenThread, scrolled to the
+   * reply) and come here to the thread's first message; without onOpenThread, just to that.
+   */
+  const reach = useCallback(
+    (target: { messageId: string; seq?: number; threadRootId?: string | null }) => {
+      const root = target.threadRootId;
+      if (!root || root === threadRootId || root === target.messageId) {
+        setPendingJump({ messageId: target.messageId, seq: target.seq, phase: "new" });
+        return;
+      }
+      void chatClient.message(root).then(
+        (m) => {
+          if (!m) {
+            toast.info("That message isn't here any more");
+            return;
+          }
+          onOpenThread?.(m, target.seq != null ? { jumpTo: { messageId: target.messageId, seq: target.seq } } : undefined);
+          setPendingJump({ messageId: m.id, seq: m.seq, phase: "new" });
+        },
+        (e) => toast.error(errorText(e)),
+      );
+    },
+    [chatClient, onOpenThread, threadRootId],
+  );
+  const [pendingJump, setPendingJump] = useState<Jump | null>(jumpToProp && !jumpToProp.threadRootId ? { ...jumpToProp, phase: "new" } : null);
   useEffect(() => {
-    if (jumpToProp) setPendingJump({ ...jumpToProp, phase: "new" });
+    if (jumpToProp) reach(jumpToProp);
   }, [jumpToProp?.messageId, jumpToProp?.seq]); // eslint-disable-line react-hooks/exhaustive-deps
   const { loadUntil } = state;
   useEffect(() => {
@@ -426,9 +454,9 @@ export function ChatThread({
     (hit: ChatSearchHit) => {
       setSearching(false);
       if (topic && topicProp === undefined) setChosenTopic(null);
-      setPendingJump({ messageId: hit.messageId, seq: hit.seq, phase: "new" });
+      reach(hit);
     },
-    [topic, topicProp],
+    [topic, topicProp, reach],
   );
 
   // ---- actions --------------------------------------------------------------

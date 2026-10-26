@@ -107,7 +107,12 @@ chat.setAvailability({ awayMessage?, awayUntil?, timeZone?, hours? }): Promise<v
 chat.broadcast(conversationIds, clientId, body, { silent? }): Promise<string[]>
 
 // Search: text and transcripts, newest first; snippets mark matches with « ».
+// A hit that is a reply in a thread has `threadRootId`: open that thread to show it.
 chat.search(query, conversationId?, { limit? }): Promise<ChatSearchHit[]>
+
+// Storage upload; with onProgress, bytes go to a signed upload URL through XMLHttpRequest
+// (browsers, React Native) so progress is reported; elsewhere it reports once, at the end.
+chat.upload(conversationId, userId, bytes, { name, contentType, onProgress?(sent, total), signal? }): Promise<string>
 
 // Link previews the runner fetched (status ok only), by message id, through link_previews_for
 // (one call per message, six at a time): only for messages you can read. The table is closed.
@@ -132,7 +137,7 @@ const line = awayLine(await chat.availabilityFor(id).then((a) => a[0]), "Mark");
 ```tsx
 const { topics, setTopic } = useTopics(conversationId);          // live: set_topic's hint refreshes it
 const thread = useConversation(conversationId, { topic: "week-1" }); // one topic; sends go into it
-const { items, schedule, cancel } = useScheduled(conversationId);   // schedule(input, files?) uploads byte files first
+const { items, schedule, cancel } = useScheduled(conversationId);   // schedule(input, files?) uploads files first, as send does; cancel also removes a failed one
 const { mine, setMine, members, others, forUser } = useAvailability(conversationId);
 const { send, sending } = useBroadcast();                          // send(ids, body) -> message ids
 const { hits, isSearching, query } = useSearch(text, { conversationId, debounceMs: 250 });
@@ -158,15 +163,58 @@ afterwards, so a send can't go out under the next account. The outbox owns a fil
 once queued and lets go of it (`releasePreview`, default: revoke `blob:` URLs) when the message
 lands or is discarded.
 
+A pending message's files carry their upload progress: `PendingMessage.files[i].progress` (0 to 1),
+reported by `client.upload`'s `onProgress` or by your `upload` prop calling `opts.onProgress(sent,
+total)`. The web bubble draws it as a bar.
+
+### Hosted video in the outbox
+
+A file marked `hosted: true` goes to the hosted video provider instead of storage, through the
+outbox, in its place in the order:
+
+1. The outbox calls `hostedUpload(conversationId, file, { signal, onProgress, resume? })`, which
+   mints the upload and resolves at once with `{ provider: "mux" | "cloudflare", providerId,
+   status: "pending", url?, done? }`; `done` settles when the bytes are up.
+2. The message is sent straight away with `{ kind: "video", provider, providerId, status:
+   "pending" }`, so text written after it lands after it. The provider's webhook flips it ready.
+3. The message stays in the outbox (hidden from the thread, which has the server's copy) until
+   `done` settles, with the upload saved as `QueuedMessage.hosted[i]` (`provider`, `providerId`,
+   `url`). After a relaunch the outbox calls `hostedUpload` again with `resume` set to that record,
+   then sends the message again with the same clientId (posting nothing twice). A failed transfer
+   marks it failed without holding later messages; Retry (or `retryAll`) resumes it the same way.
+
+On the web, `ChatProvider videoUpload` gives the default `hostedUpload` (`hostedUploadFrom`: one PUT
+of the whole file, with progress) and the composer's video recorder sends `hosted` files. Without
+`videoUpload` (or `hostedUpload`), hosted files go to storage like any other.
+
+**Native contract.** Pass your own `hostedUpload` to `ChatProvider` (it wins over `videoUpload`),
+and send recordings through `useChat().outbox.send(input, [{ data: uri, name, contentType, hosted:
+true, meta: { kind: "video", durationMs } }])` instead of uploading first:
+
+```ts
+hostedUpload={async (conversationId, file, { signal, onProgress, resume }) => {
+  // Resuming (a relaunch, a retry): keep the providerId; the message may already carry it.
+  const minted = resume?.url ? { url: resume.url, providerId: resume.providerId, provider: resume.provider }
+                             : await videoUpload.create(conversationId);
+  const done = putChunks(minted.url, file.data as string, { signal, onProgress, resume: Boolean(resume) });
+  return { provider: minted.provider, providerId: minted.providerId, status: "pending", url: minted.url, done };
+}}
+```
+
+Resolve as soon as the provider id exists; never wait for the bytes. On `resume`, carry the same
+upload on (ask the server how much it has) and return the same `providerId`. Mint a new one only
+when the old upload is gone: a message already posted keeps the old id, and its video stays
+pending. Persist the file (`persistFile`) so a relaunch still has its bytes.
+
 `ChatProvider` takes two more props:
 
 ```tsx
 <ChatProvider
   client={chat}
   userId={user.id}
-  // Mux direct uploads: your server makes the upload; the composer PUTs the recording there and
-  // sends { kind: "video", provider: "mux", providerId, status: "pending" }. Without it, videos
-  // upload to storage as files.
+  // Mux direct uploads: your server makes the upload; the composer's recording goes through the
+  // outbox as a hosted file, sent at once as { kind: "video", provider: "mux", providerId,
+  // status: "pending" } while its bytes are PUT there. Without it, videos upload to storage.
   // Pairs with createVideoUploadHandler from /server, which mints the upload and its passthrough;
   // the client sends only the upload id (no attachment id).
   videoUpload={{
@@ -212,8 +260,8 @@ generic card. Errors go to the console.
   the conversation has topics (`showTopics` shows it before the first, for owners). Owners and
   admins get "New topic" and close or reopen. In a closed topic members see "This topic is closed".
 - **Scheduled send**: the arrow beside Send offers tomorrow 9 AM, Monday 9 AM, or a date and time;
-  "N scheduled messages" above the box opens `ChatScheduledList` with Cancel (`scheduling={false}`
-  turns it off). `ChatScheduledList` also works on its own, for all conversations.
+  "N scheduled messages" above the box opens `ChatScheduledList` with Cancel, or Remove for one that
+  failed when due (`scheduling={false}` turns it off). `ChatScheduledList` also works on its own, for all conversations.
 - **Availability**: `ChatAwayBanner` above the messages when the other person is away or outside
   their hours, or in a group everyone who is (two names, then "and N others"); `ChatAvailabilitySettings` for your own.
 - **Broadcast**: `<ChatBroadcast resolveUser={…} kind="direct" />` picks conversations from the inbox
@@ -221,7 +269,9 @@ generic card. Errors go to the console.
 - **Search**: `<ChatSearch resolveUser onOpen={(hit) => …} conversationId? />`; the thread header has
   it for one conversation and jumps to the message (loading earlier pages); `ChatPanel` has it
   across all (`search={false}` hides it) and opens the conversation at the message
-  (`ChatThread jumpTo={{ messageId, seq }}`).
+  (`ChatThread jumpTo={{ messageId, seq, threadRootId }}`). A hit that is a reply in a thread
+  calls `onOpenThread(root, { jumpTo: { messageId, seq } })` (pass `jumpTo` to the thread's own
+  `ChatThread`) and scrolls the timeline to the thread's first message.
 - **Link previews**: `ChatLinkPreview` under a message with a link: plain text only, no referrer,
   and **no image by default**. An og:image lives on the linked site, so loading it in readers'
   browsers tells that site (which the sender may control) each reader's IP and when they read it.
@@ -416,6 +466,31 @@ The composer POSTs `{ conversationId }` and gets `{ url, providerId, provider: "
 the file to `url` and sends the attachment with `provider_id: providerId`. The client chooses
 nothing the webhook trusts: the server sets the upload's passthrough to the conversation and
 uploader. A refusal answers 403; over the cap, 429.
+
+### A fake video provider for development
+
+`fakeVideoProvider` stands in for Mux locally, so the hosted path (pending, upload, ready) runs
+without an account. It throws when `NODE_ENV` is `production` unless you pass `force: true`.
+
+```ts
+import { createVideoUploadHandler, fakeVideoProvider } from "@marktiderman/genesis-chat/server";
+const video = fakeVideoProvider({
+  supabase: serviceRoleClient,                          // writes the bucket, calls update_attachment
+  uploadUrl: "http://localhost:3000/api/dev/fake-video", // where you mount video.handler
+});
+export const mint = createVideoUploadHandler({ video, authorize, corsOrigin: "http://localhost:3000" });
+export const PUT = video.handler;      // takes the bytes, stores them, marks the attachment ready
+export const OPTIONS = video.handler;
+// Or by hand, as Mux's video.asset.ready webhook would:
+await video.markReady(providerId, { durationMs: 4200, posterPath });
+```
+
+`createUpload` returns `uploadUrl?id=fake_<uuid>`. `handler` stores the PUT body in the genesis-chat
+bucket under the upload's conversation and uploader, then calls `markReady`, waiting up to
+`readyWaitMs` (10 s) for the message carrying the upload; past that it answers 202 and you can call
+`markReady` later. `markReady` calls `genesis_chat.update_attachment` with status ready, playback id
+`fake-<upload id>`, a fake HLS URL (`https://fake-video.invalid/...`) and the duration and poster
+you give. `video.playbackUrl(playbackId)` signs a link to the stored file.
 
 ### AI recaps and reply drafts
 

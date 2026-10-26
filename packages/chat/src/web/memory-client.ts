@@ -468,9 +468,16 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       log("report", messageId, reason, note);
       return uuid();
     },
-    async upload(conversationId: string, userId: string, file: Blob | ArrayBuffer, opts: { name: string; contentType: string; id?: string }) {
+    async upload(
+      conversationId: string,
+      userId: string,
+      file: Blob | ArrayBuffer,
+      opts: { name: string; contentType: string; id?: string; onProgress?: (sent: number, total: number) => void; signal?: AbortSignal },
+    ) {
       log("upload", conversationId, opts.name);
       await wait();
+      const total = file instanceof Blob ? file.size : file.byteLength;
+      opts.onProgress?.(total, total);
       const path = `${conversationId}/${userId}/${opts.id ?? uuid()}-${opts.name}`;
       const blob = file instanceof Blob ? file : new Blob([file], { type: opts.contentType });
       files[path] = typeof URL !== "undefined" && typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : `memory://${path}`;
@@ -569,7 +576,8 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
     },
     async cancelScheduled(id: string) {
       log("cancelScheduled", id);
-      const s = scheduledList.find((x) => x.id === id && x.status === "scheduled");
+      // As cancel_scheduled: anything not sent and not cancelled, a failed one included.
+      const s = scheduledList.find((x) => x.id === id && x.status !== "sent" && x.status !== "cancelled");
       if (!s) throw new ChatError("Nothing to cancel", "22023", "cancel_scheduled");
       s.cancelledAt = new Date().toISOString();
       s.status = "cancelled";
@@ -622,7 +630,7 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
         if (conversationId && c.conversation.id !== conversationId) continue;
         for (const m of c.messages) {
           if (m.deletedAt || !visible(c, m)) continue;
-          const base = { messageId: m.id, conversationId: c.conversation.id, seq: m.seq, senderId: m.senderId, createdAt: m.createdAt };
+          const base = { messageId: m.id, conversationId: c.conversation.id, seq: m.seq, senderId: m.senderId, createdAt: m.createdAt, threadRootId: m.threadRootId ?? null };
           if (m.body.toLowerCase().includes(q)) hits.push({ ...base, snippet: mark(m.body), inTranscript: false });
           else {
             const t = m.attachments.find((a) => a.transcript?.toLowerCase().includes(q))?.transcript;

@@ -220,21 +220,26 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
 
 export type VideoRecorder = ReturnType<typeof useVideoRecorder>;
 
-/** A recording as a file the outbox uploads to storage (the fallback without `videoUpload`). */
-export function videoFile(rec: VideoRecording): LocalFile {
+/**
+ * A recording as a file for the outbox: `hosted` sends it to the hosted provider (the provider's
+ * `videoUpload`, the message going at once with the video pending); otherwise it goes to storage.
+ */
+export function videoFile(rec: VideoRecording, opts: { hosted?: boolean } = {}): LocalFile {
   return {
     data: rec.blob,
     name: rec.name,
     contentType: rec.contentType,
     previewUrl: rec.url ?? undefined,
     meta: { kind: "video", durationMs: rec.durationMs, bytes: rec.blob.size },
+    ...(opts.hosted ? { hosted: true } : {}),
   };
 }
 
 /**
  * Uploads a recording through the app's `videoUpload` (a Mux direct upload: PUT the bytes to
  * the URL it returns) and gives back the attachment to send, pending until Mux's webhook marks
- * it ready.
+ * it ready. The composer no longer uses it: it sends `videoFile(rec, { hosted: true })` through
+ * the outbox, so the message keeps its place in the order while the bytes go up.
  */
 export async function uploadVideo(
   videoUpload: ChatVideoUpload,
@@ -271,7 +276,7 @@ export interface ChatVideoRecorderProps {
   videoUpload?: ChatVideoUpload;
   onTick?: () => void;
   onSent?: () => void;
-  /** For tests. */
+  /** @deprecated Unused: the bytes go through the outbox's `hostedUpload` now. */
   fetchImpl?: typeof fetch;
 }
 
@@ -290,7 +295,7 @@ function Preview({ stream }: { stream: MediaStream | null }) {
 }
 
 /** The composer's video dialog: preview, record (to the role's limit), review, retake, send. */
-export function ChatVideoRecorder({ open, onOpenChange, conversationId, maxMs, send, extra, videoUpload, onTick, onSent, fetchImpl }: ChatVideoRecorderProps) {
+export function ChatVideoRecorder({ open, onOpenChange, maxMs, send, extra, videoUpload, onTick, onSent }: ChatVideoRecorderProps) {
   const rec = useVideoRecorder({ maxMs, onTick });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -312,15 +317,10 @@ export function ChatVideoRecorder({ open, onOpenChange, conversationId, maxMs, s
     setSending(true);
     setSendError(null);
     try {
-      if (videoUpload) {
-        const attachment = await uploadVideo(videoUpload, conversationId, take, fetchImpl, controller.signal);
-        if (controller.signal.aborted) return;
-        await send({ ...extra, body: "", attachments: [attachment] });
-      } else {
-        // The outbox shows the take while it uploads and frees its URL once it lands.
-        await send({ ...extra, body: "" }, [videoFile(take)]);
-        rec.handOff();
-      }
+      // Through the outbox either way, in its place in the order: shown at once, the take as its
+      // preview (freed once it lands). Hosted, the message goes while the bytes go up.
+      await send({ ...extra, body: "" }, [videoFile(take, { hosted: Boolean(videoUpload) })]);
+      rec.handOff();
       onSent?.();
       onOpenChange(false);
     } catch (e) {
@@ -370,12 +370,7 @@ export function ChatVideoRecorder({ open, onOpenChange, conversationId, maxMs, s
           ) : null}
           {sending ? (
             <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/70 text-sm font-medium" role="status">
-              <Spinner /> Uploading…
-              {videoUpload ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => upload.current?.abort()} data-testid="genesis-chat-video-cancel-upload">
-                  Cancel upload
-                </Button>
-              ) : null}
+              <Spinner /> Sending…
             </span>
           ) : null}
         </div>

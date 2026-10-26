@@ -145,7 +145,7 @@ export interface ChatScheduledListProps {
   className?: string;
 }
 
-/** Your scheduled messages, soonest first, each with when it goes and Cancel. */
+/** Your scheduled messages, soonest first, each with when it goes and Cancel (Remove for one that failed). */
 export function ChatScheduledList({ conversationId, conversationTitle, className }: ChatScheduledListProps) {
   const { items, isLoading, cancel } = useScheduled(conversationId);
   if (isLoading) {
@@ -172,7 +172,19 @@ export function ChatScheduledList({ conversationId, conversationTitle, className
             <div className="truncate text-sm">{previewText(s.body, s.attachments[0]?.kind ?? null)}</div>
             {s.error ? <div className="text-xs text-destructive">{s.error}</div> : null}
           </div>
-          {s.status === "scheduled" ? (
+          {s.status === "failed" ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 shrink-0 gap-1 text-xs"
+              onClick={() => void cancel(s.id).then(() => toast.success("Removed"), () => toast.error("Couldn't remove it"))}
+              aria-label="Remove the message that couldn't send"
+              data-testid="genesis-chat-scheduled-remove"
+            >
+              <X className="size-3.5" aria-hidden /> Remove
+            </Button>
+          ) : s.status === "scheduled" ? (
             <Button
               type="button"
               variant="ghost"

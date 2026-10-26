@@ -43,6 +43,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Progress,
   Textarea,
   Tooltip,
   UserAvatar,
@@ -115,6 +116,14 @@ function pendingViews(p: PendingMessage): AttachmentView[] {
   }));
 }
 
+/** How much of a sending message's files has uploaded (0–100), once any file reports progress. */
+export function pendingProgress(p: PendingMessage): number | null {
+  if (p.status !== "sending") return null;
+  const files = p.files ?? [];
+  if (!files.some((f) => typeof f.progress === "number")) return null;
+  return Math.round((files.reduce((sum, f) => sum + (f.progress ?? 0), 0) / files.length) * 100);
+}
+
 /** A menu gives focus back to what opened it, unless the action put it somewhere (the composer, the edit box). */
 function returnFocus(e: Event, keepFocus: MutableRefObject<(() => void) | null>) {
   const next = keepFocus.current;
@@ -153,6 +162,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
   const showHeader = ctx.isGroup && !mine && startsGroup;
   const tone: "default" | "primary" = mine && !note && !deleted ? "primary" : "default";
   const views = pending ? pendingViews(pending) : message.attachments.map((a) => toAttachmentView(a, ctx.urls));
+  const progress = pending ? pendingProgress(pending) : null;
   const editing = ctx.editingId === message.id;
   const reactions = pending ? [] : summarizeReactions(message, ctx.me);
   const highlighted = ctx.highlightedId === message.id;
@@ -194,6 +204,18 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
           {views.length ? (
             <div className={cn(message.body ? "mb-1.5" : "")}>
               <MessageAttachments views={views} message={pending ? undefined : message} mine={mine} tone={tone} slot={ctx.attachmentSlot} kinds={ctx.attachmentKinds} />
+              {progress !== null ? (
+                <Progress
+                  value={progress}
+                  className={cn("mt-1.5 h-1", tone === "primary" && "bg-primary-foreground/30 [&>div]:bg-primary-foreground")}
+                  role="progressbar"
+                  aria-label="Uploading"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress}
+                  data-testid="genesis-chat-upload-progress"
+                />
+              ) : null}
             </div>
           ) : null}
           {message.body ? <ChatMarkdown text={message.body} me={ctx.me} tone={tone} /> : null}
