@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(63);
+select plan(65);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -181,6 +181,13 @@ select pg_temp.sign_in('a1');
 select is((select count(*)::integer from genesis_chat.messages where id = pg_temp.v('bad')), 0, 'a hidden message leaves members'' view');
 select pg_temp.sign_in('d4');
 select is((select count(*)::integer from genesis_chat.messages where id = pg_temp.v('bad')), 1, 'observers still see it, with a report');
+reset role;
+insert into genesis_chat.attachments (message_id, conversation_id, kind, provider, transcript)
+values (pg_temp.v('bad'), pg_temp.v('grp'), 'voice', 'none', 'the walrus transcript of a hidden note');
+select pg_temp.sign_in('a1');
+select ok(not exists (select 1 from genesis_chat.search_messages('walrus')), 'search never shows members a hidden message''s transcript');
+select pg_temp.sign_in('d4');
+select ok(exists (select 1 from genesis_chat.search_messages('walrus', pg_temp.v('grp'))), 'observers still find it');
 
 -- Pushes wait for moderation; a hidden message is never pushed, counted or previewed.
 select pg_temp.as_server();

@@ -57,7 +57,7 @@ export interface ChatComposerHandle {
 export interface ChatComposerProps {
   /** From `useConversation`: how to send, and whether you may. */
   conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "accessLoading" | "conversation"> &
-    Partial<Pick<ConversationState, "accessError" | "refetchAccess" | "signalRecordingVideo">>;
+    Partial<Pick<ConversationState, "accessError" | "refetchAccess" | "signalRecordingVideo" | "conversationLoading">>;
   /** The message being replied to; a banner shows above the box. */
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
@@ -321,7 +321,7 @@ export function ChatComposer({
   }
 
   // Who may post depends on the conversation's settings: wait for them rather than say the wrong reason.
-  if (!state.canPost && !state.conversation) {
+  if (!state.canPost && state.conversationLoading) {
     return (
       <div className={cn("border-t p-3", className)} aria-busy>
         <Skeleton className="h-10 w-full rounded-2xl" />

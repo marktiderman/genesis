@@ -267,15 +267,18 @@ export const POST = chatRunnerHandler({ runner, secret: process.env.CHAT_RUNNER_
 
 Each `run()` claims up to 50 due effects (`batch.limit`), works up to 4 of a kind at once
 (`batch.concurrency`), settles each (`complete_effect`; an error backs off 30 s × 2^attempts) and
-answers `{ claimed, done, failed, scheduled }` (plus `purged` and `errors` when there are any). It
+answers `{ claimed, done, failed }`, plus `scheduled` (`{ due, posted, skipped, failed }`) unless
+`scheduled: false`, and `purged` and `errors` when there are any. It
 claims `push`, `transcribe`, `storage.remove` and `video.remove`, plus `moderate` with a `moderator`
 and `unfurl` with an `unfurler` (or the `kinds` you pass); after the 8th attempt an effect is left
 alone. Each run also posts due scheduled messages (`due_scheduled`, then `post_scheduled` each, as
 their sender, with every check `send_message` makes; a refusal is recorded on the row at once, a
 passing error such as a deadlock is tried again on the next run, up to five times; `scheduled:
 false` turns it off) and, with
-`retention: true`, removes messages past their kind's retention (`purge_expired`, up to 10 000 a run,
-never in a conversation on legal hold). A failure there is reported in `errors`, never thrown.
+`retention: true`, removes messages past their kind's retention (up to 10 `purge_expired` calls a run,
+each removing up to `retentionBatch`, default 1 000; never in a conversation on legal hold). A failed
+`due_scheduled` or `purge_expired` is reported in `errors`, never thrown; a scheduled message whose
+`post_scheduled` throws counts in `scheduled.failed` and is logged, not added to `errors`.
 
 - **push**: one `deliver(notification)` per message, with every recipient and their badge. The
   title is the conversation's, or the sender's name (`resolveName`) in a direct conversation; in a
@@ -364,8 +367,8 @@ genesis-notifications'.
 for each new or edited text message in that kind, and holds the message's push until the verdict:
 clean or flagged sends it, hidden never does (nor counts the message in a badge or shows it in the
 inbox). So a runner without a moderator sends no pushes for that kind. Give the runner
-`moderator: openAiModerator({ apiKey: process.env.OPENAI_API_KEY! })`: it sends the text and up to
-four photos (signed 10 minute URLs; the text with the first, the others one request each) to
+`moderator: openAiModerator({ apiKey: process.env.OPENAI_API_KEY! })`: it sends the text and every
+photo (signed 10 minute URLs; the text with the first, the others one request each) to
 `omni-moderation-latest`. A category score at or over `hide` (default 0.9) hides the message from
 members and files a report for observers; at or over `flag` (default 0.5), or flagged by OpenAI,
 files the report only. `sexual/minors` hides at 0.5; `self-harm/intent` and

@@ -28,6 +28,17 @@ describe("createChatRunner: moderate", () => {
     });
   });
 
+  it("sends every photo, in position order, so none past the first few escapes the verdict", async () => {
+    const moderate = vi.fn(async () => ({ result: "clean" as const }));
+    const photos = [5, 0, 3, 1, 4, 2].map((position) => ({ ...photo, id: `p${position}`, position, path: `c/u/${position}.jpg` }));
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "moderate", { message_id: "m1" })] },
+      tables: { messages: [message], attachments: photos },
+    });
+    await createChatRunner({ supabase: sb.client, deliver, moderator: { name: "fake", moderate } }).run();
+    expect(moderate).toHaveBeenCalledWith({ text: "you are useless", imageUrls: [0, 1, 2, 3, 4, 5].map((n) => `https://files.test/c/u/${n}.jpg?token=x`) });
+  });
+
   it("does not claim moderate without a moderator", async () => {
     const sb = fakeSupabase({ rpc: { claim_effects: () => [] } });
     await createChatRunner({ supabase: sb.client, deliver }).run();

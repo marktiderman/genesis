@@ -473,7 +473,7 @@ begin
       from genesis_chat.messages m join mine using (conversation_id)
      where m.search @@ q and m.deleted_at is null
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
-       and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid())
+       and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
     union all
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
            ts_headline('simple', translate(a.transcript, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
@@ -482,6 +482,7 @@ begin
       join mine on mine.conversation_id = m.conversation_id
      where a.transcript is not null and a.transcript_search @@ q and m.deleted_at is null
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
+       and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid() or genesis_chat.i_observe(m.conversation_id))
   )
   select distinct on (h.created_at, h.id) h.id, h.conversation_id, h.seq, h.sender_id, h.created_at, h.snippet, h.in_transcript
     from hits h
