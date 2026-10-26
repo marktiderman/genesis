@@ -1,29 +1,16 @@
+"use client";
+
 import { useId, useState, type ReactNode } from "react";
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  Textarea,
-  toast,
-} from "@marktiderman/genesis-ui";
+import { Button } from "../ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Textarea } from "../ui/textarea";
+import { toast } from "../ui/sonner";
 import { Copy, ExternalLink, Printer } from "lucide-react";
 import { embedSnippet, prefilledUrl, type PrefillChoice } from "./share";
-
-
 
 const ANY = "__any";
 
@@ -65,18 +52,18 @@ function CopyField({
 }
 
 /**
- * Sharing one published page (a form, a course), as Google Forms' Send step: its link with Copy, a QR code
- * (and a printable poster when the host has one), an `<iframe>` to embed it on a website,
- * and a builder for prefilled links (`?class=…&coach=…`, or whatever the host offers).
+ * Sharing one published page (a form, a course, a worksheet), as Google Forms' Send step:
+ * its link with Copy, a QR code (and a printable poster when the host has one), an
+ * `<iframe>` to embed it on a website, and a builder for prefilled links
+ * (`?location=…&staff=…`, or whatever the host offers).
  * Generic: the host passes the link, how to draw a QR code, and the prefill choices.
- * Moved up from the host app's src/components/forms/ShareDialog.tsx.
  */
 export function ShareDialog({
   open,
   onOpenChange,
-  noun = "form",
+  noun = "page",
   title = `Share your ${noun}`,
-  description = "Anyone with the link can answer.",
+  description = "Anyone with the link can open it.",
   url,
   posterUrl,
   renderQr,
@@ -87,7 +74,9 @@ export function ShareDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Default "Share your {noun}". */
   title?: string | undefined;
+  /** Default "Anyone with the link can open it." */
   description?: ReactNode;
   /** The public link; null while it is still loading. */
   url: string | null;
@@ -97,7 +86,7 @@ export function ShareDialog({
   renderQr?: ((url: string) => ReactNode) | undefined;
   /** Its name, for the embed's accessible title. */
   name: string;
-  /** What it is, in the default title and buttons: "form" (default), "course". */
+  /** What it is, in the default title and buttons: "page" (default), "form", "course". */
   noun?: string | undefined;
   /** The search params a prefilled link may set, each with its choices. None hides the builder. */
   prefill?: readonly PrefillChoice[] | undefined;

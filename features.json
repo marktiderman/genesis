@@ -129,6 +129,45 @@
       "flags": []
     },
     {
+      "id": "resource-workspace",
+      "name": "Resource workspace",
+      "summary": "The page around one publishable thing (a form, a course, a lesson, a worksheet): a header with status, save state, undo, preview, share and publish, a readiness chip, a Responses toolbar, headline numbers, summary cards, a follow-up list, a settings page with jump links and the Share dialog.",
+      "category": "Design system",
+      "status": "building",
+      "claimedBy": "flare",
+      "layer": "pattern",
+      "keywords": [
+        "resource header",
+        "share dialog",
+        "readiness",
+        "settings page",
+        "headline numbers",
+        "kpi",
+        "follow-up",
+        "course page",
+        "worksheet page"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-ui/resource"
+      },
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/ui/src/components/resource"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "app-shell",
       "name": "AppShell navigation",
       "summary": "The app frame (sidebar, mobile bottom nav, account menu, command palette) driven by one navigation tree with logical parents.",

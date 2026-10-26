@@ -1,10 +1,11 @@
 import type { ReactNode } from "react";
-import { Skeleton, cn } from "@marktiderman/genesis-ui";
+import { Skeleton } from "../ui/skeleton";
+import { cn } from "../../utils";
 import { CircleCheck, Star, TriangleAlert } from "lucide-react";
 import { Chip } from "./chip";
 import type { ChipTone } from "./status";
 
-/** One response in the follow-up list, as the host describes it. */
+/** One item in the follow-up list (a response, a submission), as the host describes it. */
 export interface FollowUpEntry {
   id: string;
   /** Who answered: a name, or "Anonymous". */
@@ -13,16 +14,16 @@ export interface FollowUpEntry {
   tag?: { label: string; tone?: ChipTone | undefined } | undefined;
   /** One line under the name: "Today · 6:00 WOD · Leo". */
   meta?: ReactNode;
-  /** What they wrote; null shows "No comment". */
+  /** What they wrote; null shows `noComment`. */
   comment?: string | null | undefined;
   /** The low score, on its scale. */
   rating?: { value: number; max: number } | null | undefined;
 }
 
 /**
- * Responses that need a follow-up (needsFollowUp), each with who answered, a tag, the day
- * and context, their comment, its low score and the host's actions (Reply, Mark handled).
- * Handled items are the host's to leave out.
+ * Responses that need a follow-up (the host decides which; forms-studio's needsFollowUp is
+ * one rule), each with who answered, a tag, the day and context, their comment, its low
+ * score and the host's actions (Reply, Mark handled). Handled items are the host's to leave out.
  */
 export function FollowUpList({
   entries,
@@ -30,6 +31,7 @@ export function FollowUpList({
   title = "Needs a follow-up",
   isLoading = false,
   empty = "Nothing to follow up right now.",
+  noComment = "No comment",
   className,
 }: {
   entries: readonly FollowUpEntry[];
@@ -39,6 +41,8 @@ export function FollowUpList({
   isLoading?: boolean | undefined;
   /** Said when the list is empty. */
   empty?: ReactNode;
+  /** Said for an entry without a comment. Default "No comment". */
+  noComment?: string | undefined;
   className?: string | undefined;
 }) {
   return (
@@ -96,7 +100,7 @@ export function FollowUpList({
                 </div>
                 {entry.meta ? <p className="text-xs text-muted-foreground">{entry.meta}</p> : null}
                 <p className={cn("line-clamp-3 break-words text-sm", !entry.comment && "text-muted-foreground")}>
-                  {entry.comment || "No comment"}
+                  {entry.comment || noComment}
                 </p>
                 {buttons ? <div className="mt-1 flex flex-wrap gap-2">{buttons}</div> : null}
               </li>
