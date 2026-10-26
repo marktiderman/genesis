@@ -273,6 +273,11 @@ export interface ChatVideoRecorderProps {
   send: (input: Omit<SendInput, "conversationId" | "clientId">, files?: LocalFile[]) => Promise<unknown>;
   /** Merged into what's sent (a reply, a topic, an internal note). */
   extra?: Omit<SendInput, "conversationId" | "clientId" | "attachments" | "body">;
+  /**
+   * Marks the take as hosted. Pass the same `videoUpload` the `ChatProvider` has (or give the
+   * provider a `hostedUpload`): the outbox does the upload, and without one it falls back to
+   * storage with no error.
+   */
   videoUpload?: ChatVideoUpload;
   onTick?: () => void;
   onSent?: () => void;

@@ -1615,7 +1615,7 @@
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
-      "claimedBy": "compass",
+      "claimedBy": "mark",
       "layer": "tool",
       "keywords": [
         "agents",
@@ -1626,7 +1626,7 @@
         "staging batch",
         "team"
       ],
-      "owner": "compass",
+      "owner": "mark",
       "apps": [
         "cli"
       ],
@@ -1650,7 +1650,7 @@
       "category": "Product",
       "status": "building",
       "horizon": "now",
-      "claimedBy": "compass",
+      "claimedBy": "mark",
       "layer": "tool",
       "keywords": [
         "roadmap",
@@ -1663,7 +1663,7 @@
       "requires": [
         "feature-registry"
       ],
-      "owner": "compass",
+      "owner": "mark",
       "apps": [
         "cli"
       ],
@@ -1694,7 +1694,7 @@
       "category": "Product",
       "status": "building",
       "horizon": "now",
-      "claimedBy": "compass",
+      "claimedBy": "mark",
       "layer": "service",
       "keywords": [
         "insights",
@@ -1705,7 +1705,7 @@
         "triage",
         "issue forms"
       ],
-      "owner": "compass",
+      "owner": "mark",
       "apps": [
         "cli"
       ],
@@ -1736,7 +1736,7 @@
       "category": "Product",
       "status": "building",
       "horizon": "now",
-      "claimedBy": "compass",
+      "claimedBy": "mark",
       "layer": "tool",
       "keywords": [
         "release notes",
@@ -1748,7 +1748,7 @@
       "requires": [
         "product-insights"
       ],
-      "owner": "compass",
+      "owner": "mark",
       "apps": [
         "cli"
       ],

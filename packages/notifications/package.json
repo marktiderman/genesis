@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-notifications",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -185,7 +185,7 @@
         "steps": [
           "Mirror your registry on deploy: syncNotificationTypes(adminClient, notifications) from @marktiderman/genesis-notifications/server.",
           "Say who administers notifications: replace private.genesis_notifications_admin(uuid, uuid) in a migration of your own, after this one (genesis-notifications README, Admins).",
-          "Deploy functions/genesis-notifications and schedule POST \u2026/run every minute and POST \u2026/receipts every 15 minutes, with GENESIS_NOTIFICATIONS_CRON_SECRET as the bearer token; point Resend's webhook at \u2026/webhooks/resend.",
+          "Deploy functions/genesis-notifications and schedule POST …/run every minute and POST …/receipts every 15 minutes, with GENESIS_NOTIFICATIONS_CRON_SECRET as the bearer token; point Resend's webhook at …/webhooks/resend.",
           "Coming from genesis-supabase's push migration (0005): stop calling genesis-push-send, and remove its pgTAP test (tests/database/*genesis_push.test.sql): two of its assertions describe the token takeover this migration closes."
         ]
       }

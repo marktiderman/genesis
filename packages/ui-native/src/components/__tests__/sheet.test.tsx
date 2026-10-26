@@ -158,6 +158,7 @@ describe("NativeSheet under NativeSheetProvider", () => {
     expect(present).toHaveBeenCalledTimes(1);
     // The given snap points are the sheet's only ones (v5 would add a content-height one).
     expect(modalProps).toHaveBeenLastCalledWith(expect.objectContaining({ snapPoints: ["25%"], enableDynamicSizing: false }));
+    expect((modalProps.mock.calls.at(-1)![0] as { maxDynamicContentSize?: number }).maxDynamicContentSize).toBeUndefined();
 
     // The user closing it reports; the app closing it doesn't report back.
     fireEvent.click(screen.getByTestId("gorhom-modal"));
@@ -179,6 +180,8 @@ describe("NativeSheet under NativeSheetProvider", () => {
       </NativeSheetProvider>,
     );
     expect(modalProps).toHaveBeenLastCalledWith(expect.objectContaining({ snapPoints: undefined, index: 0, enableDynamicSizing: true }));
+    // Capped below the full height, so long content never runs under the status bar.
+    expect((modalProps.mock.calls.at(-1)![0] as { maxDynamicContentSize?: number }).maxDynamicContentSize).toBeGreaterThan(0);
   });
 
   it("doesn't report a dismiss that finishes after the app reopened the sheet", () => {

@@ -142,10 +142,23 @@ describe("createLinkUnfurler", () => {
     ["a long attribute name", "a"],
     ["unclosed tags in a title", "<title>" + "<".repeat(1000)],
   ])("parses a 512 KiB page of %s in linear time", (_, unit) => {
-    const page = unit.repeat(Math.ceil((512 * 1024) / unit.length));
-    const started = performance.now();
-    parseOpenGraph(unit === "a" ? `<meta ${page}>` : page, "https://x.example/");
-    expect(performance.now() - started).toBeLessThan(500);
+    // Time grows with the page, not its square: four times the bytes may take about four times as
+    // long (quadratic would take sixteen). Compared against the same machine's smaller page, so a
+    // slow CI runner can't fail it; the best of three runs keeps a pause from counting.
+    const timeFor = (bytes: number) => {
+      const page = unit.repeat(Math.ceil(bytes / unit.length));
+      const html = unit === "a" ? `<meta ${page}>` : page;
+      let best = Infinity;
+      for (let i = 0; i < 3; i++) {
+        const started = performance.now();
+        parseOpenGraph(html, "https://x.example/");
+        best = Math.min(best, performance.now() - started);
+      }
+      return best;
+    };
+    const small = timeFor(128 * 1024);
+    const large = timeFor(512 * 1024);
+    expect(large).toBeLessThan(small * 10 + 50);
   });
 
   it("still reads a title and an unclosed script runs to the end", () => {

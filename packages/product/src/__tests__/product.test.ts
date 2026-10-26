@@ -29,7 +29,7 @@ const s = (n: number, extra: Partial<Signal> = {}): Signal => ({
 describe("board (@feat:product-roadmap)", () => {
   const catalog = [
     f("search", "planned", { horizon: "next" }),
-    f("export", "building", { claimedBy: "compass" }),
+    f("export", "building", { claimedBy: "alex" }),
     f("dark-mode", "planned", { horizon: "now" }),
     f("offline", "idea"),
     f("sharing", "idea", { aliases: ["share"] }),
@@ -41,7 +41,7 @@ describe("board (@feat:product-roadmap)", () => {
     expect(board.now.map((i) => i.feature.id)).toEqual(["export", "dark-mode"]);
     expect(board.next.map((i) => i.feature.id)).toEqual(["search"]);
     expect(board.later).toEqual([]);
-    expect(board.now[0]!.feature.claimedBy).toBe("compass");
+    expect(board.now[0]!.feature.claimedBy).toBe("alex");
   });
 
   it("ranks ideas by demand and leaves shipped features off the board", () => {
