@@ -23,6 +23,36 @@ which commit shipped.
 If a publish fails transiently, re-run it from Actions → Release →
 **Run workflow** on `main` (it publishes any version not yet on npm).
 
+## Release notes
+
+Release notes are for people, not developers: what reached beta or live in `features.ts`, written
+from each feature's tagline (`genesis-product release`, `packages/product`). Release does it
+around the publish:
+
+- **While the version PR is open**, each push to `main` posts the draft notes as one comment on
+  that PR, found by its `<!-- genesis-product:release-notes -->` marker and edited in place
+  (changesets rewrites the PR's body, so the notes can't live there). Edit the features' taglines
+  in `features.ts` to change them.
+- **After a successful publish**, it tags the commit `release/<YYYY-MM-DD>` (`-2`, `-3` for a
+  second release that day), drafts the notes since the previous `release/*` tag and makes them
+  that tag's GitHub release. The first time there is no `release/*` tag, so the notes start from
+  the last version packages merge.
+- **Then** it closes each open idea issue linked (`feature:<id>` label) to a feature that
+  shipped, with a "Shipped in release …" comment. Never before the publish, so nothing is closed
+  for a release that didn't ship.
+
+None of these steps can fail the publish: each continues on error and logs a warning saying what
+to do. To finish one by hand from an up-to-date `main` with every tag fetched:
+
+```bash
+prev=$(git describe --tags --match 'release/*' --abbrev=0 HEAD^)   # the release before this one
+pnpm product release --from "$prev" --name 2026-10-26 > notes.md     # then: gh release create release/2026-10-26 --notes-file notes.md
+pnpm product release --from "$prev" --name 2026-10-26 --notify       # lists the issues; add --yes to close them (GITHUB_TOKEN)
+```
+
+`--notify` refuses more than 10 changed features unless you pass `--force`, in case `--from` is
+wrong. These steps run only on `marktiderman/genesis`, never on a fork.
+
 ## How npm knows it is us
 
 Each package has one Trusted Publisher on npmjs.com (package → Settings →

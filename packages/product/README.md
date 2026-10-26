@@ -58,13 +58,16 @@ const markdown = renderBoard(board, { date: "2026-10-25" });
 The core (`.`) has no React and no I/O. `/node` reads the catalog from a file or a git ref, maps
 GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
+## On this repo's releases
+
+Release (`.github/workflows/release.yml`) runs `release` around each publish: draft notes as a
+comment on the open version PR, then, after a successful publish, a `release/<YYYY-MM-DD>` tag
+whose GitHub release holds the notes, and `--notify --yes` to close the ideas it answered. The
+diff starts from the previous `release/*` tag (the first time, the last version packages merge),
+so the job checks out with `fetch-depth: 0`. See docs/RELEASING.md, "Release notes".
+
 ## Not yet
 
-- Releases aren't wired into this repo's release flow yet. The plan, from the review: release.yml
-  pushes a `release/<date>` tag after a successful publish; the notes diff from the latest
-  `release/*` tag, go in a sticky comment on the Version Packages pull request (changesets
-  rewrites its body), and become the GitHub release's body; `--notify --yes` runs after the
-  publish, never before. A CI run of `release` needs `fetch-depth: 0` for the tags.
 - Not on npm: an app installs it once the owner publishes it (see Status above).
 
 - No database source, no insights captured from support reports, and no screens: the board is
