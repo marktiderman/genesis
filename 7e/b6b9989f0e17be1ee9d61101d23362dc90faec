@@ -1,0 +1,27 @@
+.changeset/325-followups.md
+  s_9bf81edc5cc904::t_b4d1814e729810 1-6
+packages/ui/src/components/data/KanbanBoard.tsx
+  s_9bf81edc5cc904::t_c992d6148a2e38 111-112,116-118,145,155-162,252-257
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_24dc310057b973 916-918
+packages/ui/src/components/data/__tests__/kanban-board-move.test.tsx
+  s_9bf81edc5cc904::t_a2a1baa01798e6 248-273
+packages/ui/src/components/data/__tests__/resource-page-embedded.test.tsx
+  s_9bf81edc5cc904::t_0c42d5d67a87eb 85-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7eb6b9989f0e17be1ee9d61101d23362dc90faec",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
