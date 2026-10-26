@@ -3,7 +3,7 @@
 -- share a conversation with the caller. Writes only its own users and conversation; rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, aud, role, email, instance_id, raw_user_meta_data)
 values
@@ -85,6 +85,12 @@ select is((select count(*) from public.chat_people(array_fill('00000000-0000-400
   'repeated ids return one row each');
 select is((select count(*) from public.chat_people(array_cat(array_fill('00000000-0000-4000-8000-0000000c9a03'::uuid, array[200]), array['00000000-0000-4000-8000-0000000c9a02'::uuid]))), 0::bigint,
   'only the first 200 ids are read');
+
+-- A signed-in role with no user (a NULL auth.uid()) reads no one.
+select set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', '', true);
+select is((select count(*) from public.chat_people((select array_agg(id) from people_ids))), 0::bigint,
+  'no user (NULL auth.uid()): no rows');
 
 reset role;
 select ok(not has_function_privilege('anon', 'public.chat_people(uuid[])', 'execute'), 'anon may not call it');
