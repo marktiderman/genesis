@@ -1,0 +1,21 @@
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_9bf81edc5cc904::t_66ec9712dcac98 146-154
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_9bf81edc5cc904::t_2091d89900aed3 6,35-39,84,99,101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0b3844d15d819db305a1e25c8d77a3d8429dd423",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
