@@ -1257,7 +1257,8 @@ export function useResourceTable<
     openRow: m.handleRowClick,
     closeDetail: m.closeDetail,
     openItemMissing: m.linkMissing,
-    create: m.useBuiltInCreate || props.onCreate ? m.handleCreate : undefined,
+    create:
+      (m.useBuiltInCreate || props.onCreate) && m.allows("create") ? m.handleCreate : undefined,
     edit: m.handleEdit,
     form: {
       open: m.formOpen,

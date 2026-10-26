@@ -175,6 +175,34 @@ describe("KanbanBoard keyboard pick-up", () => {
     await waitFor(() => expect(live()).toBe("Couldn’t move Ana."));
   });
 
+  it("doesn't pull focus back to a card whose move failed", async () => {
+    let reject!: (error: Error) => void;
+    const onMoveItem = () => new Promise<void>((_, r) => (reject = r));
+    const board = () => (
+      <>
+        <button type="button">Elsewhere</button>
+        <KanbanBoard<Card>
+          columns={columns}
+          getKey={(c) => c.id}
+          getItemLabel={(c) => c.name}
+          renderCard={(c) => <div>{c.name}</div>}
+          onMoveItem={onMoveItem}
+        />
+      </>
+    );
+    const { rerender } = render(board());
+    fireEvent.keyDown(screen.getByRole("button", { name: "Move Ana" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
+    // The user moves on while the move is still saving; then it fails.
+    screen.getByRole("button", { name: "Elsewhere" }).focus();
+    await act(async () => reject(new Error("nope")));
+    await waitFor(() => expect(live()).toBe("Couldn’t move Ana."));
+    // Later, focus leaves for the page: it must stay there.
+    (document.activeElement as HTMLElement).blur();
+    rerender(board());
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("ignores a pointer click on the handle", () => {
     const onMoveItem = vi.fn();
     renderBoard(onMoveItem);

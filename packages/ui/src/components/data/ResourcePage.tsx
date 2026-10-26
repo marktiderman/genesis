@@ -6,11 +6,6 @@ import {
   type ComponentProps,
   type ComponentType,
   type ReactNode,
-  useMemo,
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
 } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
@@ -43,23 +38,18 @@ import {
 } from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
-import {
+// Types only: the behaviour lives in `useResourceTableModel`.
+import type {
   useResource,
-  type MutationMode,
-  type UseResourceOptions,
+  MutationMode,
+  UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { useResourceTableModel } from "./use-resource-table";
-import {
-  useResourcePage,
-  type ResourceColumnDef,
-  type ResourceActions,
+import type {
+  ResourceColumnDef,
+  ResourceActions,
 } from "../../hooks/use-resource-page";
-import { useViewSettings } from "../../hooks/use-view-settings";
-import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
-import {
-  useResourceUrlState,
-  type ResourceUrlStateOptions,
-} from "../../hooks/use-resource-url-state";
+import type { ResourceUrlStateOptions } from "../../hooks/use-resource-url-state";
 import {
   isDataReadError,
   type BaseRecord,
