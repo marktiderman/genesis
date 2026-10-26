@@ -2,6 +2,7 @@ import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
 import type { BaseRecord, Identifier } from "../provider/types";
 import { useLiveInvalidation, type LiveOptions } from "./use-live";
+import { resourceKeys } from "../query-keys";
 
 // ---------------------------------------------------------------------------
 // Options
@@ -59,7 +60,7 @@ export function useOne<T extends BaseRecord = BaseRecord>(
     // — no error, no refetch, just absent data. `useResource`'s list key has
     // always included `select` (it keys on the whole `params` object); this
     // was the one place it did not.
-    queryKey: [resource, "detail", id, select],
+    queryKey: resourceKeys(resource).detail(id, select),
     queryFn: async () => {
       if (id == null) throw new Error("Missing id");
       const result = await provider.getOne<T>(resource, { id, select });

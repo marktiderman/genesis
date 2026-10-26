@@ -355,3 +355,33 @@ leave; asks with `window.confirm` otherwise). For other state,
 `useUnsavedChangesGuard({ when, message, confirm })` gives the same
 `confirmLeave` and `beforeunload` handling. Neither depends on a router; see
 genesis-ui's SKILL.md "Unsaved changes" for React Router and TanStack Router.
+
+## Query keys
+
+Build every cache key in one place, so a write invalidates what it made stale and nothing cached for
+one person shows to another.
+
+```ts
+import { defineQueryKeys, resourceKeys, useViewerCache } from "@marktiderman/genesis-core";
+
+export const worksheetKeys = defineQueryKeys("worksheet-items", {
+  // The fields that make one query distinct. Sort arrays: order never makes two keys.
+  lessonParts: (people: string[]) => ({ people: [...people].sort() }),
+  byEntry: (entryId: string) => ({ entryId }),
+});
+
+// Reading: keys exist only for a scope. `viewer` is required; `group` and `day` when the read depends on them.
+useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).lessonParts(people), queryFn });
+
+// Invalidating:
+queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
+queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });  // one kind
+queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));    // every key with this person, multi-person keys included
+queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // what useResource / useOne cache
+
+// Once, where the session is known (undefined while it loads): empties the cache when the viewer changes.
+useViewerCache(session === undefined ? undefined : (session?.user.id ?? null));
+```
+
+Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where({...})` matches a field that
+is equal, or an array field that contains the value; add `kind` to narrow it.
