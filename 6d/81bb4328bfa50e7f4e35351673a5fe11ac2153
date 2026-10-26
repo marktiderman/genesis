@@ -1,0 +1,19 @@
+.claude/settings.json
+  s_4f741740df2795::t_cc1d6e29008094 13-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d81bb4328bfa50e7f4e35351673a5fe11ac2153",
+  "prompts": {},
+  "sessions": {
+    "s_4f741740df2795": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3c33135b-cb61-4cf5-ac3a-aabd83762937",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
