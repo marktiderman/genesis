@@ -17,7 +17,8 @@
 --
 -- The app hooks: who may read and write a row is your app's answer, through two functions this
 -- file calls but doesn't define. Without them nobody signed in reads or writes anything, so a
--- fresh install fails closed. The service role (server code) is not limited.
+-- fresh install fails closed, and so does a hook that errors. The service role (server code) is not limited by
+-- row security.
 --
 --   private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid,
 --                             organization_id uuid, action text) returns boolean
@@ -38,8 +39,11 @@
 --   $$;
 --   revoke execute on function private.genesis_readable_owners(uuid) from public, anon, authenticated;
 --
--- Guards: tenant_id and the owner columns never change after insert; a parent pursuit and a
--- work item's pursuit must be in the same tenant; a pursuit is never its own ancestor.
+-- Guards: a signed-in person never changes a row's tenant or owner (server code may, for a merge
+-- or when someone leaves) and never sets created_by; a parent pursuit and a work item's pursuit
+-- must be in the same tenant; a pursuit is never its own ancestor. Links are checked as the table
+-- owner, so a row the caller can't see still counts, under a per-tenant lock, and only when a
+-- link is set or changes.
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
@@ -149,41 +153,90 @@ create index work_items_created_by_idx on public.work_items (created_by);
 
 -- Guards ---------------------------------------------------------------------------------------
 
--- updated_at, completed_at, the fixed tenant and owner, and same-tenant links.
-create or replace function private.genesis_pursuits_guard()
-returns trigger
+-- Whether the caller is a signed-in person (not server code or a migration), from the request's
+-- role, so it holds inside security definer functions too.
+create or replace function private.genesis_pursuits_caller_is_person()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+$$;
+
+-- A parent link, checked as the table owner (so a pursuit hidden from the caller still counts)
+-- and under a per-tenant lock (so two links made at once can't close a loop between them).
+create or replace function private.genesis_pursuits_check_parent(tenant uuid, child uuid, parent uuid)
+returns void
 language plpgsql
+security definer
 set search_path = ''
 as $$
 declare
-  ancestor uuid;
+  ancestor uuid := parent;
   hops integer := 0;
 begin
-  if tg_op = 'UPDATE' then
-    if new.tenant_id is distinct from old.tenant_id
-       or new.person_id is distinct from old.person_id
-       or new.team_id is distinct from old.team_id
-       or new.organization_id is distinct from old.organization_id then
-      raise exception 'A pursuit''s tenant and owner never change' using errcode = '22023';
+  perform pg_advisory_xact_lock(hashtextextended('genesis_pursuits:' || tenant::text, 0));
+  if not exists (select 1 from public.pursuits p where p.id = parent and p.tenant_id = tenant) then
+    raise exception 'A pursuit''s parent must be in the same tenant' using errcode = '22023';
+  end if;
+  while ancestor is not null loop
+    if ancestor = child then
+      raise exception 'A pursuit can''t be its own ancestor' using errcode = '22023';
+    end if;
+    hops := hops + 1;
+    if hops > 100 then
+      raise exception 'Pursuits nest at most 100 deep' using errcode = '22023';
+    end if;
+    select p.parent_id into ancestor from public.pursuits p where p.id = ancestor;
+  end loop;
+end;
+$$;
+
+-- A work item's pursuit, checked as the table owner.
+create or replace function private.genesis_work_items_check_pursuit(tenant uuid, pursuit uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from public.pursuits p where p.id = pursuit and p.tenant_id = tenant) then
+    raise exception 'A work item''s pursuit must be in the same tenant' using errcode = '22023';
+  end if;
+end;
+$$;
+
+-- updated_at, who made it, the fixed tenant and owner (server code may move a row between
+-- owners, for a merge or when someone leaves), and same-tenant links, checked only when a link
+-- is set or changes.
+create or replace function private.genesis_pursuits_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    if private.genesis_pursuits_caller_is_person() then
+      new.created_by := auth.uid();
+    end if;
+  else
+    if private.genesis_pursuits_caller_is_person() then
+      if new.tenant_id is distinct from old.tenant_id
+         or new.person_id is distinct from old.person_id
+         or new.team_id is distinct from old.team_id
+         or new.organization_id is distinct from old.organization_id then
+        raise exception 'A pursuit''s tenant and owner never change' using errcode = '22023';
+      end if;
+      new.created_by := old.created_by;
     end if;
     new.updated_at := now();
   end if;
 
-  if new.parent_id is not null then
-    if not exists (select 1 from public.pursuits p where p.id = new.parent_id and p.tenant_id = new.tenant_id) then
-      raise exception 'A pursuit''s parent must be in the same tenant' using errcode = '22023';
-    end if;
-    ancestor := new.parent_id;
-    while ancestor is not null loop
-      if ancestor = new.id then
-        raise exception 'A pursuit can''t be its own ancestor' using errcode = '22023';
-      end if;
-      hops := hops + 1;
-      if hops > 100 then
-        raise exception 'Pursuits nest at most 100 deep' using errcode = '22023';
-      end if;
-      select p.parent_id into ancestor from public.pursuits p where p.id = ancestor;
-    end loop;
+  if new.parent_id is not null
+     and (tg_op = 'INSERT' or new.parent_id is distinct from old.parent_id or new.tenant_id is distinct from old.tenant_id) then
+    perform private.genesis_pursuits_check_parent(new.tenant_id, new.id, new.parent_id);
   end if;
   return new;
 end;
@@ -196,22 +249,30 @@ create trigger pursuits_guard
 create or replace function private.genesis_work_items_guard()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
-  if tg_op = 'UPDATE' then
-    if new.tenant_id is distinct from old.tenant_id
-       or new.person_id is distinct from old.person_id
-       or new.team_id is distinct from old.team_id
-       or new.organization_id is distinct from old.organization_id then
-      raise exception 'A work item''s tenant and owner never change' using errcode = '22023';
+  if tg_op = 'INSERT' then
+    if private.genesis_pursuits_caller_is_person() then
+      new.created_by := auth.uid();
+    end if;
+  else
+    if private.genesis_pursuits_caller_is_person() then
+      if new.tenant_id is distinct from old.tenant_id
+         or new.person_id is distinct from old.person_id
+         or new.team_id is distinct from old.team_id
+         or new.organization_id is distinct from old.organization_id then
+        raise exception 'A work item''s tenant and owner never change' using errcode = '22023';
+      end if;
+      new.created_by := old.created_by;
     end if;
     new.updated_at := now();
   end if;
 
   if new.pursuit_id is not null
-     and not exists (select 1 from public.pursuits p where p.id = new.pursuit_id and p.tenant_id = new.tenant_id) then
-    raise exception 'A work item''s pursuit must be in the same tenant' using errcode = '22023';
+     and (tg_op = 'INSERT' or new.pursuit_id is distinct from old.pursuit_id or new.tenant_id is distinct from old.tenant_id) then
+    perform private.genesis_work_items_check_pursuit(new.tenant_id, new.pursuit_id);
   end if;
 
   if new.status = 'done' and (tg_op = 'INSERT' or old.status is distinct from 'done') then
@@ -229,7 +290,8 @@ create trigger work_items_guard
 
 -- Access ---------------------------------------------------------------------------------------
 
--- The (tenant, owner) pairs the signed-in person may read, from the app's hook. No hook, no rows.
+-- The (tenant, owner) pairs the signed-in person may read, from the app's hook. No hook, or a
+-- hook that errors, gives no rows.
 create or replace function private.genesis_pursuits_readable()
 returns table (tenant_id uuid, owner_id uuid)
 language plpgsql
@@ -241,11 +303,14 @@ begin
   if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
     return;
   end if;
-  return query execute 'select r.tenant_id, r.owner_id from private.genesis_readable_owners($1) r' using auth.uid();
+  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
+exception when others then
+  return;
 end;
 $$;
 
--- Whether the signed-in person may write a row with this tenant and owner. No hook, no writes.
+-- Whether the signed-in person may write a row with this tenant and owner. No hook, or a hook
+-- that errors, means no.
 create or replace function private.genesis_pursuits_can_write(tenant uuid, person uuid, team uuid, organization uuid)
 returns boolean
 language plpgsql
@@ -260,14 +325,19 @@ begin
      or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
     return false;
   end if;
-  execute 'select private.genesis_owner_can($1, $2, $3, $4, $5, ''write'')'
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, ''write''))::boolean'
     into allowed using tenant, auth.uid(), person, team, organization;
   return coalesce(allowed, false);
+exception when others then
+  return false;
 end;
 $$;
 
 revoke execute on function private.genesis_pursuits_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_work_items_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_pursuits_check_parent(uuid, uuid, uuid) from public, anon, authenticated;
+revoke execute on function private.genesis_work_items_check_pursuit(uuid, uuid) from public, anon, authenticated;
+revoke execute on function private.genesis_pursuits_caller_is_person() from public, anon, authenticated;
 revoke execute on function private.genesis_pursuits_readable() from public, anon;
 revoke execute on function private.genesis_pursuits_can_write(uuid, uuid, uuid, uuid) from public, anon;
 grant execute on function private.genesis_pursuits_readable() to authenticated;
@@ -276,8 +346,11 @@ grant execute on function private.genesis_pursuits_can_write(uuid, uuid, uuid, u
 alter table public.pursuits enable row level security;
 alter table public.work_items enable row level security;
 
+-- An exists form, so the planner can use the (tenant, owner) indexes.
 create policy pursuits_read on public.pursuits for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_pursuits_readable() r));
+  using (exists (select 1 from private.genesis_pursuits_readable() r
+                 where r.tenant_id = pursuits.tenant_id
+                   and r.owner_id = coalesce(pursuits.person_id, pursuits.team_id, pursuits.organization_id)));
 create policy pursuits_insert on public.pursuits for insert to authenticated
   with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
 create policy pursuits_update on public.pursuits for update to authenticated
@@ -287,7 +360,9 @@ create policy pursuits_delete on public.pursuits for delete to authenticated
   using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
 
 create policy work_items_read on public.work_items for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_pursuits_readable() r));
+  using (exists (select 1 from private.genesis_pursuits_readable() r
+                 where r.tenant_id = work_items.tenant_id
+                   and r.owner_id = coalesce(work_items.person_id, work_items.team_id, work_items.organization_id)));
 create policy work_items_insert on public.work_items for insert to authenticated
   with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
 create policy work_items_update on public.work_items for update to authenticated
