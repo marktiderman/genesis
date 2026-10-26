@@ -62,7 +62,7 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [own, setOwn] = useState<string | null>(defaultSelectedId);
   const [searching, setSearching] = useState(false);
-  const [jump, setJump] = useState<{ messageId: string; seq?: number } | null>(null);
+  const [jump, setJump] = useState<{ messageId: string; seq?: number; threadRootId?: string | null } | null>(null);
   const { items } = useInbox({ kind: inboxProps?.kind });
   const titleOf = (id: string) => {
     const item = items.find((i: ChatInboxItem) => i.conversationId === id);
@@ -113,7 +113,7 @@ export function ChatPanel({
               autoFocus
               conversationTitle={titleOf}
               onOpen={(hit) => {
-                setJump({ messageId: hit.messageId, seq: hit.seq });
+                setJump({ messageId: hit.messageId, seq: hit.seq, threadRootId: hit.threadRootId });
                 select(hit.conversationId);
               }}
               className="min-h-0 flex-1"

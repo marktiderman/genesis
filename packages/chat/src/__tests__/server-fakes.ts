@@ -10,6 +10,7 @@ export interface FakeSupabase {
   rpcCalls: { fn: string; args: Record<string, unknown> }[];
   removed: { bucket: string; paths: string[] }[];
   signed: string[];
+  uploaded: { bucket: string; path: string; bytes: number; contentType?: string }[];
 }
 
 /** rpc results by function name; tables as arrays of rows, filtered by eq(). */
@@ -22,6 +23,7 @@ export function fakeSupabase(opts: {
   const rpcCalls: FakeSupabase["rpcCalls"] = [];
   const removed: FakeSupabase["removed"] = [];
   const signed: string[] = [];
+  const uploaded: FakeSupabase["uploaded"] = [];
   const builder = (table: string) => {
     const filters: [string, unknown][] = [];
     let orderBy: string | null = null;
@@ -58,6 +60,10 @@ export function fakeSupabase(opts: {
           removed.push({ bucket, paths });
           return { data: opts.removeError ? null : paths.map((name) => ({ name })), error: opts.removeError ?? null };
         },
+        upload: async (path: string, body: ArrayBuffer, o?: { contentType?: string }) => {
+          uploaded.push({ bucket, path, bytes: body.byteLength, contentType: o?.contentType });
+          return { data: { path }, error: null };
+        },
         createSignedUrl: async (path: string, seconds: number) => {
           signed.push(`${path}@${seconds}`);
           return opts.signedUrlError
@@ -67,7 +73,7 @@ export function fakeSupabase(opts: {
       }),
     },
   };
-  return { client: client as unknown as ChatSupabase, rpcCalls, removed, signed };
+  return { client: client as unknown as ChatSupabase, rpcCalls, removed, signed, uploaded };
 }
 
 export interface FakeFetch {
