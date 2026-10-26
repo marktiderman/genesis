@@ -105,6 +105,8 @@ export interface SupabaseRealtimeChannel {
  */
 export interface SupabaseClientInput {
   from(table: string): unknown;
+  /** Database functions, for a resource whose `source` is an `rpc`. Any real client's `rpc` fits. */
+  rpc?(fn: string, args?: Record<string, unknown>, options?: { count?: "exact" | "planned" | "estimated" }): unknown;
   /** Supabase Realtime, for `subscribe`. Any real client's `channel` fits. */
   channel?(name: string): unknown;
   removeChannel?(channel: unknown): unknown;
@@ -194,6 +196,23 @@ export interface SupabaseResourceConfig {
    * covers the resource.
    */
   realtime?: boolean;
+  /**
+   * Read this resource from somewhere else than its table: a view (joins,
+   * counts, aggregations) or a database function that returns rows. Writes
+   * still go to the table. Lists keep paging, filters, search, sort, totals
+   * and cursors, because PostgREST filters a view or a set-returning function
+   * like a table. Realtime still watches the table.
+   *
+   * ```ts
+   * resources: {
+   *   tasks: { source: "tasks_with_people" },
+   *   course_progress: { source: { rpc: "group_progress", args: () => ({ group_id: currentGroup() }) } },
+   * }
+   * ```
+   */
+  source?: string | { rpc: string; args?: () => Record<string, unknown> };
+  /** The columns read when the caller names none, e.g. embedded joins: `"*, person:people(full_name)"`. Default `"*"`. */
+  select?: string;
 }
 
 /** Options for `createSupabaseProvider`. All optional; none changes reads. */
@@ -464,6 +483,22 @@ export function createSupabaseProvider(
   // ---------------------------------------------------------------------------
 
   const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
+
+  /** A read of `resource` from its configured source (table, view or function), with its default columns. */
+  function read(resource: string, columns: string | undefined, count?: "exact"): SupabaseQueryBuilder {
+    const config = configFor(resource);
+    const cols = columns ?? config.select ?? "*";
+    const source = config.source;
+    if (source && typeof source === "object") {
+      if (!client.rpc) {
+        throw new DataReadError("error", `[SupabaseProvider] "${resource}" reads from ${source.rpc}(), but the client has no rpc.`);
+      }
+      const builder = client.rpc(source.rpc, source.args?.() ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
+      return builder.select(cols);
+    }
+    const table = client.from(source ?? resource) as SupabaseQueryBuilder;
+    return count ? table.select(cols, { count }) : table.select(cols);
+  }
   const configFor = (resource: string): SupabaseResourceConfig =>
     options.resources?.[resource] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
@@ -631,10 +666,7 @@ export function createSupabaseProvider(
       }
     }
 
-    let query = from(resource).select(
-      params.select ?? "*",
-      ...(cursor ? [] : [{ count: "exact" as const }]),
-    );
+    let query = read(resource, params.select, cursor ? undefined : "exact");
     query = applyFilters(query, params.filters);
     const search = searchClauses(resource, params);
     const keyset = after ? keysetClauses(after) : "";
@@ -703,10 +735,7 @@ export function createSupabaseProvider(
         return getCursorPage(resource, params, configuredKey === undefined ? "id" : configuredKey) as never;
       }
       const run = (key: string | false) => {
-        let query = (client.from(resource) as SupabaseQueryBuilder).select(
-          params.select ?? "*",
-          { count: "exact" },
-        );
+        let query = read(resource, params.select, "exact");
 
         query = applyFilters(query, params.filters);
 
@@ -763,8 +792,7 @@ export function createSupabaseProvider(
     },
 
     async getOne(resource, params) {
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .select(params.select ?? "*")
+      const result = (await read(resource, params.select)
         .eq("id", params.id)
         .single()) as { data: unknown; error: unknown };
       await throwIfReadError(result, resource, "getOne");
@@ -773,8 +801,7 @@ export function createSupabaseProvider(
 
     async getMany(resource, params) {
       if (params.ids.length === 0) return { data: [] } as never;
-      const result = (await (client.from(resource) as SupabaseQueryBuilder)
-        .select("*")
+      const result = (await read(resource, undefined)
         .in("id", params.ids)) as { data: unknown[]; error: unknown };
       await throwIfReadError(result, resource, "getMany");
       return { data: result.data ?? [] } as never;

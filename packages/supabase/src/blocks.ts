@@ -110,3 +110,18 @@ export const featureMirrorBlock = defineBlock({
     },
   },
 });
+
+/**
+ * The jobs block: a background-job queue and named schedules that call the
+ * app's job route. Server only; the route is `createJobsHandler` from `/jobs`.
+ *
+ * @stability Beta
+ */
+export const jobsBlock = defineBlock({
+  id: "jobs",
+  platforms: ["web"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0007_genesis_jobs.sql", test: "migrations/tests/0007_genesis_jobs.test.sql" }],
+    privacy: { notes: ["Job payloads hold ids, never content or secrets; finished jobs are deleted after 14 days."] },
+  },
+});
