@@ -174,7 +174,7 @@ the sender a `domain_token`, the tenant adds the TXT record `senderOwnershipReco
 token)` (`_genesis-notifications.<domain>` = `genesis-notifications-verify=<token>`) beside
 Resend's records, and `checkSenderDomain(domain, { token, reservedDomains })` reads it with SPF,
 DKIM and DMARC over DNS over HTTPS; `genesis_notifications_set_sender_dns(tenant, domain,
-status, dns)` records the result for the domain checked. A domain is verified for one tenant at
+token, status, dns)` records the result for the domain and token checked. A domain is verified for one tenant at
 most, and never the app's own shared domains or one under them (`reservedDomains`; the runner
 refuses one too). Transactional and other mail
 go from separate shared domains (`domains: { transactional, other }`), tagged `stream`.

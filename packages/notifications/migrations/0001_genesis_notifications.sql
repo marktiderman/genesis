@@ -208,7 +208,7 @@ alter table public.notification_preferences
     );
 
 -- Tenant id -> category id -> channel -> on: a choice for one tenant only (an unsubscribe
--- from one tenant's mail). It wins over `channels` for that tenant; a choice made in
+-- from one tenant's mail; the nil uuid for mail sent for no tenant). It wins over `channels` for that tenant; a choice made in
 -- Settings (genesis_notifications_set_preference) clears it for that category and channel.
 alter table public.notification_preferences
   add column tenant_channels jsonb not null default '{}'::jsonb
@@ -297,7 +297,12 @@ values ('genesis.test', 'genesis', '{"in_app": true, "push": true, "email": true
 -- sign-ins. A token moves to another login only when that login registers it
 -- with the same install id (the same phone).
 alter table public.push_devices
-  add column installation_id uuid;
+  add column installation_id uuid,
+  -- Registered before install ids existed (a row 0005 left): the first register that brings an
+  -- install id may adopt it, once. Only rows already here when this migration runs; a row made
+  -- since (the three-argument register included) never is, so knowing its token never takes it.
+  add column adoptable boolean not null default false;
+update public.push_devices set adoptable = true where installation_id is null;
 
 -- Every time a token moved from one login to another. Read by the service role only.
 create table public.push_device_moves (
@@ -324,9 +329,9 @@ grant select, delete on table public.push_device_moves to service_role;
 -- other login didn't sign out cleanly); the move is recorded in
 -- push_device_moves. Otherwise it is refused (42501) and nothing changes:
 -- knowing a token never takes it. One exception, so an upgrade from 0005
--- strands no phone: a row with no install id (0005's, or one registered with
--- the three-argument form) is adopted by the first register that brings one,
--- and that move is recorded too. The caller's ten most recently seen devices
+-- strands no phone: a row 0005 left with no install id (only those, never
+-- one registered since, through the three-argument form or otherwise) is
+-- adopted by the first register that brings one, and that move is recorded too. The caller's ten most recently seen devices
 -- are kept.
 create function public.genesis_push_register(p_token text, p_platform text, p_app_version text, p_installation_id uuid)
 returns uuid
@@ -347,7 +352,9 @@ begin
   end if;
   select * into holder from public.push_devices d where d.token = p_token for update;
   if found and holder.user_id <> me then
-    if p_installation_id is null or (holder.installation_id is not null and holder.installation_id <> p_installation_id) then
+    if p_installation_id is null
+       or (holder.installation_id is null and not holder.adoptable)
+       or (holder.installation_id is not null and holder.installation_id <> p_installation_id) then
       raise exception 'genesis_push_register: this token is registered to another sign-in' using errcode = '42501';
     end if;
     delete from public.push_devices d where d.id = holder.id;
@@ -358,7 +365,8 @@ begin
   values (me, p_token, p_platform, p_app_version, p_installation_id)
   on conflict (token) do update
     set platform = excluded.platform, app_version = excluded.app_version, last_seen_at = now(),
-        installation_id = coalesce(excluded.installation_id, d.installation_id)
+        installation_id = coalesce(excluded.installation_id, d.installation_id),
+        adoptable = d.adoptable and coalesce(excluded.installation_id, d.installation_id) is null
     where d.user_id = me
   returning d.id into device;
   if device is null then
@@ -461,7 +469,8 @@ comment on table public.notification_tenant_defaults is
 -- Addresses not to email, by SHA-256 of the lower-cased address. category '*'
 -- is every category: a hard bounce stops all mail, a complaint all but
 -- transactional mail; an unsubscribe (of someone with no login) one category
--- of one tenant (tenant_id null: every tenant, as bounces and complaints are).
+-- of one tenant (tenant_id null: the mail sent for no tenant). A bounce, a
+-- complaint or a manual entry has tenant_id null and holds for every tenant.
 create table public.notification_suppressions (
   email_hash text not null
     constraint notification_suppressions_hash check (email_hash ~ '^[0-9a-f]{64}$'),
@@ -547,8 +556,10 @@ create table public.notification_deliveries (
   lease_until timestamptz,
   -- The claim this row is leased to; settling with another one is stale.
   claim_id uuid,
-  -- Cancelled while it was being sent: unless that attempt went out, it ends cancelled, never retried.
-  cancel_requested boolean not null default false,
+  -- Cancelled ('cancelled') or collapsed ('collapsed') while it was being sent: unless that
+  -- attempt went out, it ends cancelled with this reason, never retried.
+  cancel_requested text
+    constraint notification_deliveries_cancel_requested check (cancel_requested in ('cancelled', 'collapsed')),
   -- Resend's email id, or the push ticket ids live in push_receipts.
   provider_id text
     constraint notification_deliveries_provider_id check (char_length(provider_id) <= 200),
@@ -828,11 +839,10 @@ begin
   if p_user is not null then
     select * into pref from public.notification_preferences n where n.user_id = p_user;
     if found then
-      if p_tenant is not null then
-        chosen := (pref.tenant_channels -> p_tenant::text -> t.category ->> p_channel)::boolean;
-        if chosen is not null then
-          return chosen;
-        end if;
+      -- Mail sent for no tenant is under the nil uuid.
+      chosen := (pref.tenant_channels -> coalesce(p_tenant, '00000000-0000-0000-0000-000000000000'::uuid)::text -> t.category ->> p_channel)::boolean;
+      if chosen is not null then
+        return chosen;
       end if;
       chosen := (pref.channels -> t.category ->> p_channel)::boolean;
       if chosen is not null then
@@ -976,7 +986,7 @@ begin
         and d.status = 'pending';
       -- One being sent right now ends collapsed unless that attempt goes out.
       update public.notification_deliveries d
-      set cancel_requested = true, updated_at = now()
+      set cancel_requested = coalesce(d.cancel_requested, 'collapsed'), updated_at = now()
       from public.notifications o
       where d.notification_id = o.id and o.recipient_key = n_key and o.collapse_key = p_collapse_key and o.id <> n_id
         and o.tenant_id is not distinct from p_tenant_id
@@ -1096,8 +1106,8 @@ begin
       for update skip locked
     )
   loop
-    if d.status = 'sending' and d.cancel_requested then
-      update public.notification_deliveries x set status = 'cancelled', skip_reason = 'cancelled', secret_ciphertext = null, lease_until = null, claim_id = null, updated_at = now() where x.id = d.id;
+    if d.status = 'sending' and d.cancel_requested is not null then
+      update public.notification_deliveries x set status = 'cancelled', skip_reason = d.cancel_requested, secret_ciphertext = null, lease_until = null, claim_id = null, updated_at = now() where x.id = d.id;
       continue;
     end if;
     if d.status = 'sending' and d.attempts >= greatest(1, coalesce(p_max_attempts, 8)) then
@@ -1125,7 +1135,9 @@ begin
         select 1 from public.notification_suppressions s
         where s.email_hash = key_
           and (s.reason = 'bounce' or (not d.t_transactional and (s.category = '*' or s.category = d.n_category)
-                                         and (s.tenant_id is null or s.tenant_id = d.tenant_id)))
+                                         -- An unsubscribe holds for its own tenant (null: mail sent for none); others for all.
+                                         and case when s.reason = 'unsubscribe' then s.tenant_id is not distinct from d.tenant_id
+                                                  else s.tenant_id is null or s.tenant_id = d.tenant_id end))
       ) then
         update public.notification_deliveries x set status = 'skipped', skip_reason = 'suppressed', secret_ciphertext = null, lease_until = null, updated_at = now() where x.id = d.id;
         continue;
@@ -1243,16 +1255,16 @@ begin
     raise exception 'genesis_notifications_settle: unknown status' using errcode = '22023';
   end if;
   update public.notification_deliveries d
-  set status = case st when 'sent' then 'sent' when 'retry' then (case when d.cancel_requested then 'cancelled' else 'pending' end) when 'failed' then 'failed' else 'skipped' end,
-      send_after = case when st = 'retry' and not d.cancel_requested then coalesce((p_outcome ->> 'retry_at')::timestamptz, now() + interval '5 minutes') else d.send_after end,
+  set status = case st when 'sent' then 'sent' when 'retry' then (case when d.cancel_requested is not null then 'cancelled' else 'pending' end) when 'failed' then 'failed' else 'skipped' end,
+      send_after = case when st = 'retry' and d.cancel_requested is null then coalesce((p_outcome ->> 'retry_at')::timestamptz, now() + interval '5 minutes') else d.send_after end,
       attempts = case when st = 'retry' and not counted then greatest(0, d.attempts - 1) else d.attempts end,
       deferrals = case when st = 'retry' and not counted then d.deferrals + 1 else d.deferrals end,
       error = case when st in ('failed', 'retry') then left(p_outcome ->> 'error', 500) else null end,
       skip_reason = case when st = 'skipped' then coalesce(substring(p_outcome ->> 'reason' from '^[a-z_]{1,64}$'), 'not_sent') when st = 'filtered' then 'filtered'
-                         when st = 'retry' and d.cancel_requested then 'cancelled' end,
+                         when st = 'retry' and d.cancel_requested is not null then d.cancel_requested end,
       provider_id = coalesce(left(p_outcome ->> 'provider_id', 200), d.provider_id),
       sent_at = case when st = 'sent' then now() else d.sent_at end,
-      secret_ciphertext = case when st = 'retry' and not d.cancel_requested then d.secret_ciphertext end,
+      secret_ciphertext = case when st = 'retry' and d.cancel_requested is null then d.secret_ciphertext end,
       lease_until = null,
       claim_id = null,
       updated_at = now()
@@ -1452,6 +1464,8 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  tkey text;
 begin
   if p_category !~ '^[a-z0-9][a-z0-9._-]{0,63}$' then
     raise exception 'genesis_notifications_unsubscribe: malformed category' using errcode = '22023';
@@ -1460,20 +1474,14 @@ begin
     if not exists (select 1 from auth.users u where u.id = p_user_id) then
       return false;
     end if;
-    if p_tenant_id is null then
-      insert into public.notification_preferences as p (user_id, channels)
-      values (p_user_id, jsonb_build_object(p_category, jsonb_build_object('email', false)))
-      on conflict (user_id) do update
-        set channels = jsonb_set(p.channels, array[p_category], coalesce(p.channels -> p_category, '{}'::jsonb) || '{"email": false}'::jsonb);
-    else
-      insert into public.notification_preferences as p (user_id, tenant_channels)
-      values (p_user_id, jsonb_build_object(p_tenant_id::text, jsonb_build_object(p_category, jsonb_build_object('email', false))))
-      on conflict (user_id) do update
-        set tenant_channels = jsonb_set(
-          p.tenant_channels || jsonb_build_object(p_tenant_id::text, coalesce(p.tenant_channels -> p_tenant_id::text, '{}'::jsonb)),
-          array[p_tenant_id::text, p_category],
-          coalesce(p.tenant_channels -> p_tenant_id::text -> p_category, '{}'::jsonb) || '{"email": false}'::jsonb);
-    end if;
+    tkey := coalesce(p_tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)::text;
+    insert into public.notification_preferences as p (user_id, tenant_channels)
+    values (p_user_id, jsonb_build_object(tkey, jsonb_build_object(p_category, jsonb_build_object('email', false))))
+    on conflict (user_id) do update
+      set tenant_channels = jsonb_set(
+        p.tenant_channels || jsonb_build_object(tkey, coalesce(p.tenant_channels -> tkey, '{}'::jsonb)),
+        array[tkey, p_category],
+        coalesce(p.tenant_channels -> tkey -> p_category, '{}'::jsonb) || '{"email": false}'::jsonb);
     return true;
   end if;
   if p_email_hash is null then
@@ -1606,9 +1614,9 @@ $$;
 
 -- Sets the outcome of a sender domain check (the server runs it: the ownership
 -- TXT record with the sender's domain_token, SPF, DKIM, DMARC) for the domain
--- that was checked: if the tenant changed its domain since, nothing changes
--- (false). A domain verified for another tenant is refused (23505).
-create function public.genesis_notifications_set_sender_dns(p_tenant uuid, p_domain text, p_status text, p_dns jsonb)
+-- and token that were checked: if the tenant changed its domain since (even
+-- back again, which makes a new token), nothing changes (false). A domain verified for another tenant is refused (23505).
+create function public.genesis_notifications_set_sender_dns(p_tenant uuid, p_domain text, p_token text, p_status text, p_dns jsonb)
 returns boolean
 language plpgsql
 security definer
@@ -1621,7 +1629,7 @@ begin
   begin
     update public.notification_senders s
     set domain_status = p_status, dns = p_dns, checked_at = now(), updated_at = now()
-    where s.tenant_id = p_tenant and s.domain = lower(p_domain);
+    where s.tenant_id = p_tenant and s.domain = lower(p_domain) and s.domain_token = p_token;
   exception
     when unique_violation then
       raise exception 'genesis_notifications_set_sender_dns: that domain is verified for another tenant' using errcode = '23505';
@@ -1716,7 +1724,8 @@ begin
     raise exception 'genesis_notifications_set_preference: unknown channel' using errcode = '22023';
   end if;
   if not exists (select 1 from public.notification_types t where t.category = p_category and t.retired_at is null and t.channels ? p_channel) then
-    raise exception 'genesis_notifications_set_preference: no type in that category uses that channel' using errcode = '22023';
+    -- Its own code (undefined_object), so a caller can tell it from a refusal.
+    raise exception 'genesis_notifications_set_preference: no type in that category uses that channel' using errcode = '42704';
   end if;
   if p_on is false and not exists (
     select 1 from public.notification_types t where t.category = p_category and t.retired_at is null and t.channels ? p_channel and not t.critical
@@ -1804,12 +1813,12 @@ begin
   get diagnostics cancelled = row_count;
   -- Being sent right now: settle won't put it back in the queue, and an expired lease ends it.
   update public.notification_deliveries d
-  set cancel_requested = true, updated_at = now()
+  set cancel_requested = 'cancelled', updated_at = now()
   from public.notifications n
   where d.notification_id = n.id
     and n.idempotency_key = p_idempotency_key and n.type = p_type and n.tenant_id is not distinct from p_tenant_id
     and (keys is null or n.recipient_key = any (keys))
-    and d.status = 'sending' and not d.cancel_requested;
+    and d.status = 'sending' and d.cancel_requested is distinct from 'cancelled';
   get diagnostics flagged = row_count;
   cancelled := cancelled + flagged;
 
@@ -2010,7 +2019,7 @@ revoke execute on function public.genesis_notifications_erase(uuid, text, text) 
 revoke execute on function public.genesis_notifications_cancel(text, text, uuid, jsonb, boolean) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_prune(interval, interval, interval) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_sync_types(jsonb) from public, anon, authenticated;
-revoke execute on function public.genesis_notifications_set_sender_dns(uuid, text, text, jsonb) from public, anon, authenticated;
+revoke execute on function public.genesis_notifications_set_sender_dns(uuid, text, text, text, jsonb) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_mark(uuid[], text) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_mark_all(text) from public, anon, authenticated;
 revoke execute on function public.genesis_notifications_set_preference(text, text, boolean) from public, anon, authenticated;
@@ -2045,4 +2054,4 @@ grant execute on function public.genesis_notifications_erase(uuid, text, text) t
 grant execute on function public.genesis_notifications_cancel(text, text, uuid, jsonb, boolean) to service_role;
 grant execute on function public.genesis_notifications_prune(interval, interval, interval) to service_role;
 grant execute on function public.genesis_notifications_sync_types(jsonb) to service_role;
-grant execute on function public.genesis_notifications_set_sender_dns(uuid, text, text, jsonb) to service_role;
+grant execute on function public.genesis_notifications_set_sender_dns(uuid, text, text, text, jsonb) to service_role;

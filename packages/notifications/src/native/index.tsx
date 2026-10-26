@@ -255,7 +255,8 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
       for (const [category, on] of Object.entries(p.categories)) {
         if (known[category] === on) continue;
         const result = await client.rpc("genesis_notifications_set_preference", { p_category: category, p_channel: "push", p_on: on });
-        if (result.error?.code === "22023") {
+        // 42704 is only "no type in that category uses push"; any other refusal (a critical category, 22023) is thrown.
+        if (result.error?.code === "42704") {
           // No notifier type sends push in this category: keep the switch where 0005's sender reads it.
           legacy[category] = on;
           legacyChanged = true;

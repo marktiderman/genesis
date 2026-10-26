@@ -185,6 +185,8 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
   // Each claimed job's Expo batch (its devices never split), and when its lease runs out.
   const pushChunk = new Map<string, number>();
   const leaseEnds = new Map<string, number>();
+  // The batches go one after another (createRunner starts every group at once), so the lease check before each means something.
+  let pushTurn: Promise<unknown> = Promise.resolve();
   const pushRunner = options.push
     ? createRunner<Job>({
         ...common,
@@ -214,7 +216,9 @@ export function createNotificationRunner(options: NotificationRunnerOptions): No
             pushChunk.delete(j.id);
             leaseEnds.delete(j.id);
           }
-          return sendPush(jobs, options.push!.provider, deadline, signal);
+          const mine = pushTurn.then(() => sendPush(jobs, options.push!.provider, deadline, signal));
+          pushTurn = mine.catch(() => undefined);
+          return mine;
         },
         batchSize: batch,
       })

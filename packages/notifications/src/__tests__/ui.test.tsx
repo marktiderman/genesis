@@ -146,7 +146,7 @@ describe("native", () => {
 
   it("keeps a switch for a category no notifier type pushes in (chat's) in 0005's categories, and still saves the rest", async () => {
     const rpc = vi.fn(async (_fn: string, args?: { p_category?: string }) =>
-      args?.p_category === "chat-messages" ? { data: null, error: { code: "22023" } } : { data: null, error: null },
+      args?.p_category === "chat-messages" ? { data: null, error: { code: "42704" } } : { data: null, error: null },
     );
     const upsert = vi.fn(() => ({ select: async () => ({ data: [{ user_id: USER }], error: null }) }));
     const from = vi.fn(() => ({
@@ -161,6 +161,10 @@ describe("native", () => {
     await expect(
       notificationsPushBackend({ rpc: async () => ({ data: null, error: { code: "42501" } }), from }).savePreferences(USER, { ...loaded!, categories: { forms: false } }),
     ).rejects.toThrow(/42501/);
+    // A critical category can't be turned off (22023): that is thrown, never kept as a switch.
+    await expect(
+      notificationsPushBackend({ rpc: async () => ({ data: null, error: { code: "22023" } }), from }).savePreferences(USER, { ...loaded!, categories: { security: false } }),
+    ).rejects.toThrow(/22023/);
   });
 
   it("gives the push block its categories and device categories", () => {

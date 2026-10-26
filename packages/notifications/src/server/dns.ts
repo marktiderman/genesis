@@ -74,7 +74,8 @@ async function txt(options: DomainCheckOptions, name: string): Promise<string[]>
 
 /**
  * Checks ownership, SPF, DKIM and DMARC for `domain`. Record the result with
- * `genesis_notifications_set_sender_dns(tenant, domain, ok ? 'verified' : 'failed', result)`.
+ * `genesis_notifications_set_sender_dns(tenant, domain, token, ok ? 'verified' : 'failed', result)`
+ * with the same token, so a check made before the tenant changed its domain changes nothing.
  *
  * @stability Beta
  */

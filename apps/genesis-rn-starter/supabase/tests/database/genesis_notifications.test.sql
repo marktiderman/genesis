@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(172);
+select plan(184);
 
 -- People: a1 and b2 have logins; c3 is an admin; "outside" has no login.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -180,7 +180,7 @@ select lives_ok($$ select public.genesis_notifications_set_preference('gntest-me
 select is((select channels from public.notification_preferences where user_id = pg_temp.u('b2')), '{"gntest-news": {"email": false}, "gntest-messages": {"push": false}}'::jsonb,
   'each choice merges into the row');
 select throws_ok($$ select public.genesis_notifications_set_preference('gntest-security', 'email', false) $$, '22023', null, 'a critical category can''t be turned off');
-select throws_ok($$ select public.genesis_notifications_set_preference('gntest-forms', 'push', true) $$, '22023', null, 'nor a channel no type offers turned on');
+select throws_ok($$ select public.genesis_notifications_set_preference('gntest-forms', 'push', true) $$, '42704', null, 'nor a channel no type offers turned on (its own code)');
 reset role;
 select is(private.genesis_notifications_channel_on(pg_temp.u('b2'), '00000000-0000-4000-8000-00000000aaaa', 'gntest.news', 'email'), false, 'the person''s choice beats the tenant''s default');
 update public.notification_preferences set channels = channels || '{"gntest-security": {"email": false}}' where user_id = pg_temp.u('b2');
@@ -235,7 +235,9 @@ select ok(exists (select 1 from mails where notification_id = pg_temp.k('n2') an
 select ok((select send_after <= now() from public.notification_deliveries where notification_id = pg_temp.k('n2')), '... and is never delayed');
 select ok(public.genesis_notifications_unsubscribe(null, private.genesis_notifications_email_hash('outside@example.test'), 'gntest-forms'), 'someone with no login unsubscribes from a category');
 select ok(public.genesis_notifications_unsubscribe(pg_temp.u('a1'), null, 'gntest-messages'), 'a login unsubscribes through their preferences');
-select is((select channels -> 'gntest-messages' ->> 'email' from public.notification_preferences where user_id = pg_temp.u('a1')), 'false', '... the category''s email is off');
+select is((select tenant_channels -> '00000000-0000-0000-0000-000000000000' -> 'gntest-messages' ->> 'email' from public.notification_preferences where user_id = pg_temp.u('a1')), 'false',
+  '... the category''s email is off for mail sent for no tenant');
+select is(private.genesis_notifications_channel_on(pg_temp.u('a1'), null, 'gntest.message', 'email'), false, '... so no such email goes');
 select ok(public.genesis_notifications_email_event('re_1', 'bounced', true), 'a hard bounce is recorded');
 select ok(exists (select 1 from public.notification_suppressions where email_hash = private.genesis_notifications_email_hash('outside@example.test') and category = '*' and reason = 'bounce'),
   '... and suppresses the address');
@@ -324,11 +326,12 @@ select lives_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('b')
 reset role;
 select ok((select bool_and(domain_token ~ '^[0-9a-f]{32}$') from public.notification_senders where tenant_id in (pg_temp.t('a'), pg_temp.t('b'))), 'each sender gets an ownership token for the TXT record');
 select ok((select count(distinct domain_token) = 2 from public.notification_senders where tenant_id in (pg_temp.t('a'), pg_temp.t('b'))), '... a token of its own');
-select ok(public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'mail.gntest.example', 'verified', '{"ownership": true}'), 'tenant A verifies it');
-select throws_ok($$ select public.genesis_notifications_set_sender_dns(pg_temp.t('b'), 'mail.gntest.example', 'verified', '{"ownership": true}') $$, '23505', null,
+select ok(not public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'mail.gntest.example', repeat('0', 32), 'verified', '{"ownership": true}'), 'a check made with another token changes nothing');
+select ok(public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'mail.gntest.example', (select domain_token from public.notification_senders where tenant_id = pg_temp.t('a')), 'verified', '{"ownership": true}'), 'tenant A verifies it');
+select throws_ok($$ select public.genesis_notifications_set_sender_dns(pg_temp.t('b'), 'mail.gntest.example', (select domain_token from public.notification_senders where tenant_id = pg_temp.t('b')), 'verified', '{"ownership": true}') $$, '23505', null,
   'tenant B can never verify a domain tenant A has verified');
 select is((select domain_status from public.notification_senders where tenant_id = pg_temp.t('b')), 'pending', '... and stays unverified');
-select ok(not public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'other.gntest.example', 'failed', '{}'), 'a check of a domain the tenant no longer has changes nothing');
+select ok(not public.genesis_notifications_set_sender_dns(pg_temp.t('a'), 'other.gntest.example', (select domain_token from public.notification_senders where tenant_id = pg_temp.t('a')), 'failed', '{}'), 'a check of a domain the tenant no longer has changes nothing');
 select pg_temp.sign_in('c3');
 select throws_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('c'), 'Tenant C', null, 'MAIL.gntest.example') $$, '23505', null, 'a third tenant may not even name a verified domain');
 select lives_ok($$ select public.genesis_notifications_set_sender(pg_temp.t('b'), 'Tenant B', null, 'b.gntest.example') $$, 'tenant B moves to another domain');
@@ -400,7 +403,14 @@ reset role;
 select is(private.genesis_notifications_channel_on(pg_temp.u('b2'), pg_temp.t('a'), 'gntest.message', 'email'), true, '... turns it on for tenant A again');
 
 -- A token from before install ids is adopted by the first register that brings one.
-insert into public.push_devices (user_id, token, platform) values (pg_temp.u('c3'), pg_temp.tok('legacy'), 'ios');
+-- As 0005 left it (the migration marks those rows adoptable).
+insert into public.push_devices (user_id, token, platform, adoptable) values (pg_temp.u('c3'), pg_temp.tok('legacy'), 'ios', true);
+select pg_temp.sign_in('c3');
+select lives_ok($$ select public.genesis_push_register(pg_temp.tok('c3-new'), 'ios', '1.0') $$, 'a token registered since, with no install id');
+select pg_temp.sign_in('b2');
+select throws_ok($$ select public.genesis_push_register(pg_temp.tok('c3-new'), 'ios', '1.0', gen_random_uuid()) $$, '42501', null,
+  '... can never be taken by inventing an install id: only 0005''s rows are adoptable');
+reset role;
 select pg_temp.sign_in('b2');
 select lives_ok($$ select public.genesis_push_register(pg_temp.tok('legacy'), 'ios', '1.0', '44444444-4444-4444-8444-444444444444') $$,
   'a token 0005 left with no install id is adopted by the first register that brings one');
@@ -412,6 +422,27 @@ select pg_temp.sign_in('c3');
 select throws_ok($$ select public.genesis_push_register(pg_temp.tok('legacy'), 'ios', '1.0', '55555555-5555-4555-8555-555555555555') $$, '42501', null,
   '... after which only that phone may move it');
 reset role;
+
+-- An unsubscribe from mail sent for no tenant holds for that mail only.
+select ok(public.genesis_notifications_unsubscribe(null, private.genesis_notifications_email_hash('no-tenant@example.test'), 'gntest-messages'),
+  'someone with no login unsubscribes from mail sent for no tenant');
+insert into k select 'nt0', notification_id from public.genesis_notify('gntest.message', '[{"email": "no-tenant@example.test"}]', '{}', 'nt-0');
+insert into k select 'nta', notification_id from public.genesis_notify('gntest.message', '[{"email": "no-tenant@example.test"}]', '{}', 'nt-a', null, null, null, pg_temp.t('a'));
+create temp table ntc as select * from public.genesis_notifications_claim('email', 500);
+select is((select skip_reason from public.notification_deliveries where notification_id = pg_temp.k('nt0')), 'suppressed', '... that mail stops');
+select ok(exists (select 1 from ntc where notification_id = pg_temp.k('nta')), '... but never a tenant''s');
+select ok(public.genesis_notifications_unsubscribe(pg_temp.u('c3'), null, 'gntest-alerts'), 'a login unsubscribes from mail sent for no tenant');
+update public.notification_types set channels = '{"in_app": true, "push": true, "email": true}', transactional = false where key = 'gntest.alert';
+select is(private.genesis_notifications_channel_on(pg_temp.u('c3'), null, 'gntest.alert', 'email'), false, '... off for no tenant');
+select is(private.genesis_notifications_channel_on(pg_temp.u('c3'), pg_temp.t('a'), 'gntest.alert', 'email'), true, '... still on for tenant A');
+
+-- A job collapsed while it was being sent ends collapsed.
+insert into k select 'co1', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "collapse-mid@example.test"}]', '{}', 'co-1', null, 'co-key');
+create temp table coc as select * from public.genesis_notifications_claim('email', 500);
+insert into k select 'co2', notification_id from public.genesis_notify('gntest.receipt', '[{"email": "collapse-mid@example.test"}]', '{}', 'co-2', null, 'co-key');
+select ok(public.genesis_notifications_settle((select id from coc where notification_id = pg_temp.k('co1')), (select claim_id from coc where notification_id = pg_temp.k('co1')),
+  '{"status": "retry", "error": "x", "counted": true}'), 'a retry of a job collapsed mid-send');
+select is((select status || ':' || skip_reason from public.notification_deliveries where notification_id = pg_temp.k('co1')), 'cancelled:collapsed', '... ends collapsed, not back in the queue');
 
 -- 0005's switch left on never opts anyone into email; clearing a choice never made is fine.
 update public.notification_types set retired_at = null where key = 'gntest.news';

@@ -180,6 +180,8 @@ describe("push", () => {
     const many = (n: number, p: string) => Array.from({ length: n }, (_, i) => ({ id: `${p}${i}`, token: `ExponentPushToken[${p}${i}]`, platform: "ios" }));
     const { store, events } = fakeStore({ push: [job({ id: "j1", devices: many(60, "a") }), job({ id: "j2", devices: many(60, "b") }), job({ id: "j3", devices: many(30, "c") })] });
     const sizes: number[] = [];
+    let inFlight = 0;
+    let most = 0;
     let release!: () => void;
     const gate = new Promise<void>((r) => (release = r));
     const provider: PushProvider = {
@@ -187,8 +189,10 @@ describe("push", () => {
       send: async (m) => {
         sizes.push(m.length);
         events.push(`send:${m.length}`);
+        most = Math.max(most, ++inFlight);
         // The second batch (j2, j3) waits until the first has settled.
         if (m.some((x) => x.to.includes("[b"))) await gate;
+        inFlight--;
         return m.map((_, i) => ({ status: "ok" as const, id: `t${sizes.length}-${i}` }));
       },
       receipts: async () => ({}),
@@ -198,7 +202,9 @@ describe("push", () => {
     expect(events).not.toContain("settle:j2");
     release();
     expect(await run).toMatchObject({ claimed: 3, sent: 3 });
-    expect(sizes.sort((a, b) => a - b)).toEqual([60, 90]);
+    // One after another, in order: the lease check before each batch holds.
+    expect(sizes).toEqual([60, 90]);
+    expect(most).toBe(1);
   });
 
   it("starts no batch once the lease is about to run out: those jobs come back at once", async () => {
