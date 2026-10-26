@@ -93,7 +93,10 @@ describe("packages pack", () => {
     writeFileSync(path.join(root, ".changeset/scorecard.md"), "");
     writeFileSync(path.join(root, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.1.1" }));
     result = await runDoctor({ root, config, base: "main" });
-    expect(brief(result.findings, "package-unversioned")).toEqual([]);
+    // A bump passes the gate, but asks for a changeset to record the features.
+    expect(result.findings.filter((f) => f.rule === "package-unversioned-change").map((f) => f.message)).toEqual([
+      expect.stringMatching(/version went up without a changeset/),
+    ]);
   });
 });
 
@@ -271,5 +274,52 @@ describe("Flare's review: false positives and spec", () => {
     writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n\nFeatures: team-scorecard\n');
     result = await runDoctor({ root, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual([]);
+  });
+});
+
+describe("Flare's second follow-ups", () => {
+  const commit = (root: string, ...args: string[]) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+
+  it("a nested app's gate sees a package at the repository root", async () => {
+    const repo = makeApp(null, {});
+    for (const [rel, text] of Object.entries(CLEAN)) {
+      const target = rel.startsWith("packages/") ? path.join(repo, rel) : path.join(repo, "apps/mobile", rel);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, rel === "genesis.config.json" ? JSON.stringify({ localPackages: ["../../packages/*"] }) : text);
+    }
+    commit(repo, "init", "-q", "-b", "main");
+    commit(repo, "add", "-A");
+    commit(repo, "commit", "-qm", "base");
+    commit(repo, "checkout", "-qb", "work");
+    writeFileSync(path.join(repo, "packages/os/src/read.ts"), "export const read = () => 9;\n");
+    clearLocalPackagesCache();
+    const result = await runDoctor({ root: path.join(repo, "apps/mobile"), config: PACKAGES, base: "main" });
+    expect(brief(result.findings)).toEqual(["package-unversioned-change ../../packages/os/package.json"]);
+  });
+
+  it("an export type without a semicolon doesn't hide the import after it", async () => {
+    const result = await runDoctor({
+      root: makeApp(null, { ...CLEAN, "packages/os/src/index.ts": 'export type A = string\nimport dayjs from "dayjs";\nexport { dayjs };\n' }),
+      config: PACKAGES,
+    });
+    expect(brief(result.findings)).toEqual(["package-undeclared-dependency packages/os/src/index.ts dayjs"]);
+  });
+
+  it("leaves .js and declaration-file export targets alone (unbuilt output)", async () => {
+    const pkg = { ...PKG, exports: { ".": { types: "./dist/index.d.ts", default: "./src/index.ts" }, "./lib": "./lib/index.js", "./m": { types: "./dist/m.d.mts" } } };
+    const result = await runDoctor({ root: makeApp(null, { ...CLEAN, "packages/os/package.json": JSON.stringify(pkg) }), config: PACKAGES });
+    expect(brief(result.findings)).toEqual([]);
+  });
+
+  it("refuses a localPackages entry that leaves the repository", async () => {
+    const outer = makeApp(null, {});
+    const repo = path.join(outer, "repo");
+    mkdirSync(path.join(repo, ".git"), { recursive: true });
+    mkdirSync(path.join(outer, "elsewhere/pkg"), { recursive: true });
+    writeFileSync(path.join(outer, "elsewhere/pkg/package.json"), JSON.stringify({ name: "@acme/elsewhere" }));
+    writeFileSync(path.join(repo, "genesis.config.json"), JSON.stringify({ localPackages: ["../elsewhere/*"] }));
+    clearLocalPackagesCache();
+    const result = await runDoctor({ root: repo, config: PACKAGES });
+    expect(result.findings.filter((f) => f.rule === "package-block-invalid").map((f) => f.message)).toEqual([expect.stringMatching(/outside the repository/)]);
   });
 });

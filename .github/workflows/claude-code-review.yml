@@ -1,4 +1,5 @@
-# Claude reviews each pull request once, when it opens or leaves draft, with
+# Claude reviews every pull request once, whatever branch it targets (main,
+# staging/* and prestage/* batches alike), when it opens or leaves draft, with
 # Anthropic's code-review plugin (parallel reviewers, findings posted as a PR
 # comment). For another pass after new pushes, comment "@claude review"
 # (claude.yml). Reviewing every push would bill a full review per push.
@@ -9,7 +10,6 @@ name: Claude Code Review
 
 on:
   pull_request:
-    branches: [main]
     types: [opened, ready_for_review, reopened]
 
 concurrency:
@@ -21,8 +21,9 @@ permissions: {}
 
 jobs:
   review:
-    # Drafts wait for ready_for_review; forks can't read the secret.
-    if: (github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository) && github.head_ref != 'changeset-release/main'
+    # Drafts wait for ready_for_review; forks can't read the secret; bot PRs
+    # (the changesets version PR, Dependabot) aren't reviewed.
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.user.type != 'Bot' && github.head_ref != 'changeset-release/main'
     runs-on: ubuntu-latest
     # ci.yml BILLING CONTRACT rule 3: every job is bounded.
     timeout-minutes: 30

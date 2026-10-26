@@ -198,6 +198,27 @@ describe("createOrAdopt", () => {
     expect(err.fields).toEqual({ slug: "This value is already in use." });
   });
 
+  it("adds the scope to the lookup, for a partial unique index", async () => {
+    const provider = uniqueProvider([
+      { id: "old", person_id: "p1", lesson_id: "l1", deleted_at: "2026-10-01" },
+      { id: "live", person_id: "p1", lesson_id: "l1", deleted_at: null },
+    ]);
+    const getList = vi.spyOn(provider, "getList");
+    const { row } = await createOrAdopt(provider, "drafts", { person_id: "p1", lesson_id: "l1" }, {
+      key: [...key],
+      scope: [{ field: "deleted_at", operator: "is_null" }],
+    });
+    expect(row.id).toBe("live");
+    expect(getList).toHaveBeenLastCalledWith("drafts", {
+      filters: [
+        { field: "person_id", operator: "eq", value: "p1" },
+        { field: "lesson_id", operator: "eq", value: "l1" },
+        { field: "deleted_at", operator: "is_null" },
+      ],
+      pagination: { page: 1, perPage: 2 },
+    });
+  });
+
   it("needs a key", async () => {
     await expect(createOrAdopt(uniqueProvider([]), "drafts", {}, { key: [] })).rejects.toThrow(/needs a key/);
   });
