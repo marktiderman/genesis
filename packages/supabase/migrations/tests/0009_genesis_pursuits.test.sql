@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(46);
+select plan(49);
 
 -- People: a1 and b2 are members of tenant 1's team t1; a1 leads it. c3 belongs to tenant 2 only.
 -- d4 belongs to nothing.
@@ -166,6 +166,12 @@ select pg_temp.as_server();
 select throws_ok(
   $$ update public.pursuits set parent_id = '00000000-0000-4000-b000-000000000003' where id = '00000000-0000-4000-b000-000000000002' $$,
   '22023', null, 'a parent must be in the same tenant');
+
+-- The owner-access contract ----------------------------------------------------------------
+select pg_temp.sign_in('a1');
+select is(private.genesis_owner_allows(pg_temp.tenant(1), null, pg_temp.team(1), null, 'write'), true, 'the wrapper answers for the signed-in person');
+select is(private.genesis_owner_allows(pg_temp.tenant(1), null, pg_temp.team(1), null, 'delete'), false, 'an action other than read or write is no');
+select ok(not has_function_privilege('anon', 'private.genesis_owner_allows(uuid,uuid,uuid,uuid,text)', 'execute'), 'anon can''t call the wrappers');
 
 -- Links through a row the caller can't see (Gate's review) ----------------------------------
 -- X (team) -> Y (a1's own, hidden from b2) -> Z (team). b2 can't close Z -> X.

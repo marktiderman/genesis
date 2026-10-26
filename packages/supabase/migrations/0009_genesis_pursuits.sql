@@ -15,8 +15,28 @@
 --   alter table public.pursuits add foreign key (tenant_id) references public.organizations (id) on delete cascade;
 --   alter table public.pursuits add foreign key (team_id) references public.teams (id) on delete cascade;
 --
--- The app hooks: who may read and write a row is your app's answer, through two functions this
--- file calls but doesn't define. Without them nobody signed in reads or writes anything, so a
+-- The owner-access contract (shared by every Genesis block whose rows have an owner; this file
+-- defines it first):
+--
+--   Your app defines two hooks. Genesis never defines them.
+--     private.genesis_owner_can(tenant uuid, viewer uuid, person_id uuid, team_id uuid,
+--                               organization_id uuid, action text) returns boolean
+--       action is 'read' or 'write'.
+--     private.genesis_readable_owners(viewer uuid) returns table (tenant_id uuid, owner_id uuid)
+--       Every (tenant, owner) pair the viewer may read, across tenants.
+--   Genesis ships two wrappers that blocks call. They fail closed: a missing hook, a hook that
+--   errors or returns the wrong type, a null tenant or viewer, or an action other than 'read' or
+--   'write' gives false or an empty set.
+--     private.genesis_owner_readable() returns table (tenant_id uuid, owner_id uuid)
+--       The signed-in viewer's set, from genesis_readable_owners(auth.uid()).
+--     private.genesis_owner_allows(tenant uuid, person_id uuid, team_id uuid,
+--                                  organization_id uuid, action text) returns boolean
+--       genesis_owner_can(tenant, auth.uid(), person_id, team_id, organization_id, action).
+--   Both are security definer with search_path ''. Only authenticated may execute them (row
+--   security runs as the caller), and they only ever answer for auth.uid().
+--
+-- The app hooks: who may read and write a row is your app's answer, through those two functions,
+-- which this file calls but doesn't define. Without them nobody signed in reads or writes anything, so a
 -- fresh install fails closed, and so does a hook that errors. The service role (server code) is not limited by
 -- row security.
 --
@@ -290,9 +310,8 @@ create trigger work_items_guard
 
 -- Access ---------------------------------------------------------------------------------------
 
--- The (tenant, owner) pairs the signed-in person may read, from the app's hook. No hook, or a
--- hook that errors, gives no rows.
-create or replace function private.genesis_pursuits_readable()
+-- The owner-access contract: the two fail-closed wrappers every Genesis block with owners calls.
+create or replace function private.genesis_owner_readable()
 returns table (tenant_id uuid, owner_id uuid)
 language plpgsql
 stable
@@ -309,9 +328,7 @@ exception when others then
 end;
 $$;
 
--- Whether the signed-in person may write a row with this tenant and owner. No hook, or a hook
--- that errors, means no.
-create or replace function private.genesis_pursuits_can_write(tenant uuid, person uuid, team uuid, organization uuid)
+create or replace function private.genesis_owner_allows(tenant uuid, person_id uuid, team_id uuid, organization_id uuid, action text)
 returns boolean
 language plpgsql
 stable
@@ -321,12 +338,12 @@ as $$
 declare
   allowed boolean;
 begin
-  if auth.uid() is null or tenant is null
+  if auth.uid() is null or tenant is null or action is null or action not in ('read', 'write')
      or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
     return false;
   end if;
-  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, ''write''))::boolean'
-    into allowed using tenant, auth.uid(), person, team, organization;
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, $6))::boolean'
+    into allowed using tenant, auth.uid(), person_id, team_id, organization_id, action;
   return coalesce(allowed, false);
 exception when others then
   return false;
@@ -338,38 +355,40 @@ revoke execute on function private.genesis_work_items_guard() from public, anon,
 revoke execute on function private.genesis_pursuits_check_parent(uuid, uuid, uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_work_items_check_pursuit(uuid, uuid) from public, anon, authenticated;
 revoke execute on function private.genesis_pursuits_caller_is_person() from public, anon, authenticated;
-revoke execute on function private.genesis_pursuits_readable() from public, anon;
-revoke execute on function private.genesis_pursuits_can_write(uuid, uuid, uuid, uuid) from public, anon;
-grant execute on function private.genesis_pursuits_readable() to authenticated;
-grant execute on function private.genesis_pursuits_can_write(uuid, uuid, uuid, uuid) to authenticated;
+revoke execute on function private.genesis_owner_readable() from public, anon, authenticated;
+revoke execute on function private.genesis_owner_allows(uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
+-- Row security runs as the caller, so signed-in people need to execute the wrappers. That's safe:
+-- they only ever answer for auth.uid().
+grant execute on function private.genesis_owner_readable() to authenticated;
+grant execute on function private.genesis_owner_allows(uuid, uuid, uuid, uuid, text) to authenticated;
 
 alter table public.pursuits enable row level security;
 alter table public.work_items enable row level security;
 
 -- An exists form, so the planner can use the (tenant, owner) indexes.
 create policy pursuits_read on public.pursuits for select to authenticated
-  using (exists (select 1 from private.genesis_pursuits_readable() r
+  using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = pursuits.tenant_id
                    and r.owner_id = coalesce(pursuits.person_id, pursuits.team_id, pursuits.organization_id)));
 create policy pursuits_insert on public.pursuits for insert to authenticated
-  with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy pursuits_update on public.pursuits for update to authenticated
-  using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id))
-  with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy pursuits_delete on public.pursuits for delete to authenticated
-  using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 create policy work_items_read on public.work_items for select to authenticated
-  using (exists (select 1 from private.genesis_pursuits_readable() r
+  using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = work_items.tenant_id
                    and r.owner_id = coalesce(work_items.person_id, work_items.team_id, work_items.organization_id)));
 create policy work_items_insert on public.work_items for insert to authenticated
-  with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy work_items_update on public.work_items for update to authenticated
-  using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id))
-  with check (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'))
+  with check (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 create policy work_items_delete on public.work_items for delete to authenticated
-  using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
+  using (private.genesis_owner_allows(tenant_id, person_id, team_id, organization_id, 'write'));
 
 revoke all on public.pursuits, public.work_items from public, anon, authenticated;
 grant select, insert, update, delete on public.pursuits, public.work_items to authenticated;
