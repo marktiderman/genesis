@@ -301,6 +301,37 @@ describe("summarizeResponses", () => {
     expect(s.average).toBe(3);
     expect(Date.now() - started).toBeLessThan(10_000);
   });
+
+  it("counts a 5,000-option choice question without scanning the options per answer", () => {
+    // Relative, not a fixed budget (CI runners vary): with lookups by value, 100× more options
+    // barely changes the time; a scan per answer would make it ~100× slower.
+    const run = (n: number) => {
+      const options = Array.from({ length: n }, (_, i) => ({ value: `o${i}`, label: `Option ${i}` }));
+      const def = {
+        schemaVersion: 1,
+        id: `big${n}`,
+        title: "Big",
+        blocks: [{ kind: "field", id: "b", key: "pick", type: "single-choice", label: "Pick", props: { options } }],
+      } as unknown as FormDefinition;
+      // Answers at the end of the list, where a scan would be slowest.
+      const many = Array.from({ length: 20_000 }, (_, i) =>
+        item(`b${i}`, "2026-10-02", def, { b: `o${n - 10 + (i % 10)}` }),
+      );
+      const times: number[] = [];
+      let s: ChoiceSummary | undefined;
+      for (let k = 0; k < 3; k++) {
+        const started = performance.now();
+        s = summarizeResponses(many, [def]).find((x) => x.key === "pick") as ChoiceSummary;
+        times.push(performance.now() - started);
+      }
+      return { s: s!, ms: times.sort((x, y) => x - y)[1]! };
+    };
+    const small = run(50);
+    const big = run(5_000);
+    expect(big.s.options).toHaveLength(5_000);
+    expect(big.s.options.filter((o) => o.count === 2_000)).toHaveLength(10);
+    expect(big.ms).toBeLessThan(Math.max(small.ms * 10, 50));
+  });
 });
 
 describe("filters", () => {
