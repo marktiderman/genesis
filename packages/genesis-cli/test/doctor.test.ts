@@ -197,7 +197,7 @@ describe("config", () => {
 
   it("rejects unknown settings and bad shapes", () => {
     expect(() => validateConfig({ scr: ["src"] })).toThrow(/unknown setting "scr"/);
-    expect(() => validateConfig({ rules: { "raw-tag": "loud" } })).toThrow(/must be "error", "warn" or "off"/);
+    expect(() => validateConfig({ rules: { "raw-tag": "loud" } })).toThrow(/must be "error", "warn", "info" or "off"/);
     expect(() => validateConfig({ forbiddenImports: { "(": "x" } })).toThrow(/not a valid regular expression/);
     expect(() => validateConfig({ themeCss: 3 })).toThrow(/themeCss/);
     expect(() => validateConfig({ rawTags: { "a.b": "X" } })).toThrow(/not an HTML tag name/);
