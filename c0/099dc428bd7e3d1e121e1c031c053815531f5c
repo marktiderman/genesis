@@ -1,0 +1,25 @@
+.changeset/doctor-nested-app.md
+  s_3daa86e3ae6031::t_3b6a8e2c67011c 1-5
+packages/genesis-cli/README.md
+  s_3daa86e3ae6031::t_5612ef35ee63ea 361
+packages/genesis-cli/src/doctor/installs.ts
+  s_3daa86e3ae6031::t_9e8cfcce189bf2 73-81,156,161-165,168-185,193-194,218-219
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_3daa86e3ae6031::t_6aa810d35590b8 1025-1075
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0099dc428bd7e3d1e121e1c031c053815531f5c",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
