@@ -114,7 +114,7 @@ export function useResourceTableModel<
     openOnCardClick = false,
     renderTable: renderTableProp,
     gridCols: gridColsProp,
-    keyboardNavigation = true,
+    keyboardNavigation = props.variant !== "embedded",
     capabilities,
     toolbar,
     emptyState,
