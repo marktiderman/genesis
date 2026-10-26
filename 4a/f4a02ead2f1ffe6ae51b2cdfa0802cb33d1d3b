@@ -1,0 +1,19 @@
+docs/RESOURCE-VIEW.md
+  s_4ea9e233c4fda6::t_95940ea9093c64 64,107-118,284-288
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4af4a02ead2f1ffe6ae51b2cdfa0802cb33d1d3b",
+  "prompts": {},
+  "sessions": {
+    "s_4ea9e233c4fda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87517208-b3be-4ddc-b8ac-0ec52a33a61a",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
