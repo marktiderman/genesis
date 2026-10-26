@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  keepPreviousData as keepPrevious,
   useInfiniteQuery,
   type InfiniteData,
   type UseInfiniteQueryResult,
@@ -48,6 +49,11 @@ export interface UseInfiniteResourceOptions {
    * cheap. Needs a provider that pages by cursor both ways (`prevCursor`); offset paging ignores it.
    */
   maxPages?: number;
+  /**
+   * Keep the current rows on screen while a new search, sort or filter loads, instead of a
+   * loading state for each change. Default false.
+   */
+  keepPreviousData?: boolean;
 }
 
 /** Where one page starts: its offset page, and its cursor (`null` for the first). */
@@ -95,6 +101,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     searchFields,
     enabled = true,
     live,
+    keepPreviousData = false,
   } = options;
   const provider = useDataProvider();
 
@@ -161,6 +168,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
       first.prevCursor ? { page: firstParam.page - 1, cursor: first.prevCursor } : undefined,
     ...(options.maxPages !== undefined && options.maxPages > 0 ? { maxPages: options.maxPages } : {}),
     enabled,
+    ...(keepPreviousData ? { placeholderData: keepPrevious } : {}),
   });
 
   useLiveInvalidation(resource, live, enabled, { filters: params.filters }, [resource]);
