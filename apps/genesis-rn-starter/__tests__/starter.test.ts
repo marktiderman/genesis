@@ -348,6 +348,16 @@ describe("chat", () => {
     expect(read("supabase/tests/database/genesis_chat.test.sql")).toBe(chatSql("tests/0001_genesis_chat.test.sql"));
     const order = filesUnder("supabase/migrations").sort();
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_support.sql")));
+    // Every chat migration the package ships, in order: without one, the starter's database lacks
+    // what the client calls, and `genesis init` leaves the chat block out.
+    const shipped = readdirSync(join(chatPackage, "migrations")).filter((f) => f.endsWith(".sql")).sort();
+    for (const file of shipped) {
+      const stem = file.replace(/^\d{4}_/, "");
+      const copy = filesUnder("supabase/migrations").filter((f) => f.endsWith(`_${stem}`));
+      expect(copy, file).toHaveLength(1);
+      expect(read(copy[0]!)).toBe(chatSql(file));
+      expect(read(`supabase/tests/database/${stem.replace(/\.sql$/, ".test.sql")}`)).toBe(chatSql(`tests/${file.replace(/\.sql$/, ".test.sql")}`));
+    }
     expect(read("supabase/config.toml")).toMatch(/schemas = \[[^\]]*"genesis_chat"/);
     expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
   });

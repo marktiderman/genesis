@@ -87,8 +87,8 @@ export type SettleOutcome =
   | { status: "sent"; provider_id?: string | null }
   | { status: "skipped"; reason: string }
   | { status: "filtered" }
-  | { status: "failed"; error: string }
-  | { status: "retry"; error: string; retry_at: string; counted: boolean };
+  | { status: "failed"; error: string; provider_id?: string | null }
+  | { status: "retry"; error: string; retry_at: string; counted: boolean; provider_id?: string | null };
 
 export interface PushTicketRow {
   device_id: string;
@@ -102,11 +102,14 @@ export interface NotificationStore {
   claim(channel: "push" | "email", limit: number, leaseSeconds: number, maxAttempts?: number): Promise<ClaimedJob[]>;
   storeRendered(id: string, claimId: string, rendered: RenderedEmail, hash: string): Promise<{ rendered: RenderedEmail; hash: string } | null>;
   settle(id: string, claimId: string, outcome: SettleOutcome): Promise<boolean>;
+  /** Keeps the provider's id the moment a send returns, before it settles, so an early webhook finds the job. False when the claim is gone. */
+  recordProviderId(id: string, claimId: string, providerId: string): Promise<boolean>;
   pushTickets(deliveryId: string, tickets: PushTicketRow[]): Promise<void>;
   receiptsClaim(limit: number): Promise<{ id: number; ticket_id: string }[]>;
   receiptsSettle(results: { id: number; status: "delivered" | "failed"; error: string | null }[]): Promise<void>;
   emailEvent(providerId: string, event: "delivered" | "bounced" | "complained", permanent: boolean): Promise<boolean>;
-  unsubscribe(userId: string | null, email: string | null, category: string): Promise<boolean>;
+  /** For a login (`userId`), or someone with none by the SHA-256 of their address; for one tenant's mail (`tenantId`), or mail sent for none. */
+  unsubscribe(userId: string | null, emailHash: string | null, category: string, tenantId: string | null): Promise<boolean>;
   syncTypes(rows: NotificationTypeRow[]): Promise<number>;
 }
 
@@ -130,6 +133,8 @@ export function supabaseNotificationStore(client: RpcClient): NotificationStore 
       return row?.rendered && row.rendered_hash ? { rendered: row.rendered, hash: row.rendered_hash } : null;
     },
     settle: (id, claimId, outcome) => call<boolean>("genesis_notifications_settle", { p_id: id, p_claim: claimId, p_outcome: outcome }).then(Boolean),
+    recordProviderId: (id, claimId, providerId) =>
+      call<boolean>("genesis_notifications_record_provider_id", { p_id: id, p_claim: claimId, p_provider_id: providerId }).then(Boolean),
     async pushTickets(deliveryId, tickets) {
       await call("genesis_notifications_push_tickets", { p_delivery: deliveryId, p_tickets: tickets });
     },
@@ -138,7 +143,8 @@ export function supabaseNotificationStore(client: RpcClient): NotificationStore 
       await call("genesis_notifications_receipts_settle", { p_results: results });
     },
     emailEvent: (providerId, event, permanent) => call<boolean>("genesis_notifications_email_event", { p_provider_id: providerId, p_event: event, p_permanent: permanent }).then(Boolean),
-    unsubscribe: (userId, email, category) => call<boolean>("genesis_notifications_unsubscribe", { p_user_id: userId, p_email: email, p_category: category }).then(Boolean),
+    unsubscribe: (userId, emailHash, category, tenantId) =>
+      call<boolean>("genesis_notifications_unsubscribe", { p_user_id: userId, p_email_hash: emailHash, p_category: category, p_tenant_id: tenantId }).then(Boolean),
     syncTypes: (rows) => call<number>("genesis_notifications_sync_types", { p_rows: rows }),
   };
 }

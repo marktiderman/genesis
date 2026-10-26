@@ -3132,12 +3132,15 @@
         "On Android every category's channel exists, with private lock-screen visibility, before the permission prompt and the token request.",
         "A tapped notification's data.url goes through normalizeLink once (an unknown path opens /, another app's URL never opens); signed out, it is held and followed after sign-in.",
         "NotificationSettings saves a change at once and puts it back, saying so, when the save fails; replacing a part with a slot keeps its section, and null drops it.",
+        "With the rich push plugin, iOS shows a push's https image and a messages push as a Communication Notification with the sender's photo, and a failed download never drops the notification.",
         "Not yet delivered through Apple's or Google's push services: real delivery needs an EAS project with APNs and FCM credentials."
       ],
-      "reviewedAt": "2026-10-24",
+      "reviewedAt": "2026-10-25",
       "links": {
         "code": [
           "packages/native/src/push",
+          "packages/native/src/plugin",
+          "packages/native/ios/notification-service",
           "apps/genesis-rn-starter/src/lib/push.ts"
         ],
         "docs": [
@@ -3286,7 +3289,7 @@
     {
       "id": "notifications-email",
       "name": "Notification email",
-      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own verified domain, with an SPF, DKIM and DMARC check), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (409 invalid_idempotent_request counts as sent), RFC 8058 one-click unsubscribe on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
+      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own domain once verified: an ownership TXT record with the tenant's own token, SPF, DKIM and DMARC, one tenant per domain, never the app's shared domain), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (a 409 invalid_idempotent_request fails loudly), requests paced under Resend's rate limit, RFC 8058 one-click unsubscribe for the sending tenant on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
       "category": "Engagement",
       "status": "building",
       "claimedBy": "mark",
@@ -3310,7 +3313,7 @@
         "idempotency"
       ],
       "platforms": {
-        "server": "deprecated"
+        "server": "building"
       },
       "entry": {
         "server": "@marktiderman/genesis-notifications/server"
@@ -3331,7 +3334,8 @@
       "acceptance": [
         "A retry sends the stored first render with the same idempotency key; a stored render whose hash changed is never sent.",
         "Mail that isn't transactional carries List-Unsubscribe and List-Unsubscribe-Post; the endpoint never unsubscribes on GET, and a forged token changes nothing.",
-        "A hard bounce suppresses the address for all mail; a complaint for all but transactional mail.",
+        "Only a bounce Resend calls Permanent suppresses the address for all mail; a complaint for all but transactional mail.",
+        "A sender domain verifies only with the tenant's own ownership token, for one tenant at most, and never the app's shared domain.",
         "Not yet sent through Resend with a real key."
       ],
       "reviewedAt": "2026-10-25",

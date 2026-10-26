@@ -34,13 +34,15 @@ function Thread({ id, message, seq }: { id: string; message?: string; seq?: stri
       />
     ),
   });
+  // A check-in card opens the check-in.
+  const openAttachment = (a: { kind: string }) => (a.kind === "check_in" && starter.features.checkIn ? router.push("/check-in") : undefined);
   const jumpTo = useMemo(() => (message ? { messageId: message, seq: seq ? Number(seq) : undefined } : null), [message, seq]);
   return (
     <>
       <Stack.Screen options={options} />
       {/* Keyed by the conversation: a push or link that opens another one in this screen starts it fresh
           (its list position, sheets, viewer and composer), instead of carrying the last one's over. */}
-      <ChatThreadScreen key={id} conversationId={id} jumpTo={jumpTo} />
+      <ChatThreadScreen key={id} conversationId={id} jumpTo={jumpTo} onOpenAttachment={openAttachment} />
     </>
   );
 }

@@ -45,8 +45,8 @@ export function emailEventOf(payload: unknown): { providerId: string; event: "de
     case "email.delivered":
       return { providerId: id, event: "delivered", permanent: false };
     case "email.bounced":
-      // Resend names a hard bounce "Permanent"; a soft one doesn't suppress.
-      return { providerId: id, event: "bounced", permanent: p.data?.bounce?.type !== "Transient" && p.data?.bounce?.type !== "Undetermined" };
+      // Only what Resend names "Permanent" is a hard bounce; anything else (Transient, Undetermined, none) doesn't suppress.
+      return { providerId: id, event: "bounced", permanent: p.data?.bounce?.type === "Permanent" };
     case "email.complained":
       return { providerId: id, event: "complained", permanent: true };
     default:

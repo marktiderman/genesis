@@ -68,10 +68,31 @@ describe("assertNoSecrets", () => {
     for (const key of ["inviteToken", "accessToken", "authToken", "clientSecret", "resetPassword"]) expect(() => assertNoSecrets({ [key]: "x" }), key).toThrow(SecretInDataError);
     expect(() => assertNoSecrets({ token_count: 3, tokenCount: 3 })).not.toThrow();
   });
+  it("refuses any key ending in token, code, secret, key, otp or password, however it is written", () => {
+    for (const key of ["inviteCode", "verification_code", "apikey", "webhookSecret", "sessionKey", "smsOtp", "newpassword", "passcode", "csrftoken"]) {
+      expect(() => assertNoSecrets({ [key]: "x" }), key).toThrow(SecretInDataError);
+    }
+    expect(() => assertNoSecrets({ codes_sent: 2, key_count: 1, secretary_name: "Sam" })).not.toThrow();
+  });
   it("refuses links that carry a credential", () => {
     expect(() => assertNoSecrets({ link: "https://app.example/accept?token=abc" })).toThrow(SecretInDataError);
     expect(() => assertNoSecrets({ link: "https://app.example/r?id=1&sig=abc" })).toThrow();
     expect(() => assertNoSecrets({ url: "/messages/42", response_id: "r1" })).not.toThrow();
+  });
+  it("refuses relative links, fragments and any parameter ending like a secret", () => {
+    for (const link of [
+      "/accept?token=abc",
+      "./invite?inviteCode=abc",
+      "../r?id=1&resetPassword=x",
+      "?otp=123456",
+      "/callback#access_token=abc",
+      "https://app.example/x?id=1&apiKey=abc",
+      "https://app.example/x;jsessionkey=abc",
+      "mailto:a@example.test?verification_code=1",
+    ]) {
+      expect(() => assertNoSecrets({ link }), link).toThrow(SecretInDataError);
+    }
+    expect(() => assertNoSecrets({ link: "/messages/42?tab=files#top", note: "a code=1 in prose" })).not.toThrow();
   });
 });
 

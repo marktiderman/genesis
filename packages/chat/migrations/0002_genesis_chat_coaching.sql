@@ -306,13 +306,48 @@ $$;
 
 -- ── Availability ──────────────────────────────────────────────────────────────
 
+-- Working hours as every client reads them: an object whose keys are days (mon..sun), each an
+-- array of at most four [from, to] pairs of "HH:MM" strings ("24:00" may end a day). Anything
+-- else would reach every member's screen, so the table refuses it.
+create or replace function genesis_chat.valid_working_hours(p_hours jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_hours is null then true
+    when jsonb_typeof(p_hours) <> 'object' then false
+    else not exists (
+      select 1
+        from jsonb_each(p_hours) d(day, ranges)
+       where case
+               when d.day not in ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun') then true
+               when jsonb_typeof(d.ranges) <> 'array' then true
+               when jsonb_array_length(d.ranges) > 4 then true
+               else exists (
+                 select 1
+                   from jsonb_array_elements(d.ranges) r(pair)
+                  where case
+                          when jsonb_typeof(r.pair) <> 'array' then true
+                          when jsonb_array_length(r.pair) <> 2 then true
+                          when jsonb_typeof(r.pair -> 0) <> 'string' or jsonb_typeof(r.pair -> 1) <> 'string' then true
+                          else not ((r.pair ->> 0) ~ '^(([01]?[0-9]|2[0-3]):[0-5][0-9]|24:00)$'
+                                and (r.pair ->> 1) ~ '^(([01]?[0-9]|2[0-3]):[0-5][0-9]|24:00)$')
+                        end
+               )
+             end
+    )
+  end
+$$;
+
 create table genesis_chat.availability (
   user_id uuid primary key references auth.users (id) on delete cascade,
   away_message text check (away_message is null or length(away_message) <= 280),
   away_until timestamptz,
   time_zone text check (time_zone is null or length(time_zone) <= 64),
   -- {"mon": [["09:00","17:00"]], "tue": [...], ...}; a missing day is not working.
-  hours jsonb check (hours is null or (jsonb_typeof(hours) = 'object' and pg_column_size(hours) <= 2048)),
+  hours jsonb check (hours is null or (genesis_chat.valid_working_hours(hours) and pg_column_size(hours) <= 2048)),
   updated_at timestamptz not null default now()
 );
 
@@ -341,6 +376,9 @@ begin
   end if;
   if p_time_zone is not null and not exists (select 1 from pg_timezone_names where name = p_time_zone) then
     raise exception 'Unknown time zone %', p_time_zone using errcode = '22023';
+  end if;
+  if not genesis_chat.valid_working_hours(p_hours) then
+    raise exception 'Working hours are days (mon..sun), each up to 4 ["HH:MM", "HH:MM"] ranges' using errcode = '22023';
   end if;
   insert into genesis_chat.availability as a (user_id, away_message, away_until, time_zone, hours)
   values (auth.uid(), nullif(btrim(p_away_message), ''), p_away_until, p_time_zone, p_hours)
@@ -406,7 +444,8 @@ $$;
 -- ── Search ────────────────────────────────────────────────────────────────────
 
 -- Messages (and voice or video transcripts) you can read that match `p_query`, newest first.
--- Within one conversation, or across all of yours.
+-- Within one conversation, or across all of yours. The snippet marks matches with « and »; the
+-- text's own « and » become ‹ and › first, so a message can't fake a highlight.
 create or replace function genesis_chat.search_messages(p_query text, p_conversation_id uuid default null, p_limit integer default 30)
 returns table (message_id uuid, conversation_id uuid, seq bigint, sender_id uuid, created_at timestamptz, snippet text, in_transcript boolean)
 language plpgsql
@@ -430,14 +469,14 @@ begin
     select p_conversation_id where p_conversation_id is not null and genesis_chat.i_observe(p_conversation_id)
   ), hits as (
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', m.body, q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript
+           ts_headline('simple', translate(m.body, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript
       from genesis_chat.messages m join mine using (conversation_id)
      where m.search @@ q and m.deleted_at is null
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
        and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid())
     union all
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', a.transcript, q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
+           ts_headline('simple', translate(a.transcript, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
       from genesis_chat.attachments a
       join genesis_chat.messages m on m.id = a.message_id
       join mine on mine.conversation_id = m.conversation_id
@@ -841,6 +880,9 @@ end;
 $$;
 
 -- ── Grants, by name ───────────────────────────────────────────────────────────
+
+revoke execute on function genesis_chat.valid_working_hours(jsonb) from public, anon;
+grant execute on function genesis_chat.valid_working_hours(jsonb) to authenticated, service_role;
 
 revoke execute on function
   genesis_chat.set_topic(uuid, text, text, integer, boolean),

@@ -13,9 +13,14 @@
  * Glue: `createTusUpload` (resumable uploads for `ChatProvider upload`) and
  * the push block's `messages` category, actions and reply handler.
  *
+ * Video messages: `ChatVideoRecorder` (expo-camera), `ChatVideoPlayer`
+ * (expo-video, HLS), uploads through `ChatProvider videoUpload` with
+ * `chunkedPut`; link previews (`ChatLinkPreviewCard`) and the app's own
+ * attachment cards (`ChatAttachmentCard`).
+ *
  * Optional peers, passed in rather than imported: expo-audio,
- * expo-image-picker, expo-haptics, expo-clipboard,
- * react-native-keyboard-controller; FlashList and expo-image through
+ * expo-image-picker, expo-haptics, expo-clipboard, expo-camera, expo-video,
+ * expo-web-browser, react-native-keyboard-controller; FlashList and expo-image through
  * GenesisNativeApp's `modules`.
  *
  * @stability Beta
@@ -29,6 +34,13 @@ export { MessageBubble, displayBody, formatClock, type MessageBubbleProps } from
 export { MessageActionsSheet, type MessageActionsSheetProps } from "./message-actions-sheet";
 export { VoiceNotePlayer, claimPlayback, releasePlayback, activePlaybackId, toggleVoiceNote, cycleVoiceNoteRate, usePlayingVoiceNote, scrubSeconds, waveformBars, barsThatFit, type VoiceNotePlayerProps } from "./voice-player";
 export { ChatMediaViewer, MessageAttachments, attachmentPaths, type BubbleAttachment, type ChatMediaViewerProps } from "./media";
+export { ChatVideoRecorder, type ChatVideoRecorderProps } from "./video-recorder";
+export { videoRecorderStep, initialVideoRecorder, recordingType, VIDEO_HOLD_MS, VIDEO_MIN_MS, type VideoRecorderState, type VideoRecorderEvent, type VideoRecorderEffect, type VideoRecorderPhase } from "./video-recorder-state";
+export { ChatVideoPlayer, videoState, videoSource, muxStreamUrl, muxPosterUrl, toggleVideo, fullScreenVideo, isVideoPlaying, usePlayingVideo, toggleVideoMute, cycleVideoRate, type ChatVideoPlayerProps, type ChatVideoState } from "./video-player";
+export { chunkedPut, fileSource, nextOffset, createVideoUploads, videoUploads, type VideoUploadError, type MintedUpload, useVideoUploads, recordedVideoFile, VIDEO_CHUNK_BYTES, type ByteSource, type ChunkedPutOptions, type RecordedVideo, type VideoUploadTask, type VideoUploads, type StartVideoInput, type OutboxSend } from "./video-upload";
+export { VideoUploadTray, type VideoUploadTrayProps } from "./video-upload-tray";
+export { ChatLinkPreviewCard, previewToShow, linkPreviewIds, openChatLink, linkHost, type ChatLinkPreviewCardProps } from "./link-preview";
+export { ChatAttachmentCard, splitCardAttachments, isOpenableHref, cardAction, type ChatAttachmentCardProps, type OpenAttachment } from "./attachment-cards";
 export { ChatNativeProvider, useChatNative, initials, type ChatNativeProviderProps, type ChatNativeContextValue, type ChatPerson } from "./context";
 export { chatNativeCopy, resolveChatCopy, fill, type ChatNativeCopy, type ChatNativeCopyOverrides } from "./copy";
 export {
@@ -84,13 +96,17 @@ export {
   PUSH_REPLY_WAIT_MS,
   handleChatPushResponse,
   chatThreadMatch,
+  chatPushPayload,
   type ChatPushCopy,
+  type ChatPushData,
+  type ChatPushPayload,
+  type ChatPushPayloadInput,
   type ChatPushOutcome,
   type ChatPushOutboxDeps,
   type ChatPushResponseLike,
   type NotificationCategoriesLike,
 } from "./push";
-export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent } from "./modules";
+export { haptic, type ChatNativeModules, type ExpoAudioLike, type ImagePickerLike, type HapticsLike, type ClipboardLike, type KeyboardAvoidingLike, type DraftStorageLike, type AudioPlayerLike, type AudioRecorderLike, type AudioStatusLike, type RecorderStateLike, type PickedAssetLike, type PickerResultLike, type HapticEvent, type ExpoCameraLike, type ExpoVideoLike, type WebBrowserLike, type ChunkFileLike, type VideoPlayerLike, type CameraViewHandleLike, type VideoViewHandleLike, type PermissionLike } from "./modules";
 
 // Organising: topics, scheduled send, availability, broadcast, search and moderation.
 export { chatOrganiseCopy, type ChatOrganiseCopy } from "./organise-copy";

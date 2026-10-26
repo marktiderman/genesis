@@ -306,13 +306,48 @@ $$;
 
 -- ── Availability ──────────────────────────────────────────────────────────────
 
+-- Working hours as every client reads them: an object whose keys are days (mon..sun), each an
+-- array of at most four [from, to] pairs of "HH:MM" strings ("24:00" may end a day). Anything
+-- else would reach every member's screen, so the table refuses it.
+create or replace function genesis_chat.valid_working_hours(p_hours jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_hours is null then true
+    when jsonb_typeof(p_hours) <> 'object' then false
+    else not exists (
+      select 1
+        from jsonb_each(p_hours) d(day, ranges)
+       where case
+               when d.day not in ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun') then true
+               when jsonb_typeof(d.ranges) <> 'array' then true
+               when jsonb_array_length(d.ranges) > 4 then true
+               else exists (
+                 select 1
+                   from jsonb_array_elements(d.ranges) r(pair)
+                  where case
+                          when jsonb_typeof(r.pair) <> 'array' then true
+                          when jsonb_array_length(r.pair) <> 2 then true
+                          when jsonb_typeof(r.pair -> 0) <> 'string' or jsonb_typeof(r.pair -> 1) <> 'string' then true
+                          else not ((r.pair ->> 0) ~ '^(([01]?[0-9]|2[0-3]):[0-5][0-9]|24:00)$'
+                                and (r.pair ->> 1) ~ '^(([01]?[0-9]|2[0-3]):[0-5][0-9]|24:00)$')
+                        end
+               )
+             end
+    )
+  end
+$$;
+
 create table genesis_chat.availability (
   user_id uuid primary key references auth.users (id) on delete cascade,
   away_message text check (away_message is null or length(away_message) <= 280),
   away_until timestamptz,
   time_zone text check (time_zone is null or length(time_zone) <= 64),
   -- {"mon": [["09:00","17:00"]], "tue": [...], ...}; a missing day is not working.
-  hours jsonb check (hours is null or (jsonb_typeof(hours) = 'object' and pg_column_size(hours) <= 2048)),
+  hours jsonb check (hours is null or (genesis_chat.valid_working_hours(hours) and pg_column_size(hours) <= 2048)),
   updated_at timestamptz not null default now()
 );
 
@@ -341,6 +376,9 @@ begin
   end if;
   if p_time_zone is not null and not exists (select 1 from pg_timezone_names where name = p_time_zone) then
     raise exception 'Unknown time zone %', p_time_zone using errcode = '22023';
+  end if;
+  if not genesis_chat.valid_working_hours(p_hours) then
+    raise exception 'Working hours are days (mon..sun), each up to 4 ["HH:MM", "HH:MM"] ranges' using errcode = '22023';
   end if;
   insert into genesis_chat.availability as a (user_id, away_message, away_until, time_zone, hours)
   values (auth.uid(), nullif(btrim(p_away_message), ''), p_away_until, p_time_zone, p_hours)
@@ -406,7 +444,8 @@ $$;
 -- ── Search ────────────────────────────────────────────────────────────────────
 
 -- Messages (and voice or video transcripts) you can read that match `p_query`, newest first.
--- Within one conversation, or across all of yours.
+-- Within one conversation, or across all of yours. The snippet marks matches with « and »; the
+-- text's own « and » become ‹ and › first, so a message can't fake a highlight.
 create or replace function genesis_chat.search_messages(p_query text, p_conversation_id uuid default null, p_limit integer default 30)
 returns table (message_id uuid, conversation_id uuid, seq bigint, sender_id uuid, created_at timestamptz, snippet text, in_transcript boolean)
 language plpgsql
@@ -430,14 +469,14 @@ begin
     select p_conversation_id where p_conversation_id is not null and genesis_chat.i_observe(p_conversation_id)
   ), hits as (
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', m.body, q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript
+           ts_headline('simple', translate(m.body, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»') as snippet, false as in_transcript
       from genesis_chat.messages m join mine using (conversation_id)
      where m.search @@ q and m.deleted_at is null
        and (m.visibility = 'everyone' or genesis_chat.i_observe(m.conversation_id))
        and (m.moderation is distinct from 'hidden' or m.sender_id = auth.uid())
     union all
     select m.id, m.conversation_id, m.seq, m.sender_id, m.created_at,
-           ts_headline('simple', a.transcript, q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
+           ts_headline('simple', translate(a.transcript, '«»', '‹›'), q, 'MaxWords=18, MinWords=6, StartSel=«, StopSel=»'), true
       from genesis_chat.attachments a
       join genesis_chat.messages m on m.id = a.message_id
       join mine on mine.conversation_id = m.conversation_id
@@ -674,7 +713,10 @@ as $$
      limit 99) u
 $$;
 
-create or replace function genesis_chat.push_targets(p_message_id uuid)
+-- p_badge_exclude_kinds: kinds the app leaves out of its badge (as unread_total does), so the
+-- push badge and the app's own badge agree.
+drop function genesis_chat.push_targets(uuid);
+create function genesis_chat.push_targets(p_message_id uuid, p_badge_exclude_kinds text[] default null)
 returns table (user_id uuid, conversation_id uuid, title text, sender_id uuid, preview text, mentioned boolean, unread_total integer)
 language sql
 stable
@@ -704,15 +746,21 @@ as $$
          (select coalesce(sum(genesis_chat.unread_count(c2.id, m2.user_id, m2.last_read_seq)), 0)::integer
             from genesis_chat.members m2 join genesis_chat.conversations c2 on c2.id = m2.conversation_id
            where m2.user_id = r.user_id and m2.left_at is null and m2.role <> 'observer' and not m2.archived
-             and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq)
+             and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq
+             and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
     from recipients r cross join msg
 $$;
 
-create or replace function genesis_chat.inbox(
+-- The inbox also narrows to several kinds, or leaves some out (an app's Messages without its
+-- support tickets). Same columns as 0001's; the old call shape still works.
+drop function genesis_chat.inbox(text, boolean, integer, timestamptz);
+create function genesis_chat.inbox(
   p_kind text default null,
   p_archived boolean default false,
   p_limit integer default 50,
-  p_before timestamptz default null
+  p_before timestamptz default null,
+  p_kinds text[] default null,
+  p_exclude_kinds text[] default null
 )
 returns table (
   conversation_id uuid,
@@ -764,9 +812,28 @@ as $$
    where me.user_id = auth.uid() and me.left_at is null and me.role <> 'observer'
      and me.archived = coalesce(p_archived, false)
      and (p_kind is null or c.kind = p_kind)
+     and (p_kinds is null or c.kind = any (p_kinds))
+     and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
      and (p_before is null or coalesce(c.last_message_at, c.created_at) < p_before)
    order by me.pinned desc, coalesce(c.last_message_at, c.created_at) desc, c.id
    limit least(greatest(coalesce(p_limit, 50), 1), 200)
+$$;
+
+-- The badge can leave kinds out too, to match an inbox that does.
+drop function genesis_chat.unread_total(uuid);
+create function genesis_chat.unread_total(p_user_id uuid default null, p_exclude_kinds text[] default null)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(sum(genesis_chat.unread_count(c.id, me.user_id, me.last_read_seq)), 0)::integer
+    from genesis_chat.members me join genesis_chat.conversations c on c.id = me.conversation_id
+   where me.user_id = case when auth.role() = 'service_role' then coalesce(p_user_id, auth.uid()) else auth.uid() end
+     and me.left_at is null and me.role <> 'observer' and me.archived = false
+     and coalesce(me.muted_until <= now(), true) and c.last_seq > me.last_read_seq
+     and (p_exclude_kinds is null or not (c.kind = any (p_exclude_kinds)))
 $$;
 
 -- ── Retention and legal hold ──────────────────────────────────────────────────
@@ -814,6 +881,9 @@ $$;
 
 -- ── Grants, by name ───────────────────────────────────────────────────────────
 
+revoke execute on function genesis_chat.valid_working_hours(jsonb) from public, anon;
+grant execute on function genesis_chat.valid_working_hours(jsonb) to authenticated, service_role;
+
 revoke execute on function
   genesis_chat.set_topic(uuid, text, text, integer, boolean),
   genesis_chat.schedule_message(uuid, uuid, timestamptz, text, jsonb, uuid, text, uuid[], boolean),
@@ -823,7 +893,8 @@ revoke execute on function
   genesis_chat.broadcast_message(uuid[], uuid, text, jsonb, boolean),
   genesis_chat.search_messages(text, uuid, integer),
   genesis_chat.link_previews_for(uuid),
-  genesis_chat.inbox(text, boolean, integer, timestamptz)
+  genesis_chat.inbox(text, boolean, integer, timestamptz, text[], text[]),
+  genesis_chat.unread_total(uuid, text[])
 from public, anon;
 
 grant execute on function
@@ -835,7 +906,8 @@ grant execute on function
   genesis_chat.broadcast_message(uuid[], uuid, text, jsonb, boolean),
   genesis_chat.search_messages(text, uuid, integer),
   genesis_chat.link_previews_for(uuid),
-  genesis_chat.inbox(text, boolean, integer, timestamptz)
+  genesis_chat.inbox(text, boolean, integer, timestamptz, text[], text[]),
+  genesis_chat.unread_total(uuid, text[])
 to authenticated, service_role;
 
 revoke execute on function
@@ -846,7 +918,7 @@ revoke execute on function
   genesis_chat.purge_expired(integer),
   genesis_chat.set_legal_hold(uuid, boolean),
   genesis_chat.unread_count(uuid, uuid, bigint),
-  genesis_chat.push_targets(uuid)
+  genesis_chat.push_targets(uuid, text[])
 from public, anon, authenticated;
 
 grant execute on function
@@ -857,5 +929,5 @@ grant execute on function
   genesis_chat.purge_expired(integer),
   genesis_chat.set_legal_hold(uuid, boolean),
   genesis_chat.unread_count(uuid, uuid, bigint),
-  genesis_chat.push_targets(uuid)
+  genesis_chat.push_targets(uuid, text[])
 to service_role;

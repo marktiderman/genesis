@@ -18,6 +18,27 @@ import {
 } from "../server/index";
 import { sha256Hex } from "../server/crypto";
 import { USER, registry } from "./fixtures";
+import { defineNotifications } from "../core/index";
+
+const richRegistry = defineNotifications({
+  categories: { messages: { label: "Messages" } },
+  types: {
+    "chat.rich": {
+      category: "messages",
+      channels: { in_app: true, push: true },
+      render: (d) => ({
+        title: String(d.sender_name ?? "Someone"),
+        body: String(d.preview ?? ""),
+        url: `/messages/${String(d.conversation_id)}`,
+        push: {
+          ids: { conversationId: String(d.conversation_id), messageId: "m7", seq: 7, type: "spoofed" },
+          display: { senderName: String(d.sender_name ?? ""), senderAvatar: "https://cdn.example.test/sam.png", nested: { no: 1 } as unknown as string },
+          mutableContent: true,
+        },
+      }),
+    },
+  },
+});
 
 const UNSUB = { url: "https://app.example.test/notifications/unsubscribe", secret: "u".repeat(32) };
 
@@ -57,6 +78,8 @@ function job(overrides: Partial<ClaimedJob> = {}): ClaimedJob {
 
 function fakeStore(claims: { push?: ClaimedJob[]; email?: ClaimedJob[] }) {
   const settled: [string, SettleOutcome][] = [];
+  /** What happened, in order: "send:<ids>", "provider:<id>", "settle:<id>". */
+  const events: string[] = [];
   const tickets: [string, unknown][] = [];
   const stored = new Map<string, { rendered: RenderedEmail; hash: string }>();
   const store: NotificationStore = {
@@ -71,6 +94,11 @@ function fakeStore(claims: { push?: ClaimedJob[]; email?: ClaimedJob[] }) {
     },
     settle: async (id, _claim, outcome) => {
       settled.push([id, outcome]);
+      events.push(`settle:${id}`);
+      return true;
+    },
+    recordProviderId: async (id, _claim, providerId) => {
+      events.push(`provider:${id}:${providerId}`);
       return true;
     },
     pushTickets: async (id, rows) => void tickets.push([id, rows]),
@@ -80,7 +108,7 @@ function fakeStore(claims: { push?: ClaimedJob[]; email?: ClaimedJob[] }) {
     unsubscribe: async () => true,
     syncTypes: async () => 0,
   };
-  return { store, settled, tickets, stored };
+  return { store, settled, tickets, stored, events };
 }
 
 function fakePush(answer?: (messages: readonly PushMessage[]) => Promise<{ status: "ok"; id: string }[] | never>) {
@@ -146,6 +174,21 @@ describe("push", () => {
     }
   });
 
+  it("adds a type's push extras: ids always, display values and rich push only with previews shown", async () => {
+    const { store } = fakeStore({ push: [job({ type: "chat.rich" }), job({ id: "d2", type: "chat.rich", hide_previews: true })] });
+    const push = fakePush();
+    await createNotificationRunner({ store, registry: richRegistry, push: { provider: push.provider } }).runPush();
+    const [shown, hidden] = push.sent.flat();
+    expect(shown).toMatchObject({ mutableContent: true, data: { conversationId: "c42", messageId: "m7", seq: 7, senderName: "Sam", senderAvatar: "https://cdn.example.test/sam.png" } });
+    // The notifier's own keys win, and only flat values travel.
+    expect(shown!.data!.type).toBe("chat.rich");
+    expect(shown!.data).not.toHaveProperty("nested");
+    expect(hidden!.mutableContent).toBeUndefined();
+    expect(hidden!.data).toMatchObject({ conversationId: "c42", messageId: "m7", seq: 7 });
+    expect(hidden!.data).not.toHaveProperty("senderName");
+    expect(hidden!.data).not.toHaveProperty("senderAvatar");
+  });
+
   it("collapses per conversation with the collapse key", async () => {
     const { store } = fakeStore({ push: [job({ collapse_key: "conv:c42" })] });
     const push = fakePush();
@@ -167,6 +210,68 @@ describe("push", () => {
     const provider: PushProvider = { name: "x", send: async () => { throw new SendError("Expo push answered HTTP 503", { retryable: true, status: 503 }); }, receipts: async () => ({}) };
     expect(await createNotificationRunner({ store, registry, push: { provider } }).runPush()).toMatchObject({ retrying: 2 });
     expect(settled[0]![1]).toMatchObject({ status: "retry", counted: true, error: "Expo push answered HTTP 503" });
+  });
+
+  it("sends, records and settles each Expo batch on its own, never splitting a job's devices", async () => {
+    const many = (n: number, p: string) => Array.from({ length: n }, (_, i) => ({ id: `${p}${i}`, token: `ExponentPushToken[${p}${i}]`, platform: "ios" }));
+    const { store, events } = fakeStore({ push: [job({ id: "j1", devices: many(60, "a") }), job({ id: "j2", devices: many(60, "b") }), job({ id: "j3", devices: many(30, "c") })] });
+    const sizes: number[] = [];
+    let inFlight = 0;
+    let most = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const provider: PushProvider = {
+      name: "x",
+      send: async (m) => {
+        sizes.push(m.length);
+        events.push(`send:${m.length}`);
+        most = Math.max(most, ++inFlight);
+        // The second batch (j2, j3) waits until the first has settled.
+        if (m.some((x) => x.to.includes("[b"))) await gate;
+        inFlight--;
+        return m.map((_, i) => ({ status: "ok" as const, id: `t${sizes.length}-${i}` }));
+      },
+      receipts: async () => ({}),
+    };
+    const run = createNotificationRunner({ store, registry, push: { provider } }).runPush();
+    await vi.waitFor(() => expect(events).toContain("settle:j1"));
+    expect(events).not.toContain("settle:j2");
+    release();
+    expect(await run).toMatchObject({ claimed: 3, sent: 3 });
+    // One after another, in order: the lease check before each batch holds.
+    expect(sizes).toEqual([60, 90]);
+    expect(most).toBe(1);
+  });
+
+  it("starts no batch once the lease is about to run out: those jobs come back at once", async () => {
+    let clock = 1_000_000;
+    const { store, settled } = fakeStore({ push: [job()] });
+    const push = fakePush();
+    const claim = store.claim;
+    store.claim = async (...args) => {
+      const jobs = await claim(...args);
+      clock += 300_000; // the claim took the whole lease
+      return jobs;
+    };
+    expect(await createNotificationRunner({ store, registry, push: { provider: push.provider }, now: () => clock }).runPush()).toMatchObject({ deferred: 1, sent: 0 });
+    expect(push.sent).toHaveLength(0);
+    expect(settled[0]![1]).toMatchObject({ status: "retry", counted: false, error: "lease_running_out" });
+  });
+
+  it("with a run budget, claims again while claims come back full, and stops once the time left is under the lease", async () => {
+    let clock = 0;
+    const claims: number[] = [];
+    const { store } = fakeStore({});
+    store.claim = async (_channel, limit) => {
+      claims.push(clock);
+      clock += 100_000;
+      return Array.from({ length: limit }, (_, i) => job({ id: `c${claims.length}-${i}` }));
+    };
+    const runner = createNotificationRunner({ store, registry, push: { provider: fakePush().provider }, batchSize: 2, leaseSeconds: 300, runBudgetMs: 550_000, now: () => clock });
+    // Each claim takes 100 s: claims at 0, 100 and 200 s (350 s left still covers a 300 s lease); at 300 s only 250 s are left.
+    expect(await runner.runPush()).toMatchObject({ claimed: 6 });
+    expect(claims).toEqual([0, 100_000, 200_000]);
+    expect(() => createNotificationRunner({ store, registry, leaseSeconds: 300, runBudgetMs: 60_000 })).toThrow(/runBudgetMs/);
   });
 
   it("resends a refused batch one by one", async () => {
@@ -253,6 +358,68 @@ describe("email", () => {
     await createNotificationRunner({ store, registry, email: emailOptions(mail.provider) }).runEmail();
     expect(mail.sent).toHaveLength(0);
     expect(settled[0]![1]).toEqual({ status: "failed", error: "rendered_email_changed" });
+  });
+
+  it("keeps the provider's id the moment the send returns, before it settles", async () => {
+    const { store, events } = fakeStore({ email: [emailJob()] });
+    await createNotificationRunner({ store, registry, email: emailOptions(fakeEmail().provider) }).runEmail();
+    expect(events).toEqual(["provider:d1:re_1", "settle:d1"]);
+  });
+
+  it("fails a 409 invalid_idempotent_request loudly, keeping a provider id it knew", async () => {
+    const { SendError } = await import("../server/errors");
+    const { store, settled } = fakeStore({ email: [emailJob()] });
+    const provider: EmailProvider = {
+      name: "x",
+      send: async () => {
+        throw new SendError("idempotency_body_changed: Resend answered 409 (invalid_idempotent_request)", { retryable: false, status: 409 });
+      },
+    };
+    expect(await createNotificationRunner({ store, registry, email: emailOptions(provider) }).runEmail()).toMatchObject({ failed: 1, sent: 0 });
+    expect(settled[0]![1]).toMatchObject({ status: "failed", error: expect.stringMatching(/^idempotency_body_changed/) });
+  });
+
+  it("never sends from a tenant domain that is the app's own shared one, or under it", async () => {
+    for (const domain of ["updates.example.test", "x.mail.example.test"]) {
+      const { store } = fakeStore({ email: [emailJob({ sender: { from_name: "Riverside", reply_to: null, domain, domain_verified: true } })] });
+      const mail = fakeEmail();
+      await createNotificationRunner({ store, registry, email: emailOptions(mail.provider) }).runEmail();
+      expect(mail.sent[0]!.from).toBe("Riverside <notifications@updates.example.test>");
+    }
+  });
+
+  it("names someone with no login by their address's hash in the unsubscribe token, with the tenant", async () => {
+    const { store } = fakeStore({ email: [emailJob({ user_id: null, email: "out@example.test", tenant_id: "t1" })] });
+    const mail = fakeEmail();
+    await createNotificationRunner({ store, registry, email: emailOptions(mail.provider) }).runEmail();
+    const token = new URL(mail.sent[0]!.headers!["List-Unsubscribe"]!.slice(1, -1)).searchParams.get("t")!;
+    expect(token).not.toContain("out");
+    expect(await verifyUnsubscribeToken(UNSUB.secret, token)).toEqual({ emailHash: await sha256Hex("out@example.test"), category: "messages", tenantId: "t1" });
+  });
+
+  it("links only to paths on the app's own origin", async () => {
+    const evil = { sender_name: "Sam", preview: "x", conversation_id: "c1" };
+    const reg = (await import("../core/index")).defineNotifications({
+      categories: { messages: { label: "Messages" } },
+      types: {
+        "chat.message": { category: "messages", channels: { push: true, email: true }, render: (d) => ({ title: "Hi", url: String(d.url) }) },
+      },
+    });
+    for (const url of ["https://evil.example.test/x", "//evil.example.test/x", "/\\evil.example.test", "javascript:alert(1)"]) {
+      const { store } = fakeStore({ push: [job({ data: { ...evil, url } })], email: [job({ id: "e1", channel: "email", email: "a@example.test", devices: null, data: { ...evil, url } })] });
+      const push = fakePush();
+      const mail = fakeEmail();
+      const runner = createNotificationRunner({ store, registry: reg, push: { provider: push.provider }, email: emailOptions(mail.provider, { secretLinks: {} }), appUrl: "https://app.example.test" });
+      await runner.run();
+      expect(push.sent[0]![0]!.data).not.toHaveProperty("url");
+      expect(mail.sent[0]!.html).not.toContain("evil");
+    }
+    const { store } = fakeStore({ push: [job({ data: { ...evil, url: "/messages/c1" } })], email: [job({ id: "e1", channel: "email", email: "a@example.test", devices: null, data: { ...evil, url: "/messages/c1" } })] });
+    const push = fakePush();
+    const mail = fakeEmail();
+    await createNotificationRunner({ store, registry: reg, push: { provider: push.provider }, email: emailOptions(mail.provider, { secretLinks: {} }), appUrl: "https://app.example.test/base" }).run();
+    expect(push.sent[0]![0]!.data).toMatchObject({ url: "/messages/c1" });
+    expect(mail.sent[0]!.html).toContain("https://app.example.test/messages/c1");
   });
 
   it("counts Resend's already-sent as sent", async () => {

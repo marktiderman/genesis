@@ -41,7 +41,24 @@ export interface ChatNotification {
   threadKey: string;
   /** `push:<message id>`: the same message is never pushed twice by a sender that dedupes. */
   idempotencyKey: string;
-  data: { url: string; conversationId: string; messageId: string; seq: number | null };
+  /**
+   * The push's data, built by `chatPushPayload` (genesis-chat/push): flat strings the iOS
+   * Notification Service Extension reads (sender name and https photo, group name) plus `seq`.
+   */
+  data: {
+    url: string;
+    conversationId: string;
+    messageId: string;
+    seq: number | null;
+    senderId?: string;
+    senderName?: string;
+    senderAvatar?: string;
+    groupName?: string;
+  };
+  /** Let the iOS extension rewrite it into a Communication Notification (sender photo). */
+  mutableContent?: boolean;
+  /** The notification category the native push block registers for chat (`messages`). */
+  categoryId?: string;
 }
 
 /**

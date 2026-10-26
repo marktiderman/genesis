@@ -118,6 +118,9 @@ const en = {
     search: "Search messages",
     searchThread: "Search this conversation",
     broadcast: "Broadcast a message",
+    // A check-in sent in a conversation (an attachment of kind `check_in`), drawn as a card.
+    checkInCard: "Check-in",
+    checkInAnswer: "Answer",
   },
 } as const;
 

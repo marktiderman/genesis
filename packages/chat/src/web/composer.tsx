@@ -40,7 +40,7 @@ import type { LocalFile } from "../core/outbox";
 import { parseMentions, previewText } from "../core/thread";
 import type { ChatMessage } from "../core/types";
 import { useChat, useScheduled, type ConversationState } from "../react/index";
-import { ChatEmojiPicker } from "./emoji-picker";
+import { ChatEmojiPicker, canPickEmoji } from "./emoji-picker";
 import type { ResolveUser } from "./format";
 import { ChatScheduleMenu, ChatScheduledList } from "./schedule";
 import { ChatVideoRecorder } from "./video";
@@ -77,7 +77,7 @@ export interface ChatComposerProps {
   scheduling?: boolean;
   /** Offer video recording. Default true where the browser can record. */
   video?: boolean;
-  /** Offer the emoji picker. Default true. */
+  /** Offer the emoji picker (only when `emojibaseUrl` is given). Default true. */
   emoji?: boolean;
   /** Where the emoji picker loads its data from. */
   emojibaseUrl?: string;
@@ -130,6 +130,11 @@ export function ChatComposer({
   const picker = useRef<HTMLInputElement>(null);
   const draftsRef = useRef(drafts);
   draftsRef.current = drafts;
+  // One clientId per scheduled draft, kept until it is scheduled, so pressing Schedule again
+  // after a timeout (the server may have saved it) never schedules it twice.
+  const scheduleId = useRef<string | null>(null);
+  const [schedulingNow, setSchedulingNow] = useState(false);
+  const schedulingRef = useRef(false);
 
   const recorder = useVoiceRecorder({
     maxMs: recordingLimitMs(state.role),
@@ -211,7 +216,10 @@ export function ChatComposer({
 
   const scheduleAt = async (at: Date) => {
     const body = text.trim();
-    if ((!body && drafts.length === 0) || !conversationId) return;
+    if ((!body && drafts.length === 0) || !conversationId || schedulingRef.current) return;
+    schedulingRef.current = true;
+    setSchedulingNow(true);
+    scheduleId.current ??= randomId();
     const files: LocalFile[] = drafts.map((d) => ({
       data: d.file,
       name: d.file.name,
@@ -220,9 +228,10 @@ export function ChatComposer({
     }));
     try {
       await scheduled.schedule(
-        { conversationId, body, mentions: parseMentions(body), replyToId: replyTo?.id ?? null, topic: topic ?? null, sendAt: at },
+        { conversationId, clientId: scheduleId.current, body, mentions: parseMentions(body), replyToId: replyTo?.id ?? null, topic: topic ?? null, sendAt: at },
         files,
       );
+      scheduleId.current = null;
       setText("");
       drafts.forEach((d) => revoke(d.previewUrl));
       setDrafts([]);
@@ -230,6 +239,9 @@ export function ChatComposer({
       toast.success(`Scheduled for ${scheduleLabel(at)}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't schedule it");
+    } finally {
+      schedulingRef.current = false;
+      setSchedulingNow(false);
     }
   };
 
@@ -497,7 +509,7 @@ export function ChatComposer({
             )}
             data-testid="genesis-chat-input"
           />
-          {emoji ? (
+          {emoji && canPickEmoji(emojibaseUrl) ? (
             <Popover open={emojiOpen} onOpenChange={setEmojiOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="ghost" size="icon" className="shrink-0 rounded-full text-muted-foreground" aria-label="Add emoji" data-testid="genesis-chat-emoji-button">
@@ -520,7 +532,7 @@ export function ChatComposer({
               <Button type="button" size="icon" className="shrink-0 rounded-full" onClick={submit} aria-label="Send" data-testid="genesis-chat-send">
                 <SendHorizontal />
               </Button>
-              {scheduling && conversationId && !internal ? <ChatScheduleMenu onSchedule={(at) => void scheduleAt(at)} /> : null}
+              {scheduling && conversationId && !internal ? <ChatScheduleMenu onSchedule={(at) => void scheduleAt(at)} disabled={schedulingNow} /> : null}
             </>
           ) : (
             <Tooltip content="Record a voice message">

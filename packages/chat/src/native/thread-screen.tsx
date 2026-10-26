@@ -29,7 +29,13 @@ import { NativeEmptyState, NativeSkeleton, NativeText, useGenesisModules, useToa
 import { useReducedMotion, useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { activityLine, previewText } from "../core/thread";
 import type { ChatMessage, PendingFile } from "../core/types";
-import { useChat, useConversation, useFileUrls, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
+import { useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePeople, usePins, useTopics } from "../react/index";
+import { recordingLimitMs } from "../core/media";
+import type { OpenAttachment } from "./attachment-cards";
+import { linkPreviewIds, previewToShow } from "./link-preview";
+import { ChatVideoRecorder } from "./video-recorder";
+import { VideoUploadTray } from "./video-upload-tray";
+import { videoUploads, type MintedUpload, type RecordedVideo } from "./video-upload";
 import { ChatAwayLine, useAwayLine } from "./availability";
 import { fill } from "./copy";
 import { ChatScheduledBar, ChatScheduleSheet, useScheduleSend } from "./schedule-sheet";
@@ -45,6 +51,9 @@ import { MessageActionsSheet } from "./message-actions-sheet";
 import { displayBody, MessageBubble } from "./message-bubble";
 import { haptic } from "./modules";
 import { buildThreadRows, type ThreadRow } from "./rows";
+
+/** How long an upload minted for a thrown-away take is kept for the next one. */
+const PREPARED_UPLOAD_MS = 20 * 60_000;
 
 export interface ChatThreadScreenProps {
   conversationId: string;
@@ -66,6 +75,8 @@ export interface ChatThreadScreenProps {
   scheduling?: boolean;
   /** The away line under the header. Default true. */
   availability?: boolean;
+  /** An app attachment card's button (a form, a check-in), when its kind gives no `onPress`. */
+  onOpenAttachment?: OpenAttachment;
   testID?: string;
 }
 
@@ -120,8 +131,11 @@ export function nearBottom(m: { contentOffset: { y: number }; contentSize: { hei
 }
 
 export function ChatThreadScreen(props: ChatThreadScreenProps) {
-  const { conversationId, threadRootId = null, keyboardVerticalOffset, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, testID = "chat-thread" } = props;
-  const { userId } = useChat();
+  const { conversationId, threadRootId = null, keyboardVerticalOffset, onOpenAttachment, jumpTo, topic: topicProp, showTopics = false, scheduling = true, availability = true, testID = "chat-thread" } = props;
+  const chat = useChat();
+  const { userId, videoUpload, attachmentKinds, outbox } = chat;
+  // Off unless the app turns it on: an og:image fetched from the phone tells its site who reads it.
+  const linkPreviewImages = (chat as { linkPreviewImages?: boolean }).linkPreviewImages === true;
   const topicsState = useTopics(threadRootId ? null : conversationId);
   const [chosenTopic, setChosenTopic] = useState<string | null>(null);
   // Another conversation in this screen starts in All.
@@ -193,6 +207,8 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
   const paths = useMemo(() => conv.items.flatMap((i) => (i.type === "message" ? attachmentPaths(i.message.attachments) : [])), [conv.items]);
   const urls = useFileUrls(paths);
   const byId = useMemo(() => new Map(conv.messages.map((m) => [m.id, m])), [conv.messages]);
+  const linkIds = useMemo(() => linkPreviewIds(conv.messages), [conv.messages]);
+  const previews = useLinkPreviews(linkIds);
   const people = usePeople(peopleIds);
   const nameOf = useCallback(
     (id: string | null) => (id === userId ? copy.you : ((person(id) ?? (id ? people[id] : undefined))?.name ?? copy.someone)),
@@ -335,11 +351,47 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
           onOpenImage={onOpenImage}
           observer={observer}
           highlighted={Boolean(m && m.id === highlightedId)}
+          linkPreview={m ? previewToShow(previews[m.id]) : null}
+          linkPreviewImages={linkPreviewImages}
+          attachmentKinds={attachmentKinds}
+          onOpenAttachment={onOpenAttachment}
           testID={`${testID}-message-${m?.id ?? row.key}`}
         />
       );
     },
-    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, observer, highlightedId],
+    [testID, copy.newMessages, userId, urls, byId, group, reducedMotion, onLongPress, allowed, reply, onSwipeReply, onRetry, onDiscard, react, onOpenImage, picker, reattachable, onReattach, previews, linkPreviewImages, attachmentKinds, onOpenAttachment, observer, highlightedId],
+  );
+
+  // ---- Video messages ----
+  const [videoOpen, setVideoOpen] = useState(false);
+  // Minted when a take starts, so its bytes go the moment it stops. Kept for the next take when this
+  // one is thrown away, but only for this conversation and only while it is fresh (Mux's direct
+  // uploads expire; the uploader mints another if one has).
+  const preparedVideo = useRef<{ conversationId: string; at: number; upload: Promise<MintedUpload> } | null>(null);
+  const takePrepared = useCallback(() => {
+    const p = preparedVideo.current;
+    preparedVideo.current = null;
+    return p && p.conversationId === conversationId && Date.now() - p.at < PREPARED_UPLOAD_MS ? p.upload : null;
+  }, [conversationId]);
+  const onVideoStart = useCallback(() => {
+    if (!videoUpload) return;
+    const before = preparedVideo.current;
+    const kept = takePrepared();
+    const upload = kept ?? videoUpload.create(conversationId);
+    upload.catch(() => {
+      if (preparedVideo.current?.upload === upload) preparedVideo.current = null;
+    });
+    preparedVideo.current = { conversationId, at: kept && before ? before.at : Date.now(), upload };
+  }, [videoUpload, conversationId, takePrepared]);
+  const replyNow = composer.state.replyTo?.messageId ?? null;
+  const onVideoRecorded = useCallback(
+    (video: RecordedVideo) => {
+      videoUploads.start({ conversationId, userId, video, extra: { replyToId: replyNow, threadRootId }, send: outbox.send, videoUpload, prepared: takePrepared(), openFile: modules.openFile });
+      if (replyNow) setReply(null);
+      atBottom.current = true;
+      toBottom(true);
+    },
+    [conversationId, userId, replyNow, threadRootId, outbox, videoUpload, takePrepared, modules.openFile, setReply, toBottom],
   );
 
   const activity = activityLine(conv.activity, (id) => nameOf(id));
@@ -433,6 +485,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
             )}
           </View>
           {scheduling && !threadRootId ? <ChatScheduledBar conversationId={conversationId} testID={`${testID}-scheduled`} /> : null}
+          <VideoUploadTray conversationId={conversationId} userId={userId} testID={`${testID}-video-uploads`} />
           <ChatComposer
             composer={composer}
             placeholder={currentTopic ? fill(copy.topicPlaceholder, { name: currentTopic.title }) : undefined}
@@ -448,6 +501,7 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
             }}
             signalTyping={conv.signalTyping}
             signalRecording={conv.signalRecording}
+            onRecordVideo={modules.camera ? () => setVideoOpen(true) : undefined}
             testID={`${testID}-composer`}
           />
         </KeyboardAvoiding>
@@ -461,6 +515,15 @@ export function ChatThreadScreen(props: ChatThreadScreenProps) {
         />
         <ChatMediaViewer image={viewer} onClose={() => setViewer(null)} testID={`${testID}-viewer`} />
         {canSchedule ? <ChatScheduleSheet open={schedule.open} onOpenChange={schedule.setOpen} onSchedule={(at) => void schedule.scheduleAt(at)} testID={`${testID}-schedule`} /> : null}
+        <ChatVideoRecorder
+          open={videoOpen}
+          onClose={() => setVideoOpen(false)}
+          limitMs={recordingLimitMs(conv.role)}
+          onStart={onVideoStart}
+          onTick={conv.signalRecordingVideo}
+          onRecorded={onVideoRecorded}
+          testID={`${testID}-video-recorder`}
+        />
       </SafeAreaView>
     </ChatPeopleScope>
   );
