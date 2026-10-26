@@ -1,7 +1,7 @@
 // What a resource means to people (docs/RESOURCE-VIEW.md, "View"). Types only: no React, no
 // DOM, so web, native and the extension all import the same view.
 
-import type { DataRow, FieldSchema, ResourceContract, RowOf } from "../schema/types";
+import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 
 export type { RowOf };
 
@@ -91,6 +91,21 @@ export interface ViewGuards<Row extends DataRow> {
   delete?: (row: Row) => Allowed;
 }
 
+/**
+ * A named operation on one row, shaped like core's {@link RowAction} (which a provider reports),
+ * plus a guard. The guard only narrows: the server still decides whether the action runs.
+ *
+ * ```ts
+ * actions: [{ name: "archive", label: "Archive", confirm: "Archive this brand?", can: (r) => (r.is_default ? "The default brand stays." : true) }]
+ * ```
+ */
+export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
+  can?: (row: Row) => Allowed;
+}
+
+/** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
+export type ResolvedViewAction = RowAction;
+
 /** A row in one line, for pickers, notifications and page bars. */
 export interface RowSummary {
   title: string;
@@ -127,6 +142,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   /** The record form. Default: every writable field, in contract order. */
   form?: readonly ViewFormItem<FieldNameOf<C>>[];
   can?: ViewGuards<Row>;
+  /** Named operations on one row, in the order a menu shows them. Names are unique. */
+  actions?: readonly ViewAction<Row>[];
   summary?: (row: Row) => RowSummary;
   /** The scope keys this view needs above it (`["practice_id"]`). They stay out of forms. */
   scope?: readonly FieldNameOf<C>[];
@@ -187,5 +204,12 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   writable(mode: "create" | "edit"): readonly string[];
   can(action: "create"): Allowed;
   can(action: "update" | "delete", row: Row): Allowed;
+  /** The view's actions, in order, frozen. */
+  actions(): readonly ResolvedViewAction[];
+  /**
+   * Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the
+   * server allows. Throws {@link ViewDefinitionError} for a name the view doesn't define.
+   */
+  canAction(name: string, row: Row): Allowed;
   summary(row: Row): RowSummary;
 }

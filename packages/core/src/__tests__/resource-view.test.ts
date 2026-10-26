@@ -233,3 +233,70 @@ describe("helpers moved into core", () => {
     expect(csvField("plain")).toBe("plain");
   });
 });
+
+describe("defineView actions", () => {
+  const view = defineView<typeof brands, BrandRow>(brands, {
+    actions: [
+      { name: "archive", label: "Archive", confirm: "Archive this brand?", can: (r) => (r.is_default ? "The default brand stays." : true) },
+      { name: "duplicate", label: "Duplicate", description: "Copies the brand." },
+    ],
+  });
+
+  it("lists actions in order, frozen, without their guards", () => {
+    expect(view.actions()).toEqual([
+      { name: "archive", label: "Archive", confirm: "Archive this brand?" },
+      { name: "duplicate", label: "Duplicate", description: "Copies the brand." },
+    ]);
+    expect(Object.isFrozen(view.actions())).toBe(true);
+    expect(Object.isFrozen(view.actions()[0])).toBe(true);
+    expect(view.actions()).toBe(view.actions());
+  });
+
+  it("guards narrow with a reason; an unguarded action is allowed", () => {
+    expect(view.canAction("archive", row)).toBe("The default brand stays.");
+    expect(view.canAction("archive", { ...row, is_default: false })).toBe(true);
+    expect(view.canAction("duplicate", row)).toBe(true);
+  });
+
+  it("throws for an action the view doesn't define", () => {
+    expect(() => view.canAction("explode", row)).toThrow(ViewDefinitionError);
+  });
+
+  it("has no actions by default", () => {
+    expect(defineView(brands).actions()).toEqual([]);
+  });
+
+  it("throws on duplicate names and bad input", () => {
+    const bad = () =>
+      defineView(brands, {
+        actions: [
+          { name: "archive", label: "Archive" },
+          { name: "archive", label: "Again" },
+          { name: "", label: "Nameless" },
+          { name: "x", label: "  " },
+          { name: "y", label: "Y", can: "no" as never, confirm: 1 as never, description: false as never },
+          null as never,
+        ],
+      });
+    expect(bad).toThrow(ViewDefinitionError);
+    try {
+      bad();
+    } catch (error) {
+      const problems = (error as ViewDefinitionError).problems.join("\n");
+      expect(problems).toContain('actions lists "archive" twice');
+      expect(problems).toContain("actions[2] has no name");
+      expect(problems).toContain("actions[3] has no label");
+      expect(problems).toContain("actions[4].can isn't a function");
+      expect(problems).toContain("actions[4].confirm isn't text");
+      expect(problems).toContain("actions[4].description isn't text");
+      expect(problems).toContain("actions[5] isn't an action");
+    }
+    expect(() => defineView(brands, { actions: {} as never })).toThrow(/actions isn't a list/);
+  });
+
+  it("types the guard's row from the contract", () => {
+    const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
+    const v = defineView(typed, { actions: [{ name: "a", label: "A", can: (r) => (r.is_default ? "no" : true) }] });
+    expectTypeOf(v.canAction).parameter(1).toEqualTypeOf<BrandRow>();
+  });
+});

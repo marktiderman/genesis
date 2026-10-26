@@ -11,6 +11,7 @@ import type {
   DisplayHint,
   ResolvedColumn,
   ResolvedFormField,
+  ResolvedViewAction,
   ResourceView,
   RowOf,
   RowSummary,
@@ -82,6 +83,7 @@ function singular(word: string): string {
  *   fields: { status: { display: "badge", tones: { active: "success" } } },
  *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
  *   can: { delete: (row) => (row.is_default ? "The default brand stays." : true) },
+ *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
  * });
  * ```
  *
@@ -134,6 +136,24 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     for (const field of Object.keys(preset.filter ?? {})) known(field, `presets.${name}.filter`);
   }
   if (facts.labelField) known(facts.labelField, "the contract's labelField");
+  const actionSeen = new Set<string>();
+  if (definition.actions !== undefined && !Array.isArray(definition.actions)) problems.push("actions isn't a list");
+  (Array.isArray(definition.actions) ? definition.actions : []).forEach((action, i) => {
+    const where = `actions[${i}]`;
+    if (!action || typeof action !== "object") {
+      problems.push(`${where} isn't an action`);
+      return;
+    }
+    if (typeof action.name !== "string" || !action.name.trim()) problems.push(`${where} has no name`);
+    else if (actionSeen.has(action.name)) problems.push(`actions lists "${action.name}" twice`);
+    else actionSeen.add(action.name);
+    if (typeof action.label !== "string" || !action.label.trim()) problems.push(`${where} has no label`);
+    if (action.confirm !== undefined && typeof action.confirm !== "string") problems.push(`${where}.confirm isn't text`);
+    if (action.description !== undefined && typeof action.description !== "string") {
+      problems.push(`${where}.description isn't text`);
+    }
+    if (action.can !== undefined && typeof action.can !== "function") problems.push(`${where}.can isn't a function`);
+  });
   if (problems.length) throw new ViewDefinitionError(contract.name, problems);
 
   // ── Words ────────────────────────────────────────────────────────────
@@ -222,6 +242,21 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const guard = guards[action];
     return guard && row ? guard(row) : true;
   }
+  const actionGuards = new Map((definition.actions ?? []).map((a) => [a.name, a.can]));
+  const resolvedActions: readonly ResolvedViewAction[] = Object.freeze(
+    (definition.actions ?? []).map((a) =>
+      Object.freeze({
+        name: a.name,
+        label: a.label,
+        ...(a.confirm !== undefined ? { confirm: a.confirm } : {}),
+        ...(a.description !== undefined ? { description: a.description } : {}),
+      }),
+    ),
+  );
+  function canAction(name: string, row: Row): Allowed {
+    if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
+    return actionGuards.get(name)?.(row) ?? true;
+  }
   const summary = (row: Row): RowSummary => {
     if (definition.summary) return definition.summary(row);
     const value = labelField ? row[labelField] : undefined;
@@ -244,6 +279,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     form,
     writable,
     can: can as ResourceView<C, Row>["can"],
+    actions: () => resolvedActions,
+    canAction,
     summary,
   });
 }
