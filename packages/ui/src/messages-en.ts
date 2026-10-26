@@ -149,6 +149,20 @@ export const uiMessages = {
     instructions:
       "Space or Enter picks the item up. Up and down arrows, Home and End move it. Space or Enter drops it, Escape puts it back. Alt with an arrow moves it one step.",
   },
+  workspace: {
+    /** Settings section footer. */
+    save: "Save changes",
+    saved: "Saved",
+    /** `{noun}`: the record's noun. When a save changed no rows. */
+    notChanged: "This {noun} was not changed.",
+    /** An action's confirm button. */
+    run: "Continue",
+    /** `{name}`: the action's label. When the provider can't run actions and the screen gave no `onAction`. */
+    noRunner: "{name} isn't available here.",
+    checks: "Checks",
+    checkDone: "Done",
+    checkTodo: "To do",
+  },
 };
 
 /** The shape a translation fills. */

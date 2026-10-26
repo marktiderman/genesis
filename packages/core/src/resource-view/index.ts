@@ -27,3 +27,18 @@ export type {
   ViewPreset,
   ViewTone,
 } from "./types";
+export { defineWorkspace, isWorkspace } from "./workspace";
+export type {
+  ResolvedReadinessItem,
+  ResolvedWorkspaceSection,
+  ResourceWorkspace,
+  WorkspaceDefinition,
+  WorkspaceFilter,
+  WorkspaceHeader,
+  WorkspaceHeaderAction,
+  WorkspaceListSection,
+  WorkspaceReadinessItem,
+  WorkspaceSection,
+  WorkspaceSettingsSection,
+  WorkspaceSlotSection,
+} from "./workspace";

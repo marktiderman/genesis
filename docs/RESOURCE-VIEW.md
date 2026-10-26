@@ -28,10 +28,10 @@ Non-goals:
 
 - A visual app builder. Descriptions are typed, reviewed code.
 - Reading the schema while the page runs (see "Why not read the schema at run time").
-- Resource workspaces: one record with child sections, like a form, course or lesson builder.
-  Those keep `AppShellPageHeader`, `ResourceHeader` and `useAppShellSubNav`. ResourceView is for
-  **collection screens**, lists of records. The view's shape is kept open so a later
-  `ResourceWorkspace` can reuse it.
+- Builders: one record edited in depth, like a form, course or lesson builder. Those keep
+  `AppShellPageHeader`, `ResourceHeader` and `useAppShellSubNav` directly. ResourceView is for
+  **collection screens**, lists of records; a plain record screen (header, child lists, a few
+  settings) is a `ResourceWorkspace` (see "ResourceWorkspace").
 
 ## Reuse map: what already exists and how it's used
 
@@ -328,6 +328,39 @@ The defaults are chosen for large data:
 - **Identity:** views are module constants. Derived columns and options are memoised. The
   messages provider is given a stable object.
 
+## ResourceWorkspace
+
+One record's screen from its view, defined once with no React and drawn on web and native:
+
+```ts
+export const brandWorkspace = defineWorkspace(brandsView, {
+  header: { actions: ["archive"] },          // view actions; default: all of them
+  sections: [
+    { id: "products", label: "Products", list: { view: productsView, filter: (b) => ({ brand_id: b.id }) } },
+    { id: "settings", label: "Settings", settings: ["name", "website"] },
+    { id: "activity", label: "Activity" },   // the screen fills it: slots.activity
+  ],
+  readiness: (b) => [{ title: "Has a website", ok: !!b.website, reason: "Add the website." }],
+});
+```
+
+- **Checked at start-up** (`ViewDefinitionError`): settings fields must be in
+  `view.writable("edit")`, header actions must be view actions, section ids are unique, a section
+  is a list, settings or a slot (never two), and sections don't nest (no workspace inside one).
+- **Helpers** the renderers share: `headerFor(row)` (the summary plus actions with their guards),
+  `settingsFields(id?)` (the view's edit form, narrowed), `settingsPatch(id, values)` (only the
+  listed keys), `listFilter(id, row)` and `readinessFor(row)` (chip tones only).
+- **Web** `<ResourceWorkspace workspace row section sectionHref />`: the header in
+  `AppShellPageHeader` through `ResourceHeader` (a `switcher` in its leading area), sections as
+  the shell's tabs through `useAppShellSubNav`, list sections as embedded `ResourceView`, settings
+  as `SettingsRow` and `ToggleRow`, readiness as the `ReadinessChip` in the tab row's end slot.
+- **Native** `<NativeResourceWorkspace workspace row />` with
+  `getNativeResourceWorkspaceStackOptions` for the title and the header menu: up to four sections
+  as a segmented control, more as pushed rows, list sections as embedded `NativeResourceView`,
+  settings as inset grouped rows.
+- **Saving** sends only the section's changed, listed keys. A save that matches no rows is a
+  refusal, shown inline.
+
 ## Native
 
 `NativeResourceView` reads the same view and renders native patterns:
@@ -402,7 +435,8 @@ already a working screen.
 | 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) | Scout |
 | 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts | Port |
 | 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView | Shell with app owners |
-| later | `ResourceWorkspace` (workspace header from the same view), tree mode for nested records, conditional form fields | — |
+| 2 | `ResourceWorkspace` and `NativeResourceWorkspace`: header, sections, settings, readiness from the same view | — |
+| later | Tree mode for nested records, conditional form fields | — |
 
 Web phase 1 is about 5 days. Each phase ships as its own release.
 
