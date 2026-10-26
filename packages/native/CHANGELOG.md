@@ -1,5 +1,21 @@
 # @marktiderman/genesis-native
 
+## 0.4.0
+
+### Minor Changes
+
+- edfb983: iOS rich push. `@marktiderman/genesis-native/rich-push-plugin` is an Expo config plugin that adds a Notification Service Extension. The extension attaches `data.image` and `data.senderAvatar` (https only; it always shows the notification, even when a download fails), and it turns `messages` pushes into Communication Notifications: the sender's photo is shown, and Focus treats them as messages. The plugin also sets the communication entitlement, `NSUserActivityTypes` and the extension's EAS app extension entry. `richPushMessage` (in `/push` and the React-free `/push-payload`) sets `mutableContent: true`, without which iOS never runs the extension. genesis-chat adds `chatPushPayload`, which builds a message push's category, thread, `mutableContent` and data (sender, group, photo; ids only with hidden previews). It is server safe, from the new `@marktiderman/genesis-chat/push` subpath.
+- c2dbc4f: The push block connects to `@marktiderman/genesis-notifications`. `createPush` takes `deviceCategories` (notification categories with action buttons, registered when the block starts through `setNotificationCategoryAsync`) and `randomUUID`. A `PushBackend` that sets `usesInstallationId` gets this install's id (made once, kept across sign-ins) as `register`'s fourth argument, so a server can move a token between logins only on the same phone; `supabasePushBackend` is unchanged. `notificationAction(response)` reads a tapped action button: its id, the typed text (`userText`), the link and the notifier's `notification_id`. `NotificationResponseLike` gains `userText`, `NotificationsModuleLike` an optional `setNotificationCategoryAsync`, and `PushErrorSource` `"categories"`.
+
+  Features: push, notifications
+
+### Patch Changes
+
+- 3c3c549: Push block: no more re-registering in a loop once notifications are allowed. Fetching the Expo token fetches the device token, and expo-notifications tells the push token listener each time, changed or not; the block forced a registration on every one (about 330 a minute on a simulator). An unchanged token is now ignored, the first one only confirms the registration, and a different one is a rotation.
+- Updated dependencies [099084a]
+- Updated dependencies [9c63a78]
+  - @marktiderman/genesis-ui-native@2.4.0
+
 ## 0.3.0
 
 ### Minor Changes
