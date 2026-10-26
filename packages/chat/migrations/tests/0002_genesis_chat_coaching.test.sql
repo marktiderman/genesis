@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(53);
+select plan(54);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -233,6 +233,10 @@ select ok(exists (select 1 from genesis_chat.inbox(p_kinds => array['direct'])) 
 select ok(not exists (select 1 from genesis_chat.inbox(p_exclude_kinds => array['cohort']) where kind = 'cohort'),
           'and leaves out the kinds asked to');
 select ok(genesis_chat.unread_total(p_exclude_kinds => array['cohort', 'direct']) = 0, 'so does the badge');
+
+select pg_temp.as_server();
+select ok((select coalesce(bool_and(unread_total = 0), true) from genesis_chat.push_targets(pg_temp.v('bad'), array['cohort', 'direct'])),
+          'the push badge leaves out the kinds the app leaves out of its own');
 
 select * from finish();
 rollback;

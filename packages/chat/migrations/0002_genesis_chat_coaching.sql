@@ -674,7 +674,10 @@ as $$
      limit 99) u
 $$;
 
-create or replace function genesis_chat.push_targets(p_message_id uuid)
+-- p_badge_exclude_kinds: kinds the app leaves out of its badge (as unread_total does), so the
+-- push badge and the app's own badge agree.
+drop function genesis_chat.push_targets(uuid);
+create function genesis_chat.push_targets(p_message_id uuid, p_badge_exclude_kinds text[] default null)
 returns table (user_id uuid, conversation_id uuid, title text, sender_id uuid, preview text, mentioned boolean, unread_total integer)
 language sql
 stable
@@ -704,7 +707,8 @@ as $$
          (select coalesce(sum(genesis_chat.unread_count(c2.id, m2.user_id, m2.last_read_seq)), 0)::integer
             from genesis_chat.members m2 join genesis_chat.conversations c2 on c2.id = m2.conversation_id
            where m2.user_id = r.user_id and m2.left_at is null and m2.role <> 'observer' and not m2.archived
-             and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq)
+             and coalesce(m2.muted_until <= now(), true) and c2.last_seq > m2.last_read_seq
+             and (p_badge_exclude_kinds is null or not (c2.kind = any (p_badge_exclude_kinds))))
     from recipients r cross join msg
 $$;
 
@@ -872,7 +876,7 @@ revoke execute on function
   genesis_chat.purge_expired(integer),
   genesis_chat.set_legal_hold(uuid, boolean),
   genesis_chat.unread_count(uuid, uuid, bigint),
-  genesis_chat.push_targets(uuid)
+  genesis_chat.push_targets(uuid, text[])
 from public, anon, authenticated;
 
 grant execute on function
@@ -883,5 +887,5 @@ grant execute on function
   genesis_chat.purge_expired(integer),
   genesis_chat.set_legal_hold(uuid, boolean),
   genesis_chat.unread_count(uuid, uuid, bigint),
-  genesis_chat.push_targets(uuid)
+  genesis_chat.push_targets(uuid, text[])
 to service_role;
