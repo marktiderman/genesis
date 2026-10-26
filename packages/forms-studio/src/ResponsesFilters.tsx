@@ -11,7 +11,7 @@ import {
 import { CalendarDays, CircleDashed, TriangleAlert, X } from "lucide-react";
 import { lowThisWeek, NO_FILTERS, STATUS_FILTER_LABEL, type FiltersValue, type StatusFilter } from "./summary";
 
-/** One "pick a value" filter over an extra column, such as a class or a coach. */
+/** One "pick a value" filter over an extra column, such as a location or a staff member. */
 export interface ChoiceFilter {
   key: string;
   /** "Any class": what the menu says when nothing is picked. */
@@ -19,7 +19,7 @@ export interface ChoiceFilter {
   /** For screen readers: "Class". */
   label: string;
   options: string[];
-  /** Shown before the value, e.g. a person icon for a coach. */
+  /** Shown before the value, e.g. a person icon for a staff member. */
   icon?: ReactNode;
 }
 

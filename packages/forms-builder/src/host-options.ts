@@ -12,13 +12,13 @@ import { optionsSource, type ChoiceOption, type FieldBlock, type HostOptions } f
  * server checks answers against it (`validateSubmission`).
  *
  * @example
- * <FormBuilder hostOptions={[{ key: "coaches", label: "Coaches", description: "The practice's current coaches.",
+ * <FormBuilder hostOptions={[{ key: "staff", label: "Staff", description: "The organization's current staff.",
  *   sample: [{ value: "c1", label: "Ada" }, { value: "c2", label: "Sam" }] }]} … />
  */
 export interface HostOptionList {
   /** What `props.optionsFrom.key` names. Keep it stable: published forms store it. */
   key: string;
-  /** The list's name for authors, such as "Coaches". */
+  /** The list's name for authors, such as "Staff". */
   label: string;
   /** One line on what it lists, shown under the picker. */
   description?: string | undefined;
