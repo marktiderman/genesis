@@ -335,7 +335,10 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
   }
   const raw = json as unknown as { genesis?: unknown; exports?: unknown };
   if (jsonBefore && (JSON.stringify(jsonBefore.genesis) !== JSON.stringify(raw.genesis) || JSON.stringify(jsonBefore.exports) !== JSON.stringify(raw.exports))) {
-    const registry = (git(ctx.root, ["diff", "--relative", "--name-only", mergeBase, "--", "features.ts", "src/features.ts"]) ?? "").trim();
+    // The registry may sit in the app or at the repository root (a nested app sharing the root's): diff from the root.
+    const appInRepo = path.relative(top, realpathSync(ctx.root)).split(path.sep).join("/");
+    const candidates = [...new Set(["features.ts", "src/features.ts", ...(appInRepo ? [`${appInRepo}/features.ts`, `${appInRepo}/src/features.ts`] : [])])];
+    const registry = (git(top, ["diff", "--name-only", mergeBase, "--", ...candidates]) ?? "").trim();
     if (!registry) ctx.report({ rule: "package-unversioned-change", level: "warn", file: `${pkg.rel}/package.json`, message: `${pkg.name}'s blocks or exports changed but features.ts didn't; update the features they belong to` });
   }
   if (bumped && !named && before !== null) {

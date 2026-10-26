@@ -323,3 +323,28 @@ describe("Flare's second follow-ups", () => {
     expect(result.findings.filter((f) => f.rule === "package-block-invalid").map((f) => f.message)).toEqual([expect.stringMatching(/outside the repository/)]);
   });
 });
+
+describe("registry changes from a nested app", () => {
+  it("counts a change to the repository root's features.ts", async () => {
+    const repo = makeApp(null, {});
+    const g = (...args: string[]) => execFileSync("git", ["-c", "user.email=t@t", "-c", "user.name=t", ...args], { cwd: repo, stdio: "pipe" });
+    for (const [rel, text] of Object.entries(CLEAN)) {
+      const target = rel.startsWith("packages/") ? path.join(repo, rel) : path.join(repo, "apps/mobile", rel);
+      mkdirSync(path.dirname(target), { recursive: true });
+      writeFileSync(target, rel === "genesis.config.json" ? JSON.stringify({ localPackages: ["../../packages/*"] }) : text);
+    }
+    mkdirSync(path.join(repo, "src"), { recursive: true });
+    writeFileSync(path.join(repo, "src/features.ts"), "export const features = {};\n");
+    g("init", "-q", "-b", "main");
+    g("add", "-A");
+    g("commit", "-qm", "base");
+    g("checkout", "-qb", "work");
+    writeFileSync(path.join(repo, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.2.0", exports: { ".": "./src/index.ts" } }));
+    mkdirSync(path.join(repo, ".changeset"), { recursive: true });
+    writeFileSync(path.join(repo, ".changeset/os.md"), '---\n"@acme/os": minor\n---\n\nExports.\n\nFeatures: team-scorecard\n');
+    writeFileSync(path.join(repo, "src/features.ts"), "export const features = { changed: true };\n");
+    clearLocalPackagesCache();
+    const result = await runDoctor({ root: path.join(repo, "apps/mobile"), config: PACKAGES, base: "main" });
+    expect(result.findings.filter((f) => /features\.ts didn't/.test(f.message))).toEqual([]);
+  });
+});
