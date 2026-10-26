@@ -1,0 +1,31 @@
+packages/chat/src/native/__tests__/video-media.test.tsx
+  s_8252619ce79a86::t_31b3c2bb1dece7 57-60,74,178-190,386
+packages/chat/src/native/attachment-cards.tsx
+  s_8252619ce79a86::t_f5046067d1b075 84-85
+packages/chat/src/native/modules.ts
+  s_8252619ce79a86::t_6f6f17eec9c90d 204-205
+packages/chat/src/native/schedule-sheet.tsx
+  s_8252619ce79a86::t_3fc3e54decaef8 28-29,237-245,253,256,278
+packages/chat/src/native/topics.tsx
+  s_8252619ce79a86::t_8bf9e64db3041f 101-103,165,167-169
+packages/chat/src/native/video-player.tsx
+  s_8252619ce79a86::t_cc12a320e599dd 272-274,277-283,303,305,351-365
+packages/ui-native/src/components/sheet.tsx
+  s_8252619ce79a86::t_cfc842b0f1bc4a 300,326,332-344
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e341cb920571941a8e07a92838a7c7a54d47be43",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
