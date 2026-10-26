@@ -195,7 +195,6 @@ function kindFor(display: DisplayHint, options: unknown[] | undefined): NativeFo
     case "percent":
       return "number";
     case "longText":
-    case "json":
       return "textarea";
     case "email":
       return "email";
@@ -217,6 +216,8 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
   const writable = new Set(view.writable(mode));
   return view
     .form(mode)
+    // JSON and lists need editors of their own; a plain input would send them back as text (as the web).
+    .filter((f) => f.display !== "json" && !f.field.array)
     .filter((f) => mode === "edit" || writable.has(f.field.name))
     .map((f) => {
       const options = f.field.enumValues?.map((value) => ({ value, label: displayText("badge", value, EMPTY_WORDS) }));
@@ -248,19 +249,23 @@ export function shownFields(fields: readonly NativeFormField[], values: Readonly
 /**
  * What a save sends: only the keys `view.writable(mode)` lists and the form shows. Read-only,
  * generated, key and scope fields, and anything else the values carry (joined columns), never go.
+ * An edit passes `dirty`, the fields the person changed, so a save never rewrites the rest. A
+ * cleared optional value (an empty text, a cleared number or date) is sent as null.
  */
 export function writableValues<T extends Row>(
   view: AnyResourceView<T>,
   mode: "create" | "edit",
   fields: readonly NativeFormField[],
   values: Readonly<Record<string, unknown>>,
+  dirty?: ReadonlySet<string>,
 ): Record<string, unknown> {
   const writable = new Set(view.writable(mode));
   const out: Record<string, unknown> = {};
   for (const field of shownFields(fields, values)) {
     if (field.readOnly || !writable.has(field.key)) continue;
+    if (dirty && !dirty.has(field.key)) continue;
     const value = values[field.key];
-    out[field.key] = value === "" && !field.required ? null : value;
+    out[field.key] = (value === "" || value === undefined) && !field.required ? null : value;
   }
   return out;
 }

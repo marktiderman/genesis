@@ -36,10 +36,19 @@ export const SEARCH_DEBOUNCE_MS = 300;
 export interface NativeResourceViewOptions<T extends Row = Row> {
   /** A tab the view defines: its server filter. */
   preset?: string;
-  /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". */
+  /**
+   * Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". A create
+   * also saves every non-null value here (a tab's filter too), even for read-only fields such as
+   * a required link: they come from the screen, never from an input. An edit never sends them.
+   */
   filter?: Filter;
   /** Rows per page. Default 25. */
   perPage?: number;
+  /**
+   * Pages kept loaded when the provider pages by cursor: scrolling far drops pages from the front
+   * and scrolling back loads them again. Default 10.
+   */
+  maxPages?: number;
   /** Fields the search box searches. Default: the view's `labelField`. */
   searchFields?: string[];
   /** The screen's own rule. It only narrows the view's guards. */
@@ -79,8 +88,12 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
   canCreate: Allowed | false;
   /** The form sheet's fields. */
   formFields: (mode: "create" | "edit") => NativeFormField[];
-  /** Check and save the form's values. Sends only writable keys. Stays pessimistic so the sheet can show refusals. */
-  save: (mode: "create" | "edit", values: Readonly<Record<string, unknown>>, row?: T) => Promise<SaveResult>;
+  /**
+   * Check and save the form's values. Sends only writable keys, and for an edit only the `dirty`
+   * ones (all writable keys when `dirty` is left out). Stays pessimistic so the sheet can show
+   * refusals.
+   */
+  save: (mode: "create" | "edit", values: Readonly<Record<string, unknown>>, row?: T, dirty?: ReadonlySet<string>) => Promise<SaveResult>;
   /** Delete a row optimistically: it leaves the list at once and comes back if the server refuses. */
   remove: (row: T) => void;
   /** The provider bins deleted rows (they can be restored). */
@@ -93,11 +106,35 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
   );
 }
 
+/** The values a create takes from the screen: every non-null equality filter, the screen's over the tab's. */
+export function screenValues(...filters: (Filter | undefined)[]): Record<string, string | number | boolean> {
+  const out: Record<string, string | number | boolean> = {};
+  for (const filter of filters) {
+    for (const [field, value] of Object.entries(filter ?? {})) if (value !== null) out[field] = value;
+  }
+  return out;
+}
+
+/** Pages kept loaded by default (cursor paging). */
+export const DEFAULT_MAX_PAGES = 10;
+
+/**
+ * The server sort: the `groupBy` field first, so every page arrives in section order and a later
+ * page never lands in the middle of an earlier section; else the view's `orderBy`. (A second sort
+ * key within a group needs `useInfiniteResource` to take several sorts.)
+ */
+export function serverSort<T extends Row>(view: AnyResourceView<T>): { field: string; order: "asc" | "desc" } | undefined {
+  const groupBy = view.definition.groupBy as string | undefined;
+  const orderBy = view.definition.orderBy;
+  if (groupBy) return { field: groupBy, order: orderBy?.field === groupBy ? (orderBy.direction ?? "asc") : "asc" };
+  return orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc" } : undefined;
+}
+
 export function useNativeResourceView<T extends Row = Row>(
   view: AnyResourceView<T>,
   options: NativeResourceViewOptions<T> = {},
 ): UseNativeResourceViewReturn<T> {
-  const { preset, filter, perPage, searchFields: searchOption, can, live } = options;
+  const { preset, filter, perPage, maxPages = DEFAULT_MAX_PAGES, searchFields: searchOption, can, live } = options;
   const messages = useNativeResourceViewMessages();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) throw new Error(`NativeResourceView(${view.resource}): no preset "${preset}"`);
@@ -105,15 +142,17 @@ export function useNativeResourceView<T extends Row = Row>(
   // ── Reads: cursor pages, server filters, server search ──────────────────
   const tabFilter = tab?.filter as Filter | undefined;
   const defaultFilters = useMemo(() => [...filterParams(tabFilter), ...filterParams(filter)], [tabFilter, filter]);
-  const orderBy = view.definition.orderBy;
+  const createDefaults = useMemo(() => screenValues(tabFilter, filter), [tabFilter, filter]);
+  const sort = useMemo(() => serverSort(view), [view]);
   const searchFields = useMemo(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
     [searchOption, view.labelField],
   );
   const pages = useInfiniteResource<T & BaseRecord>(view.resource, {
     defaultFilters,
-    ...(orderBy ? { defaultSort: { field: orderBy.field as string, order: orderBy.direction ?? "asc" } } : {}),
+    ...(sort ? { defaultSort: sort } : {}),
     ...(perPage ? { perPage } : {}),
+    maxPages,
     ...(searchFields ? { searchFields } : {}),
     keepPreviousData: true,
     ...(live ? { live } : {}),
@@ -154,17 +193,27 @@ export function useNativeResourceView<T extends Row = Row>(
     [view, can],
   );
 
-  const { create, update } = pessimistic;
+  const writers = useRef(pessimistic);
+  writers.current = pessimistic;
   const save = useCallback(
-    async (mode: "create" | "edit", values: Readonly<Record<string, unknown>>, row?: T): Promise<SaveResult> => {
+    async (mode: "create" | "edit", values: Readonly<Record<string, unknown>>, row?: T, dirty?: ReadonlySet<string>): Promise<SaveResult> => {
       const fields = formFieldsFor(view, mode);
       const errors = validateValues(fields, values, messages);
       if (Object.keys(errors).length) return { ok: false, fields: errors };
-      const data = writableValues(view, mode, fields, values) as Partial<T & BaseRecord>;
+      // A create is the person's writable values plus the screen's filter values, which win (the
+      // new row must land in this list). An edit sends only writable values. The server's
+      // WITH CHECK still decides.
+      const data = (
+        mode === "create"
+          ? { ...writableValues(view, mode, fields, values), ...createDefaults }
+          : writableValues(view, mode, fields, values, dirty)
+      ) as Partial<T & BaseRecord>;
       setRefusal(null);
+      // Nothing changed: nothing to send.
+      if (mode === "edit" && Object.keys(data).length === 0) return { ok: true };
       try {
-        if (mode === "create") await create(data);
-        else await update(row!.id as string, data);
+        if (mode === "create") await writers.current.create(data);
+        else await writers.current.update(row!.id as string, data);
         return { ok: true };
       } catch (error) {
         return {
@@ -174,18 +223,18 @@ export function useNativeResourceView<T extends Row = Row>(
         };
       }
     },
-    [view, messages, create, update],
+    [view, messages, createDefaults],
   );
 
-  const { remove: removeRow } = optimistic;
-  const remove = useCallback(
-    (row: T) => {
-      setRefusal(null);
-      // Optimistic: resolves at once; a refusal arrives through onError after the rollback.
-      removeRow(row.id as string).catch(() => {});
-    },
-    [removeRow],
-  );
+  // useResource's writers change identity every render; a ref keeps `remove` (and so every row's
+  // actions) stable, so typing in the search doesn't redraw the rows.
+  const removeRow = useRef(optimistic.remove);
+  removeRow.current = optimistic.remove;
+  const remove = useCallback((row: T) => {
+    setRefusal(null);
+    // Optimistic: resolves at once; a refusal arrives through onError after the rollback.
+    removeRow.current(row.id as string).catch(() => {});
+  }, []);
 
   const item = useCallback((row: T) => rowItem(view, row), [view]);
   const actions = useCallback<UseNativeResourceViewReturn<T>["actions"]>(

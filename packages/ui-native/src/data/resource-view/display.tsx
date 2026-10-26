@@ -8,6 +8,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { Linking, Text } from "react-native";
 import { titleCase } from "@marktiderman/genesis-core";
+import { isTimeZone, personTimeZone, wallClock } from "@marktiderman/genesis-core/dates";
 import { isSafeUrl } from "@marktiderman/genesis-core/urls";
 import type { DisplayHint, ResolvedColumn, ViewTone } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -15,11 +16,18 @@ import { NativeImage } from "../../components/image";
 import { NativeText } from "../../components/text";
 import { defaultNativeResourceViewMessages, type NativeResourceViewMessages } from "./messages";
 
-/** What a renderer gets besides the value (as on the web, with native's messages). */
+/** The clocks a timestamp can be read on: the viewer's and the practice's (IANA names). */
+export interface DisplayTimeZones {
+  viewer: string;
+  practice: string;
+}
+
+/** What a renderer gets besides the value (as on the web, with native's messages and clocks). */
 export interface DisplayContext {
   row: Record<string, unknown>;
   column: ResolvedColumn<Record<string, unknown>>;
   messages: NativeResourceViewMessages;
+  zones: DisplayTimeZones;
 }
 
 export type DisplayRenderer = (value: unknown, context: DisplayContext) => ReactNode;
@@ -37,7 +45,7 @@ function numeric(value: unknown, format: Intl.NumberFormat): string {
   return Number.isFinite(n) ? format.format(n) : String(value);
 }
 
-const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})/;
+const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 /** A `YYYY-MM-DD` day as a local Date at midnight, from its parts (the picker's value). Null when it isn't a day. */
 export function dayToDate(value: unknown): Date | null {
@@ -58,28 +66,22 @@ export function formatDay(value: unknown): string {
   return date ? DAY.format(date) : String(value);
 }
 
-// One formatter per zone: building an Intl.DateTimeFormat costs far more than a format call.
-const INSTANTS = new Map<string, Intl.DateTimeFormat>();
-function instantFormat(zone: string | undefined): Intl.DateTimeFormat {
-  const key = zone ?? "";
-  let format = INSTANTS.get(key);
-  if (!format) {
-    try {
-      format = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: zone });
-    } catch {
-      // An unknown zone name: the viewer's clock, rather than a broken value.
-      format = instantFormat(undefined);
-    }
-    INSTANTS.set(key, format);
-  }
-  return format;
+/** A column's clock: "viewer" (the default) and "practice" from `zones`, else a valid IANA name. */
+export function resolveZone(zone: string | undefined, zones: DisplayTimeZones): string {
+  if (!zone || zone === "viewer") return zones.viewer;
+  if (zone === "practice") return zones.practice;
+  return isTimeZone(zone) ? zone : zones.viewer;
 }
 
-export function formatInstant(value: unknown, timeZone?: string): string {
+// The wall clock's parts are drawn as UTC, so one formatter serves every zone.
+const WALL = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" });
+
+/** A timestamp as the clock on the wall in `zone` shows it (core's `wallClock`), not the device's. */
+export function formatInstant(value: unknown, zone: string): string {
   const at = new Date(String(value));
-  if (Number.isNaN(at.getTime())) return String(value);
-  const zone = timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined;
-  return instantFormat(zone).format(at);
+  if (Number.isNaN(at.getTime()) || !isTimeZone(zone)) return String(value);
+  const wall = wallClock(zone, at);
+  return WALL.format(new Date(Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute, wall.second)));
 }
 
 /** A link a row may open: http(s), mailto or tel that passes `isSafeUrl`. Root-relative paths mean nothing on a phone. */
@@ -97,7 +99,8 @@ export function displayText(
   hint: DisplayHint,
   value: unknown,
   messages: NativeResourceViewMessages,
-  timeZone?: string,
+  /** The resolved IANA zone a timestamp is read on (`resolveZone`). Default: the device's. */
+  timeZone: string = personTimeZone(),
 ): string {
   if (isEmptyValue(value)) return messages.common.empty;
   switch (hint) {
@@ -122,7 +125,7 @@ export function displayText(
     case "json":
       return typeof value === "string" ? value : JSON.stringify(value);
     default:
-      return String(value);
+      return typeof value === "object" ? JSON.stringify(value) : String(value);
   }
 }
 
@@ -151,8 +154,8 @@ function LinkText({ url, label }: { url: string; label: string }) {
   );
 }
 
-const text = (hint: DisplayHint): DisplayRenderer => (value, { messages, column }) => (
-  <NativeText preset="body">{displayText(hint, value, messages, column.timeZone)}</NativeText>
+const text = (hint: DisplayHint): DisplayRenderer => (value, { messages, column, zones }) => (
+  <NativeText preset="body">{displayText(hint, value, messages, resolveZone(column.timeZone, zones))}</NativeText>
 );
 
 /** Genesis's native renderers. Every one shows text it can't draw, never a broken row. */
@@ -184,7 +187,8 @@ export const nativeDisplayRenderers: DisplayRenderers = {
   },
   email: (value) => {
     const address = String(value).trim();
-    const url = /^[^\s@]+@[^\s@]+$/.test(address) ? openableUrl(`mailto:${address}`) : null;
+    // A plain address only: no `?subject=` or `&body=` riding along in the mailto link.
+    const url = /^[^\s@?&#/]+@[^\s@?&#/]+$/.test(address) ? openableUrl(`mailto:${address}`) : null;
     return url ? <LinkText url={url} label={address} /> : <NativeText preset="body">{address}</NativeText>;
   },
   image: (value) => {
@@ -204,6 +208,16 @@ export const nativeDisplayRenderers: DisplayRenderers = {
 
 const DisplayRenderersContext = createContext<DisplayRenderers>(nativeDisplayRenderers);
 const MessagesContext = createContext<NativeResourceViewMessages>(defaultNativeResourceViewMessages);
+const TimeZonesContext = createContext<DisplayTimeZones | null>(null);
+
+/** The clocks timestamps are read on below. NativeResourceView sets it from ViewerScope. */
+export const DisplayTimeZonesProvider = TimeZonesContext.Provider;
+
+/** The clocks for timestamps: the nearest provider's, else the device's for both. */
+export function useDisplayTimeZones(): DisplayTimeZones {
+  const zones = useContext(TimeZonesContext);
+  return useMemo(() => zones ?? { viewer: personTimeZone(), practice: personTimeZone() }, [zones]);
+}
 
 /** Replace some of the renderers for everything below (nested providers build on each other). */
 export function DisplayRenderersProvider({
@@ -229,13 +243,14 @@ export function useNativeResourceViewMessages(): NativeResourceViewMessages {
 export function useDisplayCell(): (column: ResolvedColumn<Record<string, unknown>>, row: Record<string, unknown>) => ReactNode {
   const renderers = useContext(DisplayRenderersContext);
   const messages = useNativeResourceViewMessages();
+  const zones = useDisplayTimeZones();
   return useMemo(
     () => (column, row) => {
       if (column.when && !column.when(row)) return <NativeText preset="body">{messages.common.empty}</NativeText>;
       const value = column.value(row);
       if (isEmptyValue(value)) return <NativeText preset="body">{messages.common.empty}</NativeText>;
-      return renderers[column.display](value, { row, column, messages });
+      return renderers[column.display](value, { row, column, messages, zones });
     },
-    [renderers, messages],
+    [renderers, messages, zones],
   );
 }
