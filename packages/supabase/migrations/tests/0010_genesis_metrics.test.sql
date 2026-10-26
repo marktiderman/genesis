@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(43);
+select plan(47);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in nothing.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -187,6 +187,22 @@ select throws_ok(
   '42501', null, 'a metric that doesn''t exist looks the same as one you can''t write');
 select ok(not has_sequence_privilege('authenticated', 'public.metric_goal_changes_id_seq', 'usage,select,update'),
   'nobody signed in uses the goal history''s sequence');
+select pg_temp.sign_in('a1');
+
+select pg_temp.as_server();
+insert into public.metrics (id, tenant_id, team_id, name, cadence, year_start_month, goal_value)
+values ('00000000-0000-4000-b000-000000000009', pg_temp.tenant(1), pg_temp.team(1), 'Quarterly NPS', 'quarterly', 7, 50);
+select lives_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value) values ('00000000-0000-4000-b000-000000000009', '2026-10-01', 61) $$,
+  'a fiscal quarter starting in October (year starts in July)');
+select throws_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value) values ('00000000-0000-4000-b000-000000000009', '2026-11-01', 61) $$,
+  '22023', null, 'a quarterly value starts on a quarter''s first day');
+select lives_ok(
+  $$ update public.metrics set team_id = null, person_id = pg_temp.person('b2') where id = '00000000-0000-4000-b000-000000000009' $$,
+  'server code moves a metric to another owner');
+select is((select person_id from public.metric_values where metric_id = '00000000-0000-4000-b000-000000000009'), pg_temp.person('b2'),
+  'its values move with it');
 select pg_temp.sign_in('a1');
 
 -- Goals over time ---------------------------------------------------------------------------

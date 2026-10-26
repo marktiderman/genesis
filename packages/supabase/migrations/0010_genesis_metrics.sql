@@ -18,8 +18,8 @@
 -- Without them nobody signed in reads or writes. The service role (a sync job) isn't limited.
 --
 -- Periods: a value's period_start is the first day of its period: any day for daily, a Monday
--- for weekly, the first of a month for monthly, quarterly and annual (any month, so a fiscal year
--- works). The database refuses any other day, so a period holds one value. The unit type and the
+-- for weekly, the 1st for monthly, and for quarterly and annual the 1st of a month that starts a
+-- quarter or the year, counted from the metric's year_start_month (a fiscal year). The database refuses any other day, so a period holds one value. The unit type and the
 -- cadence are fixed once a metric has values.
 --
 -- Goals change over time. Changing a metric's goal records the old one in metric_goal_changes,
@@ -55,6 +55,9 @@ create table public.metrics (
     constraint metrics_unit_length check (unit is null or char_length(unit) <= 20),
   cadence text not null default 'weekly'
     constraint metrics_cadence check (cadence in ('daily', 'weekly', 'monthly', 'quarterly', 'annual')),
+  -- The month the year starts (a fiscal year), for quarterly and annual periods.
+  year_start_month smallint not null default 1
+    constraint metrics_year_start_month check (year_start_month between 1 and 12),
   goal_direction text not null default 'at_least'
     constraint metrics_goal_direction check (goal_direction in ('at_least', 'at_most', 'between', 'none')),
   goal_value numeric,
@@ -189,7 +192,7 @@ $$;
 
 -- The first day of the period a day falls in, for a cadence. Weeks start on Monday. Quarters and
 -- years start on the first of a month (any month, for a fiscal year).
-create or replace function private.genesis_metrics_period_ok(cadence text, period_start date)
+create or replace function private.genesis_metrics_period_ok(cadence text, period_start date, year_start_month smallint)
 returns boolean
 language sql
 immutable
@@ -198,7 +201,10 @@ as $$
   select case cadence
     when 'daily' then true
     when 'weekly' then extract(isodow from period_start) = 1
-    else extract(day from period_start) = 1
+    when 'monthly' then extract(day from period_start) = 1
+    when 'quarterly' then extract(day from period_start) = 1
+      and ((extract(month from period_start)::int - year_start_month + 12) % 3) = 0
+    else extract(day from period_start) = 1 and extract(month from period_start)::int = year_start_month
   end
 $$;
 
@@ -215,7 +221,7 @@ as $$
 $$;
 
 -- The first day of the period that contains a day.
-create or replace function private.genesis_metrics_period_of(cadence text, day date)
+create or replace function private.genesis_metrics_period_of(cadence text, day date, year_start_month smallint)
 returns date
 language sql
 immutable
@@ -224,7 +230,11 @@ as $$
   select case cadence
     when 'daily' then day
     when 'weekly' then (day - ((extract(isodow from day)::int) - 1))
-    else date_trunc('month', day)::date
+    when 'monthly' then date_trunc('month', day)::date
+    when 'quarterly' then (date_trunc('month', day)
+      - make_interval(months => ((extract(month from day)::int - year_start_month + 12) % 3)))::date
+    else (date_trunc('month', day)
+      - make_interval(months => ((extract(month from day)::int - year_start_month + 12) % 12)))::date
   end
 $$;
 
@@ -253,16 +263,17 @@ begin
     end if;
     new.created_by := old.created_by;
   end if;
-  if (new.unit_type is distinct from old.unit_type or new.cadence is distinct from old.cadence)
+  if (new.unit_type is distinct from old.unit_type or new.cadence is distinct from old.cadence
+      or new.year_start_month is distinct from old.year_start_month)
      and exists (select 1 from public.metric_values v where v.metric_id = old.id) then
-    raise exception 'A metric''s unit type and cadence are fixed once it has values' using errcode = '22023';
+    raise exception 'A metric''s unit type, cadence and year start are fixed once it has values' using errcode = '22023';
   end if;
   if (new.goal_direction, new.goal_value, new.goal_max) is distinct from (old.goal_direction, old.goal_value, old.goal_max) then
     -- The old goal applied to every period before the one that contains today.
     insert into public.metric_goal_changes (metric_id, tenant_id, person_id, team_id, organization_id,
                                             until_period, goal_direction, goal_value, goal_max, changed_by)
     values (old.id, old.tenant_id, old.person_id, old.team_id, old.organization_id,
-            private.genesis_metrics_period_of(old.cadence, private.genesis_metrics_today()),
+            private.genesis_metrics_period_of(old.cadence, private.genesis_metrics_today(), old.year_start_month),
             old.goal_direction, old.goal_value, old.goal_max, auth.uid());
   end if;
   new.updated_at := now();
@@ -273,6 +284,31 @@ $$;
 create trigger metrics_guard
   before insert or update on public.metrics
   for each row execute function private.genesis_metrics_guard();
+
+-- When server code moves a metric to another owner, its values and goal history move with it, so
+-- a former owner can't still read or change them.
+create or replace function private.genesis_metrics_carry_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.metric_values v
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where v.metric_id = new.id;
+  update public.metric_goal_changes c
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where c.metric_id = new.id;
+  return null;
+end;
+$$;
+
+create trigger metrics_carry_owner
+  after update of person_id, team_id, organization_id on public.metrics
+  for each row
+  when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
+  execute function private.genesis_metrics_carry_owner();
 
 -- A value's tenant and owner come from its metric, always. A signed-in writer who may not write
 -- the metric is refused before anything about the metric is checked, so errors reveal nothing
@@ -289,7 +325,7 @@ begin
   if tg_op = 'UPDATE' and new.metric_id is distinct from old.metric_id then
     raise exception 'A value never moves to another metric' using errcode = '22023';
   end if;
-  select mt.tenant_id, mt.person_id, mt.team_id, mt.organization_id, mt.unit_type, mt.cadence
+  select mt.tenant_id, mt.person_id, mt.team_id, mt.organization_id, mt.unit_type, mt.cadence, mt.year_start_month
     into m from public.metrics mt where mt.id = new.metric_id;
   if private.genesis_metrics_caller_is_person()
      and (m.tenant_id is null
@@ -300,7 +336,7 @@ begin
   new.person_id := m.person_id;
   new.team_id := m.team_id;
   new.organization_id := m.organization_id;
-  if not private.genesis_metrics_period_ok(m.cadence, new.period_start) then
+  if not private.genesis_metrics_period_ok(m.cadence, new.period_start, m.year_start_month) then
     raise exception 'A % value starts on its period''s first day', m.cadence using errcode = '22023';
   end if;
   if m.unit_type = 'yes_no' and new.value is not null and new.value not in (0, 1) then
@@ -331,9 +367,10 @@ create trigger metric_values_guard
 
 revoke execute on function private.genesis_metrics_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_metrics_caller_is_person() from public, anon, authenticated;
-revoke execute on function private.genesis_metrics_period_ok(text, date) from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_period_ok(text, date, smallint) from public, anon, authenticated;
 revoke execute on function private.genesis_metrics_today() from public, anon, authenticated;
-revoke execute on function private.genesis_metrics_period_of(text, date) from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_period_of(text, date, smallint) from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_carry_owner() from public, anon, authenticated;
 revoke execute on function private.genesis_metric_values_guard() from public, anon, authenticated;
 
 alter table public.metrics enable row level security;
