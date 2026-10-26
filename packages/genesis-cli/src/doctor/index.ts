@@ -30,6 +30,7 @@ import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
 import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
+import { checkIsoDateSlices } from "./dates.js";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
@@ -143,6 +144,7 @@ export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
     { name: "local-genesis-copies", check: checkLocalGenesisCopies },
     { name: "resource-workspaces", check: checkResourceWorkspaces },
     { name: "page-layouts", check: checkPageLayouts },
+    { name: "iso-date-slices", check: checkIsoDateSlices },
     ...(config.packs ?? []).map((p) => packs[p]),
   ];
 }
