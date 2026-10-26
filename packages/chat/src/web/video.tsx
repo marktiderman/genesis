@@ -299,21 +299,19 @@ export function ChatVideoRecorder({ open, onOpenChange, maxMs, send, extra, vide
   const rec = useVideoRecorder({ maxMs, onTick });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const upload = useRef<AbortController | null>(null);
+  // One send at a time; once sent, the outbox owns the upload (its Delete cancels it).
+  const sendingNow = useRef(false);
   const { open: openCamera, reset } = rec;
 
   useEffect(() => {
     if (open) void openCamera();
     else reset();
   }, [open, openCamera, reset]);
-  // Closing or unmounting stops an upload still going.
-  useEffect(() => () => upload.current?.abort(), []);
 
   const submit = async () => {
     const take = rec.recording;
-    if (!take || upload.current) return;
-    const controller = new AbortController();
-    upload.current = controller;
+    if (!take || sendingNow.current) return;
+    sendingNow.current = true;
     setSending(true);
     setSendError(null);
     try {
@@ -324,22 +322,18 @@ export function ChatVideoRecorder({ open, onOpenChange, maxMs, send, extra, vide
       onSent?.();
       onOpenChange(false);
     } catch (e) {
-      if (!controller.signal.aborted) setSendError(e instanceof Error ? e.message : "The video didn't send");
+      setSendError(e instanceof Error ? e.message : "The video didn't send");
     } finally {
-      upload.current = null;
+      sendingNow.current = false;
       setSending(false);
     }
   };
 
-  /** Closing while it uploads cancels the upload. */
-  const close = (o: boolean) => {
-    if (!o) upload.current?.abort();
-    onOpenChange(o);
-  };
 
   const recording = rec.state === "recording";
+  // It stays open while the take goes to the outbox: closing would free the preview it was handed.
   return (
-    <Dialog open={open} onOpenChange={close}>
+    <Dialog open={open} onOpenChange={(o) => (o || !sendingNow.current) && onOpenChange(o)}>
       <DialogContent className="sm:max-w-lg" data-testid="genesis-chat-video-recorder">
         <DialogHeader>
           <DialogTitle>Record a video</DialogTitle>

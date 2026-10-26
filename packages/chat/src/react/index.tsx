@@ -120,12 +120,20 @@ export function hostedUploadFrom(
   };
 }
 
+/** What a kind's `title`, `subtitle` and `action` are told besides the attachment. */
+export interface ChatCardContext {
+  /** The card is on a message you sent (your own check-in reads "Sent", not "Answer"). */
+  mine: boolean;
+}
+
 /** What an app attachment kind's card shows (a form, a check-in): plain data, drawn by each renderer. */
 export interface ChatAttachmentKind {
-  title(attachment: ChatAttachment): string;
-  subtitle?(attachment: ChatAttachment): string | null | undefined;
+  title(attachment: ChatAttachment, ctx?: ChatCardContext): string;
+  subtitle?(attachment: ChatAttachment, ctx?: ChatCardContext): string | null | undefined;
   /** The card's button: a link (`href`) or a handler (`onPress`). */
-  action?(attachment: ChatAttachment): { label: string; href?: string; onPress?: () => void } | null | undefined;
+  action?(attachment: ChatAttachment, ctx?: ChatCardContext): { label: string; href?: string; onPress?: () => void } | null | undefined;
+  /** What previews call it (the inbox's last message, "Check-in"); the title by default. */
+  label?: string;
 }
 
 interface ChatContextValue {
@@ -205,6 +213,10 @@ export function ChatProvider({
   const queryClient = useQueryClient();
   const [queue, setQueue] = useState<QueuedMessage[]>([]);
   const listeners = useRef(new Set<(s: ChatSignal) => void>());
+  // The outbox lives as long as the client and user, so it reads the app's functions here at call
+  // time: an inline `videoUpload.create` closing over a refreshed token keeps working.
+  const live = useRef({ readFile, upload, hostedUpload, videoUpload, persistFile });
+  live.current = { readFile, upload, hostedUpload, videoUpload, persistFile };
 
   const outbox = useMemo(
     () =>
@@ -212,11 +224,19 @@ export function ChatProvider({
         client,
         userId,
         store: outboxStore,
-        readFile,
-        upload,
-        hostedUpload: hostedUpload ?? (videoUpload ? hostedUploadFrom(videoUpload, { readFile }) : undefined),
+        readFile: readFile && ((uri) => (live.current.readFile ?? readFile)(uri)),
+        upload: upload && ((...args) => (live.current.upload ?? upload)(...args)),
+        hostedUpload:
+          hostedUpload || videoUpload
+            ? (...args) => {
+                const now = live.current;
+                const video = now.videoUpload ?? videoUpload;
+                const send = now.hostedUpload ?? (video ? hostedUploadFrom(video, { readFile: now.readFile ?? readFile }) : hostedUpload!);
+                return send(...args);
+              }
+            : undefined,
         newId,
-        persistFile,
+        persistFile: persistFile && ((file) => (live.current.persistFile ?? persistFile)(file)),
         releasePreview,
         onChange: setQueue,
         onSent: (message) => {

@@ -205,7 +205,8 @@ export function createOutbox(opts: OutboxOptions) {
   const setProgress = (q: QueuedMessage, index: number, sent: number, total: number) => {
     const slots = q.pendingFiles;
     if (!slots?.[index] || !queue.includes(q)) return;
-    const progress = total > 0 ? Math.min(1, Math.max(0, sent / total)) : 0;
+    // Whole percents: the bar shows no finer, and each change re-renders every chat hook.
+    const progress = total > 0 ? Math.round(Math.min(1, Math.max(0, sent / total)) * 100) / 100 : 0;
     if (slots[index]!.progress === progress) return;
     q.pendingFiles = slots.map((slot, j) => (j === index ? { ...slot, progress } : slot));
     opts.onChange?.([...queue]);

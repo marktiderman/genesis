@@ -6,17 +6,19 @@
  * app's own screen); else its `href`, when it is https. The bubble offers the same button as
  * a VoiceOver action (`cardAction`), since an accessible bubble hides what is inside it.
  *
- * Native passes the kind's `title`, `subtitle` and `action` a second argument, `{ mine }`
- * (`ChatCardContext`): true on the sender's own card, so a kind can drop its button there (you
- * don't answer your own check-in). Declare it optional: `action: (a, ctx?: ChatCardContext) => …`.
- * Previews (the inbox, the long-press sheet) name a card by its kind's title, not "Attachment".
+ * The kind's `title`, `subtitle` and `action` get a second argument, `{ mine }` (`ChatCardContext`):
+ * true on the sender's own card, so a kind can drop its button there (you don't answer your own
+ * check-in). Previews (the inbox, the long-press sheet) name a card by its kind's `label`, else
+ * its title, not "Attachment".
  */
 import { Linking, View } from "react-native";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { previewText } from "../core/thread";
 import type { ChatAttachment, ChatMessage } from "../core/types";
-import type { ChatAttachmentKind } from "../react/index";
+import type { ChatAttachmentKind, ChatCardContext } from "../react/index";
+
+export type { ChatCardContext };
 import { fill } from "./copy";
 import { useChatNative } from "./context";
 import { ON_TINT_FILL, ON_TINT_FILL_STRONG } from "./media-colors";
@@ -47,17 +49,10 @@ export function isOpenableHref(href: string | null | undefined): href is string 
   }
 }
 
-/** What native tells a kind's `title`, `subtitle` and `action` besides the attachment. */
-export interface ChatCardContext {
-  /** The card is on a message you sent. */
-  mine: boolean;
-}
-
-// The kinds' methods are declared with the attachment alone; native passes the context too.
-const call = <K extends "title" | "subtitle" | "action">(kind: ChatAttachmentKind | undefined, key: K, a: ChatAttachment, ctx: ChatCardContext) => {
-  const fn = kind?.[key] as ((this: ChatAttachmentKind, a: ChatAttachment, ctx: ChatCardContext) => unknown) | undefined;
-  return fn?.call(kind!, a, ctx) as ReturnType<NonNullable<ChatAttachmentKind[K]>> | undefined;
-};
+const call = <K extends "title" | "subtitle" | "action">(kind: ChatAttachmentKind | undefined, key: K, a: ChatAttachment, ctx: ChatCardContext) =>
+  (kind?.[key] as ((this: ChatAttachmentKind, a: ChatAttachment, ctx: ChatCardContext) => unknown) | undefined)?.call(kind!, a, ctx) as
+    | ReturnType<NonNullable<ChatAttachmentKind[K]>>
+    | undefined;
 
 /** A card's title (the kind's, else the file's name, else the kind); an app kind that throws reads as its name. */
 export function cardTitle(kind: ChatAttachmentKind | undefined, a: ChatAttachment, ctx: ChatCardContext = { mine: false }): string {
@@ -84,7 +79,8 @@ export function attachmentPreview(body: string, attachment: string | ChatAttachm
   // Text that reads as something (not only markdown marks) is the preview, as previewText has it.
   if (deleted || !kind || !kinds || !Object.prototype.hasOwnProperty.call(kinds, kind) || previewText(body, null)) return text;
   const a = typeof attachment === "string" ? bareAttachment(attachment) : attachment!;
-  const title = cardTitle(kinds[kind], a);
+  const k = kinds[kind];
+  const title = typeof k?.label === "string" && k.label.trim() ? k.label.trim() : cardTitle(k, a);
   return title && title !== kind ? title : text;
 }
 

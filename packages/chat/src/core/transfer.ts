@@ -20,6 +20,9 @@ export interface SendBytesOptions {
 
 const sizeOf = (body: Blob | ArrayBuffer) => (typeof Blob !== "undefined" && body instanceof Blob ? body.size : (body as ArrayBuffer).byteLength);
 
+/** A failed answer's code: a 5xx, 408 or no answer is worth retrying, 429 waits, any other 4xx is a refusal. */
+const refusal = (status: number) => (status >= 500 || status === 0 || status === 408 ? undefined : status === 429 ? "GS429" : "22023");
+
 const aborted = () => new ChatError("The upload was cancelled", "GSABORT", "upload");
 
 /** Sends `body` to `url`; resolves with the response text, throws a ChatError on a non-2xx answer. */
@@ -30,7 +33,7 @@ export function sendBytes(url: string, body: Blob | ArrayBuffer, opts: SendBytes
   if (typeof XMLHttpRequest === "undefined" || opts.fetch) {
     const f = opts.fetch ?? fetch;
     return f(url, { method, body, headers: opts.headers, signal: opts.signal }).then(async (res) => {
-      if (!res.ok) throw new ChatError(`The upload failed (${res.status})`, res.status >= 500 ? undefined : "22023", "upload");
+      if (!res.ok) throw new ChatError(`The upload failed (${res.status})`, refusal(res.status), "upload");
       opts.onProgress?.(total, total);
       return res.text().catch(() => "");
     });
@@ -50,8 +53,7 @@ export function sendBytes(url: string, body: Blob | ArrayBuffer, opts: SendBytes
         opts.onProgress?.(total, total);
         resolve(typeof xhr.responseText === "string" ? xhr.responseText : "");
       } else {
-        // A 5xx is worth retrying (transient); a 4xx is a refusal.
-        reject(new ChatError(`The upload failed (${xhr.status})`, xhr.status >= 500 || xhr.status === 0 ? undefined : "22023", "upload"));
+        reject(new ChatError(`The upload failed (${xhr.status})`, refusal(xhr.status), "upload"));
       }
     };
     // No answer at all: the connection, worth retrying.
