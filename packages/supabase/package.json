@@ -228,6 +228,42 @@
         "steps": [
           "Define private.genesis_readable_owners(viewer) and private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) in a migration, as the header of 0009 shows. Without them nobody signed in reads or writes."
         ]
+      },
+      "metrics": {
+        "feature": {
+          "name": "Metrics",
+          "summary": "Numbers tracked over time (a scorecard, a habit, a profit margin), one value per period, goals that change over time, owned by a person, a team or the tenant.",
+          "keywords": [
+            "metrics",
+            "kpi",
+            "scorecard",
+            "habits",
+            "trend"
+          ],
+          "audience": [
+            "person",
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "tenant-features"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0010_genesis_metrics.sql",
+            "test": "migrations/tests/0010_genesis_metrics.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Uses the same hooks as the pursuits block: private.genesis_readable_owners(viewer) and private.genesis_owner_can(...). Without them nobody signed in reads or writes."
+        ]
       }
     }
   },

@@ -4052,6 +4052,71 @@
       "flags": []
     },
     {
+      "id": "metrics",
+      "name": "Metrics",
+      "summary": "metrics, metric_values and metric_goal_changes in genesis-supabase: numbers tracked over time with a unit, a cadence, a goal and direction, leading or lagging, a rollup rule, a template key, a formula or a sync source; one value per metric and period; goal changes kept, and metric_values_with_goal judging each value against the goal of its period. Owned and gated like pursuits.",
+      "category": "Productivity",
+      "status": "building",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "metrics",
+        "kpi",
+        "scorecard",
+        "measurables",
+        "habits",
+        "trend",
+        "goals over time"
+      ],
+      "platforms": {
+        "server": "building",
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-supabase",
+        "native": "@marktiderman/genesis-supabase"
+      },
+      "requires": [
+        "supabase-kit",
+        "tenant-features"
+      ],
+      "contributes": [
+        "table: metrics",
+        "table: metric_values",
+        "table: metric_goal_changes",
+        "view: metric_values_with_goal"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Without the app's hooks nobody signed in reads or writes a metric or a value; anon has no privilege and nobody signed in writes the goal history.",
+        "A value takes its metric's tenant and owner whatever the writer sends; one value per metric and period, so entering a period again updates it.",
+        "Changing a goal keeps the old one, and each value is judged against the goal of its period.",
+        "Not yet used by an app."
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/supabase/migrations/0010_genesis_metrics.sql",
+          "packages/supabase/src/blocks.ts"
+        ],
+        "docs": [
+          "packages/supabase/migrations/0010_genesis_metrics.sql"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "pursuits",
       "name": "Pursuits",
       "summary": "pursuits and work_items in genesis-supabase: goals and projects in one table (a pursuit is a goal, a project or both), nesting, a period, health and criteria; tasks, issues and milestones alone or under a pursuit, with issue terms, priority, manual rank, decider and solution. Every row has a tenant and exactly one owner (a person, a team or the tenant), and the app's hooks decide who reads and writes.",
