@@ -3,7 +3,7 @@
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`. Rolls back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into auth.users (id, aud, role, email, instance_id)
 values ('00000000-0000-4000-8000-0000000014a1', 'authenticated', 'authenticated', 'hardening-a1@example.test', '00000000-0000-0000-0000-000000000000');
@@ -28,6 +28,10 @@ select is(public.feature_on('00000000-0000-4000-9000-000000001401', 'open'), fal
 select throws_ok($$select public.feature_gate_state('00000000-0000-4000-9000-000000001401')$$, '42501', null, '... and no gate state');
 select is(public.feature_shipped('secret'), false, 'a person can''t confirm an internal feature');
 select is(public.feature_shipped('open'), true, '... but sees customer-facing ones');
+-- Claims that say service_role don't make a person server code: the role decides.
+select set_config('request.jwt.claims', '{"role": "service_role"}', true);
+select is(public.feature_on('00000000-0000-4000-9000-000000001401', 'open'), false, 'claims claiming service_role are refused');
+select is(public.feature_shipped('secret'), false, '... and see no internal feature');
 -- A member with claims is still answered.
 select set_config('request.jwt.claims', '{"sub": "00000000-0000-4000-8000-0000000014a1", "role": "authenticated"}', true);
 select is(public.feature_on('00000000-0000-4000-9000-000000001401', 'open'), true, 'a member is answered');
