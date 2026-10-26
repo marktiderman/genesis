@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 71
+      "count": 72
     }
   },
   "primitives": [
@@ -2889,6 +2889,80 @@
       ]
     },
     {
+      "slug": "loading-state",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/loading-state.tsx",
+      "stability": "beta",
+      "summary": "LoadingState — a centred spinner for a screen (or part of one) that is\nwaiting: a redirect while the session loads, the first fetch of a page.\n\nUse it instead of a hand-rolled `<View><ActivityIndicator /></View>`: the\nspinner takes the theme tint, screen readers hear one \"Loading\" progress\nbar (or your `label`), and the full-screen form sits inside the safe area\non the screen background. For content-shaped placeholders (a list about to\nappear) use `NativeSkeleton`; for known progress use `NativeProgress`.\n\n  if (!session) return <NativeLoadingState />;            // whole screen\n  <NativeLoadingState fullScreen={false} label=\"Loading more\" size=\"small\" />\n\n`ScreenContainer loading` renders the inline form in place of its body.",
+      "primaryComponent": "NativeLoadingState",
+      "components": [
+        {
+          "name": "NativeLoadingState",
+          "summary": "",
+          "props": [
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What screen readers announce when no `label` is shown. Default `\"Loading\"`."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "color",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "Spinner color. Defaults to the theme tint."
+            },
+            {
+              "name": "fullScreen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "`true` (default): fill the screen on the theme background, inside the\nsafe area. `false`: a padded, centred block that fills its parent, for a\nscreen body, a section or a list footer."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text shown under the spinner. It is also what screen readers announce."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "NativeLoadingStateEdge[]",
+              "required": false,
+              "defaultValue": "[\"top\", \"bottom\", \"left\", \"right\"]",
+              "description": "Safe-area edges when `fullScreen`. Default all four."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "large",
+              "description": "Spinner size. Default `\"large\"`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "loading-state",
+              "description": "testID on the root; the spinner is `${testID}-spinner`, the label `${testID}-label`. Default `\"loading-state\"`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "native-data-filters",
       "aliases": [],
       "surface": "native",
@@ -4275,7 +4349,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/screen-container.tsx",
       "stability": "beta",
-      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
+      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n  - A loading state (`loading`): a centred `NativeLoadingState` in place of the body\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
       "primaryComponent": "ScreenContainer",
       "components": [
         {
@@ -4357,6 +4431,20 @@
               "required": false,
               "defaultValue": "handled",
               "description": "`keyboardShouldPersistTaps` for the inner ScrollView. Default `\"handled\"`.\nOnly used when `scroll` is true."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
             },
             {
               "name": "safeAreaEdges",
