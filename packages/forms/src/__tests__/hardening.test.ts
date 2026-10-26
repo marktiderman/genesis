@@ -112,12 +112,25 @@ describe("3. long event logs", () => {
     Array.from({ length: n }, (_, i) => ({ type: "answer", field: i % 2 ? "a" : "b", value: String(i) }));
 
   it("replays 40 000 events in linear time and logs the same events", () => {
+    // Scaling, not a wall-clock bound: CI runners are 5–8× slower than a laptop, and a slow
+    // linear replay passes a time limit as easily as a fast quadratic one. Four times the
+    // events should take about four times as long; quadratic work (an event log copied on
+    // each event, say) takes about sixteen. Best of three runs, after a warm-up.
+    const time = (n: number) => {
+      const log = alternating(n);
+      let best = Infinity;
+      for (let run = 0; run < 3; run++) {
+        const start = performance.now();
+        replay(def, log);
+        best = Math.min(best, performance.now() - start);
+      }
+      return best;
+    };
+    time(2_000);
+    const ratio = time(40_000) / Math.max(time(10_000), 1);
+    expect(ratio).toBeLessThan(8);
     const events = alternating(40_000);
-    const start = performance.now();
     const engine = replay(def, events);
-    // Linear takes well under a second; a quadratic replay of 40 000 events takes minutes. Loose
-    // enough for CI runners, which run 5–8× slower than a laptop.
-    expect(performance.now() - start).toBeLessThan(10_000);
     expect(engine.getState().events).toEqual(events);
     // The log is the engine's own copy: live events after a replay still notify.
     let calls = 0;
