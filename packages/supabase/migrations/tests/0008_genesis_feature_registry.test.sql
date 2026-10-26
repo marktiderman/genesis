@@ -5,7 +5,7 @@
 -- If your app already has the hooks, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(57);
+select plan(62);
 
 -- People: a1 admin of tenant 1, b2 member of tenant 1, c3 admin of tenant 2.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -125,6 +125,22 @@ select is(public.feature_gate_state(pg_temp.tenant(2)), '{"off": [], "entitled":
 select is(array(select public.feature_entitled_tenants('webhooks')), '{}'::uuid[], 'and none of another tenant''s entitlements');
 select set_config('request.jwt.claims', json_build_object('sub', pg_temp.person('c3'), 'role', 'authenticated', 'is_anonymous', true)::text, true);
 select is((select count(*)::int from public.features), 0, 'an anonymous sign-in reads no features');
+
+-- An authenticated request without a person is refused, never mistaken for server code.
+select set_config('request.jwt.claims', '{"role": "authenticated"}', true);
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok($$select public.feature_gate_state(pg_temp.tenant(1))$$, '42501', null, 'no sub: gate state is refused');
+select is(public.feature_on(pg_temp.tenant(1), 'forms'), false, 'no sub: the gate says no');
+select is(array(select public.feature_entitled_tenants('webhooks')), '{}'::uuid[], 'no sub: no entitled tenants');
+
+-- A platform value is a kill switch for every tenant, over the tenant's own value.
+select pg_temp.as_service();
+update public.feature_flags set platform_value = 'false' where key = 'sms.release';
+select pg_temp.sign_in('b2');
+select is(public.feature_gate_state(pg_temp.tenant(1)) -> 'flags', '{"sms.release": false}'::jsonb, 'a platform value overrides the tenant''s');
+select pg_temp.as_service();
+update public.feature_flags set platform_value = null where key = 'sms.release';
+select is(public.feature_gate_state(pg_temp.tenant(1)) -> 'flags', '{"sms.release": true}'::jsonb, 'without it the tenant value applies (server code reads any tenant)');
 
 -- A registry without courses and without the flag --------------------------------------------------
 select pg_temp.as_service();

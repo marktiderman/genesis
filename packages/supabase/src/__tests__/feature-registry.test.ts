@@ -35,6 +35,20 @@ describe("featureGateState", () => {
     expect(rpc).toHaveBeenCalledWith("feature_gate_state", { tenant: "t1" });
   });
 
+  it("throws on an empty or malformed answer instead of reporting nothing set", async () => {
+    for (const data of [null, [], { off: [], entitled: [] }, { off: "x", entitled: [], flags: {} }]) {
+      const { client } = fakeClient({ data, error: null });
+      await expect(featureGateState(client, "t1")).rejects.toThrow(TypeError);
+    }
+  });
+
+  it("spreads into a gate context as documented", async () => {
+    const { client } = fakeClient({ data: { off: [], entitled: [], flags: { a: true, b: null, c: [1] } }, error: null });
+    const state = await featureGateState(client, "t1");
+    const context: { platform: "web"; off?: readonly string[]; entitlements?: readonly string[]; flags?: { readonly [name: string]: boolean | string | number | { readonly [key: string]: unknown } | undefined } } = { platform: "web", ...state };
+    expect(context.flags).toEqual({ a: true });
+  });
+
   it("throws a refusal rather than reporting nothing set", async () => {
     const { client } = fakeClient({
       data: null,

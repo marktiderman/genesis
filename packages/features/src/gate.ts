@@ -28,7 +28,7 @@ import type {
   FeatureStatus,
   FlagKind,
   FlagValue,
-} from "./model";
+} from "./types";
 import { statusOn } from "./status";
 import type { FeaturePlatform } from "./platforms";
 
@@ -273,22 +273,17 @@ export function gateSnapshot(
  *
  * @stability Beta
  */
-export function isSnapshotStale(
-  snapshot: GateSnapshot,
-  maxAgeMs: number,
-  now: Date = new Date(),
-): boolean {
-  const at = Date.parse(snapshot.at);
-  return Number.isNaN(at) || now.getTime() - at > maxAgeMs;
+export function isSnapshotStale(snapshot: GateSnapshot, maxAgeMs: number, now: Date = new Date()): boolean {
+  const at = Date.parse(snapshot?.at);
+  // Too old, unreadable, or dated in the future (a wrong clock or a forged copy): refresh.
+  return Number.isNaN(at) || Math.abs(now.getTime() - at) > maxAgeMs;
 }
 
 /** One feature's answer from a snapshot. An id missing from it is off, as an unknown feature. @stability Beta */
 export function fromSnapshot(snapshot: GateSnapshot, id: string): GateAnswer {
-  return (
-    (Object.hasOwn(snapshot.answers, id)
-      ? snapshot.answers[id]
-      : undefined) ?? { on: false, reason: "unknown" }
-  );
+  // A stored snapshot may be from an older shape, or damaged: missing answers mean off.
+  const answers: GateSnapshot["answers"] | undefined = snapshot?.answers;
+  return (answers && Object.hasOwn(answers, id) ? answers[id] : undefined) ?? { on: false, reason: "unknown" };
 }
 
 /**

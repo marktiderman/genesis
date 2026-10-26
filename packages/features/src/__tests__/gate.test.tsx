@@ -1,4 +1,6 @@
 /** @feat:feature-gate */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
@@ -291,6 +293,25 @@ describe("snapshots and requireFeature", () => {
     } catch (error) {
       expect((error as FeatureOff).status).toBe(403);
     }
+  });
+});
+
+describe("what /gate ships", () => {
+  it("imports nothing but its own zod-free files", () => {
+    const src = (file: string) => readFileSync(join(__dirname, "..", file), "utf8");
+    for (const file of ["gate.ts", "gate-entry.ts", "status.ts", "types.ts", "platforms.ts"]) {
+      const imports = [...src(file).matchAll(/from "([^"]+)"/g)].map((m) => m[1]);
+      expect(imports.every((i) => ["./gate", "./status", "./types", "./platforms"].includes(i!)), `${file}: ${imports.join(", ")}`).toBe(true);
+      expect(src(file)).not.toMatch(/\b(window|document|eval|new Function|process\.env)\b/);
+    }
+  });
+
+  it("treats a future-dated or damaged snapshot as stale or off", () => {
+    const now = new Date("2026-10-26T12:00:00Z");
+    expect(isSnapshotStale({ answers: {}, at: "2026-10-27T12:00:00Z" }, 5 * 60_000, now)).toBe(true);
+    expect(isSnapshotStale({ answers: {}, at: "not a date" }, 5 * 60_000, now)).toBe(true);
+    expect(fromSnapshot({} as never, "forms")).toEqual({ on: false, reason: "unknown" });
+    expect(fromSnapshot(null as never, "forms")).toEqual({ on: false, reason: "unknown" });
   });
 });
 

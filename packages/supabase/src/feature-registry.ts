@@ -20,6 +20,9 @@ export interface FeatureRegistryClient {
 type RpcResult =
   { data: unknown; error: null } | { data: null; error: PostgrestErrorLike };
 
+/** A flag value as the database hands it out: the JSON an OpenFeature flag can hold. @stability Beta */
+export type FlagStateValue = boolean | string | number | { readonly [key: string]: unknown };
+
 /**
  * A tenant's runtime state for the gate, shaped to spread into a
  * `GateContext`: `{ platform, ...await featureGateState(client, tenantId) }`.
@@ -31,8 +34,8 @@ export interface FeatureGateState {
   off: string[];
   /** Feature ids the tenant holds an active entitlement for. */
   entitlements: string[];
-  /** Flag values set for the tenant, by flag name. */
-  flags: Record<string, unknown>;
+  /** Flag values for the tenant (platform values applied), by flag name. */
+  flags: Record<string, FlagStateValue>;
 }
 
 const strings = (value: unknown): string[] =>
@@ -48,22 +51,21 @@ const strings = (value: unknown): string[] =>
  *
  * @stability Beta
  */
-export async function featureGateState(
-  client: FeatureRegistryClient,
-  tenantId: string,
-): Promise<FeatureGateState> {
-  const data = must(
-    (await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult,
-  ) as Record<string, unknown> | null;
-  const flags = data?.flags;
-  return {
-    off: strings(data?.off),
-    entitlements: strings(data?.entitled),
-    flags:
-      flags && typeof flags === "object" && !Array.isArray(flags)
-        ? { ...(flags as Record<string, unknown>) }
-        : {},
-  };
+export async function featureGateState(client: FeatureRegistryClient, tenantId: string): Promise<FeatureGateState> {
+  const data = must((await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult);
+  // Anything but the expected shape is an error, never "nothing set": an empty answer would turn
+  // switched-off features back on.
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("feature_gate_state returned no state");
+  const { off, entitled, flags } = data as Record<string, unknown>;
+  if (!Array.isArray(off) || !Array.isArray(entitled) || !flags || typeof flags !== "object" || Array.isArray(flags)) {
+    throw new TypeError("feature_gate_state returned an unexpected shape");
+  }
+  const values: Record<string, FlagStateValue> = {};
+  for (const [key, value] of Object.entries(flags as Record<string, unknown>)) {
+    if (typeof value === "boolean" || typeof value === "string" || typeof value === "number") values[key] = value;
+    else if (value && typeof value === "object" && !Array.isArray(value)) values[key] = value as { [key: string]: unknown };
+  }
+  return { off: strings(off), entitlements: strings(entitled), flags: values };
 }
 
 /** `features.json` as `genesis features build` writes it. @stability Beta */

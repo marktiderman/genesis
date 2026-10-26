@@ -18,8 +18,9 @@
 --     Which tenant may use which paid feature (`access: { plan }`), by source (a billing webhook,
 --     a manual grant), optionally until a time. Written by the service role only.
 --
---   public.tenant_flag_values
---     A flag's value for one tenant, overriding its default. Written by the service role only.
+--   public.tenant_flag_values, feature_flags.platform_value
+--     A flag's value for one tenant, overriding its default; and a value for every tenant at once
+--     (a kill switch), overriding tenant values. Written by the service role only.
 --
 --   public.feature_on(tenant, feature)
 --     The gate in SQL, for row security and functions: shipped (beta, live or deprecated) and,
@@ -76,6 +77,9 @@ create table public.feature_flags (
   expires date,
   record jsonb not null,
   in_registry boolean not null default true,
+  -- A value for every tenant, set by the service role: a kill switch or a global rollout. It
+  -- overrides tenant values, and sync never touches it.
+  platform_value jsonb,
   synced_at timestamptz not null default now()
 );
 
@@ -210,6 +214,36 @@ comment on table public.tenant_flag_values is
 
 -- The gate -------------------------------------------------------------------------------------
 
+-- Who is asking: server code (the service role, or a direct database connection with no request
+-- claims) answers for any tenant; everyone else must be a member. Decided on the request's role,
+-- never on a missing person: an authenticated request without `sub` is refused, not trusted.
+create or replace function private.genesis_feature_caller_is_server()
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  claims jsonb := coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb);
+  request_role text := coalesce(nullif(claims ->> 'role', ''), nullif(current_setting('request.jwt.claim.role', true), ''));
+begin
+  return request_role is null or request_role = 'service_role';
+end;
+$$;
+
+create or replace function private.genesis_feature_may_read(tenant uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return private.genesis_feature_caller_is_server() or private.genesis_is_tenant_member(tenant);
+end;
+$$;
+
 -- Shipped and, when paid, entitled: the part of the gate that row security enforces. A signed-in
 -- caller gets an answer only for a tenant they belong to (false otherwise), so a policy can't be
 -- used to probe another tenant's plan. Server code (the service role, no signed-in person) gets
@@ -225,7 +259,7 @@ begin
   if tenant is null or feature is null then
     return false;
   end if;
-  if auth.uid() is not null and not private.genesis_is_tenant_member(tenant) then
+  if not private.genesis_feature_may_read(tenant) then
     return false;
   end if;
   return exists (
@@ -276,7 +310,7 @@ begin
   return query
     select distinct e.tenant_id from public.feature_entitlements e
     where e.feature_id = feature and e.active and (e.ends_at is null or e.ends_at > now())
-      and (auth.uid() is null or private.genesis_is_tenant_member(e.tenant_id));
+      and private.genesis_feature_may_read(e.tenant_id);
 end;
 $$;
 
@@ -295,7 +329,7 @@ begin
   if tenant is null then
     raise exception 'feature_gate_state: tenant is required' using errcode = '22004';
   end if;
-  if auth.uid() is not null and not private.genesis_is_tenant_member(tenant) then
+  if not private.genesis_feature_may_read(tenant) then
     raise exception 'feature_gate_state: only the tenant''s members can read its features' using errcode = '42501';
   end if;
   return jsonb_build_object(
@@ -307,10 +341,15 @@ begin
       select jsonb_agg(distinct e.feature_id) from public.feature_entitlements e
       where e.tenant_id = tenant and e.active and (e.ends_at is null or e.ends_at > now())
     ), '[]'::jsonb),
+    -- The tenant's own values, then platform values on top: a platform value (a kill switch)
+    -- applies to every tenant, whatever the tenant's own value.
     'flags', coalesce((
       select jsonb_object_agg(v.flag_key, v.value) from public.tenant_flag_values v
       join public.feature_flags fl on fl.key = v.flag_key and fl.in_registry
       where v.tenant_id = tenant
+    ), '{}'::jsonb) || coalesce((
+      select jsonb_object_agg(fl.key, fl.platform_value) from public.feature_flags fl
+      where fl.in_registry and fl.platform_value is not null
     ), '{}'::jsonb)
   );
 end;
@@ -341,6 +380,8 @@ create policy "Signed-in people read shipped features" on public.features for se
 
 revoke all on table public.feature_flags from public, anon, authenticated, service_role;
 grant select on table public.feature_flags to service_role;
+-- The service role sets platform values; everything else in the row belongs to the sync.
+grant update (platform_value) on table public.feature_flags to service_role;
 
 revoke all on table public.feature_entitlements from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.feature_entitlements to service_role;
@@ -349,6 +390,8 @@ revoke all on table public.tenant_flag_values from public, anon, authenticated, 
 grant select, insert, update, delete on table public.tenant_flag_values to service_role;
 
 revoke all on table private.feature_registry_state from public, anon, authenticated, service_role;
+revoke execute on function private.genesis_feature_caller_is_server() from public, anon, authenticated;
+revoke execute on function private.genesis_feature_may_read(uuid) from public, anon, authenticated;
 
 revoke execute on function public.sync_feature_registry(bigint, text, jsonb, jsonb, boolean) from public, anon, authenticated;
 grant execute on function public.sync_feature_registry(bigint, text, jsonb, jsonb, boolean) to service_role;

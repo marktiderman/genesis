@@ -125,3 +125,19 @@ export const jobsBlock = defineBlock({
     privacy: { notes: ["Job payloads hold ids, never content or secrets; finished jobs are deleted after 14 days."] },
   },
 });
+
+/**
+ * The feature registry block: the registry mirrored into the app's database
+ * on deploy, entitlements, per-tenant and platform flag values and SQL
+ * `feature_on()`, for the feature gate. Needs the tenant features block.
+ *
+ * @stability Beta
+ */
+export const featureMirrorBlock = defineBlock({
+  id: "feature-mirror",
+  requires: ["tenant-features"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0008_genesis_feature_registry.sql", test: "migrations/tests/0008_genesis_feature_registry.test.sql" }],
+    privacy: { notes: ["Stores which tenants hold which paid features and flag values; no personal data."] },
+  },
+});
