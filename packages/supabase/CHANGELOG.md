@@ -1,5 +1,15 @@
 # @marktiderman/genesis-supabase
 
+## 0.4.0
+
+### Minor Changes
+
+- 8c27421: Adds `sql/testing/genesis_testing.sql`, a pgTAP kit that checks an app's own schema keeps the Genesis data rules: refused writes, server-owned columns, guards that let system work through (signed out, bypass settings, ON DELETE SET NULL), private values never leaking through reports, and row counts per user. It uses shared owner, staff, client and stranger fixture ids.
+
+### Patch Changes
+
+- ca03900: genesis_testing: `never_shows` also finds a marker in the escaped form JSON writes it (quotes, backslashes), and `allows_system_paths` splits each setting on its first `=`, so a value may contain `=`.
+
 ## 0.3.1
 
 ### Patch Changes
