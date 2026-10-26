@@ -1,0 +1,105 @@
+.changeset/feature-gate.md
+  s_a1b83c03f697d3::t_b402e819179de6 1-5
+.changeset/genesis-jobs.md
+  s_a1b83c03f697d3::t_0d04689ec07076 1-14
+.changeset/person-day.md
+  s_a1b83c03f697d3::t_47f45ad5e8e914 1-11
+.changeset/resource-source.md
+  s_a1b83c03f697d3::t_4adc1a4b2a18c5 1-5
+.changeset/source-rls-followup.md
+  s_a1b83c03f697d3::t_5c525b2fe749f3 1-5
+.changeset/write-helpers.md
+  s_a1b83c03f697d3::t_6380db8dfa8e66 1-5
+AGENTS.md
+  s_a1b83c03f697d3::t_15d47b30d1f9e2 16
+docs/adr/0001-one-feature-gate.md
+  s_a1b83c03f697d3::t_7a407d08ed72bf 1-98
+docs/component-reference.md
+  s_a1b83c03f697d3::t_fbb8a10a42780d 7,26,32,34,41-42,47,52,54,57-60,63,66,71-73,78,86-87,90,100-101,110-115,131-132,143,156,158,174,185-186,1299,1319-1320,1327-1329,1336,1340-1341,1349,1381-1388,1390
+features.json
+  s_a1b83c03f697d3::t_d891005fe14a11 2025-2166,3901-4023,4097-4098,4106-4110
+features.ts
+  s_a1b83c03f697d3::t_3c7bd6935604e7 894-951,1697-1751,1784-1785,1787-1788
+packages/core/README.md
+  s_a1b83c03f697d3::t_f29d4d04ac5d66 109-141,539-593
+packages/core/package.json
+  s_a1b83c03f697d3::t_b2d08851e40641 57-60
+packages/core/src/__tests__/dates.test.ts
+  s_a1b83c03f697d3::t_96939f3bd24159 1-121
+packages/core/src/dates.ts
+  s_a1b83c03f697d3::t_4a43e85a4edb08 1-204
+packages/core/src/hooks/__tests__/use-write.test.tsx
+  s_a1b83c03f697d3::t_4c06a23499fb61 1-74
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_338af0ea838e63 33
+packages/core/src/hooks/use-write.ts
+  s_a1b83c03f697d3::t_05651996f4c24b 1-99
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_a1b83c03f697d3::t_5c2f39bab1dc06 1-122
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_a1b83c03f697d3::t_8d62aa187befa7 1-215
+packages/core/src/provider/index.ts
+  s_a1b83c03f697d3::t_212ebdc282aeab 71-81
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_3153502a80e0de 108-109,199-227,498-540,708,777,819,834,843,947,949-950,982,984,986
+packages/core/src/provider/write-helpers.ts
+  s_a1b83c03f697d3::t_e8520b9341cc05 1-118
+packages/core/src/testing/index.ts
+  s_a1b83c03f697d3::t_62e62c92424557 141-143
+packages/core/tsup.config.ts
+  s_a1b83c03f697d3::t_36cdf78b4a8ef9 19
+packages/features/README.md
+  s_a1b83c03f697d3::t_3edfbecae8380d 123-162
+packages/features/package.json
+  s_a1b83c03f697d3::t_3a07ba82a0b1a4 7,31-38
+packages/features/src/__tests__/gate.test.tsx
+  s_a1b83c03f697d3::t_2048c0d7c51c72 1-348
+packages/features/src/gate-entry.ts
+  s_a1b83c03f697d3::t_98575b57a0d76a 1-10
+packages/features/src/gate-react.tsx
+  s_a1b83c03f697d3::t_f7fadaea258b84 1-78
+packages/features/src/gate.ts
+  s_a1b83c03f697d3::t_9fddd48cea5faa 1-339
+packages/features/src/index.ts
+  s_a1b83c03f697d3::t_de0f9345a9c72b 70-87
+packages/features/src/model.ts
+  s_a1b83c03f697d3::t_fff566a691d695 4,480-481
+packages/features/src/status.ts
+  s_a1b83c03f697d3::t_f122bc02f103b4 1-22
+packages/features/tsup.config.ts
+  s_a1b83c03f697d3::t_e725a64fdc0ed4 27,35-38
+packages/supabase/README.md
+  s_a1b83c03f697d3::t_5e6ad26e1f28e8 592-692,741
+packages/supabase/migrations/0007_genesis_jobs.sql
+  s_a1b83c03f697d3::t_60830e34bc4ec3 1-352
+packages/supabase/migrations/tests/0007_genesis_jobs.test.sql
+  s_a1b83c03f697d3::t_08112094a361fe 1-129
+packages/supabase/package.json
+  s_a1b83c03f697d3::t_171be6f589fd9e 7,34-37,136-166
+packages/supabase/src/__tests__/jobs.test.ts
+  s_a1b83c03f697d3::t_5ad7280231338e 1-192
+packages/supabase/src/blocks.ts
+  s_a1b83c03f697d3::t_ecd4252ea92b74 54-68
+packages/supabase/src/index.ts
+  s_a1b83c03f697d3::t_84c88a57fc62e3 196
+packages/supabase/src/jobs.ts
+  s_a1b83c03f697d3::t_ffdc9f5c03b323 1-368
+packages/supabase/tsup.config.ts
+  s_a1b83c03f697d3::t_bd29d495ada0b9 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba1c2cf5446c3227af80f1f8c73141d950f5358c",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

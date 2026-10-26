@@ -1,0 +1,35 @@
+packages/supabase/src/feature-registry.ts
+  s_f5a91deb5a46ce::t_1d63492baf359a 3
+packages/supabase/migrations/0008_genesis_feature_registry.sql
+  s_f5a91deb5a46ce::t_1d63492baf359a 41
+features.json
+  s_f5a91deb5a46ce::t_1d63492baf359a 2155
+packages/supabase/README.md
+  s_f5a91deb5a46ce::t_1d63492baf359a 594
+features.ts
+  s_f5a91deb5a46ce::t_1d63492baf359a 947
+.changeset/feature-mirror.md
+  s_f5a91deb5a46ce::t_1d63492baf359a 5
+packages/supabase/migrations/tests/0008_genesis_feature_registry.test.sql
+  s_f5a91deb5a46ce::t_1d63492baf359a 2
+packages/supabase/package.json
+  s_f5a91deb5a46ce::t_1d63492baf359a 152-153
+packages/supabase/src/blocks.ts
+  s_f5a91deb5a46ce::t_1d63492baf359a 102-103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eb1b085045950d1b757d7368e2f48ff5a66731b3",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

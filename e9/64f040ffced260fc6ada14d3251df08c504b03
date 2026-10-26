@@ -1,0 +1,35 @@
+.changeset/doctor-view-rls.md
+  s_18dd9cee35b819::t_eb0f60d58880ba 1-5
+packages/genesis-cli/README.md
+  s_18dd9cee35b819::t_6b53bfe99c43fb 466
+packages/genesis-cli/src/doctor/rules.ts
+  s_a1b83c03f697d3::t_9c3ee7da9741e6 45
+packages/genesis-cli/src/doctor/supabase.ts
+  s_a1b83c03f697d3::t_e28c61812b89fa 285,436-486
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_a1b83c03f697d3::t_67d1ed464482d2 83,378-408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e964f040ffced260fc6ada14d3251df08c504b03",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
