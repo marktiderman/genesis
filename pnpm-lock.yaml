@@ -803,9 +803,9 @@ importers:
       '@fast-check/vitest':
         specifier: ^0.2.4
         version: 0.2.4(vitest@4.1.12)
-      '@marktiderman/genesis-notifications':
+      '@marktiderman/genesis-supabase':
         specifier: workspace:^
-        version: link:../notifications
+        version: link:../supabase
       fast-check:
         specifier: ^4.10.2
         version: 4.10.2
@@ -1263,6 +1263,9 @@ importers:
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native
+      '@marktiderman/genesis-supabase':
+        specifier: workspace:^
+        version: link:../supabase
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui

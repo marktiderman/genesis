@@ -1,13 +1,14 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "tsup";
 
-// The runner is read from genesis-notifications' source, not its dist, so
+// The runner is read from genesis-supabase's source, not its dist, so
 // `pnpm --filter @marktiderman/genesis-forms build` works on a fresh clone
-// without building notifications first. tsconfig.json maps the same path.
-const runnerSource = fileURLToPath(new URL("../notifications/src/runner/index.ts", import.meta.url));
+// without building genesis-supabase first. tsconfig.json and vitest.config.ts
+// map the same path.
+const runnerSource = fileURLToPath(new URL("../supabase/src/runner.ts", import.meta.url));
 
 // Cross-runtime (browser, React Native, Node, edge) — ESM and CJS, no dependencies.
-// The outbox runner is genesis-notifications' (`/runner`, itself dependency-free),
+// The outbox runner is genesis-supabase's (`/runner`, itself dependency-free),
 // bundled in, so forms still installs nothing (its own types are written out).
 // Entries are bundled separately; the field-type registry lives on globalThis
 // so they share it.
@@ -20,9 +21,12 @@ export default defineConfig({
   },
   format: ["esm", "cjs"],
   dts: true,
-  noExternal: [/^@marktiderman\/genesis-notifications/],
+  noExternal: [/^@marktiderman\/genesis-supabase\/runner$/],
   esbuildOptions(options) {
-    options.alias = { ...options.alias, "@marktiderman/genesis-notifications/runner": runnerSource };
+    // Forms inlines its own copy of the engine. That is safe next to the package's copy in the
+    // same app because the engine keeps no module-level state (genesis-supabase's runner.test.ts
+    // checks it): each createRunner call owns everything it uses.
+    options.alias = { ...options.alias, "@marktiderman/genesis-supabase/runner": runnerSource };
   },
   splitting: false,
   sourcemap: true,

@@ -21,10 +21,10 @@
  * It never throws for a delivery's failure, and never logs answers, contact
  * details or secrets: only ids, kinds and the destinations' safe messages.
  *
- * It is genesis-notifications' runner (`createRunner` from
- * `@marktiderman/genesis-notifications/runner`, bundled into this build so
- * forms keeps no dependencies), with forms' claim, grouping by destination
- * and destinations as its sender.
+ * It is the shared outbox engine (`createRunner` from
+ * `@marktiderman/genesis-supabase/runner`, bundled into this build so forms
+ * keeps no dependencies), with forms' claim, grouping by destination and
+ * destinations as its sender.
  */
 import {
   DEFAULT_BATCH_SIZE as SHARED_BATCH_SIZE,
@@ -36,7 +36,7 @@ import {
   type JobOutcome,
   type JobResult,
   type RunReport,
-} from "@marktiderman/genesis-notifications/runner";
+} from "@marktiderman/genesis-supabase/runner";
 import type { FormDefinition, Json } from "../types";
 import { passesCondition } from "./condition";
 import {
