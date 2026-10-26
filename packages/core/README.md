@@ -362,7 +362,7 @@ Build every cache key in one place, so a write invalidates what it made stale an
 one person shows to another.
 
 ```ts
-import { defineQueryKeys, resourceKeys, useViewerCache } from "@marktiderman/genesis-core";
+import { ViewerScope, defineQueryKeys, resourceKeys } from "@marktiderman/genesis-core";
 
 export const worksheetKeys = defineQueryKeys("worksheet-items", {
   // The fields that make one query distinct. Sort arrays: order never makes two keys.
@@ -377,11 +377,20 @@ useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).le
 queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
 queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });  // one kind
 queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));    // every key with this person, multi-person keys included
+queryClient.invalidateQueries(worksheetKeys.where({ entryId }, "byEntry"));  // narrowed to one query
 queryClient.invalidateQueries({ queryKey: resourceKeys("tasks").all });      // what useResource / useOne cache
 
-// Once, where the session is known (undefined while it loads): empties the cache when the viewer changes.
-useViewerCache(session === undefined ? undefined : (session?.user.id ?? null));
+// Once, around the signed-in app: screens mount only for a known viewer, and a sign-out or a new
+// person unmounts them and empties the cache first. (Resource keys carry no viewer; this keeps them apart.)
+<ViewerScope viewer={session === undefined ? undefined : (session?.user.id ?? null)}>
+  <App />
+</ViewerScope>
 ```
 
-Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where({...})` matches a field that
-is equal, or an array field that contains the value; add `kind` to narrow it.
+Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, kind?)` matches a
+field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
+value, or for an array value an array field containing every item. Never a substring.
+
+With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
+viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes.

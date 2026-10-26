@@ -584,6 +584,56 @@
       "flags": []
     },
     {
+      "id": "query-keys",
+      "name": "Query keys",
+      "summary": "Cache keys built in one place: scoped to the signed-in viewer (and group and day), invalidated by domain, kind or any field, including one person inside a multi-person key. ViewerScope empties the cache when the viewer changes.",
+      "tagline": "Invalidation that never misses, and no data across people.",
+      "category": "Data",
+      "status": "beta",
+      "layer": "hook",
+      "keywords": [
+        "query key",
+        "cache",
+        "invalidate",
+        "react query",
+        "tanstack",
+        "sign out",
+        "viewer"
+      ],
+      "entry": {
+        "web": "@marktiderman/genesis-core",
+        "native": "@marktiderman/genesis-core"
+      },
+      "requires": [
+        "data-provider"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "acceptance": [
+        "where({ people: id }) invalidates every multi-person key that includes id, and no other.",
+        "After a sign-out or a new viewer, no screen renders the previous viewer's cached data."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/query-keys.ts",
+          "packages/core/src/hooks/viewer-scope.tsx"
+        ],
+        "docs": [
+          "packages/core/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "switchboard",
       "name": "Switchboard",
       "summary": "A DataProvider that binds a resource to two backends during a migration, reports drift, then cuts over. Adapters for Supabase, Airtable and Notion.",

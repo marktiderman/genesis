@@ -10,7 +10,8 @@
 //
 // App keys are scoped to the signed-in viewer by default: `for({ viewer })`
 // is the only way to build one, and the scope (viewer, group, day) is part of
-// the fields.
+// the fields. Resource keys carry no viewer: `ViewerScope` (or
+// `clearViewerCache` in the sign-in/out action) keeps those apart.
 // ---------------------------------------------------------------------------
 
 import type { Query } from "@tanstack/react-query";
@@ -41,11 +42,12 @@ export type QueryKeys<D extends string, Q extends QueryDefs> = {
   /** Builds keys for one scope. */
   for(scope: KeyScope): { [K in keyof Q]: (...args: Parameters<Q[K]>) => ScopedKey<D, K> };
   /**
-   * Keys whose fields match: an equal value, or an array field containing the
-   * value (`where({ people: id })` finds every multi-person key with `id`).
-   * Narrow to one kind with `{ kind }`.
+   * Keys whose fields match `fields`: an equal value (`1` matches `"1"`,
+   * objects whatever their key order), an array field containing the value,
+   * or, for an array value, an array field containing every item. `kind`
+   * narrows it to one query.
    */
-  where(match: Fields & { kind?: keyof Q }): KeyFilter;
+  where(fields: Fields, kind?: keyof Q): KeyFilter;
 } & { readonly [K in keyof Q]: { readonly all: readonly [D, K] } };
 
 function scopeFields(scope: KeyScope): Fields {
@@ -55,7 +57,27 @@ function scopeFields(scope: KeyScope): Fields {
   return out;
 }
 
-const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+const stableText = (value: unknown) =>
+  JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Fields).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))
+      : v,
+  );
+
+/** Equal, with numbers and their text equal, and objects equal whatever their key order. */
+function same(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  const scalar = (v: unknown) => typeof v === "string" || typeof v === "number" || typeof v === "boolean";
+  if (scalar(a) && scalar(b)) return String(a) === String(b);
+  return stableText(a) === stableText(b);
+}
+
+function fieldMatches(have: unknown, want: unknown): boolean {
+  if (same(have, want)) return true;
+  if (!Array.isArray(have)) return false;
+  if (Array.isArray(want)) return want.every((w) => have.some((h) => same(h, w)));
+  return have.some((h) => same(h, want));
+}
 
 /**
  * The keys of one domain. Each query maps its arguments to the fields that
@@ -68,6 +90,7 @@ const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.s
  * });
  * useQuery({ queryKey: worksheetKeys.for({ viewer }).lessonParts(people), … });
  * queryClient.invalidateQueries(worksheetKeys.where({ people: personId }));
+ * queryClient.invalidateQueries(worksheetKeys.where({ entryId }, "byEntry"));
  * queryClient.invalidateQueries({ queryKey: worksheetKeys.lessonParts.all });
  * ```
  */
@@ -90,17 +113,13 @@ export function defineQueryKeys<const D extends string, Q extends QueryDefs>(dom
         ]),
       );
     },
-    where(match: Fields & { kind?: string }): KeyFilter {
-      const { kind, ...fields } = match;
+    where(fields: Fields, kind?: string): KeyFilter {
       return {
         predicate: (query) => {
           const [d, k, f] = query.queryKey as readonly unknown[];
           if (d !== domain || (kind !== undefined && k !== kind)) return false;
           if (!f || typeof f !== "object") return Object.keys(fields).length === 0;
-          return Object.entries(fields).every(([name, want]) => {
-            const have = (f as Fields)[name];
-            return same(have, want) || (Array.isArray(have) && have.some((v) => same(v, want)));
-          });
+          return Object.entries(fields).every(([name, want]) => fieldMatches((f as Fields)[name], want));
         },
       };
     },
@@ -122,6 +141,8 @@ export function resourceKeys(resource: string) {
     lists: [resource, "list"] as const,
     list: (params: ListParams) => [resource, "list", params] as const,
     details: [resource, "detail"] as const,
+    /** Every projection of one record: `detail(id, select)` for any `select`. */
+    detailsOf: (id: Identifier | null | undefined) => [resource, "detail", id] as const,
     detail: (id: Identifier | null | undefined, select?: string) => [resource, "detail", id, select] as const,
     infinite: (params: unknown) => [resource, "infinite", params] as const,
   };

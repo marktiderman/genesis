@@ -1,6 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import { viewerChanged } from "../hooks/use-viewer-cache";
 import { defineQueryKeys, resourceKeys } from "../query-keys";
 
 const worksheetKeys = defineQueryKeys("worksheet-items", {
@@ -65,32 +64,36 @@ describe("defineQueryKeys", () => {
     expect(await staleAfter(keys, (c) => c.invalidateQueries(worksheetKeys.where({ viewer: "ann" })))).toEqual(
       [keys[0], keys[1]].map((k) => JSON.stringify(k)),
     );
-    expect(await staleAfter(keys, (c) => c.invalidateQueries(worksheetKeys.where({ kind: "byEntry", day: "2026-10-26" })))).toEqual(
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(worksheetKeys.where({ day: "2026-10-26" }, "byEntry")))).toEqual(
       [JSON.stringify(keys[2])],
     );
     expect(await staleAfter(keys, (c) => c.invalidateQueries(worksheetKeys.where({ entryId: "nope" })))).toEqual([]);
   });
 });
 
-describe("resourceKeys", () => {
-  it("matches the keys useResource, useOne and useInfiniteResource cache under", () => {
-    const k = resourceKeys("tasks");
-    expect(k.all).toEqual(["tasks"]);
-    expect(k.list({ pagination: { page: 1, perPage: 25 } })).toEqual(["tasks", "list", { pagination: { page: 1, perPage: 25 } }]);
-    expect(k.detail("t1")).toEqual(["tasks", "detail", "t1", undefined]);
-    expect(k.infinite({})).toEqual(["tasks", "infinite", {}]);
+describe("where() matching", () => {
+  const k = defineQueryKeys("items", {
+    one: (n: number) => ({ n }),
+    tagged: (tags: string[], meta: Record<string, unknown>) => ({ tags, meta, kind: "x" }),
   });
-});
+  const ann = k.for({ viewer: "ann" });
 
-describe("viewerChanged", () => {
-  it.each([
-    [undefined, "ann", false],
-    [undefined, null, false],
-    ["ann", "ann", false],
-    [null, null, false],
-    ["ann", null, true],
-    ["ann", "bob", true],
-    [null, "bob", true],
-    ["ann", undefined, true],
-  ] as const)("%s → %s clears: %s", (a, b, clears) => expect(viewerChanged(a, b)).toBe(clears));
+  it("matches numbers and their text, objects in any key order, and array subsets", async () => {
+    const keys = [ann.one(1), ann.tagged(["a", "b", "c"], { x: 1, y: 2 })];
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ n: "1" })))).toEqual([JSON.stringify(keys[0])]);
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ meta: { y: 2, x: 1 } })))).toEqual([JSON.stringify(keys[1])]);
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ tags: ["c", "a"] })))).toEqual([JSON.stringify(keys[1])]);
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ tags: ["a", "z"] })))).toEqual([]);
+  });
+
+  it("can match a field named kind", async () => {
+    const keys = [ann.tagged([], {}), ann.one(2)];
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ kind: "x" })))).toEqual([JSON.stringify(keys[0])]);
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ kind: "x" }, "one")))).toEqual([]);
+  });
+
+  it("never matches a substring", async () => {
+    const keys = [ann.tagged(["abc"], {})];
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ tags: "ab" })))).toEqual([]);
+  });
 });

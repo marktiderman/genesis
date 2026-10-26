@@ -47,7 +47,7 @@ export function useOne<T extends BaseRecord = BaseRecord>(
     live,
     isEnabled && id != null,
     id != null ? { id } : {},
-    [resource, "detail", id],
+    resourceKeys(resource).detailsOf(id),
     (event) => event.type === "changed" || !("id" in event) || event.id == null || String(event.id) === String(id),
   );
 
