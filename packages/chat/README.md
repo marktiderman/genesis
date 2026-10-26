@@ -7,11 +7,11 @@ replies, threads, reactions, read state, live updates and push.
 | Entry | What it is |
 |---|---|
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
-| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useSend`, `useMessageActions`. |
-| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice), media. |
+| `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
+| `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
 | `/native` | Coming in the next release: renderers on genesis-ui-native (`InboxPage` and `ThreadPage` wired to chat, voice notes with expo-audio). Empty in this version. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql` | The schema, copied into your app by `genesis add chat`, with its pgTAP test. |
+| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql` | The schema, copied into your app by `genesis add chat`, each with its pgTAP test. |
 
 ## On the web
 
@@ -73,7 +73,7 @@ reaches nothing. The pgTAP test beside the migration proves each rule.
 
 New and changed messages, reactions and memberships are broadcast as hints (ids only) to private
 Realtime topics, `genesis-chat:conv:<id>` and `genesis-chat:user:<id>`; clients fetch through row
-level security, and fetch what they missed after a reconnect. Typing and recording are broadcast
+level security, and fetch what they missed every time a channel joins (`onJoin`), the first time included. Typing and recording are broadcast
 by clients and never stored.
 
 ## The outbox
@@ -81,6 +81,140 @@ by clients and never stored.
 A message queues a `push` effect, a voice note or video a `transcribe` effect, a deleted file a
 `storage.remove` effect. `createChatRunner` (from `/server`) claims and settles them; nothing is sent
 from a trigger.
+
+## Topics, scheduled send, availability, broadcast, search, previews (migration 0002)
+
+Everything here is in the core and `/react`, so web and native share it; `/web` draws it.
+
+### Core client
+
+```ts
+// Topics: named sub-threads; messages join one through `topic`.
+chat.topics(conversationId): Promise<ChatTopic[]>
+chat.setTopic(conversationId, topic, { title?, position?, closed? }): Promise<void>   // owners and admins
+
+// Scheduled send: a minute to a year ahead, posted as you by the runner.
+chat.schedule({ conversationId, clientId, sendAt, body?, attachments?, replyToId?, topic?, mentions?, silent? }): Promise<string>
+chat.scheduled(conversationId?): Promise<ScheduledMessage[]>   // waiting or failed, soonest first
+chat.cancelScheduled(id): Promise<void>
+
+// Availability: away message, until when, hours per weekday, time zone.
+chat.availabilityFor(conversationId): Promise<ChatAvailability[]>
+chat.myAvailability(): Promise<ChatAvailability | null>
+chat.setAvailability({ awayMessage?, awayUntil?, timeZone?, hours? }): Promise<void>  // replaces all four
+
+// Broadcast: one text message into each conversation you may post in; replies come back privately.
+chat.broadcast(conversationIds, clientId, body, { silent? }): Promise<string[]>
+
+// Search: text and transcripts, newest first; snippets mark matches with « ».
+chat.search(query, conversationId?, { limit? }): Promise<ChatSearchHit[]>
+
+// Link previews the runner fetched (status ok only), by message id, through link_previews_for
+// (one call per message, six at a time): only for messages you can read. The table is closed.
+chat.linkPreviewsFor(messageIds): Promise<Record<string, ChatLinkPreview[]>>
+```
+
+`ChatMessage.moderation` is `"flagged" | "hidden" | null`: a hidden message reaches only its
+sender and the conversation's observers. Pure helpers: `isWithinWorkingHours(hours, timeZone,
+now)` (an end at or before the start runs past midnight), `isAway(a, now)`, `hoursSummary(hours)`
+("Mon–Fri, 9–5"), `awaySummary(people, { now })` (a group: "Sam, Lee and 2 others are away"),
+`awayLine(a, name, { now })` ("Mark replies Mon–Fri, 9–5 (Eastern)", "Away until
+Monday: Back Monday", or null when they're around), `extractLinks(body)` (the database's `message_links` rule, which skips credential-looking queries),
+`isHttpsUrl`, `snippetParts(snippet)`, `scheduleQuickPicks(now)`, `scheduleLabel`, `isSchedulable`,
+`topicKey(title)`.
+
+```ts
+const line = awayLine(await chat.availabilityFor(id).then((a) => a[0]), "Mark");
+```
+
+### React hooks
+
+```tsx
+const { topics, setTopic } = useTopics(conversationId);          // live: set_topic's hint refreshes it
+const thread = useConversation(conversationId, { topic: "week-1" }); // one topic; sends go into it
+const { items, schedule, cancel } = useScheduled(conversationId);   // schedule(input, files?) uploads byte files first
+const { mine, setMine, members, others, forUser } = useAvailability(conversationId);
+const { send, sending } = useBroadcast();                          // send(ids, body) -> message ids
+const { hits, isSearching, query } = useSearch(text, { conversationId, debounceMs: 250 });
+const previews = useLinkPreviews(messageIds);                      // Record<messageId, ChatLinkPreview[]>, in link order
+```
+
+`useConversation` also returns `signalRecordingVideo()` (throttled, like `signalRecording`), `loadUntil(seq)` (loads earlier pages until that message is here,
+for a search result), `accessError` and `refetchAccess` (the role check failed: offer a retry, not
+"can't post"). It catches up (messages after the newest one held) every time its live channel
+joins, the first time included, and keeps `hasEarlier` in the cached page.
+
+`useChat()` adds `retryAll()` (call it from AppState or NetInfo on native; the web provider retries
+on `online` and once after loading the saved outbox) and `clearOutbox()` (call it on sign-out).
+
+`ChatProvider` takes two more props:
+
+```tsx
+<ChatProvider
+  client={chat}
+  userId={user.id}
+  // Mux direct uploads: your server makes the upload; the composer PUTs the recording there and
+  // sends { kind: "video", provider: "mux", providerId, status: "pending" }. Without it, videos
+  // upload to storage as files.
+  // Pairs with createVideoUploadHandler from /server, which mints the upload and its passthrough;
+  // the client sends only the upload id (no attachment id).
+  videoUpload={{
+    create: (conversationId) =>
+      fetch("/api/chat-video-upload", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ conversationId }),
+      }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Couldn't start the upload")))),
+  }}
+  // Cards for your own attachment kinds (no forms dependency): a title, a subtitle, one action.
+  attachmentKinds={{
+    form: {
+      title: (a) => String(a.ref.title ?? "Form"),
+      subtitle: (a) => (a.ref.dueAt ? `Due ${a.ref.dueAt}` : null),
+      action: (a) => ({ label: "Fill in", href: `/forms/${a.ref.formId}` }),
+    },
+  }}
+>
+```
+
+A registered kind draws as `ChatAttachmentCard`; any other app kind goes to `ChatThread`'s
+`attachment` slot (a generic card by default). For anything richer than a card, render the kind
+yourself in that slot:
+
+```tsx
+<ChatThread slots={{ attachment: (props) =>
+  props.attachment.kind === "check-in"
+    ? <CheckInCard id={String(props.attachment.ref.checkInId)} mine={props.mine} />
+    : <GenericAttachment {...props} />
+}} />
+```
+
+### Web components
+
+- **Topics**: `ChatThread` shows `ChatTopicBar` (All plus each topic, a lock on closed ones) when
+  the conversation has topics (`showTopics` shows it before the first, for owners). Owners and
+  admins get "New topic" and close or reopen. In a closed topic members see "This topic is closed".
+- **Scheduled send**: the arrow beside Send offers tomorrow 9 AM, Monday 9 AM, or a date and time;
+  "N scheduled messages" above the box opens `ChatScheduledList` with Cancel (`scheduling={false}`
+  turns it off). `ChatScheduledList` also works on its own, for all conversations.
+- **Availability**: `ChatAwayBanner` above the messages when the other person is away or outside
+  their hours, or in a group everyone who is (two names, then "and N others"); `ChatAvailabilitySettings` for your own.
+- **Broadcast**: `<ChatBroadcast resolveUser={…} kind="direct" />` picks conversations from the inbox
+  and sends once, saying replies come back privately.
+- **Search**: `<ChatSearch resolveUser onOpen={(hit) => …} conversationId? />`; the thread header has
+  it for one conversation and jumps to the message (loading earlier pages); `ChatPanel` has it
+  across all (`search={false}` hides it) and opens the conversation at the message
+  (`ChatThread jumpTo={{ messageId, seq }}`).
+- **Link previews**: `ChatLinkPreview` under a message with a link: plain text only, the image only
+  from an https URL, no referrer.
+- **Moderation**: the sender sees "Hidden by moderation. Only you can see it."; observers see a
+  "Hidden by moderation" or "Flagged" badge.
+- **Emoji**: `ChatEmojiPicker` (frimousse) behind "+" in the reaction bar and the composer's smiley.
+  Its data comes from jsDelivr's emojibase-data; self-host it with `emojibaseUrl`.
+- **Video**: the composer's camera button opens `ChatVideoRecorder` (preview, a limit by role,
+  retake, send). `ChatVideoPlayer` streams Mux (`https://stream.mux.com/<playbackId>.m3u8`) with
+  native HLS where the browser has it and `hls.js` (an optional peer, imported only then)
+  elsewhere, with Mux's thumbnail as the poster and "Processing…" while pending.
 
 ## Server: the runner
 

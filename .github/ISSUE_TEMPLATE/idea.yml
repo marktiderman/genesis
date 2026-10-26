@@ -1,0 +1,24 @@
+name: Idea
+description: Suggest something Genesis should do. A 👍 on an idea is a vote.
+title: "[Idea] "
+labels: ["idea"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Who has it, and what do they do today instead.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+    validations:
+      required: true
+  - type: input
+    id: feature
+    attributes:
+      label: Feature
+      description: "The feature id from features.ts this is about, if you know it (`pnpm features find <term>`). Leave it empty and it will be triaged."
+      placeholder: feature-registry

@@ -13,6 +13,7 @@ import {
   Bookmark,
   Clock,
   Copy,
+  EyeOff,
   Flag,
   Lock,
   MessageSquare,
@@ -20,11 +21,14 @@ import {
   Pencil,
   Pin,
   PinOff,
+  Plus,
   Reply,
+  ShieldAlert,
   SmilePlus,
   Trash2,
 } from "lucide-react";
 import {
+  Badge,
   Button,
   ContextMenu,
   ContextMenuContent,
@@ -49,6 +53,8 @@ import type { QueuedMessage } from "../core/outbox";
 import { previewText, summarizeReactions, type ThreadItem } from "../core/thread";
 import type { ChatMessage, PendingMessage } from "../core/types";
 import { MessageAttachments, toAttachmentView, type AttachmentView } from "./attachments";
+import { ChatLinkPreview } from "./cards";
+import { ChatEmojiPicker } from "./emoji-picker";
 import { clockTime, messageLabel } from "./format";
 import { ChatMarkdown } from "./markdown";
 import { useThreadContext } from "./thread-context";
@@ -83,6 +89,7 @@ function pendingAsMessage(p: PendingMessage): ChatMessage {
     createdAt: p.createdAt,
     editedAt: null,
     deletedAt: null,
+    moderation: null,
     attachments: [],
     reactions: [],
   };
@@ -150,6 +157,11 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
   const reactions = pending ? [] : summarizeReactions(message, ctx.me);
   const highlighted = ctx.highlightedId === message.id;
   const actionable = !pending && !deleted;
+  const hidden = !deleted && message.moderation === "hidden";
+  const flagged = !deleted && message.moderation === "flagged";
+  const observer = ctx.role === "observer";
+  // One preview per message, iMessage-style: the first link the server has fetched.
+  const preview = !pending && !deleted && !hidden && message.body ? ctx.previews[message.id]?.[0] : undefined;
 
   const bubble = (
     <div
@@ -161,6 +173,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
         deleted && "border border-dashed bg-transparent text-muted-foreground shadow-none",
         highlighted && "ring-2 ring-ring ring-offset-2 ring-offset-background",
         pending?.status === "failed" && "opacity-80",
+        hidden && "opacity-70",
       )}
       data-testid={deleted ? "genesis-chat-deleted" : note ? "genesis-chat-note" : mine ? "genesis-chat-mine" : "genesis-chat-theirs"}
     >
@@ -180,10 +193,16 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
           {message.replyToId ? <ReplyQuote id={message.replyToId} tone={tone} /> : null}
           {views.length ? (
             <div className={cn(message.body ? "mb-1.5" : "")}>
-              <MessageAttachments views={views} message={pending ? undefined : message} mine={mine} tone={tone} slot={ctx.attachmentSlot} />
+              <MessageAttachments views={views} message={pending ? undefined : message} mine={mine} tone={tone} slot={ctx.attachmentSlot} kinds={ctx.attachmentKinds} />
             </div>
           ) : null}
           {message.body ? <ChatMarkdown text={message.body} me={ctx.me} tone={tone} /> : null}
+          {preview ? <ChatLinkPreview preview={preview} tone={tone} /> : null}
+          {hidden && mine && !observer ? (
+            <span className="mt-1 flex items-center gap-1 text-xs font-medium" data-testid="genesis-chat-hidden-notice">
+              <EyeOff className="size-3" aria-hidden /> Hidden by moderation. Only you can see it.
+            </span>
+          ) : null}
           <Meta message={message} pending={pending} tone={tone} />
         </>
       )}
@@ -194,7 +213,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
     <article
       id={`genesis-chat-msg-${message.id}`}
       data-message-id={pending ? undefined : message.id}
-      aria-label={messageLabel(message, mine ? "You" : sender.name)}
+      aria-label={`${messageLabel(message, mine ? "You" : sender.name)}${hidden ? " (hidden by moderation)" : flagged && observer ? " (flagged)" : ""}`}
       className={cn("group/msg flex gap-2 px-3", mine ? "flex-row-reverse" : "flex-row", startsGroup ? "mt-2" : "mt-0.5", className)}
       data-testid={pending ? `genesis-chat-pending-${pending.status}` : "genesis-chat-message"}
     >
@@ -207,6 +226,16 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
       ) : null}
       <div className={cn("flex min-w-0 max-w-[min(78%,36rem)] flex-col", mine ? "items-end" : "items-start")}>
         {showHeader ? <span className="mb-0.5 px-3 text-xs font-medium text-muted-foreground">{sender.name}</span> : null}
+        {observer && (hidden || flagged) ? (
+          <Badge
+            variant={hidden ? "destructive" : "outline"}
+            className="mb-0.5 gap-1 px-1.5 py-0 text-[10px]"
+            data-testid={hidden ? "genesis-chat-moderation-hidden" : "genesis-chat-moderation-flagged"}
+          >
+            {hidden ? <EyeOff className="size-3" aria-hidden /> : <ShieldAlert className="size-3" aria-hidden />}
+            {hidden ? "Hidden by moderation" : "Flagged"}
+          </Badge>
+        ) : null}
         <div className={cn("flex max-w-full items-center gap-1", mine ? "flex-row-reverse" : "flex-row")}>
           {actionable ? (
             <ContextMenu>
@@ -444,6 +473,7 @@ function HoverBar({ message, mine }: { message: ChatMessage; mine: boolean }) {
   const ctx = useThreadContext();
   const keepFocus = useRef<(() => void) | null>(null);
   const [open, setOpen] = useState<"react" | "more" | null>(null);
+  const [full, setFull] = useState(false);
   return (
     <div
       className={cn(
@@ -453,12 +483,31 @@ function HoverBar({ message, mine }: { message: ChatMessage; mine: boolean }) {
       )}
     >
       {ctx.canPost ? (
-        <Popover open={open === "react"} onOpenChange={(o) => setOpen(o ? "react" : null)}>
+        <Popover
+          open={open === "react"}
+          onOpenChange={(o) => {
+            setOpen(o ? "react" : null);
+            if (!o) setFull(false);
+          }}
+        >
           <PopoverTrigger asChild>
             <Button type="button" variant="ghost" size="icon" className="size-7 rounded-full text-muted-foreground" aria-label="React">
               <SmilePlus />
             </Button>
           </PopoverTrigger>
+          {full ? (
+            <PopoverContent side="top" align={mine ? "end" : "start"} className="w-auto overflow-hidden p-0">
+              <ChatEmojiPicker
+                emojibaseUrl={ctx.emojibaseUrl}
+                onSelect={(emoji) => {
+                  const on = message.reactions.some((r) => r.emoji === emoji && r.userId === ctx.me);
+                  ctx.react(message, emoji, !on);
+                  setOpen(null);
+                  setFull(false);
+                }}
+              />
+            </PopoverContent>
+          ) : (
           <PopoverContent side="top" align={mine ? "end" : "start"} className="flex w-auto gap-0.5 rounded-full p-1">
             {ctx.quickReactions.map((emoji) => {
               const on = message.reactions.some((r) => r.emoji === emoji && r.userId === ctx.me);
@@ -478,7 +527,17 @@ function HoverBar({ message, mine }: { message: ChatMessage; mine: boolean }) {
                 </button>
               );
             })}
+            <button
+              type="button"
+              className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="More reactions"
+              onClick={() => setFull(true)}
+              data-testid="genesis-chat-more-reactions"
+            >
+              <Plus className="size-4" />
+            </button>
           </PopoverContent>
+          )}
         </Popover>
       ) : null}
       {ctx.canPost ? (

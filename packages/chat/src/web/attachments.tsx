@@ -18,8 +18,11 @@ import {
   cn,
 } from "@marktiderman/genesis-ui";
 import type { ChatAttachment, ChatMessage } from "../core/types";
+import type { ChatAttachmentKind } from "../react/index";
+import { ChatAttachmentCard } from "./cards";
 import { formatBytes } from "./format";
 import { isSafeHref } from "./markdown";
+import { ChatVideoPlayer } from "./video";
 import { VoiceNote } from "./voice-note";
 
 /** One attachment as the renderers draw it, sent or still uploading. */
@@ -211,17 +214,20 @@ export function Lightbox({ images, index, onIndexChange }: LightboxProps) {
   );
 }
 
+/** A video: a hosted one (Mux) streams once ready and says "Processing…" until then; a file plays from storage. */
 export function VideoAttachment({ view }: { view: AttachmentView }) {
+  const a = view.attachment;
+  const hosted = a != null && a.provider !== "storage" && a.provider !== "external" && a.provider !== "none";
   return (
-    <div className="relative w-[min(20rem,100%)] overflow-hidden rounded-xl bg-muted" data-testid="genesis-chat-video">
-      {view.url ? (
-        // eslint-disable-next-line jsx-a11y/media-has-caption -- transcripts are offered beside voice; video captions are the provider's
-        <video controls playsInline preload="metadata" poster={view.posterUrl ?? undefined} src={view.url} className="block max-h-80 w-full" aria-label={view.name ?? "Video"} />
-      ) : (
-        <span className="block aspect-video w-full animate-pulse bg-muted" />
-      )}
-      {view.pending ? <Uploading /> : null}
-    </div>
+    <ChatVideoPlayer
+      src={hosted ? null : view.url}
+      playbackId={hosted ? a.playbackId : null}
+      poster={view.posterUrl}
+      processing={hosted && a.status === "pending"}
+      failed={a?.status === "failed"}
+      uploading={!a && view.pending}
+      label={view.name ?? "Video"}
+    />
   );
 }
 
@@ -290,10 +296,12 @@ export interface MessageAttachmentsProps {
   tone: "default" | "primary";
   /** For kinds the package doesn't draw; a generic card by default. */
   slot?: ComponentType<ChatAttachmentSlotProps> | null;
+  /** Cards for registered app kinds (ChatProvider `attachmentKinds`), drawn before the slot. */
+  kinds?: Record<string, ChatAttachmentKind>;
 }
 
 /** Every attachment of one message, photos grouped into one grid. */
-export function MessageAttachments({ views, message, mine, tone, slot }: MessageAttachmentsProps) {
+export function MessageAttachments({ views, message, mine, tone, slot, kinds }: MessageAttachmentsProps) {
   if (views.length === 0) return null;
   const images = views.filter((v) => v.kind === "image");
   const others = views.filter((v) => v.kind !== "image");
@@ -323,6 +331,10 @@ export function MessageAttachments({ views, message, mine, tone, slot }: Message
             return <LinkAttachment key={v.key} view={v} tone={tone} />;
           default:
             if (!v.attachment || !message) return <FileChip key={v.key} view={v} tone={tone} />;
+            if (kinds?.[v.kind]) {
+              const k = kinds[v.kind]!;
+              return <ChatAttachmentCard key={v.key} title={k.title(v.attachment)} subtitle={k.subtitle?.(v.attachment)} action={k.action?.(v.attachment)} tone={tone} />;
+            }
             return Custom ? <Custom key={v.key} attachment={v.attachment} message={message} url={v.url} mine={mine} /> : null;
         }
       })}

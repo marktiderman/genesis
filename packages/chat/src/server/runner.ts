@@ -84,6 +84,8 @@ export interface ChatRunnerOptions {
    * notification's identifier, and replies from one conversation's notifications collide.
    */
   collapse?: boolean | undefined;
+  /** Kinds left out of the push badge, matching the app's own badge (`useUnreadTotal({ excludeKinds })`). */
+  badgeExcludeKinds?: readonly string[] | undefined;
   /** Where a tapped notification opens (default `/messages/<conversationId>`). */
   linkFor?: ((conversationId: string, messageId: string) => string) | undefined;
   /** Safe log lines (effect ids, kinds, short errors). Default: nothing is logged. */
@@ -176,7 +178,11 @@ export function createChatRunner(options: ChatRunnerOptions): ChatRunner {
   async function push(effect: ChatEffect): Promise<void> {
     const messageId = str(effect.payload.message_id);
     if (!messageId) return;
-    const targets = (await rpc<PushTarget[] | null>("push_targets", { p_message_id: messageId })) ?? [];
+    const targets =
+      (await rpc<PushTarget[] | null>("push_targets", {
+        p_message_id: messageId,
+        ...(options.badgeExcludeKinds?.length ? { p_badge_exclude_kinds: options.badgeExcludeKinds } : {}),
+      })) ?? [];
     // Deleted, silent, or nobody to tell: done.
     if (targets.length === 0) return;
     const first = targets[0]!;
