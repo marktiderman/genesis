@@ -443,6 +443,8 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
-With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
-viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
-sign-out actions, before the session changes.
+With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
+`persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
+writes while the session is still theirs. `ViewerScope` drops those unsent writes instead (by then the
+session is the new viewer's), so prefer `clearViewerCache` in a sign-out action when undo is on.
