@@ -29,6 +29,11 @@ jobs:
     # ci.yml's BILLING CONTRACT rule 3 — the July 2026 runaways (118 and
     # 304-minute runs) had no timeout and ran to GitHub's 6-hour cap.
     timeout-minutes: 20
+    # For the release-notes job below.
+    outputs:
+      published: ${{ steps.changesets.outputs.published }}
+      hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
+      pullRequestNumber: ${{ steps.changesets.outputs.pullRequestNumber }}
     permissions:
       contents: write
       pull-requests: write
@@ -304,3 +309,144 @@ jobs:
           # id-token: write above is for the OIDC publish token. npm still adds
           # an SLSA provenance attestation to trusted publishes, despite
           # publishConfig.provenance: false (see docs/RELEASING.md).
+
+
+  # Release notes (genesis-product; docs/RELEASING.md, "Release notes"): what reached beta or live
+  # in features.ts, for people. A job of its own, so it can never fail or slow the publish (the
+  # release job is done and green before it starts), it holds no npm environment and no OIDC
+  # token, and "Re-run failed jobs" redoes it with the release job's outputs. A re-run of
+  # Release itself can't: with nothing left to publish, changesets reports published=false.
+  release-notes:
+    name: Release notes
+    needs: release
+    # Forks never tag or comment. !cancelled(): a publish that failed part-way still tags what shipped.
+    if: >-
+      !cancelled() && github.repository == 'marktiderman/genesis' &&
+      (needs.release.outputs.published == 'true' ||
+       (needs.release.outputs.hasChangesets == 'true' && needs.release.outputs.pullRequestNumber != ''))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      # The release/* tag and its GitHub release.
+      contents: write
+      # The draft notes comment on the version PR.
+      pull-requests: write
+      # Closing, and commenting on, the idea issues a release answers.
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Every tag and commit: the notes diff from the previous release/* tag. Blob contents
+          # stay lazy (catalogAt throws if one can't be fetched, never reads it as empty).
+          fetch-depth: 0
+          filter: blob:none
+
+      # The pnpm version comes from package.json's packageManager field.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the product package
+        run: pnpm --filter "@marktiderman/genesis-product..." build
+
+      # While the version PR is open: the draft notes since the last release, as one comment on
+      # that PR (found by its marker, edited in place). changesets rewrites the PR's body on every
+      # push, so the notes can't live there.
+      - name: Draft the release notes on the version PR
+        if: needs.release.outputs.published != 'true'
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ needs.release.outputs.pullRequestNumber }}
+        run: |
+          set -euo pipefail
+          trap 'echo "::error::Could not post the draft release notes on #$PR. The packages are untouched; re-run this job."' ERR
+          prev=$(git describe --tags --match 'release/*' --abbrev=0 HEAD 2>/dev/null || git log --merges --grep 'chore: version packages' -n1 --format=%H HEAD)
+          if [ -z "$prev" ]; then echo "::warning::No release/* tag and no version packages merge to diff from; no draft notes."; exit 0; fi
+          # The H1 repeats what the comment says; the notes start at their sections.
+          notes=$(pnpm exec genesis-product release --from "$prev" --name draft --repo "$GITHUB_REPOSITORY" | sed '1{/^# /d;}')
+          marker='<!-- genesis-product:release-notes -->'
+          body="$marker
+          **Draft release notes**: the features that reached beta or live since \`$prev\`, from \`features.json\`. After the publish they become the GitHub release of this release's \`release/*\` tag, and the idea issues they answer are closed. Updated on every push to main.
+          $notes"
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id" | sed -n 1p)
+          if [ -z "$id" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" --jq .html_url
+          elif [ "$(gh api "repos/$GITHUB_REPOSITORY/issues/comments/$id" --jq .body)" = "$body" ]; then
+            echo "Draft notes on #$PR unchanged."
+          else
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" --jq .html_url
+          fi
+
+      # After a publish: tag this commit release/<YYYY-MM-DD> in UTC (-2, -3 for a second release
+      # that day), draft the notes since the previous release/* tag (the first time, since the last
+      # version packages merge) and make them that tag's GitHub release. The tag is pushed even
+      # when no feature changed, so the next release diffs from here; the GitHub release is made
+      # only when there is something to say, and never marked latest over the package releases.
+      # A re-run on a commit that already has its tag reuses it.
+      - name: Tag the release and publish its notes
+        id: product_release
+        if: needs.release.outputs.published == 'true'
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          trap 'echo "::error::The packages are published, but the release tag or notes failed. Re-run this job, or follow docs/RELEASING.md (Release notes) by hand."' ERR
+          prev=$(git describe --tags --match 'release/*' --abbrev=0 HEAD^ 2>/dev/null || true)
+          if [ -z "$prev" ]; then
+            prev=$(git log --merges --grep 'chore: version packages' -n1 --format=%H HEAD^)
+            echo "No earlier release/* tag: the notes start from the last version packages merge, $prev."
+          fi
+          if [ -z "$prev" ]; then echo "::error::Nothing to diff from: no release/* tag and no version packages merge."; exit 1; fi
+          tag=$(git tag --points-at HEAD -l 'release/*' | sed -n 1p)
+          if [ -z "$tag" ]; then
+            base="release/$(date -u +%F)"; tag=$base; n=1
+            while git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; do
+              n=$((n + 1)); tag="$base-$n"
+            done
+            git tag "$tag" HEAD
+            git push origin "refs/tags/$tag"
+          fi
+          name=${tag#release/}
+          pnpm exec genesis-product release --from "$prev" --name "$name" --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/notes.md" 2> "$RUNNER_TEMP/notes.err"
+          cat "$RUNNER_TEMP/notes.err" >&2
+          # Without the issues the notes would publish without crediting who asked: stop, and re-run.
+          if grep -q "Couldn't read the issues" "$RUNNER_TEMP/notes.err"; then
+            echo "::error::Couldn't read the issues, so the notes for $tag aren't published yet. Re-run this job."; exit 1
+          fi
+          { echo "from=$prev"; echo "name=$name"; } >> "$GITHUB_OUTPUT"
+          if ! grep -q '^## ' "$RUNNER_TEMP/notes.md"; then
+            echo "No feature reached beta or live since $prev: $tag is tagged, with no GitHub release."; exit 0
+          fi
+          sed -i '1{/^# /d;}' "$RUNNER_TEMP/notes.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$tag" --verify-tag --latest=false --title "Release $name" --notes-file "$RUNNER_TEMP/notes.md"
+          fi
+          echo "Release notes for $tag (since $prev):"; cat "$RUNNER_TEMP/notes.md"
+
+      # Close the loop only now that it shipped: close each open idea issue the release answers
+      # and comment on it. Refuses more than 10 changed features (a wrong --from); then run it by
+      # hand with --force (docs/RELEASING.md).
+      - name: Close the ideas the release answers
+        if: steps.product_release.outcome == 'success'
+        timeout-minutes: 3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FROM: ${{ steps.product_release.outputs.from }}
+          NAME: ${{ steps.product_release.outputs.name }}
+        run: |
+          set -euo pipefail
+          trap 'echo "::error::The release is published, but closing its idea issues failed. See the log above, then re-run this job or run genesis-product release --notify --yes by hand."' ERR
+          pnpm exec genesis-product release --from "$FROM" --name "$NAME" --repo "$GITHUB_REPOSITORY" --notify --yes > /dev/null
