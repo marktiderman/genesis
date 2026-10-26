@@ -1,0 +1,619 @@
+.changeset/product-native-screens.md
+  s_1f35d570c63beb::t_2522d65fa2220b 2,5-7
+.changeset/ui-native-button-a11y.md
+  s_1f35d570c63beb::t_7e6b2fc392c1be 5
+.github/ci-fixture/supabase/tests/database/000_genesis_testing.test.sql
+  s_1f35d570c63beb::t_9596a0ffe73ac2 1-526
+.github/ci-fixture/supabase/tests/database/genesis_testing_selftest.test.sql
+  s_1f35d570c63beb::t_de1b6047f59db6 1-181
+.github/workflows/ci-templates-self-test.yml
+  s_1f35d570c63beb::t_bce54d2244ce78 18
+.github/workflows/release.yml
+  s_1f35d570c63beb::t_5de44ae5f52964 213-216,220,239,269-292
+AGENTS.md
+  s_1f35d570c63beb::t_6d36e4e36a8d9d 16
+README.md
+  s_1f35d570c63beb::t_da20e85dd948ee 59
+apps/genesis-rn-starter/README.md
+  s_1f35d570c63beb::t_1bccfb2b81a6ec 62,82
+apps/genesis-rn-starter/__tests__/components/product-demo.test.tsx
+  s_1f35d570c63beb::t_59c95ac1cb85b0 1-32
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_1f35d570c63beb::t_a652e8c2feab07 1,434-456
+apps/genesis-rn-starter/metro.config.js
+  s_1f35d570c63beb::t_327074326e7f66 16
+apps/genesis-rn-starter/package.json
+  s_1f35d570c63beb::t_565a53c62afe95 30
+apps/genesis-rn-starter/src/app/(app)/settings/index.tsx
+  s_1f35d570c63beb::t_47f92b6fbeffd9 31-39
+apps/genesis-rn-starter/src/app/(app)/settings/product.tsx
+  s_1f35d570c63beb::t_6e7a83d9ec96d7 1-44
+apps/genesis-rn-starter/src/copy.ts
+  s_1f35d570c63beb::t_9eb368d6867e9b 111-128
+apps/genesis-rn-starter/src/lib/define-starter.ts
+  s_1f35d570c63beb::t_14486535b32dc8 104-110
+apps/genesis-rn-starter/src/lib/notifications.ts
+  s_1f35d570c63beb::t_e82643a31b6079 11,19
+apps/genesis-rn-starter/src/lib/product-demo.ts
+  s_1f35d570c63beb::t_77db9d09f626ed 1-26
+apps/genesis-rn-starter/src/lib/push.ts
+  s_1f35d570c63beb::t_97e2cb85fd0bd3 48-49
+apps/genesis-rn-starter/starter.config.ts
+  s_1f35d570c63beb::t_16300b61363a99 37-38
+apps/sample/app/data/primitives.json
+  s_1f35d570c63beb::t_8cfba5719e3ba3 10,18,2891-2964,4352,4435-4448,6708-6795,6979-7131,7196,7199-7299,9284-9329,9738,9745,9752,9766,10251,10778,11018-11034,12190-12256,12373-12411,12654,12936,12940-12943,12946-13121,13740-13827,13898-13943,14571-14686,15266-15388,15391,15395,15398,15401-15425,15430-15432,15437,15444-15445,15448,15451-15452,15455,15458-15459,15461-15462,15912-15978,16374-16497,17168-17189,17339-17391,18768-18774,19397-19403
+apps/sample/stories/AppShell.stories.tsx
+  s_1f35d570c63beb::t_c81eb05d6c924e 281-291
+apps/sample/stories/AuthPage.stories.tsx
+  s_1f35d570c63beb::t_3712a40bbcb595 1-123
+apps/sample/stories/BuilderLayout.stories.tsx
+  s_1f35d570c63beb::t_52f76a69796046 1-153
+apps/sample/stories/PublicPage.stories.tsx
+  s_1f35d570c63beb::t_da76bd3d7df8b3 1-108
+apps/sample/stories/ResourceWorkspace.stories.tsx
+  s_1f35d570c63beb::t_5d27adb628ca67 1-158
+apps/sample/stories/__fixtures__/public-brands.ts
+  s_1f35d570c63beb::t_a75decc8e8d9ac 1-35
+apps/sample/stories/__fixtures__/viewports.ts
+  s_1f35d570c63beb::t_fe16b0857d4f26 1-5
+docs/adr/0001-one-feature-gate.md
+  s_1f35d570c63beb::t_0d8982c16878d3 1-100
+docs/component-reference.md
+  s_1f35d570c63beb::t_4209f971a3af61 7,26,32,34,41-42,47,52,54,57-60,63,66,71-73,78,86-87,90,100-101,110-115,131-132,143,156,158,174,185-186,274,282,302,321,378,408,447-449,460,518,522-524,529-532,544-545,563,586,590,592,597,601,603,605,610-614,616-618,627,765,809,818,866,884,919,957,1306,1326-1327,1334-1336,1343,1347-1348,1356,1388-1395,1397
+features.json
+  s_1f35d570c63beb::t_50905565367e5d 96,106-112,137-175,592-641,1777-1779,2027-2198,3933-4055,4129-4130,4138-4142
+features.ts
+  s_1f35d570c63beb::t_1c88b6c094703f 57,62,72-86,263-283,782,894-965,1711-1765,1798-1799,1801-1802
+packages/chat/CHANGELOG.md
+  s_1f35d570c63beb::t_6bb659fcc3d37e 3-62
+packages/chat/README.md
+  s_1f35d570c63beb::t_a64de79f853389 12,14,41-152,353-354,454,515-516
+packages/chat/package.json
+  s_1f35d570c63beb::t_8280f976849f82 3
+packages/chat/src/native/__tests__/attachment-slot.test.tsx
+  s_1f35d570c63beb::t_799370b66df4ee 1-353
+packages/chat/src/native/__tests__/organise-screens.test.tsx
+  s_1f35d570c63beb::t_30a3bf06ec7bff 278-289
+packages/chat/src/native/__tests__/push-ids.test.ts
+  s_1f35d570c63beb::t_2399cf7e2e06ce 1-18
+packages/chat/src/native/__tests__/push.test.ts
+  s_1f35d570c63beb::t_31d939282f6813 34,82,87-92,96,98
+packages/chat/src/native/attachment-cards.tsx
+  s_1f35d570c63beb::t_be5b586d4fb788 11-18,20,30,37-51,54,94-215,219-220,223-226,230,247,249,271-277,282-293,297-369
+packages/chat/src/native/copy.ts
+  s_1f35d570c63beb::t_9e8180445ccd23 107-115,251-256
+packages/chat/src/native/index.ts
+  s_1f35d570c63beb::t_2c63e467c8cca4 19-20,30,37,76-99
+packages/chat/src/native/media.tsx
+  s_1f35d570c63beb::t_bbd3f826f86058 6-7,9,38-40,58-59,159-162,198-274
+packages/chat/src/native/message-bubble.tsx
+  s_1f35d570c63beb::t_091a3c26bf9dda 11-14,16,20,23,67-74,108,110-111,113-125,141-147,199-215,270-271,277-282,325,332-345
+packages/chat/src/native/push.ts
+  s_1f35d570c63beb::t_a9bc2b2023e171 32-35,218
+packages/chat/src/native/search-screen.tsx
+  s_1f35d570c63beb::t_c11324da3d36f2 91-118,121-146,148-165,167-171
+packages/chat/src/native/thread-screen.tsx
+  s_1f35d570c63beb::t_f5321b28a69219 30,34,83-90,100-104,159-160,260,262,373,413-414,419
+packages/chat/src/react/error-boundary.tsx
+  s_1f35d570c63beb::t_c23d4cfe9a619a 1-46
+packages/chat/src/react/index.tsx
+  s_1f35d570c63beb::t_c7b9909c3d5bd4 133-138
+packages/chat/src/web/cards.tsx
+  s_1f35d570c63beb::t_aa43ffbef97950 99,129
+packages/chat/src/web/error-boundary.tsx
+  s_1f35d570c63beb::t_13adbc8a57d160 3,5
+packages/core/CHANGELOG.md
+  s_1f35d570c63beb::t_efad50c31ebe15 3-36
+packages/core/README.md
+  s_1f35d570c63beb::t_ac7fc20f2cba25 109-141,153,391-593
+packages/core/package.json
+  s_1f35d570c63beb::t_3838576726cd07 3,53-60,83,85-88
+packages/core/src/__tests__/dates.test.ts
+  s_1f35d570c63beb::t_8f3e277214d2cb 1-121
+packages/core/src/__tests__/query-keys.test.ts
+  s_1f35d570c63beb::t_332693db2fa55d 1-105
+packages/core/src/dates.ts
+  s_1f35d570c63beb::t_57b564afd31ce8 1-204
+packages/core/src/hooks/__tests__/draft-controller.test.ts
+  s_1f35d570c63beb::t_10d2a9966a4d6b 1-379
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_1f35d570c63beb::t_48a5780d0c9902 1-127
+packages/core/src/hooks/__tests__/use-draft.test.tsx
+  s_1f35d570c63beb::t_48008484ec4fce 1-138
+packages/core/src/hooks/__tests__/use-write.test.tsx
+  s_1f35d570c63beb::t_046052417c9ff5 1-74
+packages/core/src/hooks/__tests__/viewer-switch-writes.test.ts
+  s_1f35d570c63beb::t_b0daf98f5cc0fc 1-76
+packages/core/src/hooks/draft-controller.ts
+  s_1f35d570c63beb::t_9824489142eee2 1-403
+packages/core/src/hooks/index.ts
+  s_1f35d570c63beb::t_0be12b3b42cf8d 33-48,55-56
+packages/core/src/hooks/mutation-mode.ts
+  s_1f35d570c63beb::t_75f0771c37626a 24,179,241-244,278-302,323,785-786,870-878
+packages/core/src/hooks/use-draft.ts
+  s_1f35d570c63beb::t_ee960b042350b0 1-76
+packages/core/src/hooks/use-infinite-resource.ts
+  s_1f35d570c63beb::t_275c2d6adda421 16,129
+packages/core/src/hooks/use-one.ts
+  s_1f35d570c63beb::t_892787868dff15 5,50,63
+packages/core/src/hooks/use-resource.ts
+  s_1f35d570c63beb::t_e0688e878b0ad2 29,262
+packages/core/src/hooks/use-write.ts
+  s_1f35d570c63beb::t_f275fdb57781c3 1-99
+packages/core/src/hooks/viewer-scope.tsx
+  s_1f35d570c63beb::t_19ffd34b6569e4 1-65
+packages/core/src/index.ts
+  s_1f35d570c63beb::t_2bdfc446361301 36-45
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_1f35d570c63beb::t_d6b4be16bde28e 62,98,166,361
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_1f35d570c63beb::t_ffdf3655e03c73 1-122
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_1f35d570c63beb::t_1c213e89e5a301 1-215
+packages/core/src/provider/index.ts
+  s_1f35d570c63beb::t_ca83701f5df1bf 71-81
+packages/core/src/provider/postgrest-errors.ts
+  s_1f35d570c63beb::t_85ef678f59f29f 36-39,50
+packages/core/src/provider/supabase-provider.ts
+  s_1f35d570c63beb::t_9b083072ef91d3 108-109,199-227,498-540,708,777,819,834,843,947,949-950,982,984,986
+packages/core/src/provider/write-helpers.ts
+  s_1f35d570c63beb::t_ffa81d0b942e1b 1-118
+packages/core/src/query-keys.ts
+  s_1f35d570c63beb::t_9846bc6cc5082d 1-152
+packages/core/src/schema/write-outcome.ts
+  s_1f35d570c63beb::t_7a7a0109e66f7c 19-21,32
+packages/core/src/testing/__tests__/testing-kit.test.ts
+  s_1f35d570c63beb::t_50cd4279a4baa6 1-311
+packages/core/src/testing/index.ts
+  s_1f35d570c63beb::t_264158cc4cfd82 1-345
+packages/core/tsup.config.ts
+  s_1f35d570c63beb::t_6dd884f35c3109 18-19
+packages/extension/CHANGELOG.md
+  s_1f35d570c63beb::t_25b2ababea4835 3-10
+packages/extension/README.md
+  s_1f35d570c63beb::t_87b63203a95b86 19
+packages/extension/package.json
+  s_1f35d570c63beb::t_abc53d96dd68cf 3
+packages/extension/src/__tests__/core.test.ts
+  s_1f35d570c63beb::t_23cd2791beb1c0 74-78,89-97,298-300,392-395,399-401,492-553
+packages/extension/src/index.ts
+  s_1f35d570c63beb::t_32c90bdbf83e8f 33-38
+packages/extension/src/messaging.ts
+  s_1f35d570c63beb::t_651fc5cacfa464 38-42,44-50
+packages/extension/src/page-bar.ts
+  s_1f35d570c63beb::t_9e427632b2c078 16-25,28-33,44-47,55-56,58-59,64-65,67-70,108-109,124,126-140,155-196,209-213,225,228-229,231-239,241-251,253,256-257,259-264,269-271
+packages/features/CHANGELOG.md
+  s_1f35d570c63beb::t_d80ac20c068da2 3-14
+packages/features/README.md
+  s_1f35d570c63beb::t_7c2c774efd1275 123-162
+packages/features/package.json
+  s_1f35d570c63beb::t_011e2a10f07305 3,7,31-38
+packages/features/src/__tests__/gate.test.tsx
+  s_1f35d570c63beb::t_c8fd67529609ed 1-369
+packages/features/src/gate-entry.ts
+  s_1f35d570c63beb::t_59824c3782615e 1-10
+packages/features/src/gate-react.tsx
+  s_1f35d570c63beb::t_ddced596a5079d 1-78
+packages/features/src/gate.ts
+  s_1f35d570c63beb::t_9ba3b494d48cb9 1-334
+packages/features/src/index.ts
+  s_1f35d570c63beb::t_b49db51626cfdf 70-87
+packages/features/src/model.ts
+  s_1f35d570c63beb::t_6f1e3e2c69c315 4-8,455-456
+packages/features/src/status.ts
+  s_1f35d570c63beb::t_2ceca0df73b86a 1-22
+packages/features/src/types.ts
+  s_1f35d570c63beb::t_d037222e1ff633 1-40
+packages/features/tsup.config.ts
+  s_1f35d570c63beb::t_ac7d07854343f7 27,35-38
+packages/forms-builder/CHANGELOG.md
+  s_1f35d570c63beb::t_ccb4f946426792 3-15
+packages/forms-builder/README.md
+  s_1f35d570c63beb::t_cb31717e6fcc84 61-62
+packages/forms-builder/package.json
+  s_1f35d570c63beb::t_5ea9fe5ba5afba 3,52
+packages/forms-builder/src/FormBuilder.tsx
+  s_1f35d570c63beb::t_0dd84334808e4e 20,127-128,496-509,551-552
+packages/forms-builder/src/OptionListEditor.tsx
+  s_1f35d570c63beb::t_9f5424b993fdd7 77,95-96,133-135
+packages/forms-builder/src/host-options.ts
+  s_1f35d570c63beb::t_1d29e4dbf28880 15,21
+packages/forms-builder/src/option-lists.ts
+  s_1f35d570c63beb::t_b9b7b8776d579b 2
+packages/forms-builder/src/questions.tsx
+  s_1f35d570c63beb::t_9e0df632e9efe5 20,343-350,354-357,361-362,368-373,441-444,457-459
+packages/forms-studio/CHANGELOG.md
+  s_1f35d570c63beb::t_869481447e294c 3-21
+packages/forms-studio/README.md
+  s_1f35d570c63beb::t_edac2ca3d95bac 17-18,20,39-44,51-53,100-103,110-111,117-132
+packages/forms-studio/package.json
+  s_1f35d570c63beb::t_5242261cb25856 3,50
+packages/forms-studio/src/DropOffByQuestion.tsx
+  s_1f35d570c63beb::t_ef71587ddd1871 3
+packages/forms-studio/src/QuestionSummaryCards.tsx
+  s_1f35d570c63beb::t_d3388ec7637a66 14
+packages/forms-studio/src/ResponsesFilters.tsx
+  s_1f35d570c63beb::t_a1e97934054fd9 14,22
+packages/forms-studio/src/__tests__/answers.test.ts
+  s_1f35d570c63beb::t_946c5d5cbac810 107-129
+packages/forms-studio/src/__tests__/components.test.tsx
+  s_1f35d570c63beb::t_376b7e93228d5c 6,13-15,19-21,24-28,31-33,37
+packages/forms-studio/src/__tests__/rules.test.ts
+  s_1f35d570c63beb::t_4e5f9492cfd7cd 7,126
+packages/forms-studio/src/__tests__/summary.test.ts
+  s_1f35d570c63beb::t_8e316dbeba2219 304-334
+packages/forms-studio/src/answers.ts
+  s_1f35d570c63beb::t_824110218fb3be 17-31,42-43
+packages/forms-studio/src/headline.ts
+  s_1f35d570c63beb::t_ba62ae0e3388d3 5
+packages/forms-studio/src/index.ts
+  s_1f35d570c63beb::t_7247dc8f68e880 5-8,11-29
+packages/forms-studio/src/moved-rules.ts
+  s_1f35d570c63beb::t_2dfdc2c6cfbb30 1-65
+packages/forms-studio/src/moved.tsx
+  s_1f35d570c63beb::t_33d0baed6a51ae 1-77
+packages/forms-studio/src/rules.ts
+  s_1f35d570c63beb::t_b65a6f189f43c2 55,57-59,63-65,69
+packages/forms-studio/src/status.ts
+  s_1f35d570c63beb::t_a97728295a7ec8 5
+packages/forms-studio/src/summary.ts
+  s_1f35d570c63beb::t_1a2119d5275cda 30,264-278,280-291,293-294
+packages/forms-web/CHANGELOG.md
+  s_1f35d570c63beb::t_0f0422bf5d77e2 3-8
+packages/forms-web/package.json
+  s_1f35d570c63beb::t_8921e1e4ae9bdd 3
+packages/forms-web/src/Form.tsx
+  s_1f35d570c63beb::t_d6d75f53aea6ec 471
+packages/forms-web/src/clean-url.ts
+  s_1f35d570c63beb::t_aa53af4f10e7f3 1
+packages/forms/CHANGELOG.md
+  s_1f35d570c63beb::t_1dd8c0a9115c7d 3-8
+packages/forms/package.json
+  s_1f35d570c63beb::t_12768b34f84e51 3
+packages/forms/src/__tests__/hardening.test.ts
+  s_1f35d570c63beb::t_59205396c13c75 89-91,115-131,545-546
+packages/forms/src/define.ts
+  s_1f35d570c63beb::t_9264a67fde0c1d 55
+packages/forms/src/fields.ts
+  s_1f35d570c63beb::t_83aad929d7b252 311,441
+packages/forms/src/options.ts
+  s_1f35d570c63beb::t_0a5bbf03c91329 251
+packages/forms/src/rate-limit.ts
+  s_1f35d570c63beb::t_4fe2842cc5efa7 37,105
+packages/forms/src/types.ts
+  s_1f35d570c63beb::t_35feb8288aad59 41
+packages/forms/src/upload-handler.ts
+  s_1f35d570c63beb::t_7577aa6161680b 27
+packages/genesis-cli/CHANGELOG.md
+  s_1f35d570c63beb::t_9d720ee38975e4 3-77
+packages/genesis-cli/README.md
+  s_1f35d570c63beb::t_06f83aec036b62 339-340,344,361-367,373-413,451,467-468,521-523
+packages/genesis-cli/package.json
+  s_1f35d570c63beb::t_243b31bd77a476 3
+packages/genesis-cli/src/doctor/config.ts
+  s_1f35d570c63beb::t_050e7a46d754b8 135,150,154,313,331
+packages/genesis-cli/src/doctor/dates.ts
+  s_1f35d570c63beb::t_c20008e4275f1a 1-33
+packages/genesis-cli/src/doctor/genesis.ts
+  s_1f35d570c63beb::t_9a92075a1ba894 12,17-18,98,102-116
+packages/genesis-cli/src/doctor/index.ts
+  s_1f35d570c63beb::t_7a78571cc6c8f3 4-6,31-34,55-57,92,108-109,119,123-151,203-204,215,229
+packages/genesis-cli/src/doctor/installs.ts
+  s_1f35d570c63beb::t_b465b7079c2380 1-297
+packages/genesis-cli/src/doctor/native.ts
+  s_1f35d570c63beb::t_f9cd126228cbdc 18-19,170-180,206-210,216
+packages/genesis-cli/src/doctor/patterns.ts
+  s_1f35d570c63beb::t_b23459f84f6e4b 14,49,65-66
+packages/genesis-cli/src/doctor/routes.ts
+  s_1f35d570c63beb::t_7a09c4dbec8691 1-194
+packages/genesis-cli/src/doctor/rules.ts
+  s_1f35d570c63beb::t_2b1b4cb0624bc5 24-32,44-45
+packages/genesis-cli/src/doctor/semver.ts
+  s_1f35d570c63beb::t_4f01646887239d 1-165
+packages/genesis-cli/src/doctor/source.ts
+  s_1f35d570c63beb::t_1d1f4aedd12e03 1-133
+packages/genesis-cli/src/doctor/structure.ts
+  s_1f35d570c63beb::t_e7447af1c64463 1-212
+packages/genesis-cli/src/doctor/supabase.ts
+  s_1f35d570c63beb::t_a01b16290ca8e2 285,287-305,436-486
+packages/genesis-cli/src/doctor/trail.ts
+  s_1f35d570c63beb::t_7b216347a0c875 1-467
+packages/genesis-cli/src/doctor/types.ts
+  s_1f35d570c63beb::t_e0d5481730b1af 5-6,128,138-149,170-179,222-223
+packages/genesis-cli/src/features.ts
+  s_1f35d570c63beb::t_d32051da17d416 7-10
+packages/genesis-cli/src/vite.ts
+  s_1f35d570c63beb::t_29e14b6f9d0158 28
+packages/genesis-cli/test/doctor-dates.test.ts
+  s_1f35d570c63beb::t_0e2f6c5958c4e1 1-47
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_1f35d570c63beb::t_e947db8bbd2312 83,111-113,189,373-411
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_1f35d570c63beb::t_896a2877280880 1-1075
+packages/genesis-cli/test/doctor.test.ts
+  s_1f35d570c63beb::t_5df91406cd1c4b 200
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_1f35d570c63beb::t_eb058dfebdcb56 9,15
+packages/genesis-cli/test/fixtures/doctor/rules/native/app/signing-in.tsx
+  s_1f35d570c63beb::t_9c1cd6855575fd 1-5
+packages/genesis-cli/test/loading-route.test.ts
+  s_1f35d570c63beb::t_e262ffeb686481 1-19
+packages/genesis/CHANGELOG.md
+  s_1f35d570c63beb::t_668401027298d7 3-77
+packages/genesis/package.json
+  s_1f35d570c63beb::t_e591ffff078bd2 3
+packages/native/CHANGELOG.md
+  s_1f35d570c63beb::t_e5a8503332b411 3-29
+packages/native/README.md
+  s_1f35d570c63beb::t_d0b20e04083dff 457-469,640-655
+packages/native/package.json
+  s_1f35d570c63beb::t_eaf12eb2986d04 3
+packages/notifications/CHANGELOG.md
+  s_1f35d570c63beb::t_4654f2da41f42f 3-25
+packages/notifications/README.md
+  s_1f35d570c63beb::t_144062ec523f49 27,60,66,90-96,209-215,260-264
+packages/notifications/package.json
+  s_1f35d570c63beb::t_3c998563200918 3
+packages/notifications/src/__tests__/core.test.ts
+  s_1f35d570c63beb::t_1750156928270f 36,49
+packages/notifications/src/__tests__/fixtures.ts
+  s_1f35d570c63beb::t_48f8340217e585 10,16
+packages/notifications/src/__tests__/notification-runner.test.ts
+  s_1f35d570c63beb::t_41e786efab4c02 68,154
+packages/notifications/src/__tests__/push-preferences.test.ts
+  s_1f35d570c63beb::t_7741ff443bbbdf 1-91
+packages/notifications/src/__tests__/ui.test.tsx
+  s_1f35d570c63beb::t_d2ac5de5eb48e1 173
+packages/notifications/src/core/registry.ts
+  s_1f35d570c63beb::t_40d60ac496f88d 194,200,331-334
+packages/notifications/src/native/index.tsx
+  s_1f35d570c63beb::t_4074c7e07e9f30 9,197-199,201-211,214-215,219,283,288-311
+packages/product/CHANGELOG.md
+  s_1f35d570c63beb::t_b882ac7044936c 3-9
+packages/product/README.md
+  s_1f35d570c63beb::t_e5ed4356120de5 105-155,165-166
+packages/product/package.json
+  s_1f35d570c63beb::t_5db915ee3db00f 3,33-38,43,55-74,77-78,80-84
+packages/product/src/__tests__/app.test.ts
+  s_1f35d570c63beb::t_bced4d7e3cc180 1-307
+packages/product/src/__tests__/native.test.tsx
+  s_1f35d570c63beb::t_fc65a12b3abcc5 1-270
+packages/product/src/__tests__/product.test.ts
+  s_1f35d570c63beb::t_8e7cb75a15e0f7 287-293,295-301,307,310-312,318,334-342
+packages/product/src/app.ts
+  s_1f35d570c63beb::t_c0b24020b5520c 1-517
+packages/product/src/index.ts
+  s_2c334912fcb08f::t_c601844ad5b3c4 3-4,24-52
+packages/product/src/native/copy.ts
+  s_1f35d570c63beb::t_1a503b002dfa77 1-48
+packages/product/src/native/haptics.ts
+  s_1f35d570c63beb::t_66d32002535560 1-28
+packages/product/src/native/idea-board.tsx
+  s_1f35d570c63beb::t_db34afcccebf5c 1-208
+packages/product/src/native/index.ts
+  s_1f35d570c63beb::t_8ed5a4a1d4a65c 1-21
+packages/product/src/native/roadmap.tsx
+  s_1f35d570c63beb::t_40340a2a4fe108 1-164
+packages/product/src/native/whats-new.tsx
+  s_1f35d570c63beb::t_8fde66475ce88f 1-85
+packages/product/tsconfig.json
+  s_1f35d570c63beb::t_c9354f12678f50 6-7
+packages/product/tsup.config.ts
+  s_1f35d570c63beb::t_b4855839fa0e06 4,6,11
+packages/product/vitest.config.ts
+  s_1f35d570c63beb::t_c2202b7e320478 1-8,11-12,16-28
+packages/sites/CHANGELOG.md
+  s_1f35d570c63beb::t_ffc85e9f7d8bd6 3-9
+packages/sites/package.json
+  s_1f35d570c63beb::t_a96d1a757c7671 3
+packages/studio-server/CHANGELOG.md
+  s_1f35d570c63beb::t_f182f8ce2316f4 3-8
+packages/studio-server/package.json
+  s_1f35d570c63beb::t_e1b55c78ec39dd 3
+packages/studio-server/src/handler.ts
+  s_1f35d570c63beb::t_ac93287c0f6615 38
+packages/supabase/CHANGELOG.md
+  s_1f35d570c63beb::t_7655bb732d9eae 3-43
+packages/supabase/README.md
+  s_1f35d570c63beb::t_7f21c590eb6c6d 7-11,18-30,64-65,69-71,75-76,79-82,108-111,114-116,148-151,155-156,196-197,199-201,509-513,550-554,559-564,568-569,571-574,592-774,777
+packages/supabase/migrations/0007_genesis_jobs.sql
+  s_1f35d570c63beb::t_81f37b699830a2 1-352
+packages/supabase/migrations/0008_genesis_feature_registry.sql
+  s_1f35d570c63beb::t_a997288d73dd2b 1-412
+packages/supabase/migrations/tests/0007_genesis_jobs.test.sql
+  s_1f35d570c63beb::t_c91bb19d01e87e 1-129
+packages/supabase/migrations/tests/0008_genesis_feature_registry.test.sql
+  s_1f35d570c63beb::t_cc7c871ef5e1ec 1-180
+packages/supabase/package.json
+  s_1f35d570c63beb::t_75d78c45b0fbfe 3,7,34-37,44,136-193
+packages/supabase/sql/testing/genesis_testing.sql
+  s_1f35d570c63beb::t_11c9d60f360f37 1-526
+packages/supabase/sql/testing/tests/genesis_testing.test.sql
+  s_1f35d570c63beb::t_2ca21443e83bcd 1-181
+packages/supabase/src/__tests__/feature-registry.test.ts
+  s_1f35d570c63beb::t_265e61f74eeead 1-120
+packages/supabase/src/__tests__/jobs.test.ts
+  s_1f35d570c63beb::t_f10d8ca32155ba 1-192
+packages/supabase/src/__tests__/testing-kit.test.ts
+  s_1f35d570c63beb::t_47c9bec6a73161 1-45
+packages/supabase/src/blocks.ts
+  s_1f35d570c63beb::t_66218a0adc2b8e 23-27,29-33,37-54,73-125
+packages/supabase/src/feature-registry.ts
+  s_1f35d570c63beb::t_63ac6e69c94669 1-155
+packages/supabase/src/index.ts
+  s_1f35d570c63beb::t_c973697a2a65e2 196-205
+packages/supabase/src/jobs.ts
+  s_1f35d570c63beb::t_32f116a79d87e3 1-368
+packages/supabase/tsup.config.ts
+  s_1f35d570c63beb::t_fd71469fcbf2c3 4
+packages/support/CHANGELOG.md
+  s_1f35d570c63beb::t_b31c46993793f5 3-9
+packages/support/package.json
+  s_1f35d570c63beb::t_6f323dd391c957 3
+packages/ui-native/CHANGELOG.md
+  s_1f35d570c63beb::t_60dc94836045af 3-25
+packages/ui-native/README.md
+  s_1f35d570c63beb::t_1d378b2ca743f4 55-84
+packages/ui-native/package.json
+  s_1f35d570c63beb::t_9cb2917ad77e1c 3
+packages/ui-native/src/components/__tests__/button-a11y.test.tsx
+  s_1f35d570c63beb::t_8e33a425e2db79 1-17
+packages/ui-native/src/components/__tests__/loading-state.test.tsx
+  s_1f35d570c63beb::t_5369174d4daf87 1-41
+packages/ui-native/src/components/button.tsx
+  s_1f35d570c63beb::t_ef42b325dcbe29 7,64-68,80,95
+packages/ui-native/src/components/index.ts
+  s_1f35d570c63beb::t_3b167b95c12a31 141-143
+packages/ui-native/src/components/loading-state.tsx
+  s_1f35d570c63beb::t_70fef78d8f9508 1-92
+packages/ui-native/src/layouts/__tests__/inbox-page.test.tsx
+  s_1f35d570c63beb::t_684dc0605e9533 49-50
+packages/ui-native/src/layouts/__tests__/screen-container.test.tsx
+  s_1f35d570c63beb::t_627928231d254e 81-107
+packages/ui-native/src/layouts/inbox-page.tsx
+  s_1f35d570c63beb::t_ca4abef03d6238 34,42,224,432
+packages/ui-native/src/layouts/screen-container.tsx
+  s_1f35d570c63beb::t_1c24d7d16f0ef3 9,35,69-77,184-185,193-197
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1f35d570c63beb::t_2d32a046e1ff23 319,322,328-333
+packages/ui-native/test-utils/safe-area-mock.tsx
+  s_1f35d570c63beb::t_a95929942f6532 16
+packages/ui/CHANGELOG.md
+  s_1f35d570c63beb::t_9405ec216870fd 3-93
+packages/ui/SKILL.md
+  s_1f35d570c63beb::t_06479fc4629129 137,139,152-182,389-390
+packages/ui/package.json
+  s_1f35d570c63beb::t_42e4e713f542ff 3,33,52-59,137-140
+packages/ui/scripts/gen-exports.mjs
+  s_1f35d570c63beb::t_7867f439adf309 11,105-107,189-198
+packages/ui/src/__tests__/ui-messages.test.tsx
+  s_1f35d570c63beb::t_6a916b0145c0c6 1-127
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_1f35d570c63beb::t_e4264abf8ca25d 16,62,64-66,68-73
+packages/ui/src/components/data/DataBulkBar.tsx
+  s_1f35d570c63beb::t_e641342601a1be 6,71,85,108
+packages/ui/src/components/data/DataFilters.tsx
+  s_1f35d570c63beb::t_021aa060cb39ba 27,106,123-124,170,225,251,254,288,302,383,393,398,410,417
+packages/ui/src/components/data/DataPageShell.tsx
+  s_1f35d570c63beb::t_a9b574db5ed2be 3,142,220,250,253,257
+packages/ui/src/components/data/DataTable.tsx
+  s_1f35d570c63beb::t_da9c94ebb92e20 58,319,384,433,463,537,557-558,949,985,1040,1043,1078,1098,1144,1264-1268,1337-1338,1342,1370,1398,1402,1423-1424
+packages/ui/src/components/data/DetailPanel.tsx
+  s_1f35d570c63beb::t_a06e707b5a0513 6,83-85,104,106,159,180,201,212,221,233,244,308
+packages/ui/src/components/data/KanbanBoard.tsx
+  s_1f35d570c63beb::t_80bed2ebabed5e 19,87,100-102,108-119,135,140-146,155-170,191,198,204,213,243-246,250-256,258-264,309,323,388,419,443,449,457,479
+packages/ui/src/components/data/ResourcePage.tsx
+  s_1f35d570c63beb::t_6909ea920ca40a 41-42,44-45,48-51,53,693-706,785,800,802,835-838,907-919,1018,1038,1070,1122,1146-1157,1236,1276,1278-1279,1289-1292,1303-1306,1331,1346-1347,1358,1364,1373,1395,1402
+packages/ui/src/components/data/__tests__/kanban-board-move.test.tsx
+  s_1f35d570c63beb::t_b0feeda03fbd25 178-273
+packages/ui/src/components/data/__tests__/resource-page-embedded.test.tsx
+  s_1f35d570c63beb::t_ec7d0ae9d182b2 1-115
+packages/ui/src/components/data/__tests__/use-resource-table.test.tsx
+  s_1f35d570c63beb::t_7533a92b4421c2 142-169
+packages/ui/src/components/data/use-resource-table.ts
+  s_1f35d570c63beb::t_b172e2c17aa923 34,118,136,623,642,1262-1263
+packages/ui/src/components/layout/AppShell.tsx
+  s_1f35d570c63beb::t_d90e95eda20ad8 48,1413-1414,1470-1475,1813-1822,1839
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav.test.tsx
+  s_1f35d570c63beb::t_0f04d61638e1cb 10,375-404,537-630
+packages/ui/src/components/layout/__tests__/builder-layout.test.tsx
+  s_1f35d570c63beb::t_b02373bceff5e0 1-162
+packages/ui/src/components/layout/__tests__/public-layouts.test.tsx
+  s_1f35d570c63beb::t_9567d208b308ae 1-348
+packages/ui/src/components/layout/auth-page.tsx
+  s_1f35d570c63beb::t_683a7978dedfa3 1-199
+packages/ui/src/components/layout/brand-theme.ts
+  s_1f35d570c63beb::t_039edc30d5c167 1-262
+packages/ui/src/components/layout/builder-layout.tsx
+  s_1f35d570c63beb::t_124cc65a2e97f8 1-198
+packages/ui/src/components/layout/index.ts
+  s_1f35d570c63beb::t_6613d7d2441a2e 62-63,80-100
+packages/ui/src/components/layout/public-page.tsx
+  s_1f35d570c63beb::t_f6efb2308aaa68 1-190
+packages/ui/src/components/layout/sub-nav.tsx
+  s_1f35d570c63beb::t_a24711feb9faa5 66-73,447-450
+packages/ui/src/components/patterns/sortable-list.tsx
+  s_1f35d570c63beb::t_d04adb64c51fe9 8,125,139,195,213,222,232,236,245,254,340,358,424,431,434,437,440,450
+packages/ui/src/components/patterns/view-settings.tsx
+  s_1f35d570c63beb::t_1ea0caf5247899 3,27-30,39,55,57,64,71,87,99,115
+packages/ui/src/components/patterns/view-toggle.tsx
+  s_1f35d570c63beb::t_5ca5a4bda8c2fc 3,13,22,29-30,41-42,53-54
+packages/ui/src/components/resource/FollowUpList.tsx
+  s_1f35d570c63beb::t_11486adff20d16 2-3,8,17,24-26,34,44-45,103
+packages/ui/src/components/resource/HeadlineNumbers.tsx
+  s_1f35d570c63beb::t_cb6b105116ecd8 2-3
+packages/ui/src/components/resource/ReadinessChip.tsx
+  s_1f35d570c63beb::t_af7c98b4884906 3,12,16-17,21
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_1f35d570c63beb::t_769fc6926b3bba 8-11,22,26,64,95-96
+packages/ui/src/components/resource/ResourceSettingsPage.tsx
+  s_1f35d570c63beb::t_a80da0a93c8fa2 1-2,4,65-69,81,93,108-109,112-114,118
+packages/ui/src/components/resource/ResponsesToolbar.tsx
+  s_1f35d570c63beb::t_7ada034dd14cf2 2-3,9-10,17,24-25,41,44,47
+packages/ui/src/components/resource/ShareDialog.tsx
+  s_1f35d570c63beb::t_1b1e28b988336a 1-2,4-11,55-58,64,66,77,79,89
+packages/ui/src/components/resource/SummaryCard.tsx
+  s_1f35d570c63beb::t_3001b79bc0ca1b 2,6
+packages/ui/src/components/resource/__tests__/components.test.tsx
+  s_1f35d570c63beb::t_7a588b4a871b52 1-253
+packages/ui/src/components/resource/__tests__/rules.test.ts
+  s_1f35d570c63beb::t_e2e22be3ef4157 1-52
+packages/ui/src/components/resource/__tests__/share.test.ts
+  s_1f35d570c63beb::t_28199788c29840 1,3,8-11,15,25-26,28
+packages/ui/src/components/resource/chip.tsx
+  s_1f35d570c63beb::t_beb6d9766c5c80 2-4,7
+packages/ui/src/components/resource/index.ts
+  s_1f35d570c63beb::t_e459bd2549c962 1-20
+packages/ui/src/components/resource/rules.ts
+  s_1f35d570c63beb::t_5576581dda2631 1-18
+packages/ui/src/components/resource/share.ts
+  s_1f35d570c63beb::t_fcfcbb7b342e91 1,6,8,39
+packages/ui/src/components/resource/status.ts
+  s_1f35d570c63beb::t_ea05292925062b 1-3,17,27-42,44-45,48-49,51-58,60,65-83,86,88,90,93-95,99
+packages/ui/src/hooks/__tests__/hooks-entry-graph.test.ts
+  s_1f35d570c63beb::t_826c7d87b75021 1-73
+packages/ui/src/index.ts
+  s_1f35d570c63beb::t_2dd13f7d4e8ad0 135-173,194
+packages/ui/src/messages-en.ts
+  s_1f35d570c63beb::t_9b376860bb2a30 1-155
+packages/ui/src/messages.tsx
+  s_1f35d570c63beb::t_023a12f1840526 1-85
+packages/ui/tsconfig.type-tests-exact.json
+  s_1f35d570c63beb::t_d5804d6bad4c70 1-9
+packages/ui/tsup.config.ts
+  s_1f35d570c63beb::t_45ad9a0c56950a 56,61-64
+packages/ui/type-tests-exact/builder-layout.tsx
+  s_1f35d570c63beb::t_b1230920a7c26b 1-38
+packages/ui/type-tests-exact/resource.tsx
+  s_1f35d570c63beb::t_baaf209862ee0e 1-78
+pnpm-lock.yaml
+  s_1f35d570c63beb::t_6a19c45f8dc9f3 74-76,634-636,640-651,1317-1322,1327-1332,1336-1350
+scripts/check-forbidden-imports.mjs
+  s_1f35d570c63beb::t_76d9fb55efc677 17
+scripts/lib/native-primitives.mjs
+  s_1f35d570c63beb::t_e12927a5369dc5 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cce3b313d5a8da82a529e481f894c9eed7acfda1",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
