@@ -14,6 +14,7 @@ import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration } from "../core/media";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { MEDIA_BACKDROP, MEDIA_SCRIM, ON_MEDIA } from "./media-colors";
 import { haptic, type CameraViewHandleLike, type ExpoCameraLike } from "./modules";
 import type { RecordedVideo } from "./video-upload";
 import { initialVideoRecorder, recordingType, videoRecorderStep, type VideoRecorderEffect, type VideoRecorderEvent, type VideoRecorderState } from "./video-recorder-state";
@@ -134,13 +135,12 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
   }, [recording, dispatch]);
 
   const { CameraView } = camera;
-  const white = "#ffffff";
-  const blocked = state.phase === "denied" || state.phase === "failed";
+    const blocked = state.phase === "denied" || state.phase === "failed";
   const canRecord = state.phase === "ready" || recording;
   const stopping = state.phase === "stopping";
 
   return (
-    <View testID={`${testID}-body`} style={{ flex: 1, backgroundColor: "#000000" }}>
+    <View testID={`${testID}-body`} style={{ flex: 1, backgroundColor: MEDIA_BACKDROP }}>
       {state.phase !== "asking" && state.phase !== "denied" ? (
         <CameraView
           ref={cameraRef}
@@ -162,17 +162,17 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
             onPress={() => dispatch({ type: "cancel" })}
             style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
           >
-            <NativeIcon name="close" size={24} color={white} />
+            <NativeIcon name="close" size={24} color={ON_MEDIA} />
           </Pressable>
           {canRecord || stopping ? (
             <View
               testID={`${testID}-time`}
               accessible
               accessibilityLabel={fill(copy.videoElapsed, { elapsed: formatDuration(state.elapsedMs), limit: formatDuration(limitMs) })}
-              style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, backgroundColor: "rgba(0,0,0,0.45)" }}
+              style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14, backgroundColor: MEDIA_SCRIM }}
             >
               {recording ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.destructive }} /> : null}
-              <NativeText style={{ color: white, fontVariant: ["tabular-nums"], fontSize: 15 }}>
+              <NativeText style={{ color: ON_MEDIA, fontVariant: ["tabular-nums"], fontSize: 15 }}>
                 {fill(copy.videoElapsed, { elapsed: formatDuration(state.elapsedMs), limit: formatDuration(limitMs) })}
               </NativeText>
             </View>
@@ -182,8 +182,8 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
 
         {blocked ? (
           <View testID={`${testID}-${state.phase}`} accessibilityLiveRegion="polite" style={{ paddingHorizontal: 32, gap: 16, alignItems: "center" }}>
-            <NativeIcon name="camera" size={40} color={white} />
-            <NativeText style={{ color: white, textAlign: "center", fontSize: 17 }}>{state.phase === "denied" ? copy.cameraDenied : copy.cameraFailed}</NativeText>
+            <NativeIcon name="camera" size={40} color={ON_MEDIA} />
+            <NativeText style={{ color: ON_MEDIA, textAlign: "center", fontSize: 17 }}>{state.phase === "denied" ? copy.cameraDenied : copy.cameraFailed}</NativeText>
             {state.phase === "denied" ? (
               <NativeButton testID={`${testID}-settings`} variant="secondary" onPress={() => void Linking?.openSettings?.()}>
                 {copy.openSettings}
@@ -194,7 +194,7 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
 
         <View style={{ paddingBottom: 16, gap: 12, alignItems: "center" }}>
           {state.notice === "too-short" ? (
-            <NativeText testID={`${testID}-notice`} accessibilityLiveRegion="polite" style={{ color: white, textAlign: "center", paddingHorizontal: 24 }}>
+            <NativeText testID={`${testID}-notice`} accessibilityLiveRegion="polite" style={{ color: ON_MEDIA, textAlign: "center", paddingHorizontal: 24 }}>
               {copy.videoTooShort}
             </NativeText>
           ) : null}
@@ -218,7 +218,7 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
                 disabled={!canRecord}
                 onPressIn={() => dispatch({ type: "press", at: latest.current.now() })}
                 onPressOut={() => dispatch({ type: "release", at: latest.current.now() })}
-                style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 5, borderColor: white, alignItems: "center", justifyContent: "center", opacity: canRecord ? 1 : 0.5 }}
+                style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 5, borderColor: ON_MEDIA, alignItems: "center", justifyContent: "center", opacity: canRecord ? 1 : 0.5 }}
               >
                 <View style={recording ? { width: 30, height: 30, borderRadius: 6, backgroundColor: colors.destructive } : { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.destructive }} />
               </Pressable>
@@ -230,15 +230,15 @@ function RecorderBody({ camera, onClose, limitMs, onStart, onTick, onRecorded, n
                   accessibilityState={{ disabled: recording || stopping }}
                   disabled={recording || stopping}
                   onPress={() => dispatch({ type: "flip" })}
-                  style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.45)", opacity: recording || stopping ? 0.4 : 1 }}
+                  style={{ width: 48, height: 48, borderRadius: 24, alignItems: "center", justifyContent: "center", backgroundColor: MEDIA_SCRIM, opacity: recording || stopping ? 0.4 : 1 }}
                 >
-                  <NativeIcon name="camera-flip" size={24} color={white} />
+                  <NativeIcon name="camera-flip" size={24} color={ON_MEDIA} />
                 </Pressable>
               </View>
             </View>
           ) : null}
           {!blocked && !recording ? (
-            <NativeText preset="caption" style={{ color: white, opacity: 0.85, textAlign: "center", paddingHorizontal: 24 }}>
+            <NativeText preset="caption" style={{ color: ON_MEDIA, opacity: 0.85, textAlign: "center", paddingHorizontal: 24 }}>
               {copy.recordVideoHint}
             </NativeText>
           ) : null}

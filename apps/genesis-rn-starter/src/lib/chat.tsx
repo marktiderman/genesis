@@ -12,12 +12,15 @@
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Audio from "expo-audio";
+import * as Camera from "expo-camera";
 import * as Clipboard from "expo-clipboard";
 import * as ExpoCrypto from "expo-crypto";
 import { File, FileMode, Paths } from "expo-file-system";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import * as Notifications from "expo-notifications";
+import * as Video from "expo-video";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, type ReactNode } from "react";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { createChatClient, type LocalFile, type Outbox, type OutboxStore, type QueuedMessage } from "@marktiderman/genesis-chat";
@@ -33,6 +36,7 @@ import {
 import { useSession } from "@marktiderman/genesis-native";
 import starter from "../../starter.config";
 import { copy } from "@/copy";
+import { chatVideoUpload } from "./chat-video";
 import { env } from "./env";
 import { supabase } from "./supabase";
 
@@ -41,14 +45,23 @@ export const chatClient = createChatClient(supabase);
 // Genesis describes each module by what it calls, so the packages' own (wider) types are cast once here.
 const modules: ChatNativeModules = {
   audio: Audio as unknown as ChatNativeModules["audio"],
-  // The library only: the starter asks for no camera permission (add `launchCameraAsync` and a
-  // `cameraPermission` sentence in app.config.ts for "Take a photo").
+  // The library only (add `launchCameraAsync` for "Take a photo"; the camera sentence is already in
+  // app.config.ts for video messages).
   imagePicker: { launchImageLibraryAsync: ImagePicker.launchImageLibraryAsync } as unknown as ChatNativeModules["imagePicker"],
   haptics: Haptics as unknown as ChatNativeModules["haptics"],
   clipboard: Clipboard as unknown as ChatNativeModules["clipboard"],
   keyboardAvoidingView: starter.features.keyboardScroll ? (KeyboardAvoidingView as unknown as ChatNativeModules["keyboardAvoidingView"]) : undefined,
   drafts: AsyncStorage as unknown as ChatNativeModules["drafts"],
+  // Video messages: record in the thread (camera and microphone sentences in app.config.ts), play
+  // HLS and files in the bubble; link previews open in an in-app browser.
+  camera: Camera as unknown as ChatNativeModules["camera"],
+  video: Video as unknown as ChatNativeModules["video"],
+  webBrowser: WebBrowser as unknown as ChatNativeModules["webBrowser"],
+  openFile: (uri: string) => openFile(uri),
 };
+
+// Mux when the app has an upload handler, else storage (src/lib/chat-video.ts).
+const videoUpload = chatVideoUpload();
 
 /** Unsent messages wait here between launches (per signed-in person). */
 function outboxStore(userId: string): OutboxStore {
@@ -126,7 +139,7 @@ function forUser(userId: string) {
 function ChatForUser({ userId, loadPeople, children }: { userId: string; loadPeople?: LoadPeople; children: ReactNode }) {
   const { store, upload } = forUser(userId);
   return (
-    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople}>
+    <ChatProvider client={chatClient} userId={userId} outboxStore={store} upload={upload} newId={ExpoCrypto.randomUUID} persistFile={persistFile} loadPeople={loadPeople} videoUpload={videoUpload}>
       <ShareOutbox userId={userId} />
       <ChatNativeProvider modules={modules} copy={copy.chat}>
         {children}

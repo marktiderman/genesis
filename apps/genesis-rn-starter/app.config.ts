@@ -3,7 +3,8 @@ import "tsx/cjs";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 import starter from "./starter.config";
 
-const MICROPHONE = "Record voice messages to send in a conversation.";
+const MICROPHONE = "Record voice and video messages to send in a conversation.";
+const CAMERA = "Record video messages to send in a conversation.";
 import { easConfig, nativePlatforms, privacyBlocks } from "./src/lib/define-starter";
 
 // Name, ids and plugins only. The Genesis plugin (`@marktiderman/genesis-cli`) adds the rest:
@@ -33,10 +34,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-updates",
     "expo-notifications",
-    // The check-in's photo question picks from the library only: no camera, so no camera or microphone prompt.
-    // The microphone sentence is set on both: plugins' mods run in reverse order, so the picker's
-    // `microphonePermission: false` would delete the one expo-audio adds (seen in a simulator build).
-    ["expo-image-picker", { photosPermission: "Choose photos to add to a check-in or a message.", cameraPermission: false, microphonePermission: MICROPHONE }],
+    // The check-in's photo question picks from the library only. The camera and microphone sentences
+    // are set on every plugin that writes them: plugins' mods run in reverse order, so the picker's
+    // `cameraPermission: false` would delete the one expo-camera adds, as its
+    // `microphonePermission: false` deleted expo-audio's (seen in a simulator build).
+    ["expo-image-picker", { photosPermission: "Choose photos to add to a check-in or a message.", cameraPermission: CAMERA, microphonePermission: MICROPHONE }],
+    // Video messages in chat (expo-camera records, expo-video plays).
+    ["expo-camera", { cameraPermission: CAMERA, microphonePermission: MICROPHONE, recordAudioAndroid: true }],
+    "expo-video",
     // Voice messages in chat. Kept whichever way the chat switch is, so it stays JavaScript only.
     ["expo-audio", { microphonePermission: MICROPHONE }],
     // The privacy manifest declares the data of the blocks that are on (account, observability, push).

@@ -12,6 +12,7 @@ import type { ChatAttachment, ChatMessage } from "../core/types";
 import type { ChatAttachmentKind } from "../react/index";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { ON_TINT_FILL, ON_TINT_FILL_STRONG } from "./media-colors";
 
 export type OpenAttachment = (attachment: ChatAttachment, message: ChatMessage) => void;
 
@@ -63,14 +64,14 @@ export function ChatAttachmentCard({ attachment, message, kind, mine = false, on
   return (
     <View
       testID={testID}
-      style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, minWidth: 220, backgroundColor: mine ? "rgba(255,255,255,0.16)" : colors.groupedBackground }}
+      style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, minWidth: 220, backgroundColor: mine ? ON_TINT_FILL : colors.groupedBackground }}
     >
       <View
         accessible
         accessibilityLabel={subtitle ? fill(copy.attachmentCard, { title, subtitle }) : title}
         style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}
       >
-        <View style={{ width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: mine ? "rgba(255,255,255,0.2)" : colors.fill }}>
+        <View style={{ width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center", backgroundColor: mine ? ON_TINT_FILL_STRONG : colors.fill }}>
           <NativeIcon name="file" size={20} color={mine ? colors.surface : colors.tint} />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>

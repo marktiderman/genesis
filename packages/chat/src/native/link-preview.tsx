@@ -14,6 +14,7 @@ import { extractLinks, isHttpsUrl } from "../core/extras";
 import type { ChatLinkPreview, ChatMessage } from "../core/types";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { ON_TINT_FILL } from "./media-colors";
 import type { WebBrowserLike } from "./modules";
 
 /** The site a link is on, without `www.`. */
@@ -78,7 +79,7 @@ export function ChatLinkPreviewCard({ preview, mine = false, images = false, tes
         borderLeftColor: mine ? colors.surface : colors.tint,
         borderRadius: 10,
         overflow: "hidden",
-        backgroundColor: mine ? "rgba(255,255,255,0.16)" : colors.groupedBackground,
+        backgroundColor: mine ? ON_TINT_FILL : colors.groupedBackground,
       }}
     >
       {image ? (

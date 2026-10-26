@@ -15,6 +15,7 @@ import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
 import { formatDuration, nextPlaybackRate } from "../core/media";
 import { fill } from "./copy";
 import { useChatNative } from "./context";
+import { MEDIA_FRAME, MEDIA_SCRIM, MEDIA_SCRIM_LIGHT, ON_MEDIA } from "./media-colors";
 import type { ExpoVideoLike, VideoPlayerLike, VideoViewHandleLike } from "./modules";
 import { claimPlayback, releasePlayback } from "./voice-player";
 
@@ -123,7 +124,7 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
   const ratio = props.width && props.height ? props.width / props.height : 3 / 4;
   const h = Math.round(Math.max(140, Math.min(w * 1.5, w / ratio)));
   const duration = props.durationMs ? formatDuration(props.durationMs) : null;
-  const box = { width: w, height: h, borderRadius: 14, overflow: "hidden" as const, backgroundColor: "#111111" };
+  const box = { width: w, height: h, borderRadius: 14, overflow: "hidden" as const, backgroundColor: MEDIA_FRAME };
 
   if (state === "failed" || state === "processing") {
     return (
@@ -172,16 +173,16 @@ export function ChatVideoPlayer(props: ChatVideoPlayerProps) {
       {poster ? <NativeImage src={poster} width={w} height={h} contentFit="cover" recyclingKey={props.id} /> : null}
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center" }}>
         {state === "loading" || props.uploading ? (
-          <ActivityIndicator color="#ffffff" />
+          <ActivityIndicator color={ON_MEDIA} />
         ) : (
-          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}>
-            <NativeIcon name="play" size={24} color="#ffffff" />
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: MEDIA_SCRIM, alignItems: "center", justifyContent: "center" }}>
+            <NativeIcon name="play" size={24} color={ON_MEDIA} />
           </View>
         )}
       </View>
       {duration ? (
-        <View style={{ position: "absolute", left: 8, bottom: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: "rgba(0,0,0,0.55)" }}>
-          <NativeText style={{ color: "#ffffff", fontSize: 12, fontVariant: ["tabular-nums"] }}>{duration}</NativeText>
+        <View style={{ position: "absolute", left: 8, bottom: 8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, backgroundColor: MEDIA_SCRIM }}>
+          <NativeText style={{ color: ON_MEDIA, fontSize: 12, fontVariant: ["tabular-nums"] }}>{duration}</NativeText>
         </View>
       ) : null}
     </Pressable>
@@ -266,8 +267,7 @@ function ActiveVideo({
     setRate(next);
   };
   const { VideoView } = video;
-  const white = "#ffffff";
-  return (
+    return (
     <View testID={`${testID}-active`} style={style}>
       <VideoView ref={viewRef} player={player} nativeControls={false} contentFit="cover" allowsPictureInPicture={false} style={{ width: "100%", height: "100%" }} testID={`${testID}-view`} />
       <Pressable
@@ -278,12 +278,12 @@ function ActiveVideo({
         style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 44, alignItems: "center", justifyContent: "center" }}
       >
         {!playing ? (
-          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "rgba(0,0,0,0.5)", alignItems: "center", justifyContent: "center" }}>
-            <NativeIcon name="play" size={24} color={white} />
+          <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: MEDIA_SCRIM, alignItems: "center", justifyContent: "center" }}>
+            <NativeIcon name="play" size={24} color={ON_MEDIA} />
           </View>
         ) : null}
       </Pressable>
-      <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2, backgroundColor: "rgba(0,0,0,0.35)" }}>
+      <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 44, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2, backgroundColor: MEDIA_SCRIM_LIGHT }}>
         <Control testID={`${testID}-play`} label={playing ? copy.pauseVideo : copy.playVideo} onPress={toggle} icon={playing ? "pause" : "play"} />
         <Control testID={`${testID}-mute`} label={muted ? copy.unmute : copy.mute} onPress={toggleMute} icon={muted ? "volume-off" : "volume"} />
         <Pressable
@@ -293,7 +293,7 @@ function ActiveVideo({
           onPress={cycleRate}
           style={{ minWidth: 44, height: 44, alignItems: "center", justifyContent: "center" }}
         >
-          <NativeText style={{ color: white, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{`${rate}x`}</NativeText>
+          <NativeText style={{ color: ON_MEDIA, fontSize: 13, fontWeight: "600", fontVariant: ["tabular-nums"] }}>{`${rate}x`}</NativeText>
         </Pressable>
         <Control testID={`${testID}-fullscreen`} label={copy.fullScreen} onPress={fullScreen} icon="expand" />
       </View>
@@ -311,7 +311,7 @@ function Control({ icon, label, onPress, selected, testID }: { icon: "play" | "p
       onPress={onPress}
       style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
     >
-      <NativeIcon name={icon} size={20} color="#ffffff" />
+      <NativeIcon name={icon} size={20} color={ON_MEDIA} />
     </Pressable>
   );
 }

@@ -96,6 +96,9 @@
     "expo-audio": {
       "optional": true
     },
+    "expo-camera": {
+      "optional": true
+    },
     "expo-clipboard": {
       "optional": true
     },
@@ -106,6 +109,12 @@
       "optional": true
     },
     "expo-image-picker": {
+      "optional": true
+    },
+    "expo-video": {
+      "optional": true
+    },
+    "expo-web-browser": {
       "optional": true
     },
     "hls.js": {
