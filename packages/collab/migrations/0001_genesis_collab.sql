@@ -439,10 +439,11 @@ begin
 end $$;
 
 -- The contributions of a period a person may read, with the author left out where names
--- don't show (anonymous, or totals).
+-- don't show (anonymous, or totals). `author_visible` says which, so a list shows or hides the
+-- author column from the server's answer and never decides anonymity itself.
 create function genesis_collab.contributions(p_space uuid, p_period text default '')
 returns table (id uuid, kind text, ref_id text, author_id uuid, subject_person_id uuid,
-  private boolean, sent_at timestamptz, mine boolean)
+  author_visible boolean, private boolean, sent_at timestamptz, mine boolean)
 language plpgsql stable security definer set search_path = '' as $$
 declare
   me uuid := auth.uid();
@@ -452,6 +453,7 @@ begin
     select c.id, c.kind, c.ref_id,
       case when names or c.author_id = me then c.author_id end,
       case when names or c.author_id = me then c.subject_person_id end,
+      names or c.author_id = me,
       c.private, c.sent_at, c.author_id = me
     from genesis_collab.contributions c
     where c.space_id = p_space and c.period = coalesce(p_period, '')

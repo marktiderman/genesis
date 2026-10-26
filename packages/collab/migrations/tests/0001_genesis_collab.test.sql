@@ -176,8 +176,8 @@ select pg_temp.sign_in('01');
 select genesis_collab.set_policy(pg_temp.v('space'), p_visibility => 'full', p_anonymous => true);
 select pg_temp.sign_in('b3');
 select ok(genesis_collab.can_see(pg_temp.v('a')), 'anonymous Full shows the answers');
-select is((select count(*)::int from genesis_collab.contributions(pg_temp.v('space'), '2026-W44') where author_id is not null and not mine), 0,
-  'without their authors');
+select is((select count(*)::int from genesis_collab.contributions(pg_temp.v('space'), '2026-W44') where (author_id is not null or author_visible) and not mine), 0,
+  'without their authors, and says so');
 select pg_temp.sign_in('f6');
 select is((select count(*)::int from genesis_collab.contributions(pg_temp.v('space'), '2026-W44') where author_id is not null), 4,
   'which the facilitator still sees');
