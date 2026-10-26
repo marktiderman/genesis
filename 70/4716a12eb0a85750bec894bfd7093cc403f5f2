@@ -1,0 +1,42 @@
+packages/supabase/sql/testing/tests/genesis_testing.test.sql
+  s_2c334912fcb08f::t_4ab8a900bf6797 1-5,7-130
+  s_2c334912fcb08f::t_a9ebae5319b4fd 6
+.github/ci-fixture/supabase/tests/database/genesis_testing_selftest.test.sql
+  s_2c334912fcb08f::t_c3aed8904f16f5 1-130
+packages/supabase/sql/testing/genesis_testing.sql
+  s_2c334912fcb08f::t_fffb047f8d3b6f 3-7,388-389
+  s_2c334912fcb08f::t_108fd3355a027f 373-374,376-387
+  s_2c334912fcb08f::t_407a4c83d2e53a 1-2,8-25,27-271,274,276,278-279,281-372,375
+  s_2c334912fcb08f::t_f19ad602554e55 26,272-273,275,277,280
+  s_2c334912fcb08f::t_33610dc67f8089 390-392
+.changeset/genesis-testing-pgtap-kit.md
+  s_2c334912fcb08f::t_94ce3a6aa8b570 1-5
+packages/supabase/src/__tests__/testing-kit.test.ts
+  s_2c334912fcb08f::t_9e41bb608cd58a 1-26,30-33,43-45
+  s_2c334912fcb08f::t_ca0487c3b32bd8 27-29,34-42
+packages/supabase/package.json
+  s_2c334912fcb08f::t_c3aed8904f16f5 40
+packages/supabase/README.md
+  s_2c334912fcb08f::t_94ce3a6aa8b570 592-612,622-633
+  s_2c334912fcb08f::t_ca0487c3b32bd8 7-11,18-30,64-65,69-71,75-76,79-82,108-111,114-116,148-151,155-156,196-197,199-201,509-513,550-554,559-564,568-569,571-574,613-621
+.github/ci-fixture/supabase/tests/database/000_genesis_testing.test.sql
+  s_2c334912fcb08f::t_c3aed8904f16f5 1-392
+.github/workflows/ci-templates-self-test.yml
+  s_2c334912fcb08f::t_c3aed8904f16f5 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "704716a12eb0a85750bec894bfd7093cc403f5f2",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
