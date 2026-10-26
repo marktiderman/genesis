@@ -116,11 +116,21 @@ describe("hooks for 0002", () => {
     expect(result.current.hits.find((h) => h.inTranscript)?.snippet).toContain("«plan»");
   });
 
-  it("useLinkPreviews returns previews by URL", async () => {
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useLinkPreviews(["https://example.test/post", "https://unknown.test"]), { wrapper });
-    await waitFor(() => expect(result.current["https://example.test/post"]?.title).toBe("A post"));
-    expect(result.current["https://unknown.test"]).toBeUndefined();
+  it("useLinkPreviews returns previews by message, only for messages you can read", async () => {
+    const { wrapper, client } = setup();
+    const { result } = renderHook(() => useLinkPreviews(["m2", "m1", "nope"]), { wrapper });
+    await waitFor(() => expect(result.current.m2?.[0]?.title).toBe("A post"));
+    expect(result.current.m1).toEqual([]);
+    expect(result.current.nope).toEqual([]);
+    expect(client.calls.find((c) => c.method === "linkPreviewsFor")!.args[0]).toEqual(["m1", "m2", "nope"]);
+  });
+
+  it("signals recording-video while a video records", async () => {
+    const { wrapper, client } = setup();
+    const { result } = renderHook(() => useConversation("c1"), { wrapper });
+    await waitFor(() => expect(result.current.canPost).toBe(true));
+    act(() => result.current.signalRecordingVideo());
+    expect(client.calls.filter((c) => c.method === "signal").map((c) => c.args[1])).toContain("recording-video");
   });
 
   it("useConversation({ topic }) reads one topic's messages and posts into it", async () => {

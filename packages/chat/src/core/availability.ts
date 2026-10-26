@@ -153,3 +153,26 @@ export function awayLine(a: ChatAvailability | null | undefined, name: string, o
   const zone = timeZoneLabel(a.timeZone, opts.locale);
   return `${name} replies ${summary}${zone ? ` (${zone})` : ""}`;
 }
+
+/** "Sam", "Sam and Lee", "Sam, Lee and 3 others": at most two names. */
+export function namesLine(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  const rest = names.length - 2;
+  return `${names[0]}, ${names[1]} and ${rest === 1 ? "1 other" : `${rest} others`}`;
+}
+
+/**
+ * The line for several people (a group's members): one person's full `awayLine`, or for more
+ * "Sam and Lee are away", "Sam, Lee and 2 others are outside their hours", or "… are away or
+ * outside their hours" when it's a mix. Null when everyone is around.
+ */
+export function awaySummary(people: { availability: ChatAvailability | null | undefined; name: string }[], opts: AwayLineOptions = {}): string | null {
+  const now = opts.now ?? new Date();
+  const out = people.filter((p) => awayLine(p.availability, p.name, { ...opts, now, always: false }) !== null);
+  if (out.length === 0) return null;
+  if (out.length === 1) return awayLine(out[0]!.availability, out[0]!.name, { ...opts, now, always: false });
+  const away = out.filter((p) => isAway(p.availability, now)).length;
+  const what = away === out.length ? "away" : away === 0 ? "outside their hours" : "away or outside their hours";
+  return `${namesLine(out.map((p) => p.name))} are ${what}`;
+}

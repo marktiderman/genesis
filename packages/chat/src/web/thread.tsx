@@ -59,7 +59,7 @@ import { extractLinks } from "../core/extras";
 import { activityLine, dayLabel, itemSender, itemTime, parseMentions, previewText, startsDay, startsGroup, type ThreadItem } from "../core/thread";
 import type { ChatConversation, ChatMember, ChatMessage, ChatRole, ChatSearchHit } from "../core/types";
 import { useAvailability, useChat, useConversation, useFileUrls, useLinkPreviews, useMessageActions, usePins, useTopics } from "../react/index";
-import { awayLine } from "../core/availability";
+import { awaySummary } from "../core/availability";
 import type { ChatAttachmentSlotProps } from "./attachments";
 import { MessageRow, plainText } from "./bubble";
 import { ChatAwayBanner } from "./availability";
@@ -254,11 +254,11 @@ export function ChatThread({
   const showTopicBar = !threadRootId && topicProp === undefined && (topics.length > 0 || (showTopics && canManageTopics));
   const topicClosed = Boolean(currentTopic?.closedAt) && role !== "owner" && role !== "admin" && role !== "observer";
 
-  const linkUrls = useMemo(
-    () => messages.flatMap((m) => (m.deletedAt || m.moderation === "hidden" ? [] : extractLinks(m.body))),
+  const linkMessageIds = useMemo(
+    () => messages.filter((m) => !m.deletedAt && m.moderation !== "hidden" && extractLinks(m.body).length > 0).map((m) => m.id),
     [messages],
   );
-  const previews = useLinkPreviews(linkUrls);
+  const previews = useLinkPreviews(linkMessageIds);
   const avail = useAvailability(availability ? conversationId : null);
   const [searching, setSearching] = useState(false);
 
@@ -284,16 +284,15 @@ export function ChatThread({
   );
   const subtitle = members.length > 2 ? `${members.length} members` : null;
 
-  // The away line: the other person in a two-person conversation; in a group, its owners and admins (the coach).
-  const away = useMemo(() => {
+  // The away line: the other person in a two-person conversation; in a group, everyone away or outside their hours.
+  const awayPeople = useMemo(() => {
     if (!availability) return null;
-    const candidates = otherUserId ? [otherUserId] : members.filter((m) => m.userId !== me && (m.role === "owner" || m.role === "admin")).map((m) => m.userId);
-    for (const id of candidates) {
+    const ids = otherUserId ? [otherUserId] : members.filter((m) => m.userId !== me).map((m) => m.userId);
+    const people = ids.flatMap((id) => {
       const a = avail.forUser(id);
-      const name = resolveUser(id).name;
-      if (a && awayLine(a, name)) return { a, name };
-    }
-    return null;
+      return a ? [{ availability: a, name: resolveUser(id).name }] : [];
+    });
+    return awaySummary(people) ? people : null;
   }, [availability, otherUserId, members, me, avail, resolveUser]);
 
   // ---- scrolling ------------------------------------------------------------
@@ -598,7 +597,7 @@ export function ChatThread({
             onSetTopic={topicsState.setTopic}
           />
         ) : null}
-        {away ? <ChatAwayBanner availability={away.a} name={away.name} /> : null}
+        {awayPeople ? <ChatAwayBanner people={awayPeople} /> : null}
         {pinnedMessage ? (
           <button
             type="button"

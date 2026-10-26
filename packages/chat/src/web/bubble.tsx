@@ -48,7 +48,6 @@ import {
   UserAvatar,
   cn,
 } from "@marktiderman/genesis-ui";
-import { extractLinks } from "../core/extras";
 import { attachmentKindFor } from "../core/media";
 import type { QueuedMessage } from "../core/outbox";
 import { previewText, summarizeReactions, type ThreadItem } from "../core/thread";
@@ -162,7 +161,7 @@ export function MessageRow({ item, startsGroup, className }: MessageRowProps) {
   const flagged = !deleted && message.moderation === "flagged";
   const observer = ctx.role === "observer";
   // One preview per message, iMessage-style: the first link the server has fetched.
-  const preview = !pending && !deleted && !hidden && message.body ? extractLinks(message.body).map((u) => ctx.previews[u]).find(Boolean) : undefined;
+  const preview = !pending && !deleted && !hidden && message.body ? ctx.previews[message.id]?.[0] : undefined;
 
   const bubble = (
     <div

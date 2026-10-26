@@ -42,7 +42,7 @@ export const chatKeys = {
   availability: (conversationId: string) => ["genesis-chat", "conversation", conversationId, "availability"] as const,
   myAvailability: () => ["genesis-chat", "my-availability"] as const,
   search: (query: string, conversationId?: string | null) => ["genesis-chat", "search", conversationId ?? null, query] as const,
-  previews: (urls: string[]) => ["genesis-chat", "previews", [...urls].sort()] as const,
+  previews: (messageIds: string[]) => ["genesis-chat", "previews", [...messageIds].sort()] as const,
 };
 
 /** What a messages list holds in the query cache: the page, and whether older messages exist. */
@@ -419,6 +419,7 @@ export function useConversation(conversationId: string | null | undefined, opts:
     () => throttle(() => channel.current?.signal("recording-voice")),
     [],
   );
+  const signalRecordingVideo = useMemo(() => throttle(() => channel.current?.signal("recording-video")), []);
 
   /** Sends text and files to this conversation (through the outbox: shown at once, retried safely). */
   const send = useCallback(
@@ -459,6 +460,8 @@ export function useConversation(conversationId: string | null | undefined, opts:
     activity: currentActivity(activity),
     signalTyping,
     signalRecording,
+    /** Tells the others you are recording a video (throttled). */
+    signalRecordingVideo,
     markRead,
     send,
     retry: outbox.retry,
@@ -716,19 +719,24 @@ export function useSearch(query: string, opts: { conversationId?: string | null;
   };
 }
 
-/** Previews for these links, by URL (only those the server has fetched; asked again after a minute). */
-export function useLinkPreviews(urls: (string | null | undefined)[]): Record<string, ChatLinkPreview> {
+/**
+ * Link previews for these messages, by message id, in link order (only those the server has
+ * fetched). Pass the messages whose text has links (`extractLinks(body).length > 0`): one
+ * with none yet is asked again a few times, since the runner fills them moments after it lands.
+ */
+export function useLinkPreviews(messageIds: (string | null | undefined)[]): Record<string, ChatLinkPreview[]> {
   const { client } = useChat();
-  const list = useMemo(() => [...new Set(urls.filter((u): u is string => Boolean(u)))].sort(), [urls]);
-  const data = useQuery({
-    queryKey: chatKeys.previews(list),
-    queryFn: () => client.linkPreviews(list),
-    enabled: list.length > 0,
-    staleTime: 60_000,
-    // The runner fills previews moments after a message lands: look again while some are missing.
-    refetchInterval: (q) => ((q.state.data?.length ?? 0) < list.length && q.state.dataUpdateCount < 4 ? 5_000 : false),
-  }).data;
-  return useMemo(() => Object.fromEntries((data ?? []).map((p) => [p.url, p])), [data]);
+  const list = useMemo(() => [...new Set(messageIds.filter((u): u is string => Boolean(u)))].sort(), [messageIds]);
+  return (
+    useQuery({
+      queryKey: chatKeys.previews(list),
+      queryFn: () => client.linkPreviewsFor(list),
+      enabled: list.length > 0,
+      staleTime: 60_000,
+      refetchInterval: (q) => (list.some((id) => !q.state.data?.[id]?.length) && q.state.dataUpdateCount < 4 ? 5_000 : false),
+    }).data ?? EMPTY_PREVIEWS
+  );
 }
+const EMPTY_PREVIEWS: Record<string, ChatLinkPreview[]> = {};
 
 export type { ThreadItem, LocalFile, QueuedMessage };

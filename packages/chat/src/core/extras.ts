@@ -6,12 +6,15 @@
  * topic keys.
  */
 
-/** The https links in a message's text, at most three, as genesis_chat.message_effects_0002 finds them. */
+/** A query that looks like a credential (a reset token, a signed URL): never previewed. Mirrors genesis_chat.message_links. */
+const CREDENTIAL = /[?&#;](access_token|id_token|refresh_token|token|auth|code|key|api_key|apikey|sig|signature|x-amz-signature|x-amz-credential|x-goog-signature|x-goog-credential|otp|secret|password|session|sessionid)=/i;
+
+/** The https links in a message's text that get a preview, at most three, as genesis_chat.message_links finds them. */
 export function extractLinks(body: string, max = 3): string[] {
   const out: string[] = [];
   for (const m of body.matchAll(/(https:\/\/[^\s<>()"']{4,})/g)) {
     const url = m[1]!;
-    if (url.length <= 2000 && !out.includes(url)) out.push(url);
+    if (url.length <= 2000 && !CREDENTIAL.test(url) && !out.includes(url)) out.push(url);
     if (out.length >= max) break;
   }
   return out;

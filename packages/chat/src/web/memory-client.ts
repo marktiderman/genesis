@@ -5,6 +5,7 @@
  * side (`receive`, `activity`) so a demo looks alive.
  */
 import { ChatError, type ChatClient, type ChatSupabase, type ConversationChannel, type ConversationHandlers, type MessagePage } from "../core/client";
+import { extractLinks } from "../core/extras";
 import type {
   AvailabilityInput,
   ChatActivity,
@@ -629,8 +630,27 @@ export function createMemoryChatClient(options: MemoryChatOptions): MemoryChatCl
       }
       return hits.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 30);
     },
-    async linkPreviews(urls: string[]) {
-      return urls.map((u) => previews.get(u)).filter((p): p is ChatLinkPreview => Boolean(p && p.status === "ok")).map((p) => ({ ...p }));
+    async linkPreviewsFor(messageIds: string[]) {
+      log("linkPreviewsFor", messageIds);
+      const out: Record<string, ChatLinkPreview[]> = {};
+      for (const id of new Set(messageIds)) {
+        let found: { c: Conv; m: ChatMessage } | null = null;
+        try {
+          found = findMessage(id);
+        } catch {
+          found = null;
+        }
+        // Only for a message you can read, as link_previews_for answers.
+        if (!found || found.m.deletedAt || !visible(found.c, found.m)) {
+          out[id] = [];
+          continue;
+        }
+        out[id] = extractLinks(found.m.body)
+          .map((u) => previews.get(u))
+          .filter((p): p is ChatLinkPreview => Boolean(p && p.status === "ok"))
+          .map((p) => ({ ...p }));
+      }
+      return out;
     },
     async sendDue(now = new Date()) {
       let n = 0;

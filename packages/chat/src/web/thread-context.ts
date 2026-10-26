@@ -26,8 +26,8 @@ export interface ThreadContextValue {
   attachmentSlot?: ComponentType<ChatAttachmentSlotProps> | null;
   /** Cards for the app's registered attachment kinds. */
   attachmentKinds?: Record<string, ChatAttachmentKind>;
-  /** Link previews by URL, for every link in the loaded messages. */
-  previews: Record<string, ChatLinkPreview>;
+  /** Link previews by message id, in link order. */
+  previews: Record<string, ChatLinkPreview[]>;
   /** Where the full emoji picker loads its data from. */
   emojibaseUrl?: string;
   highlightedId: string | null;

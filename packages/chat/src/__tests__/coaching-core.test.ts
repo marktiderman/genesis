@@ -1,6 +1,6 @@
 /** @feat:chat */
 import { describe, expect, it, vi } from "vitest";
-import { awayLine, hoursSummary, isAway, isWithinWorkingHours, localClock, timeZoneLabel } from "../core/availability";
+import { awayLine, awaySummary, namesLine, hoursSummary, isAway, isWithinWorkingHours, localClock, timeZoneLabel } from "../core/availability";
 import {
   createChatClient,
   toAvailability,
@@ -100,24 +100,28 @@ describe("client methods for 0002", () => {
     expect(calls.filter((c) => c.name === "search_messages")).toHaveLength(1);
   });
 
-  it("reads topics in order, scheduled ones still waiting, and only https previews that are ok", async () => {
+  it("reads topics in order, scheduled ones still waiting, and previews only through link_previews_for", async () => {
     const { supabase, calls } = fakeSupabase({
       topics: [{ conversation_id: "c", topic: "a", title: "A", position: 0, created_at: "t" }],
-      link_previews: [{ url: "https://x.test", status: "ok", fetched_at: "t" }],
+      link_previews_for: [
+        { url: "https://x.test", status: "ok", fetched_at: "t" },
+        { url: "https://y.test", status: "failed", fetched_at: "t" },
+      ],
     });
     const chat = createChatClient(supabase);
     expect((await chat.topics("c"))[0]!.title).toBe("A");
     await chat.scheduled("c");
-    expect(await chat.linkPreviews(["http://plain.test", "javascript:alert(1)"])).toEqual([]);
-    expect(await chat.linkPreviews(["https://x.test", "https://x.test"])).toHaveLength(1);
+    expect(await chat.linkPreviewsFor([])).toEqual({});
+    const byMessage = await chat.linkPreviewsFor(["m1", "m2", "m1"]);
+    expect(Object.keys(byMessage).sort()).toEqual(["m1", "m2"]);
+    expect(byMessage.m1!.map((p) => p.url)).toEqual(["https://x.test"]);
     const scheduled = calls.find((c) => c.name === "scheduled")!;
     expect(scheduled.filters).toContainEqual(["is", "sent_message_id", null]);
     expect(scheduled.filters).toContainEqual(["is", "cancelled_at", null]);
     expect(scheduled.filters).toContainEqual(["eq", "conversation_id", "c"]);
-    const previews = calls.filter((c) => c.name === "link_previews");
-    expect(previews).toHaveLength(1);
-    expect(previews[0]!.filters).toContainEqual(["in", "url", ["https://x.test"]]);
-    expect(previews[0]!.filters).toContainEqual(["eq", "status", "ok"]);
+    // One call per message, never a read of the closed table.
+    expect(calls.filter((c) => c.name === "link_previews_for").map((c) => c.args)).toEqual([{ p_message_id: "m1" }, { p_message_id: "m2" }]);
+    expect(calls.some((c) => c.kind === "from" && c.name === "link_previews")).toBe(false);
   });
 
   it("calls onJoin on every join, the first included, and onReconnect only on re-joins", async () => {
@@ -210,10 +214,29 @@ describe("awayLine", () => {
   });
 });
 
+describe("awaySummary", () => {
+  const away = (name: string) => ({ name, availability: { userId: name, awayMessage: "Off", awayUntil: null, timeZone: null, hours: null } });
+  const off = (name: string) => ({ name, availability: { userId: name, awayMessage: null, awayUntil: null, timeZone: "UTC", hours: { mon: [["09:00", "09:01"]] as [string, string][] } } });
+  const here = (name: string) => ({ name, availability: null });
+  const now = new Date("2026-03-04T12:00:00Z");
+
+  it("names everyone who is away, two at most", () => {
+    expect(namesLine(["Sam", "Lee", "Ann", "Bo"])).toBe("Sam, Lee and 2 others");
+    expect(namesLine(["Sam", "Lee", "Ann"])).toBe("Sam, Lee and 1 other");
+    expect(awaySummary([here("Ann"), away("Sam")], { now })).toBe("Sam is away: Off");
+    expect(awaySummary([away("Sam"), away("Lee")], { now })).toBe("Sam and Lee are away");
+    expect(awaySummary([off("Sam"), off("Lee"), off("Ann")], { now })).toBe("Sam, Lee and 1 other are outside their hours");
+    expect(awaySummary([away("Sam"), off("Lee"), away("Ann"), off("Bo")], { now })).toBe("Sam, Lee and 2 others are away or outside their hours");
+    expect(awaySummary([here("Ann")], { now })).toBeNull();
+  });
+});
+
 describe("small helpers", () => {
   it("finds links the way the database does", () => {
     expect(extractLinks("see https://a.test/x and https://b.test, http://no.test, https://a.test/x")).toEqual(["https://a.test/x", "https://b.test,"]);
     expect(extractLinks("https://1.test https://2.test https://3.test https://4.test")).toHaveLength(3);
+    // Credential-looking queries are never previewed (genesis_chat.message_links).
+    expect(extractLinks("reset at https://app.test/reset?token=abc and https://ok.test/a?page=2")).toEqual(["https://ok.test/a?page=2"]);
   });
 
   it("accepts only https images", () => {

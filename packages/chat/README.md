@@ -109,15 +109,17 @@ chat.broadcast(conversationIds, clientId, body, { silent? }): Promise<string[]>
 // Search: text and transcripts, newest first; snippets mark matches with « ».
 chat.search(query, conversationId?, { limit? }): Promise<ChatSearchHit[]>
 
-// Link previews the runner fetched (status ok only).
-chat.linkPreviews(urls): Promise<ChatLinkPreview[]>
+// Link previews the runner fetched (status ok only), by message id, through link_previews_for
+// (one call per message, six at a time): only for messages you can read. The table is closed.
+chat.linkPreviewsFor(messageIds): Promise<Record<string, ChatLinkPreview[]>>
 ```
 
 `ChatMessage.moderation` is `"flagged" | "hidden" | null`: a hidden message reaches only its
 sender and the conversation's observers. Pure helpers: `isWithinWorkingHours(hours, timeZone,
 now)` (an end at or before the start runs past midnight), `isAway(a, now)`, `hoursSummary(hours)`
-("Mon–Fri, 9–5"), `awayLine(a, name, { now })` ("Mark replies Mon–Fri, 9–5 (Eastern)", "Away until
-Monday: Back Monday", or null when they're around), `extractLinks(body)` (the database's rule),
+("Mon–Fri, 9–5"), `awaySummary(people, { now })` (a group: "Sam, Lee and 2 others are away"),
+`awayLine(a, name, { now })` ("Mark replies Mon–Fri, 9–5 (Eastern)", "Away until
+Monday: Back Monday", or null when they're around), `extractLinks(body)` (the database's `message_links` rule, which skips credential-looking queries),
 `isHttpsUrl`, `snippetParts(snippet)`, `scheduleQuickPicks(now)`, `scheduleLabel`, `isSchedulable`,
 `topicKey(title)`.
 
@@ -134,10 +136,10 @@ const { items, schedule, cancel } = useScheduled(conversationId);   // schedule(
 const { mine, setMine, members, others, forUser } = useAvailability(conversationId);
 const { send, sending } = useBroadcast();                          // send(ids, body) -> message ids
 const { hits, isSearching, query } = useSearch(text, { conversationId, debounceMs: 250 });
-const previews = useLinkPreviews(urls);                            // Record<url, ChatLinkPreview>
+const previews = useLinkPreviews(messageIds);                      // Record<messageId, ChatLinkPreview[]>, in link order
 ```
 
-`useConversation` also returns `loadUntil(seq)` (loads earlier pages until that message is here,
+`useConversation` also returns `signalRecordingVideo()` (throttled, like `signalRecording`), `loadUntil(seq)` (loads earlier pages until that message is here,
 for a search result), `accessError` and `refetchAccess` (the role check failed: offer a retry, not
 "can't post"). It catches up (messages after the newest one held) every time its live channel
 joins, the first time included, and keeps `hasEarlier` in the cached page.
@@ -154,7 +156,16 @@ on `online` and once after loading the saved outbox) and `clearOutbox()` (call i
   // Mux direct uploads: your server makes the upload; the composer PUTs the recording there and
   // sends { kind: "video", provider: "mux", providerId, status: "pending" }. Without it, videos
   // upload to storage as files.
-  videoUpload={{ create: (conversationId) => fetch(`/api/video-upload?c=${conversationId}`, { method: "POST" }).then((r) => r.json()) }}
+  // Pairs with createVideoUploadHandler from /server, which mints the upload and its passthrough;
+  // the client sends only the upload id (no attachment id).
+  videoUpload={{
+    create: (conversationId) =>
+      fetch("/api/chat-video-upload", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ conversationId }),
+      }).then((r) => (r.ok ? r.json() : Promise.reject(new Error("Couldn't start the upload")))),
+  }}
   // Cards for your own attachment kinds (no forms dependency): a title, a subtitle, one action.
   attachmentKinds={{
     form: {
@@ -186,8 +197,8 @@ yourself in that slot:
 - **Scheduled send**: the arrow beside Send offers tomorrow 9 AM, Monday 9 AM, or a date and time;
   "N scheduled messages" above the box opens `ChatScheduledList` with Cancel (`scheduling={false}`
   turns it off). `ChatScheduledList` also works on its own, for all conversations.
-- **Availability**: `ChatAwayBanner` above the messages when the other person (in a group, its
-  owners and admins) is away or outside their hours; `ChatAvailabilitySettings` for your own.
+- **Availability**: `ChatAwayBanner` above the messages when the other person is away or outside
+  their hours, or in a group everyone who is (two names, then "and N others"); `ChatAvailabilitySettings` for your own.
 - **Broadcast**: `<ChatBroadcast resolveUser={…} kind="direct" />` picks conversations from the inbox
   and sends once, saying replies come back privately.
 - **Search**: `<ChatSearch resolveUser onOpen={(hit) => …} conversationId? />`; the thread header has

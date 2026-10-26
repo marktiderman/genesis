@@ -603,12 +603,25 @@ export function createChatClient(supabase: ChatSupabase, options: ChatClientOpti
       return (rows ?? []).map(toSearchHit);
     },
 
-    /** Previews the server has fetched for these links (only `ok` ones; links not fetched yet are left out). */
-    async linkPreviews(urls: string[]): Promise<ChatLinkPreview[]> {
-      const list = [...new Set(urls.filter((u) => /^https:\/\//i.test(u)))].slice(0, 100);
-      if (list.length === 0) return [];
-      const rows = must<Row[]>("linkPreviews", await db().from("link_previews").select("*").in("url", list).eq("status", "ok"));
-      return rows.map(toLinkPreview);
+    /**
+     * The previews the server has fetched for the links in these messages, by message id (only
+     * `ok` ones; links not fetched yet are left out). Read through link_previews_for, one call
+     * per message (up to 6 at once), which answers only for messages you can read: the preview
+     * table itself is closed, since a URL can carry a secret.
+     */
+    async linkPreviewsFor(messageIds: string[]): Promise<Record<string, ChatLinkPreview[]>> {
+      const ids = [...new Set(messageIds.filter(Boolean))].slice(0, 200);
+      const out: Record<string, ChatLinkPreview[]> = {};
+      let next = 0;
+      const worker = async () => {
+        while (next < ids.length) {
+          const id = ids[next++]!;
+          const rows = await rpc<Row[] | null>("link_previews_for", { p_message_id: id });
+          out[id] = (rows ?? []).map(toLinkPreview).filter((p) => p.status === "ok");
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(6, ids.length) }, worker));
+      return out;
     },
 
     /**

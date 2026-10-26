@@ -174,6 +174,20 @@ describe("availability", () => {
     expect(banner.getAttribute("role")).toBe("status");
   });
 
+  it("names every member who is away in a group", async () => {
+    const ANN = "00000000-0000-4000-8000-0000000000e5";
+    const BO = "00000000-0000-4000-8000-0000000000f6";
+    names[ANN] = "Ann";
+    names[BO] = "Bo";
+    const soon = new Date(Date.now() + 86_400_000).toISOString();
+    const client = make(
+      { id: "c1", title: "Group", members: [{ userId: ME, role: "owner" }, { userId: SAM }, { userId: LEE }, { userId: ANN }, { userId: BO }], messages: [{ id: "x", senderId: SAM, body: "Hi", createdAt: at(1) }] },
+      { availability: { [SAM]: { awayMessage: "Off", awayUntil: soon }, [LEE]: { awayMessage: "Off", awayUntil: soon }, [ANN]: { awayMessage: "Off", awayUntil: soon } } },
+    );
+    mount(client, <ChatThread conversationId="c1" resolveUser={resolveUser} />);
+    expect((await screen.findByTestId("genesis-chat-away-banner")).textContent).toBe("Sam, Lee and 1 other are away");
+  });
+
   it("shows no banner inside working hours, and says when they reply outside them", async () => {
     const all = { mon: [["00:00", "24:00"]], tue: [["00:00", "24:00"]], wed: [["00:00", "24:00"]], thu: [["00:00", "24:00"]], fri: [["00:00", "24:00"]], sat: [["00:00", "24:00"]], sun: [["00:00", "24:00"]] } as never;
     const inside = make(dm(), { availability: { [SAM]: { timeZone: "UTC", hours: all } } });

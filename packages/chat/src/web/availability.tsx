@@ -23,22 +23,25 @@ import {
   cn,
   toast,
 } from "@marktiderman/genesis-ui";
-import { WEEKDAYS, awayLine } from "../core/availability";
+import { WEEKDAYS, awayLine, awaySummary } from "../core/availability";
 import type { ChatAvailability, Weekday, WorkingHours } from "../core/types";
 import { useAvailability } from "../react/index";
 import { toLocalInput } from "./schedule";
 
 export interface ChatAwayBannerProps {
-  availability: ChatAvailability | null | undefined;
+  /** One person (a direct conversation). */
+  availability?: ChatAvailability | null;
   /** The person's name, as the app shows it. */
-  name: string;
+  name?: string;
+  /** Several people (a group): everyone away or outside their hours is named, two at most. */
+  people?: { availability: ChatAvailability | null | undefined; name: string }[];
   now?: Date;
   className?: string;
 }
 
-/** "Mark replies Mon–Fri, 9–5 (Eastern)" or "Away until Monday: Back Monday"; nothing when they're around. */
-export function ChatAwayBanner({ availability, name, now, className }: ChatAwayBannerProps) {
-  const line = awayLine(availability, name, { now });
+/** "Mark replies Mon–Fri, 9–5 (Eastern)", "Away until Monday: Back Monday", "Sam, Lee and 2 others are away"; nothing when everyone is around. */
+export function ChatAwayBanner({ availability, name, people, now, className }: ChatAwayBannerProps) {
+  const line = people ? awaySummary(people, { now }) : awayLine(availability, name ?? "They", { now });
   if (!line) return null;
   return (
     <Alert className={cn("rounded-none border-x-0 border-t-0 px-3 py-2", className)} role="status" data-testid="genesis-chat-away-banner">

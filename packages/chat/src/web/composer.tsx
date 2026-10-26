@@ -57,7 +57,7 @@ export interface ChatComposerHandle {
 export interface ChatComposerProps {
   /** From `useConversation`: how to send, and whether you may. */
   conversation: Pick<ConversationState, "send" | "signalTyping" | "signalRecording" | "role" | "canPost" | "accessLoading" | "conversation"> &
-    Partial<Pick<ConversationState, "accessError" | "refetchAccess">>;
+    Partial<Pick<ConversationState, "accessError" | "refetchAccess" | "signalRecordingVideo">>;
   /** The message being replied to; a banner shows above the box. */
   replyTo?: ChatMessage | null;
   onCancelReply?: () => void;
@@ -547,7 +547,7 @@ export function ChatComposer({
           maxMs={recordingLimitMs(state.role)}
           send={(input, files) => state.send({ ...input, ...common() }, files)}
           videoUpload={videoUpload}
-          onTick={state.signalRecording}
+          onTick={state.signalRecordingVideo ?? state.signalRecording}
           onSent={() => {
             onCancelReply?.();
             onSent?.();
