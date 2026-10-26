@@ -1,0 +1,25 @@
+packages/chat/src/native/attachment-cards.tsx
+  s_c0870a827920ef::t_df78bddaa049f9 83
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_b549db37d3932f 234
+packages/chat/src/web/inbox.tsx
+  s_c0870a827920ef::t_38a22409453d31 143
+packages/chat/src/web/video.tsx
+  s_c0870a827920ef::t_57e117e5e0c5db 334,336
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b6ecfcafab4550eb74ff31622276f9a408779412",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
