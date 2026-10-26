@@ -1,0 +1,53 @@
+.changeset/genesis-jobs.md
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-14
+packages/supabase/migrations/tests/0007_genesis_jobs.test.sql
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-129
+packages/supabase/src/index.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 196
+features.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1697-1725
+packages/core/README.md
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 109-128
+AGENTS.md
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 16
+packages/supabase/src/__tests__/jobs.test.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-192
+packages/supabase/src/blocks.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 54-68
+packages/supabase/tsup.config.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 4
+packages/supabase/src/jobs.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-368
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-102
+packages/supabase/migrations/0007_genesis_jobs.sql
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-352
+features.json
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 3902-3966
+  s_f5a91deb5a46ce::t_ff96a8909d9a37 3901
+.changeset/resource-source.md
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 1-5
+packages/supabase/package.json
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 7,34-37,136-165
+  s_f5a91deb5a46ce::t_be2f9efa96d4a7 166
+packages/supabase/README.md
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 592-692,741
+packages/core/src/provider/supabase-provider.ts
+  s_f5a91deb5a46ce::t_7d6fe93549b7cc 108-109,199-215,486-501,669,738,795,804
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fa8be294a805d0cf258ad70396aa0372153ca96f",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

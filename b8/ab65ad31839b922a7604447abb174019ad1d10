@@ -1,0 +1,53 @@
+.changeset/chat-native-slot-review.md
+  s_2550badb988043::t_971316a40ef264 1-10
+packages/chat/README.md
+  s_2550badb988043::t_6845290f8c4662 82,85,93-95
+packages/chat/src/native/__tests__/attachment-slot.test.tsx
+  s_3daa86e3ae6031::t_7b98a171ff2f74 4,9,16-28,33-34,210-292,333-345
+packages/chat/src/native/attachment-cards.tsx
+  s_1f35d570c63beb::t_55b38c74fdb6f0 20,102-113,118-119,121-122,128,130,146-148,150-155,159,163,178-181,199-202,205-215,305-306,314-318,321,324-325,327-328,333-369
+packages/chat/src/native/copy.ts
+  s_1f35d570c63beb::t_185f02453d0588 109-110,252
+packages/chat/src/native/index.ts
+  s_1f35d570c63beb::t_25b3f52d92d651 81-83
+packages/chat/src/native/media.tsx
+  s_1f35d570c63beb::t_a44405800df0be 202-207,227-229,240-241,244-246,248-254
+packages/chat/src/native/message-bubble.tsx
+  s_1f35d570c63beb::t_5f5af996ffb12d 16,73-74,113-125,143,210,270-271,277-282,341
+packages/chat/src/native/thread-screen.tsx
+  s_1f35d570c63beb::t_b7ef0700b691e0 89-90,160,414,419
+packages/chat/src/react/error-boundary.tsx
+  s_2550badb988043::t_c14655ed947dfb 6-7,16-17,21-26,34-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b8ab65ad31839b922a7604447abb174019ad1d10",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

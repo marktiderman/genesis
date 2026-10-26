@@ -1,0 +1,59 @@
+.changeset/genesis-jobs.md
+  s_3daa86e3ae6031::t_ab201b5a2277eb 1-14
+.changeset/source-rls-followup.md
+  s_2c334912fcb08f::t_d7469242a7855f 1-5
+AGENTS.md
+  s_3daa86e3ae6031::t_21262fb18d4a9d 16
+features.json
+  s_3daa86e3ae6031::t_cdce00c776f40c 3759-3824
+features.ts
+  s_3daa86e3ae6031::t_7fa0c2d7d9060c 1639-1667
+packages/core/README.md
+  s_3daa86e3ae6031::t_dd07a906a08621 129,143-144
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_3daa86e3ae6031::t_9856a6b6e4c658 53,78-83
+packages/core/src/provider/supabase-provider.ts
+  s_3daa86e3ae6031::t_471b5388c42576 206,212-213,224,232-233,505,533-534
+packages/supabase/README.md
+  s_3daa86e3ae6031::t_092443bf2afa64 592-692,741
+packages/supabase/migrations/0007_genesis_jobs.sql
+  s_3daa86e3ae6031::t_3d9216c747034b 1-352
+packages/supabase/migrations/tests/0007_genesis_jobs.test.sql
+  s_3daa86e3ae6031::t_08117b62534276 1-129
+packages/supabase/package.json
+  s_3daa86e3ae6031::t_292d225841f0b5 7,34-37,136-166
+packages/supabase/src/__tests__/jobs.test.ts
+  s_3daa86e3ae6031::t_e16c45e047aad7 1-192
+packages/supabase/src/blocks.ts
+  s_3daa86e3ae6031::t_11310f22cab367 54-68
+packages/supabase/src/index.ts
+  s_3daa86e3ae6031::t_8b129fc8117afa 196
+packages/supabase/src/jobs.ts
+  s_3daa86e3ae6031::t_ef15b50e0fcf4d 1-368
+packages/supabase/tsup.config.ts
+  s_3daa86e3ae6031::t_95c924e439898e 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0831ffae86b6fc0e6ace79d38140052d3bd4b5d6",
+  "prompts": {},
+  "sessions": {
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

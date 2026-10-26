@@ -1,0 +1,57 @@
+packages/ui/src/components/layout/builder-layout.tsx
+  s_3daa86e3ae6031::t_bd75ca53bf71e8 1-198
+packages/ui/src/components/layout/__tests__/builder-layout.test.tsx
+  s_3daa86e3ae6031::t_5662f3f40ca684 1-162
+apps/sample/stories/BuilderLayout.stories.tsx
+  s_3daa86e3ae6031::t_d318911286fe8b 1-153
+.changeset/builder-layout.md
+  s_3daa86e3ae6031::t_124044b17aa3b8 1-5
+.changeset/forms-builder-builder-layout.md
+  s_3daa86e3ae6031::t_153cbfe2e440fe 1-5
+apps/sample/app/data/primitives.json
+  s_3daa86e3ae6031::t_b45998a60e1914 10,6866-6960
+docs/component-reference.md
+  s_3daa86e3ae6031::t_efcaef5945e7de 7,240,248,554,559
+features.json
+  s_3daa86e3ae6031::t_b1ce3e7a301d34 96,106-107
+features.ts
+  s_3daa86e3ae6031::t_8a848c6242973e 57,62
+packages/forms-builder/README.md
+  s_3daa86e3ae6031::t_8a79acc410111b 61-62
+packages/forms-builder/package.json
+  s_3daa86e3ae6031::t_70cf083eedae42 52
+packages/forms-builder/src/FormBuilder.tsx
+  s_3daa86e3ae6031::t_d6ecf18978a2d4 20,496-509,551-552
+packages/forms-builder/src/questions.tsx
+  s_3daa86e3ae6031::t_1b71875ac3daec 20,343-350,354-357,361-362,368-373,441-444,457-459
+packages/ui/SKILL.md
+  s_3daa86e3ae6031::t_8945d5a503e8bc 137,152-182
+packages/ui/package.json
+  s_3daa86e3ae6031::t_b5c4235788bea0 137-140
+packages/ui/scripts/gen-exports.mjs
+  s_3daa86e3ae6031::t_9f3b23eb4798fe 105-107
+packages/ui/src/components/layout/index.ts
+  s_3daa86e3ae6031::t_1c7304b6fca8c2 62-63
+packages/ui/src/index.ts
+  s_3daa86e3ae6031::t_fc41e3e5195ca9 135-139
+packages/ui/tsup.config.ts
+  s_3daa86e3ae6031::t_005563073b0aa1 56
+packages/ui/type-tests-exact/builder-layout.tsx
+  s_3daa86e3ae6031::t_125457538c14c1 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "66c6254240556ae6cc7e7092eba28a4626620c84",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

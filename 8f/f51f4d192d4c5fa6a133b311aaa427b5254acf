@@ -1,0 +1,95 @@
+.changeset/builder-layout.md
+  s_18dd9cee35b819::t_4a3e6bb03cb821 1-5
+.changeset/forms-builder-builder-layout.md
+  s_18dd9cee35b819::t_6c2db2f272e7dd 1-5
+.changeset/use-draft.md
+  s_18dd9cee35b819::t_0dc898f68dab8b 1-5
+.changeset/viewer-switch-writes.md
+  s_18dd9cee35b819::t_1c9ad850f20be4 1-5
+apps/sample/app/data/primitives.json
+  s_18dd9cee35b819::t_3bde46a36f26fa 10,7107-7201
+apps/sample/stories/BuilderLayout.stories.tsx
+  s_18dd9cee35b819::t_f0c8b30e9cce43 1-153
+docs/component-reference.md
+  s_18dd9cee35b819::t_98e5a111486d70 7,240,248,554,559
+features.json
+  s_18dd9cee35b819::t_bf049a252fc4ab 96,111-112
+features.ts
+  s_18dd9cee35b819::t_5163850d439aec 57,62
+packages/core/README.md
+  s_2c334912fcb08f::t_10c60138d09b71 359-391,393-401,404-405,408-410,446-478
+packages/core/src/__tests__/query-keys.test.ts
+  s_18dd9cee35b819::t_4a176efc14175d 95-100
+packages/core/src/hooks/__tests__/draft-controller.test.ts
+  s_18dd9cee35b819::t_808648eeccebb5 1-379
+packages/core/src/hooks/__tests__/use-draft.test.tsx
+  s_18dd9cee35b819::t_011dc23083bb2d 1-138
+packages/core/src/hooks/__tests__/viewer-switch-writes.test.ts
+  s_18dd9cee35b819::t_663cb928a2c4d5 1-76
+packages/core/src/hooks/draft-controller.ts
+  s_18dd9cee35b819::t_0f21711e337a9a 1-403
+packages/core/src/hooks/index.ts
+  s_18dd9cee35b819::t_a45008bc049280 34-47,55-56
+packages/core/src/hooks/mutation-mode.ts
+  s_18dd9cee35b819::t_e3d587e3c4d23c 241-244,278-302,785-786,870-878
+packages/core/src/hooks/use-draft.ts
+  s_18dd9cee35b819::t_e2b023f2ed1df5 1-76
+packages/core/src/hooks/viewer-scope.tsx
+  s_18dd9cee35b819::t_54316117aa08b0 3,6-9,12,54-57
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_2c334912fcb08f::t_c9a40b9d474a14 74-79
+packages/core/src/provider/write-helpers.ts
+  s_2c334912fcb08f::t_45f9340a85b1e8 51-52
+packages/core/src/query-keys.ts
+  s_18dd9cee35b819::t_aa0c582a04bdf9 78-79,123-124
+packages/forms-builder/README.md
+  s_18dd9cee35b819::t_dcb435aa9edcf2 61-62
+packages/forms-builder/package.json
+  s_18dd9cee35b819::t_d44ed4f1c19c42 52
+packages/forms-builder/src/FormBuilder.tsx
+  s_18dd9cee35b819::t_9a569642bf783c 20,496-509,551-552
+packages/forms-builder/src/questions.tsx
+  s_18dd9cee35b819::t_82d5f67021daf0 20,343-350,354-357,361-362,368-373,441-444,457-459
+packages/ui/SKILL.md
+  s_18dd9cee35b819::t_a30371b7a342dd 137,152-182
+packages/ui/package.json
+  s_18dd9cee35b819::t_22be616356973a 137-140
+packages/ui/scripts/gen-exports.mjs
+  s_18dd9cee35b819::t_07eb425aadae7d 105-107
+packages/ui/src/components/layout/__tests__/builder-layout.test.tsx
+  s_18dd9cee35b819::t_85fa3d1ef5d5ae 1-162
+packages/ui/src/components/layout/builder-layout.tsx
+  s_18dd9cee35b819::t_e09a39030aa705 1-198
+packages/ui/src/components/layout/index.ts
+  s_18dd9cee35b819::t_e9a9d8c17e096a 62-63
+packages/ui/src/index.ts
+  s_18dd9cee35b819::t_e433ef53e86e75 135-139
+packages/ui/tsup.config.ts
+  s_18dd9cee35b819::t_414769ad19f5f8 56
+packages/ui/type-tests-exact/builder-layout.tsx
+  s_18dd9cee35b819::t_705bd441c449b0 1-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8ff51f4d192d4c5fa6a133b311aaa427b5254acf",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
