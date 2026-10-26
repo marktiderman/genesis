@@ -65,9 +65,11 @@ create table public.metrics (
     constraint metrics_template_key_format check (template_key is null or template_key ~ '^[a-z][a-z0-9_-]{0,59}$'),
   source text not null default 'manual'
     constraint metrics_source check (source in ('manual', 'formula', 'sheet', 'quickbooks', 'hubspot', 'query')),
-  -- Where a synced value comes from: ids and options only, never a secret. A synced source names
-  -- its connected account as "connection_id" (a uuid), so many metrics share one connection and
-  -- revoking it stops them all, beside its own ids (a sheet and range, a report).
+  -- A synced source's connected account, so many metrics share one connection and revoking it
+  -- stops them all. No foreign key here: the connected-accounts table comes in a later migration.
+  connection_id uuid,
+  -- Where a synced value comes from (a sheet and range, a report): ids and options only, never a
+  -- secret.
   source_config jsonb not null default '{}'::jsonb
     constraint metrics_source_config_object check (jsonb_typeof(source_config) = 'object'),
   -- The last sync's outcome, so a failing source shows instead of going quietly stale.
@@ -92,9 +94,7 @@ create table public.metrics (
   constraint metrics_formula_source check ((source = 'formula') = (formula is not null)),
   constraint metrics_formula_object check (formula is null or jsonb_typeof(formula) = 'object'),
   constraint metrics_synced_names_connection check (
-    source not in ('sheet', 'quickbooks', 'hubspot')
-    or (source_config ? 'connection_id'
-        and (source_config ->> 'connection_id') ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'))
+    (source in ('sheet', 'quickbooks', 'hubspot')) = (connection_id is not null))
 );
 
 comment on table public.metrics is
@@ -105,6 +105,7 @@ comment on column public.metrics.template_key is 'The same number across teams, 
 create index metrics_tenant_owner_idx on public.metrics (tenant_id, coalesce(person_id, team_id, organization_id));
 create index metrics_template_idx on public.metrics (tenant_id, template_key) where template_key is not null;
 create index metrics_created_by_idx on public.metrics (created_by);
+create index metrics_connection_idx on public.metrics (connection_id) where connection_id is not null;
 
 -- Values ---------------------------------------------------------------------------------------
 

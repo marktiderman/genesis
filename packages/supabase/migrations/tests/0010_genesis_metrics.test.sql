@@ -164,8 +164,8 @@ select throws_ok(
   $$ insert into public.metrics (tenant_id, team_id, name, source, source_config) values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'quickbooks', '{"report": "pl"}') $$,
   '23514', null, 'a synced metric names its connection');
 select lives_ok(
-  $$ insert into public.metrics (tenant_id, team_id, name, source, source_config)
-     values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'sheet', '{"connection_id": "00000000-0000-4000-f000-000000000001", "range": "A1"}') $$,
+  $$ insert into public.metrics (tenant_id, team_id, name, source, connection_id, source_config)
+     values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'sheet', '00000000-0000-4000-f000-000000000001', '{"range": "A1"}') $$,
   'a synced metric with its connection');
 
 -- Goals over time ---------------------------------------------------------------------------
