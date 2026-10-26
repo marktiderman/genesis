@@ -32,6 +32,19 @@ describe("defineQueryKeys", () => {
     expect(worksheetKeys.for({ viewer: null }).mine()).toEqual(["worksheet-items", "mine", { viewer: null }]);
   });
 
+  it("keeps practices apart: the scope is part of the key", () => {
+    const p1 = worksheetKeys.for({ viewer: "ann", scope: { practiceId: "p1" } }).mine();
+    const p2 = worksheetKeys.for({ viewer: "ann", scope: { practiceId: "p2" } }).mine();
+    expect(p1).not.toEqual(p2);
+    expect(p1[2]).toEqual({ viewer: "ann", scope: { practiceId: "p1" } });
+    // An empty scope adds nothing, and key order inside it doesn't matter to the cache.
+    expect(worksheetKeys.for({ viewer: "ann", scope: {} }).mine()).toEqual(ann.mine());
+    const client = new QueryClient();
+    client.setQueryData(worksheetKeys.for({ viewer: "ann", scope: { practiceId: "p1", personId: "x" } }).mine(), 1);
+    expect(client.getQueryData(worksheetKeys.for({ viewer: "ann", scope: { personId: "x", practiceId: "p1" } }).mine())).toBe(1);
+    client.clear();
+  });
+
   it("keeps viewers apart", () => {
     expect(ann.mine()).not.toEqual(worksheetKeys.for({ viewer: "bob" }).mine());
   });

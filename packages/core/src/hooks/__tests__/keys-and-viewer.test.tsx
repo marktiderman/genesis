@@ -1,15 +1,15 @@
 // @vitest-environment happy-dom
 import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { useState, type ReactNode } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataProviderRoot } from "../../provider/context";
 import { createMockProvider } from "../../provider/mock-provider";
-import { resourceKeys } from "../../query-keys";
+import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
 import { useOne } from "../use-one";
 import { useResource } from "../use-resource";
-import { ViewerScope } from "../viewer-scope";
+import { ViewerScope, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
 
 afterEach(cleanup);
 
@@ -59,6 +59,62 @@ describe("resourceKeys are the keys the hooks cache under", () => {
     await waitFor(() =>
       expect(client.getQueryCache().findAll({ queryKey: [...resourceKeys("tasks").all, "infinite"] })).toHaveLength(1),
     );
+  });
+});
+
+describe("useInfiniteResource and an uncounted or estimated total", () => {
+  /** A provider with 25 rows that reports `total` as given, 10 per page. */
+  function pagedProvider(total: number, totalIsEstimate?: boolean) {
+    const rows = Array.from({ length: 25 }, (_, i) => ({ id: `t${i}` }));
+    return {
+      ...createMockProvider({}),
+      async getList(_r: string, params: { pagination?: { page: number; perPage: number } }) {
+        const { page = 1, perPage = 10 } = params.pagination ?? {};
+        return { data: rows.slice((page - 1) * perPage, page * perPage), total, ...(totalIsEstimate ? { totalIsEstimate } : {}) };
+      },
+    } as never;
+  }
+
+  async function loadAll(provider: never) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    let api!: ReturnType<typeof useInfiniteResource>;
+    function Pages() {
+      api = useInfiniteResource("tasks", { perPage: 10 });
+      return null;
+    }
+    render(
+      <QueryClientProvider client={client}>
+        <DataProviderRoot provider={provider}>
+          <Pages />
+        </DataProviderRoot>
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(api.rows.length).toBe(10));
+    for (let i = 0; i < 5 && api.hasNextPage; i++) {
+      const before = api.rows.length;
+      act(() => api.fetchNextPage());
+      await waitFor(() => expect(api.rows.length > before || !api.hasNextPage).toBe(true));
+    }
+    // Let a final page settle before reading hasNextPage.
+    await waitFor(() => expect(api.isFetchingNextPage).toBe(false));
+    return api;
+  }
+
+  it("count none (total -1) keeps paging until a short page", async () => {
+    const api = await loadAll(pagedProvider(-1));
+    expect(api.rows.length).toBe(25);
+    expect(api.hasNextPage).toBe(false);
+  });
+
+  it("an estimate that undercounts doesn't stop it early", async () => {
+    const api = await loadAll(pagedProvider(12, true));
+    expect(api.rows.length).toBe(25);
+  });
+
+  it("an exact total still stops at the total", async () => {
+    const api = await loadAll(pagedProvider(20));
+    expect(api.rows.length).toBe(20);
+    expect(api.hasNextPage).toBe(false);
   });
 });
 
@@ -123,5 +179,65 @@ describe("ViewerScope", () => {
     render(same.wrap(<ViewerScope viewer="ann" persistedViewer="ann"><p>ann home</p></ViewerScope>));
     await screen.findByText("ann home");
     expect(same.client.getQueryData(["whoami"])).toBe("ann (restored)");
+  });
+
+  it("passes the viewer and scope down, and a new scope re-renders readers without remounting them", async () => {
+    const { wrap } = setup();
+    const mounts: string[] = [];
+    function Where() {
+      const { viewer, scope } = useViewerScope();
+      const [id] = useState(() => {
+        mounts.push("mount");
+        return Math.random();
+      });
+      return <p data-id={id}>{`${viewer}@${scope.practiceId ?? "-"}`}</p>;
+    }
+    const view = (practiceId: string) => wrap(<ViewerScope viewer="ann" scope={{ practiceId }}><Where /></ViewerScope>);
+    const { rerender } = render(view("p1"));
+    await screen.findByText("ann@p1");
+    rerender(view("p2"));
+    await screen.findByText("ann@p2");
+    expect(mounts).toEqual(["mount"]);
+  });
+
+  it("useViewerScope needs a ViewerScope; useOptionalViewerScope is null without one", () => {
+    const { wrap } = setup();
+    function Optional() {
+      return <p>{useOptionalViewerScope() === null ? "none" : "some"}</p>;
+    }
+    render(wrap(<Optional />));
+    expect(screen.getByText("none")).toBeTruthy();
+    function Required() {
+      useViewerScope();
+      return null;
+    }
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(wrap(<Required />))).toThrow(/needs a <ViewerScope>/);
+    spy.mockRestore();
+  });
+
+  it("gives today on the viewer's clock, and query keys take it as their day", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-27T03:30:00Z")); // still the 26th in Chicago
+      const { wrap } = setup();
+      const seen: string[] = [];
+      function Today() {
+        const ctx = useViewerScope();
+        seen.push(`${ctx.timeZone} ${ctx.day} ${JSON.stringify(defineQueryKeys("x", { q: () => ({}) }).for(ctx).q()[2])}`);
+        return <p>{ctx.day}</p>;
+      }
+      render(wrap(<ViewerScope viewer="ann" timeZone="America/Chicago"><Today /></ViewerScope>));
+      await screen.findByText("2026-10-26");
+      expect(seen.at(-1)).toBe('America/Chicago 2026-10-26 {"viewer":"ann","day":"2026-10-26"}');
+      // Past midnight in Chicago, the next check rolls the day over.
+      vi.setSystemTime(new Date("2026-10-27T05:30:00Z"));
+      act(() => {
+        vi.advanceTimersByTime(60_000);
+      });
+      expect(screen.getByText("2026-10-27")).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

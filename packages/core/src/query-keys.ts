@@ -24,6 +24,11 @@ export interface KeyScope {
   group?: string | null;
   /** The person-day (YYYY-MM-DD) a "today" read is for. */
   day?: string | null;
+  /**
+   * Where the viewer is working (ViewerScope's `scope`: practice, person, space…). Part of every
+   * key, so the same query for two practices never shares a cache entry.
+   */
+  scope?: Readonly<Record<string, unknown>>;
 }
 
 type Fields = Record<string, unknown>;
@@ -54,6 +59,8 @@ function scopeFields(scope: KeyScope): Fields {
   const out: Fields = { viewer: scope.viewer };
   if (scope.group !== undefined) out.group = scope.group;
   if (scope.day !== undefined) out.day = scope.day;
+  // Key order doesn't matter: TanStack hashes keys with object keys sorted.
+  if (scope.scope && Object.keys(scope.scope).length > 0) out.scope = { ...scope.scope };
   return out;
 }
 
