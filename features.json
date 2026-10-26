@@ -1775,7 +1775,9 @@
       "links": {
         "code": [
           "packages/product/src/board.ts",
-          "packages/product/src/cli.ts"
+          "packages/product/src/cli.ts",
+          "packages/product/src/app.ts",
+          "packages/product/src/native"
         ]
       },
       "access": "all",
@@ -4109,6 +4111,82 @@
         ],
         "docs": [
           "packages/supabase/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "web-handoff",
+      "name": "Continue on the web",
+      "summary": "A native app opens a page of the web app signed in as the same person: the server mints a single-use, 60-second link for the bearer's own account (digest stored, token in the fragment); the page claims it for a 30-second continue nonce and asks before signing in unless that browser is already them; Supabase Auth's magic-link token is minted only on Continue; Cancel signs anyone else out; the app's sign-out ends exactly the web sessions it handed off.",
+      "tagline": "Pick up on the web where the app left off, already signed in.",
+      "category": "Identity",
+      "status": "building",
+      "claimedBy": "web-handoff PR",
+      "horizon": "now",
+      "layer": "block",
+      "keywords": [
+        "handoff",
+        "open on web",
+        "continue on web",
+        "magic link",
+        "sso",
+        "sign in",
+        "native to web",
+        "edit on the web"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-supabase/web-handoff",
+        "native": "@marktiderman/genesis-native/web-handoff",
+        "server": "@marktiderman/genesis-supabase/web-handoff/server"
+      },
+      "requires": [
+        "supabase-kit"
+      ],
+      "contributes": [
+        "table: private.genesis_web_handoffs",
+        "rpc: genesis_web_handoff_issue",
+        "rpc: genesis_web_handoff_claim",
+        "rpc: genesis_web_handoff_continue",
+        "rpc: genesis_web_handoff_discard",
+        "rpc: genesis_web_handoff_bind_session",
+        "rpc: genesis_web_handoff_revoke_sessions"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "person"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "appRelativePath refuses //host, /\\host, schemes, whitespace and control characters, and their percent-encoded forms; it runs before minting and again after sign-in.",
+        "The mint route refuses a missing or invalid bearer (401) and mints only for the bearer's own account, whatever the body says.",
+        "A link claims once within 60 seconds; Supabase's sign-in token is minted only on Continue, within the nonce's 30 seconds and never after Cancel; only service_role reaches the table and its functions.",
+        "The app's sign-out ends exactly the web sessions handed off from that app session, never the person's other devices.",
+        "The page drops the fragment from history before anything else runs, asks before signing in unless already signed in as that person, signs a different person out locally only after Continue, and on Cancel leaves nobody signed in as someone else."
+      ],
+      "reviewedAt": "2026-10-26",
+      "links": {
+        "code": [
+          "packages/supabase/src/web-handoff.ts",
+          "packages/supabase/src/web-handoff-server.ts",
+          "packages/supabase/src/web-handoff-path.ts",
+          "packages/supabase/migrations/0015_genesis_web_handoff.sql",
+          "packages/native/src/web-handoff.ts"
+        ],
+        "docs": [
+          "packages/supabase/README.md",
+          "packages/native/README.md"
         ]
       },
       "access": "all",

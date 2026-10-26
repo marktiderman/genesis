@@ -3,9 +3,8 @@
 The product system for a Genesis repo, first version: what is being built now, next and later,
 what people are asking for, and release notes that tell them when it shipped.
 
-Status: experimental and private. This repo uses it on itself first. It is private on purpose:
-publishing it means flipping `private`, setting a hand-made first version and the owner's first
-`npm publish` and `npm trust` (see docs/RELEASING.md), so it can't reach npm by accident.
+Status: experimental, published so apps made from the RN starter can install it (its product
+demo is off by default). This repo uses it on itself first.
 
 - **The catalog is `features.ts`.** Features, their status, `horizon` (now, next, later) and
   `claimedBy` come from the registry's generated `features.json`. There is no second list.
@@ -58,17 +57,115 @@ const markdown = renderBoard(board, { date: "2026-10-25" });
 The core (`.`) has no React and no I/O. `/node` reads the catalog from a file or a git ref, maps
 GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
+## On this repo's releases
+
+Release (`.github/workflows/release.yml`, its Release notes job) runs `release` around each
+publish: draft notes as a comment on the open version PR, then, after a successful publish, a
+`release/<YYYY-MM-DD>` tag whose GitHub release holds the notes (when a feature changed), and
+`--notify --yes` to close the ideas it answered. The
+diff starts from the previous `release/*` tag (the first time, the last version packages merge),
+so the job checks out with `fetch-depth: 0`. See docs/RELEASING.md, "Release notes".
+
+## Telling people it shipped (an app's own database)
+
+On a repo whose ideas are GitHub issues, `--notify --yes` is the notice: its "Shipped in release …"
+comment tells the issue's author and everyone subscribed. Don't also call `notify()` there.
+
+An app whose ideas live in its own database (people with logins or emails) tells them through
+genesis-notifications. The app owns its registry and spreads in product's fragment, the way it
+composes features: type `product.idea_shipped` in category `product_updates`, not critical and not
+transactional, so preferences, quiet hours and the unsubscribe link apply. In the feed and by
+email by default, with push offered as an opt-in.
+
+```ts
+import { defineNotifications } from "@marktiderman/genesis-notifications";
+import { notify, cancelNotification } from "@marktiderman/genesis-notifications/server";
+import { productNotifications, notifyShipped, cancelShipped } from "@marktiderman/genesis-product/server";
+
+export const notifications = defineNotifications({
+  categories: { ...productNotifications.categories, /* the app's own */ },
+  types: { ...productNotifications.types, /* the app's own */ },
+});
+
+// Once per shipped feature, to everyone who asked for or voted on it (deduplicated, 1,000 a call).
+await notifyShipped((input) => notify(supabase, input, { registry: notifications }), {
+  release: "2026-10-26",
+  feature,             // a CatalogFeature: its tagline (or summary) is the body
+  recipients: askers,  // user ids, { userId }, or { email, name }
+  url: "/whats-new",   // a path on the app; anything else throws (the notifier would drop it)
+});
+
+// The release was withdrawn: stop what hasn't gone out, and take it out of the feed (archive is on by default).
+await cancelShipped((input) => cancelNotification(supabase, input), { release: "2026-10-26", featureId: feature.id });
+```
+
+Run genesis-notifications' `syncNotificationTypes` after adding the fragment (on deploy), or
+`notify` refuses the type. The key is `shipped:<release>:<feature>` (neither may contain `:`), so
+a re-run sends nobody a second one, and the same feature shipped again under a new release name
+notifies again. A cancel stops only what is still waiting: email goes as soon as the runner picks
+it up, so most of it has usually gone. The sent rows stay, so re-publish a withdrawn release under
+a new name; under the same one nobody is told again. Pass a `tenantId` (a uuid) to both calls, or
+to neither. `/server` and the core (`.`) export
+the same things: the registry is imported by the web and the phone too, and neither does I/O.
+This package doesn't depend on genesis-notifications; the shapes are structural and tested against
+it.
+
+## Native screens (`/native`)
+
+The idea board, the Now / Next / Later roadmap and "what's new" for a React Native app, made of
+genesis-ui-native only (`InboxPage`, `NativeSegmentedControl`, `NativeSheet`). React, React Native
+and genesis-ui-native are optional peers; native modules are passed in, never imported.
+
+```tsx
+import * as Haptics from "expo-haptics";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import { IdeaBoardScreen, RoadmapScreen, createVoteQueue, storageVoteQueueStore } from "@marktiderman/genesis-product/native";
+
+// Once, outside render: votes are kept on the phone until they reach the source.
+const votes = createVoteQueue({ source, store: storageVoteQueueStore(AsyncStorage) });
+
+<IdeaBoardScreen source={source} queue={votes} haptics={Haptics}
+  onReconnect={(run) => NetInfo.addEventListener((s) => { if (s.isConnected) run(); })} />
+<RoadmapScreen source={source} haptics={Haptics} />
+```
+
+- **Data** comes through a `ProductSource` (`ideas`, `vote`, `unvote`, `roadmap`, `whatsNew`). There
+  is no Supabase source yet; `memoryProductSource(seed)` is for tests and demos, and
+  `roadmapFromBoard(buildBoard(...))` turns the board into roadmap rows: only `public`, `customer` and
+  unset visibility, never `internal` or a `client:<name>` feature unless you pass that `{ client }`.
+- **Idea board** (`useIdeaBoard` for InboxPage props, or `IdeaBoardScreen`): each row shows "N votes"
+  and a vote button at its end; swipe, long press and screen readers get the same vote. A vote shows
+  at once with a light haptic and goes through the vote queue: saved, sent on start, after each vote
+  and on reconnect, and toggling back before it is sent sends nothing. A refusal that retrying won't
+  fix (`VoteRefusedError`, or an HTTP 4xx other than 408 and 429) is dropped and rolled back, with an
+  error haptic, screen readers hear `copy.ideas.refused`, and `onRefused(ids)` lets the app show a
+  toast; anything else waits for the next flush. The vote button says which idea it is for and
+  whether it is cast (`accessibilityState.selected`), and a cast vote reads "You voted" on the row.
+- **Roadmap** (`useRoadmap`, `RoadmapScreen`): a segmented control over the rows; a tap opens the
+  item in a sheet.
+- **What's new** (`createProductWhatsNew`, `ProductWhatsNew`): once per app version plus over-the-air
+  update (`whatsNewKey`, e.g. `1.4.0+3f2a…` or `1.4.0+embedded`). A first install remembers the key
+  and shows nothing; a new key fetches its notes then, never from the bundle, and opens the sheet
+  when there are any. The last 20 keys seen are remembered, so falling back to the embedded code
+  after a failed update shows nothing again. An app that adds this to a build that didn't have it
+  starts like a first install: nothing shows until the next version or update. To hang it off genesis-native's updates block, turn the block's own sheet off
+  and render this one with the same modules:
+
+  ```tsx
+  createUpdates({ whatsNew: false, application: Application, updates: Updates, … });
+  const whatsNew = createProductWhatsNew({ source, storage: AsyncStorage,
+    key: whatsNewKey({ application: Application, updates: Updates }) });
+  <ProductWhatsNew store={whatsNew} />   // inside GenesisNativeApp
+  ```
+
+The RN starter has a demo behind `productDemo` (off by default) in `starter.config.ts`.
+
 ## Not yet
 
-- Releases aren't wired into this repo's release flow yet. The plan, from the review: release.yml
-  pushes a `release/<date>` tag after a successful publish; the notes diff from the latest
-  `release/*` tag, go in a sticky comment on the Version Packages pull request (changesets
-  rewrites its body), and become the GitHub release's body; `--notify --yes` runs after the
-  publish, never before. A CI run of `release` needs `fetch-depth: 0` for the tags.
 - Not on npm: an app installs it once the owner publishes it (see Status above).
 
-- No database source, no insights captured from support reports, and no screens: the board is
-  markdown.
-- No notifications beyond GitHub's own: `--notify` comments on the issue, which tells its
-  author and everyone subscribed to it.
+- No database source and no insights captured from support reports. The board issue is markdown;
+  the native screens read an injected source (no web screens yet).
+- Nothing calls `notifyShipped` yet: the askers come from a database source, which isn't built.
 - Demand counts votes once per person per issue, but not yet once per person per feature.

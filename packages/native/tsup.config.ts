@@ -10,6 +10,7 @@ export default defineConfig({
     "rich-push-plugin": "src/plugin/rich-push.ts",
     observability: "src/observability/index.ts",
     devtools: "src/devtools/index.ts",
+    "web-handoff": "src/web-handoff.ts",
     "dev-warnings": "src/dev-warnings.ts",
   },
   format: ["esm"],

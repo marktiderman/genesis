@@ -71,6 +71,9 @@ importers:
       '@marktiderman/genesis-notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
+      '@marktiderman/genesis-product':
+        specifier: workspace:^
+        version: link:../../packages/product
       '@marktiderman/genesis-supabase':
         specifier: workspace:^
         version: link:../../packages/supabase
@@ -800,9 +803,9 @@ importers:
       '@fast-check/vitest':
         specifier: ^0.2.4
         version: 0.2.4(vitest@4.1.12)
-      '@marktiderman/genesis-notifications':
+      '@marktiderman/genesis-supabase':
         specifier: workspace:^
-        version: link:../notifications
+        version: link:../supabase
       fast-check:
         specifier: ^4.10.2
         version: 4.10.2
@@ -1266,6 +1269,9 @@ importers:
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native
+      '@marktiderman/genesis-supabase':
+        specifier: workspace:^
+        version: link:../supabase
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui
@@ -1317,10 +1323,40 @@ importers:
       '@marktiderman/genesis-features':
         specifier: workspace:^
         version: link:../features
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
+      react-native-safe-area-context:
+        specifier: '>=4.0.0'
+        version: 5.10.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
     devDependencies:
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
+      '@marktiderman/genesis-ui-native':
+        specifier: workspace:^
+        version: link:../ui-native
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.3.0(@types/react@19.3.0)
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)

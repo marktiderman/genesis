@@ -42,13 +42,20 @@ export function catalogAt(ref: string, file = "features.json", cwd = process.cwd
   // git reads paths from the repo root: an absolute path is made relative to it.
   const path = isAbsolute(file) ? relative(git(["rev-parse", "--show-toplevel"], cwd).trim(), file) : file;
   if (path.startsWith("..")) throw new Error(`${file} is outside the repo.`);
+  // Whether the file is there reads only trees, which a partial (blob:none) clone has, so it
+  // never needs the network. Reading it may fetch its contents; when that fails it throws,
+  // rather than reading as "no catalog yet" and every feature as new.
   try {
-    git(["cat-file", "-e", `${ref}:${path}`], cwd);
+    git(["rev-parse", "--verify", "--quiet", `${ref}:${path}`], cwd);
   } catch {
     // The ref exists and has no such file: a release from before the registry.
     return [];
   }
-  return parseCatalog(git(["show", `${ref}:${path}`], cwd));
+  try {
+    return parseCatalog(git(["show", `${ref}:${path}`], cwd));
+  } catch (error) {
+    throw new Error(`Couldn't read ${path} at "${ref}" (${error instanceof Error ? error.message.split("\n", 1)[0] : error}).`);
+  }
 }
 
 /** `owner/repo` from the `origin` remote, or `undefined`. @stability Experimental */

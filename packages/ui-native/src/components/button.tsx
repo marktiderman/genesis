@@ -4,7 +4,7 @@
  * @stability Stable
  */
 import { type VariantProps, cva } from "class-variance-authority";
-import { ActivityIndicator, Pressable, Text } from "react-native";
+import { ActivityIndicator, Pressable, Text, type AccessibilityState } from "react-native";
 import { cn } from "../utils";
 
 const buttonVariants = cva(
@@ -61,6 +61,11 @@ export interface NativeButtonProps
   disabled?: boolean;
   loading?: boolean;
   testID?: string;
+  /** What a screen reader says, when the text alone isn't enough ("Vote for Dark mode"). Default: the text. */
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  /** Merged with the button's own `disabled` and `busy`: `{ selected: true }` for a vote cast, a filter on. */
+  accessibilityState?: AccessibilityState;
 }
 
 function NativeButton({
@@ -72,6 +77,7 @@ function NativeButton({
   onPress,
   disabled,
   loading,
+  accessibilityState,
   ...props
 }: NativeButtonProps) {
   const isDisabled = disabled || loading;
@@ -86,7 +92,7 @@ function NativeButton({
       onPress={onPress}
       disabled={isDisabled}
       accessibilityRole="button"
-      accessibilityState={{ disabled: isDisabled, busy: loading }}
+      accessibilityState={{ ...accessibilityState, disabled: isDisabled, busy: loading }}
       {...props}
     >
       {loading ? (

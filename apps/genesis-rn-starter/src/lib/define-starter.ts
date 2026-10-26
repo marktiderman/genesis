@@ -101,6 +101,13 @@ export interface StarterFeatures {
    * and expo-clipboard stay in the build either way.
    */
   chat: boolean;
+  /**
+   * A demo of `@marktiderman/genesis-product/native`, off by default: Settings > Product demo opens
+   * the idea board (votes with haptics, queued while offline) and the Now / Next / Later roadmap, over
+   * sample data in memory (`memoryProductSource`, `src/lib/product-demo.ts`). Nothing leaves the
+   * phone. JavaScript only.
+   */
+  productDemo: boolean;
 }
 
 export interface StarterConfig {
