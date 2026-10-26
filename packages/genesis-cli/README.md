@@ -55,15 +55,15 @@ and a row type per table. Review it like code, and pass `contracts` to `createSt
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 
-| Option                       | Default                |                                                                                                                                                                                   |
-| ---------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--database-env <name>`      | `DATABASE_URL`         | The variable holding the Postgres URL. It's never read from the command line, so it stays out of shell history. Any role that can read `pg_catalog` works; no table data is read. |
-| `--openapi <file-or-url>`    |                        | Read a PostgREST OpenAPI document instead, e.g. a Supabase project's `https://<ref>.supabase.co/rest/v1/`.                                                                        |
-| `--apikey-env <name>`        |                        | The variable holding the API key for an `--openapi` URL, sent as `apikey` and as a Bearer token. Like the database URL, it stays off the command line.                            |
-| `--header "<Name>: <value>"` |                        | Other headers for an `--openapi` URL, for values that aren't secret. Repeatable.                                                                                                  |
-| `-s, --schema <list>`        | `public`               | Comma-separated schemas. `--openapi` reads one.                                                                                                                                   |
-| `-o, --out <file>`           | `resources.genesis.ts` | Where to write.                                                                                                                                                                   |
-| `--check`                    |                        | Write nothing; exit 1 when the file is out of date. Run it in CI to catch drift.                                                                                                  |
+| Option | Default | |
+| --- | --- | --- |
+| `--database-env <name>` | `DATABASE_URL` | The variable holding the Postgres URL. It's never read from the command line, so it stays out of shell history. Any role that can read `pg_catalog` works; no table data is read. |
+| `--openapi <file-or-url>` | | Read a PostgREST OpenAPI document instead, e.g. a Supabase project's `https://<ref>.supabase.co/rest/v1/`. |
+| `--apikey-env <name>` | | The variable holding the API key for an `--openapi` URL, sent as `apikey` and as a Bearer token. Like the database URL, it stays off the command line. |
+| `--header "<Name>: <value>"` | | Other headers for an `--openapi` URL, for values that aren't secret. Repeatable. |
+| `-s, --schema <list>` | `public` | Comma-separated schemas. `--openapi` reads one. |
+| `-o, --out <file>` | `resources.genesis.ts` | Where to write. |
+| `--check` | | Write nothing; exit 1 when the file is out of date. Run it in CI to catch drift. |
 
 The output is deterministic: a re-run with no schema change writes the same bytes.
 
@@ -115,40 +115,17 @@ A manifest entry:
 
 ```json
 {
-  "feature": {
-    "name": "Push",
-    "summary": "…",
-    "keywords": ["notifications"],
-    "audience": ["person"]
-  },
+  "feature": { "name": "Push", "summary": "…", "keywords": ["notifications"], "audience": ["person"] },
   "platforms": ["native"],
   "requires": ["account"],
-  "packages": [
-    "@marktiderman/genesis-native",
-    "@marktiderman/genesis-supabase"
-  ],
+  "packages": ["@marktiderman/genesis-native", "@marktiderman/genesis-supabase"],
   "install": ["@supabase/supabase-js@^2.118.0"],
-  "migrations": [
-    {
-      "package": "@marktiderman/genesis-supabase",
-      "file": "migrations/0005_genesis_push.sql",
-      "test": "migrations/tests/0005_genesis_push.test.sql"
-    }
-  ],
-  "functions": [
-    {
-      "package": "@marktiderman/genesis-supabase",
-      "dir": "functions/genesis-push-send",
-      "verifyJwt": false,
-      "secrets": ["GENESIS_PUSH_SECRET"]
-    }
-  ],
+  "migrations": [{ "package": "@marktiderman/genesis-supabase", "file": "migrations/0005_genesis_push.sql", "test": "migrations/tests/0005_genesis_push.test.sql" }],
+  "functions": [{ "package": "@marktiderman/genesis-supabase", "dir": "functions/genesis-push-send", "verifyJwt": false, "secrets": ["GENESIS_PUSH_SECRET"] }],
   "routes": [{ "path": "/settings/notifications", "signedIn": true }],
   "skills": ["skills/push/SKILL.md"],
   "agents": "agents/push.md",
-  "steps": [
-    "npx expo install expo-notifications, and add it to the plugins in app.config."
-  ]
+  "steps": ["npx expo install expo-notifications, and add it to the plugins in app.config."]
 }
 ```
 
@@ -188,13 +165,13 @@ run creates and changes nothing. `--dry-run` prints the plan and writes nothing.
 Compares the migrations of the app's blocks (`genesis.lock.json`, plus `--block <id>`) in the
 installed packages with the app's copies, and every copy that carries a header:
 
-| State              | Meaning                                                          | What happens                                   |
-| ------------------ | ---------------------------------------------------------------- | ---------------------------------------------- |
-| `current`          | the copy matches its package text                                | nothing                                        |
-| `new`              | the package ships a migration the app hasn't copied              | copied as a new file, after every existing one |
-| `edited`           | the copy no longer matches the text it was copied with           | reported; never rewritten                      |
-| `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten                      |
-| `differs`          | a file with the migration's name, other text and no header       | treated as the app's own; never rewritten      |
+| State | Meaning | What happens |
+| --- | --- | --- |
+| `current` | the copy matches its package text | nothing |
+| `new` | the package ships a migration the app hasn't copied | copied as a new file, after every existing one |
+| `edited` | the copy no longer matches the text it was copied with | reported; never rewritten |
+| `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
+| `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
 new file is created only if its name is free (otherwise it fails). A package migration is copied
@@ -220,7 +197,7 @@ runs count that copy as handled. It exits 1 when something still needs you.
    listed so you read its changelog.
 3. Reinstalls, then refreshes every file in `genesis.lock.json` from the newly installed package:
    unchanged in the app, it takes the new version; changed by both, it is merged with `git
-merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
+   merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
    your file is kept. `--keep-mine` never merges: the new text goes to `.genesis-next`. A file you
    deleted stays deleted. AGENTS.md fragments are replaced, skills a block gained are copied, and
    new package migrations are listed (run `genesis migrate`).
@@ -259,13 +236,13 @@ Install the CLI in the app (`pnpm add -D @marktiderman/genesis-cli`); Expo finds
 through the package's `app.plugin.js`. To pass options, use `["@marktiderman/genesis-cli", { … }]`,
 or call it yourself: `import { withGenesis } from "@marktiderman/genesis-cli/expo"`.
 
-| Step              | What it sets                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Option to turn it off        |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| App variants      | `APP_VARIANT` = `development` / `preview` / `production` (default) suffixes `ios.bundleIdentifier` and `android.package` with `.dev` / `.preview`, `name` with ` (Dev)` / ` (Preview)` and each `scheme` with `-dev` / `-preview`, so the three install side by side and a `scheme://` link opens the build it names (production keeps the base scheme). Any other value fails. A value that already ends in the suffix is left alone. Change the suffixes with `variants: { development: { id: ".debug", name: " (Debug)", scheme: "-debug" } }`. | pass `variant: "production"` |
-| Links             | `ios.associatedDomains` (`applinks:` and, unless `links.webcredentials` is `false`, `webcredentials:` per host) and one Android `intentFilters` entry with `autoVerify`, from the `links` block of `genesis.config.json`.                                                                                                                                                                                                                                                                                                                          | `links: false`               |
-| Privacy manifest  | `ios.privacyManifests.NSPrivacyAccessedAPITypes` for the packages in `dependencies`: `@react-native-async-storage/async-storage` needs FileTimestamp, reason `C617.1` (what its own `PrivacyInfo.xcprivacy` declares).                                                                                                                                                                                                                                                                                                                             | `privacyManifest: false`     |
-| Export compliance | `ios.config.usesNonExemptEncryption = false`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `exportCompliance: false`    |
-| Runtime version   | `runtimeVersion: { policy: "fingerprint" }`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `fingerprint: false`         |
+| Step | What it sets | Option to turn it off |
+| --- | --- | --- |
+| App variants | `APP_VARIANT` = `development` / `preview` / `production` (default) suffixes `ios.bundleIdentifier` and `android.package` with `.dev` / `.preview`, `name` with ` (Dev)` / ` (Preview)` and each `scheme` with `-dev` / `-preview`, so the three install side by side and a `scheme://` link opens the build it names (production keeps the base scheme). Any other value fails. A value that already ends in the suffix is left alone. Change the suffixes with `variants: { development: { id: ".debug", name: " (Debug)", scheme: "-debug" } }`. | pass `variant: "production"` |
+| Links | `ios.associatedDomains` (`applinks:` and, unless `links.webcredentials` is `false`, `webcredentials:` per host) and one Android `intentFilters` entry with `autoVerify`, from the `links` block of `genesis.config.json`. | `links: false` |
+| Privacy manifest | `ios.privacyManifests.NSPrivacyAccessedAPITypes` for the packages in `dependencies`: `@react-native-async-storage/async-storage` needs FileTimestamp, reason `C617.1` (what its own `PrivacyInfo.xcprivacy` declares). | `privacyManifest: false` |
+| Export compliance | `ios.config.usesNonExemptEncryption = false`. | `exportCompliance: false` |
+| Runtime version | `runtimeVersion: { policy: "fingerprint" }`. | `fingerprint: false` |
 
 The app's own values always win: the plugin fills gaps and appends to lists, merges privacy
 reasons into an entry the app already declares, never overwrites or removes anything, and
@@ -297,11 +274,7 @@ bad block fails `genesis doctor` too:
 
 ```json
 {
-  "links": {
-    "hosts": ["example.com", "app.example.com"],
-    "paths": ["/invite", "/c"],
-    "webcredentials": true
-  }
+  "links": { "hosts": ["example.com", "app.example.com"], "paths": ["/invite", "/c"], "webcredentials": true }
 }
 ```
 
@@ -361,37 +334,37 @@ from the design system's theme stylesheets (`dist/themes/*.css`: `genesis.css` a
 Tailwind v4 bridge `genesis-tailwind4.css`), and the palette from the app's `tailwindcss/colors`.
 Upgrading Genesis upgrades the checks.
 
-| Option                |                                                                                                                                                                       |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--strict`            | Fail on warnings too. `info` findings never fail.                                                                                                                     |
-| `--json`              | Print `{ ok, genesis, errors, warnings, infos, findings, unused }`; each finding has its `level` (`error`, `warn` or `info`). Build output is captured, not streamed. |
-| `--build`             | After the checks, run `doctor.build` commands, or the app's `typecheck` then `build` scripts. A build that itself runs the doctor doesn't recurse.                    |
-| `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json.                                                                                  |
-| `-d, --dir <dir>`     | The app's folder (default: cwd).                                                                                                                                      |
-| `--print-genesis`     | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit.                                                       |
+| Option | |
+| --- | --- |
+| `--strict` | Fail on warnings too. `info` findings never fail. |
+| `--json` | Print `{ ok, genesis, errors, warnings, infos, findings, unused }`; each finding has its `level` (`error`, `warn` or `info`). Build output is captured, not streamed. |
+| `--build` | After the checks, run `doctor.build` commands, or the app's `typecheck` then `build` scripts. A build that itself runs the doctor doesn't recurse. |
+| `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
+| `-d, --dir <dir>` | The app's folder (default: cwd). |
+| `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
 
 ### Rules
 
-| Rule                        | Level | What it flags                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `local-primitives`          | error | A local primitive folder (`src/components/ui` by default; `localPrimitiveDirs`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `starter-leftover`          | warn  | `components.json` or `src/lib/utils.ts` from a shadcn starter.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `forbidden-import`          | error | `@radix-ui/*`, local `components/ui/*` (alias or relative), `@/lib/utils`, plus your `forbiddenImports`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `raw-tag`                   | error | A raw JSX tag Genesis has a component for: any of `button input textarea select label table dialog progress details summary` with a same-named Genesis export, plus `hr` → `Separator`. JSX files only; `rawTags` adds or removes mappings.                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `palette-color`             | error | Tailwind palette utilities (`bg-red-500`, `hover:text-slate-700/50`, `text-white`). Use semantic tokens.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `arbitrary-color`           | error | Arbitrary color values (`bg-[#f00]`, `text-[rgb(1,2,3)]`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| `raw-color`                 | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `undefined-token`           | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `shadowed-export`           | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `duplicate-genesis-package` | warn  | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving dependencies the way Node does, from each package's real folder, so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other.                                                                                                                                        |
-| `peer-range-mismatch`       | warn  | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x -                                                                                                                                                                                                                                                                                                                                                      |     | `, prereleases only when the range names one). |
-| `hand-rolled-sub-nav`       | warn  | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)).                                                                                                                                                                                        |
-| `local-genesis-copy`        | warn  | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine.  |
-| `resource-workspace`        | info  | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`.                                                                                                                                                                                                                                                                                                                                                               |
-| `page-layout`               | warn  | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
-| `stale-exception`           | warn  | An `allow` entry that no longer matches anything.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `local-primitives` | error | A local primitive folder (`src/components/ui` by default; `localPrimitiveDirs`). |
+| `starter-leftover` | warn | `components.json` or `src/lib/utils.ts` from a shadcn starter. |
+| `forbidden-import` | error | `@radix-ui/*`, local `components/ui/*` (alias or relative), `@/lib/utils`, plus your `forbiddenImports`. |
+| `raw-tag` | error | A raw JSX tag Genesis has a component for: any of `button input textarea select label table dialog progress details summary` with a same-named Genesis export, plus `hr` → `Separator`. JSX files only; `rawTags` adds or removes mappings. |
+| `palette-color` | error | Tailwind palette utilities (`bg-red-500`, `hover:text-slate-700/50`, `text-white`). Use semantic tokens. |
+| `arbitrary-color` | error | Arbitrary color values (`bg-[#f00]`, `text-[rgb(1,2,3)]`). |
+| `raw-color` | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry. |
+| `undefined-token` | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored. |
+| `shadowed-export` | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it. |
+| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving dependencies the way Node does, from each package's real folder, so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. |
+| `peer-range-mismatch` | warn | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x - ||`, prereleases only when the range names one). |
+| `hand-rolled-sub-nav` | warn | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)). |
+| `local-genesis-copy` | warn | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
+| `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
+| `page-layout` | warn | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
+| `stale-exception` | warn | An `allow` entry that no longer matches anything. |
 
 It also prints **Available but unused**: the Genesis components no file imports. Check it
 before building something.
@@ -405,11 +378,7 @@ files skipped, a trailing `_` un-nesting a segment) and Next-style `layout.tsx` 
 (`{ "page-layout": "off" }`) or a justified `allow` entry for one file:
 
 ```json
-{
-  "rule": "hand-rolled-sub-nav",
-  "file": "src/routes/_shell/onboarding.tsx",
-  "reason": "A wizard's steps, not sections."
-}
+{ "rule": "hand-rolled-sub-nav", "file": "src/routes/_shell/onboarding.tsx", "reason": "A wizard's steps, not sections." }
 ```
 
 Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__fixtures__`,
@@ -426,12 +395,7 @@ result on its own):
   "doctor": {
     "packs": ["native", "supabase"],
     "native": { "routerRoot": "app" },
-    "supabase": {
-      "migrations": "supabase/migrations",
-      "base": "origin/main",
-      "exposedSchemas": ["public"],
-      "since": "20260101000000"
-    }
+    "supabase": { "migrations": "supabase/migrations", "base": "origin/main", "exposedSchemas": ["public"], "since": "20260101000000" }
   }
 }
 ```
@@ -452,25 +416,25 @@ With the native pack on, every hex or `rgb()` literal in a script file is report
 `rules` and `allow` entries for `raw-color` that cover script files need the new id (CSS files
 keep `raw-color`).
 
-| Rule                   | Level | What it flags                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `native-custom-header` | warn  | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| `native-screen-layout` | warn  | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `store-readiness`      | warn  | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
+| `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`. |
+| `native-custom-header` | warn | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors. |
+| `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
+| `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted
 bodies blanked, so text inside a function body never matches; the one exception is below.
 
-| Rule                            | Level        | What it flags                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `migration-grants`              | error / warn | In new migrations: `grant … on all functions in schema …` and `alter default privileges … grant … on functions` to `anon` or `public` (error) or `authenticated` (warn: it re-grants functions revoked from signed-in users); other roles (`service_role`, `postgres`) are fine. A function outside `exposedSchemas` granted to `anon` or `public` by name, and `grant usage on schema <unexposed> to anon/public` (error). Revokes, `revoke grant option for`, argument types and `granted by` are read correctly. Grant by name so an earlier revoke survives. |
-| `migration-rls`                 | error        | A table in an exposed schema whose row level security is off once every migration has run: never enabled, or disabled later. Renames (`alter table … rename to`, `set schema`) and drops are followed. RLS enabled by dynamic SQL (a `do $$ … execute format('alter table %I enable row level security', t) … $$` loop) can't be traced, so such a block counts as enabling it for every table created before it.                                                                                                                                                |
-| `migration-definer-search-path` | error        | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed.                                                                                                                                                                                                                                                               |
-| `migration-testing-kit`         | error        | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`.                                                                                                                                                                                                                                                                                                                                                       |
-| `migration-edited`              | error        | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available.                                                                                                                                                                                                                                                                                            |
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `migration-grants` | error / warn | In new migrations: `grant … on all functions in schema …` and `alter default privileges … grant … on functions` to `anon` or `public` (error) or `authenticated` (warn: it re-grants functions revoked from signed-in users); other roles (`service_role`, `postgres`) are fine. A function outside `exposedSchemas` granted to `anon` or `public` by name, and `grant usage on schema <unexposed> to anon/public` (error). Revokes, `revoke grant option for`, argument types and `granted by` are read correctly. Grant by name so an earlier revoke survives. |
+| `migration-rls` | error | A table in an exposed schema whose row level security is off once every migration has run: never enabled, or disabled later. Renames (`alter table … rename to`, `set schema`) and drops are followed. RLS enabled by dynamic SQL (a `do $$ … execute format('alter table %I enable row level security', t) … $$` loop) can't be traced, so such a block counts as enabling it for every table created before it. |
+| `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
+| `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
+| `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
 added, modified or is untracked since the merge base. `since` (a file name or timestamp prefix)
@@ -496,20 +460,11 @@ migrations never fail a build. In CI, check out with full history and fetch the 
     "tokenFiles": ["src/styles.css"],
     "rules": { "starter-leftover": "off", "palette-color": "warn" },
     "allow": [
-      {
-        "rule": "raw-color",
-        "file": "src/lib/error-page.ts",
-        "reason": "Static fallback page rendered before Genesis mounts."
-      }
+      { "rule": "raw-color", "file": "src/lib/error-page.ts", "reason": "Static fallback page rendered before Genesis mounts." }
     ],
     "rulesDoc": "DESIGN_RULES.md",
     "patterns": [
-      {
-        "id": "no-page-chrome",
-        "files": ["src/routes/**"],
-        "forbid": "<AppShell\\b",
-        "message": "The shell owns the chrome."
-      }
+      { "id": "no-page-chrome", "files": ["src/routes/**"], "forbid": "<AppShell\\b", "message": "The shell owns the chrome." }
     ],
     "plugins": ["./scripts/genesis-rules.mjs"],
     "build": ["tsc --noEmit", "vite build"]
@@ -517,29 +472,29 @@ migrations never fail a build. In CI, check out with full history and fetch the 
 }
 ```
 
-| Key                   | Default                                                                             |                                                                                                                                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packs`               |                                                                                     | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs).                                                                                                      |
-| `native`              |                                                                                     | `{ routerRoot }` for the native pack.                                                                                                                                            |
-| `supabase`            |                                                                                     | `{ migrations, base, exposedSchemas, since }` for the supabase pack.                                                                                                             |
-| `src`                 | `["src"]` (`["app", "src", "components"]` with the native pack)                     | Folders (or files) to scan.                                                                                                                                                      |
-| `extensions`          | `.ts .tsx .js .jsx .mts .cts .css`                                                  |                                                                                                                                                                                  |
-| `ignore`              |                                                                                     | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder.                                                        |
-| `uiPackage`           | `@marktiderman/genesis-ui` (`@marktiderman/genesis-ui-native` with the native pack) |                                                                                                                                                                                  |
-| `themeCss`            | the design system's `dist/themes/*.css` + genesis-ui's styles                       | One stylesheet or a list: package paths (`@marktiderman/genesis-design-system/dist/themes/genesis.css`) or app paths.                                                            |
-| `tokenFiles`          | every scanned `.css`                                                                | Globs of app files whose `--x:` declarations count as defined tokens. Files outside `src` work too.                                                                              |
-| `ignoreTokenPrefixes` | `["--tw-", "--radix-"]`                                                             |                                                                                                                                                                                  |
-| `rawTags`             |                                                                                     | `{ "img": "Avatar" }` adds a mapping; `{ "select": false }` stops checking a tag.                                                                                                |
-| `forbiddenImports`    |                                                                                     | `{ "<regexp>": "message" }`, added to the defaults.                                                                                                                              |
-| `localPrimitiveDirs`  | `["src/components/ui"]`                                                             |                                                                                                                                                                                  |
-| `routesDir`           | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`                       | The web routes folder the route rules read.                                                                                                                                      |
-| `componentPackages`   | `["@marktiderman/genesis-forms-studio"]`                                            | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
-| `rules`               |                                                                                     | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included.                                   |
-| `allow`               |                                                                                     | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required.                                           |
-| `patterns`            |                                                                                     | Declarative rules, below.                                                                                                                                                        |
-| `rulesDoc`            |                                                                                     | A markdown file of declarative rules, below.                                                                                                                                     |
-| `plugins`             |                                                                                     | Rule modules, below.                                                                                                                                                             |
-| `build`               | `typecheck`, `build` scripts                                                        | Commands for `--build`.                                                                                                                                                          |
+| Key | Default | |
+| --- | --- | --- |
+| `packs` | | Opt-in rule packs: `"native"`, `"supabase"`. See [Rule packs](#rule-packs). |
+| `native` | | `{ routerRoot }` for the native pack. |
+| `supabase` | | `{ migrations, base, exposedSchemas, since }` for the supabase pack. |
+| `src` | `["src"]` (`["app", "src", "components"]` with the native pack) | Folders (or files) to scan. |
+| `extensions` | `.ts .tsx .js .jsx .mts .cts .css` | |
+| `ignore` | | Globs to skip, added to the defaults. `*` stays in a folder, `**` crosses folders, a trailing `/` means the whole folder. |
+| `uiPackage` | `@marktiderman/genesis-ui` (`@marktiderman/genesis-ui-native` with the native pack) | |
+| `themeCss` | the design system's `dist/themes/*.css` + genesis-ui's styles | One stylesheet or a list: package paths (`@marktiderman/genesis-design-system/dist/themes/genesis.css`) or app paths. |
+| `tokenFiles` | every scanned `.css` | Globs of app files whose `--x:` declarations count as defined tokens. Files outside `src` work too. |
+| `ignoreTokenPrefixes` | `["--tw-", "--radix-"]` | |
+| `rawTags` | | `{ "img": "Avatar" }` adds a mapping; `{ "select": false }` stops checking a tag. |
+| `forbiddenImports` | | `{ "<regexp>": "message" }`, added to the defaults. |
+| `localPrimitiveDirs` | `["src/components/ui"]` | |
+| `routesDir` | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` | The web routes folder the route rules read. |
+| `componentPackages` | `["@marktiderman/genesis-forms-studio"]` | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
+| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. |
+| `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. |
+| `patterns` | | Declarative rules, below. |
+| `rulesDoc` | | A markdown file of declarative rules, below. |
+| `plugins` | | Rule modules, below. |
+| `build` | `typecheck`, `build` scripts | Commands for `--build`. |
 
 Unknown keys are an error, so a typo can't quietly turn a check off.
 
@@ -560,7 +515,6 @@ and `exclude` are comma-separated), and a `#`/`##` heading ends it:
 ## Layout
 
 ### pages-use-layouts
-
 - level: error
 - files: src/routes/_shell/*.tsx
 - require: (DashboardPage|DetailPage|SettingsPage|FormPage)
@@ -579,13 +533,7 @@ export default function maxFileLength({ max = 400 } = {}) {
     check({ files, report }) {
       for (const file of files) {
         const lines = file.text.split("\n").length;
-        if (lines > max)
-          report({
-            rule: "max-file-length",
-            level: "warn",
-            file: file.path,
-            message: `has ${lines} lines; split it`,
-          });
+        if (lines > max) report({ rule: "max-file-length", level: "warn", file: file.path, message: `has ${lines} lines; split it` });
       }
     },
   };
