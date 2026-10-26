@@ -1,0 +1,21 @@
+packages/core/src/__tests__/resource-view.test.ts
+  s_1f35d570c63beb::t_38cf6ba7f045fd 338-346
+packages/core/src/resource-view/define-view.ts
+  s_1f35d570c63beb::t_74c048dd0f7d79 144-146,184,304,306,334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40da5d08e8e774fd9c8441d2dbc7dec82bb6972f",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
