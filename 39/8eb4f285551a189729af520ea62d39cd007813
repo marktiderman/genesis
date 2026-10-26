@@ -1,0 +1,25 @@
+.changeset/create-or-adopt-scope.md
+  s_a1b83c03f697d3::t_f92ad4690d8169 1-5
+packages/core/README.md
+  s_a1b83c03f697d3::t_9bd5af0fa65c7b 559-560
+packages/core/src/provider/__tests__/write-helpers.test.ts
+  s_a1b83c03f697d3::t_2deb83c0b4ee08 201-221
+packages/core/src/provider/write-helpers.ts
+  s_a1b83c03f697d3::t_27f29903e27fb0 88-93,132-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "398eb4f285551a189729af520ea62d39cd007813",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
