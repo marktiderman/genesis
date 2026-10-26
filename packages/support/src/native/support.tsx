@@ -21,6 +21,7 @@ import { useQuery } from "@tanstack/react-query";
 import { NativeButton } from "@marktiderman/genesis-ui-native/components";
 import { defineSupportBlock, supportPaths, SUPPORT_BLOCK_ID, type SupportPaths } from "../block";
 import { createSupportClient, type SupportClient, type SupportSupabase } from "../client";
+import type { SupportChatClient } from "../chat";
 import { fill, resolveSupportCopy, type SupportCopy, type SupportCopyOverrides } from "../copy";
 import { composeCollectors, createContextCollector, type ContextCollector, type ScreenshotContentType } from "../record";
 import { listenForShake, type AccelerometerLike, type ShakeOptions, type ViewShotLike } from "./modules";
@@ -44,6 +45,11 @@ export interface PendingFeedback {
 export interface SupportOptions {
   /** The app's Supabase client (migration 0006 applied). */
   supabase: SupportSupabase;
+  /**
+   * genesis-chat's client (`createChatClient(supabase)`): with the support-chat block's migration
+   * applied, a report's thread runs on genesis-chat (live, with files). Without it, support_replies.
+   */
+  chat?: SupportChatClient;
   /** Opens a path (expo-router's `router.push`). */
   navigate: (href: string) => void;
   /** `Platform.OS`. Default from React Native. */
@@ -120,7 +126,7 @@ export function useUnreadReplies(): number {
 export function createSupport(options: SupportOptions): SupportBlock {
   const copy = resolveSupportCopy(options.copy);
   const paths = supportPaths(options.basePath);
-  const client = createSupportClient(options.supabase);
+  const client = createSupportClient(options.supabase, { chat: options.chat });
   const platform = options.platform ?? Platform.OS;
   let route: string | null = null;
   let pending: PendingFeedback | null = null;

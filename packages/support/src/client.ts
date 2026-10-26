@@ -3,10 +3,16 @@
  * `@marktiderman/genesis-supabase`) under row level security. Everything a
  * person does (send feedback, read their reports and the replies, reply, vote
  * on the idea board) and the Supabase sink for the feedback record.
+ *
+ * With a genesis-chat client (`chat` option) and the support-chat block's
+ * migration applied, a report's thread runs on genesis-chat: replies, reply,
+ * markRead and subscribe go through the report's conversation (live updates,
+ * files, internal notes for staff). Otherwise they use support_replies.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FeedbackStatus } from "./contract";
 import { attachmentBytes, sanitizeContext, type FeedbackDelivery, type FeedbackRecord, type FeedbackSink, type FeedbackType } from "./record";
+import { isMissingFunction, type SupportChatAttachment, type SupportChatClient, type SupportChatMessage, type SupportThreadInfo } from "./chat";
 
 /** Any supabase-js client; the app's generated Database types don't need to list the support tables. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,6 +62,8 @@ export interface SupportReport {
   staffReadAt: string | null;
   /** A staff reply the person hasn't read. */
   unread: boolean;
+  /** Who sent it (the person's own id, or for staff the reporter's). */
+  userId?: string | null;
 }
 
 export interface SupportReply {
@@ -66,6 +74,18 @@ export interface SupportReply {
   /** Written by the signed-in person. */
   mine: boolean;
   createdAt: string;
+  /** A staff-only internal note (support-chat block; staff only ever read them). Always false on support_replies. */
+  internal?: boolean;
+  /** Photos, files and voice notes (support-chat block). Empty on support_replies. */
+  attachments?: SupportReplyAttachment[];
+  /** Its number in the conversation (support-chat block), else null. */
+  seq?: number | null;
+}
+
+/** A file on a reply, with a signed URL when it is in storage. */
+export interface SupportReplyAttachment extends Omit<SupportChatAttachment, "url"> {
+  /** A signed URL (or the attachment's own https URL); null when it couldn't be signed. */
+  url: string | null;
 }
 
 export interface SupportAttachmentView {
@@ -99,8 +119,24 @@ export interface SupportClient extends FeedbackSink {
   myReports(options?: { limit?: number }): Promise<SupportReport[]>;
   report(id: string): Promise<SupportReport | null>;
   replies(reportId: string): Promise<SupportReply[]>;
-  reply(reportId: string, body: string): Promise<SupportReply>;
+  /** `internal`: a staff-only note (support-chat block, staff only). */
+  reply(reportId: string, body: string, options?: { internal?: boolean }): Promise<SupportReply>;
   markRead(reportId: string): Promise<void>;
+  /**
+   * Where the report's thread lives: its genesis-chat conversation when a `chat` client was given
+   * and the support-chat block is installed, else support_replies.
+   */
+  thread(reportId: string): Promise<SupportThreadInfo>;
+  /** The report's genesis-chat conversation id, or null (no chat client, no block, or not readable). */
+  conversationId(reportId: string): Promise<string | null>;
+  /** Live updates for the thread (chat only): `onChange` runs on each hint and each (re)join. Returns the stop. */
+  subscribe(reportId: string, onChange: () => void): () => void;
+  /** Whether the signed-in person is support staff. */
+  isStaff(): Promise<boolean>;
+  /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
+  setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;
+  /** Staff (support-chat block): who has the report, a staff member or null. */
+  assign(reportId: string, userId: string | null): Promise<void>;
   /** Deletes the person's own report; its screenshots are queued for removal. */
   deleteReport(reportId: string): Promise<void>;
   attachments(reportId: string): Promise<SupportAttachmentView[]>;
@@ -114,6 +150,13 @@ export interface SupportClient extends FeedbackSink {
 }
 
 export interface SupportClientOptions {
+  /**
+   * A genesis-chat client (`createChatClient(supabase)`): with it, and the support-chat block's
+   * migration applied, a report's thread runs on genesis-chat. Without either, support_replies.
+   */
+  chat?: SupportChatClient | false;
+  /** Told once when a chat client was given but the block's migration isn't applied. Default `console.warn`. */
+  onChatUnavailable?: (message: string) => void;
   bucket?: string;
   signedUrlSeconds?: number;
   /** For the attachment file names. Default `crypto.randomUUID`. */
@@ -121,7 +164,7 @@ export interface SupportClientOptions {
 }
 
 const REPORT_COLUMNS =
-  "id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at";
+  "id, user_id, type, title, message, status, feature_id, route, app_version, created_at, updated_at, last_staff_reply_at, last_user_reply_at, user_read_at, staff_read_at";
 const IDEA_COLUMNS = "id, title, body, status, feature_id, shipped_at, vote_count, created_at";
 
 type Row = Record<string, unknown>;
@@ -148,6 +191,7 @@ function toReport(r: Row): SupportReport {
     lastUserReplyAt: (r.last_user_reply_at as string | null) ?? null,
     userReadAt: (r.user_read_at as string | null) ?? null,
     staffReadAt: (r.staff_read_at as string | null) ?? null,
+    userId: (r.user_id as string | null) ?? null,
   };
   return { ...report, unread: isUnread(report) };
 }
@@ -169,6 +213,16 @@ function toIdea(r: Row, mine: ReadonlySet<string>, voted: ReadonlySet<string>): 
 
 const EXTENSIONS: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
 
+function randomUuid(): string {
+  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  const hex = Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16));
+  hex[12] = "4";
+  hex[16] = ((parseInt(hex[16]!, 16) & 3) | 8).toString(16);
+  const h = hex.join("");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
 function defaultRandomId(): string {
   const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
   if (c?.randomUUID) return c.randomUUID();
@@ -185,6 +239,51 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     const { data } = await supabase.auth.getSession();
     return data.session?.user?.id ?? null;
   };
+
+  // The support-chat block: learned on first use (the database function is there or not).
+  const chat = options.chat || null;
+  let chatInstalled: boolean | null = chat ? null : false;
+  const conversations = new Map<string, string>();
+  const warn = options.onChatUnavailable ?? ((message: string) => console.warn(message));
+
+  async function thread(reportId: string): Promise<SupportThreadInfo> {
+    if (!chat || chatInstalled === false) return { mode: "replies", conversationId: null };
+    const known = conversations.get(reportId);
+    if (known) return { mode: "chat", conversationId: known };
+    const result = await supabase.rpc("support_chat_conversation", { report: reportId });
+    if (result.error) {
+      if (isMissingFunction(result.error)) {
+        chatInstalled = false;
+        warn(
+          "genesis-support: a chat client was given, but the support-chat block's migration (0001_genesis_support_chat.sql) isn't applied. Report threads use support_replies.",
+        );
+        return { mode: "replies", conversationId: null };
+      }
+      throw new SupportError(result.error.message, result.error.code, "thread");
+    }
+    chatInstalled = true;
+    const id = typeof result.data === "string" && result.data ? result.data : null;
+    // No conversation (not readable, or a report the block hasn't reached): support_replies still mirrors it.
+    if (!id) return { mode: "replies", conversationId: null };
+    conversations.set(reportId, id);
+    return { mode: "chat", conversationId: id };
+  }
+
+  async function chatReply(reportId: string, m: SupportChatMessage, userId: string | null): Promise<SupportReply> {
+    const paths = m.attachments.map((a) => a.path).filter((p): p is string => Boolean(p));
+    const signed = paths.length && chat ? await chat.fileUrls(paths).catch(() => ({}) as Record<string, string>) : {};
+    return {
+      id: m.id,
+      reportId,
+      body: m.body,
+      fromStaff: m.senderRole === "observer",
+      mine: Boolean(userId) && m.senderId === userId,
+      createdAt: m.createdAt,
+      internal: m.visibility === "observers",
+      seq: m.seq,
+      attachments: m.attachments.map((a) => ({ ...a, url: (a.path ? signed[a.path] : null) ?? a.url ?? null })),
+    };
+  }
 
   const client: SupportClient = {
     async submit(record: FeedbackRecord): Promise<FeedbackDelivery> {
@@ -252,6 +351,12 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
 
     async replies(reportId) {
+      const where = await thread(reportId);
+      if (where.mode === "chat" && chat) {
+        const [page, userId] = await Promise.all([chat.messages(where.conversationId, { limit: 200 }), me()]);
+        const shown = page.messages.filter((m) => m.kind === "text" && !m.deletedAt);
+        return Promise.all(shown.map((m) => chatReply(reportId, m, userId)));
+      }
       // Who wrote a reply isn't readable (staff stay anonymous): on the person's own report, theirs are the non-staff ones.
       const rows = must<Row[]>(
         "replies",
@@ -267,7 +372,20 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
       }));
     },
 
-    async reply(reportId, body) {
+    async reply(reportId, body, { internal = false } = {}) {
+      const where = await thread(reportId);
+      if (where.mode === "chat" && chat) {
+        const [sent, userId] = await Promise.all([
+          chat
+            .send({ conversationId: where.conversationId, clientId: randomUuid(), body, visibility: internal ? "observers" : "everyone" })
+            .catch((error: { message?: string; code?: string }) => {
+              throw new SupportError(error?.message ?? "Not sent", error?.code, "reply");
+            }),
+          me(),
+        ]);
+        return chatReply(reportId, sent, userId);
+      }
+      if (internal) throw new SupportError("Internal notes need the support-chat block.", "0A000", "reply");
       const row = must<Row>(
         "reply",
         await supabase.from("support_replies").insert({ report_id: reportId, body }).select("id, report_id, body, from_staff, created_at").single(),
@@ -276,7 +394,47 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
     },
 
     async markRead(reportId) {
+      const where = await thread(reportId);
+      if (where.mode === "chat" && chat) {
+        // The migration carries the conversation's read place to the report.
+        await chat.markRead(where.conversationId);
+        return;
+      }
       must("markRead", await supabase.rpc("support_mark_read", { report: reportId }));
+    },
+
+    thread,
+
+    async conversationId(reportId) {
+      return (await thread(reportId)).conversationId;
+    },
+
+    subscribe(reportId, onChange) {
+      let stopped = false;
+      let stop = () => {};
+      void (async () => {
+        const where = await thread(reportId);
+        if (where.mode !== "chat" || !chat || stopped) return;
+        const sub = chat.subscribeConversation(where.conversationId, (await me()) ?? "", { onSignal: () => onChange(), onJoin: () => onChange() });
+        if (stopped) sub.unsubscribe();
+        else stop = () => sub.unsubscribe();
+      })().catch(() => undefined);
+      return () => {
+        stopped = true;
+        stop();
+      };
+    },
+
+    async isStaff() {
+      return must<boolean | null>("isStaff", await supabase.rpc("support_is_staff")) === true;
+    },
+
+    async setStatus(reportId, status, featureId = null) {
+      must("setStatus", await supabase.rpc("support_set_report_status", { report: reportId, status, feature: featureId }));
+    },
+
+    async assign(reportId, userId) {
+      must("assign", await supabase.rpc("support_assign_report", { report: reportId, assignee: userId }));
     },
 
     async deleteReport(reportId) {
