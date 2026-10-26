@@ -65,10 +65,13 @@ export function forgetWebHandoffFragment(): void {
 /** The parts of a browser Supabase client the handoff uses. */
 export interface WebHandoffAuthClient {
   auth: {
-    getSession(): PromiseLike<{ data: { session: { user: { id: string; email?: string | null } } | null } }>;
+    getSession(): PromiseLike<{
+      data: { session: { access_token?: string; user: { id: string; email?: string | null } } | null };
+    }>;
+    getUser(): PromiseLike<{ data: { user: { id: string; email?: string | null } | null }; error: unknown }>;
     signOut(options: { scope: "local" }): PromiseLike<{ error: unknown }>;
     verifyOtp(params: { token_hash: string; type: "email" }): PromiseLike<{
-      data: { user: { id: string } | null } | null;
+      data: { user: { id: string } | null; session?: { access_token: string } | null } | null;
       error: { message: string } | null;
     }>;
   };
@@ -82,10 +85,23 @@ export type WebHandoffStep =
   /**
    * Ask before signing in: "Continue as {email}?". Shown whenever the browser isn't already
    * signed in as this person (nobody, or someone else), so a link someone else minted for their
-   * own account can't sign you in to it unnoticed. `continue()` signs the browser out locally
-   * if anyone was signed in, then exchanges the token.
+   * own account can't sign you in to it unnoticed. Nothing that signs anyone in exists until
+   * `continue()`: it spends the continue nonce (30 seconds, once), and only then does the server
+   * mint Supabase's token, which is exchanged at once. `cancel()` burns the nonce.
    */
-  | { kind: "confirm"; email: string; next: string; signedInAs: string | null; continue(): Promise<WebHandoffStep> }
+  | {
+      kind: "confirm";
+      email: string;
+      next: string;
+      signedInAs: string | null;
+      continue(): Promise<WebHandoffStep>;
+      cancel(): Promise<WebHandoffStep>;
+    }
+  /**
+   * The person chose Cancel. Whoever else was signed in here has been signed out locally, so the
+   * page never leaves someone in the app as another person: show "You can close this window".
+   */
+  | { kind: "cancelled"; next: string; signedOut: boolean }
   | { kind: "failed"; reason: WebHandoffFailure; next: string };
 
 /** @stability Beta */
@@ -101,72 +117,108 @@ export interface CompleteWebHandoffOptions {
 const redeeming = new WeakMap<WebHandoffFragment, Promise<WebHandoffStep>>();
 
 /**
- * Redeem the handoff token and say what the page shows next. Never signs anyone out or in by
- * itself: a `confirm` step does that only when the person chooses `continue()`. A fragment is
- * redeemed once: calling again with the same fragment (React's development double effects)
+ * Claim the handoff and say what the page shows next. Never signs anyone in or out by itself:
+ * a `confirm` step does that only when the person chooses `continue()` or `cancel()`. A fragment
+ * is claimed once: calling again with the same fragment (React's development double effects)
  * returns the same promise.
  *
  * @stability Beta
  */
 export function completeWebHandoff(options: CompleteWebHandoffOptions): Promise<WebHandoffStep> {
   const { fragment } = options;
-  if (!fragment) return redeem(options);
+  if (!fragment) return claim(options);
   let pending = redeeming.get(fragment);
   if (!pending) {
-    pending = redeem(options);
+    pending = claim(options);
     redeeming.set(fragment, pending);
   }
   return pending;
 }
 
-async function redeem(options: CompleteWebHandoffOptions): Promise<WebHandoffStep> {
+type Outcome = { status?: string; next?: string; email?: string; userId?: string; tokenHash?: string; continueNonce?: string };
+
+async function claim(options: CompleteWebHandoffOptions): Promise<WebHandoffStep> {
   const { supabase, fragment, redeemEndpoint = "/api/auth/redeem-handoff" } = options;
   const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   const fallback = fragment?.next ?? "/";
   if (!fragment?.token) return { kind: "failed", reason: "missing", next: fallback };
 
-  const { data } = await supabase.auth.getSession();
-  const current = data.session?.user ?? null;
-
-  let outcome: { status?: string; next?: string; email?: string; userId?: string; tokenHash?: string };
-  try {
+  const post = async (body: Record<string, unknown>, bearer?: string): Promise<Outcome> => {
     const response = await doFetch(redeemEndpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ t: fragment.token, currentUserId: current?.id ?? null }),
+      headers: { "content-type": "application/json", ...(bearer ? { authorization: `Bearer ${bearer}` } : {}) },
+      body: JSON.stringify(body),
       credentials: "omit",
       referrerPolicy: "no-referrer",
       cache: "no-store",
     });
-    outcome = (await response.json()) as typeof outcome;
+    return (await response.json()) as Outcome;
+  };
+
+  // Who is signed in here, checked with Supabase Auth (getUser), not just read from storage: a
+  // session ended elsewhere (the app signed out) still has a stored token until it expires.
+  // Such a stale session is cleared here, so it is never mistaken for, or left behind as, a person.
+  const { data } = await supabase.auth.getSession();
+  let current = data.session?.user ?? null;
+  if (current) {
+    const checked = await supabase.auth.getUser();
+    if (checked.error || !checked.data.user || checked.data.user.id !== current.id) {
+      await supabase.auth.signOut({ scope: "local" });
+      current = null;
+    }
+  }
+
+  let outcome: Outcome;
+  try {
+    outcome = await post({ action: "claim", t: fragment.token, currentUserId: current?.id ?? null });
   } catch {
     return { kind: "failed", reason: "unavailable", next: fallback };
   }
   const next = appRelativePath(outcome.next) ?? fallback;
   if (outcome.status === "same_user") return { kind: "done", next };
   if (outcome.status === "expired") return { kind: "failed", reason: "expired", next: fallback };
-  if (outcome.status !== "confirm" || !outcome.tokenHash || !outcome.email || !outcome.userId) {
+  if (outcome.status !== "confirm" || !outcome.continueNonce || !outcome.email) {
     return { kind: "failed", reason: "unavailable", next: fallback };
   }
 
-  const { tokenHash, email, userId } = outcome;
+  const { continueNonce: nonce, email } = outcome;
   let running: Promise<WebHandoffStep> | null = null;
+  const once = (step: () => Promise<WebHandoffStep>) => (running ??= step());
+
   return {
     kind: "confirm",
     email,
     next,
     signedInAs: current?.email ?? (current ? current.id : null),
     continue: () =>
-      (running ??= (async (): Promise<WebHandoffStep> => {
+      once(async () => {
+        let minted: Outcome;
+        try {
+          minted = await post({ action: "continue", nonce });
+        } catch {
+          return { kind: "failed", reason: "unavailable", next };
+        }
+        if (minted.status === "expired") return { kind: "failed", reason: "expired", next };
+        if (minted.status !== "ok" || !minted.tokenHash || !minted.userId) return { kind: "failed", reason: "unavailable", next };
         // Signed out first, so a failed exchange leaves nobody signed in rather than a mix.
         if (current) await supabase.auth.signOut({ scope: "local" });
-        const verified = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "email" });
+        const verified = await supabase.auth.verifyOtp({ token_hash: minted.tokenHash, type: "email" });
         if (verified.error || !verified.data?.user) return { kind: "failed", reason: "verify_failed", next };
-        if (verified.data.user.id !== userId) {
+        if (verified.data.user.id !== minted.userId) {
           await supabase.auth.signOut({ scope: "local" });
           return { kind: "failed", reason: "wrong_user", next };
         }
-        return { kind: "done", next: appRelativePath(next) ?? "/" };
-      })()),
+        // Tell the server which session this is, so signing out of the app ends it. Best effort.
+        const accessToken = verified.data.session?.access_token ?? (await supabase.auth.getSession()).data.session?.access_token;
+        if (accessToken) await post({ action: "bind", nonce }, accessToken).catch(() => undefined);
+        return { kind: "done", next: appRelativePath(minted.next) ?? next };
+      }),
+    cancel: () =>
+      once(async () => {
+        await post({ action: "discard", nonce }).catch(() => undefined);
+        // Never leave the page signed in as someone other than the link's person.
+        if (current) await supabase.auth.signOut({ scope: "local" });
+        return { kind: "cancelled", next, signedOut: current !== null };
+      }),
   };
 }

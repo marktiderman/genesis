@@ -1,6 +1,6 @@
 // @feat:web-handoff
 import { describe, expect, it, vi } from "vitest";
-import { openOnWeb, type OpenOnWebOptions } from "../web-handoff";
+import { openOnWeb, signOutOnWeb, type OpenOnWebOptions } from "../web-handoff";
 
 const ENDPOINT = "https://app.example.test/api/auth/handoff";
 
@@ -70,5 +70,24 @@ describe("openOnWeb", () => {
     const { browser, options } = setup({ status: 400, body: { error: "bad_path" } });
     await expect(openOnWeb("/x", options)).rejects.toThrow(TypeError);
     expect(browser.openBrowserAsync).not.toHaveBeenCalled();
+  });
+});
+
+describe("signOutOnWeb", () => {
+  it("posts the app's bearer to the sign-out route and returns how many web sessions ended", async () => {
+    const fetch = vi.fn(async () => new Response(JSON.stringify({ status: "signed_out", count: 2 }), { headers: { "content-type": "application/json" } }));
+    const ended = await signOutOnWeb({ endpoint: "https://app.example.test/api/auth/handoff-signout", getAccessToken: () => "access-1", fetch: fetch as unknown as typeof globalThis.fetch });
+    expect(ended).toBe(2);
+    const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://app.example.test/api/auth/handoff-signout");
+    expect((init.headers as Record<string, string>)["authorization"]).toBe("Bearer access-1");
+  });
+
+  it("never throws, so it can't block signing out", async () => {
+    const fetch = vi.fn(async () => {
+      throw new Error("offline");
+    });
+    expect(await signOutOnWeb({ endpoint: "https://a.test/s", getAccessToken: () => "t", fetch: fetch as unknown as typeof globalThis.fetch })).toBe(0);
+    expect(await signOutOnWeb({ endpoint: "https://a.test/s", getAccessToken: () => null, fetch: fetch as unknown as typeof globalThis.fetch })).toBe(0);
   });
 });

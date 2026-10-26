@@ -1765,7 +1765,7 @@ export const features = defineFeatures({
   },
   "web-handoff": {
     name: "Continue on the web",
-    summary: "A native app opens a page of the web app signed in as the same person: the server mints a single-use, 60-second link for the bearer's own account (digest stored, token in the fragment), the page asks before signing in unless that browser is already them, and Supabase Auth's magic-link token is minted only at redemption.",
+    summary: "A native app opens a page of the web app signed in as the same person: the server mints a single-use, 60-second link for the bearer's own account (digest stored, token in the fragment); the page claims it for a 30-second continue nonce and asks before signing in unless that browser is already them; Supabase Auth's magic-link token is minted only on Continue; Cancel signs anyone else out; the app's sign-out ends exactly the web sessions it handed off.",
     tagline: "Pick up on the web where the app left off, already signed in.",
     category: "Identity",
     status: "building",
@@ -1780,7 +1780,15 @@ export const features = defineFeatures({
       server: "@marktiderman/genesis-supabase/web-handoff/server",
     },
     requires: ["supabase-kit"],
-    contributes: ["table: private.genesis_web_handoffs", "rpc: genesis_web_handoff_issue", "rpc: genesis_web_handoff_redeem"],
+    contributes: [
+      "table: private.genesis_web_handoffs",
+      "rpc: genesis_web_handoff_issue",
+      "rpc: genesis_web_handoff_claim",
+      "rpc: genesis_web_handoff_continue",
+      "rpc: genesis_web_handoff_discard",
+      "rpc: genesis_web_handoff_bind_session",
+      "rpc: genesis_web_handoff_revoke_sessions",
+    ],
     owner: "mark",
     apps: ["web", "native", "server"],
     audience: ["person"],
@@ -1788,8 +1796,9 @@ export const features = defineFeatures({
     acceptance: [
       "appRelativePath refuses //host, /\\host, schemes, whitespace and control characters, and their percent-encoded forms; it runs before minting and again after sign-in.",
       "The mint route refuses a missing or invalid bearer (401) and mints only for the bearer's own account, whatever the body says.",
-      "A handoff redeems once, within its lifetime, and only service_role reaches the table and its functions.",
-      "The page drops the fragment from history before anything else runs, asks before signing in unless already signed in as that person, and signs a different person out locally only after Continue.",
+      "A link claims once within 60 seconds; Supabase's sign-in token is minted only on Continue, within the nonce's 30 seconds and never after Cancel; only service_role reaches the table and its functions.",
+      "The app's sign-out ends exactly the web sessions handed off from that app session, never the person's other devices.",
+      "The page drops the fragment from history before anything else runs, asks before signing in unless already signed in as that person, signs a different person out locally only after Continue, and on Cancel leaves nobody signed in as someone else.",
     ],
     reviewedAt: "2026-10-26",
     links: {

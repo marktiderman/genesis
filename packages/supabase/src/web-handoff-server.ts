@@ -7,24 +7,26 @@
  * page of the web app. The link opens that page signed in as the same person:
  *
  * 1. `mintWebHandoff` (for a person the caller already verified) records a handoff: who, which
- *    path, issued now, good for 60 seconds, used never. Only a SHA-256 digest of its random
- *    token is stored. It returns `<web origin>/auth/handoff#t=<token>&next=<path>`: the token is in
- *    the fragment, which browsers never send to a server, so it stays out of request logs.
- * 2. The page (`completeWebHandoff` from `/web-handoff`) posts the token to `redeem`, which marks
- *    the handoff used in the same statement that checks it (single use, 60 seconds), and only
- *    then asks Supabase Auth for a sign-in token for that person's own email
- *    (`auth.admin.generateLink`, type `magiclink`, which sends nothing). The page exchanges it
- *    at once with `auth.verifyOtp({ token_hash, type: "email" })`.
+ *    path, good for 60 seconds, from which app session. Only a SHA-256 digest of its random
+ *    token is stored. It returns `<web origin>/auth/handoff#t=<token>&next=<path>`: the token is
+ *    in the fragment, which browsers never send to a server.
+ * 2. The page claims it (`claimWebHandoff`): once, unexpired. It learns whose link it is and gets
+ *    a continue nonce that lives 30 seconds. Nothing that signs anyone in exists yet, so a page
+ *    left open, or cancelled, never holds a sign-in token.
+ * 3. Continue (`continueWebHandoff`, the nonce, once, in time, not after Cancel) is the only step
+ *    that asks Supabase Auth for a sign-in token (`auth.admin.generateLink`, type `magiclink`,
+ *    which sends nothing), for the person's own email. The page exchanges it at once with
+ *    `auth.verifyOtp({ token_hash, type: "email" })`. Cancel (`discardWebHandoff`) burns the nonce.
+ * 4. The page reports the session it made (`bindWebHandoffSession`), so signing out of the app
+ *    (`signOutWebHandoffs`) ends exactly the web sessions handed off from that app session.
  *
- * `createWebHandoff` wraps both as two POST routes; the mint route verifies the caller's bearer
- * token with `auth.getUser`.
+ * `createWebHandoff` wraps it all as three POST routes.
  *
  * ```ts
  * const handoff = createWebHandoff({ admin: supabaseAdmin });
- * // POST /api/auth/handoff         (the app, with Authorization: Bearer <access token>)
- * export const POST = ({ request }) => handoff.mint(request);
- * // POST /api/auth/redeem-handoff  (the /auth/handoff page)
- * export const POST = ({ request }) => handoff.redeem(request);
+ * // POST /api/auth/handoff          (the app, Bearer)                        → handoff.mint(request)
+ * // POST /api/auth/redeem-handoff   (the page: claim, continue, discard, bind) → handoff.redeem(request)
+ * // POST /api/auth/handoff-signout  (the app, Bearer, before it signs out)   → handoff.signOut(request)
  * ```
  *
  * @packageDocumentation
@@ -58,14 +60,23 @@ export interface WebHandoffAdmin {
   rpc: (fn: any, ...rest: any[]) => PromiseLike<{ data: unknown; error: { message: string; code?: string } | null }>;
 }
 
-/** One line for the server log. Never carries a token or an email. */
+/** One line for the server log. Never carries a token, a nonce or an email. */
 export interface WebHandoffLogEvent {
-  event: "web_handoff.minted" | "web_handoff.refused" | "web_handoff.redeemed";
+  event:
+    | "web_handoff.minted"
+    | "web_handoff.refused"
+    | "web_handoff.claimed"
+    | "web_handoff.continued"
+    | "web_handoff.discarded"
+    | "web_handoff.signed_out";
   userId?: string;
   path?: string;
   reason?: string;
+  count?: number;
   at: string;
 }
+
+type Log = (event: WebHandoffLogEvent) => void;
 
 /** @stability Beta */
 export interface WebHandoffOptions {
@@ -79,19 +90,23 @@ export interface WebHandoffOptions {
   pagePath?: string;
   /** How long a link works, 10 to 300 seconds. Default 60. */
   ttlSeconds?: number;
+  /** How long the page's Continue works after it opened the link, 5 to 120 seconds. Default 30. */
+  continueSeconds?: number;
   /** Links one person may mint per window. Default 10 a minute. */
   rateLimit?: { max: number; windowSeconds: number };
-  /** Where each handoff is logged (who, which path, when). Default `console.info` as JSON. */
-  log?: (event: WebHandoffLogEvent) => void;
+  /** Where each step is logged (who, which path, when). Default `console.info` as JSON. */
+  log?: Log;
 }
 
 /** @stability Beta */
-export interface MintWebHandoffOptions extends Omit<WebHandoffOptions, "webOrigin"> {
+export interface MintWebHandoffOptions extends Omit<WebHandoffOptions, "webOrigin" | "continueSeconds"> {
   /** The person, already verified by the caller (a bearer token checked with `auth.getUser`). */
   userId: string;
   /** Where on the web app to land. Must pass {@link appRelativePath}. */
   path: string;
   webOrigin: string;
+  /** The app session asking (the bearer's `session_id`): signing it out later ends the web session. */
+  sourceSessionId?: string | null;
 }
 
 export type MintWebHandoffResult =
@@ -103,12 +118,18 @@ export type MintWebHandoffResult =
       fallbackUrl?: string;
     };
 
-export type RedeemWebHandoffResult =
-  /** The browser is already signed in as this person: nothing to exchange. */
+export type ClaimWebHandoffResult =
+  /** The browser is already signed in as this person: go to `next`, nothing to exchange. */
   | { status: "same_user"; next: string }
-  /** Ask "Continue as <email>?", then exchange `tokenHash` with `verifyOtp`. */
-  | { status: "confirm"; next: string; email: string; userId: string; tokenHash: string }
+  /** Ask "Continue as <email>?"; `continueNonce` works once, for `continueSeconds`. */
+  | { status: "confirm"; next: string; email: string; continueNonce: string }
   /** Unknown, already used or older than its lifetime. */
+  | { status: "expired" }
+  | { status: "unavailable" };
+
+export type ContinueWebHandoffResult =
+  | { status: "ok"; next: string; userId: string; tokenHash: string }
+  /** The nonce is unknown, used, cancelled or out of time. */
   | { status: "expired" }
   | { status: "unavailable" };
 
@@ -116,7 +137,8 @@ const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DEFAULT_PAGE = "/auth/handoff";
 
-const defaultLog = (event: WebHandoffLogEvent) => console.info(JSON.stringify(event));
+const defaultLog: Log = (event) => console.info(JSON.stringify(event));
+const now = () => new Date().toISOString();
 
 function base64url(bytes: Uint8Array): string {
   let binary = "";
@@ -124,15 +146,37 @@ function base64url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** The SHA-256 of a handoff token, hex: what the database keeps instead of the token. */
+const randomToken = () => base64url(crypto.getRandomValues(new Uint8Array(32)));
+
+/** The SHA-256 of a handoff token or nonce, hex: what the database keeps instead. */
 export async function handoffDigest(token: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/**
+ * The `session_id` claim of an access token Supabase Auth has already verified (`auth.getUser`),
+ * or null. It only reads the payload; never call it on a token nobody verified.
+ */
+export function sessionIdOf(verifiedAccessToken: string): string | null {
+  const payload = verifiedAccessToken.split(".")[1];
+  if (!payload) return null;
+  try {
+    const json = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/"))) as { session_id?: unknown };
+    return typeof json.session_id === "string" && UUID.test(json.session_id) ? json.session_id : null;
+  } catch {
+    return null;
+  }
+}
+
 function handoffPage(origin: string, pagePath: string, fragment: Record<string, string>): string {
   const page = appRelativePath(pagePath) ?? DEFAULT_PAGE;
   return `${origin.replace(/\/+$/, "")}${page}#${new URLSearchParams(fragment).toString()}`;
+}
+
+function firstRow(data: unknown): { user_id?: string; path?: string } | null {
+  const row: unknown = Array.isArray(data) ? data[0] : data;
+  return row && typeof row === "object" ? (row as { user_id?: string; path?: string }) : null;
 }
 
 /**
@@ -148,7 +192,7 @@ export async function mintWebHandoff(options: MintWebHandoffOptions): Promise<Mi
   if (!Number.isInteger(ttlSeconds) || ttlSeconds < 10 || ttlSeconds > 300) {
     throw new RangeError("ttlSeconds must be a whole number from 10 to 300.");
   }
-  const at = new Date().toISOString();
+  const at = now();
   const path = appRelativePath(options.path);
   const refuse = (reason: "bad_path" | "no_user" | "no_email" | "rate_limited"): MintWebHandoffResult => {
     log({ event: "web_handoff.refused", userId, ...(path ? { path } : {}), reason, at });
@@ -163,7 +207,8 @@ export async function mintWebHandoff(options: MintWebHandoffOptions): Promise<Mi
   if (error || !data.user) return refuse("no_user");
   if (!data.user.email) return refuse("no_email");
 
-  const token = base64url(crypto.getRandomValues(new Uint8Array(32)));
+  const token = randomToken();
+  const sourceSessionId = options.sourceSessionId && UUID.test(options.sourceSessionId) ? options.sourceSessionId : null;
   const issued = await admin.rpc("genesis_web_handoff_issue", {
     p_user_id: userId,
     p_digest: await handoffDigest(token),
@@ -171,6 +216,7 @@ export async function mintWebHandoff(options: MintWebHandoffOptions): Promise<Mi
     p_ttl_seconds: ttlSeconds,
     p_max: rateLimit.max,
     p_window_seconds: rateLimit.windowSeconds,
+    p_source_session_id: sourceSessionId,
   });
   if (issued.error) {
     if (issued.error.code === "GS429") return refuse("rate_limited");
@@ -181,25 +227,32 @@ export async function mintWebHandoff(options: MintWebHandoffOptions): Promise<Mi
 }
 
 /**
- * Use a handoff token: once, within its lifetime. When the browser is already signed in as that
- * person (`currentUserId`), nothing is minted. Otherwise Supabase Auth makes a sign-in token for
- * the person's own email, looked up by the id the handoff was minted for.
+ * The page opened a link: use it (once, within its lifetime) and say whose it is. Mints nothing.
+ * When the browser is already that person (`currentUserId`) the handoff is spent and the page
+ * simply goes on; otherwise it gets a continue nonce for {@link continueWebHandoff}.
  *
  * @stability Beta
  */
-export async function redeemWebHandoff(options: {
+export async function claimWebHandoff(options: {
   admin: WebHandoffAdmin;
   token: string;
-  /** Who this browser is signed in as now, if anyone. Only ever saves minting; never grants anything. */
+  /** Who this browser is signed in as now, if anyone. Only ever skips the question; grants nothing. */
   currentUserId?: string | null;
-  log?: (event: WebHandoffLogEvent) => void;
-}): Promise<RedeemWebHandoffResult> {
-  const { admin, token, currentUserId, log = defaultLog } = options;
-  const at = new Date().toISOString();
+  continueSeconds?: number;
+  log?: Log;
+}): Promise<ClaimWebHandoffResult> {
+  const { admin, token, currentUserId, continueSeconds = 30, log = defaultLog } = options;
+  const at = now();
   if (!TOKEN.test(token)) return { status: "expired" };
-  const { data, error } = await admin.rpc("genesis_web_handoff_redeem", { p_digest: await handoffDigest(token) });
-  if (error) throw new Error(`genesis_web_handoff_redeem: ${error.message}`);
-  const row = (Array.isArray(data) ? data[0] : data) as { user_id?: string; path?: string } | null | undefined;
+  const nonce = randomToken();
+  const nonceDigest = await handoffDigest(nonce);
+  const { data, error } = await admin.rpc("genesis_web_handoff_claim", {
+    p_digest: await handoffDigest(token),
+    p_nonce_digest: nonceDigest,
+    p_nonce_ttl_seconds: continueSeconds,
+  });
+  if (error) throw new Error(`genesis_web_handoff_claim: ${error.message}`);
+  const row = firstRow(data);
   if (!row?.user_id) {
     log({ event: "web_handoff.refused", reason: "expired", at });
     return { status: "expired" };
@@ -207,9 +260,40 @@ export async function redeemWebHandoff(options: {
   const userId = row.user_id;
   const next = appRelativePath(row.path) ?? "/";
   if (currentUserId && currentUserId === userId) {
-    log({ event: "web_handoff.redeemed", userId, path: next, reason: "same_user", at });
+    await admin.rpc("genesis_web_handoff_discard", { p_nonce_digest: nonceDigest });
+    log({ event: "web_handoff.claimed", userId, path: next, reason: "same_user", at });
     return { status: "same_user", next };
   }
+  const found = await admin.auth.admin.getUserById(userId);
+  const email = found.data.user?.email;
+  if (found.error || !email) {
+    await admin.rpc("genesis_web_handoff_discard", { p_nonce_digest: nonceDigest });
+    log({ event: "web_handoff.refused", userId, path: next, reason: "no_email", at });
+    return { status: "unavailable" };
+  }
+  log({ event: "web_handoff.claimed", userId, path: next, at });
+  return { status: "confirm", next, email, continueNonce: nonce };
+}
+
+/**
+ * The person chose Continue: spend the nonce (once, in time, not after Cancel) and only now ask
+ * Supabase Auth for a sign-in token for the handoff's own person.
+ *
+ * @stability Beta
+ */
+export async function continueWebHandoff(options: { admin: WebHandoffAdmin; nonce: string; log?: Log }): Promise<ContinueWebHandoffResult> {
+  const { admin, nonce, log = defaultLog } = options;
+  const at = now();
+  if (!TOKEN.test(nonce)) return { status: "expired" };
+  const { data, error } = await admin.rpc("genesis_web_handoff_continue", { p_nonce_digest: await handoffDigest(nonce) });
+  if (error) throw new Error(`genesis_web_handoff_continue: ${error.message}`);
+  const row = firstRow(data);
+  if (!row?.user_id) {
+    log({ event: "web_handoff.refused", reason: "continue_expired", at });
+    return { status: "expired" };
+  }
+  const userId = row.user_id;
+  const next = appRelativePath(row.path) ?? "/";
   const found = await admin.auth.admin.getUserById(userId);
   const email = found.data.user?.email;
   if (found.error || !email) {
@@ -222,8 +306,63 @@ export async function redeemWebHandoff(options: {
     log({ event: "web_handoff.refused", userId, path: next, reason: "generate_link_failed", at });
     return { status: "unavailable" };
   }
-  log({ event: "web_handoff.redeemed", userId, path: next, at });
-  return { status: "confirm", next, email, userId, tokenHash };
+  log({ event: "web_handoff.continued", userId, path: next, at });
+  return { status: "ok", next, userId, tokenHash };
+}
+
+/** The person chose Cancel: burn the nonce, so Continue is refused from now on. @stability Beta */
+export async function discardWebHandoff(options: { admin: WebHandoffAdmin; nonce: string; log?: Log }): Promise<boolean> {
+  const { admin, nonce, log = defaultLog } = options;
+  if (!TOKEN.test(nonce)) return false;
+  const { data, error } = await admin.rpc("genesis_web_handoff_discard", { p_nonce_digest: await handoffDigest(nonce) });
+  if (error) throw new Error(`genesis_web_handoff_discard: ${error.message}`);
+  if (data === true) log({ event: "web_handoff.discarded", at: now() });
+  return data === true;
+}
+
+/**
+ * The page reports the session Continue made: its access token is verified with `auth.getUser`,
+ * and its `session_id` is kept on the handoff (for the same person, within two minutes of
+ * Continue), so {@link signOutWebHandoffs} can end it.
+ *
+ * @stability Beta
+ */
+export async function bindWebHandoffSession(options: { admin: WebHandoffAdmin; nonce: string; accessToken: string }): Promise<boolean> {
+  const { admin, nonce, accessToken } = options;
+  if (!TOKEN.test(nonce)) return false;
+  const { data, error } = await admin.auth.getUser(accessToken);
+  const sessionId = sessionIdOf(accessToken);
+  if (error || !data.user || !sessionId) return false;
+  const bound = await admin.rpc("genesis_web_handoff_bind_session", {
+    p_nonce_digest: await handoffDigest(nonce),
+    p_user_id: data.user.id,
+    p_session_id: sessionId,
+  });
+  if (bound.error) throw new Error(`genesis_web_handoff_bind_session: ${bound.error.message}`);
+  return bound.data === true;
+}
+
+/**
+ * The app is signing out: end the web sessions handed off from that app session (and only
+ * those; never the person's other devices). Call it before the app's own sign-out, with the
+ * app's still-valid access token. Supabase documents a session as signed out once its
+ * `auth.sessions` row is gone; that web session's access token works until it expires.
+ *
+ * @stability Beta
+ */
+export async function signOutWebHandoffs(options: {
+  admin: WebHandoffAdmin;
+  userId: string;
+  sourceSessionId: string | null;
+  log?: Log;
+}): Promise<number> {
+  const { admin, userId, sourceSessionId, log = defaultLog } = options;
+  if (!sourceSessionId) return 0;
+  const { data, error } = await admin.rpc("genesis_web_handoff_revoke_sessions", { p_user_id: userId, p_source_session_id: sourceSessionId });
+  if (error) throw new Error(`genesis_web_handoff_revoke_sessions: ${error.message}`);
+  const count = typeof data === "number" ? data : 0;
+  log({ event: "web_handoff.signed_out", userId, count, at: now() });
+  return count;
 }
 
 const NO_STORE = { "cache-control": "no-store", "referrer-policy": "no-referrer" };
@@ -236,39 +375,51 @@ async function jsonBody(request: Request): Promise<Record<string, unknown> | nul
   return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : null;
 }
 
+const bearerOf = (request: Request) => /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1] ?? null;
+const str = (value: unknown) => (typeof value === "string" ? value : "");
+const fail = (error: unknown) => {
+  console.error(`[web-handoff] ${error instanceof Error ? error.message : String(error)}`);
+  return json({ status: "unavailable" }, 500);
+};
+
 /**
- * The two routes of a web handoff, each `(request) => Response`, POST only:
+ * The web handoff's routes, each `(request) => Response`, POST only, no CORS headers:
  *
- * - `mint`: `Authorization: Bearer <access token>` and `{ path }`. 200 `{ url, expiresAt }`;
+ * - `mint` (the app): `Authorization: Bearer <access token>` and `{ path }`. 200 `{ url, expiresAt }`;
  *   401 without a valid session; 400 for a path that could leave the app; 409 `no_email` and
  *   429 `rate_limited` with a `fallbackUrl` (the page, signed out) the app may open instead.
- * - `redeem`: `{ t, currentUserId? }` from the page. 200 with a {@link RedeemWebHandoffResult}.
- *
- * Neither sets CORS headers: the app calls `mint` from native code, and the page calls `redeem`
- * from its own origin.
+ * - `redeem` (the page), JSON `{ action, … }`:
+ *   `claim` `{ t, currentUserId? }` → {@link ClaimWebHandoffResult};
+ *   `continue` `{ nonce }` → {@link ContinueWebHandoffResult};
+ *   `discard` `{ nonce }` → `{ status: "discarded" }`;
+ *   `bind` `{ nonce }` with `Authorization: Bearer <the new web session's access token>` → `{ status: "bound" | "not_bound" }`.
+ * - `signOut` (the app, before its own sign-out): Bearer → `{ status: "signed_out", count }`.
  *
  * @stability Beta
  */
 export function createWebHandoff(options: WebHandoffOptions): {
   mint: (request: Request) => Promise<Response>;
   redeem: (request: Request) => Promise<Response>;
+  signOut: (request: Request) => Promise<Response>;
 } {
-  const { admin, log = defaultLog } = options;
+  const { admin, log = defaultLog, continueSeconds = 30 } = options;
   const originOf = (request: Request) =>
-    typeof options.webOrigin === "function"
-      ? options.webOrigin(request)
-      : (options.webOrigin ?? new URL(request.url).origin);
-  const postOnly = (request: Request) =>
-    request.method === "POST" ? null : json({ error: "Use POST." }, 405, { allow: "POST" });
+    typeof options.webOrigin === "function" ? options.webOrigin(request) : (options.webOrigin ?? new URL(request.url).origin);
+  const postOnly = (request: Request) => (request.method === "POST" ? null : json({ error: "Use POST." }, 405, { allow: "POST" }));
+  const caller = async (request: Request) => {
+    const bearer = bearerOf(request);
+    if (!bearer) return null;
+    const { data, error } = await admin.auth.getUser(bearer);
+    return error || !data.user ? null : { user: data.user, sessionId: sessionIdOf(bearer) };
+  };
+  const unauthorized = () => json({ error: "Sign in first." }, 401, { "www-authenticate": "Bearer" });
 
   return {
     async mint(request) {
       const wrongMethod = postOnly(request);
       if (wrongMethod) return wrongMethod;
-      const bearer = /^Bearer\s+(\S+)$/i.exec(request.headers.get("authorization") ?? "")?.[1];
-      if (!bearer) return json({ error: "Sign in first." }, 401, { "www-authenticate": "Bearer" });
-      const { data, error } = await admin.auth.getUser(bearer);
-      if (error || !data.user) return json({ error: "Sign in first." }, 401, { "www-authenticate": "Bearer" });
+      const who = await caller(request);
+      if (!who) return unauthorized();
       const body = await jsonBody(request);
       if (!body) return json({ error: "Send JSON: { path }." }, 400);
       let result: MintWebHandoffResult;
@@ -277,29 +428,58 @@ export function createWebHandoff(options: WebHandoffOptions): {
           ...options,
           admin,
           log,
-          userId: data.user.id,
-          path: typeof body["path"] === "string" ? body["path"] : "",
+          userId: who.user.id,
+          sourceSessionId: who.sessionId,
+          path: str(body["path"]),
           webOrigin: originOf(request),
         });
-      } catch (failure) {
-        console.error(`[web-handoff] ${failure instanceof Error ? failure.message : String(failure)}`);
-        return json({ error: "unavailable" }, 500);
+      } catch (error) {
+        return fail(error);
       }
       if (result.ok) return json({ url: result.url, expiresAt: result.expiresAt });
       const status = { bad_path: 400, no_user: 401, no_email: 409, rate_limited: 429 }[result.reason];
       return json({ error: result.reason, ...(result.fallbackUrl ? { fallbackUrl: result.fallbackUrl } : {}) }, status);
     },
+
     async redeem(request) {
       const wrongMethod = postOnly(request);
       if (wrongMethod) return wrongMethod;
       const body = await jsonBody(request);
-      if (!body || typeof body["t"] !== "string") return json({ status: "expired" });
-      const current = typeof body["currentUserId"] === "string" ? body["currentUserId"] : null;
+      if (!body) return json({ status: "expired" });
       try {
-        return json(await redeemWebHandoff({ admin, log, token: body["t"], currentUserId: current }));
+        switch (body["action"]) {
+          case "claim":
+            return json(
+              await claimWebHandoff({ admin, log, continueSeconds, token: str(body["t"]), currentUserId: str(body["currentUserId"]) || null }),
+            );
+          case "continue":
+            return json(await continueWebHandoff({ admin, log, nonce: str(body["nonce"]) }));
+          case "discard":
+            await discardWebHandoff({ admin, log, nonce: str(body["nonce"]) });
+            return json({ status: "discarded" });
+          case "bind": {
+            const accessToken = bearerOf(request);
+            const bound = accessToken ? await bindWebHandoffSession({ admin, nonce: str(body["nonce"]), accessToken }) : false;
+            return json({ status: bound ? "bound" : "not_bound" });
+          }
+          default:
+            return json({ error: "Unknown action." }, 400);
+        }
       } catch (error) {
-        console.error(`[web-handoff] ${error instanceof Error ? error.message : String(error)}`);
-        return json({ status: "unavailable" }, 500);
+        return fail(error);
+      }
+    },
+
+    async signOut(request) {
+      const wrongMethod = postOnly(request);
+      if (wrongMethod) return wrongMethod;
+      const who = await caller(request);
+      if (!who) return unauthorized();
+      try {
+        const count = await signOutWebHandoffs({ admin, log, userId: who.user.id, sourceSessionId: who.sessionId });
+        return json({ status: "signed_out", count });
+      } catch (error) {
+        return fail(error);
       }
     },
   };

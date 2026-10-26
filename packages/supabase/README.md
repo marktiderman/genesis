@@ -742,35 +742,49 @@ block opens that web page signed in as the same person, with no sign-in screen:
 
 1. **App:** `openOnWeb(path, …)` from `@marktiderman/genesis-native/web-handoff` posts `{ path }` to
    the app's mint route with `Authorization: Bearer <access token>`.
-2. **Server, mint** (`createWebHandoff(...).mint`, or `mintWebHandoff` for a person you verified
-   another way): verifies the bearer with `auth.getUser`, checks the path with `appRelativePath`,
-   and records a handoff in `private.genesis_web_handoffs` (`genesis_web_handoff_issue`): the
-   person, the path, a 60-second expiry and a SHA-256 digest of a random 256-bit token. It
-   returns `<origin>/auth/handoff#t=<token>&next=<path>`. The token is in the fragment, which
-   browsers never send to a server. Ten links a person a minute, counted in the database.
+2. **Mint** (`createWebHandoff(...).mint`, or `mintWebHandoff` for a person you verified another
+   way): verifies the bearer with `auth.getUser`, checks the path with `appRelativePath`, and
+   records a handoff (`genesis_web_handoff_issue`): the person, the path, the app session it came
+   from (the bearer's `session_id`), a 60-second expiry and a SHA-256 digest of a random 256-bit
+   token. It returns `<origin>/auth/handoff#t=<token>&next=<path>`; the fragment never reaches a
+   server. Ten links a person a minute, counted in the database.
 3. **Page** (`/auth/handoff`): `takeWebHandoffFragment()` reads the fragment and removes it with
-   `history.replaceState` before analytics or error reporting load. `completeWebHandoff` posts
-   the token to the redeem route.
-4. **Server, redeem** (`createWebHandoff(...).redeem`): `genesis_web_handoff_redeem` marks the
-   handoff used in the statement that checks it is unused and unexpired. If the browser is
-   already signed in as that person, it is done. Otherwise it asks Supabase Auth for a sign-in
-   token for that person's own email (`auth.admin.generateLink({ type: "magiclink" })`, which
-   sends no email) and returns its `hashed_token`.
-5. **Page:** "Continue as {email}?" unless the browser is already that person. Continue signs
-   any other person out locally (`signOut({ scope: "local" })`), then exchanges the token with
-   `auth.verifyOtp({ token_hash, type: "email" })` and goes to `next`, checked again.
+   `history.replaceState` before analytics or error reporting load. `completeWebHandoff` checks
+   who is signed in here with `auth.getUser` (a session ended elsewhere counts as nobody and is
+   cleared), then **claims** the handoff (`genesis_web_handoff_claim`): once, unexpired. The claim
+   returns whose link it is and a **continue nonce** that works once, for 30 seconds. Nothing that
+   signs anyone in exists yet.
+4. **Same person already signed in:** straight to `next`; nothing is ever minted.
+   **Otherwise:** "Continue as {email}?".
+   - **Continue** spends the nonce (`genesis_web_handoff_continue`: once, in time, not after
+     Cancel). Only now does the server ask Supabase Auth for a sign-in token for that person's own
+     email (`auth.admin.generateLink({ type: "magiclink" })`, which sends nothing). The page signs
+     any other person out locally, exchanges the token at once with
+     `auth.verifyOtp({ token_hash, type: "email" })`, checks the verified user is the link's, and
+     goes to `next`, checked again. It then reports the new session (`bind`, its access token as
+     the bearer), so the app's sign-out can end it.
+   - **Cancel** burns the nonce (`genesis_web_handoff_discard`) and signs out locally anyone else
+     who was signed in here, so the page never leaves someone in the app as another person. Show
+     "You can close this window".
+   - **A page left open** never gets a sign-in token: the nonce runs out.
+5. **App sign-out:** `signOutOnWeb` (genesis-native) posts the app's bearer to the sign-out route
+   before the app signs out; `genesis_web_handoff_revoke_sessions` deletes the `auth.sessions` rows
+   of the web sessions handed off from that app session, and only those (never the person's other
+   devices; never a global sign-out).
 
 ```ts
 // Server routes (the service-role client, server only)
 import { createWebHandoff } from "@marktiderman/genesis-supabase/web-handoff/server";
 const handoff = createWebHandoff({ admin: supabaseAdmin });
-// POST /api/auth/handoff        → handoff.mint(request)
-// POST /api/auth/redeem-handoff → handoff.redeem(request)
+// POST /api/auth/handoff         → handoff.mint(request)
+// POST /api/auth/redeem-handoff  → handoff.redeem(request)   (claim, continue, discard, bind)
+// POST /api/auth/handoff-signout → handoff.signOut(request)
 
 // The page
 import { completeWebHandoff, takeWebHandoffFragment } from "@marktiderman/genesis-supabase/web-handoff";
 const step = await completeWebHandoff({ supabase, fragment: takeWebHandoffFragment() });
-// step.kind: "done" (go to step.next), "confirm" (ask, then step.continue()), "failed" (step.reason)
+// "done" → go to step.next; "confirm" → ask, then step.continue() or step.cancel();
+// "cancelled" → "You can close this window"; "failed" → step.reason, sign in keeping step.next
 ```
 
 Install: copy `migrations/0015_genesis_web_handoff.sql` into `supabase/migrations/` under a new
@@ -782,21 +796,38 @@ The page must send `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and
 
 ### Lifetimes
 
-- **The handoff link:** 60 seconds and one use, enforced by `genesis_web_handoff_redeem`
-  (`ttlSeconds`, 10 to 300). Supabase's OTP expiry is project-wide, so the block doesn't rely on it.
-- **Supabase's sign-in token:** minted only at redeem and exchanged by the page at once. It is
-  single use and expires after the project's **Email OTP Expiration** (`mailer_otp_exp`; default
-  one hour; Authentication → Sign In / Providers → Email), the same setting that governs magic
-  links. Minting one replaces any magic link or email code that person has outstanding.
+- **The handoff link:** 60 seconds and one claim (`ttlSeconds`, 10 to 300).
+- **The continue nonce:** 30 seconds and one use (`continueSeconds`, 5 to 120); Cancel burns it.
+- **Supabase's sign-in token:** minted only on Continue and exchanged by the page at once. It is
+  single use and would expire after the project's **Email OTP Expiration** (`mailer_otp_exp`;
+  default one hour; Authentication → Sign In / Providers → Email). The block doesn't rely on that
+  setting, which is project-wide. Minting one replaces any magic link or email code that person
+  has outstanding.
+- **A web session the app's sign-out ended:** its `auth.sessions` row is gone, so it can't refresh
+  and `auth.getUser` refuses it; Supabase documents that its access token still verifies locally
+  until it expires (the project's JWT expiry, one hour by default).
 
 ### Choices, and why
 
-- **A record per handoff, not a signed timestamp.** A signed `iat` in the link can't stop someone
-  holding Supabase's token hash from exchanging it directly for up to an hour. Here the token hash
-  doesn't exist until a single-use, 60-second record is redeemed, so both limits hold.
+- **Claim, then Continue.** Minting Supabase's token when the page opened would leave a working
+  sign-in token in a page someone cancelled or walked away from, for the whole OTP expiry. The
+  token exists only after the person chooses Continue, within 30 seconds of opening the link.
+- **A record per handoff, not a signed timestamp.** A signed `iat` can't stop someone holding
+  Supabase's token hash from exchanging it directly; here there is no token hash to hold until
+  Continue.
 - **Ask first unless it's the same person.** Anyone can mint a link for their own account and
   send it to someone else (login CSRF); "Continue as {email}?" makes that visible. The in-app
   browser keeps its storage, so the person taps Continue once and later handoffs go straight in.
+- **Cancel signs the other person out.** Leaving the page (or opening Home) as whoever was signed
+  in before could put someone in the app as another person: an in-app browser keeps the previous
+  person's session after the app switched accounts. Signing out locally is the safe default; the
+  cost is that a person who cancels a link someone else sent them is signed out of this browser.
+- **Ending the web session on app sign-out by deleting its `auth.sessions` row.** Supabase's docs:
+  "When a user signs out, the sessions affected by the sign-out are removed from the database";
+  a missing row means signed out. `auth.admin.signOut` needs that session's JWT, which the server
+  doesn't keep; `scope: "global"` would sign out every device. The session id comes from the
+  web session's verified access token (`session_id` claim), bound to the handoff once, within two
+  minutes of Continue, for the same person.
 - **Magic link over passing the session.** Supabase has no first-party way to move a session to
   another client. Sending the app's refresh token would share one session between app and
   browser, and refresh-token rotation would sign one of them out. A magic-link token gives the

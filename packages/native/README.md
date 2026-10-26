@@ -707,6 +707,9 @@ await openOnWeb("/clients/1/forms", {
 - Without a session, with the server unreachable (8 seconds), for an account without an email
   or after too many links in a minute, it opens the page signed out (`{ signedIn: false, reason }`):
   the person signs in there and lands on the path. It never opens a URL on another origin.
+- **Signing out:** call `signOutOnWeb({ endpoint: "https://app.example.com/api/auth/handoff-signout",
+  getAccessToken })` just before the app's own sign-out. It ends the web sessions this app
+  session handed off (only those) and never throws, so it can't block signing out.
 - **The browser:** `openBrowserAsync` (SFSafariViewController on iOS, a Custom Tab on Android),
   not `Linking.openURL`. The person stays in the app, and Done brings them back. The in-app
   browser keeps its website data between openings, separate from Safari, so the first handoff

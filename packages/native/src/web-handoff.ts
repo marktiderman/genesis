@@ -122,3 +122,44 @@ export async function openOnWeb(path: string, options: OpenOnWebOptions): Promis
   const reason = body.error === "no_email" || body.error === "rate_limited" ? body.error : "refused";
   return { signedIn: false, reason };
 }
+
+/** @stability Beta */
+export interface SignOutOnWebOptions {
+  /** The sign-out route: `https://<web app>/api/auth/handoff-signout`. */
+  endpoint: string;
+  /** The session's access token, still valid: call this before the app signs out. */
+  getAccessToken: () => Promise<string | null | undefined> | string | null | undefined;
+  /** Give up after this long. Default 5000 ms. */
+  timeoutMs?: number;
+  fetch?: typeof fetch;
+}
+
+/**
+ * End the web sessions this app session handed off with {@link openOnWeb} (and only those; never
+ * the person's other devices). Call it just before the app's own sign-out, while the access token
+ * still works. It never throws, so it can't block signing out; it returns how many it ended.
+ *
+ * @stability Beta
+ */
+export async function signOutOnWeb(options: SignOutOnWebOptions): Promise<number> {
+  const { endpoint, timeoutMs = 5000 } = options;
+  const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const token = await options.getAccessToken();
+    if (!token) return 0;
+    const response = await doFetch(endpoint, {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: "{}",
+      signal: controller.signal,
+    });
+    const body = (await response.json().catch(() => ({}))) as { count?: unknown };
+    return response.ok && typeof body.count === "number" ? body.count : 0;
+  } catch {
+    return 0;
+  } finally {
+    clearTimeout(timer);
+  }
+}
