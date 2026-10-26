@@ -1,8 +1,9 @@
 -- Genesis work, content packs: genesis_work.installed_packs, genesis_work.metric_templates,
 -- genesis_work.labels, and genesis_work.install_content_pack / uninstall_content_pack
 --
--- A content pack is starting content for a tenant, defined in code (defineContentPack in
--- genesis-features) and installed into the tenant's own, editable rows:
+-- A content pack is starting content for a tenant. This file is only the installer: packs are
+-- defined in code with defineContentPack (genesis-features) and shipped in the genesis-content
+-- package or an app's own. Installing copies a pack into the tenant's own, editable rows:
 --
 --   sessionTypes      -> genesis_work.session_types (owned by the tenant)
 --   metricTemplates   -> genesis_work.metric_templates (a tenant's catalog; teams make metrics from
@@ -327,7 +328,7 @@ begin
        and not exists (select 1 from genesis_work.pursuits x where x.tenant_id = tenant and x.custom ? (fd.namespace || '.' || fd.key))
        and not exists (select 1 from genesis_work.work_items x where x.tenant_id = tenant and x.custom ? (fd.namespace || '.' || fd.key))
        and not exists (select 1 from genesis_work.metrics x where x.tenant_id = tenant and x.custom ? (fd.namespace || '.' || fd.key))
-       and not exists (select 1 from genesis_work.sessions x where x.tenant_id = tenant and x.custom ? (fd.namespace || '.' || fd.key)) then
+       and not exists (select 1 from genesis_work.session_details x where x.tenant_id = tenant and x.custom ? (fd.namespace || '.' || fd.key)) then
       delete from genesis_work.field_definitions f where f.id = fd.id;
       removed := removed || ('fieldDefinitions.' || fd.key);
     else
@@ -374,16 +375,24 @@ create policy installed_packs_read on genesis_work.installed_packs for select to
 create policy metric_templates_read on genesis_work.metric_templates for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = metric_templates.tenant_id and r.owner_id = metric_templates.tenant_id));
-create policy metric_templates_write on genesis_work.metric_templates for all to authenticated
+create policy metric_templates_write_insert on genesis_work.metric_templates for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy metric_templates_write_update on genesis_work.metric_templates for update to authenticated
   using (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy metric_templates_write_delete on genesis_work.metric_templates for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
 
 create policy labels_read on genesis_work.labels for select to authenticated
   using (exists (select 1 from private.genesis_owner_readable() r
                  where r.tenant_id = labels.tenant_id and r.owner_id = labels.tenant_id));
-create policy labels_write on genesis_work.labels for all to authenticated
+create policy labels_write_insert on genesis_work.labels for insert to authenticated
+  with check (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy labels_write_update on genesis_work.labels for update to authenticated
   using (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'))
   with check (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
+create policy labels_write_delete on genesis_work.labels for delete to authenticated
+  using (private.genesis_owner_allows(tenant_id, null, null, tenant_id, 'write'));
 
 revoke all on genesis_work.installed_packs, genesis_work.metric_templates, genesis_work.labels from public, anon, authenticated;
 grant select on genesis_work.installed_packs to authenticated;
