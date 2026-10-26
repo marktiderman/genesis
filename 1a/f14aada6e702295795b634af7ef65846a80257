@@ -1,0 +1,25 @@
+.changeset/resource-source.md
+  s_a1b83c03f697d3::t_79bed2b6809280 1-5
+packages/core/README.md
+  s_a1b83c03f697d3::t_e6afd3350ba1f0 109-128
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_a1b83c03f697d3::t_27c9638198de74 1-102
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_4aa2c6b420f2c2 108-109,199-215,486-501,669,738,795,804
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1af14aada6e702295795b634af7ef65846a80257",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
