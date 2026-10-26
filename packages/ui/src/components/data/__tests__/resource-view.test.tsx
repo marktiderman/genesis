@@ -228,6 +228,14 @@ describe("ResourceView review fixes", () => {
     expect(cursor.current.pagination).toBe("cursor");
   });
 
+  it("fills the screen's filter into a create, hidden, and only for fields the resource has", () => {
+    const { result } = renderHook(() => useResourceViewProps({ view, filter: { practice_id: "p1", nope: 1 } as never }), {
+      wrapper: wrap(provider()),
+    });
+    const filled = result.current.formFields!.filter((f) => f.hidden);
+    expect(filled).toEqual([{ key: "practice_id", type: "hidden", hidden: true, defaultValue: "p1" }]);
+  });
+
   it("keeps a URL sort on a field column in cursor mode", async () => {
     localStorage.clear();
     const p = provider();
