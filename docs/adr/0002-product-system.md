@@ -26,7 +26,7 @@ lets people and agents add ideas and vote in one place.
 | ---------- | -------------------------------------- | --------------------------------------------------------------------- |
 | Answers    | "Is this feature on here, now?"        | "What are we building, for whom, and why?"                            |
 | Covers     | The app's **own** features             | **Any** product a tenant runs, including products that live elsewhere |
-| Lives in   | `genesis-supabase` migration 0007      | `genesis-product` migrations, on top of `genesis-support`             |
+| Lives in   | `genesis-supabase` migration 0008      | `genesis-product` migrations, on top of `genesis-support`             |
 | Written by | Deploys (sync), billing, tenant admins | People, agents, staff, and syncs from product repos                   |
 
 The product system reads the gate's mirror for the host app's own product instead of keeping a
@@ -103,7 +103,7 @@ migrated once, then that project's tables are retired.
 - One app can run many products for many owners, and a product's roadmap, ideas and releases sit
   next to the rest of the owner's work.
 - The planned `genesis-product` migration drops its own copy of the host app's registry and reads
-  migration 0007's `features` table; products from other repositories get their own rows keyed by
+  migration 0008's `features` table; products from other repositories get their own rows keyed by
   product.
 - Agents become first-class contributors without inflating what people asked for.
 - A product can move its users and feedback to its own database later without changing the model.
