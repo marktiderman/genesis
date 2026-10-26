@@ -1,0 +1,66 @@
+AGENTS.md
+  s_f5a91deb5a46ce::t_5d7a8d913e713b 16
+features.ts
+  s_f5a91deb5a46ce::t_5d7a8d913e713b 1889-1915
+packages/genesis-cli/test/blocks-local.test.ts
+  s_f5a91deb5a46ce::t_dbebf31e13458b 75
+  s_f5a91deb5a46ce::t_0487cac0d884b3 1-70,72-74,76-80
+  s_f5a91deb5a46ce::t_ae204b7911e527 71
+packages/genesis-cli/src/doctor/index.ts
+  s_f5a91deb5a46ce::t_23c1c183060435 29,133
+packages/genesis-cli/src/doctor/rules.ts
+  s_f5a91deb5a46ce::t_23c1c183060435 46-53
+packages/genesis-cli/src/doctor/scan.ts
+  s_f5a91deb5a46ce::t_48a463e4f95895 4,60-61
+packages/genesis-cli/src/doctor/types.ts
+  s_f5a91deb5a46ce::t_23c1c183060435 69-75,105
+packages/genesis-cli/src/blocks/owned.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 19,67,75,127
+packages/genesis-cli/src/blocks/local.ts
+  s_f5a91deb5a46ce::t_aa5f6600d9adda 1-130
+packages/genesis-cli/src/blocks/migrate.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 14,45,59-60
+packages/genesis-cli/test/blocks-add.test.ts
+  s_f5a91deb5a46ce::t_d302060c778dca 105,110
+packages/genesis-cli/src/doctor/packages.ts
+  s_f5a91deb5a46ce::t_7ea736caa9ba26 1-203
+packages/genesis-cli/test/doctor-packages.test.ts
+  s_f5a91deb5a46ce::t_01ea58a8d91b05 1-97
+  s_f5a91deb5a46ce::t_48a463e4f95895 98-107
+packages/genesis-cli/src/blocks/discover.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 14,76,78-79,128-129,138,146-147,150,153-155,196
+packages/genesis-cli/src/blocks/manifest.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 107,110-111,116-117
+packages/genesis-cli/src/upgrade/index.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 29,180,234
+features.json
+  s_f5a91deb5a46ce::t_5d7a8d913e713b 4334-4387
+  s_f5a91deb5a46ce::t_0374672480481c 4331-4333
+packages/genesis-cli/README.md
+  s_f5a91deb5a46ce::t_5d7a8d913e713b 138-160,442,505-523
+  s_f5a91deb5a46ce::t_4e36d0d017bc78 524
+packages/genesis-cli/src/blocks/add.ts
+  s_f5a91deb5a46ce::t_8bbed172c4224d 14,186,188-189
+  s_f5a91deb5a46ce::t_d52c0cdf5aab57 231,317
+packages/genesis-cli/src/doctor/config.ts
+  s_f5a91deb5a46ce::t_ac32d5f3d13da4 12,126-127,221-227
+  s_f5a91deb5a46ce::t_23c1c183060435 153,160,165
+.changeset/local-packages.md
+  s_f5a91deb5a46ce::t_5d7a8d913e713b 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba38350d2ef80af1d231539a606e0726026a6d0c",
+  "prompts": {},
+  "sessions": {
+    "s_f5a91deb5a46ce": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "990bd98f-ed01-4a25-b235-b1b66ec21eec",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
