@@ -192,20 +192,18 @@
           "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME }). Grant paid features by writing feature_entitlements from your billing webhook."
         ]
       },
-      "pursuits": {
+      "owner-access": {
         "feature": {
-          "name": "Pursuits",
-          "summary": "Goals and projects (one table, either or both) with tasks, issues and milestones, owned by a person, a team or the tenant; who reads and writes is the app's hook.",
+          "name": "Owner access",
+          "summary": "The owner-access contract: fail-closed wrappers (genesis_owner_readable, genesis_owner_allows) over the app's two hooks, for every Genesis block whose rows belong to a person, a team or the tenant.",
           "keywords": [
-            "goals",
-            "projects",
-            "tasks",
-            "issues",
-            "milestones",
-            "quarterly priorities"
+            "access",
+            "owners",
+            "row level security",
+            "tenants",
+            "teams"
           ],
           "audience": [
-            "person",
             "developer"
           ]
         },
@@ -218,126 +216,15 @@
         ],
         "migrations": [
           {
-            "file": "migrations/0009_genesis_pursuits.sql",
-            "test": "migrations/tests/0009_genesis_pursuits.test.sql"
+            "file": "migrations/0009_genesis_owner_access.sql",
+            "test": "migrations/tests/0009_genesis_owner_access.test.sql"
           }
         ],
         "install": [
           "@supabase/supabase-js@^2.118.0"
         ],
         "steps": [
-          "Define private.genesis_readable_owners(viewer) and private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) in a migration, as the header of 0009 shows. Without them nobody signed in reads or writes."
-        ]
-      },
-      "metrics": {
-        "feature": {
-          "name": "Metrics",
-          "summary": "Numbers tracked over time (a scorecard, a habit, a profit margin), one value per period, goals that change over time, owned by a person, a team or the tenant.",
-          "keywords": [
-            "metrics",
-            "kpi",
-            "scorecard",
-            "habits",
-            "trend"
-          ],
-          "audience": [
-            "person",
-            "developer"
-          ]
-        },
-        "platforms": [
-          "web",
-          "native"
-        ],
-        "requires": [
-          "tenant-features"
-        ],
-        "migrations": [
-          {
-            "file": "migrations/0010_genesis_metrics.sql",
-            "test": "migrations/tests/0010_genesis_metrics.test.sql"
-          }
-        ],
-        "install": [
-          "@supabase/supabase-js@^2.118.0"
-        ],
-        "steps": [
-          "Uses the same hooks as the pursuits block: private.genesis_readable_owners(viewer) and private.genesis_owner_can(...). Without them nobody signed in reads or writes."
-        ]
-      },
-      "status-updates": {
-        "feature": {
-          "name": "Status updates",
-          "summary": "Dated updates (health and a note) on goals, projects, tasks, issues and metrics, and requests to a person for an update by a due time, answered by posting one.",
-          "keywords": [
-            "status update",
-            "check-in",
-            "update request",
-            "health",
-            "overdue"
-          ],
-          "audience": [
-            "person",
-            "developer"
-          ]
-        },
-        "platforms": [
-          "web",
-          "native"
-        ],
-        "requires": [
-          "pursuits",
-          "metrics"
-        ],
-        "migrations": [
-          {
-            "file": "migrations/0011_genesis_updates.sql",
-            "test": "migrations/tests/0011_genesis_updates.test.sql"
-          }
-        ],
-        "install": [
-          "@supabase/supabase-js@^2.118.0"
-        ],
-        "steps": [
-          "Needs the pursuits and metrics blocks and their hooks. For reminders, schedule a job (the jobs block) that reads update_requests_due and sends one notification per request."
-        ]
-      },
-      "sessions": {
-        "feature": {
-          "name": "Sessions",
-          "summary": "Sessions of any kind (a meeting, workshop, presentation, coaching call, one-on-one, class or planning day): types with agendas, a schedule and calendar event, the agenda copied at start, the live step, notes and recordings; attendees with presence and a 1-to-10 rating; links to pre-work and collaboration spaces.",
-          "keywords": [
-            "sessions",
-            "meetings",
-            "workshops",
-            "coaching calls",
-            "agenda",
-            "rating",
-            "attendance"
-          ],
-          "audience": [
-            "person",
-            "developer"
-          ]
-        },
-        "platforms": [
-          "web",
-          "native"
-        ],
-        "requires": [
-          "pursuits"
-        ],
-        "migrations": [
-          {
-            "file": "migrations/0012_genesis_sessions.sql",
-            "test": "migrations/tests/0012_genesis_sessions.test.sql"
-          }
-        ],
-        "install": [
-          "@supabase/supabase-js@^2.118.0"
-        ],
-        "steps": [
-          "Uses 0009's owner-access contract and its app hooks. To share pre-work or a live worksheet with attendees, register private.genesis_session_members(session) as a collaboration audience."
+          "Define private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) and private.genesis_readable_owners(viewer) in your own migration, as the header of 0009 shows. Without them the wrappers answer no."
         ]
       }
     }

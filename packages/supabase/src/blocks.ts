@@ -127,115 +127,25 @@ export const jobsBlock = defineBlock({
 });
 
 /**
- * The pursuits block: goals and projects (one table, either or both) with
- * their tasks, issues and milestones, owned by a person, a team or the
- * tenant. Who reads and writes is the app's hook (`genesis_owner_can`,
- * `genesis_readable_owners`); without it nobody signed in can.
+ * The owner-access block: the contract every Genesis block with owned rows
+ * calls in its policies. Two fail-closed wrappers over the app's hooks
+ * (`genesis_owner_can`, `genesis_readable_owners`): a missing or broken hook
+ * means no.
  *
  * @stability Experimental
  */
-export const pursuitsBlock = defineBlock({
-  id: "pursuits",
+export const ownerAccessBlock = defineBlock({
+  id: "owner-access",
   requires: ["tenant-features"],
   platforms: ["web", "native"],
   contributes: {
     migrations: [
       {
         package: PACKAGE,
-        file: "migrations/0009_genesis_pursuits.sql",
-        test: "migrations/tests/0009_genesis_pursuits.test.sql",
+        file: "migrations/0009_genesis_owner_access.sql",
+        test: "migrations/tests/0009_genesis_owner_access.test.sql",
       },
     ],
-    privacy: {
-      notes: [
-        "Stores the goals, projects, tasks and issues people and teams write; a deleted person's rows keep no link to their login.",
-      ],
-    },
-  },
-});
-
-/**
- * The metrics block: numbers tracked over time, one value per period, with
- * goals that change over time and a view of each value against the goal of
- * its period. Owned like pursuits (a person, a team or the tenant), through
- * the same app hooks.
- *
- * @stability Experimental
- */
-export const metricsBlock = defineBlock({
-  id: "metrics",
-  requires: ["tenant-features"],
-  platforms: ["web", "native"],
-  contributes: {
-    migrations: [
-      {
-        package: PACKAGE,
-        file: "migrations/0010_genesis_metrics.sql",
-        test: "migrations/tests/0010_genesis_metrics.test.sql",
-      },
-    ],
-    privacy: {
-      notes: [
-        "Stores the numbers people and teams track; a source's settings hold ids only, never secrets.",
-      ],
-    },
-  },
-});
-
-/**
- * The status updates block: dated updates (health and a note) on a pursuit,
- * work item or metric, and requests to one person for an update by a due
- * time, answered by the first update they post. Needs the pursuits and
- * metrics blocks.
- *
- * @stability Experimental
- */
-export const statusUpdatesBlock = defineBlock({
-  id: "status-updates",
-  requires: ["pursuits", "metrics"],
-  platforms: ["web", "native"],
-  contributes: {
-    migrations: [
-      {
-        package: PACKAGE,
-        file: "migrations/0011_genesis_updates.sql",
-        test: "migrations/tests/0011_genesis_updates.test.sql",
-      },
-    ],
-    privacy: {
-      notes: [
-        "Stores the updates people write and who asked whom for one; a closed account's requests to it are deleted.",
-      ],
-    },
-  },
-});
-
-/**
- * The sessions block: sessions of any kind (a meeting, workshop,
- * presentation, coaching call, one-on-one, class or planning day), with
- * types and agendas, a schedule, the agenda copied at start, the live step,
- * notes and recordings; attendees with presence and a rating; links to
- * pre-work and collaboration spaces. Uses the pursuits block's owner-access
- * contract.
- *
- * @stability Experimental
- */
-export const sessionsBlock = defineBlock({
-  id: "sessions",
-  requires: ["pursuits"],
-  platforms: ["web", "native"],
-  contributes: {
-    migrations: [
-      {
-        package: PACKAGE,
-        file: "migrations/0012_genesis_sessions.sql",
-        test: "migrations/tests/0012_genesis_sessions.test.sql",
-      },
-    ],
-    privacy: {
-      notes: [
-        "Stores sessions, who attended and each attendee's rating and note; a closed account's attendance goes with it.",
-      ],
-    },
+    privacy: { notes: ["Stores nothing; it only asks the app's hooks who may read and write."] },
   },
 });

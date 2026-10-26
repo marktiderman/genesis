@@ -1,5 +1,5 @@
 -- @feat:sessions
--- pgTAP test for 0012_genesis_sessions.sql.
+-- pgTAP test for 0004_genesis_work_sessions.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, tenants, teams and hooks and rolls everything back.
 -- If your app already has the hooks (`private.genesis_owner_can`,
@@ -60,103 +60,103 @@ revoke execute on function private.genesis_readable_owners(uuid) from public, an
 revoke execute on function private.genesis_owner_can(uuid, uuid, uuid, uuid, uuid, text) from public, anon, authenticated;
 
 -- Shape -------------------------------------------------------------------------------------
-select has_table('public', 'session_types', 'session_types exists');
-select has_table('public', 'sessions', 'sessions exists');
-select has_table('public', 'session_attendees', 'session_attendees exists');
-select has_table('public', 'session_links', 'session_links exists');
-select has_view('public', 'session_ratings', 'session_ratings exists');
-select ok(not has_table_privilege('anon', 'public.sessions', 'select,insert,update,delete'), 'anon has no privilege');
+select has_table('genesis_work', 'session_types', 'session_types exists');
+select has_table('genesis_work', 'sessions', 'sessions exists');
+select has_table('genesis_work', 'session_attendees', 'session_attendees exists');
+select has_table('genesis_work', 'session_links', 'session_links exists');
+select has_view('genesis_work', 'session_ratings', 'session_ratings exists');
+select ok(not has_table_privilege('anon', 'genesis_work.sessions', 'select,insert,update,delete'), 'anon has no privilege');
 
 -- Types and sessions ------------------------------------------------------------------------
 select pg_temp.sign_in('a1');
 select lives_ok(
-  $$ insert into public.session_types (id, tenant_id, team_id, name, default_minutes, agenda)
+  $$ insert into genesis_work.session_types (id, tenant_id, team_id, name, default_minutes, agenda)
      values (pg_temp.stype(1), pg_temp.tenant(1), pg_temp.team(1), 'Weekly team meeting', 90,
              '[{"key":"checkin","title":"Check-in","minutes":5},{"key":"issues","title":"Issues","minutes":60}]') $$,
   'a team member adds a session type');
 select lives_ok(
-  $$ insert into public.sessions (id, tenant_id, team_id, session_type_id, title, scheduled_at, duration_minutes, calendar_event_id)
+  $$ insert into genesis_work.sessions (id, tenant_id, team_id, session_type_id, title, scheduled_at, duration_minutes, calendar_event_id)
      values (pg_temp.session(1), pg_temp.tenant(1), pg_temp.team(1), pg_temp.stype(1), 'Tuesday meeting', '2026-10-27 14:00+00', 90, 'gcal:abc123') $$,
   'a team member schedules a session');
-select is((select kind from public.sessions where id = pg_temp.session(1)), 'meeting', 'a session takes its type''s kind');
+select is((select kind from genesis_work.sessions where id = pg_temp.session(1)), 'meeting', 'a session takes its type''s kind');
 select lives_ok(
-  $$ insert into public.sessions (tenant_id, team_id, kind, title, scheduled_at, duration_minutes)
+  $$ insert into genesis_work.sessions (tenant_id, team_id, kind, title, scheduled_at, duration_minutes)
      values (pg_temp.tenant(1), pg_temp.team(1), 'workshop', 'Hiring workshop', '2026-11-03 15:00+00', 180) $$,
   'a workshop without a type');
 select throws_ok(
-  $$ insert into public.sessions (tenant_id, team_id, kind, title) values (pg_temp.tenant(1), pg_temp.team(1), 'party', 'x') $$,
+  $$ insert into genesis_work.sessions (tenant_id, team_id, kind, title) values (pg_temp.tenant(1), pg_temp.team(1), 'party', 'x') $$,
   '23514', null, 'a session''s kind is one of the known kinds');
 select throws_ok(
-  $$ insert into public.sessions (tenant_id, team_id, session_type_id, title) values (pg_temp.tenant(2), pg_temp.team(1), pg_temp.stype(1), 'x') $$,
+  $$ insert into genesis_work.sessions (tenant_id, team_id, session_type_id, title) values (pg_temp.tenant(2), pg_temp.team(1), pg_temp.stype(1), 'x') $$,
   '42501', null, 'scheduling in another tenant is refused');
 select lives_ok(
-  $$ insert into public.session_attendees (session_id, user_id) values
+  $$ insert into genesis_work.session_attendees (session_id, user_id) values
      (pg_temp.session(1), pg_temp.person('a1')), (pg_temp.session(1), pg_temp.person('b2')) $$,
   'inviting attendees, a guest included');
 select throws_ok(
-  $$ insert into public.session_attendees (session_id, user_id) values (pg_temp.session(1), pg_temp.person('e5')) $$,
+  $$ insert into genesis_work.session_attendees (session_id, user_id) values (pg_temp.session(1), pg_temp.person('e5')) $$,
   '22023', null, 'someone who can''t read the session comes in only as a guest');
 select lives_ok(
-  $$ insert into public.session_attendees (session_id, user_id, guest) values (pg_temp.session(1), pg_temp.person('e5'), true) $$,
+  $$ insert into genesis_work.session_attendees (session_id, user_id, guest) values (pg_temp.session(1), pg_temp.person('e5'), true) $$,
   'inviting a guest deliberately');
 select throws_ok(
-  $$ update public.sessions set facilitator_id = pg_temp.person('c3') where id = pg_temp.session(1) $$,
+  $$ update genesis_work.sessions set facilitator_id = pg_temp.person('c3') where id = pg_temp.session(1) $$,
   '22023', null, 'a facilitator is an attendee or can read the session');
-select is((select team_id from public.session_attendees where user_id = pg_temp.person('e5')), pg_temp.team(1),
+select is((select team_id from genesis_work.session_attendees where user_id = pg_temp.person('e5')), pg_temp.team(1),
   'an attendee row takes its session''s owner');
 select lives_ok(
-  $$ insert into public.session_links (session_id, kind, ref, title) values (pg_temp.session(1), 'prework', 'form:weekly-prework', 'Wins and numbers') $$,
+  $$ insert into genesis_work.session_links (session_id, kind, ref, title) values (pg_temp.session(1), 'prework', 'form:weekly-prework', 'Wins and numbers') $$,
   'adding pre-work');
 
 -- Running -----------------------------------------------------------------------------------
-select lives_ok($$ update public.sessions set status = 'live' where id = pg_temp.session(1) $$, 'starting the session');
-select is((select jsonb_array_length(agenda) from public.sessions where id = pg_temp.session(1)), 2, 'starting copies the type''s agenda');
-select isnt((select started_at from public.sessions where id = pg_temp.session(1)), null, 'starting stamps started_at');
-select lives_ok($$ update public.session_types set agenda = '[]' where id = pg_temp.stype(1) $$, 'editing the type afterwards');
-select is((select jsonb_array_length(agenda) from public.sessions where id = pg_temp.session(1)), 2, 'the session keeps the agenda it started with');
-select lives_ok($$ update public.sessions set current_step = 1 where id = pg_temp.session(1) $$, 'moving to the next step');
+select lives_ok($$ update genesis_work.sessions set status = 'live' where id = pg_temp.session(1) $$, 'starting the session');
+select is((select jsonb_array_length(agenda) from genesis_work.sessions where id = pg_temp.session(1)), 2, 'starting copies the type''s agenda');
+select isnt((select started_at from genesis_work.sessions where id = pg_temp.session(1)), null, 'starting stamps started_at');
+select lives_ok($$ update genesis_work.session_types set agenda = '[]' where id = pg_temp.stype(1) $$, 'editing the type afterwards');
+select is((select jsonb_array_length(agenda) from genesis_work.sessions where id = pg_temp.session(1)), 2, 'the session keeps the agenda it started with');
+select lives_ok($$ update genesis_work.sessions set current_step = 1 where id = pg_temp.session(1) $$, 'moving to the next step');
 
 -- Rating ------------------------------------------------------------------------------------
 select pg_temp.sign_in('e5');
-select is((select count(*)::int from public.sessions), 1, 'a guest attendee reads the session they attend');
-select is((select count(*)::int from public.session_links), 1, 'and its pre-work');
-select is((select count(*)::int from public.session_attendees), 1, 'a guest sees only their own attendee row');
+select is((select count(*)::int from genesis_work.sessions), 1, 'a guest attendee reads the session they attend');
+select is((select count(*)::int from genesis_work.session_links), 1, 'and its pre-work');
+select is((select count(*)::int from genesis_work.session_attendees), 1, 'a guest sees only their own attendee row');
 select isnt_empty(
-  $$ update public.session_attendees set rating = 9, rating_note = 'Great IDS' where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') returning user_id $$,
+  $$ update genesis_work.session_attendees set rating = 9, rating_note = 'Great IDS' where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') returning user_id $$,
   'an attendee rates the session');
 select throws_ok(
-  $$ update public.session_attendees set present = true where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') $$,
+  $$ update genesis_work.session_attendees set present = true where session_id = pg_temp.session(1) and user_id = pg_temp.person('e5') $$,
   '42501', null, 'an attendee who can''t run the session doesn''t mark presence');
 select is_empty(
-  $$ update public.session_attendees set rating = 1 where session_id = pg_temp.session(1) and user_id = pg_temp.person('b2') returning user_id $$,
+  $$ update genesis_work.session_attendees set rating = 1 where session_id = pg_temp.session(1) and user_id = pg_temp.person('b2') returning user_id $$,
   'an attendee doesn''t rate for someone else');
 select pg_temp.sign_in('a1');
 select throws_ok(
-  $$ update public.session_attendees set rating = 10 where session_id = pg_temp.session(1) and user_id = pg_temp.person('b2') $$,
+  $$ update genesis_work.session_attendees set rating = 10 where session_id = pg_temp.session(1) and user_id = pg_temp.person('b2') $$,
   '42501', null, 'even the session''s runner doesn''t rate for someone else');
-select lives_ok($$ update public.session_attendees set present = true where session_id = pg_temp.session(1) $$, 'the runner marks presence');
-select lives_ok($$ update public.session_attendees set rating = 8 where session_id = pg_temp.session(1) and user_id = pg_temp.person('a1') $$, 'the runner rates too');
-select is((select average from public.session_ratings where session_id = pg_temp.session(1)), 8.5::numeric, 'the average rating');
+select lives_ok($$ update genesis_work.session_attendees set present = true where session_id = pg_temp.session(1) $$, 'the runner marks presence');
+select lives_ok($$ update genesis_work.session_attendees set rating = 8 where session_id = pg_temp.session(1) and user_id = pg_temp.person('a1') $$, 'the runner rates too');
+select is((select average from genesis_work.session_ratings where session_id = pg_temp.session(1)), 8.5::numeric, 'the average rating');
 
 select pg_temp.sign_in('e5');
-select isnt_empty($$ delete from public.session_attendees where user_id = pg_temp.person('e5') returning user_id $$, 'an attendee leaves a session');
+select isnt_empty($$ delete from genesis_work.session_attendees where user_id = pg_temp.person('e5') returning user_id $$, 'an attendee leaves a session');
 
 -- A private type's agenda never leaks --------------------------------------------------------
 select pg_temp.as_server();
-insert into public.session_types (id, tenant_id, person_id, name, agenda)
+insert into genesis_work.session_types (id, tenant_id, person_id, name, agenda)
 values (pg_temp.stype(2), pg_temp.tenant(1), pg_temp.person('b2'), 'b2''s private coaching format', '[{"key":"secret","title":"Private","minutes":5}]');
 select pg_temp.sign_in('a1');
 select throws_ok(
-  $$ insert into public.sessions (tenant_id, team_id, session_type_id, title) values (pg_temp.tenant(1), pg_temp.team(1), pg_temp.stype(2), 'Borrowed format') $$,
+  $$ insert into genesis_work.sessions (tenant_id, team_id, session_type_id, title) values (pg_temp.tenant(1), pg_temp.team(1), pg_temp.stype(2), 'Borrowed format') $$,
   '22023', null, 'nobody uses a session type they can''t read');
-insert into public.sessions (id, tenant_id, team_id, title) values (pg_temp.session(3), pg_temp.tenant(1), pg_temp.team(1), 'Not yet');
-insert into public.session_attendees (session_id, user_id) values (pg_temp.session(3), pg_temp.person('a1'));
+insert into genesis_work.sessions (id, tenant_id, team_id, title) values (pg_temp.session(3), pg_temp.tenant(1), pg_temp.team(1), 'Not yet');
+insert into genesis_work.session_attendees (session_id, user_id) values (pg_temp.session(3), pg_temp.person('a1'));
 select throws_ok(
-  $$ update public.session_attendees set rating = 7 where session_id = pg_temp.session(3) and user_id = pg_temp.person('a1') $$,
+  $$ update genesis_work.session_attendees set rating = 7 where session_id = pg_temp.session(3) and user_id = pg_temp.person('a1') $$,
   '22023', null, 'a session is rated only once it''s under way or over');
 
 select pg_temp.sign_in('c3');
-select is((select count(*)::int from public.sessions), 0, 'another tenant sees no sessions');
+select is((select count(*)::int from genesis_work.sessions), 0, 'another tenant sees no sessions');
 
 select * from finish();
 rollback;
