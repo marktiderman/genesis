@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 128
+      "count": 130
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 71
+      "count": 72
     }
   },
   "primitives": [
@@ -2889,6 +2889,80 @@
       ]
     },
     {
+      "slug": "loading-state",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/loading-state.tsx",
+      "stability": "beta",
+      "summary": "LoadingState — a centred spinner for a screen (or part of one) that is\nwaiting: a redirect while the session loads, the first fetch of a page.\n\nUse it instead of a hand-rolled `<View><ActivityIndicator /></View>`: the\nspinner takes the theme tint, screen readers hear one \"Loading\" progress\nbar (or your `label`), and the full-screen form sits inside the safe area\non the screen background. For content-shaped placeholders (a list about to\nappear) use `NativeSkeleton`; for known progress use `NativeProgress`.\n\n  if (!session) return <NativeLoadingState />;            // whole screen\n  <NativeLoadingState fullScreen={false} label=\"Loading more\" size=\"small\" />\n\n`ScreenContainer loading` renders the inline form in place of its body.",
+      "primaryComponent": "NativeLoadingState",
+      "components": [
+        {
+          "name": "NativeLoadingState",
+          "summary": "",
+          "props": [
+            {
+              "name": "accessibilityLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What screen readers announce when no `label` is shown. Default `\"Loading\"`."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "color",
+              "type": "____ColorValue_Internal",
+              "required": false,
+              "defaultValue": null,
+              "description": "Spinner color. Defaults to the theme tint."
+            },
+            {
+              "name": "fullScreen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "`true` (default): fill the screen on the theme background, inside the\nsafe area. `false`: a padded, centred block that fills its parent, for a\nscreen body, a section or a list footer."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text shown under the spinner. It is also what screen readers announce."
+            },
+            {
+              "name": "safeAreaEdges",
+              "type": "NativeLoadingStateEdge[]",
+              "required": false,
+              "defaultValue": "[\"top\", \"bottom\", \"left\", \"right\"]",
+              "description": "Safe-area edges when `fullScreen`. Default all four."
+            },
+            {
+              "name": "size",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "large",
+              "description": "Spinner size. Default `\"large\"`."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "loading-state",
+              "description": "testID on the root; the spinner is `${testID}-spinner`, the label `${testID}-label`. Default `\"loading-state\"`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "native-data-filters",
       "aliases": [],
       "surface": "native",
@@ -4275,7 +4349,7 @@
       "subpath": "@marktiderman/genesis-ui-native",
       "filePath": "packages/ui-native/src/layouts/screen-container.tsx",
       "stability": "beta",
-      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
+      "summary": "ScreenContainer — Layer-2 page primitive.\n\nWires the chrome every layout needs without imposing layout structure:\n  - Safe-area edges (configurable via `safeAreaEdges`)\n  - StatusBar style (light / dark / auto)\n  - Scroll vs static body\n  - Tokens-aware background (`bg-background`)\n  - A loading state (`loading`): a centred `NativeLoadingState` in place of the body\n\nHeader customization is delegated: pass `headerLeft`, `headerRight`,\n`large`, `scrollEdgeBehavior`, `safeAreaEdges`, plus any direct\n`headerOptions` passthrough to `<Stack.Screen options={...} />`. We\n**do not** render the navigation header ourselves — Expo Router /\nReact Navigation render the platform-native header. Consumer either:\n\n  (a) Wraps the screen in `<ScreenContainer>` and ALSO declares\n      `<Stack.Screen options={headerOptionsFromProps(props)} />` at the\n      top of the screen (we export a helper `composeHeaderOptions` for\n      this), OR\n  (b) Imports `<NavBarTitle>` / `<NavBarSearchBar>` / `<NavBarSaveButton>`\n      sub-primitives and threads them through `headerLeft` / `headerRight`\n      options manually.\n\nThe Layer-3/4 layouts (SettingsPage, etc.) compose ScreenContainer + a\nhelper that wires Stack.Screen so consumers get the 3-line ergonomics.",
       "primaryComponent": "ScreenContainer",
       "components": [
         {
@@ -4357,6 +4431,20 @@
               "required": false,
               "defaultValue": "handled",
               "description": "`keyboardShouldPersistTaps` for the inner ScrollView. Default `\"handled\"`.\nOnly used when `scroll` is true."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "When `true`, a centred `NativeLoadingState` (theme-tinted spinner,\nannounced as loading) replaces the body, inside the same safe area and\nbackground. Use it for redirect and first-load screens: the body is\nunmounted while it's on, so a form underneath loses its state. Default `false`."
+            },
+            {
+              "name": "loadingLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Text under the spinner while `loading`, and what screen readers announce: pass translated text."
             },
             {
               "name": "safeAreaEdges",
@@ -9647,21 +9735,21 @@
               "name": "cancelLabel",
               "type": "string",
               "required": false,
-              "defaultValue": "Cancel",
+              "defaultValue": null,
               "description": "Default \"Cancel\"."
             },
             {
               "name": "confirmLabel",
               "type": "string",
               "required": false,
-              "defaultValue": "Delete",
+              "defaultValue": null,
               "description": "Default \"Delete\"."
             },
             {
               "name": "description",
               "type": "ReactNode",
               "required": false,
-              "defaultValue": "kind === \"recycle\"\n    ? \"It moves to the recycle bin, where it can be restored.\"\n    : \"This can't be undone.\"",
+              "defaultValue": null,
               "description": "Default by `kind`: \"This can't be undone.\", or \"It moves to the recycle\nbin, where it can be restored.\""
             },
             {
@@ -9675,7 +9763,7 @@
               "name": "title",
               "type": "string",
               "required": false,
-              "defaultValue": "Delete this record?",
+              "defaultValue": null,
               "description": "Default \"Delete this record?\"."
             }
           ]
@@ -10160,7 +10248,7 @@
               "name": "searchPlaceholder",
               "type": "string",
               "required": false,
-              "defaultValue": "Search...",
+              "defaultValue": null,
               "description": ""
             },
             {
@@ -10687,7 +10775,7 @@
               "name": "emptyMessage",
               "type": "string",
               "required": false,
-              "defaultValue": "No records found",
+              "defaultValue": null,
               "description": ""
             },
             {
@@ -12563,7 +12651,7 @@
               "name": "emptyMessage",
               "type": "string",
               "required": false,
-              "defaultValue": "No items",
+              "defaultValue": null,
               "description": ""
             },
             {
@@ -12840,6 +12928,144 @@
         {
           "name": "MenubarShortcut",
           "summary": "",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "messages",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/messages.tsx",
+      "stability": "stable",
+      "summary": "The catalogue with overrides merged over the English.",
+      "primaryComponent": "resolveUiMessages",
+      "components": [
+        {
+          "name": "resolveUiMessages",
+          "summary": "The catalogue with overrides merged over the English.",
+          "props": [
+            {
+              "name": "bulk",
+              "type": "DeepPartial<{ selected: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "common",
+              "type": "DeepPartial<{ empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "confirmDelete",
+              "type": "DeepPartial<{ title: string; recycle: string; permanent: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "detail",
+              "type": "DeepPartial<{ fallbackTitle: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filters",
+              "type": "DeepPartial<{ search: string; status: string; sortBy: string; views: string; viewCount: string; noViews: string; saveCurrent: string; clearAll: string; saveViewTitle: string; viewNamePlaceholder: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "kanban",
+              "type": "DeepPartial<{ noItems: string; card: string; cardInLabel: string; pickUp: string; move: string; moveTo: string; moved: string; moveFailed: string; pickedUp: string; pickedUpTouch: string; over: string; droppedBack: string; cancelled: string; instructions: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "page",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; loadMore: string; allLoaded: string; loadedMore: string; truncated: string; pagination: string; noRecords: string; range: string; ... 5 more ...; deleteFailed: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "sortable",
+              "type": "DeepPartial<{ item: string; reorder: string; move: string; moveUp: string; moveDown: string; moveToTop: string; moveToBottom: string; moved: string; moveFailed: string; pickedUp: string; dropped: string; cancelled: string; instructions: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "table",
+              "type": "DeepPartial<{ noRecords: string; selectRow: string; selectAll: string; columns: string; resetColumns: string; ascending: string; descending: string; sortedBy: string; rows: string; noRows: string; range: string; pageOf: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "view",
+              "type": "DeepPartial<{ mode: string; grid: string; table: string; list: string; settings: string; settingsTitle: string; pageSize: string; pageSizeOption: string; density: string; compact: string; comfortable: string; spacious: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "fillMessage",
+          "summary": "Fills `{name}` placeholders; an unknown placeholder is left as written.",
+          "props": []
+        },
+        {
+          "name": "UiMessagesProvider",
+          "summary": "Rewords or translates Genesis UI's components below it. Nested providers\nbuild on the one above, so a section can change a few words.",
+          "props": [
+            {
+              "name": "messages",
+              "type": "DeepPartial<{ common: { empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 8 more ...; sortable: { ...; }; }>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useUiMessages",
+          "summary": "The catalogue in effect: English unless a `UiMessagesProvider` says otherwise.",
+          "props": []
+        },
+        {
+          "name": "__object",
+          "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+          "props": []
+        },
+        {
+          "name": "UiMessages",
+          "summary": "The shape a translation fills.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "messages-en",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui",
+      "filePath": "packages/ui/src/messages-en.ts",
+      "stability": "stable",
+      "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+      "primaryComponent": "uiMessages",
+      "components": [
+        {
+          "name": "uiMessages",
+          "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
           "props": []
         }
       ]
@@ -15080,6 +15306,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",
@@ -18533,6 +18766,13 @@
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
             },
             {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
+            },
+            {
               "name": "viewSettingsKey",
               "type": "string",
               "required": false,
@@ -19153,6 +19393,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Keep the list's state in the URL: the open record (`?id=`), the search\n(`q`), the sort (`sort=field:asc`) and, with `pagination=\"server\"`, the\npage. Pass your router's search-params adapter\n(`useReactRouterSearchParams()`, `useTanStackRouterSearchParams()`, or\n`useBrowserSearchParams()` with no router), or `{ searchParams, params }`\nto rename the keys. A copied link reopens the same record, and Back\ncloses one that was opened. Search and sort are read when the page\nmounts and written as they change. A server-controlled page owns its\nown page, sort and search: use `useResourceUrlState` there."
+            },
+            {
+              "name": "variant",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "`\"page\"` (default): a full list page. `\"embedded\"`: a list inside\nanother page (a tab, a card, a side panel), whose page already has the\nheading, filters and shortcuts. Embedded sets, unless you set them:\n- `header=\"toolbar\"`, showing only the create button, and the view\n  toggle when there is a `renderCard`. No title, count, view settings\n  or header options menu (`slotProps.shell.headerOptions` still win;\n  an explicit `header=\"page\"` keeps the full header);\n- no filter row, unless you pass `filters`, `statusFilter`,\n  `searchFields` or saved views, or the list is already filtered (a\n  search in the URL, say);\n- `keyboardNavigation={false}`, since j/k shortcuts belong to the page."
             },
             {
               "name": "viewSettingsKey",

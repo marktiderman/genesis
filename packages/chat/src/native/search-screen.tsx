@@ -88,79 +88,87 @@ export function ChatSearchScreen({ conversationId, onOpen, conversationTitle, de
   useEffect(() => {
     if (announce) AccessibilityInfo.announceForAccessibility?.(announce);
   }, [announce]);
+  const field = (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+      <NativeSearchBar
+        testID={`${testID}-field`}
+        value={value}
+        onChange={setValue}
+        placeholder={conversationId ? copy.searchThreadPlaceholder : copy.searchPlaceholder}
+        cancelLabel={copy.cancel}
+        showCancel={false}
+      />
+    </View>
+  );
+  const empty = short ? (
+    <NativeText preset="caption" style={{ paddingHorizontal: 20, color: colors.secondaryLabel }} testID={`${testID}-hint`}>
+      {copy.searchHint}
+    </NativeText>
+  ) : isSearching ? (
+    <View testID={`${testID}-loading`} style={{ padding: 16, gap: 10 }}>
+      <NativeSkeleton height={52} className="w-full" />
+      <NativeSkeleton height={52} className="w-full" />
+    </View>
+  ) : (
+    <NativeEmptyState variant="no-results" title={copy.searchNoResults} body={fill(copy.searchNoResultsBody, { query })} testID={`${testID}-empty`} />
+  );
+  // One list, with the field as its header and the hint, loading and empty states as its empty
+  // content: under a large-title or see-through (Liquid Glass) header only a scroll view's automatic
+  // content inset moves the content below the bar, as InboxPage does. A plain View at the top of the
+  // SafeAreaView drew the field behind the navigation bar, where it couldn't be tapped.
   return (
     <SafeAreaView testID={testID} edges={["left", "right"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
-        <NativeSearchBar
-          testID={`${testID}-field`}
-          value={value}
-          onChange={setValue}
-          placeholder={conversationId ? copy.searchThreadPlaceholder : copy.searchPlaceholder}
-          cancelLabel={copy.cancel}
-          showCancel={false}
-        />
-      </View>
-      {short ? (
-        <NativeText preset="caption" style={{ paddingHorizontal: 20, color: colors.secondaryLabel }} testID={`${testID}-hint`}>
-          {copy.searchHint}
-        </NativeText>
-      ) : isSearching && hits.length === 0 ? (
-        <View testID={`${testID}-loading`} style={{ padding: 16, gap: 10 }}>
-          <NativeSkeleton height={52} className="w-full" />
-          <NativeSkeleton height={52} className="w-full" />
-        </View>
-      ) : hits.length === 0 ? (
-        <NativeEmptyState variant="no-results" title={copy.searchNoResults} body={fill(copy.searchNoResultsBody, { query })} testID={`${testID}-empty`} />
-      ) : (
-        <FlatList
-          testID={`${testID}-results`}
-          data={hits}
-          keyExtractor={(h) => `${h.messageId}:${h.inTranscript}`}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
-          renderItem={({ item: h }) => {
-            const who = nameOf(h.senderId);
-            const where = conversationId ? null : fill(copy.searchIn, { name: titleOf(h.conversationId) });
-            const when = formatInboxTime(new Date(h.createdAt), now());
-            return (
-              <HitRow
-                testID={`${testID}-hit-${h.messageId}`}
-                accessibilityLabel={[who, where, when, h.inTranscript ? copy.transcript : null, snippetText(h.snippet)].filter(Boolean).join(", ")}
-                onPress={() => onOpen(h)}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <NativeText preset="label" numberOfLines={1} style={{ flexShrink: 1 }}>
-                    {who}
+      <FlatList
+        testID={`${testID}-results`}
+        data={short ? [] : hits}
+        keyExtractor={(h) => `${h.messageId}:${h.inTranscript}`}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        ListHeaderComponent={field}
+        ListEmptyComponent={empty}
+        renderItem={({ item: h }) => {
+          const who = nameOf(h.senderId);
+          const where = conversationId ? null : fill(copy.searchIn, { name: titleOf(h.conversationId) });
+          const when = formatInboxTime(new Date(h.createdAt), now());
+          return (
+            <HitRow
+              testID={`${testID}-hit-${h.messageId}`}
+              accessibilityLabel={[who, where, when, h.inTranscript ? copy.transcript : null, snippetText(h.snippet)].filter(Boolean).join(", ")}
+              onPress={() => onOpen(h)}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <NativeText preset="label" numberOfLines={1} style={{ flexShrink: 1 }}>
+                  {who}
+                </NativeText>
+                {where ? (
+                  <NativeText preset="caption" numberOfLines={1} style={{ flexShrink: 1, color: colors.secondaryLabel }}>
+                    {where}
                   </NativeText>
-                  {where ? (
-                    <NativeText preset="caption" numberOfLines={1} style={{ flexShrink: 1, color: colors.secondaryLabel }}>
-                      {where}
-                    </NativeText>
-                  ) : null}
-                  <NativeText preset="caption" style={{ marginLeft: "auto", color: colors.tertiaryLabel }}>
-                    {when}
-                  </NativeText>
+                ) : null}
+                <NativeText preset="caption" style={{ marginLeft: "auto", color: colors.tertiaryLabel }}>
+                  {when}
+                </NativeText>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+                {h.inTranscript ? (
+                  <NativeBadge variant="muted" testID={`${testID}-transcript-${h.messageId}`}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                      <NativeIcon name="mic" size={11} color={colors.secondaryLabel} />
+                      <NativeText preset="caption" style={{ color: colors.secondaryLabel }}>
+                        {copy.transcript}
+                      </NativeText>
+                    </View>
+                  </NativeBadge>
+                ) : null}
+                <View style={{ flex: 1 }}>
+                  <SearchSnippet snippet={h.snippet} />
                 </View>
-                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
-                  {h.inTranscript ? (
-                    <NativeBadge variant="muted" testID={`${testID}-transcript-${h.messageId}`}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
-                        <NativeIcon name="mic" size={11} color={colors.secondaryLabel} />
-                        <NativeText preset="caption" style={{ color: colors.secondaryLabel }}>
-                          {copy.transcript}
-                        </NativeText>
-                      </View>
-                    </NativeBadge>
-                  ) : null}
-                  <View style={{ flex: 1 }}>
-                    <SearchSnippet snippet={h.snippet} />
-                  </View>
-                </View>
-              </HitRow>
-            );
-          }}
-        />
-      )}
+              </View>
+            </HitRow>
+          );
+        }}
+      />
     </SafeAreaView>
   );
 }

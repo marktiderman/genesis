@@ -191,13 +191,13 @@ export const MAX_EMAIL_DELAY_SECONDS = 7 * 24 * 3600;
  * ```ts
  * export const notifications = defineNotifications({
  *   categories: { messages: { label: "Messages", android: { importance: "high" } } },
- *   actions: { message: { actions: [{ id: "reply", title: "Reply", textInput: {} }, { id: "mark_read", title: "Mark as read" }] } },
+ *   actions: { messages: { actions: [{ id: "reply", title: "Reply", textInput: {} }, { id: "mark_read", title: "Mark as read" }] } },
  *   types: {
  *     "chat.message": {
  *       category: "messages",
  *       channels: { in_app: true, push: true, email: true },
  *       emailDelaySeconds: 600,
- *       actions: "message",
+ *       actions: "messages",
  *       render: (d) => ({ title: String(d.sender_name), body: String(d.preview), url: `/messages/${d.conversation_id}` }),
  *     },
  *   },
@@ -328,8 +328,10 @@ export function defineNotifications<
 
 /**
  * The actions a message notification shows: Reply (a text field) and Mark as
- * read. Put it in `actions` under an id (`message`) and name that id in the
- * message type's `actions`. A tap on either reaches the push block's
+ * read. Put it in `actions` under the id `messages` and name that id in the
+ * message type's `actions`: genesis-chat's push handler and genesis-native's
+ * notification service extension both look for a `messages` category, and
+ * its Mark as read is genesis-chat's `CHAT_MARK_READ_ACTION`. A tap on either reaches the push block's
  * `onResponse`; `notificationAction(response)` gives the action id, the typed
  * text and the notification id (use it as the reply's client id, so a
  * retried reply stays one reply).

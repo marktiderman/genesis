@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Spinner } from "../ui/spinner";
+import { useUiMessages } from "../../messages";
 
 /**
  * Props for {@link ConfirmDeleteDialog}.
@@ -58,14 +59,18 @@ export function ConfirmDeleteDialog({
   open,
   onOpenChange,
   onConfirm,
-  title = "Delete this record?",
+  title: titleProp,
   kind = "permanent",
-  description = kind === "recycle"
-    ? "It moves to the recycle bin, where it can be restored."
-    : "This can't be undone.",
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
+  description: descriptionProp,
+  confirmLabel: confirmLabelProp,
+  cancelLabel: cancelLabelProp,
 }: ConfirmDeleteDialogProps) {
+  const m = useUiMessages();
+  const title = titleProp ?? m.confirmDelete.title;
+  const description =
+    descriptionProp ?? (kind === "recycle" ? m.confirmDelete.recycle : m.confirmDelete.permanent);
+  const confirmLabel = confirmLabelProp ?? m.common.delete;
+  const cancelLabel = cancelLabelProp ?? m.common.cancel;
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -175,6 +175,102 @@ describe("KanbanBoard keyboard pick-up", () => {
     await waitFor(() => expect(live()).toBe("Couldn’t move Ana."));
   });
 
+  it("doesn't pull focus back to a card whose move failed", async () => {
+    let reject!: (error: Error) => void;
+    const onMoveItem = () => new Promise<void>((_, r) => (reject = r));
+    const board = () => (
+      <>
+        <button type="button">Elsewhere</button>
+        <KanbanBoard<Card>
+          columns={columns}
+          getKey={(c) => c.id}
+          getItemLabel={(c) => c.name}
+          renderCard={(c) => <div>{c.name}</div>}
+          onMoveItem={onMoveItem}
+        />
+      </>
+    );
+    const { rerender } = render(board());
+    fireEvent.keyDown(screen.getByRole("button", { name: "Move Ana" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
+    // The user moves on while the move is still saving; then it fails.
+    screen.getByRole("button", { name: "Elsewhere" }).focus();
+    await act(async () => reject(new Error("nope")));
+    await waitFor(() => expect(live()).toBe("Couldn’t move Ana."));
+    // Later, focus leaves for the page: it must stay there.
+    (document.activeElement as HTMLElement).blur();
+    rerender(board());
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("keeps the refocus of a later move when an earlier move of the same card fails", async () => {
+    const pending: { resolve: () => void; reject: (e: Error) => void }[] = [];
+    function Board() {
+      const [cols, setCols] = useState(columns);
+      return (
+        <KanbanBoard<Card>
+          columns={cols}
+          getKey={(c) => c.id}
+          getItemLabel={(c) => c.name}
+          renderCard={(c) => <div>{c.name}</div>}
+          onMoveItem={(item, to) =>
+            new Promise<void>((resolve, reject) => {
+              pending.push({
+                resolve: () => {
+                  setCols((prev) =>
+                    prev.map((c) => ({
+                      ...c,
+                      items: c.key === to ? [...c.items, item] : c.items.filter((i) => i.id !== item.id),
+                    })),
+                  );
+                  resolve();
+                },
+                reject,
+              });
+            })
+          }
+        />
+      );
+    }
+    render(<Board />);
+    handle("Ana").focus();
+    fireEvent.keyDown(handle("Ana"), { key: "ArrowRight", altKey: true });
+    fireEvent.keyDown(handle("Ana"), { key: "ArrowRight", altKey: true });
+    expect(pending).toHaveLength(2);
+    // The first attempt fails; the second lands and the card moves.
+    await act(async () => pending[0]!.reject(new Error("conflict")));
+    (document.activeElement as HTMLElement).blur();
+    await act(async () => pending[1]!.resolve());
+    expect(within(screen.getByRole("region", { name: "Done" })).getByText("Ana")).toBeTruthy();
+    expect(document.activeElement).toBe(handle("Ana"));
+  });
+
+  it("stops waiting to refocus when a move saves but the caller leaves the card in place", async () => {
+    const board = (cols: KanbanColumn<Card>[]) => (
+      <KanbanBoard<Card>
+        columns={cols}
+        getKey={(c) => c.id}
+        getItemLabel={(c) => c.name}
+        renderCard={(c) => <div>{c.name}</div>}
+        onMoveItem={() => Promise.resolve()}
+      />
+    );
+    const { rerender } = render(board(columns));
+    // From the menu, so focus isn't on the handle when the move settles.
+    fireEvent.keyDown(screen.getByRole("button", { name: "Move Ana" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Done" }));
+    await waitFor(() => expect(live()).toBe("Ana moved to Done."));
+    // The caller kept Ana in To do. Later, someone else moves her while focus is on the page.
+    (document.activeElement as HTMLElement | null)?.blur();
+    rerender(
+      board([
+        { ...columns[0]!, items: [] },
+        { ...columns[1]!, items: [...columns[1]!.items, { id: "a", name: "Ana" }] },
+      ]),
+    );
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it("ignores a pointer click on the handle", () => {
     const onMoveItem = vi.fn();
     renderBoard(onMoveItem);

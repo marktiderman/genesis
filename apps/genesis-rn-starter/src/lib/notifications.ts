@@ -8,7 +8,7 @@
  * Add your types here, then send them from your server with `notify()` from
  * `@marktiderman/genesis-notifications/server` (never from the app).
  */
-import { GENESIS_TEST_CATEGORY, GENESIS_TEST_TYPE, MESSAGE_ACTIONS, defineNotifications } from "@marktiderman/genesis-notifications";
+import { GENESIS_TEST_CATEGORY, GENESIS_TEST_TYPE, defineNotifications } from "@marktiderman/genesis-notifications";
 import { copy } from "@/copy";
 
 export const notifications = defineNotifications({
@@ -16,7 +16,7 @@ export const notifications = defineNotifications({
     activity: { label: copy.push.activityTitle, description: copy.push.activityDescription },
     ...GENESIS_TEST_CATEGORY,
   },
-  actions: { message: MESSAGE_ACTIONS },
+  // No message actions here: chat registers its own `messages` category (Reply, Mark as read) in push.ts.
   types: {
     // An example: something in the app needs the person. Rename or replace it.
     "starter.activity": {
