@@ -229,6 +229,37 @@ describe("featureOn", () => {
   });
 });
 
+describe("modules: required features", () => {
+  const moduleFeatures = defineFeatures({
+    eos: { ...base, name: "EOS", status: "live", apps: ["web"], access: { plan: "teams" } },
+    rocks: { ...base, name: "Rocks", status: "live", apps: ["web"], requires: ["eos"] },
+    l10: { ...base, name: "Level 10", status: "live", apps: ["web"], requires: ["rocks"] },
+  });
+  const mods = { features: moduleFeatures };
+
+  it("turns a part off with its module, carrying the module's reason and plan", () => {
+    expect(featureOn(mods, web, "rocks")).toEqual({ on: false, reason: "entitlement", unlock: { plan: "teams" }, via: "eos" });
+    // Two levels down still names the module.
+    expect(featureOn(mods, web, "l10")).toEqual({ on: false, reason: "entitlement", unlock: { plan: "teams" }, via: "eos" });
+    expect(featureOn(mods, { platform: "web", entitlements: ["eos"], off: ["eos"] }, "rocks")).toEqual({ on: false, reason: "tenant", via: "eos" });
+  });
+
+  it("is on when the module is, and ignores ids outside the registry", () => {
+    expect(featureOn(mods, { platform: "web", entitlements: ["eos"] }, "l10")).toEqual({ on: true });
+    // A plain registry (a synced copy) may name ids it doesn't hold: they don't gate.
+    expect(featureOn({ features: { solo: { status: "live", apps: ["web"], requires: ["not-here"] } } }, web, "solo")).toEqual({ on: true });
+  });
+
+  it("says which module in FeatureOff", () => {
+    try {
+      requireFeature(mods, web, "rocks");
+      expect.unreachable();
+    } catch (error) {
+      expect([(error as FeatureOff).via, (error as FeatureOff).message]).toEqual(["eos", "rocks needs the teams plan (through eos)"]);
+    }
+  });
+});
+
 describe("snapshots and requireFeature", () => {
   it("answers every shipped feature, without flag names, or the ones asked for", () => {
     const at = new Date("2026-10-26T12:00:00Z");
