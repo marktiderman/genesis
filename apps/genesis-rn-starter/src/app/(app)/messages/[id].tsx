@@ -1,4 +1,4 @@
-import { Redirect, Stack, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChatThreadScreen, chatThreadMatch, useChatThreadStackOptions } from "@marktiderman/genesis-chat/native";
 import { chatKeys } from "@marktiderman/genesis-chat/react";
@@ -25,7 +25,7 @@ function Thread({ id }: { id: string }) {
       <Stack.Screen options={options} />
       {/* Keyed by the conversation: a push or link that opens another one in this screen starts it fresh
           (its list position, sheets, viewer and composer), instead of carrying the last one's over. */}
-      <ChatThreadScreen key={id} conversationId={id} />
+      <ChatThreadScreen key={id} conversationId={id} onOpenAttachment={(a) => (a.kind === "check_in" && starter.features.checkIn ? router.push("/check-in") : undefined)} />
     </>
   );
 }
