@@ -75,6 +75,20 @@ export const supportCopy = {
     sending: "Sending",
     notSent: "Not sent. Tap to retry.",
     retryHint: "Double tap to send again",
+    /** A message's file, where the thread can't show it. */
+    voiceNote: "Voice message",
+    video: "Video",
+    file: "File",
+    internalNote: "Internal note",
+  },
+  staff: {
+    status: "Status",
+    assignee: "Assigned to",
+    unassigned: "Nobody",
+    reporter: "Reported by",
+    unavailableTitle: "This conversation isn't available",
+    unavailableBody: "The report has no conversation you can read.",
+    failed: "That change wasn't saved. Try again.",
   },
   status: {
     open: "Open",
