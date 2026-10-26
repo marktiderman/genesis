@@ -31,6 +31,7 @@ import type {
 } from "@marktiderman/genesis-core/provider";
 import { writeModeOptions } from "./undo-toast";
 import { toast } from "../ui/sonner";
+import { useUiMessages } from "../../messages";
 import { defaultNavigate } from "../../navigation";
 
 /**
@@ -114,7 +115,7 @@ export function useResourceTableModel<
     openOnCardClick = false,
     renderTable: renderTableProp,
     gridCols: gridColsProp,
-    keyboardNavigation = true,
+    keyboardNavigation = props.variant !== "embedded",
     capabilities,
     toolbar,
     emptyState,
@@ -132,6 +133,7 @@ export function useResourceTableModel<
     slotProps,
     className,
   } = props;
+  const messages = useUiMessages();
 
   // ── Determine mode ──
   const isClientMode = !!resourceName;
@@ -618,7 +620,7 @@ export function useResourceTableModel<
               // useResource has already handed the failure to
               // `resourceOptions.onError`; without one, the user is told.
               if (!resourceOptions?.onError) {
-                toast.error(err instanceof Error ? err.message : "The delete failed.");
+                toast.error(err instanceof Error ? err.message : messages.page.deleteFailed);
               }
             });
           }
@@ -637,7 +639,7 @@ export function useResourceTableModel<
                   // fall through to the toast
                 }
               }
-              toast.error(error.message || "The delete failed.");
+              toast.error(error.message || messages.page.deleteFailed);
             };
             // Called right away, as before; a throw or a rejection is reported.
             try {
@@ -1257,7 +1259,8 @@ export function useResourceTable<
     openRow: m.handleRowClick,
     closeDetail: m.closeDetail,
     openItemMissing: m.linkMissing,
-    create: m.useBuiltInCreate || props.onCreate ? m.handleCreate : undefined,
+    create:
+      (m.useBuiltInCreate || props.onCreate) && m.allows("create") ? m.handleCreate : undefined,
     edit: m.handleEdit,
     form: {
       open: m.formOpen,

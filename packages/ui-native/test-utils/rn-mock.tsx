@@ -316,15 +316,21 @@ export const FlatList = <T,>(props: {
   ListEmptyComponent?: React.ReactNode | React.ComponentType;
   refreshControl?: React.ReactNode;
   keyboardShouldPersistTaps?: "always" | "never" | "handled";
+  contentInsetAdjustmentBehavior?: "automatic" | "scrollableAxes" | "never" | "always";
   testID?: string;
 }) => {
-  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, testID } = props;
+  const { data = [], renderItem, keyExtractor, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, keyboardShouldPersistTaps, contentInsetAdjustmentBehavior, testID } = props;
   // Slots render like FlatList's: an element as is, a component type as <C />.
   const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
     typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
   return React.createElement(
     "div",
-    { "data-testid": testID, role: "list", "data-keyboard-should-persist-taps": keyboardShouldPersistTaps },
+    {
+      "data-testid": testID,
+      role: "list",
+      "data-keyboard-should-persist-taps": keyboardShouldPersistTaps,
+      "data-content-inset-adjustment-behavior": contentInsetAdjustmentBehavior,
+    },
     refreshControl ?? null,
     slot(ListHeaderComponent),
     ...(data.length === 0

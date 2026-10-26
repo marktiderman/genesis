@@ -31,7 +31,7 @@ describe("the messages category", () => {
   it("is one preferences category and two actions, neither opening the app", async () => {
     expect(chatPushCategory()).toMatchObject({ id: "messages", title: "Messages" });
     const actions = chatNotificationActions();
-    expect(actions.map((a) => a.identifier)).toEqual(["reply", "mark-read"]);
+    expect(actions.map((a) => a.identifier)).toEqual(["reply", "mark_read"]);
     expect(actions[0]!.textInput).toEqual({ submitButtonTitle: "Send", placeholder: "Message" });
     expect(actions.every((a) => a.options.opensAppToForeground === false)).toBe(true);
     const setNotificationCategoryAsync = vi.fn(async () => undefined);
@@ -79,17 +79,23 @@ describe("handleChatPushResponse", () => {
 
   it("Mark read marks up to the pushed message", async () => {
     const client = fakeClient();
-    expect(await handleChatPushResponse(response("mark-read"), { client })).toBe("marked-read");
+    expect(await handleChatPushResponse(response("mark_read"), { client })).toBe("marked-read");
     expect(client.markRead).toHaveBeenCalledWith(CONV, 7);
     expect(client.send).not.toHaveBeenCalled();
+  });
+
+  it("still marks read from a notification shown before the action id changed (mark-read)", async () => {
+    const client = fakeClient();
+    expect(await handleChatPushResponse(response("mark-read"), { client })).toBe("marked-read");
+    expect(client.markRead).toHaveBeenCalledWith(CONV, 7);
   });
 
   it("reads the data createChatRunner sends: conversationId and seq, and a seq that is null", async () => {
     const client = fakeClient();
     const data = { url: chatPath(CONV), conversationId: CONV, messageId: "m1", seq: 12 };
-    expect(await handleChatPushResponse(response("mark-read", {}, data), { client })).toBe("marked-read");
+    expect(await handleChatPushResponse(response("mark_read", {}, data), { client })).toBe("marked-read");
     expect(client.markRead).toHaveBeenLastCalledWith(CONV, 12);
-    await handleChatPushResponse(response("mark-read", {}, { conversationId: CONV, seq: null }), { client });
+    await handleChatPushResponse(response("mark_read", {}, { conversationId: CONV, seq: null }), { client });
     expect(client.markRead).toHaveBeenLastCalledWith(CONV, undefined);
   });
 

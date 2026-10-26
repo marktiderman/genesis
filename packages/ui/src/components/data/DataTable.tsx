@@ -55,6 +55,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "../../utils";
+import { fillMessage, useUiMessages } from "../../messages";
 import type { Density } from "../../hooks/use-view-settings";
 
 /* ── Density row / cell rhythm ── */
@@ -315,6 +316,7 @@ function EditableCell<T>({
   column: DataTableColumn<T>;
   value: unknown;
 }) {
+  const m = useUiMessages();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value ?? ""));
   const [saving, setSaving] = useState(false);
@@ -379,7 +381,7 @@ function EditableCell<T>({
           setEditing(true);
         }}
       >
-        {column.render ? column.render(item, value) : String(value ?? "\u2014")}
+        {column.render ? column.render(item, value) : String(value ?? m.common.empty)}
       </span>
     );
   }
@@ -428,7 +430,7 @@ function EditableCell<T>({
             className="mt-0.5 text-[11px] text-muted-foreground underline-offset-2 hover:underline"
             onClick={close}
           >
-            Cancel
+            {m.common.cancel}
           </button>
         )}
       </div>
@@ -458,7 +460,7 @@ function EditableCell<T>({
           }}
         />
         {saving && (
-          <Spinner className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-label="Saving" />
+          <Spinner className="absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2" aria-label={m.common.saving} />
         )}
       </div>
       {feedback}
@@ -532,7 +534,7 @@ export function DataTable<T>({
   onToggleSelect,
   onToggleAll,
   renderActions,
-  emptyMessage = "No records found",
+  emptyMessage: emptyMessageProp,
   columnVisibility = true,
   columnVisibilityKey,
   resizableColumns = true,
@@ -552,6 +554,8 @@ export function DataTable<T>({
   sort: sortProp,
   onSortChange,
 }: DataTableProps<T>) {
+  const m = useUiMessages();
+  const emptyMessage = emptyMessageProp ?? m.table.noRecords;
   const rowKeys = keyboardNavigation && !!onRowClick;
   // Roving tabindex: one row's open button is the table's tab stop.
   const [activeRowKey, setActiveRowKey] = useState<string | null>(null);
@@ -942,7 +946,7 @@ export function DataTable<T>({
                     onClick={(e: React.MouseEvent) => e.stopPropagation()}
                   >
                     <Checkbox
-                      aria-label={`Select ${rowLabel(item, id)}`}
+                      aria-label={fillMessage(m.table.selectRow, { name: rowLabel(item, id) })}
                       checked={selected?.has(id)}
                       onCheckedChange={() => onToggleSelect?.(id)}
                     />
@@ -978,7 +982,7 @@ export function DataTable<T>({
                           col.render(item, value)
                         ) : (
                           <span className="truncate block max-w-[300px]">
-                            {String(value ?? "\u2014")}
+                            {String(value ?? m.common.empty)}
                           </span>
                         );
                         if (col.key !== openKey) return content;
@@ -1033,10 +1037,10 @@ export function DataTable<T>({
                             <div className="min-w-0 flex-1">{content}</div>
                             <button
                               {...openProps}
-                              aria-label={`Open ${rowLabel(item, id)}`}
+                              aria-label={fillMessage(m.common.openItem, { name: rowLabel(item, id) })}
                               className="sr-only shrink-0 rounded px-1 text-xs text-muted-foreground focus-visible:not-sr-only focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                             >
-                              Open
+                              {m.common.open}
                             </button>
                           </div>
                         );
@@ -1071,7 +1075,7 @@ export function DataTable<T>({
                 className="h-7 text-xs gap-1.5"
               >
                 <Columns3 className="h-3.5 w-3.5" />
-                Columns
+                {m.table.columns}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
@@ -1091,7 +1095,7 @@ export function DataTable<T>({
               )}
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={resetColumnVisibility}>
-                Reset to defaults
+                {m.table.resetColumns}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1137,7 +1141,7 @@ export function DataTable<T>({
                   style={pinProps("__select", true)?.style}
                 >
                   <Checkbox
-                    aria-label="Select all rows"
+                    aria-label={m.table.selectAll}
                     checked={
                       items.length > 0 && selected?.size === items.length
                     }
@@ -1257,7 +1261,11 @@ export function DataTable<T>({
                           }}
                           aria-label={
                             sortEntry && sortIndex > 0
-                              ? `${col.header}, sorted ${sortEntry.dir === "asc" ? "ascending" : "descending"}, sort ${sortIndex + 1}`
+                              ? fillMessage(m.table.sortedBy, {
+                                  header: String(col.header),
+                                  direction: sortEntry.dir === "asc" ? m.table.ascending : m.table.descending,
+                                  n: sortIndex + 1,
+                                })
                               : undefined
                           }
                         >
@@ -1326,12 +1334,12 @@ export function DataTable<T>({
         <div className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-muted/30 text-xs text-muted-foreground">
           <span>
             {totalItems === 0
-              ? "No records"
-              : `Showing ${showingFrom}\u2013${showingTo} of ${totalItems}`}
+              ? m.table.noRows
+              : fillMessage(m.table.range, { from: showingFrom, to: showingTo, total: totalItems })}
           </span>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5">
-              <span>Rows:</span>
+              <span>{m.table.rows}</span>
               <Select
                 value={String(currentPageSize)}
                 onValueChange={(v) => setCurrentPageSize(Number(v))}
@@ -1359,7 +1367,7 @@ export function DataTable<T>({
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
               <span className="px-2 tabular-nums">
-                {currentPage + 1} / {totalPages}
+                {fillMessage(m.table.pageOf, { page: currentPage + 1, pages: totalPages })}
               </span>
               <Button
                 variant="outline"
@@ -1387,10 +1395,11 @@ export function ThumbnailCell({
   src?: string | null;
   alt: string;
 }) {
+  const m = useUiMessages();
   if (!src) {
     return (
       <div className="h-10 w-14 rounded bg-muted flex items-center justify-center text-[10px] text-muted-foreground">
-        &mdash;
+        {m.common.empty}
       </div>
     );
   }
@@ -1411,7 +1420,8 @@ export function LinkCell({
   href?: string | null;
   label?: string;
 }) {
-  if (!href) return <span className="text-muted-foreground">&mdash;</span>;
+  const m = useUiMessages();
+  if (!href) return <span className="text-muted-foreground">{m.common.empty}</span>;
   return (
     <a
       href={href}

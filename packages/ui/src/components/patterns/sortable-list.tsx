@@ -5,6 +5,7 @@ import { GripVertical, MoreVertical } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../ui/dropdown-menu";
 import { cn } from "../../utils";
 import { useAnnouncer } from "./use-announcer";
+import { fillMessage, useUiMessages } from "../../messages";
 
 export interface SortableListItemContext {
   /** The item's position as shown, from 0. */
@@ -121,6 +122,7 @@ export function SortableList<T>({
   // The same, readable within one tick: two moves fired back to back must
   // not both start from the old order.
   const pendingRef = React.useRef(false);
+  const t = useUiMessages().sortable;
   const { message: announcement, announce } = useAnnouncer();
   const handles = React.useRef(new Map<string, HTMLButtonElement>());
   // The element that had focus when a move started, to put focus back on if
@@ -134,7 +136,7 @@ export function SortableList<T>({
   const total = keys.length;
   const nameOf = (key: string) => {
     const item = byKey.get(key);
-    return item === undefined ? "Item" : getItemLabel(item);
+    return item === undefined ? t.item : getItemLabel(item);
   };
 
   // Moving a focused element in the DOM drops focus to the body in real
@@ -190,7 +192,7 @@ export function SortableList<T>({
     Promise.resolve(result)
       .then(
         () => announce(message),
-        () => announce(`Couldn’t move ${nameOf(key)}.`),
+        () => announce(fillMessage(t.moveFailed, { name: nameOf(key) })),
       )
       .finally(() => {
         // A rejected move reverts the order, which moves rows again.
@@ -208,7 +210,7 @@ export function SortableList<T>({
     const target = Math.max(0, Math.min(total - 1, Math.round(to)));
     if (from < 0 || target === from) return;
     keepFocus();
-    commit(key, from, target, `${nameOf(key)} moved to position ${target + 1} of ${total}.`);
+    commit(key, from, target, fillMessage(t.moved, { name: nameOf(key), n: target + 1, total }));
   };
 
   const pickUp = (key: string) => {
@@ -217,9 +219,7 @@ export function SortableList<T>({
     if (from < 0) return;
     setGrabbed({ key, from });
     setPreview(itemKeys);
-    announce(
-      `${nameOf(key)} picked up, position ${from + 1} of ${total}. Use the up and down arrow keys to move, Space to drop, Escape to cancel.`,
-    );
+    announce(fillMessage(t.pickedUp, { name: nameOf(key), n: from + 1, total }));
   };
 
   const drop = (key: string) => {
@@ -229,11 +229,11 @@ export function SortableList<T>({
     setGrabbed(null);
     if (to === from) {
       setPreview(null);
-      announce(`${nameOf(key)} dropped at position ${to + 1} of ${total}.`);
+      announce(fillMessage(t.dropped, { name: nameOf(key), n: to + 1, total }));
       return;
     }
     keepFocus();
-    commit(key, from, to, `${nameOf(key)} dropped at position ${to + 1} of ${total}.`);
+    commit(key, from, to, fillMessage(t.dropped, { name: nameOf(key), n: to + 1, total }));
   };
 
   const cancel = (key: string) => {
@@ -242,7 +242,7 @@ export function SortableList<T>({
     keepFocus();
     setGrabbed(null);
     setPreview(null);
-    announce(`Move cancelled. ${nameOf(key)} is back at position ${from + 1} of ${total}.`);
+    announce(fillMessage(t.cancelled, { name: nameOf(key), n: from + 1, total }));
   };
 
   const step = (key: string, to: number) => {
@@ -251,7 +251,7 @@ export function SortableList<T>({
     if (index < 0 || target === index) return;
     keepFocus();
     setPreview(moved(keys, index, target));
-    announce(`${nameOf(key)} moved to position ${target + 1} of ${total}.`);
+    announce(fillMessage(t.moved, { name: nameOf(key), n: target + 1, total }));
   };
 
   // Escape while an item is picked up must not also close a surrounding
@@ -337,7 +337,7 @@ export function SortableList<T>({
     // `to` counts positions after the dragged item is taken out.
     let to = target.edge === "before" ? over : over + 1;
     if (from < to) to -= 1;
-    commit(key, from, to, `${nameOf(key)} dropped at position ${to + 1} of ${total}.`);
+    commit(key, from, to, fillMessage(t.dropped, { name: nameOf(key), n: to + 1, total }));
   };
 
   return (
@@ -355,7 +355,7 @@ export function SortableList<T>({
                 if (node) handles.current.set(key, node);
                 else handles.current.delete(key);
               }}
-              aria-label={`Reorder ${itemLabel}`}
+              aria-label={fillMessage(t.reorder, { name: itemLabel })}
               aria-describedby={instructionsId}
               data-grabbed={isGrabbed || undefined}
               className={cn(
@@ -421,23 +421,23 @@ export function SortableList<T>({
               {moveMenu && !disabled && total > 1 && (
                 <DropdownMenu>
                   <DropdownMenuTrigger
-                    aria-label={`Move ${itemLabel}`}
+                    aria-label={fillMessage(t.move, { name: itemLabel })}
                     className="absolute right-1 top-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <MoreVertical className="h-4 w-4" aria-hidden />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem disabled={index === 0} onSelect={() => move(key, index - 1)}>
-                      Move up
+                      {t.moveUp}
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled={index === total - 1} onSelect={() => move(key, index + 1)}>
-                      Move down
+                      {t.moveDown}
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled={index === 0} onSelect={() => move(key, 0)}>
-                      Move to top
+                      {t.moveToTop}
                     </DropdownMenuItem>
                     <DropdownMenuItem disabled={index === total - 1} onSelect={() => move(key, total - 1)}>
-                      Move to bottom
+                      {t.moveToBottom}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -447,8 +447,7 @@ export function SortableList<T>({
         })}
       </ul>
       <p id={instructionsId} hidden>
-        Space or Enter picks the item up. Up and down arrows, Home and End move it. Space or Enter drops it, Escape puts
-        it back. Alt with an arrow moves it one step.
+        {t.instructions}
       </p>
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}

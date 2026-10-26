@@ -170,7 +170,7 @@ describe("native", () => {
   it("gives the push block its categories and device categories", () => {
     const o = pushOptionsFrom(registry);
     expect(o.categories?.map((c) => c.id)).toEqual(["messages", "forms", "security", "genesis"]);
-    expect(o.deviceCategories?.[0]?.identifier).toBe("message");
+    expect(o.deviceCategories?.[0]?.identifier).toBe("messages");
   });
 
   it("registers with the install id, and saves only the push switches that changed, one cell at a time", async () => {

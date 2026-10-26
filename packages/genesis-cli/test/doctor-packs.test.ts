@@ -108,6 +108,9 @@ describe("native pack", () => {
     const modal = r.findings.find((f) => f.subject === "Modal")!;
     // Only replacements the installed package exports are named (NativeDrawer isn't in the fixture).
     expect(modal.message).toContain("use NativeDialog or NativeSheet from @marktiderman/genesis-ui-native");
+    // A spinner points at the screen loading state first.
+    const spinner = r.findings.find((f) => f.subject === "ActivityIndicator")!;
+    expect(spinner.message).toContain("use NativeLoadingState or NativeSkeleton from @marktiderman/genesis-ui-native");
   });
 
   it("native-raw-primitive: namespace, require and export-from uses count; type-only imports don't", async () => {
@@ -183,7 +186,7 @@ describe("native pack", () => {
   it("native-screen-layout: route screens render a layout directly, through a local import, or redirect", async () => {
     const r = await run("native", NATIVE);
     // index renders ScreenContainer, profile imports a screen that does, old-home redirects,
-    // _layout and +html aren't screens.
+    // signing-in renders NativeLoadingState, _layout and +html aren't screens.
     expect(brief(r.findings, "native-screen-layout")).toEqual(["native-screen-layout app/settings.tsx:0"]);
     expect(r.findings.find((f) => f.rule === "native-screen-layout")!.level).toBe("warn");
   });
