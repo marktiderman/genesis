@@ -30,6 +30,20 @@ export {
   type InfinitePageParam,
 } from "./use-infinite-resource";
 export { useCapabilities } from "./use-capabilities";
+export { useDraft, type UseDraftReturn } from "./use-draft";
+export {
+  DraftController,
+  DEFAULT_DRAFT_DELAY_MS,
+  DRAFT_NOT_SAVED,
+  isNetworkFailure,
+  stableJson,
+  type DraftAdoption,
+  type DraftOptions,
+  type DraftSeed,
+  type DraftState,
+  type DraftStatus,
+  type DraftValue,
+} from "./draft-controller";
 export { ViewerScope, clearViewerCache, type ViewerScopeProps } from "./viewer-scope";
 export { DEFAULT_LIVE_DEBOUNCE_MS, type LiveOptions } from "./use-live";
 export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
