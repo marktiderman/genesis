@@ -24,7 +24,7 @@ for a domain are in [docs/NOTIFICATIONS.md](../../docs/NOTIFICATIONS.md).
 | `/supabase` | `NOTIFICATIONS_MIGRATIONS` and `notificationsClient(supabase)`, the browser and phone side under row level security. |
 | `/react` | `NotificationsProvider`, `useNotifications`, `useUnreadCount`, `usePreferences`. |
 | `/web` | `NotificationBell`, `NotificationFeed`, `PreferencesMatrix`, and for admins `DeliveryLog`, `SuppressionList`, `SendTestNotification`, all on genesis-ui. |
-| `/native` | `NotificationsFeed` (on genesis-ui-native's `NotificationsPage`), `ChannelPreferences`, `NotificationPreferences`, `notificationsPushBackend`, `pushOptionsFrom`, `notificationAction`. |
+| `/native` | `NotificationsFeed` (on genesis-ui-native's `NotificationsPage`), `ChannelPreferences`, `NotificationPreferences`, `notificationsPushBackend`, `notificationsPushPreferences` (its preferences half), `pushOptionsFrom`, `notificationAction`. |
 | `/blocks` | `notificationsBlock`: routes, nav, a Settings row, the migration and the privacy notes. |
 
 The package ships `migrations/0001_genesis_notifications.sql` with its pgTAP
@@ -86,6 +86,11 @@ test, and the `functions/genesis-notifications` Edge Function template.
 
    On native, give the push block this package's backend and the registry's categories:
    `createPush({ backend: notificationsPushBackend(supabase), ...pushOptionsFrom(notifications), randomUUID: Crypto.randomUUID, … })`.
+
+   An app that registers devices its own way keeps its `register` and `forget` and takes only the
+   preferences: `backend: { register, forget, ...notificationsPushPreferences(supabase) }`. The push
+   settings screen then reads and saves this package's preferences row (each category switch is that
+   category's push channel; quiet hours and previews are the row's own columns).
 
 ## Sending
 

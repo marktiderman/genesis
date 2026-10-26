@@ -45,6 +45,8 @@ export function createStarterPush() {
     platform: Platform.OS,
     projectId: (Constants.expoConfig?.extra?.eas?.projectId as string | undefined) ?? Constants.easConfig?.projectId ?? null,
     appVersion: Application.nativeApplicationVersion,
+    // Devices and preferences on the notifier's tables. An app that registers devices its own way
+    // spreads in only the preferences: `{ register, forget, ...notificationsPushPreferences(supabase) }`.
     backend: notificationsPushBackend(supabase),
     ...pushOptions,
     onResponse: onChatPushResponse,

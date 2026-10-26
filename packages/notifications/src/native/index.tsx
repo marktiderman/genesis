@@ -6,6 +6,7 @@
  *   ChannelPreferences           category × channel switches, as NotificationSettings' `categories` part
  *   NotificationPreferences      genesis-native's NotificationSettings with that part in place
  *   notificationsPushBackend     the push block's `PushBackend` on this package's migration
+ *   notificationsPushPreferences only its preferences half, beside an app's own register / forget
  *   pushOptionsFrom(registry)    the push block's categories, Android channels and device categories
  *   notificationAction           a tapped action button (Reply, Mark as read), with the notification id
  *
@@ -193,20 +194,29 @@ function clock(value: unknown, fallback: string): string {
   return match ? `${match[1]}:${match[2]}` : fallback;
 }
 
+/** The preferences half of the push block's `PushBackend`: what Settings → Notifications reads and saves. */
+export type PushPreferencesBackend = Pick<PushBackend, "loadPreferences" | "savePreferences">;
+
 /**
- * The push block's `PushBackend` on genesis-notifications' migration:
- * registers with this install's id (so a token moves between logins only on
- * its own phone), and keeps the push block's category switches as each
- * category's push channel (`genesis_notifications_set_preference`, one cell
- * at a time, so nothing else in the row is overwritten). A category no
- * notifier type sends push in (chat's `messages` while chat still sends
+ * The push block's `loadPreferences` / `savePreferences` on
+ * genesis-notifications' migration, for an app that registers devices its
+ * own way: spread it into the backend and NotificationSettings (quiet hours,
+ * previews, the category switches) works.
+ *
+ *   createPush({ backend: { register, forget, ...notificationsPushPreferences(supabase) }, … })
+ *
+ * Each category switch is that category's push channel
+ * (`genesis_notifications_set_preference`, one cell at a time, and only the
+ * ones that changed, so nothing else in the row is overwritten). A category
+ * no notifier type sends push in (chat's `messages` while chat still sends
  * through 0005's sender) keeps its switch in 0005's `categories`, which that
  * sender reads, instead of failing the whole save. Quiet hours and previews
- * are the same columns as before.
+ * are the row's own columns. `loadPreferences` answers `null` before the
+ * person saved anything, and a save row level security refuses throws.
  *
  * @stability Beta
  */
-export function notificationsPushBackend(client: PushBackendClientLike): PushBackend {
+export function notificationsPushPreferences(client: PushBackendClientLike): PushPreferencesBackend {
   const must = (operation: string, result: Result) => {
     if (result.error) throw new NotificationsPushBackendError(operation, result.error.code ?? null);
     return result.data;
@@ -216,13 +226,6 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
   // 0005's `categories` as last loaded or saved: the switches of categories the notifier has no push type in.
   let legacy: Record<string, boolean> = {};
   return {
-    usesInstallationId: true,
-    async register(token, platform, appVersion, installationId) {
-      must("genesis_push_register", await client.rpc("genesis_push_register", { p_token: token, p_platform: platform, p_app_version: appVersion, p_installation_id: installationId ?? null }));
-    },
-    async forget(token) {
-      must("genesis_push_forget", await client.rpc("genesis_push_forget", { p_token: token }));
-    },
     async loadPreferences(userId) {
       const data = must(
         "notification_preferences",
@@ -277,7 +280,32 @@ export function notificationsPushBackend(client: PushBackendClientLike): PushBac
         hide_previews: p.hidePreviews,
       };
       const data = must("notification_preferences", await (client.from("notification_preferences") as PreferencesQuery).upsert(row, { onConflict: "user_id" }).select("user_id"));
+      // Row level security turns a write it refuses into zero rows, not an error.
       if (!Array.isArray(data) || data.length !== 1) throw new NotificationsPushBackendError("notification_preferences", "no_rows");
     },
+  };
+}
+
+/**
+ * The push block's `PushBackend` on genesis-notifications' migration:
+ * registers with this install's id (so a token moves between logins only on
+ * its own phone), and keeps preferences with `notificationsPushPreferences`.
+ *
+ * @stability Beta
+ */
+export function notificationsPushBackend(client: PushBackendClientLike): PushBackend {
+  const must = (operation: string, result: Result) => {
+    if (result.error) throw new NotificationsPushBackendError(operation, result.error.code ?? null);
+    return result.data;
+  };
+  return {
+    usesInstallationId: true,
+    async register(token, platform, appVersion, installationId) {
+      must("genesis_push_register", await client.rpc("genesis_push_register", { p_token: token, p_platform: platform, p_app_version: appVersion, p_installation_id: installationId ?? null }));
+    },
+    async forget(token) {
+      must("genesis_push_forget", await client.rpc("genesis_push_forget", { p_token: token }));
+    },
+    ...notificationsPushPreferences(client),
   };
 }

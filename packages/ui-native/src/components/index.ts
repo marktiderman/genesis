@@ -138,6 +138,9 @@ export type { NativeSeparatorProps } from "./separator";
 export { NativeSkeleton } from "./skeleton";
 export type { NativeSkeletonProps } from "./skeleton";
 
+export { NativeLoadingState } from "./loading-state";
+export type { NativeLoadingStateProps, NativeLoadingStateEdge } from "./loading-state";
+
 export {
   NativeAlert,
   NativeAlertTitle,

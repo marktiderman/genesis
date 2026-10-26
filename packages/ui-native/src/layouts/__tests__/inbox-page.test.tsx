@@ -46,7 +46,8 @@ describe("InboxPage", () => {
   it("shows a spinner while the first page loads, and an error (with Try again) when the read failed", () => {
     const onRefresh = vi.fn();
     const { unmount } = render(<InboxPage testID="inbox" items={[]} loading emptyTitle="No reports" />);
-    expect(screen.getByTestId("inbox-loading")).toBeTruthy();
+    expect(screen.getByTestId("inbox-loading").getAttribute("role")).toBe("progressbar");
+    expect(screen.getByTestId("inbox-loading").getAttribute("aria-label")).toBe("Loading");
     expect(screen.queryByTestId("inbox-empty")).toBeNull();
     unmount();
     render(<InboxPage testID="inbox" items={[]} error errorTitle="Couldn't load" onRefresh={onRefresh} />);
