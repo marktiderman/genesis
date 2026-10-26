@@ -1,9 +1,9 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { index: "src/index.ts", node: "src/node.ts", cli: "src/cli.ts" },
+  entry: { index: "src/index.ts", server: "src/server.ts", node: "src/node.ts", cli: "src/cli.ts" },
   format: ["esm"],
-  dts: { entry: { index: "src/index.ts", node: "src/node.ts" } },
+  dts: { entry: { index: "src/index.ts", server: "src/server.ts", node: "src/node.ts" } },
   sourcemap: true,
   clean: true,
   treeshake: true,

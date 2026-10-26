@@ -4,3 +4,18 @@
 export { SIGNAL_KINDS, memorySignals, type CatalogFeature, type Importance, type Signal, type SignalKind, type SignalSource } from "./model";
 export { buildBoard, demand, renderBoard, type Board, type BoardItem, type RenderBoardOptions } from "./board";
 export { answeredBy, diffRelease, renderRelease, type ReleaseChange, type RenderReleaseOptions } from "./release";
+export {
+  NOTIFY_BATCH,
+  PRODUCT_SHIPPED_TYPE,
+  PRODUCT_UPDATES_CATEGORY,
+  cancelShipped,
+  notifyShipped,
+  productNotifications,
+  shippedKey,
+  type NotifyShippedOptions,
+  type ProductCancelInput,
+  type ProductNotifyInput,
+  type ProductRecipient,
+  type ShippedData,
+  type ShippedFeature,
+} from "./notifications";

@@ -298,7 +298,8 @@ describe("the core stays usable from React Native (@feat:product-roadmap)", () =
       }
     };
     walk("index");
-    expect([...seen].sort()).toEqual(["board", "index", "model", "release"]);
+    walk("server");
+    expect([...seen].sort()).toEqual(["board", "index", "model", "notifications", "release", "server"]);
   });
 });
 

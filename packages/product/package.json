@@ -23,6 +23,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
@@ -42,6 +46,7 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "devDependencies": {
+    "@marktiderman/genesis-notifications": "workspace:^",
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",

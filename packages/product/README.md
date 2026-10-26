@@ -58,6 +58,45 @@ const markdown = renderBoard(board, { date: "2026-10-25" });
 The core (`.`) has no React and no I/O. `/node` reads the catalog from a file or a git ref, maps
 GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
+## Telling people it shipped (an app's own database)
+
+On a repo whose ideas are GitHub issues, `--notify --yes` is the notice: its "Shipped in release …"
+comment tells the issue's author and everyone subscribed. Don't also call `notify()` there.
+
+An app whose ideas live in its own database (people with logins or emails) tells them through
+genesis-notifications. The app owns its registry and spreads in product's fragment, the way it
+composes features: type `product.idea_shipped` in category `product_updates`, not critical and not
+transactional, so preferences, quiet hours and the unsubscribe link apply. In the feed and by
+email by default, with push offered as an opt-in.
+
+```ts
+import { defineNotifications } from "@marktiderman/genesis-notifications";
+import { notify, cancelNotification } from "@marktiderman/genesis-notifications/server";
+import { productNotifications, notifyShipped, cancelShipped } from "@marktiderman/genesis-product/server";
+
+export const notifications = defineNotifications({
+  categories: { ...productNotifications.categories, /* the app's own */ },
+  types: { ...productNotifications.types, /* the app's own */ },
+});
+
+// Once per shipped feature, to everyone who asked for or voted on it (deduplicated, 1,000 a call).
+await notifyShipped((input) => notify(supabase, input, { registry: notifications }), {
+  release: "2026-10-26",
+  feature,             // a CatalogFeature: its tagline (or summary) is the body
+  recipients: askers,  // user ids, { userId }, or { email, name }
+  url: "/whats-new",
+});
+
+// The release was withdrawn: stop what hasn't gone out, and take it out of the feed.
+await cancelShipped((input) => cancelNotification(supabase, input), { release: "2026-10-26", featureId: feature.id, archive: true });
+```
+
+The key is `shipped:<release>:<feature>`, so a re-run sends nobody a second one, and the same
+feature shipped again under a new release name notifies again. `/server` and the core (`.`) export
+the same things: the registry is imported by the web and the phone too, and neither does I/O.
+This package doesn't depend on genesis-notifications; the shapes are structural and tested against
+it.
+
 ## Not yet
 
 - Releases aren't wired into this repo's release flow yet. The plan, from the review: release.yml
@@ -69,6 +108,5 @@ GitHub issues to signals, and writes the board issue and the "shipped" comments.
 
 - No database source, no insights captured from support reports, and no screens: the board is
   markdown.
-- No notifications beyond GitHub's own: `--notify` comments on the issue, which tells its
-  author and everyone subscribed to it.
+- Nothing calls `notifyShipped` yet: the askers come from a database source, which isn't built.
 - Demand counts votes once per person per issue, but not yet once per person per feature.

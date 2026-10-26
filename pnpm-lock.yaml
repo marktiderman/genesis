@@ -1301,6 +1301,9 @@ importers:
         specifier: workspace:^
         version: link:../features
     devDependencies:
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
