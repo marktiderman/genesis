@@ -1,5 +1,18 @@
 # @marktiderman/genesis-ui-native
 
+## 2.5.0
+
+### Minor Changes
+
+- 6f725f8: - `NativeLoadingState`: a centred spinner in the theme tint for a screen that is waiting (a redirect, a first load), announced as one "Loading" progress bar or by its `label`. Full screen inside the safe area by default; `fullScreen={false}` for a screen body, a section or a list footer.
+  - `ScreenContainer` takes `loading` (and `loadingLabel`): the loading state replaces the body inside the same safe area and background.
+  - `InboxPage`'s first load and "Loading more" footer use it.
+
+### Patch Changes
+
+- e1de4c1: - `native-screen-layout` counts a route as a screen through `NativeLoadingState` only when a full-screen loading state is all it renders (header options and fragments aside). A route that also renders other content, imports it, or uses `fullScreen={false}` still needs a Genesis layout.
+  - Docs: `ScreenContainer`'s `loading` is for first loads (the body is unmounted while it's on); `loadingLabel` is visible and read aloud, so pass translated text; spread `notificationsPushPreferences` after your own keys.
+
 ## 2.4.1
 
 ### Patch Changes
