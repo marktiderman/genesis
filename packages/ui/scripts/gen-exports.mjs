@@ -102,6 +102,9 @@ const LAYOUT_SUBPATH_COMPONENTS = [
   // A deliberate new entrypoint: genesis-sites renders marketing bands on the
   // server and imports this file alone, not the layout barrel (AppShell and its peers).
   "band",
+  // A deliberate new entrypoint: builders (genesis-forms-builder) import the
+  // three-column layout alone, not the layout barrel.
+  "builder-layout",
   "dashboard-page",
   "detail-page",
   "form-page",

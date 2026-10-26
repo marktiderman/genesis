@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 124
+      "count": 128
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -6706,6 +6706,94 @@
       ]
     },
     {
+      "slug": "auth-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/auth-page.tsx",
+      "stability": "beta",
+      "summary": "AuthPage — the web counterpart of native `AuthScreen`: a whole-screen,\ncentred card for sign-in, sign-up, password reset, invite acceptance and\nemail verification.\n\n```tsx\n<AuthPage\n  branding={{ logo: <Logo />, headline: \"Sign in\", subhead: \"Welcome back.\" }}\n  footer={<><a href=\"/reset\">Forgot password?</a> · <a href=\"/sign-up\">Create account</a></>}\n  legal={<>By continuing you agree to the <a href=\"/terms\">terms</a>.</>}\n  aside={<img src={hero} alt=\"\" />}\n>\n  <SignInForm />\n</AuthPage>\n```\n\nThe card column is a `<main>` landmark and the headline is its single\n`<h1>`, so a screen reader lands on the form's purpose. The page fills the\nviewport (`min-height: 100dvh`) and the card shrinks to the screen with a\n16px gutter, so nothing scrolls sideways at 375px.\n\nNative `AuthScreen` takes `form` and `providers` as data and renders its\nown `AuthForm`; this one is a **layout**, so the form and the provider\nbuttons are nodes the app passes. Slots are the same contract:\nreplace or drop (`null`) `branding`, `social` or `footer`.",
+      "primaryComponent": "AuthPage",
+      "components": [
+        {
+          "name": "AuthPage",
+          "summary": "AuthPage — the web counterpart of native `AuthScreen`: a whole-screen,\ncentred card for sign-in, sign-up, password reset, invite acceptance and\nemail verification.\n\n```tsx\n<AuthPage\n  branding={{ logo: <Logo />, headline: \"Sign in\", subhead: \"Welcome back.\" }}\n  footer={<><a href=\"/reset\">Forgot password?</a> · <a href=\"/sign-up\">Create account</a></>}\n  legal={<>By continuing you agree to the <a href=\"/terms\">terms</a>.</>}\n  aside={<img src={hero} alt=\"\" />}\n>\n  <SignInForm />\n</AuthPage>\n```\n\nThe card column is a `<main>` landmark and the headline is its single\n`<h1>`, so a screen reader lands on the form's purpose. The page fills the\nviewport (`min-height: 100dvh`) and the card shrinks to the screen with a\n16px gutter, so nothing scrolls sideways at 375px.\n\nNative `AuthScreen` takes `form` and `providers` as data and renders its\nown `AuthForm`; this one is a **layout**, so the form and the provider\nbuttons are nodes the app passes. Slots are the same contract:\nreplace or drop (`null`) `branding`, `social` or `footer`.",
+          "props": [
+            {
+              "name": "branding",
+              "type": "AuthPageBrandingProps",
+              "required": true,
+              "defaultValue": null,
+              "description": "Logo, headline (h1) and subhead above the card."
+            },
+            {
+              "name": "aside",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "A panel beside the card on wide screens (an illustration, a quote, a\nproduct shot). Hidden below the `lg` breakpoint, where the card is the\nwhole page."
+            },
+            {
+              "name": "asidePosition",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "end",
+              "description": "Which side `aside` sits on. Default `\"end\"`."
+            },
+            {
+              "name": "children",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form: sign-in, sign-up, reset, invite acceptance, verify. The card's body."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Below the card: \"Forgot password?\", \"Create account\"."
+            },
+            {
+              "name": "legal",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "The small print under everything: terms and privacy."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<AuthPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "More props for a default part, merged over what the page passes."
+            },
+            {
+              "name": "slots",
+              "type": "Slots<AuthPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Replace (a component) or drop (`null`) one part."
+            },
+            {
+              "name": "social",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Sign-in provider buttons (Google, Apple…), above the form inside the card."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "auth-page",
+              "description": "testID on the root. Default `\"auth-page\"`; parts use `${testID}-branding`, `-card`, `-social`, `-footer`, `-legal`, `-aside`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "avatar",
       "aliases": [],
       "surface": "web",
@@ -6889,6 +6977,159 @@
       ]
     },
     {
+      "slug": "brand-theme",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/brand-theme.ts",
+      "stability": "stable",
+      "summary": "Parses `#rgb`, `#rrggbb` or `rgb(r, g, b)` / `rgb(r g b)`. Anything else: `null`.",
+      "primaryComponent": "parseColor",
+      "components": [
+        {
+          "name": "parseColor",
+          "summary": "Parses `#rgb`, `#rrggbb` or `rgb(r, g, b)` / `rgb(r g b)`. Anything else: `null`.",
+          "props": []
+        },
+        {
+          "name": "relativeLuminance",
+          "summary": "WCAG 2 relative luminance, 0 (black) to 1 (white).",
+          "props": [
+            {
+              "name": "b",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "g",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "r",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "contrastRatio",
+          "summary": "WCAG 2 contrast ratio between two colours, 1 to 21.",
+          "props": []
+        },
+        {
+          "name": "rgbToHsl",
+          "summary": "sRGB to HSL: hue 0-360, saturation and lightness 0-100.",
+          "props": [
+            {
+              "name": "b",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "g",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "r",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "hslToRgb",
+          "summary": "HSL (hue 0-360, saturation and lightness 0-100) to sRGB.",
+          "props": [
+            {
+              "name": "h",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "l",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "s",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "toHslTriplet",
+          "summary": "The Genesis token shape: `\"160 84% 39%\"`, for `hsl(var(--x))`.",
+          "props": [
+            {
+              "name": "b",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "g",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "r",
+              "type": "number",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "accessibleAccent",
+          "summary": "The contrast fallback. Returns the accent unchanged when it reaches\n`minRatio` against `background` (white by default); otherwise the same hue\nand saturation at the highest lightness that does. The search walks\nlightness down in 0.5% steps, so the shade stays as close to the brand as\nthe ratio allows, and it always ends: lightness 0 is black, 21:1.",
+          "props": []
+        },
+        {
+          "name": "brandThemeStyle",
+          "summary": "The CSS variables for a brand's accent, for a page root's `style`. Empty\nwhen the brand has no valid accent, so the page keeps Genesis's primary.",
+          "props": [
+            {
+              "name": "accent",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accent colour: `#rgb`, `#rrggbb` or `rgb(r, g, b)`. Invalid or absent: Genesis's own primary."
+            }
+          ]
+        },
+        {
+          "name": "MIN_TEXT_CONTRAST",
+          "summary": "WCAG AA for normal-size text.",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "breadcrumb",
       "aliases": [],
       "surface": "web",
@@ -6948,6 +7189,101 @@
           "name": "BreadcrumbEllipsis",
           "summary": "",
           "props": []
+        }
+      ]
+    },
+    {
+      "slug": "builder-layout",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/builder-layout.tsx",
+      "stability": "beta",
+      "summary": "BuilderLayout — the three columns of a builder: an outline of the parts on\nthe left, the editor for the selected part in the centre, a live preview\non the right.\n\n```tsx\n<BuilderLayout\n  outline={<QuestionList />}\n  outlineLabel=\"Outline\"\n  editor={<QuestionEditor key={selectedId} />}\n  preview={<LivePreview />}\n  previewLabel=\"Preview\"\n  sticky\n/>\n```\n\nResponsive by container query, so it needs no knowledge of the page around\nit: all three columns from a 56rem container, wider side columns from\n76rem, the preview under the editor below 56rem and everything stacked\nbelow 34rem (see `GRID` for each slot combination). The preview keeps its\nplace in the tree when the editor or outline changes, so it never\nremounts; changing `previewLabel` between set and unset does remount it\n(the element changes from `<div>` to `<aside>`).\n\nIt positions the three parts and nothing else. It does **not** own tabs,\nthe app rail or a page header: those belong to the shell. Put a builder's\nsections in `useAppShellSubNav` (or your own tabs inside `editor`) and its\ntitle, status and actions in `AppShellPageHeader`. To keep one preview\nacross sections, render one `BuilderLayout` around the sections and swap\n`editor`; nest a second one (outline and editor only) inside a section\nthat has an outline.",
+      "primaryComponent": "BuilderLayout",
+      "components": [
+        {
+          "name": "BuilderLayout",
+          "summary": "BuilderLayout — the three columns of a builder: an outline of the parts on\nthe left, the editor for the selected part in the centre, a live preview\non the right.\n\n```tsx\n<BuilderLayout\n  outline={<QuestionList />}\n  outlineLabel=\"Outline\"\n  editor={<QuestionEditor key={selectedId} />}\n  preview={<LivePreview />}\n  previewLabel=\"Preview\"\n  sticky\n/>\n```\n\nResponsive by container query, so it needs no knowledge of the page around\nit: all three columns from a 56rem container, wider side columns from\n76rem, the preview under the editor below 56rem and everything stacked\nbelow 34rem (see `GRID` for each slot combination). The preview keeps its\nplace in the tree when the editor or outline changes, so it never\nremounts; changing `previewLabel` between set and unset does remount it\n(the element changes from `<div>` to `<aside>`).\n\nIt positions the three parts and nothing else. It does **not** own tabs,\nthe app rail or a page header: those belong to the shell. Put a builder's\nsections in `useAppShellSubNav` (or your own tabs inside `editor`) and its\ntitle, status and actions in `AppShellPageHeader`. To keep one preview\nacross sections, render one `BuilderLayout` around the sections and swap\n`editor`; nest a second one (outline and editor only) inside a section\nthat has an outline.",
+          "props": [
+            {
+              "name": "editor",
+              "type": "ReactNode",
+              "required": true,
+              "defaultValue": null,
+              "description": "Centre column: the editor for the selected thing. Required."
+            },
+            {
+              "name": "editorProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the editor's wrapper."
+            },
+            {
+              "name": "outline",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Left column: the list of things being built (questions, lessons, steps).\nOptional. Rendered as a `<nav>` when `outlineLabel` is set."
+            },
+            {
+              "name": "outlineLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the outline; makes it a `navigation` landmark."
+            },
+            {
+              "name": "outlineProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the outline's wrapper (class, test id, data attributes)."
+            },
+            {
+              "name": "preview",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Right column: a live preview (and anything that sits with it, such as\nchecks). Optional. Rendered as an `<aside>` when `previewLabel` is set.\n\nIt keeps its place in the tree whatever `editor` and `outline` hold, so\nswapping the editor (another section, another selected item) never\nremounts it: the preview's own state (device, answers typed into it,\nscroll) survives."
+            },
+            {
+              "name": "previewHidden",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Keep the preview mounted but hidden, and give its width back to the\neditor. For a section that needs the whole width (a host's own\nsettings layout) without losing the preview's state."
+            },
+            {
+              "name": "previewLabel",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Accessible name for the preview; makes it a `complementary` landmark."
+            },
+            {
+              "name": "previewProps",
+              "type": "BuilderLayoutSlotProps",
+              "required": false,
+              "defaultValue": null,
+              "description": "Props for the preview's wrapper."
+            },
+            {
+              "name": "scrollSticky",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "With `sticky`, cap each pinned column at the viewport height and let it\nscroll on its own, so a long outline or preview stays reachable.\nDefault `false`."
+            },
+            {
+              "name": "sticky",
+              "type": "boolean | { outline?: boolean; preview?: boolean; } | undefined",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Pin the outline and/or the preview at the top while the editor scrolls,\nonce each sits in a column of its own (not while stacked). `true` pins\nboth. Default `false`."
+            }
+          ]
         }
       ]
     },
@@ -13258,6 +13594,94 @@
               "required": false,
               "defaultValue": "0",
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "public-page",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/layout",
+      "filePath": "packages/ui/src/components/layout/public-page.tsx",
+      "stability": "beta",
+      "summary": "PublicPage — a page anyone can open without signing in: a public form, a\nQR poster, a landing page. A brand header, one content column, and a\n\"Powered by …\" footer, themed from a brand object.\n\n```tsx\n<PublicPage\n  brand={{ name: \"Riverside Physio\", logoUrl, accent: \"#10b981\" }}\n  poweredBy={<a href=\"https://example.com\">Example</a>}\n  embedded={searchParams.get(\"embed\") === \"1\"}\n>\n  <Form … />\n</PublicPage>\n```\n\nThe brand's accent becomes `--primary` (darkened when it fails 4.5:1 on\nwhite) on the page root, so a `Button` or link inside follows the brand\nwith no props. The check is against white, Genesis's light background;\nunder a `.dark` theme the fill stays readable (white on the shade) but\naccent-coloured text may not, so public pages are best served light.\n\n`embedded` is the frame-ancestors case. It drops the header and footer,\nthe background and `min-height: 100dvh` (inside an iframe the viewport is\nthe frame, so a full-height page would never let the frame shrink to its\ncontent).\n\nThis is a **layout**: it positions content and binds to nothing. The\ncontent column is a `Container` for the one-home reason.",
+      "primaryComponent": "PublicPage",
+      "components": [
+        {
+          "name": "PublicPage",
+          "summary": "PublicPage — a page anyone can open without signing in: a public form, a\nQR poster, a landing page. A brand header, one content column, and a\n\"Powered by …\" footer, themed from a brand object.\n\n```tsx\n<PublicPage\n  brand={{ name: \"Riverside Physio\", logoUrl, accent: \"#10b981\" }}\n  poweredBy={<a href=\"https://example.com\">Example</a>}\n  embedded={searchParams.get(\"embed\") === \"1\"}\n>\n  <Form … />\n</PublicPage>\n```\n\nThe brand's accent becomes `--primary` (darkened when it fails 4.5:1 on\nwhite) on the page root, so a `Button` or link inside follows the brand\nwith no props. The check is against white, Genesis's light background;\nunder a `.dark` theme the fill stays readable (white on the shade) but\naccent-coloured text may not, so public pages are best served light.\n\n`embedded` is the frame-ancestors case. It drops the header and footer,\nthe background and `min-height: 100dvh` (inside an iframe the viewport is\nthe frame, so a full-height page would never let the frame shrink to its\ncontent).\n\nThis is a **layout**: it positions content and binds to nothing. The\ncontent column is a `Container` for the one-home reason.",
+          "props": [
+            {
+              "name": "brand",
+              "type": "PublicBrand",
+              "required": false,
+              "defaultValue": null,
+              "description": "The brand the page belongs to. Its header (logo, name, cover image) shows\nat the top, and its `accent` themes the page: see `brandThemeStyle`."
+            },
+            {
+              "name": "description",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Supporting copy under `title`."
+            },
+            {
+              "name": "embedded",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "For an iframe: no header or footer chrome, a transparent background and\nno full-viewport height, so the frame is as tall as its content. The\nbrand accent still applies. A host usually sets it from `?embed=1`."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "More footer content: privacy and terms links, an address."
+            },
+            {
+              "name": "maxWidth",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "sm",
+              "description": "Width of the content column: a `Container` size. Default `\"sm\"`."
+            },
+            {
+              "name": "poweredBy",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Who runs the page, as \"Powered by …\" in the footer (a name or a link).\nLeave it out, or pass `false`, to hide it."
+            },
+            {
+              "name": "slotProps",
+              "type": "SlotPropsFor<PublicPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "More props for a default part, merged over what the page passes."
+            },
+            {
+              "name": "slots",
+              "type": "Slots<PublicPageSlotMap>",
+              "required": false,
+              "defaultValue": "{}",
+              "description": "Replace (a component) or drop (`null`) the header or footer."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "public-page",
+              "description": "testID on the root. Default `\"public-page\"`; parts use `${testID}-header`, `-main`, `-footer`."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Optional page heading, rendered as the page's `<h1>` above the content. Leave it out when the content brings its own (a form's title)."
             }
           ]
         }

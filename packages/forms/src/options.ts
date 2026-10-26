@@ -248,7 +248,7 @@ function paramValues(params: LinkParams, name: string): string[] {
  * option calls this). Each choice question with `props.prefill: { param }` takes the parameter's
  * value when it is one of the options the question shows (`visibleOptions`, so a filtered list is
  * respected); anything else is ignored. A multiple choice takes every matching value, from
- * repeated parameters (`?coach=a&coach=b`) or one comma-separated value. Questions are filled in
+ * repeated parameters (`?staff=a&staff=b`) or one comma-separated value. Questions are filled in
  * form order, so a filtered question sees what the link picked before it. A question `values`
  * already answers (the host's own prefill) is left alone. The server checks these like any answer.
  */

@@ -1,5 +1,18 @@
 # @marktiderman/genesis-forms-studio
 
+## 0.5.0
+
+### Minor Changes
+
+- 14e907f: The resource workspace pieces moved to genesis-ui (`@marktiderman/genesis-ui/resource`). forms-studio re-exports every moved name, marked `@deprecated`, and forms see the same words as before: the deprecated `ShareDialog`, `ReadinessChip`, `readinessOf` and `readinessChip` pass the form's wording and its `no-questions` rule. New `FORM_SHARE_LABELS`, `FORM_READINESS_LABELS` and `FORM_READINESS_OPTIONS` carry those words for hosts that import from genesis-ui directly. `SettingsPageSection` is now an alias of genesis-ui's `ResourceSettingsSection`. The genesis-ui peer floor is now 2.14.0.
+
+  Features: forms-studio, resource-workspace
+
+### Patch Changes
+
+- 4c616c4: answerCell keeps the labels of number and boolean option values again (the label map from the previous release only looked up string answers).
+- 35eac40: Linear-time option lookups for large option lists. The response summary counts choice answers through a value map, and answerCell (used per answer by the summary, the table and CSV) looks labels up in a per-options map, instead of scanning the options for every answer; and the option list editor's CSV import preview compares against a value Set instead of scanning per row. A 5,000-option list with 50,000 answers now summarises in milliseconds.
+
 ## 0.4.0
 
 ### Minor Changes
