@@ -32,12 +32,14 @@ describe("the forms build", () => {
   });
 
   // CI builds before it tests; a fresh local checkout without dist skips this one.
-  it.skipIf(!existsSync(dist))("bundles one copy of the runner and imports no Genesis package", () => {
+  it.skipIf(!existsSync(dist))("bundles one copy of the runner and imports no Genesis package, in the JS or the types", () => {
     const files = readdirSync(dist).filter((name) => /\.(c?js|d\.c?ts)$/.test(name));
-    expect(files.length).toBeGreaterThan(0);
+    expect(files.some((name) => name.endsWith(".d.ts"))).toBe(true);
+    expect(files.some((name) => name.endsWith(".d.cts"))).toBe(true);
     for (const name of files) {
       const text = readFileSync(join(dist, name), "utf8");
-      expect(text, name).not.toMatch(/(from|require\()\s*["']@marktiderman\/genesis-(notifications|supabase)/);
+      // Static imports, require() and inline type imports (`import("…")`, which tsup's dts can emit).
+      expect(text, name).not.toMatch(/(from|require\(|import\()\s*["']@marktiderman\/genesis-(notifications|supabase)/);
       if (/^destinations\.c?js$/.test(name)) expect(text.match(/function createRunner\(/g), name).toHaveLength(1);
     }
   });

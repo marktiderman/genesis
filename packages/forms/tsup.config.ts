@@ -23,6 +23,9 @@ export default defineConfig({
   dts: true,
   noExternal: [/^@marktiderman\/genesis-supabase\/runner$/],
   esbuildOptions(options) {
+    // Forms inlines its own copy of the engine. That is safe next to the package's copy in the
+    // same app because the engine keeps no module-level state (genesis-supabase's runner.test.ts
+    // checks it): each createRunner call owns everything it uses.
     options.alias = { ...options.alias, "@marktiderman/genesis-supabase/runner": runnerSource };
   },
   splitting: false,
