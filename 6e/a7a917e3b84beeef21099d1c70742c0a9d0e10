@@ -1,0 +1,25 @@
+.changeset/chat-signal-unread.md
+  s_c0870a827920ef::t_84bf510894ee2e 1-5
+packages/chat/src/__tests__/realtime.test.ts
+  s_c0870a827920ef::t_1088d87c631b62 11-12,14,55-69
+packages/chat/src/core/client.ts
+  s_c0870a827920ef::t_d5ccd2370ae417 699-701,703,712
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_d5c921ac8123b6 262,355-357
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6ea7a917e3b84beeef21099d1c70742c0a9d0e10",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
