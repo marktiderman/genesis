@@ -1,0 +1,56 @@
+packages/ui/src/messages-en.ts
+  s_9bf81edc5cc904::t_60f93ad0f01854 1-150
+  s_9bf81edc5cc904::t_79d44a27fc520d 151-155
+packages/ui/src/__tests__/ui-messages.test.tsx
+  s_9bf81edc5cc904::t_e822b8e07f95b9 1-127
+packages/ui/src/messages.tsx
+  s_9bf81edc5cc904::t_282d2110ed4e17 1-85
+.changeset/ui-messages.md
+  s_9bf81edc5cc904::t_1e00ae0e1f3772 1-16
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_762aa8eedaf0ef 10,9738,9745,9752,9766,10251,10778,12654,12935-13072
+docs/component-reference.md
+  s_9bf81edc5cc904::t_c1e2a4560a1972 7,321,448,529,586,590,592,627
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_9bf81edc5cc904::t_d9af3de4b5775c 16,62,64-66,68-73
+packages/ui/src/components/data/DataBulkBar.tsx
+  s_9bf81edc5cc904::t_173f6588092303 6,71,85,108
+packages/ui/src/components/data/DataFilters.tsx
+  s_9bf81edc5cc904::t_6b0fe27db882a9 27,106,123-124,170,225,251,254,288,302,383,393,398,410,417
+packages/ui/src/components/data/DataPageShell.tsx
+  s_9bf81edc5cc904::t_3389843ae15bc5 3,142,220,250,253,257
+packages/ui/src/components/data/DataTable.tsx
+  s_9bf81edc5cc904::t_7d1f6d311a3179 58,319,384,433,463,537,557-558,949,985,1040,1043,1078,1098,1144,1264-1268,1337-1338,1342,1370,1398,1402,1423-1424
+packages/ui/src/components/data/DetailPanel.tsx
+  s_9bf81edc5cc904::t_442aa409e4e0d5 6,83-85,104,106,159,180,201,212,221,233,244,308
+packages/ui/src/components/data/KanbanBoard.tsx
+  s_9bf81edc5cc904::t_50bf9391c617ed 19,87,100-102,130,149,156,178,185,191,200,291,305,370,401,425,431,439,461
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_9b3cefe241cf1a 48,785,835-836,1016,1036,1068,1234,1274,1276-1277,1287-1290,1301-1304,1329,1344-1345,1356,1362,1371,1393,1400
+packages/ui/src/components/data/use-resource-table.ts
+  s_9bf81edc5cc904::t_707a18e575566c 34,136,623,642
+packages/ui/src/components/patterns/sortable-list.tsx
+  s_9bf81edc5cc904::t_4d846dc6773364 8,125,139,195,213,222,232,236,245,254,340,358,424,431,434,437,440,450
+packages/ui/src/components/patterns/view-settings.tsx
+  s_9bf81edc5cc904::t_bd2183c0043383 3,27-30,39,55,57,64,71,87,99,115
+packages/ui/src/components/patterns/view-toggle.tsx
+  s_9bf81edc5cc904::t_ff903dd01a8707 3,13,22,29-30,41-42,53-54
+packages/ui/src/index.ts
+  s_9bf81edc5cc904::t_8a014ff8283ac7 194
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6428e2546b7822da38dac74785c21dd7c9c70f75",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
