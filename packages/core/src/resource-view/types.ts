@@ -100,11 +100,13 @@ export interface ViewGuards<Row extends DataRow> {
  * ```
  */
 export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
+  /** Drawn as destructive (red, the menu's destructive style). */
+  destructive?: boolean;
   can?: (row: Row) => Allowed;
 }
 
 /** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
-export type ResolvedViewAction = RowAction;
+export type ResolvedViewAction = RowAction & { readonly destructive?: boolean };
 
 /** A row in one line, for pickers, notifications and page bars. */
 export interface RowSummary {

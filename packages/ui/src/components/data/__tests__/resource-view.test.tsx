@@ -172,6 +172,18 @@ describe("ResourceView", () => {
     expect(within(row).getAllByTestId("resource-view-avatar")).toHaveLength(1);
   });
 
+  it("an image that hasn't loaded shows the name's initials", async () => {
+    localStorage.clear();
+    const pictured = defineView(brands, {
+      columns: { default: ["name", "status"] },
+      summary: (r) => ({ title: r.name, image: { src: "https://example.com/logo.png", name: `${r.name} Ltd` } }),
+    });
+    render(<ResourceView view={pictured} mode="table" detail="none" />, { wrapper: wrap(provider()) });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    // jsdom never loads images, so Radix shows the fallback: the image result's initials.
+    expect(within(row).getByTestId("resource-view-avatar").textContent).toBe("NL");
+  });
+
   it("draws no picture when the summary has none", async () => {
     localStorage.clear();
     render(<ResourceView view={view} mode="table" detail="none" />, { wrapper: wrap(provider()) });

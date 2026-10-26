@@ -145,7 +145,10 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     ),
   ) as NonNullable<ViewDefinition<C, Row>["presets"]>;
   const actionList = Object.freeze(
-    (Array.isArray(definition.actions) ? definition.actions : []).map((a) => (a && typeof a === "object" ? Object.freeze({ ...a }) : a)),
+    // Names are trimmed, so " archive" and "archive" are one name.
+    (Array.isArray(definition.actions) ? definition.actions : []).map((a) =>
+      a && typeof a === "object" ? Object.freeze({ ...a, ...(typeof a.name === "string" ? { name: a.name.trim() } : {}) }) : a,
+    ),
   );
 
   // ── Check every name once ────────────────────────────────────────────
@@ -200,6 +203,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       problems.push(`${where}.description isn't text`);
     }
     if (action.can !== undefined && typeof action.can !== "function") problems.push(`${where}.can isn't a function`);
+    if (action.destructive !== undefined && typeof action.destructive !== "boolean") problems.push(`${where}.destructive isn't true or false`);
   });
   if (problems.length) throw new ViewDefinitionError(contract.name, problems);
 
@@ -321,12 +325,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
         label: a.label,
         ...(a.confirm !== undefined ? { confirm: a.confirm } : {}),
         ...(a.description !== undefined ? { description: a.description } : {}),
+        ...(a.destructive ? { destructive: true } : {}),
       }),
     ),
   );
   function canAction(name: string, row: Row): Allowed {
     if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
-    return actionGuards.get(name)?.(row) ?? true;
+    const guard = actionGuards.get(name);
+    if (!guard) return true;
+    const result: unknown = guard(row);
+    // Only `true` allows; a reason is shown as given; anything else (false, "", undefined) refuses.
+    if (result === true) return true;
+    return typeof result === "string" && result.trim() ? result : "This isn't allowed.";
   }
   const summary = (row: Row): RowSummary => {
     if (definition.summary) return definition.summary(row);
