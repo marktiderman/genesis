@@ -74,3 +74,18 @@ describe("a sent message lands in the lists it belongs to", () => {
     expect(belongsTo(["genesis-chat", "conversation", "c1"], m)).toBe(false);
   });
 });
+
+import { createChatClient } from "../core/client";
+describe("inbox kinds", () => {
+  it("passes kinds and excluded kinds to the inbox and the badge", async () => {
+    const calls: [string, Record<string, unknown>][] = [];
+    const supabase = { schema: () => ({ rpc: async (fn: string, args: Record<string, unknown>) => (calls.push([fn, args]), { data: fn === "inbox" ? [] : 0, error: null }) }) } as never;
+    const chat = createChatClient(supabase);
+    await chat.inbox({ excludeKinds: ["support"] });
+    await chat.unreadTotal({ excludeKinds: ["support"] });
+    await chat.inbox();
+    expect(calls[0]![1]).toMatchObject({ p_exclude_kinds: ["support"] });
+    expect(calls[1]).toEqual(["unread_total", { p_exclude_kinds: ["support"] }]);
+    expect(calls[2]![1]).not.toHaveProperty("p_exclude_kinds");
+  });
+});

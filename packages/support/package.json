@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies, and an idea board with votes and \"you asked, we shipped\". Declared as a defineBlock block. Part of the Genesis framework.",
+  "description": "Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies (on genesis-chat with the support-chat block: live, with files, an assignee and internal notes), and an idea board with votes and \"you asked, we shipped\". Declared as a defineBlock block. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -28,6 +28,10 @@
       "types": "./dist/web.d.ts",
       "import": "./dist/web.js"
     },
+    "./web-chat": {
+      "types": "./dist/web-chat.d.ts",
+      "import": "./dist/web-chat.js"
+    },
     "./native": {
       "types": "./dist/native.d.ts",
       "import": "./dist/native.js"
@@ -35,6 +39,7 @@
   },
   "files": [
     "dist",
+    "migrations",
     "README.md"
   ],
   "scripts": {
@@ -47,6 +52,7 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-chat": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
@@ -58,6 +64,9 @@
     "react-native-safe-area-context": ">=4.0.0"
   },
   "peerDependenciesMeta": {
+    "@marktiderman/genesis-chat": {
+      "optional": true
+    },
     "@marktiderman/genesis-native": {
       "optional": true
     },
@@ -90,6 +99,7 @@
     }
   },
   "devDependencies": {
+    "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
@@ -249,6 +259,48 @@
             "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts."
           ]
         }
+      },
+      "support-chat": {
+        "feature": {
+          "name": "Support threads on chat",
+          "summary": "A support report's conversation runs on genesis-chat: live replies, photos, files and voice notes, an assignee and staff-only internal notes, with the report kept as the record.",
+          "keywords": [
+            "support inbox",
+            "help desk",
+            "ticket chat",
+            "internal notes",
+            "assignee",
+            "live support"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
+        },
+        "requires": [
+          "support-feedback",
+          "chat"
+        ],
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "packages": [
+          "@marktiderman/genesis-support",
+          "@marktiderman/genesis-chat"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_support_chat.sql",
+            "test": "migrations/tests/0001_genesis_support_chat.test.sql"
+          }
+        ],
+        "steps": [
+          "Apply this block's migration after 0006_genesis_support.sql and genesis-chat's 0001 and 0002 (genesis add support-chat orders them). It gives every existing report its conversation and copies support_replies into it, with no push.",
+          "Pass genesis-chat's client to support: createSupport({ ..., chat: createChatClient(supabase) }) on native, createSupportClient(supabase, { chat }) on the web. Without it, threads stay on support_replies.",
+          "Web: render SupportReportThread (the person) or SupportStaffThread (staff: status, assignee, internal notes) from @marktiderman/genesis-support/web-chat under genesis-chat's ChatProvider.",
+          "Keep genesis-chat's runner going (push for replies). support_replies stays mirrored for one release, for older app builds; a later migration removes it."
+        ]
       }
     }
   }

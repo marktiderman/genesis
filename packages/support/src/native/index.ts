@@ -22,5 +22,5 @@ export {
 } from "./support";
 export { FeedbackForm, type FeedbackFormProps } from "./feedback-form";
 export { ScreenshotAnnotator, strokeDots, boxOf, type ScreenshotAnnotatorProps } from "./annotator";
-export { useSupportInbox, useSupportThread, useIdeaBoard, useShippedIdeas, VoteButton, SendFeedbackButton } from "./screens";
+export { useSupportInbox, useSupportThread, useSupportConversation, useIdeaBoard, useShippedIdeas, VoteButton, SendFeedbackButton } from "./screens";
 export { listenForShake, type AccelerometerLike, type AccelerometerMeasurement, type CaptureOptions, type ShakeOptions, type ViewShotLike } from "./modules";

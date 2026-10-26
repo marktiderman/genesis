@@ -21,7 +21,7 @@ The **notifier** decides **how and when**:
   category and channel, else the tenant's default, else the type's; a critical type can't be
   turned off;
 - when: quiet hours (push), delay-then-skip-if-read (email);
-- that it happens once: unique per recipient and idempotency key, byte-identical email
+- that it happens once: unique per recipient, type, tenant and idempotency key, byte-identical email
   retries, a collapse key replacing what hasn't gone out;
 - what comes back: retries with backoff, push receipts, dead tokens pruned, bounces and
   complaints suppressing an address.
@@ -36,14 +36,14 @@ All in `public`, row level security on, migration `0001_genesis_notifications.sq
 | Table | What | Who reads |
 |---|---|---|
 | `notification_types` | The types, mirrored from `defineNotifications` (`syncNotificationTypes`); retired, never deleted. | everyone signed in |
-| `notifications` | The in-app feed and the outbox: one row per recipient (a login, or an email address for someone with none), unique on (recipient, idempotency key), with `seen_at`, `read_at`, `archived_at`, and `in_feed` (whether the in-app channel was on). | the recipient, their own rows only |
+| `notifications` | The in-app feed and the outbox: one row per recipient (a login, or an email address for someone with none), unique on (recipient, type, tenant, idempotency key), with `seen_at`, `read_at`, `archived_at`, and `in_feed` (whether the in-app channel was on). | the recipient, their own rows only |
 | `notification_deliveries` | One send job per notification and channel (push, email): status, attempts, deferrals, `send_after`, the lease, the provider's id, an error code, the first rendered email and its hash, an encrypted one-time secret. Claimed with `FOR UPDATE SKIP LOCKED`. | admins: the log columns only |
 | `push_devices`, `push_receipts` | Expo tokens (with the install id) and the tickets sent to them. Adopted from genesis-supabase's 0005 when it ran. | the owner |
 | `push_device_moves` | Every time a token moved to another login on the same phone. | service role |
 | `notification_preferences` | Per person: `channels` (category → channel → on), 0005's `categories`, quiet hours with a time zone, `hide_previews`. | the owner |
 | `notification_tenant_defaults` | A tenant's default for a category and channel. | the tenant's admins |
-| `notification_senders` | A tenant's email identity: from name, reply-to, its own domain once verified. | the tenant's admins |
-| `notification_suppressions` | Addresses not to email, by SHA-256 only: bounce (all mail), complaint (all but transactional), unsubscribe of someone with no login (one category). | platform admins |
+| `notification_senders` | A tenant's email identity: from name, reply-to, its own domain once verified (with the ownership token for its TXT record; one tenant per verified domain). | the tenant's admins |
+| `notification_suppressions` | Addresses not to email, by SHA-256 only: a permanent bounce (all mail), complaint (all but transactional), unsubscribe of someone with no login (one category of one tenant). | platform admins |
 
 Realtime is a broadcast with ids only on the private channel `user:<id>` (`realtime.send`), and
 the app refetches; there are no Postgres Changes subscriptions.
@@ -55,7 +55,7 @@ domain event
   └─ notify({ type, recipients, data, idempotencyKey, threadKey?, collapseKey?, badge?, tenantId?, secret? })
        └─ genesis_notify (security definer, service role)
             ├─ checks: the type exists and isn't retired; data holds no secret; the secret only for a secret-link type
-            ├─ per recipient: insert into notifications … on conflict (recipient, key) do nothing
+            ├─ per recipient: insert into notifications … on conflict (recipient, type, tenant, key) do nothing
             │    (seen before: return created = false, queue nothing)
             ├─ in_app on?  in_feed = true, broadcast "notification" on user:<id>
             ├─ push on?    a push job, send now
@@ -66,17 +66,22 @@ runner (every minute: POST …/run)
   ├─ genesis_notifications_claim('push' | 'email')   lease + claim id, SKIP LOCKED
   │    decided again at send time: preference changed → skipped; email read in the app → skipped;
   │    suppressed address → skipped; push in quiet hours → back to pending until they end (no attempt);
-  │    no devices → skipped. Decrypts the job's secret, if any.
-  ├─ push:  every device in Expo batches of 100 → tickets recorded per device (DeviceNotRegistered forgets it)
+  │    no devices → skipped; cancelled while being sent and its lease ran out → cancelled.
+  │    Decrypts the job's secret, if any (one that won't decrypt fails alone: secret_unreadable).
+  ├─ push:  Expo batches of 100, each recorded and settled on its own, none started once the lease
+  │         is about to run out → tickets per device (DeviceNotRegistered forgets it)
   ├─ email: first claim renders and stores (genesis_notifications_store_rendered); every send uses the stored copy,
-  │         the secret link swapped in at send time, idempotency key genesis-notification-<job id>
+  │         the secret link swapped in at send time, idempotency key genesis-notification-<job id>,
+  │         the provider's id kept as soon as the send returns
   └─ genesis_notifications_settle(job, claim, outcome)   sent | skipped | failed | retry (counted or deferred)
-                                                           a settled job's secret is cleared; a stale claim settles nothing
+                                                           a settled job's secret is cleared; a stale claim settles nothing;
+                                                           a retry of a job cancelled mid-send ends cancelled
 
 receipts (every 15 minutes: POST …/receipts)   Expo receipts → delivered | failed, dead devices forgotten
-webhooks (POST …/webhooks/resend)              delivered; bounced (hard: suppress); complained (suppress)
-cancel (genesis_notifications_cancel)          pending jobs for a key → cancelled, never claimed; sent ones untouched
-unsubscribe (GET page, POST action)            the person's email off for the category, or a suppression
+webhooks (POST …/webhooks/resend)              delivered; bounced (Permanent only: suppress); complained (suppress)
+cancel (genesis_notifications_cancel)          pending jobs for a type, tenant and key → cancelled, never claimed;
+                                               one being sent → never retried; sent ones untouched
+unsubscribe (GET page, POST action)            the person's email off for the category and sending tenant, or a suppression
 prune (daily)                                  delivery log after 30 days, rendered bodies after a day
 ```
 
@@ -98,10 +103,16 @@ webhooks, email) run on the same runner with their own claim.
 4. **Give the email a template** (`reactEmailTemplate` on `BrandLayout`), or let the default
    one use `render`.
 5. **For a link that is a credential**, store a reference in `data`, mark the type
-   `secretLink: true`, and give the runner a `secretLinks[type]` builder.
-6. **Take back what hasn't gone out** with `cancelNotification({ idempotencyKey, recipients?,
-   archive? })` when the event is undone (a release rolled back): pending jobs are cancelled,
-   sent ones are left as they are.
+   `secretLink: true`, and give the runner a `secretLinks[type]` builder. The builder must be
+   deterministic (the same link for the same notification every time): each retry rebuilds it
+   under the same idempotency key, and Resend refuses a changed body (the job then fails).
+   The check on `data` (keys and link parameters ending in token, code, secret, key, otp or
+   password, relative links included) is a backstop for mistakes, not the design: never rely on
+   it to catch a secret.
+   Links from `render().url` must be paths on the app's own origin (`/messages/42`).
+6. **Take back what hasn't gone out** with `cancelNotification({ type, idempotencyKey, tenantId?,
+   recipients?, archive? })` when the event is undone (a release rolled back): pending jobs are
+   cancelled, one being sent is never retried, sent ones are left as they are.
 7. **Erase with the domain's person**: call `genesis_notifications_erase(user, email, ref)` from
    the domain's own erasure, with the `ref` it passed for recipients with no login.
 

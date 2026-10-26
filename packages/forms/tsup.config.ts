@@ -1,4 +1,10 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "tsup";
+
+// The runner is read from genesis-notifications' source, not its dist, so
+// `pnpm --filter @marktiderman/genesis-forms build` works on a fresh clone
+// without building notifications first. tsconfig.json maps the same path.
+const runnerSource = fileURLToPath(new URL("../notifications/src/runner/index.ts", import.meta.url));
 
 // Cross-runtime (browser, React Native, Node, edge) — ESM and CJS, no dependencies.
 // The outbox runner is genesis-notifications' (`/runner`, itself dependency-free),
@@ -15,6 +21,9 @@ export default defineConfig({
   format: ["esm", "cjs"],
   dts: true,
   noExternal: [/^@marktiderman\/genesis-notifications/],
+  esbuildOptions(options) {
+    options.alias = { ...options.alias, "@marktiderman/genesis-notifications/runner": runnerSource };
+  },
   splitting: false,
   sourcemap: true,
   clean: true,

@@ -2886,6 +2886,60 @@
       "flags": []
     },
     {
+      "id": "support-chat",
+      "name": "Support threads on chat",
+      "summary": "A support report's conversation runs on genesis-chat (block support-chat, migration 0001_genesis_support_chat.sql in genesis-support): one conversation of kind support per report, the reporter its member, staff observers who reply and write internal notes, an assignee, live updates, photos, files and voice notes; the report stays the record and its status, reply times and read state are kept in step; existing replies are copied without push, and support_replies is mirrored both ways for one release.",
+      "category": "Support",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "block",
+      "keywords": [
+        "support inbox",
+        "help desk",
+        "ticket chat",
+        "internal notes",
+        "assignee",
+        "live support",
+        "support replies"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-support/web-chat",
+        "native": "@marktiderman/genesis-support/native"
+      },
+      "extends": "support-feedback",
+      "requires": [
+        "support-feedback",
+        "chat"
+      ],
+      "reviewedAt": "2026-10-25",
+      "links": {
+        "code": [
+          "packages/support/migrations/0001_genesis_support_chat.sql",
+          "packages/support/src/chat.ts",
+          "packages/support/src/web-chat"
+        ],
+        "docs": [
+          "packages/support/README.md"
+        ]
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "chat",
       "name": "Chat",
       "summary": "@marktiderman/genesis-chat, in the app's own Supabase (the genesis_chat schema): conversations of kinds the app registers (direct, group, its own such as a cohort or a support ticket) with start and observer checks the app writes, members with roles and read state (last_read_seq), messages numbered per conversation with an idempotent client id, replies, one level of threads, topics, mentions, reactions, edits, tombstoned deletes and internal notes for observers; photos, files, voice notes with waveforms and videos in a private bucket; live hints on private Realtime topics with typing and recording signals; pins, saved messages and reports; an outbox (push, transcripts, storage cleanup) worked by a server runner. A headless core, React hooks, and web and native renderers on Genesis UI.",
@@ -3232,7 +3286,7 @@
     {
       "id": "notifications-email",
       "name": "Notification email",
-      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own verified domain, with an SPF, DKIM and DMARC check), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (409 invalid_idempotent_request counts as sent), RFC 8058 one-click unsubscribe on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
+      "summary": "The notifier's email channel on Resend: one app key, a sender identity per tenant (the shared domain with the tenant's name and reply-to, or its own domain once verified: an ownership TXT record with the tenant's own token, SPF, DKIM and DMARC, one tenant per domain, never the app's shared domain), transactional and other mail from separate domains, React Email templates on a brand layout, each email rendered once at first claim and stored so retries are byte-identical under one idempotency key (a 409 invalid_idempotent_request fails loudly), requests paced under Resend's rate limit, RFC 8058 one-click unsubscribe for the sending tenant on everything that isn't transactional, secret links built at send time with resolveSecretLink, and bounce and complaint webhooks feeding a suppression list kept by hash.",
       "category": "Engagement",
       "status": "building",
       "claimedBy": "mark",
@@ -3256,7 +3310,7 @@
         "idempotency"
       ],
       "platforms": {
-        "server": "deprecated"
+        "server": "building"
       },
       "entry": {
         "server": "@marktiderman/genesis-notifications/server"
@@ -3277,7 +3331,8 @@
       "acceptance": [
         "A retry sends the stored first render with the same idempotency key; a stored render whose hash changed is never sent.",
         "Mail that isn't transactional carries List-Unsubscribe and List-Unsubscribe-Post; the endpoint never unsubscribes on GET, and a forged token changes nothing.",
-        "A hard bounce suppresses the address for all mail; a complaint for all but transactional mail.",
+        "Only a bounce Resend calls Permanent suppresses the address for all mail; a complaint for all but transactional mail.",
+        "A sender domain verifies only with the tenant's own ownership token, for one tenant at most, and never the app's shared domain.",
         "Not yet sent through Resend with a real key."
       ],
       "reviewedAt": "2026-10-25",

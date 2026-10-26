@@ -85,6 +85,15 @@ describe("createChatRunner: push", () => {
     expect(collapsing.mock.calls[0]![0].collapseKey).toBe("chat:c1");
   });
 
+  it("asks for a push badge without the kinds the app leaves out of its own", async () => {
+    const sb = fakeSupabase({
+      rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
+      tables: { conversations: [{ id: "c1", kind: "group" }] },
+    });
+    await createChatRunner({ supabase: sb.client, deliver: vi.fn(async () => {}), badgeExcludeKinds: ["support"] }).run();
+    expect(sb.rpcCalls.find((c) => c.fn === "push_targets")?.args).toEqual({ p_message_id: "m1", p_badge_exclude_kinds: ["support"] });
+  });
+
   it("opens the app's own route when a notification is tapped", async () => {
     const sb = fakeSupabase({
       rpc: { claim_effects: () => [effect(1, "push", { message_id: "m1" })], push_targets: () => [target("bo", { title: "Cohort 4" })] },
