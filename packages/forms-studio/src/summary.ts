@@ -27,7 +27,7 @@ export interface SummaryItem {
   date: string;
   definition: FormDefinition;
   answers: Record<string, Json>;
-  /** Extra plain values a filter can match, such as the class or coach. */
+  /** Extra plain values a filter can match, such as the location or staff member. */
   extra?: Record<string, Cell>;
   /** Default `completed`. */
   status?: ResponseStatus | undefined;
