@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 151 components · 532 other exports · 399 standalone types across 11 packages and entry points.
+**Totals:** 151 components · 536 other exports · 400 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -318,7 +318,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (260)
+### Other exports (264)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -445,6 +445,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DropdownMenuSubTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`DropdownMenuTrigger`](../packages/ui/src/components/ui/dropdown-menu.tsx) | value | — | _(no summary)_ |
 | [`embedSnippet`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
+| [`fillMessage`](../packages/ui/src/messages.tsx) | function | — | Fills `{name}` placeholders; an unknown placeholder is left as written. |
 | [`FollowUpList`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`FormDescription`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormError`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
@@ -525,6 +526,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ResizablePanel`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`ResizablePanelGroup`](../packages/ui/src/components/ui/resizable.tsx) | value | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/ui/src/navigation.tsx) | value | — | _(no summary)_ |
+| [`resolveUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue with overrides merged over the English. |
 | [`ResourceSettingsPage`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`ResponsesToolbar`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`SAVE_STATE_LABEL`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
@@ -581,11 +583,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toggleVariants`](../packages/ui/src/components/ui/toggle.tsx) | value | — | _(no summary)_ |
 | [`ToolbarToggleGroup`](../packages/ui/src/components/ui/toolbar.tsx) | const | Beta | ToolbarToggleGroup — a set of pressed/unpressed controls inside a toolbar (the classic bold / italic / underline cluster). |
 | [`toolbarVariants`](../packages/ui/src/components/ui/toolbar.tsx) | const | — | _(no summary)_ |
+| [`UiMessagesProvider`](../packages/ui/src/messages.tsx) | function | — | Rewords or translates Genesis UI's components below it. Nested providers build on the one above, so a section can change a few words. |
 | [`useBrowserSearchParams`](../packages/ui/src/navigation.tsx) | function | Beta | Browser-native {@link SearchParamsAdapter} built on the History API. Reads the current query string and writes updates via `pushState`/`replaceState`, staying reactive to `popstate` events. No router required. |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
+| [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (30)
+### Types (31)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -620,6 +624,7 @@ export type { SpaceToken };
 export type { SplitBreakpoint };
 export type { SplitRatio };
 export type { StatusBadgeStatus };
+export type { UiMessagesOverrides };
 ```
 
 ---

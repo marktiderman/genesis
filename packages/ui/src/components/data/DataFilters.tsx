@@ -24,6 +24,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { cn } from "../../utils";
+import { fillMessage, useUiMessages } from "../../messages";
 import { FilterCombobox, type FilterOption } from "./FilterCombobox";
 import type { LucideIcon } from "lucide-react";
 
@@ -102,7 +103,7 @@ interface DataFiltersProps {
 export function DataFilters({
   search,
   onSearchChange,
-  searchPlaceholder = "Search...",
+  searchPlaceholder: searchPlaceholderProp,
   sort,
   onSortChange,
   sortOptions,
@@ -119,6 +120,8 @@ export function DataFilters({
   showSearch = true,
   showSort = true,
 }: DataFiltersProps) {
+  const m = useUiMessages();
+  const searchPlaceholder = searchPlaceholderProp ?? m.filters.search;
   const internalSearchRef = useRef<HTMLInputElement>(null);
   const effectiveSearchRef = searchInputRef || internalSearchRef;
   const [viewsOpen, setViewsOpen] = useState(false);
@@ -164,7 +167,7 @@ export function DataFilters({
         <div
           className="flex items-center border rounded-lg overflow-x-auto w-fit max-w-full"
           role="group"
-          aria-label="Status"
+          aria-label={m.filters.status}
           data-testid="status-tabs"
         >
           {statusOptions.map((o) => {
@@ -219,7 +222,7 @@ export function DataFilters({
         <Select value={sort} onValueChange={onSortChange}>
           <SelectTrigger className="w-full sm:w-[180px] shrink-0">
             <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
-            <SelectValue placeholder="Sort by..." />
+            <SelectValue placeholder={m.filters.sortBy} />
           </SelectTrigger>
           <SelectContent className="bg-popover z-50">
             {sortOptions.map((opt) => (
@@ -245,10 +248,10 @@ export function DataFilters({
                 className="text-xs h-7 gap-1.5"
               >
                 <Bookmark className="h-3 w-3" />
-                Views
+                {m.filters.views}
                 {savedViews.length > 0 && (
                   <span className="text-[10px] text-muted-foreground ml-0.5">
-                    ({savedViews.length})
+                    {fillMessage(m.filters.viewCount, { count: savedViews.length })}
                   </span>
                 )}
                 <ChevronDown className="h-3 w-3 ml-0.5 opacity-60" />
@@ -282,7 +285,7 @@ export function DataFilters({
                 ))}
                 {savedViews.length === 0 && (
                   <p className="text-xs text-muted-foreground px-2 py-1">
-                    No saved views yet
+                    {m.filters.noViews}
                   </p>
                 )}
                 {canSaveViews && (
@@ -296,7 +299,7 @@ export function DataFilters({
                       }}
                     >
                       <BookmarkPlus className="h-3.5 w-3.5" />
-                      Save current view
+                      {m.filters.saveCurrent}
                     </button>
                   </>
                 )}
@@ -377,7 +380,7 @@ export function DataFilters({
             onClick={onClearAll}
           >
             <X className="h-3 w-3 mr-1" />
-            Clear all
+            {m.filters.clearAll}
           </Button>
         )}
       </div>
@@ -387,12 +390,12 @@ export function DataFilters({
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-display">
-              Save Current View
+              {m.filters.saveViewTitle}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
-              placeholder="View name (e.g. 'Active Sessions')"
+              placeholder={m.filters.viewNamePlaceholder}
               value={newViewName}
               onChange={(e) => setNewViewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSaveView()}
@@ -404,14 +407,14 @@ export function DataFilters({
                 size="sm"
                 onClick={() => setSaveDialogOpen(false)}
               >
-                Cancel
+                {m.common.cancel}
               </Button>
               <Button
                 size="sm"
                 onClick={handleSaveView}
                 disabled={!newViewName.trim()}
               >
-                Save
+                {m.common.save}
               </Button>
             </div>
           </div>
