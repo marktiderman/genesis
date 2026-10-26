@@ -64,6 +64,90 @@ screen, and the logic under them (`composerReducer`, `buildThreadRows`, `useChat
 Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
 `/push` alone).
 
+Voice notes show their transcript under the player once the server has made one ("Transcribing…"
+until then), folded to three lines with "Show more"; the bubble reads the whole transcript to
+VoiceOver.
+
+### Your own attachment kinds on native
+
+A kind registered in `ChatProvider attachmentKinds` draws as `ChatAttachmentCard` (its title,
+subtitle and one button). For more than a card, pass `ChatThreadScreen slots={{ attachment }}`
+(`MessageBubble attachmentSlot` in your own screen): the native twin of the web `attachment` slot.
+It draws every kind the package doesn't draw itself (anything but image, voice, video, file and
+link), registered or not; `null` hides the kinds that aren't registered. Its props
+(`ChatAttachmentSlotProps`):
+
+| Prop | What it is |
+|---|---|
+| `attachment`, `message`, `url`, `mine` | As on the web: the attachment (`ref` holds what the sender put there), its message, its signed URL when it has a file, and whether you sent it. |
+| `kind` | Its `attachmentKinds` entry, when registered. |
+| `action` | The kind's `action`, ready to call (`{ label, run }`), or null. |
+| `run(task)` | Runs an app action. A task that returns a promise makes the card `pending` until it settles; if it throws or rejects, `error` holds a short message (copy `cardActionFailed`). A second run while one is pending is ignored. `action.run` goes through it. |
+| `pending`, `error` | That state, for drawing a busy control and the error. |
+| `fallback` | The card the package would have drawn: return it for kinds the slot doesn't draw. |
+| `testID` | The bubble's id for this card. |
+
+The bubble is one VoiceOver element, so the controls inside your card are hidden from VoiceOver:
+give the kind an `action` and call `action.run` from your control, and the bubble offers the same
+action (named by its `label`) to VoiceOver and Switch Control. Keep tap targets at least 44 points.
+A slot that throws shows the fallback card. Reply quotes, the reply bar, the long-press sheet and
+the inbox's last message name the kind by its `label`. Build the kinds where the app's live data
+is (a hook, memoized on it), so the title and action follow it; define the slot at module scope.
+
+A task with a checkbox:
+
+```tsx
+import { Pressable, View } from "react-native";
+import { NativeText } from "@marktiderman/genesis-ui-native/components";
+import { ChatThreadScreen, type ChatAttachmentSlotProps } from "@marktiderman/genesis-chat/native";
+
+// In the component that mounts ChatProvider, so the kind reads the tasks' live state.
+const tasks = useTasks(); // your own query: { [taskId]: { done } }
+const toggle = useToggleTask(); // returns a promise
+const attachmentKinds = useMemo(
+  () => ({
+    task: {
+      label: "Task",
+      title: (a) => String(a.ref.title ?? "Task"),
+      subtitle: (a) => (tasks[String(a.ref.taskId)]?.done ? "Done" : "To do"),
+      // The checkbox's action, and the bubble's VoiceOver action.
+      action: (a) => {
+        const done = Boolean(tasks[String(a.ref.taskId)]?.done);
+        return { label: done ? "Mark not done" : "Mark done", onPress: () => toggle(String(a.ref.taskId), !done) };
+      },
+    },
+  }),
+  [tasks, toggle],
+);
+
+function TaskCard({ attachment, action, pending, error, fallback }: ChatAttachmentSlotProps) {
+  const task = useTask(String(attachment.ref.taskId ?? "")); // your own hook, before any return
+  if (attachment.kind !== "task") return fallback;
+  const done = Boolean(task?.done);
+  return (
+    <View style={{ minWidth: 220, gap: 4 }}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: done, busy: pending }}
+        disabled={pending || !action}
+        onPress={action?.run}
+        style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}
+      >
+        <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, opacity: pending ? 0.5 : 1 }}>{done ? <NativeText>✓</NativeText> : null}</View>
+        <NativeText>{String(attachment.ref.title)}</NativeText>
+      </Pressable>
+      {error ? <NativeText preset="caption">{error}</NativeText> : null}
+    </View>
+  );
+}
+
+<ChatThreadScreen conversationId={id} slots={{ attachment: TaskCard }} />
+```
+
+The same slot draws a win card or a worksheet with its progress; `run` is there for actions that
+aren't the kind's button (save an answer). `useCardRuns`, `AppAttachment` and `CardError` are
+exported for your own bubble.
+
 ## Kinds and rules
 
 A kind of conversation carries its rules (`genesis_chat.register_kind`): how many members, who
@@ -264,7 +348,8 @@ pending. Persist the file (`persistFile`) so a relaunch still has its bytes.
 
 A registered kind draws as `ChatAttachmentCard`; any other app kind goes to `ChatThread`'s
 `attachment` slot (a generic card by default). For anything richer than a card, render the kind
-yourself in that slot:
+yourself in that slot (on native the slot draws registered kinds too; see "Your own attachment
+kinds on native"):
 
 ```tsx
 <ChatThread slots={{ attachment: (props) =>
