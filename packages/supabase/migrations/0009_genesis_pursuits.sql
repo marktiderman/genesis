@@ -296,6 +296,6 @@ create policy work_items_update on public.work_items for update to authenticated
 create policy work_items_delete on public.work_items for delete to authenticated
   using (private.genesis_pursuits_can_write(tenant_id, person_id, team_id, organization_id));
 
-revoke all on public.pursuits, public.work_items from public, anon;
+revoke all on public.pursuits, public.work_items from public, anon, authenticated;
 grant select, insert, update, delete on public.pursuits, public.work_items to authenticated;
 grant all on public.pursuits, public.work_items to service_role;

@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(39);
+select plan(40);
 
 -- People: a1 and b2 are members of tenant 1's team t1; a1 leads it. c3 belongs to tenant 2 only.
 -- d4 belongs to nothing.
@@ -50,6 +50,7 @@ select ok((select relrowsecurity from pg_class where oid = 'public.work_items'::
 select ok(not has_table_privilege('anon', 'public.pursuits', 'select,insert,update,delete'), 'anon has no privilege on pursuits');
 select ok(not has_table_privilege('anon', 'public.work_items', 'select,insert,update,delete'), 'anon has no privilege on work items');
 select ok(not has_function_privilege('authenticated', 'private.genesis_pursuits_guard()', 'execute'), 'the guard is not callable');
+select ok(not has_table_privilege('authenticated', 'public.pursuits', 'truncate,references,trigger'), 'signed-in people get only select, insert, update and delete');
 
 -- Without the hooks: fail closed ------------------------------------------------------------
 select pg_temp.as_server();
