@@ -175,7 +175,10 @@ export function useResourceTableModel<
         : columnsProp.some((col) =>
             typeof col === "string"
               ? col === url.sort!.field
-              : col.key === url.sort!.field && col.sortable !== false,
+              : col.key === url.sort!.field &&
+                col.sortable !== false &&
+                // A cursor list sorts on the server, which knows columns, not accessors.
+                !(resourceCursorPaging && (col.accessor || col.render)),
           );
     return { q: url.q, sort: sortable ? url.sort : null, page: url.page };
   });
@@ -254,6 +257,12 @@ export function useResourceTableModel<
     select: resourceOptions?.select,
     searchFields: serverSearchFields,
     live: resourceOptions?.live ?? live,
+    // A new search or sort keeps the loaded rows (and Load more) on screen until it lands.
+    keepPreviousData: true,
+    // Start where the URL says, so a shared link fetches once, already filtered and sorted.
+    ...(resourceCursorPaging && urlSeed
+      ? { defaultSearch: urlSeed.q, ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}) }
+      : {}),
   });
 
   /** Explicit prop beats the per-user stored preference. */
@@ -328,7 +337,7 @@ export function useResourceTableModel<
   const setResourceSort = resourceCursorPaging ? infinite.setSort : resourceHook.setSort;
   const setResourceFilters = resourceCursorPaging ? infinite.setFilters : resourceHook.setFilters;
   // Seeded from the URL, which useResource already starts on (see above).
-  const pushedSearchRef = useRef(resourceServerPaging ? (urlSeed?.q ?? "") : "");
+  const pushedSearchRef = useRef(queryDriven ? (urlSeed?.q ?? "") : "");
   const searchEffectRanRef = useRef(false);
   useEffect(() => {
     if (!queryDriven) return;
@@ -352,7 +361,7 @@ export function useResourceTableModel<
   }, [queryDriven, page.search, setResourceSearch]);
 
   const defaultSort = resourceOptions?.defaultSort;
-  const pushedSortRef = useRef<string>(resourceServerPaging ? urlSortKey : "");
+  const pushedSortRef = useRef<string>(queryDriven ? urlSortKey : "");
   useEffect(() => {
     if (!queryDriven) return;
     const key = page.sort ? `${page.sort.field}:${page.sort.order}` : "";
@@ -676,7 +685,9 @@ export function useResourceTableModel<
             : undefined,
         }))
       : page.tableColumns;
-    if (!isServerControlled) return base;
+    // Cursor paging sorts on the server too: a header click would sort only the loaded rows, in
+    // an order the next page disagrees with, or send the server a column it can't sort by.
+    if (!isServerControlled && !resourceCursorPaging) return base;
     // The server owns the ordering. DataTable's header sort is client-side
     // and would only reorder the rows of the current page — a visibly wrong
     // answer presented as a sort — so the affordance is withdrawn rather
@@ -685,6 +696,7 @@ export function useResourceTableModel<
   }, [
     isClientMode,
     isServerControlled,
+    resourceCursorPaging,
     page.columns,
     page.tableColumns,
     actions,

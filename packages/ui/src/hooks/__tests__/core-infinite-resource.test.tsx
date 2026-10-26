@@ -251,6 +251,99 @@ describe("ResourcePage — pagination=\"cursor\"", () => {
     expect(last.pagination?.cursor ?? null).toBeNull();
   });
 
+  it("sorts on the server only: column headers aren't client-sortable", async () => {
+    localStorage.clear();
+    const provider = cursorProvider();
+    const { wrapper } = wrap(provider);
+    const { result } = renderHook(
+      () =>
+        useResourceTable<Row>({
+          resource: "tasks",
+          title: "Tasks",
+          columns: ["title", { key: "shout", header: "Shout", accessor: (r: Row) => r.title.toUpperCase() }],
+          pagination: "cursor",
+          resourceOptions: { defaultPerPage: 2 },
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.columns.map((c) => c.sortable)).toEqual([false, false]);
+  });
+
+  it("starts from the URL's search and sort in one request, ignoring a sort on a computed column", async () => {
+    localStorage.clear();
+    const provider = cursorProvider();
+    const { wrapper } = wrap(provider);
+    const columns = ["title", { key: "shout", header: "Shout", accessor: (r: Row) => r.title.toUpperCase() }];
+    const { result } = renderHook(
+      () =>
+        useResourceTable<Row>({
+          resource: "tasks",
+          title: "Tasks",
+          columns,
+          searchFields: ["title"],
+          pagination: "cursor",
+          resourceOptions: { defaultPerPage: 2 },
+          urlState: { searchParams: new URLSearchParams("q=Task 3&sort=title:desc"), setSearchParams: () => {} },
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+    const calls = vi.mocked(provider.getList).mock.calls;
+    expect(calls).toHaveLength(1);
+    expect((calls[0]![1] as ListParams).search).toEqual({ query: "Task 3", fields: ["title"] });
+    expect((calls[0]![1] as ListParams).sort).toEqual({ field: "title", order: "desc" });
+
+    const computed = cursorProvider();
+    const { wrapper: w2 } = wrap(computed);
+    renderHook(
+      () =>
+        useResourceTable<Row>({
+          resource: "tasks",
+          title: "Tasks",
+          columns,
+          pagination: "cursor",
+          resourceOptions: { defaultPerPage: 2 },
+          urlState: { searchParams: new URLSearchParams("sort=shout:asc"), setSearchParams: () => {} },
+        }),
+      { wrapper: w2 },
+    );
+    await waitFor(() => expect(vi.mocked(computed.getList).mock.calls.length).toBeGreaterThan(0));
+    expect((vi.mocked(computed.getList).mock.calls[0]![1] as ListParams).sort).toBeUndefined();
+  });
+
+  it("keeps the loaded rows on screen while a new search loads", async () => {
+    localStorage.clear();
+    const provider = cursorProvider();
+    const inner = provider.getList;
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    provider.getList = vi.fn(async (resource: string, params: ListParams) => {
+      if (params.search) await held;
+      return inner(resource, params);
+    }) as DataProvider["getList"];
+    const { wrapper } = wrap(provider);
+    const { result } = renderHook(
+      () =>
+        useResourceTable<Row>({
+          resource: "tasks",
+          title: "Tasks",
+          columns: ["title"],
+          searchFields: ["title"],
+          pagination: "cursor",
+          resourceOptions: { defaultPerPage: 2 },
+        }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    act(() => result.current.setSearch("Task 4"));
+    await waitFor(() => expect(vi.mocked(provider.getList).mock.calls.length).toBe(2));
+    expect(result.current.rows).toHaveLength(2);
+    expect(result.current.loading).toBe(false);
+    release();
+    await waitFor(() => expect(result.current.rows).toHaveLength(1));
+  });
+
   it("refetches the loaded pages on a live change event", async () => {
     localStorage.clear();
     const listeners: ((e: { type: "changed" }) => void)[] = [];
