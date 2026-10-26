@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-25",
+  "generatedAt": "2026-10-26",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 70
+      "count": 71
     }
   },
   "primitives": [
@@ -1771,6 +1771,57 @@
               "description": "Variant drives default tone + default title. Default \"first-run\"."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "full-screen-modal",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native",
+      "filePath": "packages/ui-native/src/components/full-screen-modal.tsx",
+      "stability": "beta",
+      "summary": "FullScreenModal — content that takes the whole screen over the app: a\nphoto or video viewer, a camera, a scanner.\n\nReact Native's `Modal`, over the whole screen on both platforms\n(`overFullScreen` on iOS; under the system bars on Android), faded in (no\nanimation with Reduce Motion). `tone=\"dark\"` (the default) is a black\nbackdrop with light status bar content, for media; `tone=\"app\"` is the\ntheme's background; `tone=\"none\"` draws no backdrop, for content that\ndraws its own (a viewer that fades to show the app as it's dragged away,\nwith `FULL_SCREEN_DARK` behind it). Content\ngets its own safe area (`useSafeAreaInsets` inside is the modal's) and\nplaces its own close control: Android back and the VoiceOver escape\ngesture call `onOpenChange(false)`.\n\nFor a short task over the app, use <NativeSheet>; for a confirmation,\n<NativeDialog>.",
+      "primaryComponent": "NativeFullScreenModal",
+      "components": [
+        {
+          "name": "NativeFullScreenModal",
+          "summary": "",
+          "props": [
+            {
+              "name": "onOpenChange",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "Fired with false on Android back and the VoiceOver escape gesture. Set `open` false in it."
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "native-full-screen-modal",
+              "description": ""
+            },
+            {
+              "name": "tone",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "dark",
+              "description": "`\"dark\"` (default): black, for photos and video. `\"app\"`: the theme's background. `\"none\"`: the content draws its own."
+            }
+          ]
+        },
+        {
+          "name": "FULL_SCREEN_DARK",
+          "summary": "The dark tone's backdrop: media reads best on true black in light and dark mode alike.",
+          "props": []
         }
       ]
     },
