@@ -1,0 +1,35 @@
+.changeset/live-followups.md
+  s_a1b83c03f697d3::t_c8f6a62975b5c1 1-5
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_a1b83c03f697d3::t_06aa6d4d2b523c 207-237
+packages/core/src/hooks/use-infinite-resource.ts
+  s_3daa86e3ae6031::t_6bd8168377acc9 210-211
+packages/core/src/provider/__tests__/supabase-realtime.test.ts
+  s_a1b83c03f697d3::t_b8a33f390650a2 289-302
+packages/core/src/provider/supabase-provider.ts
+  s_a1b83c03f697d3::t_42f8cf6f9147ff 606,614-617,630,635-637,1042
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f0146a43816e8e089879f368265c69933069c2e5",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
