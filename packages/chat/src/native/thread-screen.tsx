@@ -236,7 +236,9 @@ export function ChatThreadScreen({ conversationId, threadRootId = null, keyboard
     async (clientId: string, files: readonly PendingFile[]) => {
       if (!picker) return;
       try {
-        const result = await picker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], allowsMultipleSelection: files.length > 1, selectionLimit: files.length, quality: 0.8 });
+        // Only the slots that were lost: reattach fills those and keeps the rest.
+        const lostCount = Math.max(1, files.filter((f) => f.lost).length);
+        const result = await picker.launchImageLibraryAsync({ mediaTypes: ["images", "videos"], allowsMultipleSelection: lostCount > 1, selectionLimit: lostCount, quality: 0.8 });
         if (!result || result.canceled || !result.assets?.length) return;
         const { attachments, notice } = filesFromAssets(result.assets, copy);
         if (notice) toast.show({ title: notice, variant: "destructive" });
