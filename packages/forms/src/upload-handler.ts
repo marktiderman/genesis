@@ -24,7 +24,7 @@ export interface UploadForm {
   definition: FormDefinition;
   /** Whether it takes responses now (not paused, closed, full…). */
   open: boolean;
-  /** Whose rate-limit count this is: a practice, an account. */
+  /** Whose rate-limit count this is: an organization, an account. */
   scope: string;
   /** Whether its edit links work. Default false: no uploads for an edit. */
   allowsEdits?: boolean | undefined;

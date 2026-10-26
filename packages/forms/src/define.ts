@@ -52,7 +52,7 @@ export interface ChoiceFieldOptions<O extends string> extends FieldOptions {
     | undefined;
   /**
    * Options the app showing the form supplies, by key (`OptionsSource`), such
-   * as `{ source: "host", key: "coaches" }`; pass the lists as `hostOptions`
+   * as `{ source: "host", key: "staff" }`; pass the lists as `hostOptions`
    * to `createForm` and `validateSubmission`.
    */
   optionsFrom?: OptionsSource | undefined;
