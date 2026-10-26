@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(50);
 
 -- People: a1 and b2 are members of tenant 1's team t1; a1 leads it. c3 belongs to tenant 2 only.
 -- d4 belongs to nothing.
@@ -198,6 +198,10 @@ select lives_ok(
   'a member adds a pursuit naming someone else as its maker');
 select is((select created_by from public.pursuits where id = '00000000-0000-4000-b000-000000000014'), pg_temp.person('b2'),
   'created_by is always the signed-in person');
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.person('b2'), 'role', 'service_role')::text, true);
+select throws_ok(
+  $$ update public.pursuits set team_id = null, person_id = pg_temp.person('b2') where id = '00000000-0000-4000-b000-000000000014' $$,
+  '22023', null, 'claiming the service role in the JWT claims doesn''t make a signed-in person server code');
 select pg_temp.as_server();
 select lives_ok(
   $$ update public.pursuits set team_id = null, person_id = pg_temp.person('b2') where id = '00000000-0000-4000-b000-000000000014' $$,
