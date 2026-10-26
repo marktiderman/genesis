@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { Skeleton, cn } from "@marktiderman/genesis-ui";
+import { Skeleton } from "../ui/skeleton";
+import { cn } from "../../utils";
 
 /** One headline number: a label, the number, and a short line under it. */
 export interface HeadlineNumber {

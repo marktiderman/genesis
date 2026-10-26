@@ -2,21 +2,31 @@
 // Components hold state, so this entry is a client module; the pure rules are also at
 // `@marktiderman/genesis-forms-studio/rules`.
 //
-// src/generic/ holds the pieces that aren't about forms (a resource page's header, its
-// settings layout, headline numbers, summary cards, a follow-up list, the share dialog),
-// for courses, lessons and worksheets too; they are meant to move to genesis-ui later.
+// The pieces that aren't about forms (a resource page's header, its readiness chip, its
+// settings layout, headline numbers, summary cards, a follow-up list, the share dialog)
+// moved to genesis-ui (`@marktiderman/genesis-ui/resource`), for courses, lessons and
+// worksheets too. Their names stay here, deprecated, with the form's words passed in.
 export * from "./rules";
 
-// Generic (src/generic)
-export { ResourceHeader, type ResourceHeaderProps } from "./generic/ResourceHeader";
-export { ReadinessChip } from "./generic/nav";
-export { Chip } from "./generic/chip";
-export { ResponsesToolbar, type ResponsesView } from "./generic/ResponsesToolbar";
-export { HeadlineNumbers, type HeadlineNumber } from "./generic/HeadlineNumbers";
-export { SummaryCard } from "./generic/SummaryCard";
-export { FollowUpList, type FollowUpEntry } from "./generic/FollowUpList";
-export { ShareDialog } from "./generic/ShareDialog";
-export { SettingsSection, ResourceSettingsPage, type SettingsPageSection } from "./generic/settings";
+// Moved to genesis-ui (deprecated here)
+export {
+  ResourceHeader,
+  ReadinessChip,
+  Chip,
+  ResponsesToolbar,
+  HeadlineNumbers,
+  SummaryCard,
+  FollowUpList,
+  ShareDialog,
+  SettingsSection,
+  ResourceSettingsPage,
+  FORM_SHARE_LABELS,
+  type ResourceHeaderProps,
+  type ResponsesView,
+  type HeadlineNumber,
+  type FollowUpEntry,
+  type SettingsPageSection,
+} from "./moved";
 
 // Forms
 export { FORM_NAV_ICONS } from "./navIcons";

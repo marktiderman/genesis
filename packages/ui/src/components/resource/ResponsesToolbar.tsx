@@ -1,24 +1,28 @@
 import type { ReactNode } from "react";
-import { ToggleGroup, ToggleGroupItem, cn } from "@marktiderman/genesis-ui";
+import { ToggleGroup, ToggleGroupItem } from "../ui/toggle-group";
+import { cn } from "../../utils";
 
 export type ResponsesView = "summary" | "each";
 
 /**
  * The Responses tab's toolbar: a Summary / Each response switch, the host's filters
- * (ResponsesFilters, or its own) and, on the right, its export actions (open a Sheet,
- * Download CSV).
+ * (forms-studio's ResponsesFilters, or its own) and, on the right, its export actions
+ * (open a Sheet, Download CSV). `labels` renames the switch, e.g. "Each submission".
  */
 export function ResponsesToolbar({
   view,
   onViewChange,
   filters,
   actions,
+  labels = {},
   className,
 }: {
   view: ResponsesView;
   onViewChange: (view: ResponsesView) => void;
   filters?: ReactNode;
   actions?: ReactNode;
+  /** The switch's words. Defaults "Summary", "Each response" and "Show responses as". */
+  labels?: { summary?: string | undefined; each?: string | undefined; group?: string | undefined } | undefined;
   className?: string | undefined;
 }) {
   return (
@@ -34,13 +38,13 @@ export function ResponsesToolbar({
           className="h-9"
           value={view}
           onValueChange={(v) => v && onViewChange(v as ResponsesView)}
-          aria-label="Show responses as"
+          aria-label={labels.group ?? "Show responses as"}
         >
           <ToggleGroupItem value="summary" className="h-9 px-3" data-testid="responses-view-summary">
-            Summary
+            {labels.summary ?? "Summary"}
           </ToggleGroupItem>
           <ToggleGroupItem value="each" className="h-9 px-3" data-testid="responses-view-each">
-            Each response
+            {labels.each ?? "Each response"}
           </ToggleGroupItem>
         </ToggleGroup>
         {filters}

@@ -1,5 +1,7 @@
+"use client";
+
 import { useEffect, useState, type ReactNode } from "react";
-import { cn } from "@marktiderman/genesis-ui";
+import { cn } from "../../utils";
 
 /**
  * One group of settings as a card: an icon, a title and a sentence, then its rows
@@ -60,7 +62,11 @@ export function SettingsSection({
   );
 }
 
-export interface SettingsPageSection {
+/**
+ * One section of a ResourceSettingsPage. (Named apart from the layout tier's
+ * `SettingsPageSection`, which belongs to the whole-page `SettingsPage`.)
+ */
+export interface ResourceSettingsSection {
   id: string;
   title: string;
   icon?: ReactNode;
@@ -72,7 +78,7 @@ export interface SettingsPageSection {
 }
 
 /**
- * Every setting of one thing (a form, a course) on one page: jump links on the left ("On this page", the one in
+ * Every setting of one thing (a form, a course, a worksheet) on one page: jump links on the left ("On this page", the one in
  * view marked), the sections as cards on the right. On a phone the links sit above the
  * sections as a row that scrolls sideways.
  *
@@ -84,7 +90,7 @@ export function ResourceSettingsPage({
   navLabel = "On this page",
   className,
 }: {
-  sections: readonly SettingsPageSection[];
+  sections: readonly ResourceSettingsSection[];
   navLabel?: string | undefined;
   className?: string | undefined;
 }) {
@@ -99,14 +105,17 @@ export function ResourceSettingsPage({
       frame = 0;
       const line = window.innerHeight / 3;
       let current = sections[0]?.id;
+      // One pass: the section past the line, and the last one on the page.
+      let last: string | undefined;
       for (const s of sections) {
         const el = document.getElementById(s.id);
-        if (el && el.getBoundingClientRect().top <= line) current = s.id;
+        if (!el) continue;
+        last = s.id;
+        if (el.getBoundingClientRect().top <= line) current = s.id;
       }
       // At the very bottom the last sections can't reach the line: the last one is in view.
       const bottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
-      const last = [...sections].reverse().find((s) => document.getElementById(s.id));
-      if (bottom && last && window.scrollY > 0) current = last.id;
+      if (bottom && last && window.scrollY > 0) current = last;
       setActive(current);
     };
     const onScroll = () => {

@@ -1,12 +1,11 @@
-// Sharing a published form (ShareDialog): prefilled links and the embed snippet. Pure.
-// Moved up from the host app's src/lib/forms/share.ts.
+// Sharing a published page (ShareDialog): prefilled links and the embed snippet. Pure.
 
 /** One search param a prefilled link may set, and the values staff pick from. */
 export interface PrefillChoice {
   key: string;
-  /** The picker's accessible name, e.g. "Class". */
+  /** The picker's accessible name, e.g. "Location". */
   label: string;
-  /** The picker's "leave it out" choice, e.g. "Any class". */
+  /** The picker's "leave it out" choice, e.g. "Any location". */
   anyLabel: string;
   options: readonly { value: string; label: string }[];
 }
@@ -37,7 +36,7 @@ export function prefilledUrl(url: string, values: Record<string, string | undefi
 const attr = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** An `<iframe>` that shows the form on another website, full width. */
+/** An `<iframe>` that shows the page on another website, full width. */
 export function embedSnippet(url: string, title: string): string {
   return `<iframe src="${attr(url)}" title="${attr(title)}" width="100%" height="720" style="border:0;max-width:100%" loading="lazy"></iframe>`;
 }

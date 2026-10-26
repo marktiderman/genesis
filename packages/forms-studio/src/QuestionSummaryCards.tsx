@@ -11,8 +11,7 @@ import {
   Type,
   type LucideProps,
 } from "lucide-react";
-import { dayLabel } from "./generic/days";
-import { SummaryCard } from "./generic/SummaryCard";
+import { dayLabel, SummaryCard } from "@marktiderman/genesis-ui/resource";
 import { lowScaleAtMost } from "./summary";
 import type { ChoiceSummary, QuestionSummary, ScaleSummary, TextSummary } from "./summary";
 
