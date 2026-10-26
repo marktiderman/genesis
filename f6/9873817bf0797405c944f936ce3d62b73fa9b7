@@ -1,0 +1,307 @@
+AGENTS.md
+  s_2c334912fcb08f::t_ce559a3789adea 40
+apps/sample/app/data/primitives.json
+  s_2550badb988043::t_c8c74e1b86e32e 18,1552-1646,2330-2336,3088-3166,3336-3342,3357-3363,3592-3679,3811,3814-3818,3821-3822,3825-3827,3832-3833,3836,3839-3840,3843,3846-3847,3849-3850,3853-3860,3864,3867-3868,3871,3874-3875,3878-3879,3881-4017,6670-6828,11897-11931,15281-17329,17332,17335-17336,17339,17342,17345-17346,17349,17351-17352,17355-17356,17431-17437,17454,17457,17564-17570,17662-17668,17683-17689,17830-17836,17954,17963-17969,18513-18537,18558-18572
+docs/RESOURCE-VIEW.md
+  s_2c334912fcb08f::t_d474074920fc23 1-437
+features.json
+  s_2c334912fcb08f::t_73176ddbc0e1ef 169-170,4195-4653
+features.ts
+  s_2c334912fcb08f::t_b4aeb528cf8e6e 85,1839-2033
+packages/core/CHANGELOG.md
+  s_2c334912fcb08f::t_a4f21d554aae26 3-46
+packages/core/README.md
+  s_2c334912fcb08f::t_5c23e4966e9818 142-148,541-547,586-603
+packages/core/package.json
+  s_2c334912fcb08f::t_b6d0774ce199d3 3,61-76
+packages/core/src/__tests__/query-keys.test.ts
+  s_2c334912fcb08f::t_986cbb3ecc5a10 35-47
+packages/core/src/__tests__/resource-rules.test.ts
+  s_2c334912fcb08f::t_de444cfac75b4a 1-52
+packages/core/src/__tests__/resource-share.test.ts
+  s_2c334912fcb08f::t_be36e66a3cafa0 3
+packages/core/src/__tests__/resource-view.test.ts
+  s_2c334912fcb08f::t_442a1639694364 1-487
+packages/core/src/csv.ts
+  s_2c334912fcb08f::t_826ce8bcd593bb 1-111
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_2c334912fcb08f::t_87f7b5fe85e619 4-5,8,12,65-237,300-359
+packages/core/src/hooks/__tests__/live-cache.test.ts
+  s_2c334912fcb08f::t_038bbf764de27e 1-100
+packages/core/src/hooks/__tests__/use-live.test.tsx
+  s_2c334912fcb08f::t_6decbb2e3475fc 1-85
+packages/core/src/hooks/index.ts
+  s_2c334912fcb08f::t_75b4fcc04935ed 48-57
+packages/core/src/hooks/live-cache.ts
+  s_2c334912fcb08f::t_86eb8ba1a5cfbd 1-108
+packages/core/src/hooks/use-infinite-resource.ts
+  s_2c334912fcb08f::t_0cc4471a76499a 1,3,46-56,72-73,77-79,109,140-141,163-166,168-170,173-178,180,203-215,217-224,229-232,238,241-242
+packages/core/src/hooks/use-live.ts
+  s_2c334912fcb08f::t_f50741a6e17a08 5-11,16-17,24,29-35,44-49,77-80,102-104,112-113,117,126-131,142-151,154,163
+packages/core/src/hooks/use-resource-form.ts
+  s_2c334912fcb08f::t_0810eb5c532642 93-99,348-350,416,624,628-642,712
+packages/core/src/hooks/viewer-scope.tsx
+  s_2c334912fcb08f::t_26285b58e0cbe3 2-4,7-26,39-78,87-93,113,115-123,142-146
+packages/core/src/index.ts
+  s_2c334912fcb08f::t_d7792b99715373 23,36,48-50
+packages/core/src/provider/__tests__/supabase-cursor.test.ts
+  s_2c334912fcb08f::t_127193cf9dc200 81-93,138-164
+packages/core/src/provider/__tests__/supabase-realtime.test.ts
+  s_2c334912fcb08f::t_f93c7ddab487d9 14,16-17,31-34,37-39,128,130-137,139-143,145-182,204,209,219-220,224-337
+packages/core/src/provider/__tests__/supabase-source.test.ts
+  s_2c334912fcb08f::t_75d68f7013010d 122-146
+packages/core/src/provider/index.ts
+  s_2c334912fcb08f::t_b37c98160e3865 7
+packages/core/src/provider/supabase-provider.ts
+  s_2c334912fcb08f::t_ab61064053b03c 3,220-224,322,324-325,344,363,380-398,409-424,544-548,577-581,599-645,735-736,785,811-812,820-822,825-827,829,836,838-846,852,854-865,867-873,901,903,956-960,1014-1060,1062,1065,1072-1102,1106-1109,1231-1232
+packages/core/src/provider/types.ts
+  s_2c334912fcb08f::t_d3f0b253115e08 75-81,96-97,104-106,109-110,116-121
+packages/core/src/query-keys.ts
+  s_2c334912fcb08f::t_526559db4f40b6 27-31,62-63
+packages/core/src/resource-view/define-view.ts
+  s_2c334912fcb08f::t_3cfcc722121729 1-365
+packages/core/src/resource-view/index.ts
+  s_2c334912fcb08f::t_4ed007c0f5e2ca 1-30
+packages/core/src/resource-view/picture.ts
+  s_2c334912fcb08f::t_0343d20492a0ef 1-50
+packages/core/src/resource-view/scope.ts
+  s_2c334912fcb08f::t_888f804cbb2c63 1-42
+packages/core/src/resource-view/types.ts
+  s_2c334912fcb08f::t_426825cf686e98 1-234
+packages/core/src/resource/headline.ts
+  s_2c334912fcb08f::t_9b76605cb55fac 1-16
+packages/core/src/resource/index.ts
+  s_2c334912fcb08f::t_c15e29edc07e4b 1-19
+packages/core/src/schema/index.ts
+  s_2c334912fcb08f::t_ae449abd90be10 21,23
+packages/core/src/schema/types.ts
+  s_2c334912fcb08f::t_5285f62c884546 84-94,120-126,131-149
+packages/core/src/urls.ts
+  s_2c334912fcb08f::t_82c0b6c91dc5c4 1-51
+packages/core/tsup.config.ts
+  s_2c334912fcb08f::t_9277513e89193d 20-23
+packages/forms-studio/CHANGELOG.md
+  s_2c334912fcb08f::t_8d3c8f5822562d 3-12
+packages/forms-studio/README.md
+  s_2c334912fcb08f::t_0233bdbd30588c 107-112,118-123,131-132
+packages/forms-studio/package.json
+  s_2c334912fcb08f::t_77ba5a8a8b2d01 3,49,55-65,67,72
+packages/forms-studio/src/__tests__/rules-purity.test.ts
+  s_2c334912fcb08f::t_3f0c687588c484 1-124
+packages/forms-studio/src/headline.ts
+  s_2c334912fcb08f::t_f12a66f09417c6 5
+packages/forms-studio/src/moved-rules.ts
+  s_2c334912fcb08f::t_86bf1a0168e231 1-3,20,28,30,32,34,37,39,41,43,48,59
+packages/forms-studio/src/rules.ts
+  s_2c334912fcb08f::t_dccd4a2641fa58 54-56
+packages/forms-studio/src/status.ts
+  s_2c334912fcb08f::t_e7bd73e745ef50 4,36-52,74,78-79,81
+packages/forms-studio/tsconfig.json
+  s_2c334912fcb08f::t_75639e0fdbfbe9 7
+packages/forms-studio/type-tests/nav-item.tsx
+  s_2c334912fcb08f::t_c2829435f4b84c 1-28
+packages/genesis-cli/CHANGELOG.md
+  s_2c334912fcb08f::t_738e4c73eeebda 3-12
+packages/genesis-cli/README.md
+  s_2c334912fcb08f::t_137a2a0e8e57bb 346-355
+packages/genesis-cli/package.json
+  s_2c334912fcb08f::t_54090e184753dd 3
+packages/genesis-cli/src/doctor/native.ts
+  s_2c334912fcb08f::t_ffb0dea35a5212 24-25
+packages/genesis-cli/src/doctor/structure.ts
+  s_2c334912fcb08f::t_fc46d130b6495c 22-26,28-34,200-202
+packages/genesis-cli/src/index.ts
+  s_2c334912fcb08f::t_bdf35b0cbf4458 27
+packages/genesis-cli/src/introspect/comments.ts
+  s_2c334912fcb08f::t_07399391a3af05 14-17,27,29,31,46,48-50,52-53,55-58
+packages/genesis-cli/src/introspect/emit.ts
+  s_2c334912fcb08f::t_ba8a706c179c9f 34-39,46,62-64,72-74,78-89,98-102,106-114,116-120,122-123,129-130,132-134
+packages/genesis-cli/src/introspect/index.ts
+  s_2c334912fcb08f::t_e8b1ede4c399bb 3
+packages/genesis-cli/src/introspect/model.ts
+  s_2c334912fcb08f::t_d8f7c253ae82db 38-41,49-51
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_2c334912fcb08f::t_c46ec6e50795fe 99
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_2c334912fcb08f::t_ed993fde9310e3 35-36,383-386,395-399
+packages/genesis-cli/test/fixtures/doctor/_genesis/genesis-ui-native/index.d.ts
+  s_2c334912fcb08f::t_1466d33c4b479a 12,16
+packages/genesis-cli/test/introspect.test.ts
+  s_2c334912fcb08f::t_eefbdfc091cc76 40-56,114-117,124-147,152-183
+packages/genesis/CHANGELOG.md
+  s_2c334912fcb08f::t_ac3e1c0beb804d 3-28
+packages/genesis/package.json
+  s_2c334912fcb08f::t_c60abc207a5b0b 3
+packages/studio-server/package.json
+  s_2c334912fcb08f::t_a926c3f1a9206b 54
+packages/studio/CHANGELOG.md
+  s_2c334912fcb08f::t_28042b609bc294 3-10
+packages/studio/package.json
+  s_2c334912fcb08f::t_6161fae07c8605 3
+packages/studio/src/lib/csv.ts
+  s_2c334912fcb08f::t_b627d45b7f6fd0 1-2
+packages/supabase/CHANGELOG.md
+  s_2c334912fcb08f::t_a28f1f01e6048d 3-15
+packages/supabase/README.md
+  s_2c334912fcb08f::t_497fcd23f778f9 598-604,613-620,631
+packages/supabase/migrations/0009_genesis_owner_access.sql
+  s_2c334912fcb08f::t_a8eb5f8e1ad9ab 1-89
+packages/supabase/migrations/0014_genesis_feature_registry_hardening.sql
+  s_2c334912fcb08f::t_4f37880d7216ac 1-124
+packages/supabase/migrations/tests/0009_genesis_owner_access.test.sql
+  s_2c334912fcb08f::t_f9c0e1b4f71336 1-70
+packages/supabase/migrations/tests/0014_genesis_feature_registry_hardening.test.sql
+  s_2c334912fcb08f::t_5dff51eeed4378 1-54
+packages/supabase/package.json
+  s_2c334912fcb08f::t_1ac5f21ab72eaa 3,201-236,239-241,243
+packages/supabase/src/blocks.ts
+  s_2c334912fcb08f::t_6909f6c7ac1c9b 105-109,155-178
+packages/supabase/src/feature-registry.ts
+  s_2c334912fcb08f::t_d18b0f3d559371 80-82,123
+packages/supabase/src/index.ts
+  s_2c334912fcb08f::t_9c026f99eac22b 205
+packages/ui-native/CHANGELOG.md
+  s_2c334912fcb08f::t_cb12b2380259e8 3-34
+packages/ui-native/package.json
+  s_2c334912fcb08f::t_22754f1138a43b 3
+packages/ui-native/src/components/image.tsx
+  s_2c334912fcb08f::t_d4967ffc3d38e2 35-36,52,80,89
+packages/ui-native/src/data/NativeDetailPanel.tsx
+  s_2c334912fcb08f::t_06fd4762d60989 23-26,38-39,42,131
+packages/ui-native/src/data/index.ts
+  s_2c334912fcb08f::t_b29604b6ecb973 10
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_2c334912fcb08f::t_8e7b5ef1596ec3 1-305
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_2c334912fcb08f::t_51981a40d5b191 1-528
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_2c334912fcb08f::t_080ae0a795a7bd 1-870
+packages/ui-native/src/data/resource-view/display.tsx
+  s_2c334912fcb08f::t_bdf9486688fdd4 1-256
+packages/ui-native/src/data/resource-view/index.ts
+  s_2c334912fcb08f::t_1d429947f5539a 1-50
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_2c334912fcb08f::t_f65cc532a3c0ac 1-326
+packages/ui-native/src/data/resource-view/messages.ts
+  s_2c334912fcb08f::t_ae618a195d377f 1-121
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_2c334912fcb08f::t_07175a33638e81 1-307
+packages/ui-native/test-utils/rn-mock.tsx
+  s_2c334912fcb08f::t_f2574baf94b0cf 351,355-361,364-368,375-386,388-408,526-530
+packages/ui-native/types/react-native.d.ts
+  s_2c334912fcb08f::t_882580de582b1c 264-273,365-369
+packages/ui/CHANGELOG.md
+  s_2c334912fcb08f::t_3b9b3ea5fab765 3-70
+packages/ui/package.json
+  s_2c334912fcb08f::t_ebef659d7e5df4 3
+packages/ui/src/components/data/ResourcePage.tsx
+  s_2c334912fcb08f::t_4f947f3b41cff7 1140-1141
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_2c334912fcb08f::t_f266516eeeb6d5 1-288
+packages/ui/src/components/data/cell-formatters.tsx
+  s_2c334912fcb08f::t_1b0e144b0d65ef 11-17
+packages/ui/src/components/data/index.ts
+  s_2c334912fcb08f::t_bebf91e28fe33f 39-40
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_2c334912fcb08f::t_1b8a4c3cd40a77 1-227
+packages/ui/src/components/data/resource-view/RowAvatar.tsx
+  s_2c334912fcb08f::t_39c70cd9529c09 1-17
+packages/ui/src/components/data/resource-view/display.tsx
+  s_2c334912fcb08f::t_83466ee10bd105 1-141
+packages/ui/src/components/data/resource-view/index.ts
+  s_2c334912fcb08f::t_d93f092af14e9b 1-15
+packages/ui/src/components/data/use-resource-table.ts
+  s_2c334912fcb08f::t_f1911dd2c67965 153-156,178-182,259,261-266,327,330,335-339,341,344,362,365,367,374,384,398,689-691,700,1243-1245
+packages/ui/src/components/resource/FollowUpList.tsx
+  s_2c334912fcb08f::t_cac4523a69df09 6
+packages/ui/src/components/resource/HeadlineNumbers.tsx
+  s_2c334912fcb08f::t_d3203d4dac25ab 2,6-11,16
+packages/ui/src/components/resource/ReadinessChip.tsx
+  s_2c334912fcb08f::t_dd4480847bddfd 3
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_2c334912fcb08f::t_66aaa2eaf14fb3 14
+packages/ui/src/components/resource/ShareDialog.tsx
+  s_2c334912fcb08f::t_ac4025076a0bc5 13
+packages/ui/src/components/resource/__tests__/rules.test.ts
+  s_2c334912fcb08f::t_42f29bb08e8f61 2,4-13
+packages/ui/src/components/resource/chip.tsx
+  s_2c334912fcb08f::t_5d8a8b45029780 5
+packages/ui/src/components/resource/rules.ts
+  s_2c334912fcb08f::t_cc00a3509663cf 3-6,12-14,21-22
+packages/ui/src/components/rich-text/rich-text-doc.ts
+  s_2c334912fcb08f::t_6d74bcf8a5027e 24,133-134
+packages/ui/src/hooks/__tests__/core-infinite-resource.test.tsx
+  s_2c334912fcb08f::t_8e749ad0533a08 34-36,38-40,225,247-344
+packages/ui/src/hooks/__tests__/core-live.test.tsx
+  s_2c334912fcb08f::t_12d4c1b77dd0d9 13,81-82
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_2c334912fcb08f::t_77ec04e1109de9 99-143
+packages/work/CHANGELOG.md
+  s_2c334912fcb08f::t_b46b24d3df297b 1-30
+packages/work/README.md
+  s_2c334912fcb08f::t_8ea2d73c88f4cb 1-45
+packages/work/migrations/0001_genesis_work_pursuits.sql
+  s_2c334912fcb08f::t_ac1b3ce6d36b82 1-341
+packages/work/migrations/0002_genesis_work_metrics.sql
+  s_2c334912fcb08f::t_71cf5519dc8108 1-461
+packages/work/migrations/0003_genesis_work_updates.sql
+  s_2c334912fcb08f::t_d12da0ca11b44c 1-343
+packages/work/migrations/0004_genesis_work_sessions.sql
+  s_2c334912fcb08f::t_1fd60af80f8e31 1-552
+packages/work/migrations/0005_genesis_work_fields.sql
+  s_2c334912fcb08f::t_1f74192864a8dd 1-303
+packages/work/migrations/0006_genesis_work_packs.sql
+  s_2c334912fcb08f::t_a9d7cf1ee5044c 1-440
+packages/work/migrations/tests/0001_genesis_work_pursuits.test.sql
+  s_2c334912fcb08f::t_bbd8beb5693ebe 1-252
+packages/work/migrations/tests/0002_genesis_work_metrics.test.sql
+  s_2c334912fcb08f::t_5e8220f73271d5 1-226
+packages/work/migrations/tests/0003_genesis_work_updates.test.sql
+  s_2c334912fcb08f::t_58ee79a6f7d702 1-162
+packages/work/migrations/tests/0004_genesis_work_sessions.test.sql
+  s_2c334912fcb08f::t_f147a8fc59efb4 1-178
+packages/work/migrations/tests/0005_genesis_work_fields.test.sql
+  s_2c334912fcb08f::t_260abde8f87269 1-141
+packages/work/migrations/tests/0006_genesis_work_packs.test.sql
+  s_2c334912fcb08f::t_728d3ad29c5202 1-125
+packages/work/package.json
+  s_2c334912fcb08f::t_ea19fd2621dcf3 1-283
+packages/work/src/__tests__/blocks.test.ts
+  s_2c334912fcb08f::t_25c3333fdf9707 1-36
+packages/work/src/blocks.ts
+  s_2c334912fcb08f::t_71c9a6bb0dc43c 1-104
+packages/work/src/index.ts
+  s_2c334912fcb08f::t_939c77368b294a 1-9
+packages/work/tsconfig.json
+  s_2c334912fcb08f::t_a2811e98acdca5 1-19
+packages/work/tsup.config.ts
+  s_2c334912fcb08f::t_e3d795ab0226bd 1-12
+packages/work/vitest.config.ts
+  s_2c334912fcb08f::t_236d919fae45b3 1-5
+pnpm-lock.yaml
+  s_2c334912fcb08f::t_ac632306d825ea 1013-1015,1028-1030,1880-1898
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f69873817bf0797405c944f936ce3d62b73fa9b7",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_2c334912fcb08f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "740b94be-4c34-429d-b1f4-ee436f582c57",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
