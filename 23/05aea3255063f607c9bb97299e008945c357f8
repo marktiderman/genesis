@@ -1,0 +1,47 @@
+.changeset/query-keys.md
+  s_a1b83c03f697d3::t_fe1acd93d7b448 5
+AGENTS.md
+  s_a1b83c03f697d3::t_4f1d7da2ddde4f 16
+README.md
+  s_a1b83c03f697d3::t_fd76c757ec8d65 59
+features.json
+  s_a1b83c03f697d3::t_4bd04ef02382fc 586-635
+features.ts
+  s_a1b83c03f697d3::t_a452f3c9059ab7 263-283
+packages/core/README.md
+  s_a1b83c03f697d3::t_e33f48312039d1 365,380,383-387,390-396
+packages/core/package.json
+  s_a1b83c03f697d3::t_11f826f3bfa132 75,77-80
+packages/core/src/__tests__/query-keys.test.ts
+  s_a1b83c03f697d3::t_3eae97fa943ba8 67,74-86,89-98
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_a1b83c03f697d3::t_d71a97d9d72fc4 1-127
+packages/core/src/hooks/index.ts
+  s_a1b83c03f697d3::t_61293d3481ea5c 33
+packages/core/src/hooks/mutation-mode.ts
+  s_a1b83c03f697d3::t_9711b477f9d662 24,179,294
+packages/core/src/hooks/use-one.ts
+  s_a1b83c03f697d3::t_c4f0270ff1e865 50
+packages/core/src/hooks/viewer-scope.tsx
+  s_a1b83c03f697d3::t_5e2a82110e51d8 1-2,5-7,9-24,28-39,41,43-57
+packages/core/src/query-keys.ts
+  s_a1b83c03f697d3::t_393d5dccd50385 13-14,45-48,50,60-80,93,116,122,144-145
+pnpm-lock.yaml
+  s_a1b83c03f697d3::t_60e1f0027c73f0 631-633,637-648
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2305aea3255063f607c9bb97299e008945c357f8",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
