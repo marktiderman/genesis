@@ -128,6 +128,25 @@ export interface ResourceContract<Row extends DataRow = DataRow> {
   readonly __row?: Row;
 }
 
+/** The row type a contract describes (its phantom `__row`), or `DataRow` when it carries none. */
+export type RowOf<C> = C extends { readonly __row?: infer R } ? (unknown extends R ? DataRow : NonNullable<R>) : DataRow;
+
+/**
+ * Declares a resource contract for a row type, keeping the literal contract (field names, key,
+ * labelField) and attaching the row type so views can read it with `RowOf`. `labelField` must be
+ * one of the row's fields.
+ *
+ * ```ts
+ * export const publicBrands = defineResource<PublicBrandsRow>()({ name: "public.brands", key: "id", fields: [...] });
+ * type Row = RowOf<typeof publicBrands>; // PublicBrandsRow
+ * ```
+ */
+export function defineResource<Row extends DataRow>() {
+  return <const C extends ResourceContract<Row> & { readonly labelField?: keyof Row & string }>(
+    contract: C,
+  ): C & { readonly __row?: Row } => contract;
+}
+
 /** What the current user may do with a whole resource. */
 export interface ResourceAccess {
   readonly read: boolean;

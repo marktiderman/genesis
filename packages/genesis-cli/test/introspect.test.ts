@@ -112,13 +112,37 @@ describe("the emitted contract", () => {
   it("compiles under strict TypeScript, with row types", () => {
     expect(compileErrors(source)).toEqual([]);
     expect(source).toContain("export type PublicCustomersRow = {");
-    expect(source).toContain("} as const satisfies ResourceContract<PublicCustomersRow>;");
+    expect(source).toContain("export const publicCustomers = defineResource<PublicCustomersRow>()({");
     expect(source).toContain('"public.customers": publicCustomers,');
     expect(source).toContain("export type PublicCustomersField = keyof PublicCustomersRow;");
     expect(source).toContain('  status: "active" | "paused";');
     expect(source).toContain("  program_id: number | null;");
     expect(source).toContain("  tags: string[] | null;");
     expect(source).toContain('label: "Program", description: "The program."');
+  });
+
+  it("views get the row type: RowOf<typeof contract> is the row, and labelField is typed", () => {
+    const check = `${source}
+import type { RowOf } from "@marktiderman/genesis-core";
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+const same: Equal<RowOf<typeof publicCustomers>, PublicCustomersRow> = true;
+const key: (typeof publicCustomers)["name"] = "public.customers";
+void same; void key;
+`;
+    expect(compileErrors(check)).toEqual([]);
+  });
+
+  it("refuses a labelField that isn't a column, and two tables that flatten to one name", () => {
+    const one = (name: string, schema: string, table: string): IntrospectedTable => ({
+      name, schema, table, key: ["id"],
+      columns: [{ name: "id", dbType: "uuid", type: "string", array: false, nullable: false, hasDefault: true, generated: false }],
+    });
+    expect(() => emitContracts([{ ...one("public.t", "public", "t"), settings: { labelField: "nmae" } }], { source: "x" })).toThrow(
+      /public\.t: @genesis labelField "nmae" isn't one of its columns/,
+    );
+    expect(() => emitContracts([one("public.a_b", "public", "a_b"), one("public_a.b", "public_a", "b")], { source: "x" })).toThrow(
+      /public\.a_b and public_a\.b would both be named PublicABRow/,
+    );
   });
 
   it("is the same bytes on a re-run, whatever order the tables came in", () => {
@@ -151,7 +175,7 @@ describe("the emitted contract", () => {
     expect(out).toContain("readOnly: true");
     expect(out).toContain('widget: "textarea", sensitive: true');
     const bad = emitContracts(
-      [{ ...t, columns: [{ ...t.columns[0]!, settings: { widget: "rainbow" } }] }],
+      [{ ...t, columns: [{ ...t.columns[0]!, settings: { widget: "rainbow" } }, ...t.columns.slice(1)] }],
       { source: "x" },
     );
     expect(compileErrors(bad).join("\n")).toMatch(/rainbow/);
