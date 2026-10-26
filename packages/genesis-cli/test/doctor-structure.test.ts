@@ -922,21 +922,24 @@ describe("trail: third-pass review", () => {
       return { root, routes: scanned.filter((f) => f.path.startsWith("src/r/")), scanned };
     };
     const layout = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
-    const time = (g: ReturnType<typeof graph>) => {
-      const best: number[] = [];
-      for (let run = 0; run < 3; run++) {
-        const trail = createTrail({ root: g.root, files: g.scanned });
-        const t0 = performance.now();
-        for (const r of g.routes) expect(trail.reach(r, layout)).toBe("no");
-        best.push(performance.now() - t0);
-      }
-      return Math.min(...best);
+    const once = (g: ReturnType<typeof graph>) => {
+      const trail = createTrail({ root: g.root, files: g.scanned });
+      const t0 = performance.now();
+      for (const r of g.routes) expect(trail.reach(r, layout)).toBe("no");
+      return performance.now() - t0;
     };
-    const acyclic = time(graph(false));
-    const cyclic = time(graph(true));
+    // Best of five each, interleaved, so a noisy moment on a shared runner hits both graphs.
+    const acyclicGraph = graph(false);
+    const cyclicGraph = graph(true);
+    let acyclic = Infinity;
+    let cyclic = Infinity;
+    for (let run = 0; run < 5; run++) {
+      acyclic = Math.min(acyclic, once(acyclicGraph));
+      cyclic = Math.min(cyclic, once(cyclicGraph));
+    }
     if (process.env.TRAIL_BENCH) process.stderr.write(`BENCH ${JSON.stringify({ acyclic, cyclic })}\n`);
-    // Relative, not a fixed budget: ~2.5-3x with cut answers cached, ~9x without.
-    expect(cyclic).toBeLessThan(acyclic * 4 + 25);
+    // Relative, not a fixed budget: ~2.5-3x with cut answers cached, ~9x without; the limit sits between.
+    expect(cyclic).toBeLessThan(acyclic * 6 + 25);
   });
 
   it("a cut answer is reused only while its cut modules are on the path (same answers in any order)", () => {

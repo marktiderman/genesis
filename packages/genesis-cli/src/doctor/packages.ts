@@ -35,7 +35,7 @@ const SKIP_DIRS = new Set(["node_modules", "dist", "build", "coverage", ".turbo"
 const BUILTINS = new Set(builtinModules.flatMap((m) => [m, `node:${m}`]));
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\brequire\s*\(\s*)["']([^"']+)["']/g;
 /** `import type … from "x"` and `export type … from "x"`, across lines: compile-time only, never a runtime dependency. */
-const TYPE_ONLY = /\b(?:import|export)\s+type\b[^;"'`]*?\bfrom\s*["'][^"']+["']/g;
+const TYPE_ONLY = /\b(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+[\w$]+|\*|[\w$]+)\s*from\s*["'][^"']+["']/g;
 
 /** Every source file in a package (not node_modules or build output), package-relative. */
 function sourceFiles(dir: string, rel = ""): string[] {
@@ -203,7 +203,10 @@ function checkExports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
   };
   walk(json.exports);
   for (const t of targets) {
-    if (!t.startsWith("./") || t.includes("*") || /^\.\/(dist|build)\//.test(t)) continue;
+    // Only source targets (.ts, .tsx, .mts, .cts, .json): a .js target may be build output that
+    // isn't built yet, wherever it lives, so it's left alone.
+    // Declaration files (.d.ts, .d.mts, .d.cts) are build output too.
+    if (!t.startsWith("./") || t.includes("*") || !/\.(?:[cm]?tsx?|json)$/.test(t) || /\.d\.[cm]?ts$/.test(t)) continue;
     if (!existsSync(path.join(pkg.dir, t))) {
       ctx.report({ rule: "package-export-missing", file: `${pkg.rel}/package.json`, subject: t, message: `${pkg.name} exports ${t}, which doesn't exist` });
     }
@@ -239,10 +242,14 @@ function checkRegistered(ctx: DoctorContext, pkg: LocalPackage): void {
   } catch {
     return;
   }
+  // links.code paths are relative to the repository root (or, outside git, the app).
+  const top = git(ctx.root, ["rev-parse", "--show-toplevel"])?.trim();
+  const forms = new Set([pkg.rel]);
+  if (top) forms.add(path.relative(top, realpathSync(pkg.dir)).split(path.sep).join("/"));
   const covered = (doc.features ?? []).some((f) =>
     (f.links?.code ?? []).some((c) => {
       const norm = c.replace(/^\.\//, "").replace(/\/+$/, "");
-      return norm === pkg.rel || norm.startsWith(`${pkg.rel}/`) || pkg.rel.startsWith(`${norm}/`);
+      return [...forms].some((rel) => norm === rel || norm.startsWith(`${rel}/`) || rel.startsWith(`${norm}/`));
     }),
   );
   if (!covered) {
@@ -272,8 +279,18 @@ function mergeBaseOf(root: string, base: string): { sha: string } | { reason: st
 
 /** Version bump or changeset, against the merge base; edited migrations too. */
 function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, base: string, mergeBase: string): void {
-  const diff = git(ctx.root, ["diff", "--relative", "--name-status", "-M", mergeBase, "--", pkg.rel]) ?? "";
-  const untracked = (git(ctx.root, ["ls-files", "--others", "--exclude-standard", "--", pkg.rel]) ?? "").split("\n").filter(Boolean);
+  // From the repository root, so a package above the app (`../../packages/os`) is seen too
+  // (`--relative` drops paths outside the app's folder); paths are then made app-relative.
+  const top = git(ctx.root, ["rev-parse", "--show-toplevel"])?.trim();
+  if (!top) return;
+  const appRelative = (fromTop: string) => path.relative(realpathSync(ctx.root), path.join(top, fromTop)).split(path.sep).join("/");
+  const inRepo = path.relative(top, realpathSync(pkg.dir)).split(path.sep).join("/");
+  const diff = (git(top, ["diff", "--name-status", "-M", mergeBase, "--", inRepo]) ?? "")
+    .split("\n")
+    .filter(Boolean)
+    .map((row) => row.split("\t").map((cell, i) => (i === 0 ? cell : appRelative(cell))).join("\t"))
+    .join("\n");
+  const untracked = (git(top, ["ls-files", "--others", "--exclude-standard", "--", inRepo]) ?? "").split("\n").filter(Boolean).map(appRelative);
   const changed = [...diff.split("\n").filter(Boolean).map((row) => row.split("\t").at(-1)!), ...untracked].filter(
     (f) => !/(^|\/)(CHANGELOG\.md|node_modules\/)/.test(f),
   );
@@ -297,7 +314,6 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
   const was = typeof versionBefore === "string" ? parseVersion(versionBefore) : null;
   const bumped = before === null || (now !== null && was !== null && compareVersions(now, was) > 0);
   // Changesets live at the repository root, wherever the app is inside it.
-  const top = git(ctx.root, ["rev-parse", "--show-toplevel"])?.trim();
   const changesets = top
     ? (git(top, ["diff", "--name-only", "--diff-filter=A", mergeBase, "--", ".changeset"]) ?? "")
         .split("\n")
@@ -321,6 +337,9 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
   if (jsonBefore && (JSON.stringify(jsonBefore.genesis) !== JSON.stringify(raw.genesis) || JSON.stringify(jsonBefore.exports) !== JSON.stringify(raw.exports))) {
     const registry = (git(ctx.root, ["diff", "--relative", "--name-only", mergeBase, "--", "features.ts", "src/features.ts"]) ?? "").trim();
     if (!registry) ctx.report({ rule: "package-unversioned-change", level: "warn", file: `${pkg.rel}/package.json`, message: `${pkg.name}'s blocks or exports changed but features.ts didn't; update the features they belong to` });
+  }
+  if (bumped && !named && before !== null) {
+    ctx.report({ rule: "package-unversioned-change", level: "warn", file: `${pkg.rel}/package.json`, message: `${pkg.name}'s version went up without a changeset; add one with a "Features:" line so the change is recorded` });
   }
   if (!bumped && !named) {
     ctx.report({

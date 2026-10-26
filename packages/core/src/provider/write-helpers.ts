@@ -85,6 +85,12 @@ export interface CreateOrAdoptOptions<T extends BaseRecord> {
    * back with `final: true` and `merge` isn't called, so the caller stops instead of writing over it.
    */
   final?: (existing: T) => boolean;
+  /**
+   * Extra filters on the lookup, for a partial unique index: the rows the index covers, e.g.
+   * `[{ field: "deleted_at", operator: "is_null" }, { field: "kind", operator: "eq", value: "worksheet" }]`.
+   * A clash on an index whose key is an expression reports no fields, so it's adopted by key and scope.
+   */
+  scope?: readonly FilterParam[];
 }
 
 export type CreateOrAdoptResult<T> = {
@@ -123,7 +129,10 @@ export async function createOrAdopt<T extends BaseRecord>(
       }
       return { field, operator: "eq", value };
     });
-    const { data: rows } = await provider.getList<T>(resource, { filters, pagination: { page: 1, perPage: 2 } });
+    const { data: rows } = await provider.getList<T>(resource, {
+      filters: [...filters, ...(options.scope ?? [])],
+      pagination: { page: 1, perPage: 2 },
+    });
     if (rows.length !== 1) throw error;
     const existing = rows[0]!;
     if (options.final?.(existing)) return { row: existing, adopted: true, final: true };

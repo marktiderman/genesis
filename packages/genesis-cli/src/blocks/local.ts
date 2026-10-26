@@ -111,7 +111,9 @@ export function localPackages(root: string): LocalPackage[] {
   for (const dir of [...dirs].sort()) {
     const manifest = path.join(dir, "package.json");
     if (!existsSync(manifest)) continue;
-    if (!inside(real, realpathSync(dir))) continue;
+    if (!inside(real, realpathSync(dir))) {
+      throw new LocalPackagesError(`${path.relative(appRoot, dir) || dir} is outside the repository; localPackages may only list folders inside it`);
+    }
     let pkg: { name?: unknown; version?: unknown };
     try {
       pkg = JSON.parse(readFileSync(manifest, "utf8")) as typeof pkg;

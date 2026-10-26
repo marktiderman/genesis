@@ -356,9 +356,12 @@ export const SectionList = <T,>(props: {
   ListFooterComponent?: React.ReactNode | React.ComponentType;
   ListEmptyComponent?: React.ReactNode | React.ComponentType;
   refreshControl?: React.ReactNode;
+  onStartReached?: (info: { distanceFromStart: number }) => void;
+  onEndReached?: () => void;
+  maintainVisibleContentPosition?: { minIndexForVisible: number } | null;
   testID?: string;
 }) => {
-  const { sections = [], renderItem, renderSectionHeader, keyExtractor, stickySectionHeadersEnabled, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, testID } = props;
+  const { sections = [], renderItem, renderSectionHeader, keyExtractor, stickySectionHeadersEnabled, ListHeaderComponent, ListFooterComponent, ListEmptyComponent, refreshControl, onStartReached, onEndReached, maintainVisibleContentPosition, testID } = props;
   // Slots render like FlatList's: an element as is, a component type as <C />.
   const slot = (s: React.ReactNode | React.ComponentType | undefined) =>
     typeof s === "function" ? React.createElement(s as React.ComponentType) : (s ?? null);
@@ -369,6 +372,18 @@ export const SectionList = <T,>(props: {
       "data-testid": testID,
       role: "list",
       "data-sticky-section-headers": stickySectionHeadersEnabled === undefined ? undefined : String(stickySectionHeadersEnabled),
+      "data-maintain-visible-content-position": maintainVisibleContentPosition ? JSON.stringify(maintainVisibleContentPosition) : undefined,
+      // Scrolling stands in as custom events: `startreached` and `endreached` call the handlers.
+      ref: (node: HTMLElement | null) => {
+        if (!node) return;
+        const el = node as HTMLElement & { __start?: () => void; __end?: () => void };
+        if (el.__start) el.removeEventListener("startreached", el.__start);
+        if (el.__end) el.removeEventListener("endreached", el.__end);
+        el.__start = () => onStartReached?.({ distanceFromStart: 0 });
+        el.__end = () => onEndReached?.();
+        el.addEventListener("startreached", el.__start);
+        el.addEventListener("endreached", el.__end);
+      },
     },
     refreshControl ?? null,
     slot(ListHeaderComponent),

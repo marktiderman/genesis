@@ -356,6 +356,9 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
         />
       ) : null}
       {header}
+      {state.loadingPrevious ? (
+        <NativeLoadingState fullScreen={false} size="small" label={messages.list.loadingMore} testID={`${testID}-previous`} />
+      ) : null}
     </View>
   );
 
@@ -431,6 +434,12 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
         contentContainerStyle={{ flexGrow: 1, paddingBottom: 32 }}
         onEndReached={state.hasMore ? state.loadMore : undefined}
         onEndReachedThreshold={0.5}
+        // maxPages drops pages from the front; reaching the top loads them back, and the rows on
+        // screen keep their place while they're added above (VirtualizedList's onStartReached and
+        // ScrollView's maintainVisibleContentPosition, both inherited by SectionList).
+        onStartReached={state.hasPrevious ? state.loadPrevious : undefined}
+        onStartReachedThreshold={0.5}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         refreshControl={<NativeRefreshControl testID={`${testID}-refresh`} refreshing={state.refreshing} onRefresh={() => void state.refresh()} />}
       />
 
