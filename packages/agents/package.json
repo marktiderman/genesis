@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-agents",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "How AI agent sessions work together on a Genesis codebase: rules of engagement (ownership, claims, verification, review, staging batches) and the team's owners. Part of the Genesis framework.",
   "repository": {
