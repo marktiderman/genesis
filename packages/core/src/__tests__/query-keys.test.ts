@@ -92,6 +92,12 @@ describe("where() matching", () => {
     expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ kind: "x" }, "one")))).toEqual([]);
   });
 
+  it("an empty list or an undefined value only matches itself", async () => {
+    const keys = [ann.tagged(["a"], {}), ann.tagged([], {}), ann.one(1)];
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ tags: [] })))).toEqual([JSON.stringify(keys[1])]);
+    expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ missing: undefined })))).toEqual([]);
+  });
+
   it("never matches a substring", async () => {
     const keys = [ann.tagged(["abc"], {})];
     expect(await staleAfter(keys, (c) => c.invalidateQueries(k.where({ tags: "ab" })))).toEqual([]);

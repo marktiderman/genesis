@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 149 components · 524 other exports · 392 standalone types across 11 packages and entry points.
+**Totals:** 150 components · 532 other exports · 398 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -31,31 +31,36 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 
-### Other exports (41)
+### Other exports (49)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
+| [`callRpc`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
 | [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | value | — | _(no summary)_ |
 | [`createLocalStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | localStorage adapter with SSR safety. |
 | [`createMemoryStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | In-memory adapter for testing and SSR. |
 | [`createMockProvider`](../packages/core/src/provider/mock-provider.ts) | function | — | _(no summary)_ |
 | [`createNoopStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | No-op adapter — all operations silently do nothing. |
+| [`createOrAdopt`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
 | [`createSupabaseProvider`](../packages/core/src/provider/supabase-provider.ts) | function | — | The Supabase data provider. Reads and writes go through the client you pass, under that client's session and RLS. |
 | [`DataReadError`](../packages/core/src/schema/read-outcome.ts) | class | — | Thrown by a provider when a read failed. Its `message` is safe to show. |
 | [`DataWriteError`](../packages/core/src/schema/write-outcome.ts) | class | — | Thrown by a provider when a write did not commit. |
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`DEFAULT_DRAFT_DELAY_MS`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
+| [`DEFAULT_RPC_MESSAGES`](../packages/core/src/provider/write-helpers.ts) | const | — | The words shown for a code when the caller gives none. A guard's own `raise exception` (P0001) keeps its words. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
 | [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
 | [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
+| [`dropPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Drops every write on this client not yet sent, without reporting them: the viewer who made them is gone, so they must never be sent (or re-applied) under the next one. Writes already sending finish under the old session. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
+| [`flushPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | value | — | _(no summary)_ |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
@@ -64,6 +69,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
+| [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
@@ -77,9 +83,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
+| [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
+| [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (92)
+### Types (97)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -89,6 +97,8 @@ export type { AuditEntry };
 export type { BaseRecord };
 export type { BulkChange };
 export type { BulkResult };
+export type { CallRpcOptions };
+export type { CreateOrAdoptOptions };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
@@ -143,6 +153,7 @@ export type { ResourceSchema };
 export type { ResourceSummary };
 export type { RowAction };
 export type { RowFailure };
+export type { RpcClient };
 export type { ScalarFilter };
 export type { ScopedKey };
 export type { SelectOption };
@@ -171,6 +182,8 @@ export type { UseResourceReturn };
 export type { UseUnsavedChangesGuardOptions };
 export type { UseUnsavedChangesGuardReturn };
 export type { UseWizardReturn };
+export type { UseWriteOptions };
+export type { UseWriteReturn };
 export type { VersionField };
 export type { WidgetHint };
 export type { WizardStep };
@@ -258,7 +271,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (41)
+### Components (42)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -266,6 +279,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
+| [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
@@ -571,11 +585,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 
-### Types (29)
+### Types (30)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
 export type { ChartConfig };

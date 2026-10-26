@@ -443,6 +443,36 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
-With a persisted cache, pass the viewer it was saved for as `persistedViewer`: a different first
-viewer empties it. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
-sign-out actions, before the session changes.
+With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
+`persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
+sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
+writes while the session is still theirs. `ViewerScope` drops those unsent writes instead (by then the
+session is the new viewer's), so prefer `clearViewerCache` in a sign-out action when undo is on.
+
+## One-off writes
+
+For the writes a resource page doesn't make: a database function, "one live row per key", or a few
+writes in a row. They fail with a `DataWriteError` in plain words, like the provider's own writes.
+
+```ts
+import { callRpc, createOrAdopt, useWrite } from "@marktiderman/genesis-core";
+
+// A database function. Your words for a code win; a guard's own `raise exception` (P0001) keeps its
+// words; 42501, 22023 and a missing function get plain defaults; anything else a generic sentence.
+await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "This course hasn't started yet." } });
+
+// One live row per key: create it, or adopt the row already there (merging in what you return).
+const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
+  key: ["person_id", "lesson_id"],
+  merge: (existing) => (existing.body ? null : { body }),
+});
+
+// In a component: pending, plain error words, and invalidation after a success.
+const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
+  invalidates: [["course-steps"], resourceKeys("tasks").all],
+});
+<Button onClick={() => release.fire(id)} disabled={release.pending}>Release</Button>
+```
+
+`run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
+time: a second click while it runs gets the same promise, not a second write.
