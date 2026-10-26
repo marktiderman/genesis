@@ -1,0 +1,25 @@
+.changeset/subnav-hide-on-phone.md
+  s_3daa86e3ae6031::t_45bae8478c21b7 1-5
+packages/ui/src/components/layout/AppShell.tsx
+  s_3daa86e3ae6031::t_dece9ef3c7d97e 1412-1413
+packages/ui/src/components/layout/__tests__/app-shell-sub-nav.test.tsx
+  s_3daa86e3ae6031::t_eb14bb20bb4e73 375-404
+packages/ui/src/components/layout/sub-nav.tsx
+  s_3daa86e3ae6031::t_b7c970fed640f0 66-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07301dcea80981684827c2aa90c369147cdbac90",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
