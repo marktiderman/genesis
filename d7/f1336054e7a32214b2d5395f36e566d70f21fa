@@ -1,0 +1,19 @@
+packages/agents/TEAM.md
+  s_3d18476590acc2::t_43fb38c0deb758 20,22-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d7f1336054e7a32214b2d5395f36e566d70f21fa",
+  "prompts": {},
+  "sessions": {
+    "s_3d18476590acc2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_3d18476590acc2",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
