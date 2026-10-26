@@ -104,3 +104,26 @@ describe("toCsv", () => {
     );
   });
 });
+
+describe("answerCell with non-string option values", () => {
+  it("keeps labels for number and boolean option values", () => {
+    const field = {
+      kind: "field",
+      id: "n",
+      key: "size",
+      type: "single-choice",
+      label: "Size",
+      props: {
+        options: [
+          { value: 1, label: "Small" },
+          { value: true, label: "Yes please" },
+        ],
+      },
+    } as never;
+    expect(answerCell(field, 1)).toBe("Small");
+    expect(answerCell(field, true)).toBe("Yes please");
+    expect(answerCell(field, [1, true])).toBe("Small, Yes please");
+    // No loose matching: the string "1" isn't the number 1, as with ===.
+    expect(answerCell(field, "1")).toBe("1");
+  });
+});
