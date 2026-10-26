@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(36);
+select plan(43);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in nothing.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -168,10 +168,34 @@ select lives_ok(
      values (pg_temp.tenant(1), pg_temp.team(1), 'Synced', 'sheet', '00000000-0000-4000-f000-000000000001', '{"range": "A1"}') $$,
   'a synced metric with its connection');
 
+select pg_temp.sign_in('b2');
+select throws_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value) values (pg_temp.metric(1), '2026-10-21', 3) $$,
+  '22023', null, 'a weekly value starts on a Monday');
+select is((select entered_by from public.metric_values where metric_id = pg_temp.metric(1) and period_start = '2026-10-19'), pg_temp.person('b2'),
+  'entered_by is always the signed-in person');
+select pg_temp.sign_in('a1');
+select throws_ok(
+  $$ update public.metrics set cadence = 'monthly' where id = pg_temp.metric(1) $$,
+  '22023', null, 'the cadence is fixed once there are values');
+select pg_temp.sign_in('c3');
+select throws_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value) values (pg_temp.metric(3), '2026-10-26', 7) $$,
+  '42501', null, 'writing to another tenant''s metric is refused before anything about it is checked');
+select throws_ok(
+  $$ insert into public.metric_values (metric_id, period_start, value) values (gen_random_uuid(), '2026-10-26', 7) $$,
+  '42501', null, 'a metric that doesn''t exist looks the same as one you can''t write');
+select ok(not has_sequence_privilege('authenticated', 'public.metric_goal_changes_id_seq', 'usage,select,update'),
+  'nobody signed in uses the goal history''s sequence');
+select pg_temp.sign_in('a1');
+
 -- Goals over time ---------------------------------------------------------------------------
+select set_config('genesis.today', '2026-10-28', true);
 select lives_ok(
   $$ update public.metrics set goal_value = 60 where id = pg_temp.metric(1) $$,
   'changing a goal');
+select is((select until_period from public.metric_goal_changes where metric_id = pg_temp.metric(1)), '2026-10-26'::date,
+  'the old goal applies until the period that contains the tenant''s today');
 select is((select count(*)::int from public.metric_goal_changes where metric_id = pg_temp.metric(1)), 1,
   'the old goal is kept');
 select is((select goal_value from public.metric_values_with_goal where metric_id = pg_temp.metric(1) and period_start = '2026-10-19'), 50::numeric,

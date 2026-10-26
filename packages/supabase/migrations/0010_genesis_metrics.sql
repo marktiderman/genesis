@@ -16,11 +16,15 @@
 --                             organization_id uuid, action text) returns boolean
 -- Without them nobody signed in reads or writes. The service role (a sync job) isn't limited.
 --
--- Periods: a value's period_start is the first day of its period (a day, the week's first day,
--- the month's, the quarter's or the year's). Which day starts a week is the app's choice (see
--- genesis-core/dates); this file doesn't check it, it only keeps one value per metric and period.
+-- Periods: a value's period_start is the first day of its period: any day for daily, a Monday
+-- for weekly, the first of a month for monthly, quarterly and annual (any month, so a fiscal year
+-- works). The database refuses any other day, so a period holds one value. The unit type and the
+-- cadence are fixed once a metric has values.
 --
 -- Goals change over time. Changing a metric's goal records the old one in metric_goal_changes,
+-- as applying to every period before the one that contains today. "Today" is the tenant's day
+-- when the app sets `genesis.today` for the transaction (from genesis-core/dates), else the
+-- database's.
 -- and metric_values_with_goal shows each value against the goal in effect for its period: the
 -- value's own override, else the goal recorded for that period, else the metric's current goal.
 --
@@ -170,6 +174,58 @@ create index metric_goal_changes_changed_by_idx on public.metric_goal_changes (c
 
 -- Guards ---------------------------------------------------------------------------------------
 
+-- Whether the caller is a signed-in person (not server code or a migration), from the request's
+-- role, so it holds inside security definer functions too.
+create or replace function private.genesis_metrics_caller_is_person()
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') = 'authenticated'
+$$;
+
+-- The first day of the period a day falls in, for a cadence. Weeks start on Monday. Quarters and
+-- years start on the first of a month (any month, for a fiscal year).
+create or replace function private.genesis_metrics_period_ok(cadence text, period_start date)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select case cadence
+    when 'daily' then true
+    when 'weekly' then extract(isodow from period_start) = 1
+    else extract(day from period_start) = 1
+  end
+$$;
+
+-- "Today" for goal changes: the tenant's own day when the app sets it for the transaction
+-- (select set_config('genesis.today', '2026-10-26', true), from genesis-core/dates in the
+-- tenant's time zone), else the database's day.
+create or replace function private.genesis_metrics_today()
+returns date
+language sql
+stable
+set search_path = ''
+as $$
+  select coalesce(nullif(current_setting('genesis.today', true), '')::date, current_date)
+$$;
+
+-- The first day of the period that contains a day.
+create or replace function private.genesis_metrics_period_of(cadence text, day date)
+returns date
+language sql
+immutable
+set search_path = ''
+as $$
+  select case cadence
+    when 'daily' then day
+    when 'weekly' then (day - ((extract(isodow from day)::int) - 1))
+    else date_trunc('month', day)::date
+  end
+$$;
+
 -- Security definer so the goal history is written whoever changes the goal (the history table
 -- takes no direct writes).
 create or replace function private.genesis_metrics_guard()
@@ -179,34 +235,46 @@ security definer
 set search_path = ''
 as $$
 begin
-  if tg_op = 'UPDATE' then
+  if tg_op = 'INSERT' then
+    if private.genesis_metrics_caller_is_person() then
+      new.created_by := auth.uid();
+    end if;
+    return new;
+  end if;
+
+  if private.genesis_metrics_caller_is_person() then
     if new.tenant_id is distinct from old.tenant_id
        or new.person_id is distinct from old.person_id
        or new.team_id is distinct from old.team_id
        or new.organization_id is distinct from old.organization_id then
       raise exception 'A metric''s tenant and owner never change' using errcode = '22023';
     end if;
-    if new.unit_type is distinct from old.unit_type
-       and exists (select 1 from public.metric_values v where v.metric_id = old.id and v.value is not null) then
-      raise exception 'A metric''s unit type is fixed once it has values' using errcode = '22023';
-    end if;
-    if (new.goal_direction, new.goal_value, new.goal_max) is distinct from (old.goal_direction, old.goal_value, old.goal_max) then
-      insert into public.metric_goal_changes (metric_id, tenant_id, person_id, team_id, organization_id,
-                                              until_period, goal_direction, goal_value, goal_max)
-      values (old.id, old.tenant_id, old.person_id, old.team_id, old.organization_id,
-              current_date, old.goal_direction, old.goal_value, old.goal_max);
-    end if;
-    new.updated_at := now();
+    new.created_by := old.created_by;
   end if;
+  if (new.unit_type is distinct from old.unit_type or new.cadence is distinct from old.cadence)
+     and exists (select 1 from public.metric_values v where v.metric_id = old.id) then
+    raise exception 'A metric''s unit type and cadence are fixed once it has values' using errcode = '22023';
+  end if;
+  if (new.goal_direction, new.goal_value, new.goal_max) is distinct from (old.goal_direction, old.goal_value, old.goal_max) then
+    -- The old goal applied to every period before the one that contains today.
+    insert into public.metric_goal_changes (metric_id, tenant_id, person_id, team_id, organization_id,
+                                            until_period, goal_direction, goal_value, goal_max, changed_by)
+    values (old.id, old.tenant_id, old.person_id, old.team_id, old.organization_id,
+            private.genesis_metrics_period_of(old.cadence, private.genesis_metrics_today()),
+            old.goal_direction, old.goal_value, old.goal_max, auth.uid());
+  end if;
+  new.updated_at := now();
   return new;
 end;
 $$;
 
 create trigger metrics_guard
-  before update on public.metrics
+  before insert or update on public.metrics
   for each row execute function private.genesis_metrics_guard();
 
--- A value's tenant and owner come from its metric, always.
+-- A value's tenant and owner come from its metric, always. A signed-in writer who may not write
+-- the metric is refused before anything about the metric is checked, so errors reveal nothing
+-- about other tenants' metrics.
 create or replace function private.genesis_metric_values_guard()
 returns trigger
 language plpgsql
@@ -219,14 +287,29 @@ begin
   if tg_op = 'UPDATE' and new.metric_id is distinct from old.metric_id then
     raise exception 'A value never moves to another metric' using errcode = '22023';
   end if;
-  select mt.tenant_id, mt.person_id, mt.team_id, mt.organization_id, mt.unit_type
+  select mt.tenant_id, mt.person_id, mt.team_id, mt.organization_id, mt.unit_type, mt.cadence
     into m from public.metrics mt where mt.id = new.metric_id;
+  if private.genesis_metrics_caller_is_person()
+     and (m.tenant_id is null
+          or not private.genesis_metrics_can_write(m.tenant_id, m.person_id, m.team_id, m.organization_id)) then
+    raise exception 'permission denied for table metric_values' using errcode = '42501';
+  end if;
   new.tenant_id := m.tenant_id;
   new.person_id := m.person_id;
   new.team_id := m.team_id;
   new.organization_id := m.organization_id;
+  if not private.genesis_metrics_period_ok(m.cadence, new.period_start) then
+    raise exception 'A % value starts on its period''s first day', m.cadence using errcode = '22023';
+  end if;
   if m.unit_type = 'yes_no' and new.value is not null and new.value not in (0, 1) then
     raise exception 'A yes or no metric takes 1 (yes) or 0 (no)' using errcode = '22023';
+  end if;
+  if private.genesis_metrics_caller_is_person() then
+    if tg_op = 'INSERT' then
+      new.entered_by := auth.uid();
+    else
+      new.entered_by := old.entered_by;
+    end if;
   end if;
   if tg_op = 'UPDATE' then
     new.updated_at := now();
@@ -253,7 +336,9 @@ begin
   if auth.uid() is null or to_regprocedure('private.genesis_readable_owners(uuid)') is null then
     return;
   end if;
-  return query execute 'select r.tenant_id, r.owner_id from private.genesis_readable_owners($1) r' using auth.uid();
+  return query execute 'select r.tenant_id::uuid, r.owner_id::uuid from private.genesis_readable_owners($1) r' using auth.uid();
+exception when others then
+  return;
 end;
 $$;
 
@@ -271,13 +356,19 @@ begin
      or to_regprocedure('private.genesis_owner_can(uuid,uuid,uuid,uuid,uuid,text)') is null then
     return false;
   end if;
-  execute 'select private.genesis_owner_can($1, $2, $3, $4, $5, ''write'')'
+  execute 'select (private.genesis_owner_can($1, $2, $3, $4, $5, ''write''))::boolean'
     into allowed using tenant, auth.uid(), person, team, organization;
   return coalesce(allowed, false);
+exception when others then
+  return false;
 end;
 $$;
 
 revoke execute on function private.genesis_metrics_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_caller_is_person() from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_period_ok(text, date) from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_today() from public, anon, authenticated;
+revoke execute on function private.genesis_metrics_period_of(text, date) from public, anon, authenticated;
 revoke execute on function private.genesis_metric_values_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_metrics_readable() from public, anon;
 revoke execute on function private.genesis_metrics_can_write(uuid, uuid, uuid, uuid) from public, anon;
@@ -289,7 +380,9 @@ alter table public.metric_values enable row level security;
 alter table public.metric_goal_changes enable row level security;
 
 create policy metrics_read on public.metrics for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_metrics_readable() r));
+  using (exists (select 1 from private.genesis_metrics_readable() r
+                 where r.tenant_id = metrics.tenant_id
+                   and r.owner_id = coalesce(metrics.person_id, metrics.team_id, metrics.organization_id)));
 create policy metrics_insert on public.metrics for insert to authenticated
   with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
 create policy metrics_update on public.metrics for update to authenticated
@@ -299,7 +392,9 @@ create policy metrics_delete on public.metrics for delete to authenticated
   using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
 
 create policy metric_values_read on public.metric_values for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_metrics_readable() r));
+  using (exists (select 1 from private.genesis_metrics_readable() r
+                 where r.tenant_id = metric_values.tenant_id
+                   and r.owner_id = coalesce(metric_values.person_id, metric_values.team_id, metric_values.organization_id)));
 -- The values' owner columns are filled by the guard before the check runs.
 create policy metric_values_insert on public.metric_values for insert to authenticated
   with check (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
@@ -310,11 +405,14 @@ create policy metric_values_delete on public.metric_values for delete to authent
   using (private.genesis_metrics_can_write(tenant_id, person_id, team_id, organization_id));
 
 create policy metric_goal_changes_read on public.metric_goal_changes for select to authenticated
-  using ((tenant_id, coalesce(person_id, team_id, organization_id)) in (select r.tenant_id, r.owner_id from private.genesis_metrics_readable() r));
+  using (exists (select 1 from private.genesis_metrics_readable() r
+                 where r.tenant_id = metric_goal_changes.tenant_id
+                   and r.owner_id = coalesce(metric_goal_changes.person_id, metric_goal_changes.team_id, metric_goal_changes.organization_id)));
 
 revoke all on public.metrics, public.metric_values, public.metric_goal_changes from public, anon, authenticated;
 grant select, insert, update, delete on public.metrics, public.metric_values to authenticated;
 grant select on public.metric_goal_changes to authenticated;
+revoke all on sequence public.metric_goal_changes_id_seq from public, anon, authenticated;
 grant all on public.metrics, public.metric_values, public.metric_goal_changes to service_role;
 
 -- Each value against the goal in effect for its period ----------------------------------------
