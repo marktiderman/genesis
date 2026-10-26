@@ -944,7 +944,7 @@ export const features = defineFeatures({
     ],
     reviewedAt,
     links: {
-      code: ["packages/supabase/migrations/0007_genesis_feature_registry.sql", "packages/supabase/src/feature-registry.ts"],
+      code: ["packages/supabase/migrations/0008_genesis_feature_registry.sql", "packages/supabase/src/feature-registry.ts"],
       docs: ["docs/adr/0001-one-feature-gate.md", "packages/supabase/README.md"],
     },
   },

@@ -591,7 +591,7 @@ the same switch and reason again changes nothing, not even who and when.
 
 ## The feature registry in the database (the feature-mirror block)
 
-Migration `0007_genesis_feature_registry.sql` (needs 0004) gives the feature gate its rows. Why it works this
+Migration `0008_genesis_feature_registry.sql` (needs 0004) gives the feature gate its rows. Why it works this
 way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
 - **The mirror.** `features` and `feature_flags` copy `features.json`, written only by `sync_feature_registry`

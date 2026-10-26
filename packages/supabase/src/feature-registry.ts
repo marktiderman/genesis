@@ -1,6 +1,6 @@
 /**
  * The feature registry in the database: the client half of
- * `migrations/0007_genesis_feature_registry.sql`. The server syncs the code
+ * `migrations/0008_genesis_feature_registry.sql`. The server syncs the code
  * registry on deploy; anyone building the gate's snapshot reads a tenant's
  * runtime state in one call.
  */

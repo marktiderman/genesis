@@ -99,8 +99,8 @@ export const featureMirrorBlock = defineBlock({
     migrations: [
       {
         package: PACKAGE,
-        file: "migrations/0007_genesis_feature_registry.sql",
-        test: "migrations/tests/0007_genesis_feature_registry.test.sql",
+        file: "migrations/0008_genesis_feature_registry.sql",
+        test: "migrations/tests/0008_genesis_feature_registry.test.sql",
       },
     ],
     privacy: {

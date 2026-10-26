@@ -2152,7 +2152,7 @@
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
-          "packages/supabase/migrations/0007_genesis_feature_registry.sql",
+          "packages/supabase/migrations/0008_genesis_feature_registry.sql",
           "packages/supabase/src/feature-registry.ts"
         ],
         "docs": [

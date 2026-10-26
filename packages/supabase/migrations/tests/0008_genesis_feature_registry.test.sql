@@ -1,5 +1,5 @@
 -- @feat:feature-mirror
--- pgTAP test for 0007_genesis_feature_registry.sql (needs 0004_genesis_tenant_features.sql).
+-- pgTAP test for 0008_genesis_feature_registry.sql (needs 0004_genesis_tenant_features.sql).
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, tenants, hooks and registry rows and rolls everything back.
 -- If your app already has the hooks, they are replaced inside this transaction only.

@@ -38,7 +38,7 @@
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
 -- (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
 --
--- Verify: the pgTAP test beside this file (`tests/0007_genesis_feature_registry.test.sql`).
+-- Verify: the pgTAP test beside this file (`tests/0008_genesis_feature_registry.test.sql`).
 
 create schema if not exists private;
 
