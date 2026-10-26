@@ -6,14 +6,14 @@
 //   - a list section → an embedded NativeResourceView of the child view, filtered by the row;
 //   - a settings section → inset grouped settings rows, saving only its listed keys, a zero-row
 //     save shown inline as a refusal;
-//   - readiness → a group of checks, each with its chip tone.
+//   - readiness → the web's summary chip (core's readinessChip), then the checks while any is unmet.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useDataProvider, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type { ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { readinessChip, type ReadinessLabels, type ResourceWorkspace as Workspace, type WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -171,6 +171,8 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
   slots?: Partial<Record<string, ReactNode>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
+  /** The readiness chip's words (the web's `readinessChip` labels). */
+  readinessLabels?: ReadinessLabels;
   messages?: Partial<NativeResourceWorkspaceMessages>;
   testID?: string;
 }
@@ -184,7 +186,7 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
  * ```
  */
 export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResourceWorkspaceProps<T>) {
-  const { workspace, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
+  const { workspace, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, readinessLabels, messages, testID = "native-resource-workspace" } = props;
   const words = { ...defaultNativeResourceWorkspaceMessages, ...messages };
   const colors = useThemeRoles();
   const queryClient = useQueryClient();
@@ -195,6 +197,8 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
   const activeId = section ?? local ?? (many ? undefined : sections[0]?.id);
   const active = activeId ? workspace.section(activeId) : undefined;
   const readiness = workspace.readinessFor(record);
+  const summary = workspace.readinessSummary(record);
+  const chip = summary ? readinessChip(summary, readinessLabels) : null;
 
   const choose = (id: string) => {
     if (many && onOpenSection) return onOpenSection(id);
@@ -205,7 +209,14 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
   const top = (
     <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
       {switcher}
-      {readiness.length ? (
+      {chip ? (
+        <View style={{ flexDirection: "row" }}>
+          <NativeBadge testID={`${testID}-readiness`} variant={badgeVariant(chip.tone)}>
+            {chip.label}
+          </NativeBadge>
+        </View>
+      ) : null}
+      {readiness.some((r) => !r.ok) ? (
         <Group testID={`${testID}-checks`} title={words.checks}>
           {readiness.map((r, i) => (
             <Cell key={r.title} last={i === readiness.length - 1}>

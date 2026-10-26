@@ -130,9 +130,18 @@ describe("NativeResourceWorkspace", () => {
     });
     const control = screen.getByTestId("native-resource-workspace-sections");
     expect(within(control).getByTestId("native-resource-workspace-sections-option-settings")).toBeTruthy();
+    expect(screen.getByTestId("native-resource-workspace-readiness").textContent).toBe("1 problem to fix");
     expect(screen.getByTestId("native-resource-workspace-check-0-chip").textContent).toBe("To do");
     expect(screen.getByText("Add the website.")).toBeTruthy();
     expect(screen.getByTestId("native-resource-workspace-check-1-chip").textContent).toBe("Done");
+  });
+
+  it("shows the summary chip alone once every check is met", () => {
+    render(<NativeResourceWorkspace workspace={workspace} row={{ ...brand, website: "https://x.example" }} section="activity" readinessLabels={{ ready: "Ready to go" }} />, {
+      wrapper: wrap(provider()),
+    });
+    expect(screen.getByTestId("native-resource-workspace-readiness").textContent).toBe("Ready to go");
+    expect(screen.queryByTestId("native-resource-workspace-checks")).toBeNull();
   });
 
   it("pushes sections when there are more than four", () => {

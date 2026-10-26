@@ -19,7 +19,7 @@ import { Chip } from "../../resource/chip";
 import { ReadinessChip } from "../../resource/ReadinessChip";
 import { ResourceHeader } from "../../resource/ResourceHeader";
 import { SettingsSection } from "../../resource/ResourceSettingsPage";
-import { readinessOf, type ReadinessLabels } from "../../resource/status";
+import type { ReadinessLabels } from "../../resource/status";
 import { Alert, AlertDescription } from "../../ui/alert";
 import {
   AlertDialog,
@@ -104,7 +104,7 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
     else void action.fire(a);
   };
 
-  const findings = readiness.filter((r) => !r.ok).map((r) => ({ level: r.tone === "danger" ? ("error" as const) : ("warning" as const) }));
+  const summary = workspace.readinessSummary(record);
   const active = workspace.section(section);
 
   return (
@@ -129,9 +129,9 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
           ))}
         />
       </AppShellPageHeader>
-      {workspace.hasReadiness ? (
+      {summary ? (
         <AppShellSubNavEnd>
-          <ReadinessChip readiness={readinessOf(findings)} labels={readinessLabels} onClick={() => setShowChecks((v) => !v)} />
+          <ReadinessChip readiness={summary} labels={readinessLabels} onClick={() => setShowChecks((v) => !v)} />
         </AppShellSubNavEnd>
       ) : null}
 

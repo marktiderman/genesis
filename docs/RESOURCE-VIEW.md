@@ -351,7 +351,10 @@ export const brandWorkspace = defineWorkspace(brandsView, {
   is a list, settings or a slot (never two), and sections don't nest (no workspace inside one).
 - **Helpers** the renderers share: `headerFor(row)` (the summary plus actions with their guards),
   `settingsFields(id?)` (the view's edit form, narrowed), `settingsPatch(id, values)` (only the
-  listed keys), `listFilter(id, row)` and `readinessFor(row)` (chip tones only).
+  listed keys), `listFilter(id, row)`, `readinessFor(row)` (chip tones only) and
+  `readinessSummary(row)` for core's `readinessChip`, which web and native both draw.
+- **List sections** pass `listFilter(id, row)` as the child list's `filter`, which also fills
+  those fields, hidden, on create.
 - **Web** `<ResourceWorkspace workspace row section sectionHref />`: the header in
   `AppShellPageHeader` through `ResourceHeader` (a `switcher` in its leading area), sections as
   the shell's tabs through `useAppShellSubNav`, list sections as embedded `ResourceView`, settings
@@ -359,7 +362,7 @@ export const brandWorkspace = defineWorkspace(brandsView, {
 - **Native** `<NativeResourceWorkspace workspace row />` with
   `getNativeResourceWorkspaceStackOptions` for the title and the header menu: up to four sections
   as a segmented control, more as pushed rows, list sections as embedded `NativeResourceView`,
-  settings as inset grouped rows.
+  settings as inset grouped rows, readiness as the same summary chip.
 - **Saving** sends only the section's changed, listed keys. A save that matches no rows is a
   refusal, shown inline.
 

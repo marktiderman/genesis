@@ -5,6 +5,7 @@
 
 import type { DataRow, ResourceContract } from "../schema/types";
 import { ViewDefinitionError } from "./define-view";
+import { readinessOf, type Readiness } from "./readiness";
 import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, ViewTone } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a child list can be any resource
@@ -111,6 +112,11 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
   listFilter(sectionId: string, row: Row): WorkspaceFilter;
   /** The readiness checks for this row, tones resolved; empty without `readiness`. */
   readinessFor(row: Row): readonly ResolvedReadinessItem[];
+  /**
+   * The checks in one chip's terms (`readinessOf`): an unmet `danger` check is a problem, any
+   * other unmet check one to look at. `null` without `readiness`. Draw it with `readinessChip`.
+   */
+  readinessSummary(row: Row): Readiness | null;
 }
 
 const WORKSPACE = Symbol.for("genesis.resource-workspace");
@@ -309,5 +315,9 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
       return Object.freeze({ ...filter(row) });
     },
     readinessFor,
+    readinessSummary: (row: Row) =>
+      readiness
+        ? readinessOf(readinessFor(row).filter((r) => !r.ok).map((r) => ({ level: r.tone === "danger" ? ("error" as const) : ("warning" as const) })))
+        : null,
   }) as ResourceWorkspace<C, Row>;
 }

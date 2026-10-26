@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { defineView, defineWorkspace, isWorkspace, ViewDefinitionError } from "../resource-view";
+import { defineView, defineWorkspace, isWorkspace, readinessChip, readinessOf, ViewDefinitionError } from "../resource-view";
 import { defineResource } from "../schema/types";
 
 type Brand = {
@@ -128,7 +128,11 @@ describe("defineWorkspace", () => {
       readiness: () => [{ title: "Odd", ok: true, tone: "purple" as never }],
     });
     expect(() => odd.readinessFor(row)).toThrow(/isn't a chip tone/);
+    expect(workspace.readinessSummary(row)).toEqual({ state: "problems", count: 1 });
+    expect(workspace.readinessSummary({ ...row, public: true })).toEqual({ state: "warnings", count: 1 });
+    expect(workspace.readinessSummary({ ...row, public: true, website: "https://x.example" })).toEqual({ state: "ready", count: 0 });
     expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessFor(row)).toEqual([]);
+    expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessSummary(row)).toBeNull();
   });
 });
 
@@ -214,5 +218,16 @@ describe("defineWorkspace checks", () => {
   it("needs sections", () => {
     expect(problemsOf(() => defineWorkspace(brandsView, { sections: [] }))).toContain("sections is empty");
     expect(problemsOf(() => defineWorkspace(brandsView, {} as never))).toContain("sections isn't a list");
+  });
+});
+
+describe("readiness in core", () => {
+  it("readinessOf and readinessChip give the same words as before", () => {
+    expect(readinessOf([])).toEqual({ state: "ready", count: 0 });
+    expect(readinessOf([{ level: "error" }, { level: "warning" }])).toEqual({ state: "problems", count: 1 });
+    expect(readinessOf([{ level: "warning", code: "none" }], { emptyCode: "none" })).toEqual({ state: "empty", count: 0 });
+    expect(readinessOf([{ level: "warning" }], { pending: true })).toEqual({ state: "pending", count: 0 });
+    expect(readinessChip({ state: "problems", count: 2 })).toEqual({ label: "2 problems to fix", tone: "danger" });
+    expect(readinessChip({ state: "ready", count: 0 }, { ready: "Ready to send" })).toEqual({ label: "Ready to send", tone: "success" });
   });
 });
