@@ -120,6 +120,46 @@ The flag scan ignores comments and test files. List the flags runtime itself (th
 
 The CLI loads TypeScript itself, so the registry needs no build step. Keep its imports to packages, with no path aliases.
 
+## The gate
+
+`featureOn(registry, context, id)` answers "is this feature on here?" the same way everywhere. Checks
+run in a fixed order and the first "no" wins: **status** (beta, live or deprecated), **platform**, **tenant**
+(switched off), **flag** (each boolean release flag must be exactly `true`) and last **entitlement** (for
+`access: { plan }`), so an upgrade prompt only appears when paying is the one thing missing. The answer
+carries the reason, and for a paid feature the plan that unlocks it.
+
+```ts
+import { featureOn, gateSnapshot, isSnapshotStale, requireFeature } from "@marktiderman/genesis-features/gate";
+
+const context = { platform: "web", entitlements: ["form-webhook-delivery"], off: ["library"], flags: { "sms.release": true } };
+featureOn({ features, flags }, context, "library"); // { on: false, reason: "tenant" }
+
+// Server functions refuse whatever the reason: FeatureOff has status 402 (entitlement) or 403.
+requireFeature({ features, flags }, context, "form-webhook-delivery");
+
+// The server hands the client every shipped feature's answer: plain JSON with `at` (and `version`).
+const snapshot = gateSnapshot({ features, flags }, context, { version: buildVersion });
+// A client keeps it, and replaces it when stale, after sign-in or a tenant switch, or after a refusal.
+if (isSnapshotStale(snapshot, 5 * 60_000)) refresh();
+```
+
+`/gate` has no zod, React, Node built-ins or DOM globals, so it ships to browsers, extension service workers,
+phones and edge functions. Context id sets are lists, Sets or functions (not iterators or strings). In React (web and React
+Native), `/gate/react` reads the server's snapshot:
+
+```tsx
+import { FeatureGate, FeatureGateProvider, useFeature } from "@marktiderman/genesis-features/gate/react";
+
+<FeatureGateProvider snapshot={snapshot}>
+  <FeatureGate feature="form-webhook-delivery" upsell={({ unlock }) => <Upgrade plan={unlock.plan} />}>
+    <WebhookSettings />
+  </FeatureGate>
+</FeatureGateProvider>;
+```
+
+The gate doesn't check roles: "may this person" stays with roles and row security. Why it works this
+way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
+
 ## Blocks
 
 A block is a feature an app adds whole: account, push, observability, support, updates. It is
