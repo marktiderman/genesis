@@ -153,3 +153,31 @@ export const pursuitsBlock = defineBlock({
     },
   },
 });
+
+/**
+ * The metrics block: numbers tracked over time, one value per period, with
+ * goals that change over time and a view of each value against the goal of
+ * its period. Owned like pursuits (a person, a team or the tenant), through
+ * the same app hooks.
+ *
+ * @stability Experimental
+ */
+export const metricsBlock = defineBlock({
+  id: "metrics",
+  requires: ["tenant-features"],
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0010_genesis_metrics.sql",
+        test: "migrations/tests/0010_genesis_metrics.test.sql",
+      },
+    ],
+    privacy: {
+      notes: [
+        "Stores the numbers people and teams track; a source's settings hold ids only, never secrets.",
+      ],
+    },
+  },
+});
