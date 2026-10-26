@@ -63,6 +63,8 @@ import { awaySummary } from "../core/availability";
 import type { ChatAttachmentSlotProps } from "./attachments";
 import { MessageRow, plainText } from "./bubble";
 import { ChatAwayBanner } from "./availability";
+import type { LinkPreviewImages } from "./cards";
+import { ChatErrorBoundary } from "./error-boundary";
 import { ChatComposer, type ChatComposerHandle } from "./composer";
 import type { ResolveUser } from "./format";
 import { ChatSearch } from "./search";
@@ -140,8 +142,12 @@ export interface ChatThreadProps {
   scheduling?: boolean;
   /** The away banner. Default true. */
   availability?: boolean;
-  /** Where the emoji picker loads its data from (self-host emojibase-data to skip the CDN). */
+  /** Where the emoji picker loads its data from (self-hosted emojibase-data). Without it there is no full picker; the quick reactions stay. */
   emojibaseUrl?: string;
+  /** Link preview images: `"off"` by default, `"proxy"` through `linkPreviewProxyUrl`, or `"direct"` from the linked site (which then sees readers' IPs). */
+  linkPreviewImages?: LinkPreviewImages;
+  /** Your image proxy for `linkPreviewImages: "proxy"`: the URL to load for an og:image. */
+  linkPreviewProxyUrl?: (url: string) => string | null | undefined;
   slots?: ChatThreadSlots;
   className?: string;
 }
@@ -210,6 +216,8 @@ export function ChatThread({
   scheduling = true,
   availability = true,
   emojibaseUrl,
+  linkPreviewImages = "off",
+  linkPreviewProxyUrl,
   slots,
   className,
 }: ChatThreadProps) {
@@ -449,6 +457,8 @@ export function ChatThread({
     attachmentKinds,
     previews,
     emojibaseUrl,
+    linkPreviewImages,
+    linkPreviewProxyUrl,
     highlightedId,
     editingId,
     reply: (m) => {
@@ -558,7 +568,15 @@ export function ChatThread({
                   <span className="h-px flex-1 bg-primary/40" />
                 </div>
               ) : null}
-              <MessageRow item={item} startsGroup={startsGroup(items, i)} />
+              <ChatErrorBoundary
+                fallback={
+                  <p className="px-4 py-1 text-xs italic text-muted-foreground" role="note" data-testid="genesis-chat-row-error">
+                    This message couldn't be shown.
+                  </p>
+                }
+              >
+                <MessageRow item={item} startsGroup={startsGroup(items, i)} />
+              </ChatErrorBoundary>
             </div>
           );
         })}

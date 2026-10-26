@@ -175,7 +175,9 @@ describe("working hours", () => {
   it("treats no hours as always, and ignores bad values", () => {
     expect(isWithinWorkingHours(null, "UTC", new Date())).toBe(true);
     expect(isWithinWorkingHours({}, "UTC", new Date())).toBe(true);
-    expect(isWithinWorkingHours({ mon: [["nine", "five"]] }, "UTC", new Date("2026-03-02T10:00:00Z"))).toBe(false);
+    // Bad ranges are dropped; a day left with none is no hours at all (never a false "outside hours").
+    expect(isWithinWorkingHours({ mon: [["nine", "five"]] }, "UTC", new Date("2026-03-02T10:00:00Z"))).toBe(true);
+    expect(isWithinWorkingHours({ mon: [["nine", "five"], ["11:00", "12:00"]] }, "UTC", new Date("2026-03-02T10:00:00Z"))).toBe(false);
   });
 
   it("summarises hours, grouping days alike", () => {

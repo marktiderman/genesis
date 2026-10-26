@@ -122,7 +122,8 @@ describe("hooks for 0002", () => {
     await waitFor(() => expect(result.current.m2?.[0]?.title).toBe("A post"));
     expect(result.current.m1).toEqual([]);
     expect(result.current.nope).toEqual([]);
-    expect(client.calls.find((c) => c.method === "linkPreviewsFor")!.args[0]).toEqual(["m1", "m2", "nope"]);
+    // One read per message.
+    expect(client.calls.filter((c) => c.method === "linkPreviewsFor").map((c) => c.args[0]).sort()).toEqual([["m1"], ["m2"], ["nope"]]);
   });
 
   it("signals recording-video while a video records", async () => {

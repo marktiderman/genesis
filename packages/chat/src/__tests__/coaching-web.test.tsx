@@ -247,12 +247,12 @@ describe("link previews", () => {
   const preview = { url: "https://example.test/a", status: "ok" as const, title: "A title", description: "<b>not html</b>", siteName: "Example", fetchedAt: "t" };
 
   it("draws an https image, and never a non-https one, and never HTML", () => {
-    const { rerender } = render(<ChatLinkPreview preview={{ ...preview, imageUrl: "https://example.test/i.png" }} />);
+    const { rerender } = render(<ChatLinkPreview images="direct" preview={{ ...preview, imageUrl: "https://example.test/i.png" }} />);
     expect(screen.getByTestId("genesis-chat-link-preview-image").getAttribute("src")).toBe("https://example.test/i.png");
     expect(screen.getByText("<b>not html</b>")).toBeTruthy();
     expect(screen.getByTestId("genesis-chat-link-preview").querySelector("b")).toBeNull();
     for (const bad of ["http://example.test/i.png", "javascript:alert(1)", "data:image/png;base64,AAAA", "//example.test/i.png"]) {
-      rerender(<ChatLinkPreview preview={{ ...preview, imageUrl: bad }} />);
+      rerender(<ChatLinkPreview images="direct" preview={{ ...preview, imageUrl: bad }} />);
       expect(screen.queryByTestId("genesis-chat-link-preview-image")).toBeNull();
     }
     rerender(<ChatLinkPreview preview={{ ...preview, url: "javascript:alert(1)", imageUrl: null }} />);

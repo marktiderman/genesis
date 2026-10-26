@@ -72,6 +72,8 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const urlRef = useRef<string | null>(null);
+  // Bumped by reset (closing, unmounting): a camera that answers after that is turned off at once.
+  const session = useRef(0);
   const tick = useRef(onTick);
   tick.current = onTick;
 
@@ -96,15 +98,23 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
       setError("This browser can't record video.");
       return false;
     }
+    const token = session.current;
     setState("requesting");
     setError(null);
     try {
       const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: true });
+      if (token !== session.current) {
+        // Closed (or unmounted, or opened again) while the browser asked: never keep this camera on.
+        s.getTracks().forEach((t) => t.stop());
+        return false;
+      }
+      if (streamRef.current && streamRef.current !== s) streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = s;
       setStream(s);
       setState("previewing");
       return true;
     } catch (e) {
+      if (token !== session.current) return false;
       const denied = e instanceof Error && (e.name === "NotAllowedError" || e.name === "SecurityError");
       setState(denied ? "denied" : "error");
       setError(denied ? "Allow the camera and microphone in your browser's settings to record a video." : "The camera couldn't start.");
@@ -125,10 +135,19 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
     try {
       r = mime ? new MediaRecorder(s, { mimeType: mime, videoBitsPerSecond: 2_500_000 }) : new MediaRecorder(s);
     } catch {
+      stopStream();
       setState("error");
       setError("This browser can't record video.");
       return;
     }
+    r.onerror = () => {
+      stopTimer();
+      r.onstop = null;
+      recorder.current = null;
+      stopStream();
+      setState("error");
+      setError("The recording stopped. Try again.");
+    };
     releaseUrl();
     setRecording(null);
     chunks.current = [];
@@ -168,8 +187,17 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
     await open();
   }, [open]);
 
+  /**
+   * The take's object URL now belongs to whoever it was handed to (the outbox frees it once the
+   * message lands): reset no longer revokes it.
+   */
+  const handOff = useCallback(() => {
+    urlRef.current = null;
+  }, []);
+
   /** Stops everything and forgets the take. */
   const reset = useCallback(() => {
+    session.current += 1;
     stopTimer();
     const r = recorder.current;
     if (r && r.state !== "inactive") {
@@ -187,7 +215,7 @@ export function useVideoRecorder({ maxMs, onTick }: UseVideoRecorderOptions) {
 
   useEffect(() => () => reset(), [reset]);
 
-  return { state, error, elapsedMs, maxMs, stream, recording, open, start, stop, retake, reset };
+  return { state, error, elapsedMs, maxMs, stream, recording, open, start, stop, retake, reset, handOff };
 }
 
 export type VideoRecorder = ReturnType<typeof useVideoRecorder>;
@@ -208,9 +236,16 @@ export function videoFile(rec: VideoRecording): LocalFile {
  * the URL it returns) and gives back the attachment to send, pending until Mux's webhook marks
  * it ready.
  */
-export async function uploadVideo(videoUpload: ChatVideoUpload, conversationId: string, rec: Pick<VideoRecording, "blob" | "contentType" | "durationMs" | "name">, fetchImpl: typeof fetch = fetch): Promise<AttachmentInput> {
+export async function uploadVideo(
+  videoUpload: ChatVideoUpload,
+  conversationId: string,
+  rec: Pick<VideoRecording, "blob" | "contentType" | "durationMs" | "name">,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal,
+): Promise<AttachmentInput> {
   const upload = await videoUpload.create(conversationId);
-  const res = await fetchImpl(upload.url, { method: "PUT", body: rec.blob, headers: { "Content-Type": rec.contentType } });
+  signal?.throwIfAborted?.();
+  const res = await fetchImpl(upload.url, { method: "PUT", body: rec.blob, headers: { "Content-Type": rec.contentType }, signal });
   if (!res.ok) throw new Error(`The video didn't upload (${res.status})`);
   return {
     kind: "video",
@@ -259,37 +294,52 @@ export function ChatVideoRecorder({ open, onOpenChange, conversationId, maxMs, s
   const rec = useVideoRecorder({ maxMs, onTick });
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const upload = useRef<AbortController | null>(null);
   const { open: openCamera, reset } = rec;
 
   useEffect(() => {
     if (open) void openCamera();
     else reset();
   }, [open, openCamera, reset]);
+  // Closing or unmounting stops an upload still going.
+  useEffect(() => () => upload.current?.abort(), []);
 
   const submit = async () => {
     const take = rec.recording;
-    if (!take) return;
+    if (!take || upload.current) return;
+    const controller = new AbortController();
+    upload.current = controller;
     setSending(true);
     setSendError(null);
     try {
       if (videoUpload) {
-        const attachment = await uploadVideo(videoUpload, conversationId, take, fetchImpl);
+        const attachment = await uploadVideo(videoUpload, conversationId, take, fetchImpl, controller.signal);
+        if (controller.signal.aborted) return;
         await send({ ...extra, body: "", attachments: [attachment] });
       } else {
+        // The outbox shows the take while it uploads and frees its URL once it lands.
         await send({ ...extra, body: "" }, [videoFile(take)]);
+        rec.handOff();
       }
       onSent?.();
       onOpenChange(false);
     } catch (e) {
-      setSendError(e instanceof Error ? e.message : "The video didn't send");
+      if (!controller.signal.aborted) setSendError(e instanceof Error ? e.message : "The video didn't send");
     } finally {
+      upload.current = null;
       setSending(false);
     }
   };
 
+  /** Closing while it uploads cancels the upload. */
+  const close = (o: boolean) => {
+    if (!o) upload.current?.abort();
+    onOpenChange(o);
+  };
+
   const recording = rec.state === "recording";
   return (
-    <Dialog open={open} onOpenChange={(o) => !sending && onOpenChange(o)}>
+    <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg" data-testid="genesis-chat-video-recorder">
         <DialogHeader>
           <DialogTitle>Record a video</DialogTitle>
@@ -321,6 +371,11 @@ export function ChatVideoRecorder({ open, onOpenChange, conversationId, maxMs, s
           {sending ? (
             <span className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/70 text-sm font-medium" role="status">
               <Spinner /> Uploading…
+              {videoUpload ? (
+                <Button type="button" variant="outline" size="sm" onClick={() => upload.current?.abort()} data-testid="genesis-chat-video-cancel-upload">
+                  Cancel upload
+                </Button>
+              ) : null}
             </span>
           ) : null}
         </div>

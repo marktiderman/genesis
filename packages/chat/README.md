@@ -142,10 +142,21 @@ const previews = useLinkPreviews(messageIds);                      // Record<mes
 `useConversation` also returns `signalRecordingVideo()` (throttled, like `signalRecording`), `loadUntil(seq)` (loads earlier pages until that message is here,
 for a search result), `accessError` and `refetchAccess` (the role check failed: offer a retry, not
 "can't post"). It catches up (messages after the newest one held) every time its live channel
-joins, the first time included, and keeps `hasEarlier` in the cached page.
+joins, the first time included, and keeps `hasEarlier` in the cached page. Catch-up pages 200 at a
+time until a short page; after 10 full pages it shows the newest page instead, with `hasEarlier`.
+Only the whole timeline marks the conversation read: a topic or thread view doesn't (the read
+place is one number per conversation, and a topic's newest message would pass unseen messages in
+other topics).
 
 `useChat()` adds `retryAll()` (call it from AppState or NetInfo on native; the web provider retries
 on `online` and once after loading the saved outbox) and `clearOutbox()` (call it on sign-out).
+`retryAll` goes through each conversation in order and stops at the first message that can't go on
+its own: one waiting for a lost file, or one the server refused (`permanent`: 42501, 22xxx, 23xxx,
+42xxx, P0001), which only a manual `retry` sends again. `clearOutbox` stops sends in flight at once:
+uploads get an aborted `signal` (the `upload` prop's third argument), and nothing posts or is saved
+afterwards, so a send can't go out under the next account. The outbox owns a file's `previewUrl`
+once queued and lets go of it (`releasePreview`, default: revoke `blob:` URLs) when the message
+lands or is discarded.
 
 `ChatProvider` takes two more props:
 
@@ -191,6 +202,12 @@ yourself in that slot:
 
 ### Web components
 
+One message can't break a thread: each row renders inside `ChatErrorBoundary` ("This message
+couldn't be shown"), an `attachment` slot that throws falls back to `GenericAttachment`, and an
+`attachmentKinds` entry is used only for its own key (never `constructor` and the like) when its
+`title` returns a string; a kind whose functions throw or return the wrong shapes gets the
+generic card. Errors go to the console.
+
 - **Topics**: `ChatThread` shows `ChatTopicBar` (All plus each topic, a lock on closed ones) when
   the conversation has topics (`showTopics` shows it before the first, for owners). Owners and
   admins get "New topic" and close or reopen. In a closed topic members see "This topic is closed".
@@ -205,12 +222,20 @@ yourself in that slot:
   it for one conversation and jumps to the message (loading earlier pages); `ChatPanel` has it
   across all (`search={false}` hides it) and opens the conversation at the message
   (`ChatThread jumpTo={{ messageId, seq }}`).
-- **Link previews**: `ChatLinkPreview` under a message with a link: plain text only, the image only
-  from an https URL, no referrer.
+- **Link previews**: `ChatLinkPreview` under a message with a link: plain text only, no referrer,
+  and **no image by default**. An og:image lives on the linked site, so loading it in readers'
+  browsers tells that site (which the sender may control) each reader's IP and when they read it.
+  `ChatThread linkPreviewImages`: `"off"` (default), `"proxy"` (loads `linkPreviewProxyUrl(url)`,
+  your own image proxy; no image without it), or `"direct"` (from the linked site, https only, if
+  you accept that). `ChatLinkPreview` takes the same as `images` and `proxyUrl`.
 - **Moderation**: the sender sees "Hidden by moderation. Only you can see it."; observers see a
   "Hidden by moderation" or "Flagged" badge.
-- **Emoji**: `ChatEmojiPicker` (frimousse) behind "+" in the reaction bar and the composer's smiley.
-  Its data comes from jsDelivr's emojibase-data; self-host it with `emojibaseUrl`.
+- **Emoji**: `ChatEmojiPicker` (frimousse) behind "+" in the reaction bar and the composer's smiley,
+  offered only when you pass `emojibaseUrl` (`ChatThread`, `ChatComposer`): host the
+  `emojibase-data` package's `en/data.json` and `en/messages.json` there (frimousse fetches
+  `${emojibaseUrl}/en/data.json`). Without it nothing is fetched and only the quick reactions show;
+  frimousse's own default, jsDelivr's unpinned `emojibase-data@latest`, is never used. If you point
+  it at a CDN instead, add that host to your CSP's `connect-src`.
 - **Video**: the composer's camera button opens `ChatVideoRecorder` (preview, a limit by role,
   retake, send). `ChatVideoPlayer` streams Mux (`https://stream.mux.com/<playbackId>.m3u8`) with
   native HLS where the browser has it and `hls.js` (an optional peer, imported only then)

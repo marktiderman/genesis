@@ -6,7 +6,7 @@
 -- People: a1 owns a group with b2 and e5 in it; c3 is outside; d4 is staff (an observer).
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(54);
+select plan(63);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c2' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat2-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -125,6 +125,19 @@ select is((select away_message from genesis_chat.availability_for(pg_temp.v('grp
 select pg_temp.sign_in('c3');
 select is((select count(*)::integer from genesis_chat.availability_for(pg_temp.v('grp'))), 0, 'someone outside sees nobody''s');
 select throws_ok($$ select genesis_chat.set_availability(null, null, 'Mars/Olympus', null) $$, '22023', null, 'a time zone must be real');
+select pg_temp.sign_in('a1');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"mon": [[9, 17]]}') $$, '22023', null, 'hours are strings');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"tue": 5}') $$, '22023', null, 'a day is a list of ranges');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"funday": [["09:00","17:00"]]}') $$, '22023', null, 'days are mon..sun');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"mon": [["9am","5pm"]]}') $$, '22023', null, 'times are HH:MM');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"mon": [["09:00"]]}') $$, '22023', null, 'a range is a pair');
+select throws_ok($$ select genesis_chat.set_availability(null, null, null, '{"mon": [["01:00","02:00"],["03:00","04:00"],["05:00","06:00"],["07:00","08:00"],["09:00","10:00"]]}') $$,
+                 '22023', null, 'at most four ranges a day');
+select lives_ok($$ select genesis_chat.set_availability('Back Monday', null, 'America/New_York', '{"mon": [["9:00","17:00"]], "fri": [["22:00","24:00"],["00:00","02:00"]]}') $$,
+                'well-formed hours are kept');
+select pg_temp.as_server();
+select throws_ok($$ update genesis_chat.availability set hours = '{"mon": [[9, 17]]}' where user_id = pg_temp.person('a1') $$, '23514', null,
+                 'the table refuses malformed hours from the server too');
 
 -- Broadcast ---------------------------------------------------------------------------------------
 
@@ -147,6 +160,9 @@ select genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'Internal:
 select pg_temp.sign_in('b2');
 select ok(exists (select 1 from genesis_chat.search_messages('lesson')), 'a member finds messages they can read');
 select ok(not exists (select 1 from genesis_chat.search_messages('pacing')), 'never an internal note');
+select genesis_chat.send_message(pg_temp.v('grp'), gen_random_uuid(), 'the word quilt beside a «fake» highlight');
+select ok((select snippet like '%«quilt»%' and snippet not like '%«fake»%' from genesis_chat.search_messages('quilt')),
+          'a message''s own « and » can''t fake a highlight');
 select pg_temp.sign_in('c3');
 select ok(not exists (select 1 from genesis_chat.search_messages('lesson')), 'someone outside finds nothing');
 
