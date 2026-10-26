@@ -35,6 +35,10 @@ export interface FieldSettings {
   label?: string;
   description?: string;
   widget?: string;
+  /** Server-owned: clients never write it. */
+  readonly?: boolean;
+  /** Left out of lists, exports and previews unless a screen asks. */
+  sensitive?: boolean;
 }
 
 /** What a table comment's `@genesis {...}` may set. */
@@ -42,6 +46,9 @@ export interface TableSettings {
   label?: string;
   labelField?: string;
   description?: string;
+  /** What one row is called ("brand"), and several when not `noun` + "s". */
+  noun?: string;
+  nounPlural?: string;
 }
 
 /** The storage type for a Postgres type name (the element type, for an array). */
