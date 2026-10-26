@@ -4,7 +4,7 @@
 -- Writes only its own users, kinds and conversations, and rolls everything back.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(5);
+select plan(6);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c3' || n)::uuid, 'authenticated', 'authenticated', 'genesis-chat3-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -42,6 +42,9 @@ select ok(not exists (select 1 from genesis_chat.search_messages('zebras')), 'so
 reset role;
 select ok(not has_function_privilege('anon', 'genesis_chat.search_messages(text, uuid, integer)', 'execute'), 'anon can''t search');
 select ok(has_function_privilege('authenticated', 'genesis_chat.search_messages(text, uuid, integer)', 'execute'), 'signed-in people can');
+
+select ok(exists (select 1 from pg_trigger where tgname = 'messages_moderation_changed' and tgrelid = 'genesis_chat.messages'::regclass),
+          'a change to a message''s moderation sends readers a live hint');
 
 select * from finish();
 rollback;

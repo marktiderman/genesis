@@ -5,6 +5,9 @@
 -- message missing. A return type can't change in place, so the function is dropped and made
 -- again, with its grants given again by name.
 --
+-- Also: any change to a message's moderation (a moderator job, an admin edit, not only
+-- moderate_message) sends readers a live hint, so a hidden message updates without a relaunch.
+--
 -- Use: `genesis add chat` copies this after 0002. Verify: tests/0003_genesis_chat_search_threads.test.sql.
 
 -- Messages (and voice or video transcripts) you can read that match `p_query`, newest first.
@@ -61,3 +64,22 @@ $$;
 
 revoke execute on function genesis_chat.search_messages(text, uuid, integer) from public, anon;
 grant execute on function genesis_chat.search_messages(text, uuid, integer) to authenticated, service_role;
+
+-- ── Moderation changes reach readers live ─────────────────────────────────────
+
+create or replace function genesis_chat.message_moderation_changed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform genesis_chat.broadcast('genesis-chat:conv:' || new.conversation_id, 'message',
+    jsonb_build_object('id', new.id, 'seq', new.seq, 'conversation_id', new.conversation_id, 'op', 'update'));
+  return null;
+end;
+$$;
+revoke execute on function genesis_chat.message_moderation_changed() from public, anon, authenticated;
+create trigger messages_moderation_changed after update of moderation on genesis_chat.messages
+  for each row when (new.moderation is distinct from old.moderation)
+  execute function genesis_chat.message_moderation_changed();

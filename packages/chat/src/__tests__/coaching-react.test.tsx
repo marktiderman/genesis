@@ -249,6 +249,22 @@ describe("review fixes in the hooks", () => {
     expect(result.current.canPost).toBe(true);
   });
 
+  it("retries every lookup of the conversation, not only access", async () => {
+    const { wrapper, client } = setup();
+    const realMembers = client.members;
+    client.members = vi.fn(async () => {
+      throw new Error("Failed to fetch");
+    });
+    const { result } = renderHook(() => useConversation("c1"), { wrapper });
+    await waitFor(() => expect(client.members).toHaveBeenCalled());
+    client.members = vi.fn(realMembers);
+    await act(async () => {
+      await result.current.refetchAccess();
+    });
+    expect(client.members).toHaveBeenCalled();
+    expect(typeof result.current.refetchConversation).toBe("function");
+  });
+
   const savedStore = (q: QueuedMessage[]) => {
     let saved = q;
     return { load: async () => saved, save: async (x: QueuedMessage[]) => void (saved = x), get: () => saved };
