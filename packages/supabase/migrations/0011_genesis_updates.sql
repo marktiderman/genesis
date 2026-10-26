@@ -180,6 +180,43 @@ create trigger status_updates_after
   after insert on public.status_updates
   for each row execute function private.genesis_status_update_after();
 
+-- When server code moves an item to another owner, its updates and requests move with it, so a
+-- former owner can't still read them.
+create or replace function private.genesis_updates_carry_owner()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  kind text := case tg_table_name when 'pursuits' then 'pursuit' when 'work_items' then 'work_item' else 'metric' end;
+begin
+  update public.status_updates u
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where u.item_kind = kind and u.item_id = new.id;
+  update public.update_requests r
+     set person_id = new.person_id, team_id = new.team_id, organization_id = new.organization_id
+   where r.item_kind = kind and r.item_id = new.id;
+  return null;
+end;
+$$;
+
+create trigger pursuits_carry_updates
+  after update of person_id, team_id, organization_id on public.pursuits
+  for each row
+  when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
+  execute function private.genesis_updates_carry_owner();
+create trigger work_items_carry_updates
+  after update of person_id, team_id, organization_id on public.work_items
+  for each row
+  when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
+  execute function private.genesis_updates_carry_owner();
+create trigger metrics_carry_updates
+  after update of person_id, team_id, organization_id on public.metrics
+  for each row
+  when ((old.person_id, old.team_id, old.organization_id) is distinct from (new.person_id, new.team_id, new.organization_id))
+  execute function private.genesis_updates_carry_owner();
+
 -- Requests: only the status moves (to cancelled, by the asker), and only the database answers.
 create or replace function private.genesis_update_requests_guard()
 returns trigger
@@ -251,6 +288,7 @@ $$;
 
 revoke execute on function private.genesis_updates_fill_item() from public, anon, authenticated;
 revoke execute on function private.genesis_status_update_after() from public, anon, authenticated;
+revoke execute on function private.genesis_updates_carry_owner() from public, anon, authenticated;
 revoke execute on function private.genesis_update_requests_guard() from public, anon, authenticated;
 revoke execute on function private.genesis_owner_readable() from public, anon;
 revoke execute on function private.genesis_updates_asked(text, uuid) from public, anon;

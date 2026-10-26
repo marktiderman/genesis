@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(32);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in tenant 1 but not the team.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -150,6 +150,13 @@ select lives_ok($$ update public.update_requests set status = 'cancelled' where 
 select throws_ok(
   $$ update public.update_requests set due_at = now() + interval '9 days' where id = pg_temp.request(2) $$,
   '22023', null, 'only a request''s status changes');
+
+-- Owner moves ------------------------------------------------------------------------------
+select pg_temp.as_server();
+select lives_ok($$ update public.pursuits set team_id = null, person_id = pg_temp.person('a1') where id = pg_temp.pursuit(1) $$,
+  'server code moves a pursuit to another owner');
+select is((select count(*)::int from public.status_updates where item_id = pg_temp.pursuit(1) and person_id is distinct from pg_temp.person('a1')), 0,
+  'its updates move with it');
 
 select * from finish();
 rollback;
