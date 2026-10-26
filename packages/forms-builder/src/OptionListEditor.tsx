@@ -92,7 +92,8 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
   const [drafts, setDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [draftCount, setDraftCount] = useState(0);
   const options = list.options;
-  const names = [...attributeNames(options), ...extraAttributes.filter((n) => !attributeNames(options).includes(n))];
+  const ownNames = attributeNames(options);
+  const names = [...ownNames, ...extraAttributes.filter((n) => !ownNames.includes(n))];
   const setOptions = (next: ChoiceOption[]) => onChange({ ...list, options: next });
   const update = (i: number, o: ChoiceOption) => setOptions(options.map((x, j) => (j === i ? o : x)));
   const move = (i: number, by: number) => {
@@ -129,7 +130,9 @@ export function OptionListEditor({ list, onChange, readOnly, className, testID }
     setNewAttribute("");
   };
   const merged = preview ? mergeOptions(options, preview.options) : options;
-  const updated = preview ? preview.options.filter((o) => options.some((x) => x.value === o.value)).length : 0;
+  // A Set, not options.some per row: an import preview of a 5000-option list re-renders per keystroke.
+  const values = preview ? new Set(options.map((o) => o.value)) : null;
+  const updated = preview && values ? preview.options.filter((o) => values.has(o.value)).length : 0;
   const added = preview ? preview.options.length - updated : 0;
   const skipped = preview ? preview.rows.filter((r) => r.problems.length) : [];
 

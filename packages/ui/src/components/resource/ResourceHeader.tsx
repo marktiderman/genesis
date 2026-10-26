@@ -2,14 +2,13 @@ import type { ReactNode } from "react";
 import {
   Breadcrumb,
   BreadcrumbItem,
-  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-  Button,
-  Separator,
-  cn,
-} from "@marktiderman/genesis-ui";
+} from "../ui/breadcrumb";
+import { Button } from "../ui/button";
+import { Separator } from "../ui/separator";
+import { cn } from "../../utils";
 import { Check, Eye, Loader2, Redo2, Rocket, Share2, TriangleAlert, Undo2 } from "lucide-react";
 import { Chip } from "./chip";
 import { SAVE_STATE_LABEL, type ChipTone, type SaveState } from "./status";
@@ -20,11 +19,11 @@ export interface ResourceHeaderProps {
   /** Shown when the title is empty. Default "Untitled". */
   untitled?: string | undefined;
   /**
-   * The breadcrumb's parent link, e.g. `<Link to="/forms">Forms</Link>`: one element, so
+   * The breadcrumb's parent link, e.g. `<Link to="/courses">Courses</Link>`: one element, so
    * the host's router renders it.
    */
   parent?: ReactNode;
-  /** The status chip, e.g. formStatusChip's "Live · version 3" or "Draft". */
+  /** The status chip, e.g. "Live · version 3" or "Draft" (forms-studio's formStatusChip makes a form's). */
   status?: { label: string; tone: ChipTone } | undefined;
   /** Where saving the draft stands; no chip when absent. */
   saveState?: SaveState | undefined;
@@ -62,7 +61,7 @@ const SAVE_TONE: Record<SaveState, ChipTone> = {
 
 /**
  * The header of a page that edits one publishable thing (a form, a course, a lesson, a
- * worksheet): the breadcrumb ("Forms › name"), the title once, its status and save-state
+ * worksheet): the breadcrumb ("Courses › name"), the title once, its status and save-state
  * chips, and on the right undo and redo, Preview, Share and Publish. Every action is the
  * host's; a button shows only when its handler is given.
  */
@@ -93,9 +92,8 @@ export function ResourceHeader({
         {parent ? (
           <Breadcrumb>
             <BreadcrumbList className="text-xs">
-              <BreadcrumbItem>
-                <BreadcrumbLink asChild>{parent}</BreadcrumbLink>
-              </BreadcrumbItem>
+              {/* The host's own link, as is: BreadcrumbLink would wrap it in a second <a>. */}
+              <BreadcrumbItem className="[&_a:hover]:text-foreground [&_a]:transition-colors">{parent}</BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem className="min-w-0">
                 <BreadcrumbPage className="truncate">{name}</BreadcrumbPage>

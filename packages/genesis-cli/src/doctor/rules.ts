@@ -21,6 +21,13 @@ export const BUILTIN_RULES = [
   "undefined-token",
   "shadowed-export",
   "version-skew",
+  "duplicate-genesis-package",
+  "peer-range-mismatch",
+  // structure
+  "hand-rolled-sub-nav",
+  "local-genesis-copy",
+  "resource-workspace",
+  "page-layout",
   // native pack
   "native-raw-primitive",
   "native-literal-color",
@@ -32,6 +39,7 @@ export const BUILTIN_RULES = [
   "migration-rls",
   "migration-definer-search-path",
   "migration-edited",
+  "migration-testing-kit",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

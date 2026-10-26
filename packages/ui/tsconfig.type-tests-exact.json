@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.type-tests.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "lib": ["ES2022", "DOM"]
+  },
+  "include": ["type-tests-exact/**/*"]
+}
