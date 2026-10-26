@@ -17,7 +17,7 @@
  * `url`, `mine`) plus the kind, its action, `run` for the app's own actions with `pending` and
  * `error`, and `fallback` (the card it would have been). A slot that throws shows the fallback.
  */
-import { useCallback, useRef, useState, type ComponentType, type ReactElement } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ComponentType, type ReactElement, type ReactNode } from "react";
 import { Linking, View } from "react-native";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
@@ -99,21 +99,35 @@ export interface CardRunState {
 
 const IDLE: CardRunState = { pending: false, error: null };
 
+/** How long a card's action may run before it reads as failed (`useCardRuns`, `cardActionTimeoutMs`). */
+export const CARD_ACTION_TIMEOUT_MS = 30_000;
+
+export interface CardRunOptions {
+  /** The error once an action threw or rejected (copy `cardActionFailed`). */
+  failedText: string;
+  /** The error once an action ran longer than `timeoutMs` (copy `cardActionTimedOut`). */
+  timedOutText?: string;
+  /** Milliseconds before a running action reads as failed; 30 s by default, 0 for never. */
+  timeoutMs?: number;
+}
+
 /**
  * Runs the app's actions for a message's cards (tick a task, answer a check-in) and keeps each
  * card's state by attachment id: `pending` until the action settles, then `error` (the copy's
  * `cardActionFailed`) if it threw or rejected. Only a promise makes a card busy; a second run
- * while one is pending is ignored.
+ * while one is pending is ignored. One that hasn't settled after `timeoutMs` (30 s) stops being
+ * busy and reads as failed (`cardActionTimedOut`); what it settles to later is ignored.
  */
-export function useCardRuns(failedText: string): { stateOf(id: string): CardRunState; run(id: string, task: () => unknown): Promise<void> } {
+export function useCardRuns(options: CardRunOptions | string): { stateOf(id: string): CardRunState; run(id: string, task: () => unknown): Promise<void> } {
+  const { failedText, timedOutText = failedText, timeoutMs = CARD_ACTION_TIMEOUT_MS } = typeof options === "string" ? { failedText: options } : options;
   const [states, setStates] = useState<Record<string, CardRunState>>({});
   const busy = useRef(new Set<string>());
   const run = useCallback(
     async (id: string, task: () => unknown) => {
       if (busy.current.has(id)) return;
-      const failed = (e: unknown) => {
+      const failed = (e: unknown, text = failedText) => {
         if (typeof __DEV__ !== "undefined" && __DEV__) console.warn("[genesis-chat] an attachment card's action failed:", e);
-        setStates((s) => ({ ...s, [id]: { pending: false, error: failedText } }));
+        setStates((s) => ({ ...s, [id]: { pending: false, error: text } }));
       };
       let result: unknown;
       try {
@@ -129,16 +143,24 @@ export function useCardRuns(failedText: string): { stateOf(id: string): CardRunS
       }
       busy.current.add(id);
       setStates((s) => ({ ...s, [id]: { pending: true, error: null } }));
+      const TIMED_OUT = Symbol("timed out");
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const limit = timeoutMs > 0 ? new Promise<typeof TIMED_OUT>((resolve) => (timer = setTimeout(() => resolve(TIMED_OUT), timeoutMs))) : null;
       try {
-        await result;
-        setStates((s) => ({ ...s, [id]: IDLE }));
+        const settled = await (limit ? Promise.race([result as PromiseLike<unknown>, limit]) : result);
+        if (settled === TIMED_OUT) {
+          failed(new Error(`timed out after ${timeoutMs} ms`), timedOutText);
+          // Swallow what the abandoned action settles to.
+          void Promise.resolve(result).catch(() => undefined);
+        } else setStates((s) => ({ ...s, [id]: IDLE }));
       } catch (e) {
         failed(e);
       } finally {
+        if (timer !== undefined) clearTimeout(timer);
         busy.current.delete(id);
       }
     },
-    [failedText],
+    [failedText, timedOutText, timeoutMs],
   );
   const stateOf = useCallback((id: string) => states[id] ?? IDLE, [states]);
   return { stateOf, run };
@@ -153,7 +175,10 @@ export function useCardRuns(failedText: string): { stateOf(id: string): CardRunS
 export interface ChatAttachmentSlotProps {
   attachment: ChatAttachment;
   message: ChatMessage;
-  /** Its signed URL when it has a file (else its `url`). */
+  /**
+   * Its signed URL when it has a file (else its `url`), only when it is http(s): the attachment's
+   * `url` is whatever the sender put there, so any other scheme (javascript:, file:) is null.
+   */
   url: string | null;
   /** On a message you sent (drawn on the tint). */
   mine: boolean;
@@ -171,8 +196,22 @@ export interface ChatAttachmentSlotProps {
   testID: string;
 }
 
-/** Draws the app's own attachment kinds; `null` hides the kinds that aren't registered. */
+/**
+ * Draws the app's own attachment kinds; `null` hides the kinds that aren't registered. A slot that
+ * returns null draws nothing for that attachment (a bubble left with nothing is not shown).
+ */
 export type ChatAttachmentSlot = ComponentType<ChatAttachmentSlotProps>;
+
+/** A URL a slot may be given: http or https only, else null. */
+export function slotUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    return (u.protocol === "https:" || u.protocol === "http:") && u.hostname ? url : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface ChatAttachmentCardProps {
   attachment: ChatAttachment;
@@ -263,6 +302,8 @@ export interface AppAttachmentProps {
   mine: boolean;
   /** The app's slot: a component draws it, `null` hides an unregistered kind, undefined draws the card. */
   slot?: ChatAttachmentSlot | null;
+  /** Told whether it drew nothing (the slot returned null, or hid the kind), so the bubble can leave it out. */
+  onEmpty?: (id: string, empty: boolean) => void;
   onOpenAttachment?: OpenAttachment;
   run: (task: () => unknown) => void;
   state: CardRunState;
@@ -270,19 +311,60 @@ export interface AppAttachmentProps {
 }
 
 /** One app attachment in a bubble: through the app's slot when there is one, else the card. */
-export function AppAttachment({ attachment, message, kind, url, mine, slot, onOpenAttachment, run, state, testID }: AppAttachmentProps) {
+export function AppAttachment({ attachment, message, kind, url, mine, slot, onOpenAttachment, onEmpty, run, state, testID }: AppAttachmentProps) {
+  const hidden = slot === null && !kind;
+  useLayoutEffect(() => {
+    if (slot === null || slot === undefined) onEmpty?.(attachment.id, hidden);
+  }, [slot, hidden, attachment.id, onEmpty]);
   const fallback = <ChatAttachmentCard attachment={attachment} message={message} kind={kind} mine={mine} onOpenAttachment={onOpenAttachment} run={run} state={state} testID={testID} />;
   if (slot === undefined) return fallback;
-  if (slot === null) return kind ? fallback : null;
-  const Slot = slot;
+  if (slot === null) return hidden ? null : fallback;
   const found = cardAction(kind, attachment, message, onOpenAttachment, { mine });
   const action = found ? { label: found.label, run: () => run(found.run) } : null;
-  // The slot draws sender-controlled data: if it throws, the card stands in.
+  const props: ChatAttachmentSlotProps = { attachment, message, url: slotUrl(url), mine, kind, action, run, pending: state.pending, error: state.error, fallback, testID };
+  // The slot draws sender-controlled data: if it throws, the card stands in until what it draws changes.
   return (
-    <ChatErrorBoundary fallback={fallback}>
-      <Slot attachment={attachment} message={message} url={url} mine={mine} kind={kind} action={action} run={run} pending={state.pending} error={state.error} fallback={fallback} testID={testID} />
+    <ChatErrorBoundary fallback={<Reported id={attachment.id} empty={false} onEmpty={onEmpty}>{fallback}</Reported>} resetKeys={[attachment, message, kind, slot]}>
+      <SlotProbe key={slotKey(slot)} slot={slot} props={props} onEmpty={onEmpty} />
     </ChatErrorBoundary>
   );
+}
+
+const slotKeys = new WeakMap<object, number>();
+let nextSlotKey = 0;
+/** A stable key per slot component, so a new slot starts a new probe (its hooks start over). */
+function slotKey(slot: ChatAttachmentSlot): number {
+  let k = slotKeys.get(slot);
+  if (k === undefined) slotKeys.set(slot, (k = ++nextSlotKey));
+  return k;
+}
+
+/** A component React lets us call as a function (not a class, not a memo or forwardRef object). */
+function isPlainFunction(slot: ChatAttachmentSlot): slot is (props: ChatAttachmentSlotProps) => ReactNode {
+  return typeof slot === "function" && !(slot.prototype as { isReactComponent?: unknown } | undefined)?.isReactComponent;
+}
+
+/**
+ * Draws the slot and tells the bubble when it drew nothing. A plain function slot is called here,
+ * so its hooks are this component's (always the same slot: the probe is keyed on it); a
+ * class or memo slot renders as an element and counts as drawn.
+ */
+function SlotProbe({ slot, props, onEmpty }: { slot: ChatAttachmentSlot; props: ChatAttachmentSlotProps; onEmpty?: (id: string, empty: boolean) => void }) {
+  const Slot = slot;
+  const out: ReactNode = isPlainFunction(slot) ? slot(props) : <Slot {...props} />;
+  const empty = out === null || out === undefined || out === false;
+  return (
+    <Reported id={props.attachment.id} empty={empty} onEmpty={onEmpty}>
+      {empty ? null : out}
+    </Reported>
+  );
+}
+
+function Reported({ id, empty, onEmpty, children }: { id: string; empty: boolean; onEmpty?: (id: string, empty: boolean) => void; children: ReactNode }) {
+  useLayoutEffect(() => {
+    onEmpty?.(id, empty);
+  }, [id, empty, onEmpty]);
+  return <>{children}</>;
 }
 
 declare const __DEV__: boolean | undefined;

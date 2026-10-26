@@ -79,10 +79,10 @@ link), registered or not; `null` hides the kinds that aren't registered. Its pro
 
 | Prop | What it is |
 |---|---|
-| `attachment`, `message`, `url`, `mine` | As on the web: the attachment (`ref` holds what the sender put there), its message, its signed URL when it has a file, and whether you sent it. |
+| `attachment`, `message`, `url`, `mine` | As on the web: the attachment (`ref` holds what the sender put there), its message, its signed URL when it has a file, and whether you sent it. `url` is http(s) only (null for any other scheme), since the sender controls it. |
 | `kind` | Its `attachmentKinds` entry, when registered. |
 | `action` | The kind's `action`, ready to call (`{ label, run }`), or null. |
-| `run(task)` | Runs an app action. A task that returns a promise makes the card `pending` until it settles; if it throws or rejects, `error` holds a short message (copy `cardActionFailed`). A second run while one is pending is ignored. `action.run` goes through it. |
+| `run(task)` | Runs an app action. A task that returns a promise makes the card `pending` until it settles; if it throws or rejects, `error` holds a short message (copy `cardActionFailed`). One still running after 30 seconds stops being busy and reads `cardActionTimedOut` (`ChatThreadScreen cardActionTimeoutMs` changes it, 0 for never). A second run while one is pending is ignored. `action.run` goes through it. |
 | `pending`, `error` | That state, for drawing a busy control and the error. |
 | `fallback` | The card the package would have drawn: return it for kinds the slot doesn't draw. |
 | `testID` | The bubble's id for this card. |
@@ -90,7 +90,9 @@ link), registered or not; `null` hides the kinds that aren't registered. Its pro
 The bubble is one VoiceOver element, so the controls inside your card are hidden from VoiceOver:
 give the kind an `action` and call `action.run` from your control, and the bubble offers the same
 action (named by its `label`) to VoiceOver and Switch Control. Keep tap targets at least 44 points.
-A slot that throws shows the fallback card. Reply quotes, the reply bar, the long-press sheet and
+A slot that throws shows the fallback card until its attachment, message, kind or slot changes,
+then tries again. A slot that returns null draws nothing for that attachment, and it leaves the
+bubble's label and actions; a message left with nothing to show is not drawn at all. Reply quotes, the reply bar, the long-press sheet and
 the inbox's last message name the kind by its `label`. Build the kinds where the app's live data
 is (a hook, memoized on it), so the title and action follow it; define the slot at module scope.
 

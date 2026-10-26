@@ -199,8 +199,12 @@ export function MessageAttachments({ attachments, mine, onOpenImage, testID }: A
 /** Lines a transcript shows before "Show more". */
 export const TRANSCRIPT_LINES = 3;
 
-/** A transcript long enough to fold, before its text is laid out (about three lines of a bubble). */
-export function transcriptIsLong(text: string): boolean {
+/**
+ * Whether a transcript folds behind "Show more": by its laid-out line count once measured. Before
+ * any layout (unit tests, where nothing is laid out) a rough guess from its length stands in.
+ */
+export function transcriptIsLong(text: string, measuredLines?: number | null): boolean {
+  if (typeof measuredLines === "number") return measuredLines > TRANSCRIPT_LINES;
   return text.length > 140 || text.split("\n").length > TRANSCRIPT_LINES;
 }
 
@@ -220,7 +224,9 @@ export function VoiceTranscript({ transcript, status, mine, testID }: VoiceTrans
   const { copy } = useChatNative();
   const colors = useThemeRoles();
   const [open, setOpen] = useState(false);
-  const [laidOutLong, setLaidOutLong] = useState(false);
+  // Lines the whole transcript takes at this width, from an unclamped copy laid out out of sight
+  // (a clamped Text reports only its visible lines on Android).
+  const [lines, setLines] = useState<number | null>(null);
   const fg = mine ? "text-primary-foreground" : undefined;
   const text = transcript?.trim();
   if (status === "pending" && !text) {
@@ -231,17 +237,21 @@ export function VoiceTranscript({ transcript, status, mine, testID }: VoiceTrans
     );
   }
   if (!text) return null;
-  const long = laidOutLong || transcriptIsLong(text);
+  const long = transcriptIsLong(text, lines);
+  const textStyle = mine ? { fontSize: 15, lineHeight: 20 } : { fontSize: 15, lineHeight: 20, color: colors.label };
   return (
     <View testID={testID} style={{ paddingHorizontal: 8, alignItems: "flex-start" }}>
+      <NativeText testID={`${testID}-text`} className={fg} numberOfLines={open || !long ? undefined : TRANSCRIPT_LINES} style={textStyle}>
+        {text}
+      </NativeText>
       <NativeText
-        testID={`${testID}-text`}
-        className={fg}
-        numberOfLines={open ? undefined : TRANSCRIPT_LINES}
-        onTextLayout={(e: { nativeEvent: { lines: unknown[] } }) => {
-          if (!open && e.nativeEvent.lines.length > TRANSCRIPT_LINES) setLaidOutLong(true);
-        }}
-        style={mine ? { fontSize: 15, lineHeight: 20 } : { fontSize: 15, lineHeight: 20, color: colors.label }}
+        testID={`${testID}-measure`}
+        aria-hidden
+        accessibilityElementsHidden
+        importantForAccessibility="no-hide-descendants"
+        onTextLayout={(e: { nativeEvent: { lines: unknown[] } }) => setLines(e.nativeEvent.lines.length)}
+        style={[textStyle, { position: "absolute", left: 8, right: 8, top: 0, opacity: 0 }]}
+        pointerEvents="none"
       >
         {text}
       </NativeText>

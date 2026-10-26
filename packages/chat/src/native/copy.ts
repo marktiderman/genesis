@@ -106,6 +106,8 @@ export interface ChatNativeCopy extends ChatOrganiseCopy {
   attachmentCard: string;
   /** Under an attachment card whose action failed (ticking a task offline). */
   cardActionFailed: string;
+  /** Under an attachment card whose action ran too long (`cardActionTimeoutMs`). */
+  cardActionTimedOut: string;
   /** A voice note's transcript: still being made, its VoiceOver label, and the toggle for a long one. */
   transcribing: string;
   transcriptLabel: string;
@@ -247,6 +249,7 @@ export const chatNativeCopy: ChatNativeCopy = {
   openLinkAction: "Open link",
   attachmentCard: "{title}, {subtitle}",
   cardActionFailed: "That didn't work. Try again.",
+  cardActionTimedOut: "That's taking too long. Try again.",
   transcribing: "Transcribing…",
   transcriptLabel: "Transcript: {text}",
   showMore: "Show more",
