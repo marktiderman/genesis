@@ -1,0 +1,29 @@
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_8252619ce79a86::t_583cf39f13dbd4 388-389
+apps/genesis-rn-starter/src/app/(app)/messages/[id].tsx
+  s_8252619ce79a86::t_e3e995fbf4e14c 4,21-26,28
+packages/chat/src/native/__tests__/photo-viewer.test.tsx
+  s_8252619ce79a86::t_eef301a24b3485 13,75-78
+packages/chat/src/native/emoji-picker.tsx
+  s_8252619ce79a86::t_4be42e1d7f7120 66-68,93,114-119,128,148,186,193,195-196,216
+packages/chat/src/native/message-actions-sheet.tsx
+  s_8252619ce79a86::t_9f0887321d500b 59,68,70,91
+packages/chat/src/native/photo-viewer.tsx
+  s_8252619ce79a86::t_aab31305247b2a 89-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7ed580e4282956d770019c1d08cb67277fc4ce2",
+  "prompts": {},
+  "sessions": {
+    "s_8252619ce79a86": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3322f2b2-293f-4219-af6c-a1e879d91b21",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
