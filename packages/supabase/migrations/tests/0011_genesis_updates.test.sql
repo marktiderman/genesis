@@ -7,7 +7,7 @@
 -- transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(24);
+select plan(30);
 
 -- People: a1 (leader) and b2 on tenant 1's team t1; c3 in tenant 2; d4 in tenant 1 but not the team.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -124,6 +124,25 @@ select is((select status from public.update_requests where id = pg_temp.request(
 select is((select answered_by from public.update_requests where id = pg_temp.request(1)),
   (select id from public.status_updates where item_id = pg_temp.pursuit(2)), 'the request points at its answer');
 select is((select status from public.update_requests where id = pg_temp.request(2)), 'open', 'a request on another item stays open');
+
+select is((select health from public.pursuits where id = pg_temp.pursuit(2)), null,
+  'an answer from someone who can''t write the pursuit doesn''t set its health');
+select is((select count(*)::int from public.status_updates where author_id = pg_temp.person('b2') and item_id = pg_temp.pursuit(2)), 1,
+  'the person asked reads back their own answer');
+
+-- Gate's review: asking yourself, or someone who can't read the item ------------------------
+select throws_ok(
+  $$ insert into public.update_requests (item_kind, item_id, asked_of, due_at) values ('pursuit', pg_temp.pursuit(2), pg_temp.person('b2'), now()) $$,
+  '22023', null, 'nobody asks themselves (and so gets write rights)');
+select throws_ok(
+  $$ insert into public.update_requests (item_kind, item_id, asked_of, due_at) values ('pursuit', pg_temp.pursuit(1), pg_temp.person('c3'), now()) $$,
+  '22023', null, 'nobody asks someone who can''t read the item');
+select lives_ok(
+  $$ insert into public.update_requests (item_kind, item_id, asked_of, due_at, created_at)
+     values ('pursuit', pg_temp.pursuit(2), pg_temp.person('d4'), now() + interval '1 day', '2000-01-01') $$,
+  'asking someone in the tenant who can read the item');
+select isnt((select created_at::date from public.update_requests where asked_of = pg_temp.person('d4')), '2000-01-01'::date,
+  'created_at is the database''s, not the client''s');
 
 -- Cancelling --------------------------------------------------------------------------------
 select pg_temp.sign_in('a1');
