@@ -1,0 +1,71 @@
+packages/supabase/migrations/tests/0009_genesis_owner_access.test.sql
+  s_26495fc9681b7e::t_62339e2e3fd66e 1-70
+packages/supabase/migrations/0009_genesis_owner_access.sql
+  s_26495fc9681b7e::t_6798d2dcc5e38e 1-89
+.changeset/genesis-owner-access.md
+  s_26495fc9681b7e::t_4aa1ac408b6046 5-7,9,11
+.changeset/genesis-work.md
+  s_26495fc9681b7e::t_df5e6d1ae61b10 2,5-9,11,13
+AGENTS.md
+  s_26495fc9681b7e::t_74de3ccf683ff7 40
+features.json
+  s_26495fc9681b7e::t_eee46612e08832 4060,4083-4084,4088,4092-4096,4117-4118,4121,4130,4150-4151,4155,4158-4161,4182-4243,4247,4256,4278-4279,4283,4286-4287,4308-4310,4313,4322,4341-4342,4346,4351-4353,4374-4375,4378
+features.ts
+  s_26495fc9681b7e::t_4b81fb23835f44 1769,1776-1778,1791-1792,1797,1804-1806,1819-1847,1852,1859-1861,1874-1875,1880,1887-1889,1902-1903
+packages/supabase/package.json
+  s_26495fc9681b7e::t_4f3405e5a955e5 195,197-198,200-204,219-220,227
+packages/supabase/src/blocks.ts
+  s_26495fc9681b7e::t_1c3a5186333b72 130-133,137-138,145-146,149
+packages/supabase/src/index.ts
+  s_26495fc9681b7e::t_77ec8d990c6200 205
+packages/work/README.md
+  s_26495fc9681b7e::t_53d5641b59f096 1-33
+packages/work/migrations/0001_genesis_work_pursuits.sql
+  s_26495fc9681b7e::t_d4e2fd50ee4a66 1,15-16,18-20,52,55-58,62,68,100,102-104,106-109,113,119,148,150-151,153-157,186,197,210,255,300,311-312,315,319,321,324,327,331,333,336,339-341
+packages/work/migrations/0002_genesis_work_metrics.sql
+  s_26495fc9681b7e::t_b37ed5ebe654be 1,8,36,39,43,109,111-112,114-117,121,123,149,152-154,158,160,174,177-178,269,274,286,298,301,309,330,361,366,377-379,381,385,387,390,393,398,400,403,406,411-415,419,444-445,448,454,457-458
+packages/work/migrations/0003_genesis_work_updates.sql
+  s_26495fc9681b7e::t_72c812f302f224 1,9,34,37,41,60,63-65,67,83,89,92-96,114,116,118,151,154,165,174,181,195,198,206,211,216,249,286,300-301,303,307,314,319,322,325-328,332,336,339,342-343
+packages/work/migrations/0004_genesis_work_sessions.sql
+  s_26495fc9681b7e::t_7d24bbfe8922fd 1-2,13,40,43,47,72,75,81,115,118-119,140,143,145,160,163-175,219,230,280,293,299,306,319,322,340,374,385,388,401-404,406,410,414,419,423,428,430,433,436,441,445,447,449,453,459,462,465-466
+packages/work/migrations/tests/0001_genesis_work_pursuits.test.sql
+  s_26495fc9681b7e::t_499405cc85fe38 2,46-51,53,57,60,62,91,94,98,102,106,109,111,116,119,122,125,128,131,134,139,144,147,150,153,156,159,162,167,182,184,186,190,193,196,199,203,207,210,216,220,224,227,230,232,234,236,239,248
+packages/work/migrations/tests/0002_genesis_work_metrics.test.sql
+  s_26495fc9681b7e::t_89e7ed8cf64ec3 2,45-54,58,61,63,90,92,98,101,103,105,108,111,114,117,120,126,129,132,135,138,142-143,145,150,153,156,160,164,167,173,175,179,183,186,188,193,196,199,202,204,211,213,215,217,219
+packages/work/migrations/tests/0003_genesis_work_updates.test.sql
+  s_26495fc9681b7e::t_53f61e0c655b7a 2,67,69,73-77,82,84-85,87,90,93,99,103,108,110,113-114,116,121,123-126,128,130,135,138,141,144,149,151,156,158
+packages/work/migrations/tests/0004_genesis_work_sessions.test.sql
+  s_26495fc9681b7e::t_69330e8fd88daa 2,63-68,73,78,81,83,87,90,93,97,100,103,105,108,112-117,121-123,125,128,131,135,137-139,142,146,150,152-153,155,159
+packages/work/package.json
+  s_26495fc9681b7e::t_774da147f65a2b 1-207
+packages/work/src/__tests__/blocks.test.ts
+  s_26495fc9681b7e::t_ab08ff8f604d03 1-35
+packages/work/src/blocks.ts
+  s_26495fc9681b7e::t_faefcd77a141f4 1-6,8,10-23,25-68
+packages/work/src/index.ts
+  s_26495fc9681b7e::t_7607aed4c31d43 1-9
+packages/work/tsconfig.json
+  s_26495fc9681b7e::t_8259419a4fb8bf 1-19
+packages/work/tsup.config.ts
+  s_26495fc9681b7e::t_0390bed07cfd30 1-12
+packages/work/vitest.config.ts
+  s_26495fc9681b7e::t_4df3d778489032 1-5
+pnpm-lock.yaml
+  s_26495fc9681b7e::t_a4c5367d3ca19e 1838-1856
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a211c61adb3896098d1ede53e8c3646bd2229727",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
