@@ -1,0 +1,19 @@
+packages/ui/src/hooks/__tests__/core-live.test.tsx
+  s_a1b83c03f697d3::t_125943b03dd7ba 13,81-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b2ffa2abb4a4786e2cb91d969db29f3e8339e7a0",
+  "prompts": {},
+  "sessions": {
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
