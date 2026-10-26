@@ -51,6 +51,8 @@ export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
 export {
   DEFAULT_UNDO_DELAY_MS,
   pendingWriteCount,
+  flushPendingWrites,
+  dropPendingWrites,
   type MutationMode,
   type MutationModeOptions,
   type UndoableWrite,
