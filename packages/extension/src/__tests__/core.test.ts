@@ -71,7 +71,11 @@ describe("messaging", () => {
   });
 
   it("knows its own page framed in a tab under a dynamic address from a content script", () => {
-    // use_dynamic_url: the framed page's address has a per-session id.
+    // use_dynamic_url: the framed page's address has a per-session id, the one
+    // runtime.getURL gives.
+    const getURL = fake.runtime.getURL;
+    fake.runtime.getURL = (path) =>
+      "chrome-extension://0f3c9a2e-session/" + path.replace(/^\//, "");
     const framed = {
       id: "testextensionid",
       url: "chrome-extension://0f3c9a2e-session/popup.html?panel=1",
@@ -82,6 +86,15 @@ describe("messaging", () => {
     expect(isFromContentScript(framed)).toBe(false);
     expect(isFromContentScript(fake.contentSender(3))).toBe(true);
     expect(isFromExtensionPage(fake.contentSender(3))).toBe(false);
+    // Another extension's address, even with this extension's id, is not ours.
+    expect(
+      isFromExtensionPage({
+        id: "testextensionid",
+        url: "chrome-extension://someoneelse/page.html",
+      }),
+    ).toBe(false);
+    expect(isFromExtensionPage(fake.pageSender())).toBe(true);
+    fake.runtime.getURL = getURL;
   });
 });
 
@@ -282,7 +295,9 @@ describe("surfaces", () => {
     expect(document.documentElement.style.visibility).toBe("");
     // Used up: the same secret can't confirm a second page.
     expect(
-      await fake.storage.session!.get("genesis-extension:surface:3:secret-nonce"),
+      await fake.storage.session!.get(
+        "genesis-extension:surface:3:secret-nonce",
+      ),
     ).toEqual({});
     line.port1.postMessage({
       type: "gx-page-changed",
@@ -374,13 +389,16 @@ describe("surface secret", () => {
       "genesis-extension:surface:9": { nonce: "legacy", at: Date.now() },
       "genesis-extension:surface:90:other-tab": { at: Date.now() },
     });
-    await openSurface({ id: 9, windowId: 1 }, { page: "popup.html", mode: "panel" });
+    await openSurface(
+      { id: 9, windowId: 1 },
+      { page: "popup.html", mode: "panel" },
+    );
     const keys = Object.keys(await area.get(null));
     expect(keys).toHaveLength(2);
     expect(keys).toContain("genesis-extension:surface:90:other-tab");
-    expect(keys.find((k) => k !== "genesis-extension:surface:90:other-tab")).toMatch(
-      /^genesis-extension:surface:9:[0-9a-f-]{36}$/,
-    );
+    expect(
+      keys.find((k) => k !== "genesis-extension:surface:90:other-tab"),
+    ).toMatch(/^genesis-extension:surface:9:[0-9a-f-]{36}$/);
   });
 
   it("openSurface mints the open's secret where only the extension reads it", async () => {
@@ -470,6 +488,68 @@ describe("page bar", () => {
     expect(
       (globalThis as { __gxPageBar?: { root: unknown } }).__gxPageBar!.root,
     ).toBeNull();
+  });
+
+  it("draws icons, tooltips, a hover-only action and a compact row", async () => {
+    const sent: unknown[] = [];
+    createRouter({
+      content: { "gx-page-bar": (m) => void sent.push(m.action) },
+    });
+    fake.runtime.sendMessage = (m) => fake.deliver(m, fake.contentSender(5));
+    renderPageBar({
+      mark: "B",
+      lead: "In your library",
+      leadTone: "success",
+      title: "A talk",
+      titleTip: "Saved in Acme",
+      chips: [
+        {
+          label: "Copy",
+          icon: "download",
+          bare: true,
+          tone: "success",
+          title: "A copy is saved",
+        },
+        { label: "+1", title: "Also in Beta" },
+      ],
+      actions: [
+        { id: "hide-site", label: "Not on example.com", reveal: "hover" },
+        { id: "details", label: "Show details", icon: "chevron-down" },
+      ],
+      collapsedLabel: "✓ Saved",
+      collapsedTitle: "Saved: A talk",
+      density: "compact",
+      shrinkIcon: "close",
+    });
+    const shadow = (globalThis as { __gxPageBar?: { shadow: ShadowRoot } })
+      .__gxPageBar!.shadow;
+    expect(shadow.querySelector(".bar")?.classList.contains("compact")).toBe(
+      true,
+    );
+    expect(shadow.querySelector(".lead.success svg")).not.toBeNull();
+    expect(shadow.querySelector("b")?.title).toBe("Saved in Acme");
+    const chips = shadow.querySelectorAll(".chip");
+    expect(chips[0]!.classList.contains("bare")).toBe(true);
+    expect(chips[0]!.querySelector("svg path")).not.toBeNull();
+    expect((chips[1] as HTMLElement).title).toBe("Also in Beta");
+    expect(
+      shadow
+        .querySelector('[data-action="hide-site"]')
+        ?.classList.contains("reveal"),
+    ).toBe(true);
+    const details = shadow.querySelector(
+      '[data-action="details"]',
+    ) as HTMLButtonElement;
+    expect(details.getAttribute("aria-label")).toBe("Show details");
+    expect(details.textContent).toBe("");
+    details.click();
+    (shadow.querySelector("[data-shrink]") as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent).toEqual(["details", "collapse"]);
+    expect(shadow.querySelector(".tab")?.getAttribute("aria-label")).toBe(
+      "Saved: A talk",
+    );
+    renderPageBar(null);
   });
 });
 
