@@ -1,6 +1,6 @@
 # genesis-notifications v1.1: design for review
 
-Status: **v0.2, proposed**, for review before anyone builds. No code or migrations yet.
+Status: **v0.2.1, proposed**, for review before anyone builds. No code or migrations yet.
 
 v1 decides channels from preferences, holds pushes in quiet hours, delays email until it is read,
 and sends once. That's enough for a coaching app. It isn't enough for an app whose people are
@@ -10,6 +10,16 @@ step: an app now says whether it serves minors (see Migration and compatibility)
 
 It assumes [NOTIFICATIONS.md](NOTIFICATIONS.md) (the contract, the tables, the flow) and the
 package [README](../packages/notifications/README.md).
+
+## Changes since v0.2
+
+- **No new due column.** `expires_at` is gone; expiry is worked out from `created_at` and the
+  type's `ttl_seconds`. This note says where the jobs table's `run_after` is used, and why
+  deliveries keep v1's `send_after`.
+- **One tenant time zone.** `notification_tenant_settings.time_zone` is gone. The context hook
+  returns `window_time_zone`, read from the app's own tenant or site record.
+- **The doctor and release steps:** a deprecated re-export, one runner copy, and a before-and-after
+  doctor run on the consuming apps.
 
 ## Changes since v0.1
 
@@ -162,11 +172,11 @@ defineNotifications({
 |---|---|
 | `notification_types` | New columns: `purpose`, `urgency`, `ttl_seconds`, `audience`, `batch`, `throttle`, `escalate`, `required`. |
 | `notification_policies` (new) | Mirrored from code. The service role only. |
-| `notification_tenant_settings` (new) | `tenant_id`, `time_zone`, `night_quiet`, `windows` keyed by window owner (falling back to the tenant row), `caps`, `postal_address`, `commercial_email` (`opt_in` default, or `opt_out` where the law allows it). Admins read and set it through the admin hook. |
+| `notification_tenant_settings` (new) | `tenant_id`, `night_quiet`, `windows` keyed by window owner (falling back to the tenant row), `caps`, `postal_address`, `commercial_email` (`opt_in` default, or `opt_out` where the law allows it). Admins read and set it through the admin hook. |
 | `notification_consents` (new) | One consent record for every channel (item 1). |
 | `notification_preferences` | New column: `commercial_opt_out`, a global override across tenants. |
 | `notifications` | New columns: `actor_id`, `reason`, `batch_key`. |
-| `notification_deliveries` | New columns: `recipient_key`, `batch_key`, `batched_into`, `unless`, `expires_at`; the channel check gains `sms`. A new index on (`recipient_key`, `channel`, `sent_at`). |
+| `notification_deliveries` | New columns: `recipient_key`, `batch_key`, `batched_into`, `unless`; the channel check gains `sms`. No new due or expiry column (see the jobs-block decision). A new index on (`recipient_key`, `channel`, `sent_at`). |
 | `push_devices` | New column: `runtime_version`. Web push gets its own table (item 6). |
 
 ### Who the recipient is: the context hook
@@ -176,16 +186,22 @@ The app answers for a whole set of recipients at once, in the same pattern as v1
 ```sql
 -- The app's own migration, after Genesis's.
 create or replace function private.genesis_notifications_context(p_users uuid[], p_tenant uuid)
-returns table (user_id uuid, roles text[], age_band text, window_owner uuid)
+returns table (user_id uuid, roles text[], age_band text, window_owner uuid, window_time_zone text)
 language sql stable security definer set search_path = '' as $$
   select u.id,
          coalesce((select array_agg(m.role) from public.memberships m
                    where m.user_id = u.id and m.tenant_id = p_tenant), '{}'),
          p.age_band,                         -- from the person, so it holds with no tenant
-         coalesce((select m.site_id from public.memberships m
-                   where m.user_id = u.id and m.tenant_id = p_tenant limit 1), p_tenant)
+         w.id,                               -- the site, else the tenant
+         w.time_zone                         -- the app's own record: the one source of the zone
   from unnest(p_users) as u(id)
   left join public.profiles p on p.user_id = u.id
+  left join lateral (
+    select coalesce(s.id, t.id) as id, coalesce(s.time_zone, t.time_zone) as time_zone
+    from public.tenants t
+    left join public.memberships m on m.tenant_id = t.id and m.user_id = u.id
+    left join public.sites s on s.id = m.site_id
+    where t.id = p_tenant limit 1) w on true
 $$;
 revoke execute on function private.genesis_notifications_context(uuid[], uuid) from public, anon, authenticated;
 grant execute on function private.genesis_notifications_context(uuid[], uuid) to service_role;
@@ -199,6 +215,10 @@ grant execute on function private.genesis_notifications_context(uuid[], uuid) to
   rules still hold.
 - **`window_owner`** is whose hours apply: a school or a site within a tenant. One tenant can hold
   sites with different hours, and one person can be in several tenants.
+- **`window_time_zone` is the one tenant zone.** Genesis keeps no tenant time-zone column. The
+  hook reads the zone the app already keeps for the tenant or site, so reminders, digests and the
+  app's own "today" agree. Personal quiet hours keep the person's own zone (v1).
+  Genesis's default hook returns null, and then only personal quiet hours apply.
 - **Fail closed.** Genesis's default hook returns `age_band = 'unknown'`, and the one built-in
   rule denies email, SMS and commercial to an `unknown` band. Push and the feed are untouched. An app with
   `people: "adults"` gets `adult` from the default hook instead. The doctor fails when `people` is
@@ -293,7 +313,7 @@ reads the tenant's `postal_address`, falling back to `email.postalAddress`.
 hours:
 
 - **Role holds,** such as `hold: { window: "school", … }`. The hours come from the window owner's
-  `windows`, or else the tenant's, in that time zone.
+  `windows`, or else the tenant's, in `window_time_zone`.
 - **The night window.** A person's own quiet hours apply when set. Otherwise the tenant's
   `night_quiet` applies, then `defaults.nightQuiet`.
 - **SMS** has its own hold (item 7).
@@ -438,8 +458,24 @@ the notifications runner.
 - **Free with the jobs block:** send-now from SQL and fan-out.
 - **Worker hosts** still call `run()` themselves.
 
-`notification_deliveries` stays its own outbox: it is the delivery log, read by admins under row
-level security, with receipts, the rendered email and an encrypted secret.
+**`send_after` stays, and `run_after` is used where there is no delivery row.**
+
+- **Why deliveries keep `send_after`.** `notification_deliveries` stays its own outbox: it's the
+  delivery log, read by admins under row level security, with receipts, the rendered email and an
+  encrypted secret. A delivery's due time is a column of that row, and the claim locks the row and
+  decides it in one statement: holds, policy, caps.
+  - Putting the due time in `genesis_jobs.run_after` would need a second row per delivery and two
+    writes on every hold, collapse and cancel.
+  - The two rows could then disagree, and the claim would need a join across tables it can't lock
+    together.
+  - v1.1 adds no due column. `send_after` is v1's, and expiry is worked out from `created_at` plus
+    `ttl_seconds`.
+- **`genesis_jobs.run_after`** is used for work that has no delivery row:
+  - `notifications.fanout` pages;
+  - the receipts poll and prune, through schedules;
+  - a retry of send-now when the signed call fails.
+- **The digest carrier is a delivery row,** so it uses `send_after`.
+- **Send-now is a signed call to the route,** not a queued row.
 
 **Step 0: one engine.**
 
@@ -448,7 +484,10 @@ level security, with receipts, the rendered email and an encrypted secret.
   on it and keeps the jobs review's rule that a failed settle is counted as `unsettled`, never an
   abort.
 - **Keep the old import.** `/notifications/runner` stays as a `@deprecated` re-export for at least
-  one minor.
+  one minor. Forms moves to the new path only in a forms release that raises its peer floor.
+- **One copy.** Forms would reach the runner through two packages, so the peer ranges are set so
+  that both resolve to one genesis-supabase. The doctor's existing `duplicate-genesis-package` and
+  `peer-range-mismatch` checks catch a split, and no new rule is needed.
 - **Forms, in the same PR.** Forms bundles the runner from source, so the PR repoints forms'
   `esbuild.alias`, its `tsconfig.paths`, and `build-config.test.ts`.
 - **A contract test pins forms' outcomes:**
@@ -504,6 +543,10 @@ Sizes: S is about a day, M two to three days, L about a week.
 | 6 | Web push | M |
 | 7 | SMS | L. No consumer yet; it can wait for one. |
 | 8 | Escalation | S |
+
+**Release step for every piece:** run the doctor pack on each consuming app (web and mobile) before
+and after, and put both counts in the PR. A change must never report fewer findings than main
+unless the PR says which finding it fixed.
 
 ## Questions
 
