@@ -1,0 +1,47 @@
+packages/chat/src/__tests__/server-effects.test.ts
+  s_c0870a827920ef::t_8932975ac271ef 31-41
+packages/chat/src/__tests__/server-safety.test.ts
+  s_c0870a827920ef::t_897f87cf81043d 135-154
+.changeset/chat-phases-server.md
+  s_c0870a827920ef::t_c8edac1b7d3a29 5
+.changeset/chat-review-246.md
+  s_c0870a827920ef::t_92cca32963200a 1-5
+apps/genesis-rn-starter/supabase/migrations/20261025000050_genesis_chat_coaching.sql
+  s_c0870a827920ef::t_e2524497a94479 476,485
+apps/genesis-rn-starter/supabase/tests/database/genesis_chat_coaching.test.sql
+  s_c0870a827920ef::t_e0aa4e9ce9cb8b 9,184-190
+packages/chat/README.md
+  s_c0870a827920ef::t_7a83d55e30330a 270-271,278-281,370-371
+packages/chat/migrations/0002_genesis_chat_coaching.sql
+  s_c0870a827920ef::t_354b75e78317df 476,485
+packages/chat/migrations/tests/0002_genesis_chat_coaching.test.sql
+  s_c0870a827920ef::t_f93b6a5a98cc5a 9,184-190
+packages/chat/src/__tests__/server-fakes.ts
+  s_c0870a827920ef::t_6db842f5fab8b4 27-29,33
+packages/chat/src/__tests__/web.test.tsx
+  s_c0870a827920ef::t_04ce070e51a882 10,192-201
+packages/chat/src/react/index.tsx
+  s_c0870a827920ef::t_5cd138ccc7846a 13,465-466,635
+packages/chat/src/server/runner.ts
+  s_c0870a827920ef::t_7d793ed6acbde5 321-322,324-325
+packages/chat/src/server/unfurl.ts
+  s_c0870a827920ef::t_f05aaad1bf0cd0 267,274-275,282-316,319,321-322,326-334
+packages/chat/src/web/composer.tsx
+  s_c0870a827920ef::t_02357d3820141d 60,324
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bb716fc6abac5c5e55796b9efdba199023b064ae",
+  "prompts": {},
+  "sessions": {
+    "s_c0870a827920ef": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "50969f38-177f-4c19-ba89-4712307b33f7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
