@@ -3,6 +3,7 @@
 // NativeResourceView draw it.
 
 export { defineView, deriveDisplay, ViewDefinitionError } from "./define-view";
+export { initialsOf, rowPicture } from "./picture";
 export type {
   Allowed,
   ComputedColumn,
@@ -12,7 +13,9 @@ export type {
   ResolvedFormField,
   ResolvedViewAction,
   ResourceView,
+  RowImage,
   RowOf,
+  RowPicture,
   RowSummary,
   ViewColumn,
   ViewCopy,

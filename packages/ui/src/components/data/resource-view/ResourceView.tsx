@@ -5,11 +5,12 @@
 
 import { useMemo, type ReactNode } from "react";
 import type { DataRow, FilterParam, ResourceContract } from "@marktiderman/genesis-core";
-import type { DisplayHint, ResourceView as View, ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
+import { RowAvatar } from "./RowAvatar";
 
 type Row = Record<string, unknown>;
 type Filter = Readonly<Record<string, string | number | boolean | null>>;
@@ -91,13 +92,30 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const columns = useMemo(
     () =>
-      view.columns(presetName).map((c) => ({
-        key: c.key,
-        header: c.label,
-        // A computed column has no database column to sort by.
-        ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
-        render: (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
-      })),
+      view.columns(presetName).map((c, index) => {
+        const draw = (row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row));
+        return {
+          key: c.key,
+          header: c.label,
+          // A computed column has no database column to sort by.
+          ...(c.field ? {} : { sortable: false, accessor: (row: T) => c.value(row as T & DataRow) }),
+          // The summary's picture sits beside the first column.
+          render:
+            index === 0
+              ? (row: T) => {
+                  const picture = rowPicture(view.summary(row as T & DataRow));
+                  return picture ? (
+                    <span className="flex min-w-0 items-center gap-2">
+                      <RowAvatar picture={picture} />
+                      <span className="min-w-0 truncate">{draw(row)}</span>
+                    </span>
+                  ) : (
+                    draw(row)
+                  );
+                }
+              : draw,
+        };
+      }),
     [view, presetName, cell, cells],
   );
 

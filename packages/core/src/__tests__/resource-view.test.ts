@@ -5,7 +5,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
-import { defineView, deriveDisplay, ViewDefinitionError } from "../resource-view";
+import { defineView, deriveDisplay, initialsOf, rowPicture, ViewDefinitionError } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
@@ -380,5 +380,43 @@ describe("defineView actions", () => {
     const typed = defineResource<BrandRow>()({ name: "public.brands", key: "id", labelField: "name", fields: brands.fields });
     const v = defineView(typed, { actions: [{ name: "a", label: "A", can: (r) => (r.is_default ? "no" : true) }] });
     expectTypeOf(v.canAction).parameter(1).toEqualTypeOf<BrandRow>();
+  });
+});
+
+describe("rowPicture", () => {
+  it("is null without an image", () => {
+    expect(rowPicture({ title: "Ada" })).toBeNull();
+  });
+
+  it("draws a safe src, decorative by default, with initials for a failed load", () => {
+    expect(rowPicture({ title: "Ada", image: { src: " https://example.com/a.png ", name: "Ada Lovelace" } })).toEqual({
+      kind: "image",
+      src: "https://example.com/a.png",
+      alt: "",
+      fallback: "AL",
+    });
+    expect(rowPicture({ title: "Ada", image: { src: "/avatars/a.png", alt: "Ada at her desk" } })).toEqual({
+      kind: "image",
+      src: "/avatars/a.png",
+      alt: "Ada at her desk",
+      fallback: "",
+    });
+  });
+
+  it("shows initials when src is unsafe or missing", () => {
+    expect(rowPicture({ title: "x", image: { src: "javascript:alert(1)", name: "Ada Lovelace" } })).toEqual({ kind: "initials", text: "AL" });
+    expect(rowPicture({ title: "x", image: { src: "data:image/png;base64,AAAA", name: "cher" } })).toEqual({ kind: "initials", text: "C" });
+    expect(rowPicture({ title: "x", image: { name: "Grace Brewster Hopper" } })).toEqual({ kind: "initials", text: "GH" });
+  });
+
+  it("is null with neither a safe src nor a name", () => {
+    expect(rowPicture({ title: "x", image: { src: "//evil.example/a.png" } })).toBeNull();
+    expect(rowPicture({ title: "x", image: { name: "   " } })).toBeNull();
+  });
+
+  it("takes whole characters for initials", () => {
+    expect(initialsOf("😊 Jones")).toBe("😊J");
+    expect(initialsOf("\u00e9mile zola")).toBe("\u00c9Z");
+    expect(initialsOf(undefined)).toBe("");
   });
 });
