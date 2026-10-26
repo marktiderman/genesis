@@ -28,7 +28,7 @@ import { checkNativePack } from "./native.js";
 import { scanFiles } from "./scan.js";
 import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
-import { checkDuplicatePackages } from "./installs.js";
+import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
@@ -52,6 +52,7 @@ export { nativeLayouts } from "./native.js";
 export { sqlStatements } from "./supabase.js";
 export { readReleaseManifest, type ReleaseManifest } from "./versions.js";
 export { genesisInstalls, type GenesisInstall } from "./installs.js";
+export { satisfies } from "./semver.js";
 export { webRoutes, routesDir, type RouteFile } from "./routes.js";
 
 export interface RunDoctorOptions {
@@ -135,6 +136,7 @@ export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
     { name: "shadowed-exports", check: checkShadowedExports },
     { name: "version-skew", check: checkVersionSkew },
     { name: "duplicate-packages", check: checkDuplicatePackages },
+    { name: "peer-ranges", check: checkPeerRanges },
     { name: "hand-rolled-sub-nav", check: checkHandRolledSubNav },
     { name: "local-genesis-copies", check: checkLocalGenesisCopies },
     { name: "resource-workspaces", check: checkResourceWorkspaces },

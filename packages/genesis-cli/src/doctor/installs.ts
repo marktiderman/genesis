@@ -6,6 +6,8 @@
  */
 import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import * as path from "node:path";
+import { findPackageDir } from "./genesis.js";
+import { satisfies } from "./semver.js";
 import type { DoctorContext } from "./types.js";
 
 const GENESIS = /^@marktiderman\/genesis(?:-[\w.-]+)?$/;
@@ -156,5 +158,36 @@ export function checkDuplicatePackages(ctx: DoctorContext): void {
         `(DataProvider, the shell's contexts) is invisible to hooks from another. Align the ranges so one copy satisfies them all, ` +
         `or add an override/resolution`,
     });
+  }
+}
+
+/**
+ * `peer-range-mismatch`: an installed Genesis package's peer range on another
+ * Genesis package that the copy it resolves doesn't satisfy. The peer is looked
+ * up from the package's own folder, the way Node resolves it.
+ */
+export function checkPeerRanges(ctx: DoctorContext): void {
+  const rel = (abs: string) => path.relative(ctx.root, abs).split(path.sep).join("/");
+  for (const copies of genesisInstalls(ctx.root).values()) {
+    for (const copy of copies) {
+      const dir = path.join(ctx.root, copy.dir);
+      const peers = readManifest(dir)?.peerDependencies ?? {};
+      for (const [peer, range] of Object.entries(peers)) {
+        if (!GENESIS.test(peer)) continue;
+        const peerDir = findPackageDir(dir, peer);
+        const installed = peerDir && readManifest(peerDir)?.version;
+        if (!peerDir || !installed) continue;
+        if (satisfies(installed, range) !== false) continue;
+        ctx.report({
+          rule: "peer-range-mismatch",
+          level: "warn",
+          file: "package.json",
+          subject: `${copy.name}>${peer}`,
+          message:
+            `${copy.name}@${copy.version} (${copy.dir}) wants ${peer} ${range}, but ${installed} is installed (${rel(peerDir)}). ` +
+            `Install a ${peer} in that range, or a ${copy.name} release built against ${installed}`,
+        });
+      }
+    }
   }
 }

@@ -2,7 +2,7 @@
 import { mkdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { genesisInstalls, loadGenesis, runDoctor, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
+import { genesisInstalls, loadGenesis, runDoctor, satisfies, validateConfig, webRoutes, type DoctorConfig, type Finding } from "../src/doctor/index.js";
 import { scanFiles } from "../src/doctor/scan.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
@@ -309,5 +309,82 @@ describe("page-layout", () => {
     const root = app({ "src/routes/sign-in.tsx": route(`<main />`) });
     const f = (await runDoctor({ root, config: { packs: ["native"], uiPackage: "@marktiderman/genesis-ui", native: { routerRoot: "src/routes" } } })).findings;
     expect(brief(f, "page-layout")).toEqual([]);
+  });
+});
+
+describe("peer-range-mismatch", () => {
+  const manifest = (name: string, version: string, peers: Record<string, string> = {}) =>
+    JSON.stringify({ name, version, peerDependencies: peers });
+  const peers = async (files: Record<string, string>) =>
+    (await run(makeApp(null, files))).filter((f) => f.rule === "peer-range-mismatch");
+
+  it("flags an installed Genesis peer outside a Genesis package's range", async () => {
+    const f = await peers({
+      "node_modules/@marktiderman/genesis-forms-studio/package.json": manifest("@marktiderman/genesis-forms-studio", "0.4.0", {
+        "@marktiderman/genesis-ui": "^2.13.0",
+        "@marktiderman/genesis-core": "^9.0.0",
+        react: "^99.0.0",
+      }),
+    });
+    // The fake genesis-ui and genesis-core are 9.9.9: core is in range; react isn't a Genesis package.
+    expect(f.map((x) => x.subject)).toEqual(["@marktiderman/genesis-forms-studio>@marktiderman/genesis-ui"]);
+    expect(f[0]!.level).toBe("warn");
+    expect(f[0]!.message).toContain("wants @marktiderman/genesis-ui ^2.13.0, but 9.9.9 is installed");
+  });
+
+  it("resolves the peer from the package's folder: a nested copy wins over the top-level one", async () => {
+    const f = await peers({
+      "node_modules/@marktiderman/genesis-studio/package.json": manifest("@marktiderman/genesis-studio", "0.2.0", {
+        "@marktiderman/genesis-ui": "^9.0.0",
+        "@marktiderman/genesis-core": ">=2.0.0 <3",
+      }),
+      "node_modules/@marktiderman/genesis-studio/node_modules/@marktiderman/genesis-core/package.json": manifest(
+        "@marktiderman/genesis-core",
+        "2.1.0",
+      ),
+    });
+    expect(f).toEqual([]);
+  });
+
+  it("is quiet for satisfied, missing and non-semver peers, and can be turned off", async () => {
+    const files = {
+      "node_modules/@marktiderman/genesis-chat/package.json": manifest("@marktiderman/genesis-chat", "0.2.0", {
+        "@marktiderman/genesis-ui": "^9.9.0 || ^10",
+        "@marktiderman/genesis-notifications": "^1.0.0",
+        "@marktiderman/genesis-core": "workspace:*",
+      }),
+    };
+    expect(await peers(files)).toEqual([]);
+    const off = makeApp(null, {
+      "node_modules/@marktiderman/genesis-chat/package.json": manifest("@marktiderman/genesis-chat", "0.2.0", { "@marktiderman/genesis-ui": "^1.0.0" }),
+    });
+    expect((await run(off)).filter((x) => x.rule === "peer-range-mismatch")).toHaveLength(1);
+    expect((await run(off, { rules: { "peer-range-mismatch": "off" } })).filter((x) => x.rule === "peer-range-mismatch")).toEqual([]);
+    expect((await runDoctor({ root: off, config: {}, strict: true })).ok).toBe(false);
+  });
+
+  it("reads semver ranges like npm does", () => {
+    const cases: Array<[string, string, boolean | null]> = [
+      ["1.7.0", "^1.3.0", true],
+      ["2.0.0", "^1.3.0", false],
+      ["0.2.5", "^0.2.1", true],
+      ["0.3.0", "^0.2.1", false],
+      ["0.0.4", "^0.0.3", false],
+      ["1.2.9", "~1.2.3", true],
+      ["1.3.0", "~1.2.3", false],
+      ["1.5.0", ">=1.2.0 <2", true],
+      ["1.5.0", ">= 1.2.0 < 1.4", false],
+      ["3.1.0", "1.x || >=3", true],
+      ["1.9.9", "1 - 1.9", true],
+      ["2.0.0", "1 - 1.9", false],
+      ["1.0.0", "*", true],
+      ["1.0.0", "", true],
+      ["1.3.0-beta.1", "^1.2.0", false],
+      ["1.3.0-beta.2", "^1.3.0-beta.1", true],
+      ["1.3.0", "^1.3.0-beta.1", true],
+      ["1.0.0", "workspace:^", null],
+      ["latest", "^1.0.0", null],
+    ];
+    for (const [version, range, want] of cases) expect([version, range, satisfies(version, range)]).toEqual([version, range, want]);
   });
 });

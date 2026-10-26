@@ -22,6 +22,7 @@ export const BUILTIN_RULES = [
   "shadowed-export",
   "version-skew",
   "duplicate-genesis-package",
+  "peer-range-mismatch",
   // structure
   "hand-rolled-sub-nav",
   "local-genesis-copy",
