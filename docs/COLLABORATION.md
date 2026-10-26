@@ -98,21 +98,26 @@ what past cohorts said". This is off by default. It respects each earlier contri
 
 - `spaces`: subject `(kind, id)`, tenant, policy (visibility, reveal, anonymous, history) and
   timing (opens, closes, period rule, live or async), plus who created it.
-- `space_members`: a person, or a group the app resolves, with a role. Rows that come from a
-  group follow that group's membership through the app's hook. The package doesn't copy members.
-- `space_contributions`: kind, id, author, period, private, created, and revealed. These are
-  pointers only.
-- `space_events`: reveal, lock, reopen, change of policy. Who did it, and when.
+- `members`: a person, or an audience the app resolves, with a role. Rows that come from an
+  audience follow its membership through the app's hook. The package doesn't copy members.
+- `contributions`: kind, ref, author, subject person, period, private and when it was sent.
+  These are pointers only.
+- `events`: reveal, lock, reopen, change of policy. Who did it, and when.
 
-Checks are SQL functions that every table and view uses:
+The app registers its audience kinds (`register_audience`, a `members(uuid) returns setof uuid`
+hook), subject types (`register_subject`, with a create check) and contribution kinds
+(`register_contribution_kind`, with an `author_of(text) returns uuid` hook).
 
-- `private.collab_role(space, person)` returns the person's role.
-- `private.collab_can_see(space, person, contribution)` returns whether they may see it.
+Checks are SQL functions in `genesis_collab`:
 
-The app calls them from its own row-level security on its own rows, for example
-`answers ... using (collab_can_see(...))`. The rules live in one place, and the app's data stays
-in the app's tables. Who belongs to a group and who is a tenant admin come from the app, through
-the same hooks `tenant-features` uses.
+- `role_of(space)` returns the signed-in person's role, and `gate(space, period)` their gate.
+- `can_see(contribution)` and `can_see_ref(kind, ref)` say whether they may read one.
+- `visible_refs(kind)` lists every ref of a kind they may read, worked out once per statement.
+
+The app adds them to its own row level security on its own rows, inside its existing `using`
+with `and`: for example `... and id::text in (select genesis_collab.visible_refs('answer'))`.
+The rules live in one place, and the app's data stays in the app's tables. Internal helpers live
+in `genesis_collab_private`, which signed-in people can't reach.
 
 Contract tests ship with it, run with `genesis_testing`: for every combination of visibility,
 reveal and private, who sees what.
@@ -209,7 +214,7 @@ per-answer private flag maps onto this one for one: same levels, same gate, same
 is:
 
 1. Create a space for each existing group assignment, with its level copied into the policy.
-2. Have the app's row-level security call `collab_can_see`.
+2. Add `genesis_collab.visible_refs` to the app's row level security on its answers.
 3. Swap the app's own dialog section for the shared people tab.
 
 Answers don't move.

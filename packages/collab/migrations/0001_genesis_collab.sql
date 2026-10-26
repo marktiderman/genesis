@@ -284,7 +284,9 @@ begin
         end if;
         execute format('select coalesce(array_agg(x), ''{}'') from %s($1) x', m.members::oid::regproc)
           into found_ids using m.member_id;
-      exception when undefined_function or invalid_parameter_value then
+      exception when others then
+        -- A dropped, replaced or failing hook: that audience lets nobody in, the rest still work.
+        raise warning 'genesis_collab: audience hook % failed: %', m.members::oid, sqlerrm;
         found_ids := '{}';
       end;
       ids := ids || found_ids;
@@ -300,12 +302,15 @@ end $$;
 
 revoke execute on function genesis_collab_private.people(uuid) from public, anon, authenticated;
 
--- The server: the service role, or database code (a migration, a trigger, a job) running as a
--- role that isn't one of the API's. Read from the session's role, never from the JWT claims,
--- which a direct SQL session can set to anything.
+-- The server: no role switch (a direct connection, a migration, a trigger, a job), or a role
+-- that bypasses row security (service_role, postgres). Any other role, a custom one that
+-- inherits authenticated included, is not. Read from the session's role, never from the JWT
+-- claims, which a direct SQL session can set to anything. Same rule as genesis-supabase 0014.
 create function genesis_collab_private.is_server()
 returns boolean language sql stable set search_path = '' as $$
-  select coalesce(nullif(current_setting('role', true), ''), 'none') not in ('authenticated', 'anon')
+  select r = 'none'
+    or coalesce((select pr.rolbypassrls from pg_catalog.pg_roles pr where pr.rolname = r), false)
+  from coalesce(nullif(current_setting('role', true), ''), 'none') as r
 $$;
 revoke execute on function genesis_collab_private.is_server() from public, anon, authenticated;
 
@@ -344,7 +349,8 @@ begin
       end if;
       execute format('select $3 where $2 in (select x from %s($1) x)', m.members::oid::regproc)
         into found_role using m.member_id, p_person, m.role;
-    exception when undefined_function or invalid_parameter_value then
+    exception when others then
+      raise warning 'genesis_collab: audience hook % failed: %', m.members::oid, sqlerrm;
       found_role := null;
     end;
     if found_role is not null and (r is null or (rank_of ->> found_role)::int > (rank_of ->> r)::int) then
@@ -465,9 +471,13 @@ begin
 
   select coalesce(array_agg(distinct m.space_id), '{}') into spaces_
   from genesis_collab.members m where m.member_kind = 'person' and m.member_id = me;
+  -- Only the audiences of spaces that hold this kind of contribution and that the person
+  -- isn't already in, so a read runs no hook it doesn't need.
   for a in
     select distinct m.member_kind, m.member_id, ak.members
     from genesis_collab.members m join genesis_collab.audience_kinds ak on ak.kind = m.member_kind
+    where not (m.space_id = any (spaces_))
+      and exists (select 1 from genesis_collab.contributions c where c.space_id = m.space_id and c.kind = p_kind)
   loop
     begin
       if not exists (select 1 from pg_catalog.pg_proc p where p.oid = a.members) then
@@ -475,8 +485,9 @@ begin
       end if;
       execute format('select $2 in (select x from %s($1) x)', a.members::oid::regproc)
         into is_member using a.member_id, me;
-    exception when undefined_function or invalid_parameter_value then
-      -- A dropped or replaced hook: that audience lets nobody in, and the rest still work.
+    exception when others then
+      -- A dropped, replaced or failing hook: that audience lets nobody in, the rest still work.
+      raise warning 'genesis_collab: audience hook % failed: %', a.members::oid, sqlerrm;
       is_member := false;
     end;
     if is_member then
@@ -512,11 +523,21 @@ create function genesis_collab.may_aggregate(p_space uuid, p_period text default
 returns boolean language plpgsql stable security definer set search_path = '' as $$
 declare
   role_ text := genesis_collab.role_of(p_space, p_person);
-  vis text;
+  s genesis_collab.spaces;
+  others int;
 begin
   if role_ in ('owner', 'facilitator') then return true; end if;
-  select visibility into vis from genesis_collab.spaces where id = p_space;
-  return vis in ('totals', 'full') and genesis_collab.gate(p_space, p_period, p_person) = 'open';
+  select * into s from genesis_collab.spaces where id = p_space;
+  if s.visibility not in ('totals', 'full') or genesis_collab.gate(p_space, p_period, p_person) <> 'open' then
+    return false;
+  end if;
+  -- Combined results need the minimum group at every level, Full included: an average of
+  -- two is the other person's answer.
+  select count(distinct c.author_id) into others
+  from genesis_collab.contributions c
+  where c.space_id = p_space and c.period = coalesce(p_period, '')
+    and c.sent_at is not null and not c.private and c.author_id <> p_person;
+  return others >= greatest(s.min_group, 3);
 end $$;
 
 -- Whether a person sees who contributed (names on contents, the who's-done list).
@@ -709,6 +730,13 @@ begin
   if not genesis_collab_private.may_run(p_space, array['owner']) then
     raise exception 'only the space''s owner can add people' using errcode = '42501';
   end if;
+  perform 1 from genesis_collab.spaces where id = p_space for update;
+  if p_role <> 'owner'
+     and exists (select 1 from genesis_collab.members m
+                 where m.space_id = p_space and m.member_kind = p_member_kind and m.member_id = p_member_id and m.role = 'owner')
+     and (select count(*) from genesis_collab.members m where m.space_id = p_space and m.role = 'owner') = 1 then
+    raise exception 'a space keeps at least one owner' using errcode = '23514';
+  end if;
   if p_member_kind <> 'person' and not exists (select 1 from genesis_collab.audience_kinds where kind = p_member_kind) then
     raise exception 'unknown audience kind %', p_member_kind using errcode = '22023';
   end if;
@@ -725,6 +753,7 @@ begin
   if not genesis_collab_private.may_run(p_space, array['owner']) then
     raise exception 'only the space''s owner can remove people' using errcode = '42501';
   end if;
+  perform 1 from genesis_collab.spaces where id = p_space for update;
   if exists (select 1 from genesis_collab.members m
              where m.space_id = p_space and m.member_kind = p_member_kind and m.member_id = p_member_id and m.role = 'owner')
      and (select count(*) from genesis_collab.members m where m.space_id = p_space and m.role = 'owner') = 1 then
@@ -852,6 +881,7 @@ begin
   delete from genesis_collab.members where member_kind = 'person' and member_id = old.id;
   return old;
 end $$;
+revoke execute on function genesis_collab_private.on_user_deleted() from public, anon, authenticated;
 
 create trigger genesis_collab_user_deleted after delete on auth.users
 for each row execute function genesis_collab_private.on_user_deleted();

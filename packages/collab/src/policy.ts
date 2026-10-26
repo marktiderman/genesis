@@ -133,12 +133,17 @@ export function canSee(
   return policy.visibility === "full" && gateOf(policy, viewer, state) === "open";
 }
 
-/** Whether the viewer may see combined results (counts, averages, spread) of others' work. */
+/**
+ * Whether the viewer may see combined results (counts, averages, spread) of others' work.
+ * These need the minimum group at every level, Full included: an average of two is the other
+ * person's answer. Full still shows the contributions themselves below it.
+ */
 export function mayAggregate(policy: SpacePolicy, viewer: SpaceViewer, state: SpaceState): boolean {
   if (runsSpace(viewer.role)) return true;
   return (
     (policy.visibility === "totals" || policy.visibility === "full") &&
-    gateOf(policy, viewer, state) === "open"
+    gateOf(policy, viewer, state) === "open" &&
+    state.othersShared >= Math.max(policy.minGroup, MIN_GROUP)
   );
 }
 

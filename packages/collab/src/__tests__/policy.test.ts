@@ -107,6 +107,8 @@ describe("combined results and names", () => {
     expect(mayAggregate(policy({ visibility: "totals" }), me(), state())).toBe(true);
     expect(mayAggregate(policy({ visibility: "totals" }), me(), state({ othersShared: 2 }))).toBe(false);
     expect(mayAggregate(policy({ visibility: "whos_done" }), me(), state())).toBe(false);
+    expect(mayAggregate(policy(), me(), state({ othersShared: 1 }))).toBe(false);
+    expect(canSee(policy(), me(), theirs, state({ othersShared: 1 }))).toBe(true);
     expect(mayAggregate(policy({ visibility: "hidden" }), me({ role: "owner" }), state())).toBe(true);
   });
 

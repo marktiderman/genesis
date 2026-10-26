@@ -16,8 +16,10 @@ in your tables and this package decides who reads them.
   names your function that says whose row a ref is, so a contribution is always recorded for
   the row's author. Then, in your own row level security, use
   `id::text in (select genesis_collab.visible_refs('answer'))` for lists (worked out once per
-  statement) or `genesis_collab.can_see_ref('answer', id::text)` for one row. It only narrows
-  what your own rules allow.
+  statement) or `genesis_collab.can_see_ref('answer', id::text)` for one row. Add it to your
+  existing policy's `using` with `and` (or as an `as restrictive` policy), never as a
+  permissive policy of its own: Postgres joins permissive policies with `or`, so a separate
+  one would let people past your tenant and ownership checks. It only narrows what your own rules allow.
 - `migrations/tests/0001_genesis_collab.test.sql`: the pgTAP contract (who sees what, for every
   level, reveal rule, private flag and role).
 - The core (`import { gateOf, canSee, mayAggregate, showsNames, describePolicy } from

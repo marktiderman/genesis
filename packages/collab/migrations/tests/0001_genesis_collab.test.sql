@@ -7,7 +7,7 @@
 -- takes part; f6 is a facilitator; 07 views; 08 is in nothing.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(79);
+select plan(84);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-00000000c1' || n)::uuid, 'authenticated', 'authenticated', 'genesis-collab-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -138,6 +138,8 @@ select ok(genesis_collab.can_see(pg_temp.v('a')), 'and b3 reads a2''s answer');
 select ok(genesis_collab.can_see_ref('answer', 'ans-a'), 'by its ref too');
 select is(array(select genesis_collab.visible_refs('answer') order by 1), array['ans-a', 'ans-b'],
   'and lists both refs at once');
+select ok(not genesis_collab.may_aggregate(pg_temp.v('space'), '2026-W44'),
+  'at Full, one other answer is still too few for combined results');
 select is(genesis_collab.gate(pg_temp.v('space'), '2026-W45'), 'contribute_first', 'each period has its own gate');
 
 select pg_temp.sign_in('c4');
@@ -159,6 +161,15 @@ select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-
 select set_config('request.jwt.claims', '{"role":"service_role"}', true), set_config('role', 'authenticated', true);
 select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-0000-4000-8000-00000000c1a2') $$,
   '42501', null, 'nor can one that claims to be the service role');
+-- A custom role that inherits authenticated isn't the server either.
+reset role;
+create role genesis_collab_test_custom nologin;
+grant authenticated to genesis_collab_test_custom;
+grant genesis_collab_test_custom to current_user;
+select pg_temp.sign_in('a2');
+select set_config('role', 'genesis_collab_test_custom', true);
+select throws_ok($$ select genesis_collab.role_of(pg_temp.v('space'), '00000000-0000-4000-8000-00000000c1b3') $$,
+  '42501', null, 'nor can a custom role that inherits authenticated');
 select pg_temp.as_server();
 insert into t select 'srv', genesis_collab.contribute(pg_temp.v('space'), 'answer', 'ans-srv', '2026-W46');
 select is((select author_id from genesis_collab.contributions where id = pg_temp.v('srv')), pg_temp.person('c4'),
@@ -250,6 +261,8 @@ select throws_ok($$ select genesis_collab.contribute(pg_temp.v('space'), 'answer
 select pg_temp.sign_in('01');
 select throws_ok($$ select genesis_collab.remove_member(pg_temp.v('space'), 'person', '00000000-0000-4000-8000-00000000c101') $$,
   '23514', null, 'a space keeps its last owner');
+select throws_ok($$ select genesis_collab.add_member(pg_temp.v('space'), 'person', '00000000-0000-4000-8000-00000000c101', 'participant') $$,
+  '23514', null, 'who can''t demote themselves either');
 
 -- A dropped audience hook lets nobody in through it, and errors for nobody.
 reset role;
@@ -257,9 +270,18 @@ insert into t select 'gone', genesis_collab.create_space('00000000-0000-4000-800
 create function public.genesis_collab_test_gone(audience uuid) returns setof uuid language sql as $$ select null::uuid where false $$;
 select genesis_collab.register_audience('gone', 'Gone', 'public.genesis_collab_test_gone(uuid)');
 select genesis_collab.add_member(pg_temp.v('gone'), 'gone', gen_random_uuid());
+create function public.genesis_collab_test_broken(audience uuid) returns setof uuid language plpgsql as $$
+begin raise exception 'the app''s hook broke'; end $$;
+select genesis_collab.register_audience('broken', 'Broken', 'public.genesis_collab_test_broken(uuid)');
+select genesis_collab.add_member(pg_temp.v('gone'), 'broken', gen_random_uuid());
+insert into public.genesis_collab_test_answers values ('ans-g', pg_temp.person('08'));
+select genesis_collab.add_member(pg_temp.v('gone'), 'person', pg_temp.person('08'));
+select genesis_collab.contribute(pg_temp.v('gone'), 'answer', 'ans-g', '', p_sent => true);
 drop function public.genesis_collab_test_gone(uuid);
 select pg_temp.sign_in('b3');
 select lives_ok($$ select genesis_collab.visible_refs('answer') $$, 'a dropped audience hook errors for nobody');
+select is(array(select genesis_collab.visible_refs('answer') order by 1), array['ans-b'],
+  'and an app''s hook that fails lets nobody in through it, without breaking anyone''s reads');
 select throws_ok($$ select * from genesis_collab.spaces $$, '42501', null, 'tables are reached only through the functions');
 select pg_temp.as_anon();
 select throws_ok($$ select genesis_collab.gate('00000000-0000-4000-8000-000000000000') $$, '42501', null, 'anon reaches nothing');
@@ -281,9 +303,13 @@ select is((select count(*)::int from pg_catalog.pg_proc p
              and not coalesce(p.proconfig, '{}') @> array['search_path=""']),
   0, 'every security definer function pins search_path to empty');
 select is((select array_agg(p.proname::text order by p.proname) from pg_catalog.pg_proc p
-           where p.pronamespace = 'genesis_collab'::regnamespace and p.proname like '\_%'
+           where p.pronamespace = 'genesis_collab_private'::regnamespace
              and has_function_privilege('authenticated', p.oid, 'execute')),
   null, 'no internal helper is callable by signed-in people');
+select is((select array_agg(p.proname::text order by p.proname) from pg_catalog.pg_proc p
+           where p.pronamespace = 'genesis_collab'::regnamespace and p.proname like 'register\_%'
+             and has_function_privilege('authenticated', p.oid, 'execute')),
+  null, 'nor is registering hooks');
 select is((select array_agg(p.proname::text order by p.proname) from pg_catalog.pg_proc p
            where p.pronamespace = 'genesis_collab'::regnamespace
              and has_function_privilege('anon', p.oid, 'execute')),
