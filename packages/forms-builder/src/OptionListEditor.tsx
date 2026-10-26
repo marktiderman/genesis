@@ -74,7 +74,7 @@ function download(name: string, text: string) {
 }
 
 /**
- * Edit a named option list a host keeps, such as a practice's "Locations": rename it; add,
+ * Edit a named option list a host keeps, such as an organization's "Locations": rename it; add,
  * remove and reorder options; edit each one's label, description, picture and attributes; import
  * from pasted CSV or a file with a preview of what will change (`parseOptionListCsv`, then
  * `mergeOptions`); and export it as CSV. An option's value is what answers store, so it is made

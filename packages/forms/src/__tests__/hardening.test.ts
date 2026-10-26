@@ -86,7 +86,9 @@ describe("2. email validation", () => {
     const start = performance.now();
     expect(validateSubmission(def, { answers: { email: hostile } }).ok).toBe(false);
     expect(validateField(def.blocks[0] as FieldBlock, `a@${"a.".repeat(50_000)}`)).toMatch(/email/);
-    expect(performance.now() - start).toBeLessThan(200);
+    // Linear takes ~10 ms here; backtracking on these inputs takes minutes. The bound only has to
+    // tell those apart, with room for CI runners, which run 5–8× slower than a laptop.
+    expect(performance.now() - start).toBeLessThan(3000);
   });
 
   it("accepts what the old pattern accepted", () => {
@@ -113,7 +115,9 @@ describe("3. long event logs", () => {
     const events = alternating(40_000);
     const start = performance.now();
     const engine = replay(def, events);
-    expect(performance.now() - start).toBeLessThan(1500);
+    // Linear takes well under a second; a quadratic replay of 40 000 events takes minutes. Loose
+    // enough for CI runners, which run 5–8× slower than a laptop.
+    expect(performance.now() - start).toBeLessThan(10_000);
     expect(engine.getState().events).toEqual(events);
     // The log is the engine's own copy: live events after a replay still notify.
     let calls = 0;
@@ -525,7 +529,8 @@ describe("C. phone field", () => {
   it("is linear on hostile input and stores the trimmed value", () => {
     const start = performance.now();
     expect(validateField(phone, "(".repeat(100_000))).not.toBeNull();
-    expect(performance.now() - start).toBeLessThan(50);
+    // Linear takes a few ms; backtracking on 100 000 "(" takes minutes. Loose for CI runners.
+    expect(performance.now() - start).toBeLessThan(2000);
     const def = defineForm({ id: "p", title: "P", blocks: [phone] }).definition;
     const result = validateSubmission(def, { answers: { phone: "  555 0100 199 " } });
     expect(result.ok && result.submission.answers).toEqual({ phone: "555 0100 199" });

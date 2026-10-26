@@ -34,7 +34,7 @@ export interface ClientIpOptions {
 
 /**
  * How many submits, saves as they go and photo uploads one client may make per scope
- * (a practice, an account) in a window.
+ * (an organization, an account) in a window.
  *
  * - submit: 60 responses per 10 minutes: a class at one gym's Wi-Fi fits.
  * - progress: saving answers as they go. A visit counts once, against `submit`, at its
@@ -102,7 +102,7 @@ export function addressPrefix(ip: string): string {
 
 /**
  * The stored key, `<kind>:<scope>:<hex HMAC-SHA256 of the address prefix>`: what is
- * counted (such as `submit`, `progress`, `upload`), whose count it is (a practice id),
+ * counted (such as `submit`, `progress`, `upload`), whose count it is (an organization id),
  * and the client, which is never stored as its address. `secret` is a server secret.
  */
 export async function rateLimitKey(input: { kind: string; scope: string; ip: string; secret: string }): Promise<string> {

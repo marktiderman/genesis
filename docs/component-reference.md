@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 146 components · 492 other exports · 361 standalone types across 11 packages and entry points.
+**Totals:** 147 components · 493 other exports · 361 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -694,7 +694,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 
 **Barrel:** [`packages/ui-native/src/index.ts`](../packages/ui-native/src/index.ts)
 
-### Components (94)
+### Components (95)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -738,6 +738,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`NativeDropdownMenuItem`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuItemProps` | — | _(no summary)_ |
 | [`NativeDropdownMenuTrigger`](../packages/ui-native/src/components/dropdown-menu.tsx) | `NativeDropdownMenuTriggerProps` | — | _(no summary)_ |
 | [`NativeEmptyState`](../packages/ui-native/src/components/empty-state.tsx) | `NativeEmptyStateProps` | — | _(no summary)_ |
+| [`NativeFullScreenModal`](../packages/ui-native/src/components/full-screen-modal.tsx) | `NativeFullScreenModalProps` | Beta | _(no summary)_ |
 | [`NativeGlassSurface`](../packages/ui-native/src/components/glass-surface.tsx) | `NativeGlassSurfaceProps` | — | _(no summary)_ |
 | [`NativeHeaderCard`](../packages/ui-native/src/components/header-card.tsx) | `NativeHeaderCardProps` | — | _(no summary)_ |
 | [`NativeIcon`](../packages/ui-native/src/components/icon.tsx) | `NativeIconProps` | — | _(no summary)_ |
@@ -793,7 +794,7 @@ React Native components (NativeWind v4-5). Use in Expo / RN surfaces.
 | [`Stack`](../packages/ui-native/src/components/layout/index.ts) | `StackProps` | — | _(no summary)_ |
 | [`ThreadPage`](../packages/ui-native/src/layouts/thread-page.tsx) | `ThreadPageProps` | — | _(no summary)_ |
 
-### Other exports (45)
+### Other exports (46)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -811,6 +812,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultStickyHeaderOffset`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Where a list's section headers stick by default: on iOS, the bottom of the collapsed navigation bar (the safe area's top plus the compact bar), since the list runs under the header; elsewhere 0 (the header sits above the list). |
 | [`ForgotPasswordLink`](../packages/ui-native/src/layouts/auth.tsx) | function | — | _(no summary)_ |
 | [`formatInboxTime`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | The default row time: `9:41`, `Yesterday`, `Monday`, then a short date. |
+| [`FULL_SCREEN_DARK`](../packages/ui-native/src/components/full-screen-modal.tsx) | const | — | The dark tone's backdrop: media reads best on true black in light and dark mode alike. |
 | [`getInboxPageStackOptions`](../packages/ui-native/src/layouts/inbox-page.tsx) | function | — | `<Stack.Screen options>` for an InboxPage: a large title that collapses on scroll. |
 | [`getNotificationsPageStackOptions`](../packages/ui-native/src/layouts/notifications-page.tsx) | function | — | Compose `<Stack.Screen options={...}>` for a NotificationsPage. Wires a "Mark all read" action via `headerRight` when `onMarkAllRead` is passed. |
 | [`getSettingsPageStackOptions`](../packages/ui-native/src/layouts/settings-page.tsx) | function | — | Convenience helper for callers that want to wire `<Stack.Screen options={...}>` without re-importing composeHeaderOptions. Defaults `large: true` and `scrollEdgeBehavior: "match"` to match the Apple HIG large-title settings pattern out o... |
