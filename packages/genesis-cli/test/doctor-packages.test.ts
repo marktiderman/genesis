@@ -305,8 +305,8 @@ describe("Flare's second follow-ups", () => {
     expect(brief(result.findings)).toEqual(["package-undeclared-dependency packages/os/src/index.ts dayjs"]);
   });
 
-  it("leaves .js export targets alone, wherever they are built", async () => {
-    const pkg = { ...PKG, exports: { ".": "./src/index.ts", "./lib": "./lib/index.js" } };
+  it("leaves .js and declaration-file export targets alone (unbuilt output)", async () => {
+    const pkg = { ...PKG, exports: { ".": { types: "./dist/index.d.ts", default: "./src/index.ts" }, "./lib": "./lib/index.js", "./m": { types: "./dist/m.d.mts" } } };
     const result = await runDoctor({ root: makeApp(null, { ...CLEAN, "packages/os/package.json": JSON.stringify(pkg) }), config: PACKAGES });
     expect(brief(result.findings)).toEqual([]);
   });

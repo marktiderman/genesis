@@ -205,7 +205,8 @@ function checkExports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
   for (const t of targets) {
     // Only source targets (.ts, .tsx, .mts, .cts, .json): a .js target may be build output that
     // isn't built yet, wherever it lives, so it's left alone.
-    if (!t.startsWith("./") || t.includes("*") || !/\.(?:[cm]?tsx?|json)$/.test(t)) continue;
+    // Declaration files (.d.ts, .d.mts, .d.cts) are build output too.
+    if (!t.startsWith("./") || t.includes("*") || !/\.(?:[cm]?tsx?|json)$/.test(t) || /\.d\.[cm]?ts$/.test(t)) continue;
     if (!existsSync(path.join(pkg.dir, t))) {
       ctx.report({ rule: "package-export-missing", file: `${pkg.rel}/package.json`, subject: t, message: `${pkg.name} exports ${t}, which doesn't exist` });
     }
