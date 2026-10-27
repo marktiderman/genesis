@@ -1,5 +1,16 @@
 # @marktiderman/genesis
 
+## 0.9.17
+
+### Patch Changes
+
+- Updated dependencies [74b63da]
+- Updated dependencies [41bc738]
+- Updated dependencies [bbf2be5]
+  - @marktiderman/genesis-core@1.16.0
+  - @marktiderman/genesis-ui-native@2.8.0
+  - @marktiderman/genesis-ui@2.19.2
+
 ## 0.9.16
 
 ### Patch Changes
