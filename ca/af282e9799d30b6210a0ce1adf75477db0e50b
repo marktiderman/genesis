@@ -1,0 +1,21 @@
+packages/genesis-cli/src/upgrade/scope-names.ts
+  s_2550badb988043::t_80cac5635e431a 40-70,201-203,249-250
+packages/genesis-cli/test/codemod-scope-names.test.ts
+  s_2550badb988043::t_3d9a62cd7bc49d 4,110-136
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "caaf282e9799d30b6210a0ce1adf75477db0e50b",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
