@@ -62,8 +62,16 @@ export const sessionsBlock = defineBlock({
   requires: ["pursuits"],
   platforms: ["web", "native"],
   contributes: {
-    migrations: [{ package: PACKAGE, file: "migrations/0004_genesis_work_sessions.sql", test: "migrations/tests/0004_genesis_work_sessions.test.sql" }],
-    privacy: { notes: ["Stores sessions, who attended and each attendee's rating and note; a closed account's attendance goes with it."] },
+    migrations: [
+      { package: PACKAGE, file: "migrations/0004_genesis_work_sessions.sql", test: "migrations/tests/0004_genesis_work_sessions.test.sql" },
+      { package: PACKAGE, file: "migrations/0007_genesis_work_bookings.sql", test: "migrations/tests/0007_genesis_work_bookings.test.sql" },
+    ],
+    privacy: {
+      notes: [
+        "Stores sessions, who attended and each attendee's rating and note; a closed account's attendance goes with it.",
+        "Stores bookings, RSVPs and check-in times for an attendee's login or the app's person record.",
+      ],
+    },
   },
 });
 
