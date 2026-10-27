@@ -5,7 +5,7 @@
 -- If your app already has the hooks, they are dropped and replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(27);
+select plan(32);
 
 -- a1 runs tenant 1's gym; b2 and d4 are members (b2 has a person record, d4 only a login); p5 is a
 -- member's person record with no login yet; c3 belongs to tenant 2.
@@ -92,6 +92,9 @@ select throws_ok($$ update genesis_work.session_attendees set booking_status = '
   '42501', null, 'a member doesn''t change a place directly');
 select lives_ok($$ update genesis_work.session_attendees set rsvp = 'going' where session_id = pg_temp.session(1) $$,
   'but answers their invitation');
+select pg_temp.sign_in('d4');
+select throws_ok($$ update genesis_work.session_attendees set booked_at = now() - interval '1 day' where user_id = pg_temp.person('d4') $$,
+  '42501', null, 'a waitlisted member can''t jump the queue');
 select pg_temp.sign_in('c3');
 select throws_ok($$ select genesis_work.book_session(pg_temp.session(1)) $$, '42501', null, 'another tenant can''t book');
 
@@ -106,6 +109,33 @@ select is(genesis_work.book_session(pg_temp.session(1), pg_temp.record('e5')), '
 select pg_temp.sign_in('b2');
 select throws_ok($$ select genesis_work.book_session(pg_temp.session(1), pg_temp.record('e5')) $$, '42501', null,
   'a member books only themselves');
+
+-- The app's booking hook ----------------------------------------------------------------------
+select pg_temp.as_server();
+create function private.genesis_booking_allowed(session uuid, attendee uuid) returns text language sql stable set search_path = '' as $$
+  select 'No active membership' from genesis_work.session_attendees a
+   where a.id = attendee and (a.attendee_person_id = '00000000-0000-4000-d000-0000000000e5' or a.user_id = '00000000-0000-4000-8000-0000000000d4')
+$$;
+insert into genesis_work.sessions (id, tenant_id, organization_id, title, scheduled_at, capacity)
+values (pg_temp.session(2), pg_temp.tenant(1), pg_temp.tenant(1), '7am class', now() + interval '1 day', 5);
+select pg_temp.sign_in('d4');
+select throws_ok($$ select genesis_work.book_session(pg_temp.session(2)) $$, 'P0001', 'No active membership',
+  'the app''s hook refuses a booking with its reason');
+select pg_temp.sign_in('a1');
+update genesis_work.sessions set capacity = 2 where id = pg_temp.session(1);
+select is((select booking_status from genesis_work.session_attendees where attendee_person_id = pg_temp.record('e5')), 'waitlisted',
+  'a promotion skips someone the hook refuses');
+select pg_temp.as_server();
+drop function private.genesis_booking_allowed(uuid, uuid);
+select pg_temp.sign_in('a1');
+update genesis_work.sessions set capacity = 3 where id = pg_temp.session(1);
+select is((select booking_status from genesis_work.session_attendees where attendee_person_id = pg_temp.record('e5')), 'booked',
+  'raising the capacity fills the place from the waitlist');
+select pg_temp.as_server();
+update genesis_work.sessions set rsvp_closes_at = now() - interval '1 minute' where id = pg_temp.session(1);
+select pg_temp.sign_in('b2');
+select throws_ok($$ update genesis_work.session_attendees set rsvp = 'maybe' where attendee_person_id = pg_temp.record('b2') $$,
+  '22023', null, 'RSVPs close when the session says');
 
 -- Check-in and settling -----------------------------------------------------------------------
 select pg_temp.sign_in('d4');

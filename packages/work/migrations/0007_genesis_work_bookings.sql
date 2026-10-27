@@ -14,7 +14,16 @@
 --                   came is `present`, as before; there is no "attended" status.
 -- Places are taken and given back only through genesis_work.book_session and
 -- genesis_work.cancel_booking, which lock the session, so two people can't both take the last
--- place. Cancelling a booked place promotes the first on the waitlist. A session type can set when
+-- place. Cancelling a booked place, or raising the capacity, promotes the first on the waitlist.
+-- A session's rsvp_closes_at ends RSVPs from attendees (writers still change them).
+--
+-- Your app may refuse a booking (no active membership, a used-up visit limit) through an optional
+-- hook. Genesis never defines it:
+--   private.genesis_booking_allowed(session uuid, attendee uuid) returns text
+--     attendee is the session_attendees row's id. Null allows; any text refuses, and is the reason
+--     shown. No hook allows every booking; a hook that errors refuses.
+-- book_session asks it after taking the lock, check_in asks it too, and a waitlist promotion skips
+-- anyone it refuses. A session type can set when
 -- booking opens and when cancelling turns late (minutes before the start).
 -- genesis_work.settle_session_bookings(session), for server code after a session ends, marks a
 -- booked attendee who wasn't present as a no-show.
@@ -32,7 +41,8 @@
 --
 -- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name, after
 -- 0004 (`genesis migrate` does it). Never edit it once applied; change it with a new migration.
--- Add your own foreign key for attendee_person_id, for example
+-- Add your own foreign key for attendee_person_id. It's required: without it, someone who may
+-- write a session can book any uuid as a person. For example
 --   alter table genesis_work.session_attendees add foreign key (attendee_person_id) references public.people (id) on delete cascade;
 --
 -- Verify: the pgTAP test beside this file (`tests/0007_genesis_work_bookings.test.sql`).
@@ -63,7 +73,8 @@ alter table genesis_work.session_attendees
 create index session_attendees_booking_idx on genesis_work.session_attendees (session_id, booking_status, booked_at);
 
 alter table genesis_work.sessions
-  add column capacity integer constraint sessions_capacity check (capacity > 0);
+  add column capacity integer constraint sessions_capacity check (capacity > 0),
+  add column rsvp_closes_at timestamptz;
 alter table genesis_work.session_types
   add column default_capacity integer constraint session_types_capacity check (default_capacity > 0),
   add column booking_opens_minutes integer constraint session_types_booking_opens check (booking_opens_minutes > 0),
@@ -229,8 +240,10 @@ begin
       end if;
     end if;
     if not writer and not through_booking
-       and new.booking_status is distinct from (case when tg_op = 'UPDATE' then old.booking_status end) then
-      raise exception 'A place is booked and cancelled through book_session and cancel_booking' using errcode = '42501';
+       and (new.booking_status is distinct from (case when tg_op = 'UPDATE' then old.booking_status end)
+            or new.booked_at is distinct from (case when tg_op = 'UPDATE' then old.booked_at end)
+            or new.check_in_source is distinct from (case when tg_op = 'UPDATE' then old.check_in_source end)) then
+      raise exception 'A place is booked, cancelled and checked in through book_session, cancel_booking and check_in' using errcode = '42501';
     end if;
     -- A login invitee who can't read the session's owner comes in only as a deliberate guest. A
     -- person record has no login to ask about, so it attends as it is.
@@ -256,6 +269,10 @@ begin
       if private.genesis_sessions_caller_is_person() and not writer
          and not private.genesis_sessions_is_me(new.user_id, t, new.attendee_person_id) then
         raise exception 'Only the attendee answers their invitation' using errcode = '42501';
+      end if;
+      if private.genesis_sessions_caller_is_person() and not writer
+         and exists (select 1 from genesis_work.sessions x where x.id = new.session_id and x.rsvp_closes_at <= now()) then
+        raise exception 'RSVPs for this session have closed' using errcode = '22023';
       end if;
       new.rsvp_at := case when new.rsvp is null then null else now() end;
     end if;
@@ -353,6 +370,78 @@ begin
 end;
 $$;
 
+-- The app's booking hook: null allows, text refuses with that reason. No hook allows; a hook that
+-- errors refuses.
+create or replace function private.genesis_booking_refusal(session uuid, attendee uuid)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  reason text;
+begin
+  if to_regprocedure('private.genesis_booking_allowed(uuid,uuid)') is null then
+    return null;
+  end if;
+  execute 'select (private.genesis_booking_allowed($1, $2))::text' into reason using session, attendee;
+  return reason;
+exception when others then
+  return 'This booking can''t be checked right now';
+end;
+$$;
+
+-- Fills a session's free places from its waitlist, first come first served, skipping anyone the
+-- app's hook refuses. The caller holds the session's lock.
+create or replace function private.genesis_booking_promote(session uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  cap integer;
+  taken integer;
+  w record;
+begin
+  select s.capacity into cap from genesis_work.sessions s where s.id = session and s.status = 'scheduled';
+  if not found then
+    return;
+  end if;
+  select count(*) into taken from genesis_work.session_attendees a where a.session_id = session and a.booking_status = 'booked';
+  perform set_config('genesis_work.booking', 'on', true);
+  for w in select a.id from genesis_work.session_attendees a
+            where a.session_id = session and a.booking_status = 'waitlisted'
+            order by a.booked_at, a.id loop
+    exit when cap is not null and taken >= cap;
+    if private.genesis_booking_refusal(session, w.id) is null then
+      update genesis_work.session_attendees set booking_status = 'booked' where id = w.id;
+      taken := taken + 1;
+    end if;
+  end loop;
+  perform set_config('genesis_work.booking', '', true);
+end;
+$$;
+
+-- Raising a session's capacity fills the new places from the waitlist.
+create or replace function private.genesis_sessions_capacity_grew()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform private.genesis_booking_promote(new.id);
+  return null;
+end;
+$$;
+
+create trigger sessions_capacity_grew
+  after update of capacity on genesis_work.sessions
+  for each row when (new.capacity is null or (old.capacity is not null and new.capacity > old.capacity))
+  execute function private.genesis_sessions_capacity_grew();
+
 -- Takes a place in a session: booked while there's room, waitlisted when it's full. Returns the
 -- attendee's booking status. `person` books one of the caller's person records, or, for someone
 -- who may write the session, anyone's.
@@ -369,6 +458,7 @@ declare
   current_status text;
   taken integer;
   result text;
+  refusal text;
 begin
   if auth.uid() is null and private.genesis_sessions_caller_is_person() then
     raise exception 'Sign in to book' using errcode = '42501';
@@ -390,6 +480,10 @@ begin
   if current_status in ('booked', 'waitlisted') then
     perform set_config('genesis_work.booking', '', true);
     return current_status;
+  end if;
+  refusal := private.genesis_booking_refusal(s.id, row_id);
+  if refusal is not null then
+    raise exception '%', refusal using errcode = 'P0001', hint = 'genesis_booking_allowed';
   end if;
   select count(*) into taken from genesis_work.session_attendees a
    where a.session_id = s.id and a.booking_status = 'booked';
@@ -414,7 +508,6 @@ declare
   row_id uuid;
   was text;
   result text;
-  next_id uuid;
 begin
   select * into s from genesis_work.sessions x where x.id = session for update;
   if not found then
@@ -442,15 +535,10 @@ begin
                  then 'late_cancelled' else 'cancelled' end;
   perform set_config('genesis_work.booking', 'on', true);
   update genesis_work.session_attendees set booking_status = result where id = row_id;
-  if was = 'booked' and s.status = 'scheduled' then
-    select a.id into next_id from genesis_work.session_attendees a
-     where a.session_id = s.id and a.booking_status = 'waitlisted'
-     order by a.booked_at, a.id limit 1;
-    if next_id is not null then
-      update genesis_work.session_attendees set booking_status = 'booked' where id = next_id;
-    end if;
-  end if;
   perform set_config('genesis_work.booking', '', true);
+  if was = 'booked' then
+    perform private.genesis_booking_promote(s.id);
+  end if;
   return result;
 end;
 $$;
@@ -485,6 +573,7 @@ as $$
 declare
   s genesis_work.sessions;
   row_id uuid;
+  refusal text;
 begin
   select * into s from genesis_work.sessions x where x.id = session;
   select a.id into row_id from genesis_work.session_attendees a
@@ -497,6 +586,10 @@ begin
   if s.status in ('ended', 'cancelled')
      or (s.status = 'scheduled' and s.scheduled_at is not null and now() < s.scheduled_at - interval '1 hour') then
     raise exception 'Check-in opens an hour before the start and closes when the session ends' using errcode = '22023';
+  end if;
+  refusal := private.genesis_booking_refusal(session, row_id);
+  if refusal is not null then
+    raise exception '%', refusal using errcode = 'P0001', hint = 'genesis_booking_allowed';
   end if;
   perform set_config('genesis_work.booking', 'on', true);
   update genesis_work.session_attendees
@@ -585,6 +678,9 @@ create trigger session_series_changed
 -- Privileges and policies ------------------------------------------------------------------------------
 
 revoke execute on function private.genesis_series_guard() from public, anon, authenticated;
+revoke execute on function private.genesis_booking_refusal(uuid, uuid) from public, anon, authenticated;
+revoke execute on function private.genesis_booking_promote(uuid) from public, anon, authenticated;
+revoke execute on function private.genesis_sessions_capacity_grew() from public, anon, authenticated;
 revoke execute on function private.genesis_series_changed() from public, anon, authenticated;
 revoke execute on function private.genesis_sessions_detach() from public, anon, authenticated;
 revoke execute on function private.genesis_booking_target(genesis_work.sessions, uuid) from public, anon, authenticated;
