@@ -19,6 +19,7 @@
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { lineAt } from "./scan.js";
+import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { appScripts } from "../upgrade/codemods.js";
 import { augmentsResourceScope, findRemovedScopeNames, PRACTICE_ID_AUGMENTATION, readsPracticeId } from "../upgrade/scope-names.js";
 import type { DoctorContext } from "./types.js";
@@ -44,16 +45,27 @@ function openingTag(code: string, start: number): string {
   return code.slice(start);
 }
 
-/** The tag's own attributes (outside every `{…}`), so a `tree` inside an expression isn't one. */
+/**
+ * The tag's own attributes, with every `{…}` emptied, so a `tree` or `pagination` inside an
+ * expression (a nested element in a slot) isn't one. A brace holding only a string literal keeps
+ * it (`pagination={"server"}` reads as `pagination={"server"}`).
+ */
 function ownAttributes(tag: string): string {
   let depth = 0;
   let quote: string | null = null;
   let out = "";
+  let inner = "";
   for (let i = 0; i < tag.length; i++) {
-    const ch = tag[i];
+    const ch = tag[i]!;
+    if (depth > 0) inner += ch;
     if (quote) {
-      if (ch === "\\") i++;
-      else if (ch === quote) quote = null;
+      if (ch === "\\") {
+        i++;
+        if (depth > 0) inner += tag[i] ?? "";
+        else out += ch + (tag[i] ?? "");
+        continue;
+      }
+      if (ch === quote) quote = null;
       if (depth === 0) out += ch;
       continue;
     }
@@ -61,11 +73,14 @@ function ownAttributes(tag: string): string {
       quote = ch;
       if (depth === 0) out += ch;
     } else if (ch === "{") {
-      if (depth === 0) out += "{";
+      if (depth === 0) inner = "";
       depth++;
     } else if (ch === "}") {
       depth--;
-      if (depth === 0) out += "}";
+      if (depth === 0) {
+        const body = inner.slice(0, -1).trim();
+        out += /^(["'`])[^"'`]*\1$/.test(body) ? `{${body}}` : "{}";
+      }
     } else if (depth === 0) out += ch;
   }
   return out;
@@ -79,8 +94,8 @@ export function checkTreeViews(ctx: DoctorContext): void {
       const tag = openingTag(file.code, (m.index ?? 0) + m[0].length - 1);
       const attrs = ownAttributes(tag);
       if (!/\stree\s*=/.test(attrs) || !/\spagination\s*=/.test(attrs)) continue;
-      // Its value: a string, bare or in braces (`pagination={"server"}`).
-      const paging = tag.match(/\spagination\s*=\s*(?:\{\s*)?["'](server|cursor)["']/);
+      // Its own value only: a string, bare or in braces (`pagination={"server"}`).
+      const paging = attrs.match(/\spagination\s*=\s*(?:\{\s*)?["'`](server|cursor)["'`]/);
       if (!paging) continue;
       ctx.report({
         rule: "resource-view-tree",
@@ -100,9 +115,22 @@ const DEEP = /\b(?:from|import|require)\s*\(?\s*["']@marktiderman\/genesis-studi
 /** A CommonJS require of the package root, which only has an `import` condition. */
 const ROOT_REQUIRE = /\brequire\s*\(\s*["']@marktiderman\/genesis-studio-server["']\s*\)/g;
 
+/**
+ * The files this rule reads: the doctor's scan, plus the app's `.cjs` and `.mjs` files, which the
+ * default scan leaves out (widening the default would put every `.cjs` config under the color and
+ * token rules) and which are where a CommonJS `require` usually is. Tests are skipped, as in the scan.
+ */
+function moduleFiles(ctx: DoctorContext): { path: string; code: string }[] {
+  const scanned = new Set(ctx.files.map((f) => f.path));
+  const extra = appScripts(ctx.root)
+    .filter((rel) => /\.(c|m)js$/.test(rel) && !scanned.has(rel) && !/\.(test|spec)\.[cm]js$/.test(rel) && !rel.split("/").includes("__tests__"))
+    .map((rel) => ({ path: rel, code: stripBlockComments(readFileSync(path.join(ctx.root, rel), "utf8"), true) }));
+  return [...ctx.files.filter((f) => SCRIPT_EXTS.has(f.ext)), ...extra];
+}
+
 export function checkStudioServerImports(ctx: DoctorContext): void {
-  for (const file of ctx.files) {
-    if (!SCRIPT_EXTS.has(file.ext) || !file.code.includes(STUDIO_SERVER)) continue;
+  for (const file of moduleFiles(ctx)) {
+    if (!file.code.includes(STUDIO_SERVER)) continue;
     for (const m of file.code.matchAll(DEEP)) {
       ctx.report({
         rule: "studio-server-auth-import",

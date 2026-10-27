@@ -23,13 +23,13 @@ const SCOPE = `import { ViewerScope } from "@marktiderman/genesis-core";
 export const Root = () => <ViewerScope viewer="ann" scope={{ practiceId: "p1" }}>{null}</ViewerScope>;
 `;
 
-const ZONES = `import { DisplayTimeZonesProvider, useDisplayTimeZones, type DisplayTimeZones } from "@marktiderman/genesis-ui-native";
+const ZONES = `import { DisplayTimeZonesProvider, useDisplayTimeZones, type DisplayTimeZones, type NativeResourceViewProps } from "@marktiderman/genesis-ui-native";
 export const own: DisplayTimeZones = { viewer: "UTC", practice: "Europe/Berlin" };
 export function Clock() {
   const zones = useDisplayTimeZones();
   return <DisplayTimeZonesProvider value={{ viewer: zones.viewer, practice: zones.practice }}>{zones?.practice}</DisplayTimeZonesProvider>;
 }
-export const props = { practiceTimeZone: "Asia/Tokyo" };
+export const props: Partial<NativeResourceViewProps> = { practiceTimeZone: "Asia/Tokyo" };
 // A practice of the app's own, not a zone: left alone.
 export const team = { practice: "Tuesday" };
 `;
@@ -76,6 +76,35 @@ describe("genesis-core-2-scope-names", () => {
     expect(out).toContain('{ scopeTimeZone: "Asia/Tokyo" }');
     expect(out).toContain('{ practice: "Tuesday" }');
     expect(findRemovedScopeNames(out)).toEqual([]);
+  });
+
+  it("rewrites only Genesis API usage: an app's own timeZone, prop and resolveZone in the same file stay", async () => {
+    const mixed = [
+      'import { defineView, type ViewField, type ViewDefinition } from "@marktiderman/genesis-core/resource-view";',
+      'import { NativeResourceView } from "@marktiderman/genesis-ui-native";',
+      "// The app's own settings and components, beside Genesis's:",
+      'export const reminder = { timeZone: "practice", label: "Practice clock" };',
+      'export const typedOwn: Reminder = { timeZone: "practice" };',
+      'export const Mine = () => <MyClock practiceTimeZone={zone} />;',
+      'const resolveZone = (z: string) => z;',
+      'export const mine = resolveZone("practice");',
+      "// Genesis's:",
+      'export const opens: ViewField = { timeZone: "practice" };',
+      'export const fields = { fields: { closes_at: { timeZone: "practice" } } } satisfies ViewDefinition<typeof c>;',
+      'export const v = defineView(c, { fields: { starts_at: { timeZone: "practice" } } });',
+      "export const S = () => <NativeResourceView view={v} practiceTimeZone={zone} />;",
+    ].join("\n");
+    const root = makeApp({ "src/mixed.tsx": mixed });
+    expect(await scopeNeutralNames.run({ root, dryRun: false, log: () => {} })).toEqual(["src/mixed.tsx"]);
+    const out = read(root, "src/mixed.tsx").split("\n");
+    expect(out[3]).toBe('export const reminder = { timeZone: "practice", label: "Practice clock" };');
+    expect(out[4]).toBe('export const typedOwn: Reminder = { timeZone: "practice" };');
+    expect(out[5]).toBe("export const Mine = () => <MyClock practiceTimeZone={zone} />;");
+    expect(out[7]).toBe('export const mine = resolveZone("practice");');
+    expect(out[9]).toBe('export const opens: ViewField = { timeZone: "scope" };');
+    expect(out[10]).toContain('closes_at: { timeZone: "scope" }');
+    expect(out[11]).toContain('starts_at: { timeZone: "scope" }');
+    expect(out[12]).toBe("export const S = () => <NativeResourceView view={v} scopeTimeZone={zone} />;");
   });
 
   it("reports nothing left after it runs, on a Growth90-shaped view", async () => {

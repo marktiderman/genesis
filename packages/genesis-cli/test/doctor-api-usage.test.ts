@@ -47,6 +47,10 @@ describe("resource-view-tree", () => {
       await only("resource-view-tree", {
         "src/views.tsx": TREE_OK,
         "src/other.tsx": 'export const C = () => <ResourceView view={v} slots={{ header: <Hint tree={1} /> }} pagination="server" />;',
+        // Its own pagination is client; only a nested element says server.
+        "src/nested.tsx":
+          'export const D = () => <ResourceView view={v} tree={tree} pagination="client" slots={{ header: <Hint pagination="server" /> }} />;',
+        "src/braced.tsx": 'export const E = () => <ResourceView view={v} tree={tree} pagination={"client"} />;',
       }),
     ).toEqual([]);
   });
@@ -67,6 +71,19 @@ describe("studio-server-auth-import", () => {
       [3, "warn"],
     ]);
     expect(found.every((f) => f.message.includes("@marktiderman/genesis-studio-server/auth"))).toBe(true);
+  });
+
+  it("reads .cjs and .mjs files, which the default scan leaves out", async () => {
+    const found = await only("studio-server-auth-import", {
+      "src/server.cjs": 'const { switchToUser } = require("@marktiderman/genesis-studio-server");\n',
+      "src/worker.mjs": 'import { switchToUser } from "@marktiderman/genesis-studio-server/dist/switch.js";\n',
+      "src/fine.cjs": 'const auth = require("@marktiderman/genesis-studio-server/auth");\n',
+      "src/server.test.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+    });
+    expect(found.map((f) => [f.file, f.line])).toEqual([
+      ["src/server.cjs", 1],
+      ["src/worker.mjs", 1],
+    ]);
   });
 
   it("leaves the ./auth entry (import and require) and an ESM import of the root alone", async () => {
@@ -146,6 +163,15 @@ describe("scope-practice-id", () => {
         "src/genesis.d.ts": 'declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }',
       }),
     ).toEqual([]);
+  });
+});
+
+describe("rule ids", () => {
+  it("are reserved: an app pattern can't take one", async () => {
+    for (const id of ["resource-view-tree", "studio-server-auth-import", "removed-scope-name", "scope-practice-id"]) {
+      const config = JSON.stringify({ doctor: { patterns: [{ id, files: ["src/**"], forbid: "x" }] } });
+      await expect(run({ "genesis.config.json": config })).rejects.toThrow(`"${id}" is a built-in rule id`);
+    }
   });
 });
 
