@@ -32,6 +32,7 @@ import { checkVersionSkew } from "./versions.js";
 import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
+import { checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
@@ -149,6 +150,8 @@ export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
     { name: "resource-workspaces", check: checkResourceWorkspaces },
     { name: "page-layouts", check: checkPageLayouts },
     { name: "iso-date-slices", check: checkIsoDateSlices },
+    { name: "resource-view-trees", check: checkTreeViews },
+    { name: "studio-server-imports", check: checkStudioServerImports },
     ...(config.packs ?? []).map((p) => packs[p]),
   ];
 }
