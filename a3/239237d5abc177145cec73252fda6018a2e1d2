@@ -1,0 +1,21 @@
+packages/core/src/hooks/__tests__/keys-and-viewer.test.tsx
+  s_2550badb988043::t_df3da0f6cbfc3c 350-351
+packages/core/src/hooks/viewer-scope.tsx
+  s_2550badb988043::t_3ac0f0974ca481 176,184-188,192-194,212-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a3239237d5abc177145cec73252fda6018a2e1d2",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
