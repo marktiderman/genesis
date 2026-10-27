@@ -1,0 +1,24 @@
+packages/work/migrations/0007_genesis_work_bookings.sql
+  s_26495fc9681b7e::t_e9f57a1fc1b96e 766-767
+  s_26495fc9681b7e::t_7b620d40a1d206 12-14,569-622,753-754,762-763,773,776-777
+packages/work/README.md
+  s_26495fc9681b7e::t_8ed6aa86a861a9 11
+packages/work/migrations/tests/0007_genesis_work_bookings.test.sql
+  s_26495fc9681b7e::t_c5060ac00b1300 8,152-168
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "07a089be74f503b11f1da0c5a4d9584632981390",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
