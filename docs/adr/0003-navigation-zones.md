@@ -1,6 +1,6 @@
 # ADR 0003: Navigation zones
 
-- Status: proposed
+- Status: accepted in part (Mark, 2026-10-27: zones are top-level items; Home rolls up; first zones). The Genesis API and the native shell remain proposed.
 - Date: 2026-10-27
 - Features: `feature-gate`, `entitlements`, `tenant-features`
 
@@ -145,15 +145,19 @@ Wodify, Mindbody and PushPress handle modules and roles:
   declare any.
 - `BlockNavItem` becomes `NavItem` with `children`. It has no consumers, so it can be changed now.
 
+## Decided (Mark, 2026-10-27)
+
+- **Zones are the modules, the top-level navigation items.**
+- **Home and Today stay the roll-up across every zone.** Today is the first tab in every zone and
+  is the same screen everywhere: what needs you now, across every practice and kind of work. The
+  Inbox is the same in every zone too. A zone's own tabs fill the slots between them, so a zone
+  has five tabs: Today, up to three of its own, and Me (with the Inbox).
+- **The first zones are Home, Gym, Coaching, Team (EOS) and Admin.** Someone with only Home sees
+  no switcher.
+- **Growth90 builds the Gym zone on mobile now,** in the shape in section 3, and moves it onto the
+  Genesis config when that lands.
+
 ## Open questions
 
-1. Is Home a zone, or above the zones? Growth90's Today rolls up every practice and kind of work for
-   the login (`docs/design/user-is-the-root.md`). Proposed: Home stays the roll-up and is always
-   there; the others are focused workspaces. The strongest apps (Notion, Slack, Asana) keep Home and
-   Inbox the same in every workspace, as a queue of what needs you, and Airbnb's host Today is ordered
-   by urgency.
-2. Growth90's top-level items, and so its zones: proposed Home, Gym, Coaching, Team (EOS) and Admin.
-3. Is a zone per login or per practice? Proposed: a zone can say `scope: "tenant"` (Admin, Gym for
+1. Is a zone per login or per practice? Proposed: a zone can say `scope: "tenant"` (Admin, Gym for
    staff) and get a practice picker; members' zones are per login.
-4. Should Growth90 ship a gym zone on mobile before this lands, built like admin mode, and move it
-   onto the config later?
