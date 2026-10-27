@@ -1,5 +1,22 @@
 # @marktiderman/genesis-work
 
+## 0.3.0
+
+### Minor Changes
+
+- d3bdb1c: Sessions gain attendees by person record (exactly one of a login or the app's person record, resolved through genesis-supabase's viewer-people hook), RSVPs, capacity with bookings and a waitlist (`book_session`, `cancel_booking`, `session_places`, `settle_session_bookings`), self check-in (`check_in`), and recurring series (`session_series`, `extend_series`), in migration 0007.
+
+  Features: sessions
+
+- 95a1fa9: Goals, projects, tasks and issues can be drafts (status `draft`, migration 0008): only those who may write the owner see them until they're set to another status.
+
+  Features: pursuits
+
+### Patch Changes
+
+- Updated dependencies [afae598]
+  - @marktiderman/genesis-features@0.6.1
+
 ## 0.2.0
 
 ### Minor Changes
