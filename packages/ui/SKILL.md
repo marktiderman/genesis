@@ -244,6 +244,26 @@ sets the scroll box). `pinnedColumns={{ left: ["name"], right: ["actions"] }}` k
 when scrolling sideways. Users can reorder columns by dragging a header or with Alt+←/→, and the order
 is kept per device with `columnOrderKey`.
 
+## Nested rows
+
+`<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id }} />` (or ResourcePage's
+`tree`) nests rows under their parent in the table and list views: an indent and an expand arrow in
+the first cell, sort within siblings, search that keeps a match's ancestors, `defaultExpanded` or a
+controlled `expanded`, and opt-in `cascadeSelect`. Client data only. The logic is genesis-core's
+`treeRows`; see docs/RESOURCE-VIEW.md, "Tree mode".
+
+## Parts a component draws for itself
+
+A component's own backdrop or wrapper takes classes through a `…ClassName` prop beside
+`className`, merged after its defaults (tailwind-merge, so yours win a clash):
+
+- `DialogContent`, `AlertDialogContent`, `SheetContent`: `overlayClassName` for the backdrop, e.g.
+  `<DialogContent overlayClassName="z-[60]" className="z-[60]">` to open a dialog above a side
+  panel that sits at `z-50`.
+- `Table`: `containerClassName` for the scroll box around the `<table>` (`data-slot="table-container"`).
+  A sticky header needs the box to scroll: `<Table containerClassName="max-h-96">` with
+  `<TableHeader className="sticky top-0 bg-background">`.
+
 ## Full inventory
 
 `docs/component-reference.md` lists every export with its props and stability tag. It is

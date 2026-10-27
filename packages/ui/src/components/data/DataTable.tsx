@@ -18,6 +18,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import type { TreeNode } from "@marktiderman/genesis-core/resource-view";
 import {
   Table,
   TableBody,
@@ -54,6 +55,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import { TreeIndent } from "./TreeIndent";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
 import type { Density } from "../../hooks/use-view-settings";
@@ -188,6 +190,23 @@ export interface DataTableProps<T> {
   sort?: readonly DataTableSort[];
   /** Called with the next header sort whenever a header is clicked. */
   onSortChange?: (sort: DataTableSort[]) => void;
+  /**
+   * Tree mode, drawn: `items` are already the tree's visible rows in order (genesis-core's
+   * `treeRows`, which `useResourceView` / ResourcePage's `tree` run), so the table doesn't sort
+   * them again: a header click reports through `onSortChange`, and the caller sorts within
+   * siblings. The table becomes a WAI-ARIA treegrid (`aria-level`, `aria-expanded`,
+   * `aria-posinset`, `aria-setsize`), the first column gets the indent and the expand arrow, and on
+   * a row's open button → opens a row (then moves to its first child) and ← closes it (then moves
+   * to its parent).
+   */
+  tree?: DataTableTree<T>;
+}
+
+/** {@link DataTableProps.tree}: each row's place in the tree, and how to open or close one. */
+export interface DataTableTree<T> {
+  /** The row's node, by key (as `getKey` gives it). */
+  node: (id: string) => TreeNode<T> | undefined;
+  setExpanded: (id: string, open: boolean) => void;
 }
 
 /** One column of a `DataTable` header sort. */
@@ -553,6 +572,7 @@ export function DataTable<T>({
   columnOrderKey,
   sort: sortProp,
   onSortChange,
+  tree,
 }: DataTableProps<T>) {
   const m = useUiMessages();
   const emptyMessage = emptyMessageProp ?? m.table.noRecords;
@@ -798,10 +818,20 @@ export function DataTable<T>({
   const [currentPage, setCurrentPage] = useState(0);
   const [currentPageSize, setCurrentPageSize] = useState(initialPageSize);
 
-  // Reset page when items change
+  // Reset page when items change. Not in a tree: opening a row adds rows, and the page should
+  // stay where the row is (it is only kept in range, below).
+  const treeMode = !!tree;
   useEffect(() => {
-    setCurrentPage(0);
-  }, [items.length, currentPageSize]);
+    if (!treeMode) setCurrentPage(0);
+  }, [items.length, currentPageSize, treeMode]);
+  useEffect(() => {
+    if (treeMode) setCurrentPage(0);
+  }, [currentPageSize, treeMode]);
+  useEffect(() => {
+    if (!treeMode) return;
+    const last = Math.max(0, Math.ceil(items.length / currentPageSize) - 1);
+    setCurrentPage((page) => Math.min(page, last));
+  }, [items.length, currentPageSize, treeMode]);
 
   // ── Sort and page: TanStack Table's row models ──
   // The header buttons drive the sort state (asc → desc → off, Shift adds a
@@ -843,6 +873,8 @@ export function DataTable<T>({
     enableMultiSort: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    // A tree's rows come in the tree's order: sorting them flat would part children from parents.
+    ...(tree ? { manualSorting: true } : {}),
     ...(pagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
   });
   const totalItems = table.getPrePaginationRowModel().rows.length;
@@ -850,6 +882,9 @@ export function DataTable<T>({
     ? Math.max(1, Math.ceil(totalItems / currentPageSize))
     : 1;
   const displayItems = table.getRowModel().rows.map((row) => row.original);
+  /** The tree node behind a drawn row, in tree mode. */
+  const nodeOf = (id: string): TreeNode<T> | undefined => tree?.node(id);
+  const setRowExpanded = (id: string, open: boolean) => tree?.setExpanded(id, open);
 
   // ── Virtualization (long, unpaged tables) ──
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -922,15 +957,27 @@ export function DataTable<T>({
 
   const renderRow = (item: T, index: number, measure?: (el: HTMLTableRowElement | null) => void) => {
             const id = getKey(item);
+            const node = nodeOf(id);
             return (
               <TableRow
                 key={id}
                 ref={measure}
                 data-index={index}
                 aria-rowindex={virtualizing ? index + 2 : undefined}
+                {...(node
+                  ? {
+                      "aria-level": node.depth + 1,
+                      "aria-posinset": node.position,
+                      "aria-setsize": node.siblings,
+                      ...(node.hasChildren ? { "aria-expanded": node.expanded } : {}),
+                      ...(node.matched ? {} : { "data-tree-context": "" }),
+                    }
+                  : {})}
                 className={cn(
                   onRowClick && "cursor-pointer",
                   "focus-within:bg-muted/40",
+                  // An ancestor kept only so a match keeps its place.
+                  node && !node.matched && "text-muted-foreground",
                 )}
                 data-state={
                   selected?.has(id) ? "selected" : undefined
@@ -970,8 +1017,10 @@ export function DataTable<T>({
                         pin?.className,
                       )}
                       style={pin?.style}
+                      {...(node ? { role: "gridcell" } : {})}
                     >
                       {(() => {
+                        const cell = (() => {
                         const content = col.editable ? (
                           <EditableCell
                             item={item}
@@ -1007,6 +1056,22 @@ export function DataTable<T>({
                               e.preventDefault();
                               focusRow(to);
                             };
+                            // Tree mode: → opens, then moves to the first child; ← closes, then moves to the parent.
+                            if (node && e.key === "ArrowRight") {
+                              e.preventDefault();
+                              if (node.hasChildren && !node.expanded) setRowExpanded(id, true);
+                              else if (node.hasChildren) focusRow(index + 1);
+                              return;
+                            }
+                            if (node && e.key === "ArrowLeft") {
+                              e.preventDefault();
+                              if (node.expanded) setRowExpanded(id, false);
+                              else if (node.parentId !== null) {
+                                const at = displayItems.findIndex((it) => getKey(it) === node.parentId);
+                                if (at >= 0) focusRow(at);
+                              }
+                              return;
+                            }
                             if (e.key === "ArrowDown" || e.key === "j") move(index + 1);
                             else if (e.key === "ArrowUp" || e.key === "k") move(index - 1);
                             else if (e.key === "Home") move(0);
@@ -1043,6 +1108,20 @@ export function DataTable<T>({
                               {m.common.open}
                             </button>
                           </div>
+                        );
+                        })();
+                        // Tree mode: the first column carries the depth and the arrow.
+                        if (!node || colIndex !== 0) return cell;
+                        return (
+                          <TreeIndent
+                            node={node}
+                            name={rowLabel(item, id)}
+                            // With row keys, ← and → on the row do this; the arrow is for the pointer.
+                            focusable={!rowKeys}
+                            onToggle={(open) => setRowExpanded(id, open)}
+                          >
+                            {cell}
+                          </TreeIndent>
                         );
                       })()}
                     </TableCell>
@@ -1110,6 +1189,7 @@ export function DataTable<T>({
       >
         <Table
           style={{ tableLayout: "fixed" }}
+          {...(tree ? { role: "treegrid" } : {})}
           // A virtualized body holds only some rows; say how many there are.
           aria-rowcount={virtualizing ? displayItems.length + 1 : undefined}
         >
