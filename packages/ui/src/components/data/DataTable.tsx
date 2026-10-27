@@ -1116,8 +1116,11 @@ export function DataTable<T>({
                           <TreeIndent
                             node={node}
                             name={rowLabel(item, id)}
-                            // With row keys, ← and → on the row do this; the arrow is for the pointer.
-                            focusable={!rowKeys}
+                            // Where the row has an open button, it is the row's one tab stop and its ←
+                            // and → open and close (the treegrid's roving tabindex), so the arrow is
+                            // for the pointer. Without one (no row keys, `openColumn={null}`, every
+                            // column editable) the arrow is the only way in, so it takes the tab.
+                            focusable={openKey === null}
                             onToggle={(open) => setRowExpanded(id, open)}
                           >
                             {cell}

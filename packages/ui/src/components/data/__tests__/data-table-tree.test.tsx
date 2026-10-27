@@ -44,7 +44,7 @@ describe("DataTable draws a tree", () => {
     { key: "name", header: "Name", sortable: true },
     { key: "rank", header: "Rank", sortable: true },
   ];
-  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void; pagination?: boolean; pageSize?: number }) {
+  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void; pagination?: boolean; pageSize?: number; openColumn?: string | null }) {
     const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set(["north"]));
     const tree = treeRows(ROWS, { getId: (r) => r.id, getParentId, expanded });
     return (
@@ -93,6 +93,16 @@ describe("DataTable draws a tree", () => {
     fireEvent.click(screen.getByRole("button", { name: "Expand North A" }));
     expect(names()).toEqual(["North", "North B", "North A", "North A One", "South"]);
     fireEvent.click(screen.getByRole("button", { name: "Collapse North" }));
+    expect(names()).toEqual(["North", "South"]);
+  });
+
+  it("keeps the arrow reachable by Tab when rows have no open button", () => {
+    // Clickable rows, but no cell opens them: ← and → have no row button to live on.
+    render(<Drawn onRowClick={() => {}} openColumn={null} />);
+    expect(within(row("North")).queryAllByRole("button").some((b) => b.hasAttribute("data-row-open"))).toBe(false);
+    const arrow = screen.getByRole("button", { name: "Collapse North" });
+    expect(arrow.tabIndex).toBe(0);
+    fireEvent.click(arrow);
     expect(names()).toEqual(["North", "South"]);
   });
 
