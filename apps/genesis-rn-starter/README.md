@@ -59,7 +59,7 @@ In this monorepo the root `pnpm-workspace.yaml` pins `react`, `react-dom`, `@typ
 ## Turning features off
 
 Each line of `features` in `starter.config.ts` is one feature, `true` by default except
-`googleSignIn`:
+`googleSignIn` and `productDemo`:
 
 | Line | What it is | Off means |
 | --- | --- | --- |
@@ -79,6 +79,7 @@ Each line of `features` in `starter.config.ts` is one feature, `true` by default
 | `updates` | The updates block (`createUpdates`, `src/lib/updates.ts`): force upgrade and maintenance from the `app_release_policy` row, the update banner (never reloads mid sign-in or mid deletion: `useBlockReload`), what's new, and the version signature in Settings > About. | No blocking screens, banner or notes; About shows the version and build from `expo-application`. |
 | `observability` | The observability block (`src/lib/observability.ts`): every error the shell catches, route breadcrumbs and timings, the user's id and the typed events in `events`, to Sentry when `EXPO_PUBLIC_SENTRY_DSN` is set and to the console in development, scrubbed of emails, tokens and query strings on the phone. | Errors only reach `console` (LogBox in development). |
 | `devtools` | The devtools overlay (`src/lib/devtools.ts`) in development and preview builds: a three-finger hold, "Open devtools" in the dev menu or Settings > About > Developer tools open a sheet with the version signature, channel switch, user id, blocks, flags and recent errors. Never in a production bundle. | No overlay and no Settings row. |
+| `productDemo` | **Off by default.** A demo of `@marktiderman/genesis-product/native` (`src/lib/product-demo.ts`): Settings > Product demo opens the idea board (a vote shows at once, with a haptic, and is queued while offline) and the Now / Next / Later roadmap, over sample data in memory. Nothing is sent anywhere. Screen: `src/app/(app)/settings/product.tsx`. | No Settings row; the route sends you back to Settings. |
 
 A config with every sign-in method off, or Google without Apple, fails at start-up. Apple's button
 only shows on iOS, so with `emailSignIn` and `googleSignIn` off `app.config.ts` builds for iOS only.

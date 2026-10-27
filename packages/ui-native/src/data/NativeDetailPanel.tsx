@@ -20,6 +20,10 @@ export interface NativeDetailPanelProps<T = Record<string, unknown>> {
   fields?: NativeDetailField<T>[];
   onEdit?: (item: T) => void;
   onDelete?: (item: T) => void;
+  /** The heading. Wins over `titleField` (e.g. a view's `summary(row).title`). */
+  title?: string;
+  /** Below the fields and actions (e.g. actions with their own wording, or the reason one is refused). */
+  footer?: ReactNode;
   children?: ReactNode;
 }
 
@@ -31,9 +35,11 @@ function NativeDetailPanel<T extends Record<string, unknown>>({
   fields,
   onEdit,
   onDelete,
+  title: titleProp,
+  footer,
   children,
 }: NativeDetailPanelProps<T>) {
-  const title = titleField ? String(item[titleField] ?? "") : undefined;
+  const title = titleProp ?? (titleField ? String(item[titleField] ?? "") : undefined);
   const hasActions = onEdit != null || onDelete != null;
 
   // Escape hatch — caller provides full content
@@ -122,6 +128,7 @@ function NativeDetailPanel<T extends Record<string, unknown>>({
             ) : null}
           </View>
         ) : null}
+        {footer}
       </ScrollView>
     </SafeAreaView>
   );

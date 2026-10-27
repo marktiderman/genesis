@@ -18,7 +18,9 @@ export type {
   AuditEntry,
   RowAction,
   RecordComment,
+  RowOf,
 } from "./types";
+export { defineResource } from "./types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./keys";
 export {
   DataWriteError,

@@ -11,7 +11,7 @@ import { Separator } from "../ui/separator";
 import { cn } from "../../utils";
 import { Check, Eye, Loader2, Redo2, Rocket, Share2, TriangleAlert, Undo2 } from "lucide-react";
 import { Chip } from "./chip";
-import { SAVE_STATE_LABEL, type ChipTone, type SaveState } from "./status";
+import { SAVE_STATE_LABEL, type ChipTone, type SaveState } from "@marktiderman/genesis-core/resource";
 
 export interface ResourceHeaderProps {
   /** The title, shown once: as the heading and the breadcrumb's last part. */
@@ -45,6 +45,8 @@ export interface ResourceHeaderProps {
         disabled?: boolean | undefined;
       }
     | undefined;
+  /** Before the title, in the leading area: a switcher between records, say. */
+  leading?: ReactNode;
   /** Anything else for the right-hand side, before Preview (a Reload button, a menu). */
   actions?: ReactNode;
   className?: string | undefined;
@@ -79,6 +81,7 @@ export function ResourceHeader({
   onShare,
   publish,
   actions,
+  leading,
   className,
 }: ResourceHeaderProps) {
   const history = onUndo || onRedo;
@@ -102,6 +105,11 @@ export function ResourceHeader({
           </Breadcrumb>
         ) : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          {leading ? (
+            <div data-slot="resource-header-leading" className="flex shrink-0 items-center">
+              {leading}
+            </div>
+          ) : null}
           <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight sm:text-2xl">{name}</h1>
           {status ? (
             <Chip tone={status.tone} testID="resource-status">

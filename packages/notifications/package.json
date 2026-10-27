@@ -88,6 +88,7 @@
   },
   "peerDependencies": {
     "@marktiderman/genesis-native": "workspace:>=0.2.0 <1.0.0",
+    "@marktiderman/genesis-supabase": "workspace:>=0.7.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@react-email/components": "^1.0.0",
@@ -120,6 +121,7 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-supabase": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@react-email/components": "1.0.12",

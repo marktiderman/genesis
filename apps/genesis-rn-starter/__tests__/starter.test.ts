@@ -1,4 +1,4 @@
-// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback @feat:chat
+// @feat:native-starter @feat:app-updates @feat:push @feat:observability @feat:devtools-overlay @feat:support-feedback @feat:chat @feat:product-roadmap
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -429,5 +429,28 @@ describe("chat", () => {
     expect(read("app.config.ts")).not.toContain("features.chat");
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     expect(Object.keys(pkg.dependencies)).toEqual(expect.arrayContaining(["expo-audio", "expo-image-picker", "expo-clipboard", "@marktiderman/genesis-chat"]));
+  });
+});
+
+describe("product demo", () => {
+  it("is off by default, behind the one `productDemo` switch: no Settings row, and the route goes back to Settings", () => {
+    expect(starter.features.productDemo).toBe(false);
+    expect(read("src/app/(app)/settings/index.tsx")).toContain("...(starter.features.productDemo");
+    expect(read("src/app/(app)/settings/product.tsx")).toContain('if (!starter.features.productDemo) return <Redirect href="/settings" />');
+    expect(read("app.config.ts")).not.toContain("features.productDemo");
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    expect(Object.keys(pkg.dependencies)).toContain("@marktiderman/genesis-product");
+  });
+});
+
+describe("metro", () => {
+  it("watches every Genesis workspace package the app depends on, so an edit to one reloads the app", () => {
+    const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
+    const watched = /\.\.\.\[([^\]]+)\]\.map\(\(name\) => path\.resolve\(monorepoRoot, "packages", name\)\)/.exec(read("metro.config.js"))?.[1] ?? "";
+    const names = [...watched.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const genesis = Object.keys(pkg.dependencies)
+      .filter((d) => d.startsWith("@marktiderman/genesis-"))
+      .map((d) => d.slice("@marktiderman/genesis-".length));
+    for (const name of genesis) expect(names, name).toContain(name);
   });
 });

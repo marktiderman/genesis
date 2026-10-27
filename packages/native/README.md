@@ -683,6 +683,41 @@ increment reaches the extension (its `CURRENT_PROJECT_VERSION` is set at
 prebuild) hasn't been checked either. Donated conversations stay in Siri's
 suggestions after a person turns previews off.
 
+## Continue on the web: openOnWeb
+
+`openOnWeb(path, options)` from `/web-handoff` opens a page of the web app signed in as the
+person using the app, for work the app leaves to the web. It asks the app's server for a
+single-use, 60-second link (genesis-supabase's `createWebHandoff`; the whole flow, its threats
+and its lifetimes are in that package's README under "Continue on the web") and opens it.
+
+```ts
+import * as WebBrowser from "expo-web-browser";
+import { openOnWeb } from "@marktiderman/genesis-native/web-handoff";
+
+await openOnWeb("/clients/1/forms", {
+  endpoint: "https://app.example.com/api/auth/handoff",
+  getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+  browser: WebBrowser,
+  browserOptions: { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET },
+});
+```
+
+- It throws for anything but a path on the web app (`https://…`, `//host`, `/\host`); the
+  server checks again.
+- Without a session, with the server unreachable (8 seconds), for an account without an email
+  or after too many links in a minute, it opens the page signed out (`{ signedIn: false, reason }`):
+  the person signs in there and lands on the path. It never opens a URL on another origin.
+- **Signing out:** call `signOutOnWeb({ endpoint: "https://app.example.com/api/auth/handoff-signout",
+  getAccessToken })` just before the app's own sign-out. It ends the web sessions this app
+  session handed off (only those) and never throws, so it can't block signing out.
+- **The browser:** `openBrowserAsync` (SFSafariViewController on iOS, a Custom Tab on Android),
+  not `Linking.openURL`. The person stays in the app, and Done brings them back. The in-app
+  browser keeps its website data between openings, separate from Safari, so the first handoff
+  asks "Continue as {email}?" once and later ones go straight to the page. Safari might be signed
+  in as someone else and ask every time. Not `openAuthSessionAsync`: it shows the system
+  "wants to use … to sign in" alert on every open. On Android a Custom Tab shares Chrome's
+  storage; the page asks before switching people there too.
+
 ## Blocks
 
 `blocks` takes `defineBlock` declarations (`@marktiderman/genesis-features/blocks`) a native shell
@@ -749,6 +784,7 @@ TanStack persister packages, for `/updates` `react-native-safe-area-context`
 (with `expo-updates` and `expo-application` passed in), and for `/push`
 `expo-notifications`, passed in too.
 `/observability` takes `@sentry/react-native` and `expo-observe` passed in;
-`/devtools` takes expo-sensors' `Accelerometer` and React Native's `DevSettings` passed in.
+`/devtools` takes expo-sensors' `Accelerometer` and React Native's `DevSettings` passed in;
+`/web-handoff` takes `expo-web-browser` passed in.
 
 @stability Beta

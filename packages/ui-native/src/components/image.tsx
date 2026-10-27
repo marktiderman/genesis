@@ -32,6 +32,8 @@ export interface NativeImageProps {
   recyclingKey?: string;
   /** expo-image only: load order among images. */
   priority?: "low" | "normal" | "high";
+  /** The picture couldn't be loaded (draw a fallback). */
+  onError?: () => void;
   testID?: string;
 }
 
@@ -47,6 +49,7 @@ export function NativeImage({
   placeholder,
   recyclingKey,
   priority,
+  onError,
   testID,
 }: NativeImageProps) {
   const { image: ExpoImage } = useGenesisModules();
@@ -74,6 +77,7 @@ export function NativeImage({
           transition={reducedMotion ? null : 150}
           recyclingKey={recyclingKey ?? src}
           priority={priority}
+          onError={onError}
         />
       ) : (
         <Image
@@ -82,6 +86,7 @@ export function NativeImage({
           source={{ uri: src }}
           style={FILL}
           resizeMode={contentFit}
+          onError={onError}
         />
       )}
     </View>

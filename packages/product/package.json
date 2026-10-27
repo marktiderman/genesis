@@ -1,7 +1,6 @@
 {
   "name": "@marktiderman/genesis-product",
   "version": "0.0.4",
-  "private": true,
   "type": "module",
   "sideEffects": false,
   "description": "The product system for a Genesis repo: a Now / Next / Later board from features.ts with demand from ideas and feedback, a triage inbox, and release notes that close the loop with the people who asked. Ideas and feedback come from GitHub issues today, behind a SignalSource contract. Part of the Genesis framework.",
@@ -11,6 +10,10 @@
     "directory": "packages/product"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "bin": {
     "genesis-product": "./dist/cli.js"
   },
@@ -23,13 +26,24 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
     "./node": {
       "types": "./dist/node.d.ts",
       "import": "./dist/node.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "react-native": "./src/native/index.ts",
+      "import": "./dist/native.js",
+      "default": "./dist/native.js"
     }
   },
   "files": [
     "dist",
+    "src",
     "README.md"
   ],
   "scripts": {
@@ -41,8 +55,36 @@
   "dependencies": {
     "@marktiderman/genesis-features": "workspace:^"
   },
+  "peerDependencies": {
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "react": "^19.0.0",
+    "react-native": ">=0.76.0",
+    "react-native-safe-area-context": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-ui-native": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    },
+    "react-native-safe-area-context": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@marktiderman/genesis-notifications": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.9.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"

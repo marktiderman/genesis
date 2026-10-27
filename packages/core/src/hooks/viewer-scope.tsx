@@ -1,6 +1,28 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { Fragment, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { dayIn, personTimeZone, type Day } from "../dates";
+import { stableJson } from "./draft-controller";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
+
+/** Today in `zone`, rechecked when the page comes back into view and at the next minute boundary while it's open. */
+function useToday(zone: string): Day {
+  const [day, setDay] = useState(() => dayIn(zone));
+  useEffect(() => {
+    const check = () => setDay(dayIn(zone));
+    check();
+    const onVisible = () => {
+      if (typeof document === "undefined" || document.visibilityState === "visible") check();
+    };
+    if (typeof document !== "undefined") document.addEventListener("visibilitychange", onVisible);
+    // A page left open over midnight rolls over within a minute.
+    const timer = setInterval(check, 60_000);
+    return () => {
+      if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(timer);
+    };
+  }, [zone]);
+  return day;
+}
 
 /**
  * Empties the query cache for a new viewer: sends the old viewer's waiting
@@ -14,6 +36,46 @@ export async function clearViewerCache(queryClient: QueryClient): Promise<void> 
   queryClient.clear();
 }
 
+/**
+ * Where the viewer is working: the current practice, person or space, or a set
+ * of people. Screens turn it into server filters and create defaults; it never
+ * decides access (row-level security does).
+ */
+export interface ResourceScope {
+  practiceId?: string;
+  personId?: string;
+  spaceId?: string;
+  /** Several people at once (a coach's client list, a group). */
+  personIds?: readonly string[];
+  [key: string]: unknown;
+}
+
+export interface ViewerContext {
+  viewer: string | null;
+  scope: ResourceScope;
+  /** The zone the viewer's days are counted in: theirs if known, else the device's. */
+  timeZone: string;
+  /**
+   * Today on the viewer's clock (YYYY-MM-DD), kept current when the page comes back into view.
+   * Use it for every "today" read and as query keys' `day`: `keys.for(useViewerScope())`.
+   */
+  day: Day;
+}
+
+const ViewerContextValue = createContext<ViewerContext | null>(null);
+
+/** The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. */
+export function useViewerScope(): ViewerContext {
+  const value = useContext(ViewerContextValue);
+  if (!value) throw new Error("[genesis-core] useViewerScope needs a <ViewerScope> above it");
+  return value;
+}
+
+/** Like useViewerScope, or null outside a ViewerScope. */
+export function useOptionalViewerScope(): ViewerContext | null {
+  return useContext(ViewerContextValue);
+}
+
 export interface ViewerScopeProps {
   /** The signed-in viewer's id, null when signed out, undefined while the session loads. */
   viewer: string | null | undefined;
@@ -22,6 +84,13 @@ export interface ViewerScopeProps {
    * is this one, the restored cache is kept; otherwise it's emptied.
    */
   persistedViewer?: string | null;
+  /** Where the viewer is working (see `ResourceScope`). Changing it doesn't remount or clear anything. */
+  scope?: ResourceScope;
+  /**
+   * The viewer's saved time zone (IANA), when known; else the device's is used. Pass it when
+   * rendering on a server, whose own zone is rarely the viewer's.
+   */
+  timeZone?: string | null;
   /** Shown while the session loads (and for the one render a change takes). */
   fallback?: ReactNode;
   children: ReactNode;
@@ -41,8 +110,17 @@ export interface ViewerScopeProps {
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer, scope, timeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
+  const zone = personTimeZone({ timeZone });
+  const day = useToday(zone);
+  // A new scope object each render shouldn't re-render every reader: compare by value.
+  const scopeKey = stableJson(scope ?? {});
+  const value = useMemo<ViewerContext>(
+    () => ({ viewer: viewer ?? null, scope: scope ?? {}, timeZone: zone, day }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [viewer, scopeKey, zone, day],
+  );
   // The viewer the children were last mounted for; undefined before the first.
   const [mounted, setMounted] = useState<string | null | undefined>(undefined);
   if (viewer === undefined) return <>{fallback}</>;
@@ -61,5 +139,9 @@ export function ViewerScope({ viewer, persistedViewer, fallback = null, children
     setMounted(viewer);
     return <>{fallback}</>;
   }
-  return <Fragment key={viewer ?? "signed-out"}>{children}</Fragment>;
+  return (
+    <ViewerContextValue.Provider value={value}>
+      <Fragment key={viewer ?? "signed-out"}>{children}</Fragment>
+    </ViewerContextValue.Provider>
+  );
 }

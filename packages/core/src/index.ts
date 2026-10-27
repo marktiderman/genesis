@@ -20,6 +20,7 @@ export type {
   FieldReference,
   FieldSchema,
   ResourceContract,
+  RowOf,
   ResourceAccess,
   ResourceRelation,
   VersionField,
@@ -32,6 +33,7 @@ export type {
   RecordComment,
 } from "./schema/types";
 export { keyFields, encodeRecordKey, decodeRecordKey } from "./schema/keys";
+export { defineResource } from "./schema/types";
 
 // Query keys
 export {
@@ -42,6 +44,9 @@ export {
   type QueryKeys,
   type ScopedKey,
 } from "./query-keys";
+
+// Links checked before they reach an href or src
+export { isSafeUrl, normalizeLinkUrl } from "./urls";
 
 // Utils
 export { titleCase } from "./utils";

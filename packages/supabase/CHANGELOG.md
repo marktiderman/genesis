@@ -1,5 +1,18 @@
 # @marktiderman/genesis-supabase
 
+## 0.7.0
+
+### Minor Changes
+
+- 18a5a4f: Migration `0014_genesis_feature_registry_hardening` (feature-mirror block) changes behaviour 0.6.0 shipped in 0008: server code is told apart from a person by the request's role (`current_setting('role')`), not by `request.jwt.claims`, so a session that switches to `authenticated` without claims is no longer treated as server code; `feature_shipped` answers a signed-in person only for customer-facing features; a flag that leaves the registry loses its `platform_value`; and `feature_entitlements` gets an index on `feature_id` for active rows. The docs now say to sync with the build time, not the time a deployment started.
+- a211c61: New migration `0009_genesis_owner_access.sql` and the `owner-access` block. It defines the owner-access contract that Genesis blocks with owned rows call in their policies.
+  - `private.genesis_owner_readable()` and `private.genesis_owner_allows(tenant, person_id, team_id, organization_id, action)` wrap the app's hooks, `genesis_readable_owners` and `genesis_owner_can`.
+  - They fail closed: a missing or broken hook, no signed-in person, a null tenant or an unknown action means no.
+
+  A pgTAP test sits beside the migration.
+
+  Features: owner-access
+
 ## 0.6.2
 
 ### Patch Changes

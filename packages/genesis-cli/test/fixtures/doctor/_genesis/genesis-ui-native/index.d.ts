@@ -9,8 +9,9 @@ declare const NativeSkeleton: React.FC;
 declare const NativeLoadingState: React.FC;
 declare const NativeText: React.FC;
 declare const NativeResourcePage: React.FC;
+declare const NativeResourceView: React.FC;
 declare function useThemeRoles(): Record<string, string>;
 declare function cn(...inputs: unknown[]): string;
 
-export { NativeButton, NativeButtonProps, NativeDialog, NativeDialogHeader, NativeResourcePage, NativeLoadingState, NativeSheet, NativeSkeleton, NativeText, cn, useThemeRoles };
+export { NativeButton, NativeButtonProps, NativeDialog, NativeDialogHeader, NativeResourcePage, NativeResourceView, NativeLoadingState, NativeSheet, NativeSkeleton, NativeText, cn, useThemeRoles };
 export { AuthScreen, ScreenContainer, ScreenHeaderProps, SettingsPage, composeHeaderOptions } from './layouts/index.js';
