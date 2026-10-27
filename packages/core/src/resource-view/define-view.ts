@@ -189,6 +189,19 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       if (values?.length && !values.includes(value)) problems.push(`fields.${name}.labels names "${value}", which isn't one of its values`);
     }
   }
+  for (const [name, v] of Object.entries(viewFields)) {
+    if (v?.missingLabel === undefined) continue;
+    if (typeof v.missingLabel !== "string" || !v.missingLabel.trim()) problems.push(`fields.${name}.missingLabel isn't text`);
+    else if (!byName.get(name)?.references) problems.push(`fields.${name}.missingLabel is set, but "${name}" isn't a link`);
+  }
+  for (const [name, v] of Object.entries(viewFields)) {
+    if (v?.labelField === undefined) continue;
+    if (typeof v.labelField !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.labelField)) {
+      problems.push(`fields.${name}.labelField isn't a field name`);
+    } else if (!byName.get(name)?.references) {
+      problems.push(`fields.${name}.labelField is set, but "${name}" isn't a link`);
+    }
+  }
   for (const [preset, list] of Object.entries(columnLists)) {
     const seen = new Set<string>();
     for (const column of list ?? []) {
@@ -293,6 +306,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           value: (row: Row) => row[column],
           ...(v?.tones ? { tones: v.tones } : {}),
           ...(v?.labels ? { labels: v.labels } : {}),
+          ...(v?.labelField ? { labelField: v.labelField } : {}),
+          ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
           ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
           ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
         });
@@ -336,6 +351,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           section,
           sectionTitle,
           ...(v?.max !== undefined ? { max: v.max } : {}),
+          ...(v?.labelField ? { labelField: v.labelField } : {}),
+          ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
           ...(field.enumValues?.length
             ? { options: Object.freeze(field.enumValues.map((value) => Object.freeze({ value, label: valueLabel(name, value) }))) }
             : {}),

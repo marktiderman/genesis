@@ -9,7 +9,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { Linking, Text } from "react-native";
 import { titleCase } from "@marktiderman/genesis-core";
 import { isTimeZone, personTimeZone, wallClock } from "@marktiderman/genesis-core/dates";
-import { useViewer } from "@marktiderman/genesis-core/hooks";
+import { useRelationLabel, useViewer } from "@marktiderman/genesis-core/hooks";
 import { isSafeUrl } from "@marktiderman/genesis-core/urls";
 import { valueText, type DisplayHint, type ResolvedColumn, type ViewTone } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -168,6 +168,22 @@ const text = (hint: DisplayHint): DisplayRenderer => (value, { messages, column,
   <NativeText preset="body">{displayText(hint, value, messages, resolveZone(column.timeZone, zones))}</NativeText>
 );
 
+/**
+ * A link as the linked row's words (batched per page). A plain relation field with no `references`
+ * shows its value; a linked row that's hidden or gone shows words, never its raw id.
+ */
+function RelationText({ value, context }: { value: unknown; context: DisplayContext }) {
+  const { column, messages } = context;
+  const reference = column.field?.references;
+  const label = useRelationLabel(reference, value, column.labelField ? { labelField: column.labelField } : {});
+  const shown = !reference
+    ? String(value)
+    : label === undefined
+      ? messages.common.empty
+      : (label ?? column.missingLabel ?? messages.common.hiddenLink ?? defaultNativeResourceViewMessages.common.hiddenLink!);
+  return <NativeText preset="body">{shown}</NativeText>;
+}
+
 /** Genesis's native renderers. Every one shows text it can't draw, never a broken row. */
 export const nativeDisplayRenderers: DisplayRenderers = {
   text: text("text"),
@@ -185,8 +201,8 @@ export const nativeDisplayRenderers: DisplayRenderers = {
   ),
   date: text("date"),
   datetime: text("datetime"),
-  // The linked row's id until relation labels arrive (batched per page, never per row).
-  relation: text("relation"),
+  // The linked row's words, batched across the list (one query per linked resource), else its id.
+  relation: (value, context) => <RelationText value={value} context={context} />,
   url: (value, { messages }) => {
     const url = openableUrl(value);
     return url && /^https?:/i.test(url) ? (

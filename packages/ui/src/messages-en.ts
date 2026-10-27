@@ -7,6 +7,8 @@ export const uiMessages = {
   common: {
     /** Shown for an empty value in a cell, card or peek. */
     empty: "—",
+    /** A link whose row this viewer can't see, or that's gone (never its raw id). */
+    hiddenLink: "Not available",
     yes: "Yes",
     no: "No",
     cancel: "Cancel",
