@@ -1576,7 +1576,7 @@
         },
         {
           "name": "resolveZone",
-          "summary": "A column's clock: \"viewer\" (the default) and \"scope\" from `zones`, else a valid IANA name.",
+          "summary": "A column's clock: \"viewer\" (the default) and \"scope\" from `zones`, else a valid IANA name.\nAnything else throws (`defineView` refuses it first): drawing it on the viewer's clock instead\nwould show the wrong times with nothing to say so.",
           "props": []
         },
         {

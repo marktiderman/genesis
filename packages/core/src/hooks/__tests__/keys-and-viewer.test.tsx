@@ -9,7 +9,8 @@ import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
 import { useOne } from "../use-one";
 import { useResource } from "../use-resource";
-import { ViewerScope, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
+import { ViewerScope, scopeClock, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
+import { setErrorReporter } from "../../errors";
 
 afterEach(cleanup);
 
@@ -333,8 +334,26 @@ describe("ViewerScope", () => {
     await screen.findByText("America/Los_Angeles|Asia/Tokyo");
     rerender(at(undefined));
     await screen.findByText("America/Los_Angeles|America/Los_Angeles");
-    rerender(at("Not/AZone"));
-    await screen.findByText("America/Los_Angeles|America/Los_Angeles");
+  });
+
+  it("never falls back quietly from a scopeTimeZone it doesn't know: throws in development, reports in production", async () => {
+    expect(scopeClock(undefined, "America/Los_Angeles")).toBe("America/Los_Angeles");
+    expect(scopeClock("Asia/Tokyo", "America/Los_Angeles")).toBe("Asia/Tokyo");
+    expect(() => scopeClock("practice", "America/Los_Angeles")).toThrow(/scopeTimeZone "practice" isn't a time zone/);
+    expect(() => scopeClock("Not/AZone", "America/Los_Angeles")).toThrow(RangeError);
+
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(scopeClock("Not/AZone", "America/Los_Angeles")).toBe("America/Los_Angeles");
+      expect(reporter).toHaveBeenCalledTimes(1);
+      expect(String(reporter.mock.calls[0]![0])).toContain('"Not/AZone"');
+      expect(reporter.mock.calls[0]![1]).toMatchObject({ source: "core:viewer-scope" });
+    } finally {
+      vi.unstubAllEnvs();
+      restore();
+    }
   });
 
   it("useViewerScope needs a ViewerScope; useOptionalViewerScope is null without one", () => {

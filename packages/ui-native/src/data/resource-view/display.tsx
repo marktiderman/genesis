@@ -77,11 +77,20 @@ export function formatDay(value: unknown, zone: string = personTimeZone()): stri
   return DAY.format(new Date(wall.year, wall.month - 1, wall.day));
 }
 
-/** A column's clock: "viewer" (the default) and "scope" from `zones`, else a valid IANA name. */
+/**
+ * A column's clock: "viewer" (the default) and "scope" from `zones`, else a valid IANA name.
+ * Anything else throws (`defineView` refuses it first): drawing it on the viewer's clock instead
+ * would show the wrong times with nothing to say so.
+ */
 export function resolveZone(zone: string | undefined, zones: DisplayTimeZones): string {
   if (!zone || zone === "viewer") return zones.viewer;
   if (zone === "scope") return zones.scope;
-  return isTimeZone(zone) ? zone : zones.viewer;
+  if (isTimeZone(zone)) return zone;
+  throw new RangeError(
+    zone === "practice"
+      ? `[genesis-ui-native] timeZone "practice" was renamed "scope" in genesis-core 2; run \`genesis codemod genesis-core-2-scope-names\``
+      : `[genesis-ui-native] timeZone "${zone}" isn't "viewer", "scope" or a time zone this runtime knows`,
+  );
 }
 
 // The wall clock's parts are drawn as UTC, so one formatter serves every zone.

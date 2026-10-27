@@ -71,9 +71,20 @@ export interface ViewField<Row extends DataRow = DataRow> {
   /**
    * A timestamp's clock: the viewer's (default), the scope's (the zone of whatever the screen is
    * scoped to: ViewerScope's `scopeTimeZone`, or NativeResourceView's prop), or a fixed IANA zone.
+   * Closed: any other word (the removed `"practice"`) is a type error, and `defineView` refuses a
+   * zone the runtime doesn't know.
    */
-  timeZone?: "viewer" | "scope" | (string & {});
+  timeZone?: ViewTimeZone;
 }
+
+/**
+ * An IANA zone name as written: `"UTC"`, `"GMT"` or `Area/Location` (`"Europe/Berlin"`). The
+ * type keeps a bare word out; `defineView` checks the runtime knows the zone.
+ */
+export type TimeZoneName = "UTC" | "GMT" | `${string}/${string}`;
+
+/** A view field's clock: the viewer's, the scope's, or a fixed zone. */
+export type ViewTimeZone = "viewer" | "scope" | TimeZoneName;
 
 /** A column computed from the row, never stored or sent. */
 export interface ComputedColumn<Row extends DataRow = DataRow> {

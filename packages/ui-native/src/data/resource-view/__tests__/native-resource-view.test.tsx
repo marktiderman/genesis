@@ -758,15 +758,15 @@ describe("calendar days", () => {
 });
 
 describe("clocks", () => {
-  it("resolves viewer and scope to the given zones, and an unknown name to the viewer's", () => {
+  it("resolves viewer and scope to the given zones, and refuses anything else", () => {
     const zones = { viewer: "America/Los_Angeles", scope: "Europe/Berlin" };
     expect(resolveZone(undefined, zones)).toBe("America/Los_Angeles");
     expect(resolveZone("viewer", zones)).toBe("America/Los_Angeles");
     expect(resolveZone("scope", zones)).toBe("Europe/Berlin");
-    // The old name is gone, not an alias: it is read as an IANA name, and isn't one.
-    expect(resolveZone("practice", zones)).toBe("America/Los_Angeles");
     expect(resolveZone("Asia/Tokyo", zones)).toBe("Asia/Tokyo");
-    expect(resolveZone("Not/AZone", zones)).toBe("America/Los_Angeles");
+    // Never a quiet fall back to the viewer's clock: the removed name and an unknown zone throw.
+    expect(() => resolveZone("practice", zones)).toThrow(/"practice" was renamed "scope"/);
+    expect(() => resolveZone("Not/AZone", zones)).toThrow(RangeError);
   });
 });
 

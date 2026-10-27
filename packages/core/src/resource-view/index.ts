@@ -29,6 +29,8 @@ export type {
   ViewGuards,
   ViewPreset,
   ViewTone,
+  TimeZoneName,
+  ViewTimeZone,
   Viewer,
 } from "./types";
 export { NO_VIEWER } from "../viewer";

@@ -17,8 +17,8 @@ import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type 
 import { Alert, Platform, Pressable, SectionList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { encodeRecordKey, type BaseRecord, type DataRow } from "@marktiderman/genesis-core";
-import { isTimeZone, personTimeZone } from "@marktiderman/genesis-core/dates";
-import { useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { personTimeZone } from "@marktiderman/genesis-core/dates";
+import { scopeClock, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import type { RowPicture } from "@marktiderman/genesis-core/resource-view";
 import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
@@ -114,7 +114,8 @@ export function NativeResourceView<T extends Row = Row>(props: NativeResourceVie
   const scopeZone = props.scopeTimeZone ?? scope?.scopeTimeZone;
   const zones = useMemo<DisplayTimeZones>(() => {
     const own = personTimeZone({ timeZone: viewer });
-    return { viewer: own, scope: scopeZone && isTimeZone(scopeZone) ? scopeZone : own };
+    // An unknown zone is loud (core's scopeClock), never a quiet fall back to the viewer's clock.
+    return { viewer: own, scope: scopeClock(scopeZone, own) };
   }, [viewer, scopeZone]);
   return (
     <DisplayTimeZonesProvider value={zones}>

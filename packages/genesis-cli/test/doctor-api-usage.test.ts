@@ -74,10 +74,86 @@ describe("studio-server-auth-import", () => {
   });
 });
 
+const FORMS_VIEW = [
+  'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+  "export const formsView = defineView(contracts.forms, {",
+  "  fields: {",
+  '    opens_at: { timeZone: "practice" },',
+  '    closes_at: { timeZone: "practice" },',
+  "  },",
+  "});",
+].join("\n");
+
+describe("removed-scope-name", () => {
+  it("fails strict on a missed codemod: timeZone \"practice\" in a view definition, at each field", async () => {
+    const result = await run({ "src/shared/views/forms.view.ts": FORMS_VIEW }, true);
+    const found = result.findings.filter((f) => f.rule === "removed-scope-name");
+    expect(found.map((f) => [f.line, f.level, f.subject])).toEqual([
+      [4, "error", 'timeZone "practice"'],
+      [5, "error", 'timeZone "practice"'],
+    ]);
+    expect(found[0]?.message).toContain("genesis codemod genesis-core-2-scope-names");
+    expect(result.ok).toBe(false);
+  });
+
+  it("flags practiceTimeZone, resolveZone(\"practice\") and DisplayTimeZones' practice", async () => {
+    const found = await only("removed-scope-name", {
+      "src/screen.tsx": [
+        'import { NativeResourceView, resolveZone, useDisplayTimeZones, type DisplayTimeZones } from "@marktiderman/genesis-ui-native";',
+        "export const A = () => <NativeResourceView view={v} practiceTimeZone={zone} />;",
+        'export const b = resolveZone("practice", zones);',
+        'export const c: DisplayTimeZones = { viewer: "UTC", practice: "Europe/Berlin" };',
+        "export function D() { const zones = useDisplayTimeZones(); return zones.practice; }",
+      ].join("\n"),
+    });
+    expect(found.map((f) => [f.line, f.subject])).toEqual([
+      [2, "practiceTimeZone"],
+      [3, 'resolveZone("practice")'],
+      [4, "DisplayTimeZones.practice"],
+      [5, "DisplayTimeZones.practice"],
+    ]);
+  });
+
+  it("leaves the new names, an app's own practice, a file without Genesis and comments alone", async () => {
+    expect(
+      await only("removed-scope-name", {
+        "src/ok.ts": [
+          'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+          'export const v = defineView(c, { fields: { opens_at: { timeZone: "scope" } } });',
+          'export const team = { practice: "Tuesday" };',
+          '// was timeZone: "practice" before genesis-core 2',
+        ].join("\n"),
+        "src/own.ts": 'export const field = { timeZone: "practice" };',
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("scope-practice-id", () => {
+  const reads = 'import { useViewerScope } from "@marktiderman/genesis-core";\nexport const id = () => useViewerScope().scope.practiceId;\n';
+  it("notes an untyped scope.practiceId read, as info that never fails strict", async () => {
+    const result = await run({ "src/id.ts": reads }, true);
+    const found = result.findings.filter((f) => f.rule === "scope-practice-id");
+    expect(found.map((f) => [f.line, f.level])).toEqual([[2, "info"]]);
+    expect(found[0]?.message).toContain("interface ResourceScope { practiceId?: string }");
+    expect(result.ok).toBe(true);
+  });
+
+  it("is quiet once the app augments ResourceScope, in a declaration file too", async () => {
+    expect(
+      await only("scope-practice-id", {
+        "src/id.ts": reads,
+        "src/genesis.d.ts": 'declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }',
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("doctor --strict on an app using them correctly", () => {
   it("passes", async () => {
-    const result = await run({ "src/views.tsx": TREE_OK, "src/auth.ts": AUTH_OK }, true);
-    const ours = result.findings.filter((f) => f.rule === "resource-view-tree" || f.rule === "studio-server-auth-import");
+    const migrated = FORMS_VIEW.replaceAll('"practice"', '"scope"');
+    const result = await run({ "src/views.tsx": TREE_OK, "src/auth.ts": AUTH_OK, "src/shared/views/forms.view.ts": migrated }, true);
+    const ours = result.findings.filter((f) => ["resource-view-tree", "studio-server-auth-import", "removed-scope-name", "scope-practice-id"].includes(f.rule));
     expect(ours).toEqual([]);
     expect(result.ok).toBe(true);
   });

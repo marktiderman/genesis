@@ -171,6 +171,21 @@ export interface ViewerScopeProps {
 }
 
 /**
+ * The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it
+ * doesn't know is never a quiet fallback: it throws in development, and in production it is
+ * reported (`reportError`) before the viewer's clock is used, so a misspelt zone can't show
+ * times on the wrong clock unnoticed.
+ */
+export function scopeClock(scopeTimeZone: string | null | undefined, viewerZone: string): string {
+  if (scopeTimeZone === undefined || scopeTimeZone === null || scopeTimeZone === "") return viewerZone;
+  if (isTimeZone(scopeTimeZone)) return scopeTimeZone;
+  const error = new RangeError(`[genesis-core] scopeTimeZone "${scopeTimeZone}" isn't a time zone this runtime knows (an IANA name such as "Europe/Berlin")`);
+  if (process.env.NODE_ENV !== "production") throw error;
+  reportError(error, "core:viewer-scope");
+  return viewerZone;
+}
+
+/**
  * Keeps one viewer's cached data from ever showing to the next. Children
  * render only once the viewer is known, under a key of that viewer, so a
  * sign-out or a new person signing in unmounts every screen and its queries
@@ -187,7 +202,7 @@ export interface ViewerScopeProps {
 export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const zone = personTimeZone({ timeZone });
-  const scopeZone = scopeTimeZone && isTimeZone(scopeTimeZone) ? scopeTimeZone : zone;
+  const scopeZone = scopeClock(scopeTimeZone, zone);
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});

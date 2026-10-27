@@ -30,7 +30,7 @@ The umbrella `@marktiderman/genesis` takes a **minor** for the same break (it is
 | `ResourceScope.practiceId` (a named key) | the app's own key in the open slot: `scope={{ practiceId }}` still passes it; `scope={{ orgId }}`, `scope={{ leagueId }}` are as good | Nothing to rewrite. When a file reads `practiceId`, it prints the augmentation below |
 | view field `timeZone: "practice"` | `timeZone: "scope"` | Rewritten |
 | NativeResourceView `practiceTimeZone="…"` | `scopeTimeZone="…"` (or set `scopeTimeZone` on `ViewerScope` once) | Rewritten |
-| `resolveZone("practice", zones)`, `DisplayTimeZones.practice` | `resolveZone("scope", zones)`, `DisplayTimeZones.scope` | `resolveZone` rewritten; rename a hand-built `{ viewer, practice }` object's key yourself |
+| `resolveZone("practice", zones)`, `DisplayTimeZones.practice` | `resolveZone("scope", zones)`, `DisplayTimeZones.scope` | Rewritten: `resolveZone`, a `{ viewer, practice }` object's key, and `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones` |
 
 - **Typing an app key.** `ResourceScope` keeps its open slot, so `scope.practiceId` is `unknown`
   without a declaration. Declare the app's keys once (module augmentation, as for
@@ -44,9 +44,18 @@ The umbrella `@marktiderman/genesis` takes a **minor** for the same break (it is
   }
   ```
 
-- **What changes if you don't migrate.** `timeZone: "practice"` still type-checks (any IANA name
-  does), but it is no longer special: it isn't a zone, so the column falls back to the viewer's
-  clock. `practiceTimeZone` on NativeResourceView is a type error.
+- **A missed rename fails loudly, never on the wrong clock.** The old names are gone, with no
+  aliases (Mark: "old names don't have to keep working … lets ensure its clean and accurate"):
+  - `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`), so `timeZone: "practice"` is
+    a type error, and `defineView` throws `ViewDefinitionError` on it when the view loads
+    (naming the codemod), as it does for any zone the runtime doesn't know.
+  - `practiceTimeZone` on NativeResourceView and `DisplayTimeZones.practice` are type errors;
+    `resolveZone("practice", …)` throws.
+  - A `scopeTimeZone` the runtime doesn't know throws in development and is reported
+    (`reportError`) in production, before the viewer's clock is used.
+  - `genesis doctor`'s `removed-scope-name` rule (error) lists every one left, so `doctor
+    --strict` fails in CI until the codemod has run; `scope-practice-id` (info) notes an untyped
+    `scope.practiceId` read.
 - **New:** `ViewerScope`'s `scopeTimeZone` (`useViewerScope().scopeTimeZone`) is the scope's clock.
   `timeZone: "scope"` columns read on it on the web as well; before, the web drew a practice-clock
   column on the viewer's clock.
