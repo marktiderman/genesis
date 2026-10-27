@@ -139,5 +139,49 @@ describe("useResourceForm — an edit never blanks what it didn't load", () => {
     });
     expect(update.mock.calls[0]![1].data).toEqual({ title: "Rewrite", notes: "" });
   });
+
+  it.each(["loaded", "all"] as const)("never sends a field read-only on edit, even loaded (updates: %s)", async (updates) => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const create = vi.fn(async (_r: string, { data }: { data: unknown }) => ({ data: { id: "t9", ...(data as object) } }));
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"], create: create as unknown as DataProvider["create"] });
+    const locked = [...fields, { key: "owner_id", type: "text" as const, readOnlyOnEdit: true }];
+    const { result } = renderHook(
+      () => useResourceForm({ resource: "tasks", action: "edit", id: "t1", initialData: { id: "t1", title: "Write", owner_id: "u1" }, fields: locked, updates }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.handleSave({ title: "Rewrite", owner_id: "u1" });
+    });
+    expect(update.mock.calls[0]![1].data).not.toHaveProperty("owner_id");
+    // A create still sends it.
+    const { result: created } = renderHook(() => useResourceForm({ resource: "tasks", action: "create", fields: locked }), { wrapper });
+    await act(async () => {
+      await created.current.handleSave({ title: "New", owner_id: "u2" });
+    });
+    expect(create.mock.calls[0]![1].data).toMatchObject({ owner_id: "u2" });
+  });
+
+  it("sends nothing when an edit has only read-only fields left, and still succeeds", async () => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const onSuccess = vi.fn();
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    const { result } = renderHook(
+      () =>
+        useResourceForm({
+          resource: "tasks",
+          action: "edit",
+          id: "t1",
+          initialData: { id: "t1", owner_id: "u1" },
+          fields: [{ key: "owner_id", type: "text" as const, readOnlyOnEdit: true }],
+          onSuccess,
+        }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.handleSave({ owner_id: "u1" });
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith({ id: "t1", owner_id: "u1" });
+  });
 });
 
