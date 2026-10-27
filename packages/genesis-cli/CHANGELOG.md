@@ -1,5 +1,13 @@
 # @marktiderman/genesis-cli
 
+## 1.13.1
+
+### Patch Changes
+
+- Updated dependencies [0d8925a]
+- Updated dependencies [319d36d]
+  - @marktiderman/genesis-studio-server@0.4.0
+
 ## 1.13.0
 
 ### Minor Changes

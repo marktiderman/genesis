@@ -1,5 +1,20 @@
 # @marktiderman/genesis-supabase
 
+## 0.8.0
+
+### Minor Changes
+
+- 80a027a: New `/runner` entry: `createRunner`, the outbox engine that used to live in genesis-notifications. It claims a batch of jobs, sends them in groups, records each outcome (`sent`, `filtered`, `skipped`, `retry` with jittered backoff or a Retry-After deferral up to `maxDeferrals`, `failed`, with `disable` on a 410) and never throws for one job. It has no dependencies and no Node built-ins, so other packages can bundle it. It also exports `jobOutcome`, `failureOf`, `defaultBackoff` and the defaults (`DEFAULT_MAX_ATTEMPTS` 8, `DEFAULT_MAX_DEFERRALS` 24, `DEFAULT_BATCH_SIZE` 25), all unchanged. It gains one option, `concurrency`: how many groups are sent at once. Without it, every group is sent at once, as before.
+
+  `runJobs` in `/jobs` now runs on this engine. It behaves exactly as before: the same claim and settle calls, at most `concurrency` handlers at once (default 4), the queue still decides attempts and retry times, and a settle that fails is counted as `unsettled` without stopping the run. Signed job calls and `genesis-job:` schedule names are unchanged, and there is no new migration.
+
+- d8b719e: Continue on the web, already signed in (the web-handoff block). Features: web-handoff
+
+  - `/web-handoff/server`: `createWebHandoff({ admin, webOrigin?, ttlSeconds?, continueSeconds?, rateLimit?, log? })` returns three POST routes. `mint` verifies the bearer with `auth.getUser` and records a single-use, 60-second handoff for that account only, from that app session. `redeem` takes the page's `claim` (once, unexpired; returns whose link it is and a 30-second continue nonce, and mints nothing), `continue` (the nonce, once, in time, not after Cancel: only then `auth.admin.generateLink` for the person's own email), `discard` (Cancel) and `bind` (the new web session's id, from its verified access token). `signOut` ends exactly the web sessions handed off from the calling app session. The steps are also exported (`mintWebHandoff`, `claimWebHandoff`, `continueWebHandoff`, `discardWebHandoff`, `bindWebHandoffSession`, `signOutWebHandoffs`). Each step is logged (person, path, time), never a token or nonce.
+  - `/web-handoff`: `takeWebHandoffFragment` reads `#t=…&next=…` and drops it from history at once; `completeWebHandoff` checks who is signed in with `auth.getUser`, claims the link, and asks "Continue as {email}?" unless the browser is already that person. `continue()` signs a different person out locally, then exchanges the token with `verifyOtp({ token_hash, type: "email" })`; `cancel()` burns the nonce and signs anyone else out locally.
+  - `appRelativePath`: the one destination check (no `//host`, `/\host`, schemes, whitespace or control characters, or their percent-encoded forms), run before minting and after sign-in.
+  - `migrations/0015_genesis_web_handoff.sql` (and its pgTAP test): `private.genesis_web_handoffs` with digests only; issue (rate-limited per person under a lock), claim, continue, discard, bind and revoke functions, service_role only.
+
 ## 0.7.0
 
 ### Minor Changes

@@ -1,5 +1,38 @@
 # @marktiderman/genesis-core
 
+## 1.14.0
+
+### Minor Changes
+
+- c103d2d: `/errors` (also exported from the root): one way for every package to report a caught error, and one way to say what kind of error it is.
+
+  - `reportError(error, context)` sends an error a package caught and handled to the host's reporter (`setErrorReporter`, which returns the undo). With none registered it is written with `console.warn` in development and dropped in production. It never throws; the reporter is shared through `globalThis`, so two copies of the package still agree.
+  - `classifyError(error)` returns `{ kind, message, report }`: `offline`, `unauthenticated`, `forbidden`, `not-found`, `conflict`, `invalid` or `unexpected`, built on the read and write outcomes (`DataWriteError`, `DataReadError`, Postgres and PostgREST codes), HTTP statuses, Supabase's auth and fetch errors and each runtime's "network request failed". `message` is a safe sentence from `errorMessages` (reword with `{ messages }`), never the error's own text; `report` is true only for what is worth a crash report.
+
+- 796bb53: ResourceWorkspace: one record's screen from a view.
+
+  - `genesis-core/resource-view`: `defineWorkspace(view, { header?: { actions? }, sections, readiness? })`. A section is a child list (`list: { view, filter(row) }`), a few settings (`settings: [...]`, each in `view.writable("edit")`) or a slot the screen fills by `id`. Checked at start-up and frozen; a bad settings field, an unknown header action, a repeated id or a nested workspace throws `ViewDefinitionError`. Pure helpers: `headerFor(row)`, `settingsFields(id?)`, `settingsPatch(id, values)`, `listFilter(id, row)`, `readinessFor(row)` (chip tones only), `readinessSummary(row)` (genesis-core/resource's `readinessOf`), and `isWorkspace`.
+  - `genesis-ui`: `<ResourceWorkspace>` puts the header into `AppShellPageHeader` through `ResourceHeader`, registers the sections with `useAppShellSubNav`, draws list sections as embedded `ResourceView`, settings as `SettingsRow` and `ToggleRow` (saving only the section's keys, a zero-row save shown inline as a refusal), and readiness as the `ReadinessChip`. `ResourceHeader` gains a `leading` slot, used for the workspace's `switcher`.
+  - `genesis-ui-native`: `<NativeResourceWorkspace>` and `getNativeResourceWorkspaceStackOptions` (title in the navigation bar, actions in the header menu): up to four sections as a segmented control and more as pushed rows, list sections as embedded `NativeResourceView` (its `filter` is the row's `listFilter`), settings as inset grouped rows, readiness as genesis-core/resource's `readinessChip` (its labels in the native messages catalogue) and the checks, and a `switcher` slot.
+
+- 69f509a: Viewer-aware ResourceView guards. Guards, action guards and `when` get the viewer as their last argument (`create(viewer)`, `update(row, viewer)`, `delete(row, viewer)`, action `can(row, viewer)`, `when(row, viewer)`), and `view.can(...)`, `view.canAction(...)`, `workspace.settingsLocked(row, viewer)` and `workspace.headerFor(row, { viewer })` accept it. New `useViewer()` (`{ id, scope, roles }`, or `NO_VIEWER` outside a ViewerScope, so guards fail closed), the `Viewer` type, and `GenesisViewerRoles`, an empty interface apps fill by module augmentation. `ViewerScope` takes an optional `roles`, plain JSON compared by value with lists in any order (a Set, Map or class instance throws in development; in production it warns once and the roles count as unknown, so guards refuse): equal roles change nothing, roles arriving keep the cache, and different roles send the viewer's waiting writes and then reread every query, without remounting (a write the new roles refuse fails like any refused write). `ResolvedColumn.when`'s viewer is optional (no viewer answers for no one), and `view.can("create", row, viewer)` throws rather than reading the row as the viewer. One-argument guards keep working. Guards narrow what a page shows; row-level security stays the boundary.
+
+  Features: resource-page, resource-workspace
+
+### Patch Changes
+
+- b779f13: `ViewTone` (genesis-core/resource-view) is now an alias of `ChipTone` (genesis-core/resource), so there is one tone set.
+- 76ea9e4: ResourceView and ResourceWorkspace review fixes.
+
+  - `genesis-core/resource-view`:
+    - view actions can be `destructive`; names are trimmed before the checks; `canAction` allows only `true` and turns any other non-reason into a refusal.
+    - `rowPicture` takes only http(s) or root-relative image sources.
+    - workspaces reject settings that are JSON, lists, links or sensitive, and section keys they don't know.
+    - new workspace helpers: `settingsLocked(row)`, `recordId(row)` (by key fields), and `headerFor(row, { can, runnable, served })`.
+    - `listFilter` refuses an empty or non-single-valued filter in development; a bad readiness tone falls back to muted with a warning; readiness checks carry a stable `key`.
+  - `genesis-ui`: `ResourceWorkspace` shows settings read-only with the reason when update is refused, takes a `can` prop, hides actions nothing can run or the provider doesn't serve, styles destructive actions, and never saves NaN.
+  - `genesis-ui-native`: the workspace menu is an action sheet on iOS and a sheet elsewhere (Android alerts show at most three buttons), runs one action at a time, and prefixes accessibility action names. More than four sections open in place with a way back when there is no `onOpenSection`. Settings lock like the web's, and numbers accept a comma decimal and never save NaN. `NativeResourceView` keys rows by the view's key fields.
+
 ## 1.13.0
 
 ### Minor Changes

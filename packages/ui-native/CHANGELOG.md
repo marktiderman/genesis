@@ -1,5 +1,33 @@
 # @marktiderman/genesis-ui-native
 
+## 2.7.0
+
+### Minor Changes
+
+- 796bb53: ResourceWorkspace: one record's screen from a view.
+
+  - `genesis-core/resource-view`: `defineWorkspace(view, { header?: { actions? }, sections, readiness? })`. A section is a child list (`list: { view, filter(row) }`), a few settings (`settings: [...]`, each in `view.writable("edit")`) or a slot the screen fills by `id`. Checked at start-up and frozen; a bad settings field, an unknown header action, a repeated id or a nested workspace throws `ViewDefinitionError`. Pure helpers: `headerFor(row)`, `settingsFields(id?)`, `settingsPatch(id, values)`, `listFilter(id, row)`, `readinessFor(row)` (chip tones only), `readinessSummary(row)` (genesis-core/resource's `readinessOf`), and `isWorkspace`.
+  - `genesis-ui`: `<ResourceWorkspace>` puts the header into `AppShellPageHeader` through `ResourceHeader`, registers the sections with `useAppShellSubNav`, draws list sections as embedded `ResourceView`, settings as `SettingsRow` and `ToggleRow` (saving only the section's keys, a zero-row save shown inline as a refusal), and readiness as the `ReadinessChip`. `ResourceHeader` gains a `leading` slot, used for the workspace's `switcher`.
+  - `genesis-ui-native`: `<NativeResourceWorkspace>` and `getNativeResourceWorkspaceStackOptions` (title in the navigation bar, actions in the header menu): up to four sections as a segmented control and more as pushed rows, list sections as embedded `NativeResourceView` (its `filter` is the row's `listFilter`), settings as inset grouped rows, readiness as genesis-core/resource's `readinessChip` (its labels in the native messages catalogue) and the checks, and a `switcher` slot.
+
+- 69f509a: NativeResourceView and NativeResourceWorkspace pass the viewer (`useViewer()`) to the view's guards and `when`: cells, the peek, swipe actions, create, header actions and the settings lock. `allowed(view, action, row, screen, viewer?)` and `swipeActionsFor`'s `viewer` option take it for screens that map rows themselves.
+
+  Features: resource-page, resource-workspace
+
+### Patch Changes
+
+- a5a174a: `NativeButton` takes `accessibilityLabel`, `accessibilityHint` and `accessibilityState` (merged with its own `disabled` and `busy`), so a button can say what it is for ("Vote for Dark mode") and whether it is on (`{ selected: true }`).
+- 76ea9e4: ResourceView and ResourceWorkspace review fixes.
+
+  - `genesis-core/resource-view`:
+    - view actions can be `destructive`; names are trimmed before the checks; `canAction` allows only `true` and turns any other non-reason into a refusal.
+    - `rowPicture` takes only http(s) or root-relative image sources.
+    - workspaces reject settings that are JSON, lists, links or sensitive, and section keys they don't know.
+    - new workspace helpers: `settingsLocked(row)`, `recordId(row)` (by key fields), and `headerFor(row, { can, runnable, served })`.
+    - `listFilter` refuses an empty or non-single-valued filter in development; a bad readiness tone falls back to muted with a warning; readiness checks carry a stable `key`.
+  - `genesis-ui`: `ResourceWorkspace` shows settings read-only with the reason when update is refused, takes a `can` prop, hides actions nothing can run or the provider doesn't serve, styles destructive actions, and never saves NaN.
+  - `genesis-ui-native`: the workspace menu is an action sheet on iOS and a sheet elsewhere (Android alerts show at most three buttons), runs one action at a time, and prefixes accessibility action names. More than four sections open in place with a way back when there is no `onOpenSection`. Settings lock like the web's, and numbers accept a comma decimal and never save NaN. `NativeResourceView` keys rows by the view's key fields.
+
 ## 2.6.0
 
 ### Minor Changes

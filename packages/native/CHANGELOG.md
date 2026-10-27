@@ -1,5 +1,34 @@
 # @marktiderman/genesis-native
 
+## 0.5.0
+
+### Minor Changes
+
+- c103d2d: Deeper error handling and Sentry integration through the observability block.
+
+  - **Failed queries and mutations are reported.** The shell watches its QueryClient's caches and reports a query or mutation that failed for good as a non-fatal `query` / `mutation` error, tagged with the key's first segment only (`query.key: "tasks"`). Only unexpected errors: offline, signed out, not found and the server's expected refusals are skipped. Opt out per query with `meta: { reportErrors: false }`, or with `reportQueryErrors={false}`. `reportQueryErrors(client, report)` and `queryKeyName` are exported.
+  - **Screen errors.** `observability.screenBoundary()` is an Expo Router `ErrorBoundary` for a route: reported non-fatal (source `screen`), `ScreenErrorScreen` with "Try again", wrapped with `Sentry.wrapExpoRouterErrorBoundary` when the Sentry sink has it. `createScreenErrorBoundary()` (without the block) and `<ScreenErrorBoundary>` (outside Expo Router) are exported too. `GenesisErrorBoundary` takes `fatal` and `source`.
+  - **Packages report through the block.** Creating the block makes it genesis-core's error reporter, so `reportError` from any package reaches the sinks (`reportErrors: false` opts out).
+  - **Trace headers only to your hosts.** `sentrySink`'s new `tracePropagationTargets` lists the hosts that get `sentry-trace` and `baggage`; the default is none (Sentry's mobile default sent them to every request). It wins over `init.tracePropagationTargets`.
+  - **Flush before an update reloads.** The update banner's reload and the channel switch await `runBeforeReload()`; the block registers a hook (`onBeforeReload`) that flushes the sinks within `flushBeforeReloadMs` (2000). `observability.flush(ms)` is public.
+  - **Unhandled rejections count.** They are reported with `handled: false`, so release health counts them. `ErrorReport` and `ErrorContext` gain `handled` and `tags`.
+  - **Support can point at the event.** `observability.lastEventId()` and `observability.replayId()`; sinks may implement `lastEventId`, `replayId`, `flush` and `wrapRouteErrorBoundary`.
+  - **Safe text on error screens.** `FatalScreen` and `PlainFatalScreen` show the error's own text only in development; a release build shows the `classifyError` sentence for a known kind (offline, signed out…) and nothing for a plain bug. `classifyError`, `errorMessages` and `reportError` are re-exported from the root.
+
+- d8b719e: `/web-handoff`: `openOnWeb(path, { endpoint, getAccessToken, browser })` opens a page of the web app signed in as the app's person, through genesis-supabase's web-handoff routes, in the in-app browser (`expo-web-browser`, passed in). It refuses paths that aren't the web app's own and never opens another origin; without a signed-in link it opens the page signed out so the person can sign in and land there. `signOutOnWeb({ endpoint, getAccessToken })`, called just before the app's own sign-out, ends the web sessions that app session handed off; it never throws. Features: web-handoff
+
+### Patch Changes
+
+- Updated dependencies [c103d2d]
+- Updated dependencies [796bb53]
+- Updated dependencies [a5a174a]
+- Updated dependencies [b779f13]
+- Updated dependencies [69f509a]
+- Updated dependencies [69f509a]
+- Updated dependencies [76ea9e4]
+  - @marktiderman/genesis-core@1.14.0
+  - @marktiderman/genesis-ui-native@2.7.0
+
 ## 0.4.4
 
 ### Patch Changes
