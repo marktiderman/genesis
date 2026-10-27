@@ -1,0 +1,23 @@
+.changeset/ui-slot-class-props.md
+  s_18dd9cee35b819::t_c9dd4aed7c1452 7
+packages/ui/src/components/data/DataTable.tsx
+  s_18dd9cee35b819::t_1bdde3c01e314c 1119-1123
+packages/ui/src/components/data/__tests__/data-table-tree.test.tsx
+  s_18dd9cee35b819::t_ab62e04f95276e 47,99-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a027b0413e163be77356a2d89432b878fc85e853",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
