@@ -117,14 +117,18 @@ export const brandsView = defineView(contracts["public.brands"], {
   copy: brandsCopy,                        // a typed catalogue (DeepPartial), like uiMessages
   fields: {
     name: { max: 120 },                    // feeds the derived validation
-    status: { display: "badge" },          // a hint; each platform registers its renderer
+    status: {
+      display: "badge",                    // a hint; each platform registers its renderer
+      tones: { active: "success" },        // the chip's colour per value
+      labels: { draft: "In progress" },    // the words per value; others show in title case
+    },
     owner_id: { display: "relation" },     // picker and label via references and labelField
   },
   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
   form: ["name", { section: "advanced", fields: ["slug"] }],
   validate: (s) => s.refine((r) => r.slug !== "admin", { path: ["slug"], message: "brands.slug.reserved" }),
   can: { delete: (row) => (row.is_default ? copy.brands.defaultKept : true) },
-  summary: (row) => ({ title: row.name, chips: [{ label: row.status, tone: "info" }] }),
+  summary: (row) => ({ title: row.name, chips: [{ label: brandsView.valueLabel("status", row.status), tone: "info" }] }),
 });
 ```
 
@@ -135,6 +139,10 @@ export const brandsView = defineView(contracts["public.brands"], {
   `image`. Each platform registers renderers once. A one-off renderer goes in a platform file
   (`brands.view.web.tsx`), keyed per platform, so the shared view never imports a platform.
   Icons are names, mapped per platform.
+- **Values have words.** `labels` gives an enum value its words once. Badges, form choices,
+  native group titles and read-only form values all use them. A summary chip reads the same
+  words through `view.valueLabel("status", row.status)`; `valueText(labels, value)` does it
+  without a view. Keys must be the field's enum values, so a renamed value fails at start-up.
 - **Validation is derived** from the contract (nullability, enums, `max`) as a Standard Schema
   (zod). `validate` only adds rules.
 - **Computed columns** (`columns: { full_name: { value: (r) => ... } }`) and **row actions**

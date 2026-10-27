@@ -57,7 +57,7 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
 };
 
 function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDef {
-  const options = f.field.enumValues?.map((value) => ({ value, label: value }));
+  const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
   return {
     key: f.field.name,
     label: f.label,

@@ -17,6 +17,7 @@ import type {
   RowOf,
   RowSummary,
   ViewDefinition,
+  ViewField,
 } from "./types";
 
 // Facts a contract may carry from `@genesis` comments. Read loosely so a contract emitted before
@@ -101,6 +102,12 @@ const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "dele
 const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V | undefined =>
   record && Object.hasOwn(record, key) ? record[key] : undefined;
 
+/** A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). */
+export function valueText(labels: Readonly<Record<string, string>> | undefined, value: unknown): string {
+  const key = String(value);
+  return own(labels, key) ?? titleCase(key);
+}
+
 /**
  * Describe what a resource means to people. The result is frozen and platform-neutral:
  *
@@ -130,7 +137,16 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const scope = new Set<string>(definition.scope ?? []);
   // Copied and frozen, so changing the objects passed in can't change the view afterwards.
   const viewFields = Object.freeze(
-    Object.fromEntries(Object.entries(definition.fields ?? {}).map(([k, v]) => [k, Object.freeze({ ...(v as object) })])),
+    Object.fromEntries(
+      Object.entries(definition.fields ?? {}).map(([k, v]) => {
+        const f = { ...(v as ViewField) };
+        // Maps only: anything else is left as given for the checks below to name.
+        const map = (m: unknown) => Boolean(m) && typeof m === "object" && !Array.isArray(m);
+        if (map(f.tones)) f.tones = Object.freeze({ ...f.tones });
+        if (map(f.labels)) f.labels = Object.freeze({ ...f.labels });
+        return [k, Object.freeze(f)];
+      }),
+    ),
   ) as Readonly<Record<string, NonNullable<ViewDefinition<C, Row>["fields"]>[never]>>;
   const columnLists = Object.freeze(
     Object.fromEntries(
@@ -161,6 +177,18 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     if (!byName.has(name)) problems.push(`${where} names "${name}", which isn't a field`);
   };
   for (const name of Object.keys(viewFields)) known(name, "fields");
+  for (const [name, v] of Object.entries(viewFields)) {
+    if (v?.labels === undefined) continue;
+    if (!v.labels || typeof v.labels !== "object" || Array.isArray(v.labels)) {
+      problems.push(`fields.${name}.labels isn't a map of values to words`);
+      continue;
+    }
+    const values = byName.get(name)?.enumValues;
+    for (const [value, words] of Object.entries(v.labels)) {
+      if (typeof words !== "string" || !words.trim()) problems.push(`fields.${name}.labels.${value} isn't text`);
+      if (values?.length && !values.includes(value)) problems.push(`fields.${name}.labels names "${value}", which isn't one of its values`);
+    }
+  }
   for (const [preset, list] of Object.entries(columnLists)) {
     const seen = new Set<string>();
     for (const column of list ?? []) {
@@ -224,6 +252,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     const field = byName.get(name);
     return own(viewFields, name)?.display ?? (field ? deriveDisplay(field) : "text");
   };
+  const valueLabel = (name: string, value: unknown): string => valueText(own(viewFields, name)?.labels, value);
   // A field the provider says this user can't read is left out everywhere, even when listed.
   const readable = (name: string) => byName.get(name)?.permissions?.read !== false;
   // A link stays read-only until there's a picker, so no one sends a hand-typed id. A screen
@@ -263,6 +292,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           field: byName.get(column)!,
           value: (row: Row) => row[column],
           ...(v?.tones ? { tones: v.tones } : {}),
+          ...(v?.labels ? { labels: v.labels } : {}),
           ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
           ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
         });
@@ -306,6 +336,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           section,
           sectionTitle,
           ...(v?.max !== undefined ? { max: v.max } : {}),
+          ...(field.enumValues?.length
+            ? { options: Object.freeze(field.enumValues.map((value) => Object.freeze({ value, label: valueLabel(name, value) }))) }
+            : {}),
           ...(v?.visible ? { visible: v.visible } : {}),
         });
       }));
@@ -372,6 +405,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     field: (name: string) => byName.get(name),
     label,
     display,
+    valueLabel,
     columns,
     form,
     writable,

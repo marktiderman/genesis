@@ -7035,6 +7035,13 @@
               "description": ""
             },
             {
+              "name": "valueLabel",
+              "type": "(name: string, value: unknown) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "A value in words: the field's `labels`, else title case. For badges, choices and group titles."
+            },
+            {
               "name": "writable",
               "type": "(mode: \"create\" | \"edit\") => readonly string[]",
               "required": true,
