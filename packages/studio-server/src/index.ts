@@ -22,6 +22,7 @@ export {
 } from "./outbox";
 export {
   switchToUser,
+  DEFAULT_SWITCH_ROLES,
   type SwitchOptions,
   type TaggedQuery,
 } from "./switch";

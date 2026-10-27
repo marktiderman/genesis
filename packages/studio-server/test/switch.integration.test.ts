@@ -43,18 +43,92 @@ describeDb("switchToUser", () => {
     expect(mine.some((name) => theirs.includes(name))).toBe(false);
   });
 
-  it("applies RLS on a privileged login too (a superuser pool kept for server-owned writes)", async () => {
+  it("refuses a superuser login, where `reset role` would undo the switch", async () => {
     const [{ superuser }] = (await admin`select rolsuper as superuser from pg_roles where rolname = session_user`) as any;
     expect(superuser).toBe(true);
-    const asUser = await admin.begin(async (tx) => {
-      await switchToUser(tx, asCoach(COACH_A));
-      return clientNames(tx);
+    await expect(
+      admin.begin(async (tx) => {
+        await switchToUser(tx, asCoach(COACH_A));
+      }),
+    ).rejects.toThrow(/superuser or bypasses RLS/);
+
+    // The escape it guards against, allowed here for the test only.
+    const [before, after] = await admin.begin(async (tx) => {
+      await switchToUser(tx, asCoach(COACH_A), { allowPrivilegedLogin: true });
+      const mine = await clientNames(tx);
+      await tx`reset role`;
+      return [mine, await clientNames(tx)];
     });
-    const asLogin = await admin`select name from public.clients`;
-    expect(asUser.length).toBeLessThan(asLogin.length);
-    // The switch ends with the transaction: the pool is privileged again afterwards.
-    const [after] = await admin`select current_user as role`;
-    expect(after!.role).not.toBe("authenticated");
+    expect(after!.length).toBeGreaterThan(before!.length);
+  });
+
+  it("leaves `reset role` on the NOINHERIT login with no privileges at all", async () => {
+    await expect(
+      login.begin(async (tx) => {
+        await switchToUser(tx, asCoach(COACH_A));
+        await tx`reset role`;
+        return clientNames(tx);
+      }),
+    ).rejects.toMatchObject({ code: "42501" });
+  });
+
+  it("refuses a role that bypasses RLS even when allowRoles lists it", async () => {
+    await admin.unsafe(`
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'service_role') then create role service_role nologin bypassrls; end if;
+      end $$;
+      grant service_role to studio_login;
+    `);
+    await expect(
+      login.begin(async (tx) => {
+        await switchToUser(tx, { role: "service_role", claims: { sub: COACH_A } }, { allowRoles: ["service_role"] });
+      }),
+    ).rejects.toBeInstanceOf(IdentitySwitchError);
+  });
+
+  it("aborts the transaction on a failed check, so catching it doesn't help", async () => {
+    let ranAfter = false;
+    await expect(
+      login.begin(async (tx) => {
+        let first = true;
+        try {
+          // A tagged query that drops the settings: the check finds the login, not the user.
+          await switchToUser(
+            (strings, ...values) => {
+              if (first) {
+                first = false;
+                return tx`select 1`;
+              }
+              return tx(strings, ...(values as never[]));
+            },
+            asCoach(COACH_A),
+          );
+        } catch (error) {
+          expect(error).toBeInstanceOf(IdentitySwitchError);
+        }
+        await tx`select 1`;
+        ranAfter = true;
+      }),
+    ).rejects.toMatchObject({ code: "42501" });
+    // The next statement failed too (25P02, in failed transaction): nothing ran as the login.
+    expect(ranAfter).toBe(false);
+  });
+
+  it("passes a database error during the switch through, and the transaction rolls back", async () => {
+    await expect(
+      login.begin(async (tx) => {
+        await switchToUser(tx, { role: "no_such_role", claims: {} }, { allowRoles: ["no_such_role"] });
+      }),
+    ).rejects.toMatchObject({ code: "22023" });
+  });
+
+  it("sets a statement timeout that holds", async () => {
+    await expect(
+      login.begin(async (tx) => {
+        await switchToUser(tx, asCoach(COACH_A), { statementTimeoutMs: 50 });
+        await tx`select pg_sleep(1)`;
+      }),
+    ).rejects.toMatchObject({ code: "57014" });
   });
 
   it("exposes only the headers given as request.headers, and clears a stale value", async () => {
@@ -84,25 +158,6 @@ describeDb("switchToUser", () => {
     await expect(
       login.begin(async (tx) => switchToUser(tx, asCoach(COACH_A), { headers: { authorization: "Bearer x" } })),
     ).rejects.toThrow(/credential/);
-  });
-
-  it("refuses to go on when the switch didn't take", async () => {
-    // A tagged query that drops the settings: `current_user` stays the login.
-    await expect(
-      login.begin(async (tx) => {
-        let first = true;
-        await switchToUser(
-          (strings, ...values) => {
-            if (first) {
-              first = false;
-              return tx`select 1`;
-            }
-            return tx(strings, ...(values as never[]));
-          },
-          asCoach(COACH_A),
-        );
-      }),
-    ).rejects.toBeInstanceOf(IdentitySwitchError);
   });
 
   it("works with Drizzle's sql tag and tx.execute", async () => {
