@@ -1,0 +1,27 @@
+packages/work/migrations/0008_genesis_work_drafts.sql
+  s_26495fc9681b7e::t_839d0a5318eed9 1-32
+.changeset/work-drafts.md
+  s_26495fc9681b7e::t_40badda2ae62ab 1-7
+packages/work/README.md
+  s_26495fc9681b7e::t_1fdf13a26b88f5 8
+packages/work/migrations/tests/0008_genesis_work_drafts.test.sql
+  s_26495fc9681b7e::t_0f3bebceacb852 1-85
+packages/work/src/blocks.ts
+  s_26495fc9681b7e::t_d69d6a07d21b32 20-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "95a1fa9ca93da352723cf5ad6f818e6169e751c4",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
