@@ -1,7 +1,7 @@
 {
   "name": "@marktiderman/genesis-work",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "sideEffects": false,
   "description": "Goals and projects, tasks and issues, metrics, status updates and sessions for Genesis apps, in the app's own Supabase (schema genesis_work): owned by a person, a team or the tenant through genesis-supabase's owner-access contract.",
@@ -33,6 +33,10 @@
     "migrations",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
   "scripts": {
     "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
