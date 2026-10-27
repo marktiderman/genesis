@@ -1,0 +1,40 @@
+packages/ui/src/components/data/resource-view/display.tsx
+  s_9bf81edc5cc904::t_3906f2ce545811 7-8
+  s_9bf81edc5cc904::t_867024186973d2 18-22,67,90,106-107,163-164,170-172,174
+packages/core/src/hooks/use-resource-form.ts
+  s_9bf81edc5cc904::t_3906f2ce545811 230,237-239,385-386,462-463,513-516,519-528,673
+  s_9bf81edc5cc904::t_4848892b882070 517-518
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_9bf81edc5cc904::t_5a299cab1e2cf1 186,206-208,216,218-220,222-223,225-230,237-243,248,252,254,257
+  s_9bf81edc5cc904::t_1a6ee8a6a42d69 11,187-205,209-215,217,221,224,231-236,244-247,249-251,253,255-256
+docs/RESOURCE-VIEW.md
+  s_9bf81edc5cc904::t_5a299cab1e2cf1 181-182
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_9bf81edc5cc904::t_5a299cab1e2cf1 473-501
+.changeset/view-review-fixes-430.md
+  s_4ea9e233c4fda6::t_838a0873408e70 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28cd7192bd66e965127799ba4d2e3b635b26fcab",
+  "prompts": {},
+  "sessions": {
+    "s_4ea9e233c4fda6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "87517208-b3be-4ddc-b8ac-0ec52a33a61a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
