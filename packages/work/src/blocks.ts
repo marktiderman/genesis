@@ -17,7 +17,10 @@ export const pursuitsBlock = defineBlock({
   requires: ["owner-access"],
   platforms: ["web", "native"],
   contributes: {
-    migrations: [{ package: PACKAGE, file: "migrations/0001_genesis_work_pursuits.sql", test: "migrations/tests/0001_genesis_work_pursuits.test.sql" }],
+    migrations: [
+      { package: PACKAGE, file: "migrations/0001_genesis_work_pursuits.sql", test: "migrations/tests/0001_genesis_work_pursuits.test.sql" },
+      { package: PACKAGE, file: "migrations/0008_genesis_work_drafts.sql", test: "migrations/tests/0008_genesis_work_drafts.test.sql" },
+    ],
     privacy: { notes: ["Stores the goals, projects, tasks and issues people and teams write; a deleted person's rows keep no link to their login."] },
   },
 });
