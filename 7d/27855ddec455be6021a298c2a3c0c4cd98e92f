@@ -1,0 +1,27 @@
+.changeset/studio-server-switch-refusal.md
+  s_2550badb988043::t_63fc7594635bdc 1-5
+packages/studio-server/src/db.ts
+  s_2550badb988043::t_982d47f02600af 10,175-180
+packages/studio-server/src/switch.ts
+  s_2550badb988043::t_c9740a43becfad 15-21,26,32-59,227-230,233
+packages/studio-server/test/switch.integration.test.ts
+  s_2550badb988043::t_fd66cc8a504d12 6,89-125
+packages/studio-server/test/unit.test.ts
+  s_2550badb988043::t_0b67dc8e306eee 4,591-612
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7d27855ddec455be6021a298c2a3c0c4cd98e92f",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
