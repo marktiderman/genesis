@@ -1,0 +1,38 @@
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_9bf81edc5cc904::t_5f3d402202e325 26,28-32,90,141,148,153-159,161-162,164,166
+packages/ui/src/components/data/ResourcePage.tsx
+  s_9bf81edc5cc904::t_f552bccfe5713f 563-568,811,1466-1467
+packages/core/src/hooks/use-resource-form.ts
+  s_9bf81edc5cc904::t_c3662a875187dc 631-636,640,648,718
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_9bf81edc5cc904::t_8632072692d48f 429-447
+packages/core/src/form-types.ts
+  s_9bf81edc5cc904::t_0c1b84f97c0d60 35
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_38af2d88e2501c 16100-16106,16576-16582,16658,16863-16869,17247-17253,17329,17534-17540,17918-17924,18000,18205-18211,21680-21686,22316-22322
+packages/ui/src/components/data/__tests__/resource-page-empty-overlays.test.tsx
+  s_9bf81edc5cc904::t_6f08eb987688c6 8,69-79
+  s_9bf81edc5cc904::t_f930a9260ee78c 80-81
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_9bf81edc5cc904::t_8632072692d48f 142-162
+.changeset/view-defaults-onsaved.md
+  s_9bf81edc5cc904::t_829a272c39f879 1-8
+docs/RESOURCE-VIEW.md
+  s_9bf81edc5cc904::t_8ece6fa87c994c 181-185
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a5f134ab67b76b83a8c9d9b5ac31f719851c2700",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
