@@ -5,6 +5,7 @@ import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 
 afterEach(cleanup);
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { NotificationsProvider, preferenceRows, useNotifications, usePreferences, useUnreadCount } from "../react/index";
 import { choicesOf, type NotificationsClient } from "../supabase/index";
 import { NOTIFICATIONS_FEED_LIMIT, notificationsPushBackend, pushOptionsFrom, useNotificationsFeedHeader } from "../native/index";
@@ -70,6 +71,29 @@ describe("react hooks", () => {
     await act(async () => client.fire());
     await waitFor(() => expect((client.feed as ReturnType<typeof vi.fn>).mock.calls.length).toBeGreaterThan(before));
     expect(client.subscribe).toHaveBeenCalledWith(USER, expect.any(Function));
+  });
+
+  it("report a realtime subscription that throws through genesis-core's reportError, and still render", async () => {
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
+    const client = fakeClient({
+      subscribe: vi.fn(() => {
+        throw new Error("no realtime");
+      }),
+    });
+    try {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <NotificationsProvider client={client} registry={registry} userId={USER}>
+            <Feed />
+          </NotificationsProvider>
+        </QueryClientProvider>,
+      );
+      expect(await screen.findByText("Sam: Hi (/messages/c1)")).toBeTruthy();
+    } finally {
+      restore();
+    }
+    expect(reporter).toHaveBeenCalledWith(expect.objectContaining({ message: "no realtime" }), { source: "notifications:realtime-subscribe" });
   });
 
   it("read nothing while signed out", async () => {
@@ -170,7 +194,7 @@ describe("native", () => {
   it("gives the push block its categories and device categories", () => {
     const o = pushOptionsFrom(registry);
     expect(o.categories?.map((c) => c.id)).toEqual(["messages", "forms", "security", "genesis"]);
-    expect(o.deviceCategories?.[0]?.identifier).toBe("message");
+    expect(o.deviceCategories?.[0]?.identifier).toBe("messages");
   });
 
   it("registers with the install id, and saves only the push switches that changed, one cell at a time", async () => {

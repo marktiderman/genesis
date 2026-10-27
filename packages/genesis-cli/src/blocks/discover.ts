@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { createJiti } from "jiti";
 import { buildCatalog, type Catalog } from "./catalog.js";
 import { inside } from "./files.js";
+import { localPackage, localPackages } from "./local.js";
 import { declarationFields, GENESIS_PACKAGE, isBlockDef, ManifestError, parseManifest, rawBlocksOf, safeRelative, type BlockManifest } from "./manifest.js";
 
 export const CLI_PACKAGE = "@marktiderman/genesis-cli";
@@ -72,8 +73,10 @@ export function installedGenesis(root: string): Map<string, string> {
   }
 }
 
-/** Where a package's files are read from: the app's install, or this CLI itself. */
+/** Where a package's files are read from: the app's local packages, its install, or this CLI itself. */
 export function packageDir(root: string, name: string): string | null {
+  const local = localPackage(root, name);
+  if (local) return local.dir;
   const installed = installedGenesis(root).get(name);
   if (installed) return installed;
   if (name === CLI_PACKAGE) return cliPackageDir();
@@ -122,8 +125,8 @@ async function loadDeclarations(dir: string, warnings: string[]): Promise<Record
   }
 }
 
-/** Every block one installed package declares. */
-export async function blocksOfInstalled(dir: string, warnings: string[] = []): Promise<BlockManifest[]> {
+/** Every block one installed (or local) package declares. */
+export async function blocksOfInstalled(dir: string, warnings: string[] = [], options: { local?: boolean } = {}): Promise<BlockManifest[]> {
   const pkg = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { name: string; version?: string };
   const raw = rawBlocksOf(pkg);
   const declared = await declarationsOf(dir, warnings);
@@ -132,7 +135,7 @@ export async function blocksOfInstalled(dir: string, warnings: string[] = []): P
   for (const id of [...ids].sort()) {
     const fromJson = (raw[id] ?? {}) as Record<string, unknown>;
     // The declaration is the source of truth for what it says; package.json adds the rest.
-    const manifest = tryParse(() => parseManifest(pkg.name, id, { ...fromJson, ...declared[id] }, pkg.version), warnings);
+    const manifest = tryParse(() => parseManifest(pkg.name, id, { ...fromJson, ...declared[id] }, pkg.version, options), warnings);
     if (manifest) out.push(manifest);
   }
   return out;
@@ -140,13 +143,16 @@ export async function blocksOfInstalled(dir: string, warnings: string[] = []): P
 
 export interface FoundBlock {
   manifest: BlockManifest;
-  /** Read from the app's installed package, or from the CLI's catalog. */
-  from: "installed" | "catalog";
+  /** Read from the app's local package, its installed package, or the CLI's catalog. */
+  from: "local" | "installed" | "catalog";
 }
 
-/** Every block known: installed packages first, then the catalog for packages the app doesn't have. */
+/** Every block known: the app's local packages, then installed packages, then the catalog for packages the app doesn't have. */
 export async function allBlocks(root: string, warnings: string[] = []): Promise<FoundBlock[]> {
   const out: FoundBlock[] = [];
+  for (const local of localPackages(root)) {
+    for (const manifest of await blocksOfInstalled(local.dir, warnings, { local: true })) out.push({ manifest, from: "local" });
+  }
   const installed = installedGenesis(root);
   for (const [, dir] of installed) for (const manifest of await blocksOfInstalled(dir, warnings)) out.push({ manifest, from: "installed" });
   for (const [name, entry] of Object.entries(readCatalog().packages)) {
@@ -187,7 +193,7 @@ export async function findBlock(root: string, id: string, options: { package?: s
   const all = (await allBlocks(root, options.warnings)).filter((b) => b.manifest.id === id && (!options.package || b.manifest.package === options.package));
   if (all.length === 0) {
     const known = [...new Set((await allBlocks(root)).map((b) => b.manifest.id))].sort();
-    throw new Error(`No Genesis package declares a block "${id}"${options.package ? ` in ${options.package}` : ""}. Known blocks: ${known.join(", ") || "none"}.`);
+    throw new Error(`No Genesis or local package declares a block "${id}"${options.package ? ` in ${options.package}` : ""}. Known blocks: ${known.join(", ") || "none"}.`);
   }
   if (all.length > 1) throw new Error(`"${id}" is declared by ${all.map((b) => b.manifest.package).join(" and ")}; pass --package to pick one.`);
   return all[0]!;

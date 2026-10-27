@@ -1,5 +1,35 @@
 # @marktiderman/genesis-native
 
+## 0.4.4
+
+### Patch Changes
+
+- Updated dependencies [7cdf0fe]
+- Updated dependencies [a9e6ea7]
+  - @marktiderman/genesis-features@0.6.0
+  - @marktiderman/genesis-core@1.12.0
+
+## 0.4.3
+
+### Patch Changes
+
+- Updated dependencies [e35cabb]
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-core@1.11.0
+  - @marktiderman/genesis-features@0.5.0
+
+## 0.4.2
+
+### Patch Changes
+
+- e1de4c1: - `native-screen-layout` counts a route as a screen through `NativeLoadingState` only when a full-screen loading state is all it renders (header options and fragments aside). A route that also renders other content, imports it, or uses `fullScreen={false}` still needs a Genesis layout.
+  - Docs: `ScreenContainer`'s `loading` is for first loads (the body is unmounted while it's on); `loadingLabel` is visible and read aloud, so pass translated text; spread `notificationsPushPreferences` after your own keys.
+- a85f1c7: Docs. genesis-chat: the README covers `/native` (Beta: its screens and their main props), lists migration 0003 and names the push category `messages`. genesis-native: the rich push plugin's first-build steps for the Notification Service Extension (enable Communication Notifications on `<bundle id>.NotificationService`, then `eas credentials` to make its profile). genesis-notifications: a push carries a type's `push.ids` (and, with previews shown, `push.display` and `mutableContent`), and the Notification Service Extension works with it through genesis-native.
+- 48c4c90: README: an app with its own push `register` / `forget` takes its preferences from genesis-notifications' `notificationsPushPreferences(supabase)` instead of stubbing `loadPreferences` / `savePreferences`.
+- Updated dependencies [e1de4c1]
+- Updated dependencies [6f725f8]
+  - @marktiderman/genesis-ui-native@2.5.0
+
 ## 0.4.1
 
 ### Patch Changes

@@ -71,6 +71,9 @@ importers:
       '@marktiderman/genesis-notifications':
         specifier: workspace:^
         version: link:../../packages/notifications
+      '@marktiderman/genesis-product':
+        specifier: workspace:^
+        version: link:../../packages/product
       '@marktiderman/genesis-supabase':
         specifier: workspace:^
         version: link:../../packages/supabase
@@ -620,6 +623,12 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
 
+  packages/collab:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.1
+
   packages/connect:
     devDependencies:
       '@types/node':
@@ -818,9 +827,9 @@ importers:
       '@marktiderman/genesis-connect':
         specifier: workspace:^
         version: link:../connect
-      '@marktiderman/genesis-notifications':
+      '@marktiderman/genesis-supabase':
         specifier: workspace:^
-        version: link:../notifications
+        version: link:../supabase
       fast-check:
         specifier: ^4.10.2
         version: 4.10.2
@@ -946,6 +955,9 @@ importers:
 
   packages/forms-native:
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -1025,6 +1037,9 @@ importers:
         specifier: ^1.0.0
         version: 1.28.0(react@19.3.0)
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -1037,6 +1052,9 @@ importers:
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@types/node':
+        specifier: ^22
+        version: 22.20.1
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -1275,9 +1293,15 @@ importers:
         specifier: workspace:^
         version: link:../features
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native
+      '@marktiderman/genesis-supabase':
+        specifier: workspace:^
+        version: link:../supabase
       '@marktiderman/genesis-ui':
         specifier: workspace:^
         version: link:../ui
@@ -1329,10 +1353,40 @@ importers:
       '@marktiderman/genesis-features':
         specifier: workspace:^
         version: link:../features
+      react-native:
+        specifier: 0.88.0
+        version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
+      react-native-safe-area-context:
+        specifier: '>=4.0.0'
+        version: 5.10.1(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
     devDependencies:
+      '@marktiderman/genesis-notifications':
+        specifier: workspace:^
+        version: link:../notifications
+      '@marktiderman/genesis-ui-native':
+        specifier: workspace:^
+        version: link:../ui-native
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@types/node':
         specifier: ^22.9.0
         version: 22.20.1
+      '@types/react':
+        specifier: 19.3.0
+        version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.3.0(@types/react@19.3.0)
+      happy-dom:
+        specifier: ^20.9.0
+        version: 20.11.1
+      react:
+        specifier: 19.3.0
+        version: 19.3.0
+      react-dom:
+        specifier: 19.3.0
+        version: 19.3.0(react@19.3.0)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
@@ -1497,6 +1551,9 @@ importers:
       '@types/node':
         specifier: ^22
         version: 22.20.1
+      drizzle-orm:
+        specifier: ^0.44.7
+        version: 0.44.7(postgres@3.4.9)
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
@@ -1843,6 +1900,25 @@ importers:
       react-dom:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
+      tsup:
+        specifier: ^8.3.0
+        version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.12
+        version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@20.11.1)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
+
+  packages/work:
+    dependencies:
+      '@marktiderman/genesis-features':
+        specifier: workspace:^
+        version: link:../features
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.1
       tsup:
         specifier: ^8.3.0
         version: 8.5.1(patch_hash=ce9dbc714c187cea78868f1e68c1a0e5097ddbceb7e976a564d94f2291b5bcb9)(jiti@2.7.0)(postcss@8.5.25)(supports-color@8.1.1)(tsx@4.23.5)(typescript@6.0.3)(yaml@2.9.0)
@@ -7444,6 +7520,98 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  drizzle-orm@0.44.7:
+    resolution: {integrity: sha512-quIpnYznjU9lHshEOAYLoZ9s3jweleHlZIAWR/jX9gAWNg/JhQ1wj0KGRf7/Zm+obRrYd9GjPVJg790QY9N5AQ==}
+    peerDependencies:
+      '@aws-sdk/client-rds-data': '>=3'
+      '@cloudflare/workers-types': '>=4'
+      '@electric-sql/pglite': '>=0.2.0'
+      '@libsql/client': '>=0.10.0'
+      '@libsql/client-wasm': '>=0.10.0'
+      '@neondatabase/serverless': '>=0.10.0'
+      '@op-engineering/op-sqlite': '>=2'
+      '@opentelemetry/api': ^1.4.1
+      '@planetscale/database': '>=1.13'
+      '@prisma/client': '*'
+      '@tidbcloud/serverless': '*'
+      '@types/better-sqlite3': '*'
+      '@types/pg': '*'
+      '@types/sql.js': '*'
+      '@upstash/redis': '>=1.34.7'
+      '@vercel/postgres': '>=0.8.0'
+      '@xata.io/client': '*'
+      better-sqlite3: '>=7'
+      bun-types: '*'
+      expo-sqlite: '>=14.0.0'
+      gel: '>=2'
+      knex: '*'
+      kysely: '*'
+      mysql2: '>=2'
+      pg: '>=8'
+      postgres: '>=3'
+      prisma: '*'
+      sql.js: '>=1'
+      sqlite3: '>=5'
+    peerDependenciesMeta:
+      '@aws-sdk/client-rds-data':
+        optional: true
+      '@cloudflare/workers-types':
+        optional: true
+      '@electric-sql/pglite':
+        optional: true
+      '@libsql/client':
+        optional: true
+      '@libsql/client-wasm':
+        optional: true
+      '@neondatabase/serverless':
+        optional: true
+      '@op-engineering/op-sqlite':
+        optional: true
+      '@opentelemetry/api':
+        optional: true
+      '@planetscale/database':
+        optional: true
+      '@prisma/client':
+        optional: true
+      '@tidbcloud/serverless':
+        optional: true
+      '@types/better-sqlite3':
+        optional: true
+      '@types/pg':
+        optional: true
+      '@types/sql.js':
+        optional: true
+      '@upstash/redis':
+        optional: true
+      '@vercel/postgres':
+        optional: true
+      '@xata.io/client':
+        optional: true
+      better-sqlite3:
+        optional: true
+      bun-types:
+        optional: true
+      expo-sqlite:
+        optional: true
+      gel:
+        optional: true
+      knex:
+        optional: true
+      kysely:
+        optional: true
+      mysql2:
+        optional: true
+      pg:
+        optional: true
+      postgres:
+        optional: true
+      prisma:
+        optional: true
+      sql.js:
+        optional: true
+      sqlite3:
+        optional: true
 
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
@@ -17703,6 +17871,10 @@ snapshots:
       domhandler: 5.0.3
 
   dotenv@17.4.2: {}
+
+  drizzle-orm@0.44.7(postgres@3.4.9):
+    optionalDependencies:
+      postgres: 3.4.9
 
   dunder-proto@1.0.1:
     dependencies:

@@ -139,6 +139,13 @@ create view public.tasks_with_people with (security_invoker = true) as
 Writes send only the table's own columns: list them as `writeColumns`, or an update keeps just the
 columns the table's row has, so a form built from the view row never sends `person_name` back.
 
+### Counting totals
+
+`total` is exact by default, which scans every matching row. For a large table, set
+`resources.<name>.count` to `"estimated"` (or `"planned"`): the database's statistics answer
+instantly and `totalIsEstimate` is true, so a screen can say "about 90,000". `"none"` skips the
+count (`total` is -1). A caller can override per request with `getList(resource, { count })`.
+
 ### Handling failures
 
 ```ts
@@ -201,6 +208,46 @@ violation whose columns cannot be read still gets the safe sentence "This value
 is already in use." with no field. Anything else (check constraints) is left
 unmapped. Your own provider or `prepare` rule can
 throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug." } })`.
+
+## Errors: what kind, and reporting one (`/errors`)
+
+`classifyError(error)` sorts anything thrown into a kind a screen can act on, with a sentence
+that is safe to show and whether it is worth a crash report:
+
+```ts
+import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
+
+try {
+  await save();
+} catch (e) {
+  const { message, report } = classifyError(e);
+  toast.error(message); // "You're offline. Check your connection and try again."
+  if (report) reportError(e, "settings:save");
+}
+```
+
+| Kind | From | Report |
+| --- | --- | --- |
+| `offline` | each runtime's "network request failed", Supabase's fetch errors, `isOffline()` | no |
+| `unauthenticated` | outcome `unauthenticated`, `PGRST301`–`303`, `28000`, HTTP 401, a missing auth session | no |
+| `forbidden` | outcome `forbidden`, `42501`, HTTP 403 | no |
+| `not-found` | outcome `gone`, `PGRST116`, HTTP 404 / 410 | no |
+| `conflict` | outcomes `conflict` and `duplicate`, `23505`, HTTP 409 / 412 | no |
+| `invalid` | a rejected value (outcome `invalid`, `22***`, `23***`) | no |
+| `invalid` | a wrong request (a read's `invalid`, `PGRST1**`, `42703`, `42P01`, HTTP 400 / 422) | yes |
+| `unexpected` | anything else | yes |
+
+`message` comes from `errorMessages` (English), never the error's own text; pass
+`{ messages: { offline: "…" } }` to reword or translate.
+
+`reportError(error, context)` is the one way a Genesis package reports an error it caught and
+handled (a card's action that threw, a draft that couldn't be saved). `context` is a source,
+`package:part`, or `{ source, fatal?, tags? }` with low-cardinality tags only. The host decides
+where it goes with `setErrorReporter(reporter)` (it returns the undo); the native observability
+block registers itself, so these reach Sentry, scrubbed. With no reporter, it is written with
+`console.warn` in development and dropped in production. It never throws. Package code doesn't
+call `console.error` / `console.warn` or leave a `catch {}` empty: `pnpm check:error-reporting`
+fails CI on either (a deliberate console call carries `// genesis-allow-console: <reason>`).
 
 ## Mutation modes
 
@@ -531,6 +578,18 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
+`ViewerScope` also carries **where** the viewer is working: `scope={{ practiceId }}` (or
+`personId`, `spaceId`, a `personIds` set). Read it with `useViewerScope()`; screens turn it into
+server filters and create defaults. It never decides access, and changing it remounts nothing.
+Pass the viewer's saved `timeZone` too: `useViewerScope().day` is today on their clock (kept current
+when the page comes back into view, and across midnight), and `keys.for(useViewerScope())` uses it
+as the key's `day`, so no screen works out "today" itself.
+
+`roles` (optional) is what the viewer may do there, for view guards: `useViewer()` returns
+`{ id, scope, roles }` (or `NO_VIEWER` outside a ViewerScope). `GenesisViewerRoles` is empty; an app
+fills it by module augmentation. Roles compare by value; arriving roles keep the cache, different
+roles reset it. They never decide access (docs/RESOURCE-VIEW.md, "Viewer-aware guards").
+
 With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
 `persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
 sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
@@ -553,7 +612,11 @@ await callRpc(supabase, "release_step", { item_id }, { messages: { "55000": "Thi
 const { row, adopted } = await createOrAdopt(provider, "lesson_notes", { person_id, lesson_id, body }, {
   key: ["person_id", "lesson_id"],
   merge: (existing) => (existing.body ? null : { body }),
+  final: (existing) => existing.status === "submitted", // finished: handed back with final: true, never written over
+  // For a partial unique index (soft delete, a kind column), filter the lookup to the rows it covers.
+  scope: [{ field: "deleted_at", operator: "is_null" }],
 });
+// Key fields that are null match rows where they're null.
 
 // In a component: pending, plain error words, and invalidation after a success.
 const release = useWrite((itemId: string) => callRpc(supabase, "release_step", { item_id: itemId }), {
@@ -564,6 +627,24 @@ const release = useWrite((itemId: string) => callRpc(supabase, "release_step", {
 
 `run(args)` rejects on failure; `fire(args)` never does (the error shows in `error`). One write runs at a
 time: a second click while it runs gets the same promise, not a second write.
+
+## Resource page rules (`/resource`)
+
+The pure rules behind a resource page (a form, a course, a lesson, a worksheet), with no React,
+so a server or a phone app can use them: `readinessOf(findings, { emptyCode, pending })` and
+`readinessChip(readiness, labels)` (the readiness chip's words and tone), `SAVE_STATE_LABEL`,
+`dayLabel` ("Today", "Yesterday", "Oct 21"), `prefilledUrl` and `embedSnippet` (the Share
+dialog's links), and the types `ChipTone`, `SaveState`, `Readiness`, `ReadinessFinding`,
+`ReadinessOptions`, `ReadinessLabels`, `PrefillChoice`, `HeadlineNumber` (a headline number as
+data) and `HeadlineTone`. genesis-ui's `/resource` components draw them, and
+`@marktiderman/genesis-ui/resource/rules` re-exports the same functions.
+
+```ts
+import { readinessChip, readinessOf } from "@marktiderman/genesis-core/resource";
+
+readinessChip(readinessOf(findings, { emptyCode: "no-lessons" }), { empty: "Add a lesson" });
+// → { label: "Add a lesson", tone: "muted" }
+```
 
 ## Days and time zones (`/dates`)
 

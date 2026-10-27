@@ -9,9 +9,9 @@ replies, threads, reactions, read state, live updates and push.
 | `@marktiderman/genesis-chat` | The headless core: types, `createChatClient`, the send outbox, thread logic, media rules. No React. |
 | `/react` | Hooks for web and native: `ChatProvider`, `useInbox`, `useConversation`, `useMessageActions`, and for 0002 `useTopics`, `useScheduled`, `useAvailability`, `useBroadcast`, `useSearch`, `useLinkPreviews`. |
 | `/web` | Renderers on genesis-ui: inbox, thread, composer (text, photos, voice, video, emoji, scheduled send), media, topics, search, availability, broadcast. |
-| `/native` | Coming in the next release: renderers on genesis-ui-native (`InboxPage` and `ThreadPage` wired to chat, voice notes with expo-audio). Empty in this version. |
+| `/native` | Beta: screens and parts on genesis-ui-native (inbox, thread, search, availability), voice notes, photos and video, and the push block's glue. See "On native" below. |
 | `/server` | `createChatRunner`: works the outbox (push, transcripts, storage cleanup). |
-| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql` | The schema, copied into your app by `genesis add chat`, each with its pgTAP test. |
+| `migrations/0001_genesis_chat.sql`, `0002_genesis_chat_coaching.sql`, `0003_genesis_chat_search_threads.sql` | The schema, copied into your app by `genesis add chat` in order, each with its pgTAP test. 0003 makes `search_messages` return a hit's `thread_root_id`. |
 
 ## On the web
 
@@ -37,6 +37,118 @@ for your own attachment kinds, `composerAccessory`). Mount a Genesis `<Toaster /
 (a file too big, a send not allowed). Tailwind must scan the package
 (`@source "../node_modules/@marktiderman/genesis-chat/dist"`). `createMemoryChatClient` runs it
 all with no backend, for demos, stories and tests.
+
+## On native
+
+`@marktiderman/genesis-chat/native` (Beta) draws chat on genesis-ui-native, over the same
+`/react` hooks. Mount `ChatProvider` (from `/react`) and `ChatNativeProvider` (the native modules,
+copy and people) inside `GenesisNativeApp`, then put the screens in your routes:
+
+| Screen | What it is | Main props |
+|---|---|---|
+| `ChatInboxScreen` | The conversations on `InboxPage`: avatars, unread counts, the last message, pull to refresh, Mark read, Pin and Archive. | `onOpen(conversationId)`, `onStart`, `kind` / `kinds` / `excludeKinds`, `archived`, `pageProps` |
+| `ChatThreadScreen` | One conversation: grouped bubbles, day lines, replies, reactions, the composer (text, photos, voice notes, video, emoji, scheduled send), topics and the away line. | `conversationId`, `threadRootId`, `jumpTo` (open at a search result), `topic` / `showTopics`, `scheduling`, `availability`, `onOpenAttachment`, `focused` (the navigator's `useIsFocused()`), `keyboardVerticalOffset` |
+| `ChatSearchScreen` | Search across your conversations or in one, with matches highlighted and transcripts marked. | `onOpen(hit)`, `conversationId`, `conversationTitle` |
+| `ChatAvailabilityScreen` | Your away message, its end, working hours and time zone. | `onSaved` |
+
+`ChatNativeProvider` takes `modules` (expo-audio, expo-image-picker, expo-haptics, expo-clipboard,
+expo-camera, expo-video, expo-web-browser and the rest are passed in, never imported), `copy`
+overrides and `getPerson(userId)` for names and avatars. `useChatThreadStackOptions` gives the
+thread's header options.
+
+The parts (`ChatComposer`, `MessageBubble`, `MessageActionsSheet`, `VoiceNotePlayer`,
+`ChatPhotoViewer`, `ChatEmojiPicker`, `ChatStartSheet`, `ChatBroadcastSheet`) build your own
+screen, and the logic under them (`composerReducer`, `buildThreadRows`, `useChatComposer`,
+`useVoiceRecorder`) is exported too. Glue: `createTusUpload` (resumable uploads for
+`ChatProvider upload`), and for genesis-native's push block the `messages` category with Reply and
+Mark read (`registerChatNotificationActions`, `handleChatPushResponse`, `chatThreadMatch`, also on
+`/push` alone).
+
+Voice notes show their transcript under the player once the server has made one ("Transcribing…"
+until then), folded to three lines with "Show more"; the bubble reads the whole transcript to
+VoiceOver.
+
+### Your own attachment kinds on native
+
+A kind registered in `ChatProvider attachmentKinds` draws as `ChatAttachmentCard` (its title,
+subtitle and one button). For more than a card, pass `ChatThreadScreen slots={{ attachment }}`
+(`MessageBubble attachmentSlot` in your own screen): the native twin of the web `attachment` slot.
+It draws every kind the package doesn't draw itself (anything but image, voice, video, file and
+link), registered or not; `null` hides the kinds that aren't registered. Its props
+(`ChatAttachmentSlotProps`):
+
+| Prop | What it is |
+|---|---|
+| `attachment`, `message`, `url`, `mine` | As on the web: the attachment (`ref` holds what the sender put there), its message, its signed URL when it has a file, and whether you sent it. `url` is http(s) only (null for any other scheme), since the sender controls it. |
+| `kind` | Its `attachmentKinds` entry, when registered. |
+| `action` | The kind's `action`, ready to call (`{ label, run }`), or null. |
+| `run(task)` | Runs an app action. A task that returns a promise makes the card `pending` until it settles; if it throws or rejects, `error` holds a short message (copy `cardActionFailed`). One still running after 30 seconds stops being busy and reads `cardActionTimedOut` (`ChatThreadScreen cardActionTimeoutMs` changes it, 0 for never). A second run while one is pending is ignored. `action.run` goes through it. |
+| `pending`, `error` | That state, for drawing a busy control and the error. |
+| `fallback` | The card the package would have drawn: return it for kinds the slot doesn't draw. |
+| `testID` | The bubble's id for this card. |
+
+The bubble is one VoiceOver element, so the controls inside your card are hidden from VoiceOver:
+give the kind an `action` and call `action.run` from your control, and the bubble offers the same
+action (named by its `label`) to VoiceOver and Switch Control. Keep tap targets at least 44 points.
+A slot that throws shows the fallback card until its attachment, message, kind or slot changes,
+then tries again. A slot that returns null draws nothing for that attachment, and it leaves the
+bubble's label and actions; a message left with nothing to show is not drawn at all. Reply quotes, the reply bar, the long-press sheet and
+the inbox's last message name the kind by its `label`. Build the kinds where the app's live data
+is (a hook, memoized on it), so the title and action follow it; define the slot at module scope.
+
+A task with a checkbox:
+
+```tsx
+import { Pressable, View } from "react-native";
+import { NativeText } from "@marktiderman/genesis-ui-native/components";
+import { ChatThreadScreen, type ChatAttachmentSlotProps } from "@marktiderman/genesis-chat/native";
+
+// In the component that mounts ChatProvider, so the kind reads the tasks' live state.
+const tasks = useTasks(); // your own query: { [taskId]: { done } }
+const toggle = useToggleTask(); // returns a promise
+const attachmentKinds = useMemo(
+  () => ({
+    task: {
+      label: "Task",
+      title: (a) => String(a.ref.title ?? "Task"),
+      subtitle: (a) => (tasks[String(a.ref.taskId)]?.done ? "Done" : "To do"),
+      // The checkbox's action, and the bubble's VoiceOver action.
+      action: (a) => {
+        const done = Boolean(tasks[String(a.ref.taskId)]?.done);
+        return { label: done ? "Mark not done" : "Mark done", onPress: () => toggle(String(a.ref.taskId), !done) };
+      },
+    },
+  }),
+  [tasks, toggle],
+);
+
+function TaskCard({ attachment, action, pending, error, fallback }: ChatAttachmentSlotProps) {
+  const task = useTask(String(attachment.ref.taskId ?? "")); // your own hook, before any return
+  if (attachment.kind !== "task") return fallback;
+  const done = Boolean(task?.done);
+  return (
+    <View style={{ minWidth: 220, gap: 4 }}>
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: done, busy: pending }}
+        disabled={pending || !action}
+        onPress={action?.run}
+        style={{ flexDirection: "row", alignItems: "center", gap: 12, minHeight: 44 }}
+      >
+        <View style={{ width: 24, height: 24, borderRadius: 6, borderWidth: 2, opacity: pending ? 0.5 : 1 }}>{done ? <NativeText>✓</NativeText> : null}</View>
+        <NativeText>{String(attachment.ref.title)}</NativeText>
+      </Pressable>
+      {error ? <NativeText preset="caption">{error}</NativeText> : null}
+    </View>
+  );
+}
+
+<ChatThreadScreen conversationId={id} slots={{ attachment: TaskCard }} />
+```
+
+The same slot draws a win card or a worksheet with its progress; `run` is there for actions that
+aren't the kind's button (save an answer). `useCardRuns`, `AppAttachment` and `CardError` are
+exported for your own bubble.
 
 ## Kinds and rules
 
@@ -238,7 +350,8 @@ pending. Persist the file (`persistFile`) so a relaunch still has its bytes.
 
 A registered kind draws as `ChatAttachmentCard`; any other app kind goes to `ChatThread`'s
 `attachment` slot (a generic card by default). For anything richer than a card, render the kind
-yourself in that slot:
+yourself in that slot (on native the slot draws registered kinds too; see "Your own attachment
+kinds on native"):
 
 ```tsx
 <ChatThread slots={{ attachment: (props) =>
@@ -254,7 +367,12 @@ One message can't break a thread: each row renders inside `ChatErrorBoundary` ("
 couldn't be shown"), an `attachment` slot that throws falls back to `GenericAttachment`, and an
 `attachmentKinds` entry is used only for its own key (never `constructor` and the like) when its
 `title` returns a string; a kind whose functions throw or return the wrong shapes gets the
-generic card. Errors go to the console.
+generic card. A row that can't be drawn is reported through `reportError` from
+`@marktiderman/genesis-core/errors` (source `chat:render`), unless you pass `ChatErrorBoundary`
+an `onError`. On native, a card's action that fails and an `attachmentKinds` entry that throws are
+reported the same way (`chat:attachment-action`, `chat:attachment-kind`): the native
+observability block sends them to Sentry; without a reporter they go to the console in
+development.
 
 - **Topics**: `ChatThread` shows `ChatTopicBar` (All plus each topic, a lock on closed ones) when
   the conversation has topics (`showTopics` shows it before the first, for owners). Owners and
@@ -338,7 +456,7 @@ each removing up to `retentionBatch`, default 1 000; never in a conversation on 
   the collapse id becomes the notification's identifier, so replies from two notifications of one
   conversation would collide. Throw from `deliver` to retry. `createExpoDeliver` sends
   through Expo in requests of 100 (`threadId`, `collapseId`, `badge`, channel `messages`, category
-  `chat-message`) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
+  `messages`, the one `/native` registers Reply and Mark read under) and returns the tickets: forget `deadTokens(tickets)`. It throws only when
   nothing was sent. Note that `collapseId` replaces a conversation's earlier notification on iOS.
 - **transcribe**: a 10 minute signed URL to the transcriber, then `transcript_status: ready`. With no
   transcriber the status is `off`; on the last attempt a failure sets `failed`. Hosted videos get
@@ -399,8 +517,8 @@ import { CHAT_NOTIFICATION_CATEGORIES, CHAT_NOTIFICATION_TYPES, notificationsDel
 
 export const notifications = defineNotifications({
   categories: { ...CHAT_NOTIFICATION_CATEGORIES },
-  actions: { message: MESSAGE_ACTIONS },
-  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "message" } },
+  actions: { messages: MESSAGE_ACTIONS },
+  types: { "chat.message": { ...CHAT_NOTIFICATION_TYPES["chat.message"], actions: "messages" } },
 });
 const deliver = notificationsDeliver({ notify, client: supabase, registry: notifications });
 ```

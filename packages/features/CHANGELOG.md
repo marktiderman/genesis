@@ -1,5 +1,23 @@
 # @marktiderman/genesis-features
 
+## 0.6.0
+
+### Minor Changes
+
+- 7cdf0fe: Content packs: `defineContentPack` (in `/blocks`, zod-free) declares versioned data that fills installed blocks (session types and agendas, metric templates, custom field definitions, forms, roadmap templates, labels) and lists every shape problem at once; `contentPackProblems(pack, installedBlocks)` also refuses a pack whose blocks aren't installed; `contentPackBlocks` names the blocks a pack fills.
+
+## 0.5.0
+
+### Minor Changes
+
+- bc5a348: The gate follows `requires`: a feature is off while a registry feature it requires is off (a module's parts go off with the module), and the answer's new `via` names the one that said no, so an upsell names the module's plan. `FeatureOff` carries `via` too.
+
+## 0.4.1
+
+### Patch Changes
+
+- 773e809: The gate's plain types (`FeatureStatus`, `FeatureAccess`, `FlagKind`, `FlagValue`) move to a zod-free file, so `/gate`'s type declarations no longer reach zod. `isSnapshotStale` treats a future-dated snapshot as stale, and `fromSnapshot` reads a damaged or older stored snapshot as off instead of throwing.
+
 ## 0.4.0
 
 ### Minor Changes

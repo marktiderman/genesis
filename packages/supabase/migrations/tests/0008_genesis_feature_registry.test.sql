@@ -5,7 +5,7 @@
 -- If your app already has the hooks, they are replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(41);
+select plan(62);
 
 -- People: a1 admin of tenant 1, b2 member of tenant 1, c3 admin of tenant 2.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -73,7 +73,7 @@ select ok(not has_table_privilege('authenticated', 'public.feature_flags', 'sele
 select ok(not has_table_privilege('authenticated', 'public.feature_entitlements', 'select,insert,update,delete'), '... nor entitlements');
 select ok(not has_table_privilege('authenticated', 'public.tenant_flag_values', 'select,insert,update,delete'), '... nor flag values');
 select ok(not has_table_privilege('authenticated', 'public.features', 'insert,update,delete'), 'nobody signed in writes features');
-select ok(not has_function_privilege('authenticated', 'public.sync_feature_registry(bigint, text, jsonb, jsonb)', 'execute'), 'only the service role syncs');
+select ok(not has_function_privilege('authenticated', 'public.sync_feature_registry(bigint, text, jsonb, jsonb, boolean)', 'execute'), 'only the service role syncs');
 select ok(not has_function_privilege('anon', 'public.feature_on(uuid, text)', 'execute'), 'anon can''t ask the gate');
 select ok(not has_function_privilege('anon', 'public.feature_gate_state(uuid)', 'execute'), '... nor read gate state');
 
@@ -94,6 +94,10 @@ insert into public.feature_entitlements (tenant_id, feature_id, source, active) 
 select is(public.feature_on(pg_temp.tenant(1), 'webhooks'), true, '... and on with one');
 insert into public.feature_entitlements (tenant_id, feature_id, source, active, ends_at) values (pg_temp.tenant(2), 'webhooks', 'trial', true, now() - interval '1 day');
 select is(public.feature_on(pg_temp.tenant(2), 'webhooks'), false, 'an ended entitlement doesn''t count');
+insert into public.feature_entitlements (tenant_id, feature_id, source, active) values (pg_temp.tenant(2), 'webhooks', 'manual', false);
+select is(public.feature_on(pg_temp.tenant(2), 'webhooks'), false, '... nor an inactive one');
+insert into public.feature_entitlements (tenant_id, feature_id, source, active) values (pg_temp.tenant(2), 'not-synced-yet', 'stripe', true);
+select pass('billing can grant a feature before the deploy that adds it syncs');
 select is(public.feature_on(pg_temp.tenant(1), 'courses') or public.feature_on(pg_temp.tenant(1), 'nope'), false, 'planned and unknown features are off');
 select is(public.feature_on(pg_temp.tenant(1), 'sms'), true, 'flags are not the database''s business');
 
@@ -110,26 +114,67 @@ select is(public.feature_gate_state(pg_temp.tenant(1)),
 select is(public.feature_on(pg_temp.tenant(1), 'webhooks'), true, 'a member asks the gate for their tenant');
 select is(public.feature_on(pg_temp.tenant(2), 'forms'), false, 'and gets false for another tenant');
 select throws_ok($$select public.feature_gate_state(pg_temp.tenant(2))$$, '42501', null, 'another tenant''s state is refused');
-select is((select count(*)::int from public.features), 4, 'signed-in people read the registry');
+select is((select array_agg(id order by id) from public.features), array['forms', 'sms', 'webhooks'], 'signed-in people read shipped features only');
+select throws_ok($$select record from public.features$$, '42501', null, '... and not the full registry record');
+select is(array(select public.feature_entitled_tenants('webhooks')), array[pg_temp.tenant(1)], 'a member sees their own tenant''s entitlement');
+select is((select public.feature_shipped('forms')) and not (select public.feature_shipped('courses')), true, 'feature_shipped answers once per statement');
 select throws_ok($$select * from public.feature_entitlements$$, '42501', null, 'but not the entitlements table');
 
 select pg_temp.sign_in('c3');
-select is(public.feature_gate_state(pg_temp.tenant(2)), '{"off": [], "entitled": [], "flags": {}}'::jsonb, 'a tenant with nothing set gets empty state');
+select is(public.feature_gate_state(pg_temp.tenant(2)), '{"off": [], "entitled": ["not-synced-yet"], "flags": {}}'::jsonb, 'another tenant sees only its own state');
+select is(array(select public.feature_entitled_tenants('webhooks')), '{}'::uuid[], 'and none of another tenant''s entitlements');
+select set_config('request.jwt.claims', json_build_object('sub', pg_temp.person('c3'), 'role', 'authenticated', 'is_anonymous', true)::text, true);
+select is((select count(*)::int from public.features), 0, 'an anonymous sign-in reads no features');
+
+-- An authenticated request without a person is refused, never mistaken for server code.
+select set_config('request.jwt.claims', '{"role": "authenticated"}', true);
+select set_config('request.jwt.claim.sub', '', true);
+select throws_ok($$select public.feature_gate_state(pg_temp.tenant(1))$$, '42501', null, 'no sub: gate state is refused');
+select is(public.feature_on(pg_temp.tenant(1), 'forms'), false, 'no sub: the gate says no');
+select is(array(select public.feature_entitled_tenants('webhooks')), '{}'::uuid[], 'no sub: no entitled tenants');
+
+-- A platform value is a kill switch for every tenant, over the tenant's own value.
+select pg_temp.as_service();
+update public.feature_flags set platform_value = 'false' where key = 'sms.release';
+select pg_temp.sign_in('b2');
+select is(public.feature_gate_state(pg_temp.tenant(1)) -> 'flags', '{"sms.release": false}'::jsonb, 'a platform value overrides the tenant''s');
+select pg_temp.as_service();
+update public.feature_flags set platform_value = null where key = 'sms.release';
+select is(public.feature_gate_state(pg_temp.tenant(1)) -> 'flags', '{"sms.release": true}'::jsonb, 'without it the tenant value applies (server code reads any tenant)');
 
 -- A registry without courses and without the flag --------------------------------------------------
 select pg_temp.as_service();
 select is(public.sync_feature_registry(200, 'h2',
   (select jsonb_agg(f) from pg_temp.registry, jsonb_array_elements(features) f where f ->> 'id' <> 'courses'), '[]'), true, 'a changed registry syncs');
 select is((select in_registry from public.features where id = 'courses'), false, 'a feature gone from the registry stays, marked gone');
-select is((select count(*)::int from public.feature_flags), 0, 'a flag gone from the registry is removed');
-select is((select count(*)::int from public.tenant_flag_values), 0, '... with its tenant values');
+select is((select in_registry from public.feature_flags where key = 'sms.release'), false, 'a flag gone from the registry stays, marked gone');
+select is((select count(*)::int from public.tenant_flag_values), 1, '... and keeps its tenant values');
+select pg_temp.sign_in('b2');
+select is(public.feature_gate_state(pg_temp.tenant(1)) -> 'flags', '{}'::jsonb, 'but a gone flag''s value is not handed out');
+select pg_temp.as_service();
 select is((select version from public.feature_registry_synced()), 200::bigint, 'the last sync is recorded');
 
 -- Retired: off even with an entitlement.
 select is(public.sync_feature_registry(300, 'h3',
-  '[{"id": "webhooks", "name": "Webhooks", "status": "retired", "apps": ["web"], "access": {"plan": "pro"}}]', '[]'), true, 'webhooks retires');
+  '[{"id": "webhooks", "name": "Webhooks", "status": "retired", "apps": ["web"], "access": {"plan": "pro"}},
+    {"id": "legacy", "name": "Old export", "status": "deprecated", "apps": ["web"]},
+    {"id": "drafts", "name": "Drafts", "status": "building", "apps": ["web"]},
+    {"id": "free", "name": "Free", "status": "live", "apps": ["web"], "access": {"plan": " "}}]', '[]'), true, 'webhooks retires');
 select is(public.feature_on(pg_temp.tenant(1), 'webhooks'), false, 'a retired feature is off whatever the entitlement');
 select is(public.feature_on(pg_temp.tenant(1), 'forms'), false, 'a feature missing from the registry is off');
+select is(public.feature_on(pg_temp.tenant(1), 'legacy'), true, 'a deprecated feature still works');
+select is(public.feature_on(pg_temp.tenant(1), 'drafts'), false, 'a building feature is not shipped');
+select is(public.feature_on(pg_temp.tenant(1), 'free'), true, 'a blank plan is no plan');
+
+-- Guards against a broken registry -----------------------------------------------------------------
+select throws_ok($$select public.sync_feature_registry(400, 'empty', '[]', '[]')$$, '22023', null, 'an empty registry is refused');
+select throws_ok($$select public.sync_feature_registry(400, 'dup', '[{"id": "a", "name": "A", "status": "live"}, {"id": "a", "name": "A", "status": "live"}]', '[]')$$,
+  '22023', null, 'duplicate ids are refused');
+select throws_ok($$select public.sync_feature_registry(400, 'shrink', '[{"id": "legacy", "name": "Old export", "status": "deprecated"}]', '[]')$$,
+  '22023', null, 'a registry that drops most features is refused');
+select is((select count(*)::int from public.features where in_registry), 4, '... and changes nothing');
+select is(public.sync_feature_registry(400, 'shrink', '[{"id": "legacy", "name": "Old export", "status": "deprecated"}]', '[]', true), true,
+  'unless the call allows the shrink');
 
 select * from finish();
 rollback;

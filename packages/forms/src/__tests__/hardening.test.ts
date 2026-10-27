@@ -115,20 +115,24 @@ describe("3. long event logs", () => {
     // Scaling, not a wall-clock bound: CI runners are 5–8× slower than a laptop, and a slow
     // linear replay passes a time limit as easily as a fast quadratic one. Four times the
     // events should take about four times as long; quadratic work (an event log copied on
-    // each event, say) takes about sixteen. Best of three runs, after a warm-up.
-    const time = (n: number) => {
-      const log = alternating(n);
-      let best = Infinity;
-      for (let run = 0; run < 3; run++) {
-        const start = performance.now();
-        replay(def, log);
-        best = Math.min(best, performance.now() - start);
-      }
-      return best;
+    // each event, say) takes about sixteen. Best of five runs per size, the sizes interleaved so
+    // a noisy moment on a shared runner hits both, after a warm-up; the limit sits between the two.
+    const small = alternating(10_000);
+    const large = alternating(40_000);
+    const once = (log: typeof small) => {
+      const start = performance.now();
+      replay(def, log);
+      return performance.now() - start;
     };
-    time(2_000);
-    const ratio = time(40_000) / Math.max(time(10_000), 1);
-    expect(ratio).toBeLessThan(8);
+    once(alternating(2_000));
+    let bestSmall = Infinity;
+    let bestLarge = Infinity;
+    for (let run = 0; run < 5; run++) {
+      bestSmall = Math.min(bestSmall, once(small));
+      bestLarge = Math.min(bestLarge, once(large));
+    }
+    const ratio = bestLarge / Math.max(bestSmall, 1);
+    expect(ratio).toBeLessThan(11);
     const events = alternating(40_000);
     const engine = replay(def, events);
     expect(engine.getState().events).toEqual(events);

@@ -1,5 +1,44 @@
 # @marktiderman/genesis-chat
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [7cdf0fe]
+  - @marktiderman/genesis-features@0.6.0
+
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
+## 0.3.0
+
+### Minor Changes
+
+- 2ef7db1: - Native: an `attachment` slot for the app's own attachment kinds (`ChatThreadScreen slots={{ attachment }}`, `MessageBubble attachmentSlot`), the twin of the web slot. It gets the web slot's props (`attachment`, `message`, `url`, `mine`) plus `kind`, the kind's `action` ready to call, `run(task)` with `pending` and `error` for the app's own actions (tick a task), `fallback` (the card it would have been) and `testID`. It draws every kind the package doesn't draw, registered or not; `null` hides unregistered kinds; a slot that throws shows the card. The kind's action stays the bubble's VoiceOver action. The default card's button is 44 points tall and shows busy while an `onPress` that returns a promise runs, and an error line if it rejects.
+  - A kind's `action().onPress` may return a promise (the web card catches its rejection).
+  - Native reply quotes, the reply bar and the jump announcement name an app kind by its `label`, as the inbox and the long-press sheet do.
+  - Native voice notes show their transcript under the player ("Transcribing…" until it is ready), folded to three lines with "Show more", and the bubble reads it to VoiceOver.
+  - `ChatErrorBoundary` moved to `src/react/error-boundary.tsx` (no DOM) so native shares it; `/web` still exports it.
+- b8ab65a: Native attachment slot, after review:
+  - A slot that threw tries again once its attachment, message, kind or slot changes (`ChatErrorBoundary resetKeys`), instead of keeping the card for the row's life.
+  - A slot that returns null draws nothing for that attachment and leaves the bubble's label and VoiceOver actions; a message left with nothing to show (also one that is only an unregistered kind under `slots={{ attachment: null }}`) is not drawn or read.
+  - The slot's `url` is http(s) only, else null (`slotUrl`).
+  - A card action still running after 30 seconds stops being busy and reads `cardActionTimedOut`; `cardActionTimeoutMs` on `ChatThreadScreen` and `MessageBubble` changes it (0 for never).
+  - A voice note's transcript folds behind "Show more" by its measured line count (an unclamped copy laid out out of sight), not its length.
+
+### Patch Changes
+
+- 4f231f7: `ChatSearchScreen` clears a large-title or see-through (Liquid Glass) navigation bar: its search field, hint, loading and empty states now sit in the results list (the field as its header), whose automatic content inset moves them below the bar, as `InboxPage` does. Before, the field was a plain view at the top of the screen and drew behind the navigation bar, where it couldn't be tapped.
+- a85f1c7: Docs. genesis-chat: the README covers `/native` (Beta: its screens and their main props), lists migration 0003 and names the push category `messages`. genesis-native: the rich push plugin's first-build steps for the Notification Service Extension (enable Communication Notifications on `<bundle id>.NotificationService`, then `eas credentials` to make its profile). genesis-notifications: a push carries a type's `push.ids` (and, with previews shown, `push.display` and `mutableContent`), and the Notification Service Extension works with it through genesis-native.
+- b3b8712: Chat pushes sent through genesis-notifications now get Reply, Mark as read and the Communication Notification:
+
+  - Chat's Mark read action id is `mark_read`, the same as `MESSAGE_ACTIONS` (device ids take no "-"). A notification already on a phone with the old `mark-read` still marks read.
+  - The docs and examples put `MESSAGE_ACTIONS` under the `messages` id, the category chat's push handler and genesis-native's notification service extension look for. Before, they said `message`, so on that path Mark read did nothing and the extension skipped the push. If your registry copied the old example, rename `actions: { message: MESSAGE_ACTIONS }` to `messages` and the type's `actions: "message"` to `"messages"`.
+
 ## 0.2.2
 
 ### Patch Changes

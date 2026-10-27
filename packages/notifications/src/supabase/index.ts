@@ -175,6 +175,7 @@ export function notificationsClient(client: NotificationsSupabaseLike): Notifica
     subscribe(userId, onChange) {
       if (typeof client.channel !== "function") {
         // Loud, not fatal: without realtime the feed still refetches on focus and pull to refresh.
+        // genesis-allow-console: a set-up hint (a client without realtime), not an error.
         console.warn("[genesis-notifications] this Supabase client has no realtime (client.channel); the feed won't update live.");
         return () => {};
       }

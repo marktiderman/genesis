@@ -1,6 +1,6 @@
 /**
  * `createNotificationRunner`: sends what `notify()` queued, on the shared
- * runner (`@marktiderman/genesis-notifications/runner`). Run `run()` every
+ * engine (`@marktiderman/genesis-supabase/runner`). Run `run()` every
  * minute and `checkReceipts()` every 15 minutes (pg_cron with pg_net calling
  * the handler, or any scheduler).
  *
@@ -29,7 +29,7 @@
  */
 import type { NotificationRegistry } from "../core/registry";
 import type { NotificationBrand } from "../core/types";
-import { createRunner, failureOf, type JobOutcome, type JobResult, type RunReport } from "../runner/index";
+import { createRunner, failureOf, type JobOutcome, type JobResult, type RunReport } from "@marktiderman/genesis-supabase/runner";
 import { canonicalJson, defaultEmailTemplate, displayName, escapeHtml, headerSafe, isSafeAddress, type EmailTemplate } from "./email-render";
 import { REQUEST_TIMEOUT_MS, SendError } from "./errors";
 import { isReservedDomain } from "./dns";

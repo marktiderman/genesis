@@ -261,6 +261,16 @@ declare module "react-native" {
     refreshing?: boolean;
     onRefresh?: () => void;
     stickySectionHeadersEnabled?: boolean;
+    ListHeaderComponent?: React.ReactNode | ComponentType;
+    ListFooterComponent?: React.ReactNode | ComponentType;
+    ListEmptyComponent?: React.ReactNode | ComponentType;
+    onEndReached?: () => void;
+    onEndReachedThreshold?: number;
+    onStartReached?: (info: { distanceFromStart: number }) => void;
+    onStartReachedThreshold?: number;
+    maintainVisibleContentPosition?: { minIndexForVisible: number; autoscrollToTopThreshold?: number } | null;
+    /** Anything else `renderItem` reads, so the list (a PureComponent) re-renders when it changes. */
+    extraData?: unknown;
   }
 
   export interface RefreshControlProps {
@@ -352,6 +362,11 @@ declare module "react-native" {
     userInterfaceStyle?: "light" | "dark" | "unspecified";
   }
 
+  export const Linking: {
+    openURL(url: string): Promise<void>;
+    canOpenURL(url: string): Promise<boolean>;
+  };
+
   export const Alert: {
     alert(
       title: string,
@@ -359,6 +374,19 @@ declare module "react-native" {
       buttons?: AlertButton[],
       options?: AlertOptions,
     ): void;
+  };
+
+  export interface ActionSheetIOSOptions {
+    title?: string;
+    message?: string;
+    options: string[];
+    cancelButtonIndex?: number;
+    destructiveButtonIndex?: number | number[];
+    disabledButtonIndices?: number[];
+  }
+
+  export const ActionSheetIOS: {
+    showActionSheetWithOptions(options: ActionSheetIOSOptions, callback: (buttonIndex: number) => void): void;
   };
 
   export class FlatList<T> extends React.Component<FlatListProps<T>> {}

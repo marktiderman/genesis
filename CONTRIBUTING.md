@@ -1,6 +1,10 @@
 # Contributing to Genesis
 
-## The one rule: Reuse > Extend > Create
+## The one rule: reuse, then extend, then invent
+
+This is the Genesis way, and [`docs/FRAMEWORK.md`](./docs/FRAMEWORK.md) (Part 1) says it in
+full: the purpose, what counts as config and what counts as custom code, and how an
+invention moves up into Genesis. Cite its principle IDs (G1–G6) in reviews.
 
 Before adding a new component, token, variant, or dependency, check it doesn't
 already exist and that reuse won't do:

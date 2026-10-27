@@ -135,6 +135,29 @@ no backslashes, and a file that resolves (through a symlink) outside its package
 runtime block is made by a function (`createPush`) keeps a test that its manifest says what the
 block declares.
 
+### Local packages
+
+An app's own workspace packages can be Genesis-style packages too. List them in
+`genesis.config.json`, as app-relative folders or folders ending in `/*`:
+
+```json
+{ "localPackages": ["packages/*"] }
+```
+
+A local package declares blocks the way a Genesis package does:
+- a `genesis.blocks` manifest in its package.json and a `./blocks` export;
+- its own `migrations/NNNN_name.sql`, each with a pgTAP test.
+
+Then:
+- `genesis add <block>` and `genesis migrate` copy its migrations and tests like any package's,
+  with a `genesis-migration` header naming the local package. Nothing is installed: it lives in
+  the app's repo.
+- `genesis doctor` scans its source with every rule, and the [`packages` pack](#rule-packs)
+  holds it to a package's standard: no app imports, declared dependencies, tested and never-edited
+  migrations, registered in `features.ts`, and a changeset or version bump with every change.
+- A local package keeps package shape, so publishing it later (GitHub Packages or npm) needs no
+  restructuring.
+
 ### genesis add
 
 `genesis add <block>` plans, prints the plan, asks (or `--yes`), then:
@@ -320,10 +343,16 @@ comment on column public.customers.notes is
   'Private to staff. @genesis {"label": "Internal notes", "widget": "textarea"}';
 ```
 
-The text before `@genesis` stays the description. Tables take `label`, `labelField` and
-`description`; columns take `label`, `description` and `widget`. Anything else is an error that
-names the table or column. These settings are generator input only: the checked-in file is what
-ships.
+The text before `@genesis` stays the description. Tables take `label`, `labelField`, `noun`,
+`nounPlural` and `description` (strings). Columns take `label`, `description` and `widget`
+(strings), plus `readonly` (true for a column only the server writes: a UI shows it read-only) and
+`sensitive` (true to keep it out of lists, exports and previews unless a screen asks). Anything
+else is an error that names the table or column. These settings are generator input only: the
+checked-in file is what ships.
+
+Each resource is emitted as its own `as const satisfies ResourceContract<Row>` constant (so a bad
+setting, like an unknown `widget`, fails to compile), with a row type and a field-name union
+(`PublicBrandsField`), and `contracts` collects them by `schema.table`.
 
 ## genesis doctor
 
@@ -358,7 +387,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `raw-color` | error | Hex and `rgb()/hsl()` literals in code and CSS, via the same lexer as the repo's `check:token-usage` (comments, issue refs and `hsl(var(--x))` are fine). A brand file that defines token values needs an `allow` entry. |
 | `undefined-token` | error | `var(--x)` where the theme doesn't define `--x`. Tokens declared in the app's CSS (or only `tokenFiles`) and inline style custom properties count as defined; `--tw-*` and `--radix-*` are ignored. |
 | `shadowed-export` | error | An exported value named like a Genesis export (`export function Button`). Reuse or extend it. |
-| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving dependencies the way Node does, from each package's real folder, so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. A copy reached only through dev tooling (the app's `devDependencies`, or anything under `@marktiderman/genesis-cli`, wherever it's listed) is `[dev only]`: every path to it from the app runs through declared tooling (test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, or the CLI). Other devDependencies count as runtime: a bundler ships what the app imports from them. When exactly one copy is reached from a declared runtime dependency and every other copy is dev-only, the finding is `info` (it can't split the app's contexts). Anything else warns, a copy reached through an undeclared hoisted package included. An app with no runtime dependencies at all (a bundled SPA listing everything in `devDependencies`) has its devDependencies taken as runtime. |
+| `duplicate-genesis-package` | warn | More than one copy of a `@marktiderman/genesis-*` package that the app can load, with each copy's path, version and the ranges that asked for it. Found by resolving the app's dependency graph the way Node does, from each package's real folder (starting from the app's own `package.json`), so npm/yarn/bun hoisted and nested trees, pnpm's `.pnpm` store (in the app, or at the workspace root above a sub-app) and bun's isolated `.bun` store all count; a store entry nothing resolves to is ignored. Two copies are two module instances: a `DataProvider` from one is invisible to hooks from the other. A copy reached only through dev tooling (the app's `devDependencies`, or anything under `@marktiderman/genesis-cli`, wherever it's listed) is `[dev only]`: every path to it from the app runs through declared tooling (test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, or the CLI). Other devDependencies count as runtime: a bundler ships what the app imports from them. When exactly one copy is reached from a declared runtime dependency and every other copy is dev-only, the finding is `info` (it can't split the app's contexts). Anything else warns, a copy reached through an undeclared hoisted package included. An app with no runtime dependencies at all (a bundled SPA listing everything in `devDependencies`) has its devDependencies taken as runtime. A copy that only walking up the folders finds is left out: in an app with its own install inside another app's folder (a lockfile of its own, like `apps/mobile`), a peer dependency the app doesn't declare or install is unmet rather than met by the parent's copy, and the parent's CLI isn't followed unless the app declares it. A regular dependency that resolves up to the parent still counts. |
 | `peer-range-mismatch` | warn | An installed Genesis package's `peerDependencies` range on another Genesis package that the copy it resolves (looked up from its own folder, as Node does) doesn't satisfy: the package, the range and the installed version. Missing peers and non-semver ranges (`workspace:*`) are skipped. Ranges are read with npm's grammar (`^ ~ x - ||`, prereleases only when the range names one). A mismatch inside a dev-only copy (the CLI's own tree) is `info`. |
 | `hand-rolled-sub-nav` | warn | A route under the layout that renders `AppShell` that switches its sections with its own page-level `<TabsList>` or `<SubNavTabs>`, when the installed Genesis has `useAppShellSubNav`. Tabs inside a card, dialog, sheet, popover, accordion, panel, table or another tab's content are fine, as are pages that call the hook. Use `useAppShellSubNav(items, { mode: "tabs" })`, `AppShellPageHeader` and `AppShellSubNavEnd` from `@marktiderman/genesis-ui/layout` ([sub-navigation](../ui/SKILL.md)). |
 | `local-genesis-copy` | warn | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
@@ -416,7 +445,7 @@ Scanned by default: `src/**/*.{ts,tsx,js,jsx,mts,cts,css}`, skipping tests, `__f
 
 ### Rule packs
 
-Two packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
+Three packs are opt-in, so a web app is unaffected until it lists them. Turn them on explicitly
 (they are not auto-detected, so adding `expo` or a `supabase/` folder never changes a build's
 result on its own):
 
@@ -448,7 +477,7 @@ keep `raw-color`).
 
 | Rule | Level | What it flags |
 | --- | --- | --- |
-| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
+| `native-raw-primitive` | error | A React Native primitive Genesis wraps, used from `react-native` (`Modal`, `ActivityIndicator`, which points to `NativeLoadingState`; the list in the repo's `scripts/lib/native-primitives.mjs`, shared with `check:forbidden-imports`): named and aliased imports (multi-line too), `import * as RN` then `RN.Modal`, `require("react-native").Modal`, destructured `require`, and `export { Modal } from "react-native"`. Type-only imports are fine. The message names the replacements the installed package exports. |
 | `native-literal-color` | error | Hex and `rgb()/hsl()` literals in native code (the same lexer as `raw-color`, which it replaces for script files). Use a theme role (`useThemeRoles()`), a token className or `PlatformColor(...)`. |
 | `native-custom-header` | warn | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors. |
 | `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
@@ -478,6 +507,39 @@ migrations never fail a build. In CI, check out with full history and fetch the 
   with: { fetch-depth: 0 }
 - run: git fetch origin main
 ```
+
+**`packages`**, for the app's [local packages](#local-packages). Each one is held to a
+Genesis package's standard. The change rules compare against a base ref, given as
+`genesis doctor --base origin/main` (or `doctor.packages.base`). Without one, or when git
+can't compare, they report a single info finding ("change gate skipped") and never fail:
+
+```json
+{ "localPackages": ["packages/*"], "doctor": { "packs": ["packages"] } }
+```
+
+```bash
+genesis doctor --strict --base origin/main
+```
+
+A file whose literals can't be parsed for sure is skipped, and type-only imports never count
+as dependencies.
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `package-app-import` | error | A package importing the app's own code: `@/…`, `~/…`, a relative path that leaves the package, or an alias (the package's own tsconfig `paths`) that points outside it. package.json `#imports` and aliases that stay inside the package are its own files. |
+| `package-undeclared-dependency` | error | A bare import whose package isn't in the package's `dependencies`, `peerDependencies`, `devDependencies` or `optionalDependencies` (`workspace:` ranges count). Node built-ins and type-only imports (multi-line too) are fine. |
+| `package-export-missing` | error | An `exports` target that doesn't exist. Build output (`./dist/…`, `./build/…`) and patterns are left alone. |
+| `package-block-invalid` | error | A `genesis.blocks` declaration that isn't a valid block manifest. |
+| `package-migration-test` | error | A migration without a pgTAP test: a block migration with no `test` (or a missing one), or any `migrations/NNNN_name.sql` without `migrations/tests/NNNN_name.test.sql`. |
+| `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
+| `package-untagged-tests` | warn | A package whose tests name no feature (`@feat:<id>`). |
+| `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
+| `package-migration-edited` | warn | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. |
+| `package-unversioned-change` | warn | With a base ref: files in the package changed but neither a higher `version` nor a new changeset naming it in its front matter did; a changeset without a `Features:` line; or blocks or exports changed without a change to `features.ts`. Run CI with `--strict` so these fail. |
+
+Symlinks inside a package aren't followed, and a `packages/*` folder without a usable package.json (or a name) is skipped. `localPackages` entries may climb out of the app (`../../packages/*`) as long as they stay in its repository.
+
+Every other rule also scans local packages' source, as it does the app's.
 
 ### Config
 

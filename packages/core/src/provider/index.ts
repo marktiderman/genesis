@@ -4,6 +4,7 @@ export type {
   BaseRecord,
   DataProvider,
   ListParams,
+  CountMode,
   ListResult,
   PaginationParam,
   SortParam,
@@ -77,6 +78,7 @@ export {
   type RpcClient,
   type CallRpcOptions,
   type CreateOrAdoptOptions,
+  type CreateOrAdoptResult,
 } from "./write-helpers";
 
 // React context

@@ -312,6 +312,54 @@ worker.start();
 - **Its own role.** Create the worker's login role and pass `--worker-role` (`workerRole`) when
   generating the setup SQL. Only that role may read or settle the outbox.
 
+## Run your own API as the user
+
+The studio's identity switch is exported on its own, for an app's API that should run user-scoped
+queries under row-level security the way PostgREST does: in one transaction per unit of work (an
+HTTP request or a socket event), first switch to the user, then query.
+
+```ts
+import { supabaseVerifier, switchToUser } from "@marktiderman/genesis-studio-server";
+
+const verify = supabaseVerifier({ url: process.env.SUPABASE_URL! }); // a raw token: a bearer, or a socket handshake's
+
+const claims = await verify(token);
+if (!claims) throw new Unauthorized();
+
+// Drizzle
+await db.transaction(async (tx) => {
+  await switchToUser((s, ...v) => tx.execute(sql(s, ...v)), { role: "authenticated", claims }, { headers: { "x-app": app } });
+  return tx.select().from(rooms);
+});
+
+// postgres.js
+await pool.begin(async (tx) => {
+  await switchToUser(tx, { role: "authenticated", claims });
+  return tx`select * from rooms`;
+});
+```
+
+- **What it sets:** `role`, `request.jwt.claims`, and Supabase's older per-claim settings
+  (`request.jwt.claim.sub`, `.role`, `.email`), so `auth.uid()` and `auth.jwt()` work. Each one is a
+  `set_config(..., true)` (`SET LOCAL`) with the value as a parameter, never interpolated. Every
+  setting is written each time, so a value left on a pooled connection never applies.
+- **Headers:** `headers` becomes `request.headers`, as PostgREST exposes it, for a policy or
+  function that reads one. Pass only what they read. `authorization`, `cookie`, `apikey` and other
+  credential headers are refused.
+- **The role:** `authenticated` or `anon` unless `allowRoles` lists others, and `claims.role`, when
+  set, must be the same role.
+- **The check:** after the switch, a check in SQL makes sure `current_user` is the role and can't
+  bypass RLS, and that the login is neither a superuser nor BYPASSRLS. A failure raises inside the
+  transaction, so Postgres aborts it and it throws `IdentitySwitchError`. Catching that error
+  doesn't let anything go on as the login.
+- **The login:** use a dedicated `NOINHERIT` login that is neither a superuser nor BYPASSRLS, set up
+  the same way as the studio's (see [Attach a project](#attach-a-project-under-15-minutes)). On a
+  privileged login, code inside the transaction could undo the switch with `reset role`, so such a
+  login is refused (`allowPrivilegedLogin` is for local development only). Keep server-owned writes
+  on a separate privileged pool that never runs user work.
+- **Role checks in SQL:** read `current_setting('role')` or `current_user`, never a claim, since a
+  claim is only what the token said.
+
 ## Operational notes
 
 - Lists are capped: 200 rows a page, offsets to 100 000, counts to 10 000 (`totalIsLowerBound`

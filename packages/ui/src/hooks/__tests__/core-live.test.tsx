@@ -10,7 +10,7 @@
  * - `useOne` refetches only for its own record;
  * - a hidden page marks the reads stale instead of refetching.
  */
-import { act, render, renderHook } from "@testing-library/react";
+import { act, cleanup, render, renderHook } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -78,6 +78,8 @@ beforeEach(() => {
   vi.useFakeTimers();
 });
 afterEach(async () => {
+  // Unmount first: a mounted live hook's resync interval would keep runAllTimers going forever.
+  cleanup();
   await act(async () => {
     await vi.runAllTimersAsync();
   });

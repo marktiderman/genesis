@@ -28,9 +28,15 @@ export default function SettingsScreen() {
       { id: "account", title: t.accountSection, rows: [{ id: "email", title: t.signedInAs, subtitle: session?.user.email ?? "" }] },
       {
         id: "general",
-        rows: starter.features.chat
-          ? [{ id: "availability", title: t.availability, subtitle: t.availabilitySubtitle, showChevron: true, onPress: () => router.push("/settings/availability" as Href), testID: "open-availability" }]
-          : [],
+        rows: [
+          ...(starter.features.chat
+            ? [{ id: "availability", title: t.availability, subtitle: t.availabilitySubtitle, showChevron: true, onPress: () => router.push("/settings/availability" as Href), testID: "open-availability" }]
+            : []),
+          // Off by default (`features.productDemo`).
+          ...(starter.features.productDemo
+            ? [{ id: "product-demo", title: copy.productDemo.settingsRow, subtitle: copy.productDemo.settingsRowSubtitle, showChevron: true, onPress: () => router.push("/settings/product" as Href), testID: "open-product-demo" }]
+            : []),
+        ],
       },
       // The support block's Send feedback and Help rows (`features.support`).
       { id: "support", title: copy.support.settings.section, rows: [] },

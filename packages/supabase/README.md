@@ -595,14 +595,30 @@ Migration `0008_genesis_feature_registry.sql` (needs 0004) gives the feature gat
 way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
 
 - **The mirror.** `features` and `feature_flags` copy `features.json`, written only by `sync_feature_registry`
-  with the service key. Run it when a deploy starts; an older build can't roll the registry back, and the same
-  registry again changes nothing.
+  with the service key. Run it from **production deployments only**, with the **build time** as the version.
+  Vercel sets `VERCEL_ENV=production` on every production deployment, old ones included, so an instance-start
+  time would let a cold start of an old URL sync a stale registry; a build time can't. After an instant
+  rollback the database keeps the newer registry until the next deploy (only SQL's status and entitlement
+  checks read it). The same registry again changes nothing; an empty registry, or one dropping more than a
+  fifth of the features, is refused unless `allowShrink`. Nothing is deleted: a removed feature or flag is
+  marked `in_registry = false`; its tenant values stay, and (0014) its platform value is cleared.
 - **Paid access.** `feature_entitlements` (tenant, feature, source, `active`, optional `ends_at`). Your billing
   webhook writes it with the service key.
 - **Flag values.** `tenant_flag_values` overrides a flag's default for one tenant (service key).
 - **The gate in SQL.** `feature_on(tenant, feature)` is true for a shipped feature that, when paid, has an
-  active entitlement. Use it in policies: `using (feature_on(team_id, 'form-webhook-delivery'))`. A signed-in
-  caller outside the tenant gets false. Switches and flags are not checked here: server code enforces them.
+  active entitlement; a signed-in caller outside the tenant gets false. It runs once per row, so in policies
+  over many rows use the once-per-statement pair instead:
+  `using ((select feature_shipped('exports')) and team_id = any (array(select feature_entitled_tenants('exports'))))`
+  (drop the second half for a free feature). Switches and flags are not checked here: server code enforces them.
+- **Who is asking (0014).** Server code is told apart from a person by the request's role
+  (`current_setting('role')`, set per request by PostgREST), never by `request.jwt.claims`: a role that bypasses
+  row security, or a connection that never switched role, is server code; everyone else must be a member. So any database login that
+  connects directly, without switching role, is trusted as server code: give people API access only, never a
+  direct database login. The
+  functions use `auth.jwt()` and `auth.uid()`, so they need Supabase's `auth` schema (not bare Postgres).
+- **Reading features.** Signed-in people (not anonymous sign-ins) read shipped, customer-facing features (and
+  `feature_shipped` answers them only for those), and
+  only `id, name, status, visibility, access_plan, platforms, in_registry`; the full record stays server side.
 - **The snapshot's input.** `feature_gate_state(tenant)` returns the tenant's switches off, entitlements and
   flag values, to its members (with their own JWT, so browsers and extensions can call it) and the service role.
 
@@ -611,7 +627,8 @@ import { featureGateState, syncFeatureRegistry } from "@marktiderman/genesis-sup
 import { gateSnapshot } from "@marktiderman/genesis-features/gate";
 import registry from "../features.json";
 
-await syncFeatureRegistry(admin, registry, { version: BUILD_TIME }); // on deploy
+// When a production deployment starts serving (never from a preview):
+if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
 
 const state = await featureGateState(supabase, teamId); // per session
 const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });
@@ -659,6 +676,15 @@ const report = await runJobs(admin, {
 
 - **Settle failures.** If recording an outcome fails, the job is counted as `unsettled` and comes
   back when its lease runs out. The run carries on, and only a failed claim throws.
+
+**One engine.** `runJobs` runs on `createRunner` from `@marktiderman/genesis-supabase/runner`, the
+outbox engine genesis-notifications' push and email and genesis-forms' destinations also run on.
+The engine claims a batch, sends it (in groups, `concurrency` at a time), turns each result into an
+outcome (`sent`, `filtered`, `skipped`, `retry` with jittered backoff or a Retry-After deferral up
+to `maxDeferrals`, `failed`, with `disable` on a 410) and records it, never throwing for one job.
+It has no dependencies (no `@supabase/supabase-js`, no Node built-ins), so a package can bundle it,
+and it knows nothing about recipients. For `runJobs` the queue keeps the attempts and the retry
+times, as above. `@marktiderman/genesis-notifications/runner` still re-exports it, deprecated.
 
 **One job route.** `createJobsHandler` runs the job the route names, but only if the request passes
 one of two constant-time checks:
@@ -717,6 +743,109 @@ route instead: it sends GET with the bearer.
 
 **Access.** The queue table has RLS on, no policies, and no grants to `anon` or `authenticated`.
 Every function is granted by name to `service_role` only.
+
+## Continue on the web, already signed in (the web-handoff block)
+
+Some work a native app leaves to the web app (editing a form's questions, say). The web-handoff
+block opens that web page signed in as the same person, with no sign-in screen:
+
+1. **App:** `openOnWeb(path, …)` from `@marktiderman/genesis-native/web-handoff` posts `{ path }` to
+   the app's mint route with `Authorization: Bearer <access token>`.
+2. **Mint** (`createWebHandoff(...).mint`, or `mintWebHandoff` for a person you verified another
+   way): verifies the bearer with `auth.getUser`, checks the path with `appRelativePath`, and
+   records a handoff (`genesis_web_handoff_issue`): the person, the path, the app session it came
+   from (the bearer's `session_id`), a 60-second expiry and a SHA-256 digest of a random 256-bit
+   token. It returns `<origin>/auth/handoff#t=<token>&next=<path>`; the fragment never reaches a
+   server. Ten links a person a minute, counted in the database.
+3. **Page** (`/auth/handoff`): `takeWebHandoffFragment()` reads the fragment and removes it with
+   `history.replaceState` before analytics or error reporting load. `completeWebHandoff` checks
+   who is signed in here with `auth.getUser` (a session ended elsewhere counts as nobody and is
+   cleared), then **claims** the handoff (`genesis_web_handoff_claim`): once, unexpired. The claim
+   returns whose link it is and a **continue nonce** that works once, for 30 seconds. Nothing that
+   signs anyone in exists yet.
+4. **Same person already signed in:** straight to `next`; nothing is ever minted.
+   **Otherwise:** "Continue as {email}?".
+   - **Continue** spends the nonce (`genesis_web_handoff_continue`: once, in time, not after
+     Cancel). Only now does the server ask Supabase Auth for a sign-in token for that person's own
+     email (`auth.admin.generateLink({ type: "magiclink" })`, which sends nothing). The page signs
+     any other person out locally, exchanges the token at once with
+     `auth.verifyOtp({ token_hash, type: "email" })`, checks the verified user is the link's, and
+     goes to `next`, checked again. It then reports the new session (`bind`, its access token as
+     the bearer), so the app's sign-out can end it.
+   - **Cancel** burns the nonce (`genesis_web_handoff_discard`) and signs out locally anyone else
+     who was signed in here, so the page never leaves someone in the app as another person. Show
+     "You can close this window".
+   - **A page left open** never gets a sign-in token: the nonce runs out.
+5. **App sign-out:** `signOutOnWeb` (genesis-native) posts the app's bearer to the sign-out route
+   before the app signs out; `genesis_web_handoff_revoke_sessions` deletes the `auth.sessions` rows
+   of the web sessions handed off from that app session, and only those (never the person's other
+   devices; never a global sign-out).
+
+```ts
+// Server routes (the service-role client, server only)
+import { createWebHandoff } from "@marktiderman/genesis-supabase/web-handoff/server";
+const handoff = createWebHandoff({ admin: supabaseAdmin });
+// POST /api/auth/handoff         → handoff.mint(request)
+// POST /api/auth/redeem-handoff  → handoff.redeem(request)   (claim, continue, discard, bind)
+// POST /api/auth/handoff-signout → handoff.signOut(request)
+
+// The page
+import { completeWebHandoff, takeWebHandoffFragment } from "@marktiderman/genesis-supabase/web-handoff";
+const step = await completeWebHandoff({ supabase, fragment: takeWebHandoffFragment() });
+// "done" → go to step.next; "confirm" → ask, then step.continue() or step.cancel();
+// "cancelled" → "You can close this window"; "failed" → step.reason, sign in keeping step.next
+```
+
+Install: copy `migrations/0015_genesis_web_handoff.sql` into `supabase/migrations/` under a new
+timestamped name and its pgTAP test into `supabase/tests/database/`.
+
+The page must send `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and
+`Content-Security-Policy: frame-ancestors 'none'`, render without analytics, and call
+`takeWebHandoffFragment` before any third-party script runs.
+
+### Lifetimes
+
+- **The handoff link:** 60 seconds and one claim (`ttlSeconds`, 10 to 300).
+- **The continue nonce:** 30 seconds and one use (`continueSeconds`, 5 to 120); Cancel burns it.
+- **Supabase's sign-in token:** minted only on Continue and exchanged by the page at once. It is
+  single use and would expire after the project's **Email OTP Expiration** (`mailer_otp_exp`;
+  default one hour; Authentication → Sign In / Providers → Email). The block doesn't rely on that
+  setting, which is project-wide. Minting one replaces any magic link or email code that person
+  has outstanding.
+- **A web session the app's sign-out ended:** its `auth.sessions` row is gone, so it can't refresh
+  and `auth.getUser` refuses it; Supabase documents that its access token still verifies locally
+  until it expires (the project's JWT expiry, one hour by default).
+
+### Choices, and why
+
+- **Claim, then Continue.** Minting Supabase's token when the page opened would leave a working
+  sign-in token in a page someone cancelled or walked away from, for the whole OTP expiry. The
+  token exists only after the person chooses Continue, within 30 seconds of opening the link.
+- **A record per handoff, not a signed timestamp.** A signed `iat` can't stop someone holding
+  Supabase's token hash from exchanging it directly; here there is no token hash to hold until
+  Continue.
+- **Ask first unless it's the same person.** Anyone can mint a link for their own account and
+  send it to someone else (login CSRF); "Continue as {email}?" makes that visible. The in-app
+  browser keeps its storage, so the person taps Continue once and later handoffs go straight in.
+- **Cancel signs the other person out.** Leaving the page (or opening Home) as whoever was signed
+  in before could put someone in the app as another person: an in-app browser keeps the previous
+  person's session after the app switched accounts. Signing out locally is the safe default; the
+  cost is that a person who cancels a link someone else sent them is signed out of this browser.
+- **Ending the web session on app sign-out by deleting its `auth.sessions` row.** Supabase's docs:
+  "When a user signs out, the sessions affected by the sign-out are removed from the database";
+  a missing row means signed out. `auth.admin.signOut` needs that session's JWT, which the server
+  doesn't keep; `scope: "global"` would sign out every device. The session id comes from the
+  web session's verified access token (`session_id` claim), bound to the handoff once, within two
+  minutes of Continue, for the same person.
+- **Magic link over passing the session.** Supabase has no first-party way to move a session to
+  another client. Sending the app's refresh token would share one session between app and
+  browser, and refresh-token rotation would sign one of them out. A magic-link token gives the
+  browser its own session.
+- **`type: "email"` in `verifyOtp`.** Supabase marks `magiclink` deprecated for `verifyOtp` and
+  documents `generateLink({ type: "magiclink" })` then `verifyOtp({ token_hash, type: "email" })`.
+  The exchange is a POST from the page; it needs no PKCE code verifier, so a PKCE client works.
+- **No email, no handoff.** Supabase's link sign-in is by email. A phone-only account gets a
+  409 `no_email` with a `fallbackUrl` (the page, signed out), and `openOnWeb` opens that instead.
 
 ## Testing your schema's data contract (genesis_testing)
 

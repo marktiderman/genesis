@@ -18,13 +18,13 @@ for a domain are in [docs/NOTIFICATIONS.md](../../docs/NOTIFICATIONS.md).
 | Import | What |
 |---|---|
 | `@marktiderman/genesis-notifications` (`/core`) | `defineNotifications`, the shared types, `MESSAGE_ACTIONS`, `GENESIS_TEST_TYPE`. No dependencies. |
-| `/runner` | `createRunner`: the one outbox runner (claim, send in groups, settle, `maxDeferrals`, jitter, `disable` on 410). genesis-forms' destinations run on it too. No dependencies. |
+| `/runner` | **Deprecated:** the outbox engine moved to `@marktiderman/genesis-supabase/runner`. This path re-exports the same values and types for at least one more minor; import from genesis-supabase instead. |
 | `/server` | `notify()`, `syncNotificationTypes`, `createNotificationRunner`, `createNotificationsHandler`, `expoPushProvider`, `resendProvider`, `resolveSecretLink`, `checkSenderDomain`, unsubscribe tokens, webhook verification. Service role only. |
 | `/email` | React Email: `BrandLayout`, `EmailText`, `EmailButton`, `reactEmailTemplate`, `brandedDefaultTemplate`. |
 | `/supabase` | `NOTIFICATIONS_MIGRATIONS` and `notificationsClient(supabase)`, the browser and phone side under row level security. |
 | `/react` | `NotificationsProvider`, `useNotifications`, `useUnreadCount`, `usePreferences`. |
 | `/web` | `NotificationBell`, `NotificationFeed`, `PreferencesMatrix`, and for admins `DeliveryLog`, `SuppressionList`, `SendTestNotification`, all on genesis-ui. |
-| `/native` | `NotificationsFeed` (on genesis-ui-native's `NotificationsPage`), `ChannelPreferences`, `NotificationPreferences`, `notificationsPushBackend`, `pushOptionsFrom`, `notificationAction`. |
+| `/native` | `NotificationsFeed` (on genesis-ui-native's `NotificationsPage`), `ChannelPreferences`, `NotificationPreferences`, `notificationsPushBackend`, `notificationsPushPreferences` (its preferences half), `pushOptionsFrom`, `notificationAction`. |
 | `/blocks` | `notificationsBlock`: routes, nav, a Settings row, the migration and the privacy notes. |
 
 The package ships `migrations/0001_genesis_notifications.sql` with its pgTAP
@@ -57,13 +57,13 @@ test, and the `functions/genesis-notifications` Edge Function template.
 
    export const notifications = defineNotifications({
      categories: { messages: { label: "Messages", android: { importance: "high" } }, ...GENESIS_TEST_CATEGORY },
-     actions: { message: MESSAGE_ACTIONS },
+     actions: { messages: MESSAGE_ACTIONS },
      types: {
        "chat.message": {
          category: "messages",
          channels: { in_app: true, push: true, email: true },
          emailDelaySeconds: 600,
-         actions: "message",
+         actions: "messages",
          render: (d) => ({ title: String(d.sender_name), body: String(d.preview), url: `/messages/${d.conversation_id}` }),
        },
        ...GENESIS_TEST_TYPE,
@@ -86,6 +86,18 @@ test, and the `functions/genesis-notifications` Edge Function template.
 
    On native, give the push block this package's backend and the registry's categories:
    `createPush({ backend: notificationsPushBackend(supabase), ...pushOptionsFrom(notifications), randomUUID: Crypto.randomUUID, … })`.
+
+   An app that registers devices its own way keeps its `register` and `forget` and takes only the
+   preferences: `backend: { register, forget, ...notificationsPushPreferences(supabase) }`. Spread it
+   last: keys that come after it (an app's own `loadPreferences` or `savePreferences`) replace its
+   functions, and keys before it are replaced by them. The push
+   settings screen then reads and saves this package's preferences row (each category switch is that
+   category's push channel; quiet hours and previews are the row's own columns).
+
+   If the provider can't listen for feed changes (the realtime subscription throws), the feed still
+   works without live updates and the error is reported through `reportError` from
+   `@marktiderman/genesis-core/errors` (`notifications:realtime-subscribe`), which the native
+   observability block sends to Sentry. `/react` needs `@marktiderman/genesis-core` (a peer).
 
 ## Sending
 
@@ -199,8 +211,13 @@ badge, and hiding a push for the screen already open (`useSuppressNotifications`
 The runner sends every due job's devices in Expo batches of 100 with `threadId`, `categoryId`
 (the device category with Reply and Mark as read), `badge`, and a `collapseId` (the collapse key,
 else the notification id, so a resend after a timeout replaces rather than repeats). The payload's
-`data` is `{ url, notification_id, type, thread_key }`, never the notification's own `data`. A
-person who hides previews, or a type with `pushPrivacy: "generic"`, gets neutral text. Receipts
+`data` is `{ url, notification_id, type, thread_key }` plus what the type's `render` returns under
+`push`, never the notification's whole `data`: `push.ids` always travel (genesis-chat's
+`conversationId`, `messageId` and `seq`, so Reply and Mark read work from the notification), and
+`push.display` (a sender's name and photo) and `push.mutableContent` (which lets the app's
+Notification Service Extension run) only while previews are shown. Only flat strings and numbers
+pass, and they can't replace the notifier's own keys. A person who hides previews, or a type with
+`pushPrivacy: "generic"`, gets neutral text and no display values. Receipts
 are checked about every 15 minutes; `DeviceNotRegistered` forgets the device.
 
 Android shows a push only on a channel the app made: the runner sends the category id as
@@ -240,11 +257,15 @@ switch becomes explicit channel choices (`genesis_notifications_set_preference`)
 - **Digests** (next, v1.1).
 - SMS.
 - Web push.
-- The Notification Service Extension and Communication Notifications (rich pushes, sender avatars).
 - Live Activities.
 - Slack as a channel.
 - Routing auth emails (sign-in links, password resets) through Supabase's send-email hook.
 - Per-tenant Resend keys (the provider seam is there; reading a key from Vault isn't).
+
+The Notification Service Extension and Communication Notifications (rich pushes with sender
+avatars) aren't here but work with it: genesis-native's rich push plugin adds the extension, and a
+type opts in through `render`'s `push.display` and `push.mutableContent` (genesis-chat's
+`chat.message` does).
 
 Also not done yet: nothing has been sent through Expo or Resend with real credentials; the
 providers are tested against faked services.

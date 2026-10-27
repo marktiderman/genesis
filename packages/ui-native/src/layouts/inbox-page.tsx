@@ -31,7 +31,7 @@
  */
 import { Fragment, useState, type ReactNode } from "react";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
-import { ActivityIndicator, Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useThemeRoles } from "../hooks/use-theme-roles";
 import { NativeEmptyState } from "../components/empty-state";
@@ -39,6 +39,7 @@ import { NativeText } from "../components/text";
 import { NativeButton } from "../components/button";
 import { NativeBadge } from "../components/badge";
 import { NativeRefreshControl } from "../components/refresh-control";
+import { NativeLoadingState } from "../components/loading-state";
 import { composeHeaderOptions, type ScreenHeaderProps } from "./screen-container";
 
 /** An action on a row: swipe, long press, or an accessibility action. */
@@ -220,9 +221,7 @@ export function InboxPage({
         >
         {headerNode}
         {loading ? (
-          <View testID={`${testID}-loading`} style={{ paddingVertical: 32 }}>
-            <ActivityIndicator accessibilityLabel="Loading" />
-          </View>
+          <NativeLoadingState fullScreen={false} testID={`${testID}-loading`} />
         ) : (
           renderSlot(
             DefaultEmpty,
@@ -430,9 +429,7 @@ function UnreadDot({ unread, testID, color }: { unread: boolean; testID: string;
 function DefaultFooter({ loadingMore, testID }: InboxPageSlotMap["footer"]) {
   if (!loadingMore) return null;
   return (
-    <View testID={testID} style={{ paddingVertical: 16 }}>
-      <ActivityIndicator accessibilityLabel="Loading more" />
-    </View>
+    <NativeLoadingState fullScreen={false} size="small" accessibilityLabel="Loading more" className="py-4" testID={testID} />
   );
 }
 

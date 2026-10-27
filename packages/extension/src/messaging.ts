@@ -35,13 +35,19 @@ export interface ContentContext {
 
 /** Sent by one of this extension's own pages (not a script inside a web page). */
 export function isFromExtensionPage(sender: MessageSender): boolean {
-  // This extension's id, and an extension page's address. With
-  // use_dynamic_url a framed page's address carries a per-session id instead
-  // of the extension's, so the address is checked for the scheme, not the id;
-  // a content script's address is the web page's, never chrome-extension://.
+  // This extension's id, and an address of its own: its static origin, or the
+  // per-session one runtime.getURL gives with use_dynamic_url. A content
+  // script's address is the web page's, never one of these.
+  const chrome = getChrome();
+  const address = sender.url || sender.origin || "";
   return (
-    sender.id === getChrome().runtime.id &&
-    (sender.url || sender.origin || "").startsWith("chrome-extension://")
+    sender.id === chrome.runtime.id &&
+    [
+      `chrome-extension://${chrome.runtime.id}/`,
+      chrome.runtime.getURL(""),
+    ].some(
+      (own) => address === own.replace(/\/$/, "") || address.startsWith(own),
+    )
   );
 }
 

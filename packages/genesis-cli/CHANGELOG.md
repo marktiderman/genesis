@@ -1,5 +1,59 @@
 # @marktiderman/genesis-cli
 
+## 1.13.0
+
+### Minor Changes
+
+- 2bf5afd: Resource facts from `@genesis` comments: tables take `noun` and `nounPlural`, columns `readonly` and `sensitive` (booleans). `genesis introspect` emits each resource as `as const satisfies ResourceContract<Row>` with a field-name union, so a bad setting fails to compile; row types are now type aliases. Core's `ResourceContract` gains `label`, `labelField`, `noun` and `nounPlural`, and `FieldSchema` gains `readOnly` and `sensitive`.
+
+### Patch Changes
+
+- dda639d: `genesis doctor`: `page-layout` accepts `ResourceView` as a page layout, and `native-screen-layout` accepts `NativeResourceView`, so list screens built from a view pass.
+
+## 1.12.1
+
+### Patch Changes
+
+- d53bdab: The packages pack's follow-ups: a nested app's change gate sees a local package at the repository root; an `export type` without a semicolon no longer hides the import after it; `.js` export targets are left alone (they may be unbuilt output); a `localPackages` entry that leaves the repository is refused, not skipped; a version bump without a changeset asks for one with a `Features:` line; and `links.code` paths count from the repository root.
+- Updated dependencies [7cdf0fe]
+  - @marktiderman/genesis-features@0.6.0
+
+## 1.12.0
+
+### Minor Changes
+
+- 693856d: Local packages: list an app's own workspace packages in genesis.config.json `localPackages` (`["packages/*"]`) and Genesis treats them like its own. They declare blocks and migrations that `genesis add` and `genesis migrate` copy (nothing is installed), every doctor rule scans their source, and the new `packages` doctor pack (change rules with `genesis doctor --base <ref>`) holds each one to a package's standard: `package-app-import`, `package-undeclared-dependency`, `package-migration-test`, `package-migration-number`, `package-migration-edited`, `package-unregistered`, and `package-unversioned-change`, the gate that fails a change with neither a version bump nor a changeset naming the package.
+
+## 1.11.3
+
+### Patch Changes
+
+- 6543b28: Say "reuse, then extend, then invent" everywhere, and point to The Genesis Way (`docs/FRAMEWORK.md`, Part 1). The CLAUDE.md that `genesis init` writes and genesis-ui's agent skill now use the same words.
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
+## 1.11.2
+
+### Patch Changes
+
+- 6f725f8: `genesis doctor` native pack: `native-raw-primitive` points a raw `ActivityIndicator` to `NativeLoadingState` first (then `NativeSkeleton`, `NativeProgress`), and `native-screen-layout` counts a route that renders `NativeLoadingState` as a screen.
+- e1de4c1: - `native-screen-layout` counts a route as a screen through `NativeLoadingState` only when a full-screen loading state is all it renders (header options and fragments aside). A route that also renders other content, imports it, or uses `fullScreen={false}` still needs a Genesis layout.
+  - Docs: `ScreenContainer`'s `loading` is for first loads (the body is unmounted while it's on); `loadingLabel` is visible and read aloud, so pass translated text; spread `notificationsPushPreferences` after your own keys.
+
+## 1.11.1
+
+### Patch Changes
+
+- 67a06cd: `genesis doctor`, from the third #314 review:
+
+  - `duplicate-genesis-package` / `peer-range-mismatch`: devDependencies count as runtime (a bundler ships what the app imports from them) unless they are tooling: test runners, `@types/*`, linters and formatters, compilers and bundlers, Storybook, release tools, the Genesis CLI. A duplicate under a UI package listed in devDependencies warns again.
+  - The route trail's tokenizer reads regex literals and JSX text (`Rock 'n roll`, backticks, `{done}/{total}`) without losing its place, and treats a file it can't read for sure as unknown instead of guessing.
+  - Answers cut short by an import cycle are cached by the modules they skipped, so cyclic import graphs no longer run several times slower.
+
+- 2eae42f: `genesis doctor`: in an app with its own install inside another app's folder (growth90's `apps/mobile`), `duplicate-genesis-package` and `peer-range-mismatch` count only copies the app's own dependency graph resolves to. An undeclared, uninstalled peer dependency is unmet rather than met by the parent's `node_modules`, and the Genesis CLI's tree is followed only when the app declares the CLI. A regular dependency that resolves up to the parent still counts. Workspace members (no lockfile of their own) are unchanged.
+- Updated dependencies [773e809]
+  - @marktiderman/genesis-features@0.4.1
+
 ## 1.11.0
 
 ### Minor Changes

@@ -1,10 +1,10 @@
 {
   "name": "@marktiderman/genesis-supabase",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), a background-job queue with schedules (genesis_jobs), the feature registry in the database for the feature gate (features, entitlements, flag values, feature_on), and a result helper. Part of the Genesis framework.",
+  "description": "Supabase for Genesis apps on web and React Native: a client with PKCE and safe defaults, Keychain session storage that survives interrupted writes, refresh only while the app is in front, native Sign in with Apple and Google, OAuth redirects, in-app account deletion, per-tenant feature switches (tenant_features), a background-job queue with schedules (genesis_jobs) on one outbox engine (/runner, shared with notifications and forms), the feature registry in the database for the feature gate (features, entitlements, flag values, feature_on), a native-to-web sign-in handoff (continue on the web, already signed in: web-handoff), and a result helper. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -35,6 +35,18 @@
     "./jobs": {
       "types": "./dist/jobs.d.ts",
       "import": "./dist/jobs.js"
+    },
+    "./runner": {
+      "types": "./dist/runner.d.ts",
+      "import": "./dist/runner.js"
+    },
+    "./web-handoff": {
+      "types": "./dist/web-handoff.d.ts",
+      "import": "./dist/web-handoff.js"
+    },
+    "./web-handoff/server": {
+      "types": "./dist/web-handoff-server.d.ts",
+      "import": "./dist/web-handoff-server.js"
     }
   },
   "files": [
@@ -186,10 +198,83 @@
           {
             "file": "migrations/0008_genesis_feature_registry.sql",
             "test": "migrations/tests/0008_genesis_feature_registry.test.sql"
+          },
+          {
+            "file": "migrations/0014_genesis_feature_registry_hardening.sql",
+            "test": "migrations/tests/0014_genesis_feature_registry_hardening.test.sql"
           }
         ],
         "steps": [
-          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME }). Grant paid features by writing feature_entitlements from your billing webhook."
+          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME } (the build time, from a production deployment only)). Grant paid features by writing feature_entitlements from your billing webhook."
+        ]
+      },
+      "owner-access": {
+        "feature": {
+          "name": "Owner access",
+          "summary": "The owner-access contract: fail-closed wrappers (genesis_owner_readable, genesis_owner_allows) over the app's two hooks, for every Genesis block whose rows belong to a person, a team or the tenant.",
+          "keywords": [
+            "access",
+            "owners",
+            "row level security",
+            "tenants",
+            "teams"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "requires": [
+          "tenant-features"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0009_genesis_owner_access.sql",
+            "test": "migrations/tests/0009_genesis_owner_access.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Define private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) and private.genesis_readable_owners(viewer) in your own migration, as the header of 0009 shows. Without them the wrappers answer no."
+        ]
+      },
+      "web-handoff": {
+        "feature": {
+          "name": "Continue on the web",
+          "summary": "A native app opens a web page signed in as the same person: a single-use, 60-second link minted by the server for the person's own account, confirmed on the page unless that browser is already signed in as them.",
+          "keywords": [
+            "handoff",
+            "open on web",
+            "magic link",
+            "single sign-on",
+            "continue on web"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "platforms": [
+          "web",
+          "native"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0015_genesis_web_handoff.sql",
+            "test": "migrations/tests/0015_genesis_web_handoff.test.sql"
+          }
+        ],
+        "install": [
+          "@supabase/supabase-js@^2.118.0"
+        ],
+        "steps": [
+          "Add two POST routes with createWebHandoff from @marktiderman/genesis-supabase/web-handoff/server (mint at /api/auth/handoff, redeem at /api/auth/redeem-handoff), using the service-role client on the server.",
+          "Add the /auth/handoff page: call takeWebHandoffFragment before analytics or error reporting load, then completeWebHandoff; send Referrer-Policy: no-referrer and frame-ancestors 'none' for it.",
+          "In the native app, call openOnWeb from @marktiderman/genesis-native/web-handoff with the mint route, the session's access token and expo-web-browser."
         ]
       }
     }

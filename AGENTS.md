@@ -9,11 +9,35 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
 - `docs/component-reference.md` is generated: `pnpm gen:component-reference`. Never edit it by hand.
 - Merge, never rebase or force-push.
+- Before building anything, read Part 1 of `docs/FRAMEWORK.md` ("The Genesis way"): reuse, then
+  extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
+  are config; recreating something that exists, or should, is the custom code we remove. Cite
+  the principle IDs (G1–G6) in reviews.
+
+## Before you start a build or a phase
+
+Several agents work in this repo and in its sibling (Genesis and the apps built on it) at the same
+time. Before writing code for a new build or phase:
+
+1. **Read what changed.** Check the recent merged PRs and every open PR in both repositories
+   (`gh pr list --state open`, `gh pr list --state merged --limit 30`), plus any design doc under
+   review that touches your area.
+2. **Check for overlap.** If an open PR, a design or a recent merge touches the same files or the
+   same idea (lists, layouts, navigation, the data layer, forms), message its author first, and
+   build on the shared piece rather than beside it.
+3. **Claim it.** Tell the sessions your work affects what you're starting and which files. On a
+   shared area, wait for no objection. Keep parallel workers few.
+4. **Announce changes of direction.** When a decision changes what others should build (a new
+   shared component, a deprecation, a new rule), message every session working in that area in
+   the same turn: what to stop, what to do instead, and the link.
+
+Why: work has been duplicated, and plans have been written against components that were about to
+be replaced, when this check was skipped.
 
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 99 features (9 idea, 5 planned, 41 building, 16 beta, 27 live, 1 deprecated).
+Every feature is in `features.ts`: 110 features (9 idea, 5 planned, 52 building, 16 beta, 27 live, 1 deprecated).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

@@ -4,7 +4,9 @@
  * `@marktiderman/genesis-native/persist`, so an app that saves nothing doesn't
  * install TanStack's persister packages.
  */
-import { QueryClient, focusManager, onlineManager, type QueryClientConfig } from "@tanstack/react-query";
+import { QueryClient, focusManager, isCancelledError, onlineManager, type QueryClientConfig } from "@tanstack/react-query";
+import { classifyError } from "@marktiderman/genesis-core/errors";
+import type { ErrorReport } from "./errors";
 
 /** The part of AsyncStorage (or any async key-value store) Genesis uses. */
 export interface AsyncStorageLike {
@@ -96,5 +98,69 @@ export function connectQueryLifecycle({ appState, netInfo }: QueryLifecycleOptio
       // "offline" NetInfo said (offlineFirst pauses retries while offline).
       onlineManager.setOnline(true);
     }
+  };
+}
+
+/** A failed query or mutation, as `reportQueryErrors` hands it on. */
+export type QueryErrorReporter = (error: Error, report: ErrorReport) => void;
+
+export interface ReportQueryErrorsOptions {
+  /** True when the device is offline. Default TanStack's `onlineManager`. */
+  isOffline?: () => boolean;
+}
+
+// A key segment that is a name (`tasks`, `chat.messages`), not an id or text.
+const KEY_NAME = /^[A-Za-z][A-Za-z0-9_.:-]{0,63}$/;
+const LOOKS_LIKE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-|^\d+$|[0-9a-f]{20,}/i;
+
+/** The first segment of a query or mutation key, when it is a name; never the ids after it. */
+export function queryKeyName(key: readonly unknown[] | undefined): string | undefined {
+  const first = key?.[0];
+  return typeof first === "string" && KEY_NAME.test(first) && !LOOKS_LIKE_ID.test(first) ? first : undefined;
+}
+
+function toError(value: unknown): Error {
+  return value instanceof Error ? value : new Error(typeof value === "string" ? value : "Unknown error");
+}
+
+/**
+ * Hand every query and mutation that failed for good (after its retries) to
+ * `report`, as a non-fatal `query` or `mutation` error tagged with the key's
+ * first segment (`query.key: "tasks"`), never the ids after it.
+ *
+ * Only errors worth a report (`classifyError(e).report`): being offline,
+ * signed out, a record that's gone and the server's expected refusals
+ * (forbidden, conflict, a rejected value) are the screen's to show, not
+ * bugs. A cancelled query is never reported. One query or mutation opts out
+ * with `meta: { reportErrors: false }`.
+ *
+ * Works on any client (it subscribes to the caches), so it covers a client
+ * the app passed in too. Returns the unsubscribe.
+ *
+ * @stability Beta
+ */
+export function reportQueryErrors(client: QueryClient, report: QueryErrorReporter, options: ReportQueryErrorsOptions = {}): () => void {
+  const isOffline = options.isOffline ?? (() => !onlineManager.isOnline());
+  const send = (raw: unknown, source: "query" | "mutation", key: readonly unknown[] | undefined, meta: Record<string, unknown> | undefined) => {
+    if (meta?.reportErrors === false || isCancelledError(raw)) return;
+    if (!classifyError(raw, { isOffline }).report) return;
+    const name = queryKeyName(key);
+    try {
+      report(toError(raw), { fatal: false, source, ...(name ? { tags: { [`${source}.key`]: name } } : {}) });
+    } catch {
+      // A failing reporter must not break the cache's listeners.
+    }
+  };
+  const offQueries = client.getQueryCache().subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "error") return;
+    send(event.action.error, "query", event.query.queryKey, event.query.meta);
+  });
+  const offMutations = client.getMutationCache().subscribe((event) => {
+    if (event.type !== "updated" || event.action.type !== "error") return;
+    send(event.action.error, "mutation", event.mutation.options.mutationKey, event.mutation.meta);
+  });
+  return () => {
+    offQueries();
+    offMutations();
   };
 }

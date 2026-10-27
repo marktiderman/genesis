@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "check:error-reporting": "node scripts/check-error-reporting.mjs",
     "check:forbidden-imports": "node scripts/check-forbidden-imports.mjs",
     "check:legacy-imports": "node scripts/check-legacy-imports.mjs",
     "check:navigation-reimplementation": "node scripts/check-navigation-reimplementation.mjs",
@@ -22,7 +23,7 @@
     "features:check": "genesis features check",
     "gen:component-reference": "node scripts/gen-component-reference.mjs",
     "lint": "pnpm -r lint",
-    "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:navigation-reimplementation && pnpm check:peer-deps && pnpm check:testid-coverage",
+    "lint:genesis": "pnpm check:legacy-imports && pnpm check:token-usage && pnpm check:forbidden-imports && pnpm check:navigation-reimplementation && pnpm check:peer-deps && pnpm check:testid-coverage && pnpm check:error-reporting",
     "test": "pnpm -r test && pnpm test:scripts",
     "test:scripts": "vitest run --config vitest.scripts.config.mjs",
     "typecheck": "pnpm -r typecheck",

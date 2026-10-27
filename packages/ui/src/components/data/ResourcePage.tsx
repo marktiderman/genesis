@@ -6,11 +6,6 @@ import {
   type ComponentProps,
   type ComponentType,
   type ReactNode,
-  useMemo,
-  useState,
-  useCallback,
-  useEffect,
-  useRef,
 } from "react";
 import type { LucideIcon } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
@@ -43,23 +38,19 @@ import {
 } from "../../slots";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import type { ViewModeDefault } from "../../hooks/use-view-preference";
-import {
+// Types only: the behaviour lives in `useResourceTableModel`.
+import type {
   useResource,
-  type MutationMode,
-  type UseResourceOptions,
+  MutationMode,
+  UseResourceOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { useResourceTableModel } from "./use-resource-table";
-import {
-  useResourcePage,
-  type ResourceColumnDef,
-  type ResourceActions,
+import { fillMessage, useUiMessages } from "../../messages";
+import type {
+  ResourceColumnDef,
+  ResourceActions,
 } from "../../hooks/use-resource-page";
-import { useViewSettings } from "../../hooks/use-view-settings";
-import { useKeyboardNavigation } from "../../hooks/use-keyboard-navigation";
-import {
-  useResourceUrlState,
-  type ResourceUrlStateOptions,
-} from "../../hooks/use-resource-url-state";
+import type { ResourceUrlStateOptions } from "../../hooks/use-resource-url-state";
 import {
   isDataReadError,
   type BaseRecord,
@@ -699,6 +690,20 @@ export interface ResourcePageProps<
    * already has the heading. See `DataPageShell`'s `header`.
    */
   header?: "page" | "toolbar";
+  /**
+   * `"page"` (default): a full list page. `"embedded"`: a list inside
+   * another page (a tab, a card, a side panel), whose page already has the
+   * heading, filters and shortcuts. Embedded sets, unless you set them:
+   * - `header="toolbar"`, showing only the create button, and the view
+   *   toggle when there is a `renderCard`. No title, count, view settings
+   *   or header options menu (`slotProps.shell.headerOptions` still win;
+   *   an explicit `header="page"` keeps the full header);
+   * - no filter row, unless you pass `filters`, `statusFilter`,
+   *   `searchFields` or saved views, or the list is already filtered (a
+   *   search in the URL, say);
+   * - `keyboardNavigation={false}`, since j/k shortcuts belong to the page.
+   */
+  variant?: "page" | "embedded";
 
   /**
    * Imperative navigation used only when `detail="route"` (navigates to
@@ -777,7 +782,7 @@ export function ResourcePage<
     className,
     columnVisibility,
     columnVisibilityKey,
-    createLabel = "New",
+    createLabel: createLabelProp,
     detail = "panel",
     detailFields,
     detailWidth = "md",
@@ -792,9 +797,9 @@ export function ResourcePage<
     formMode,
     formSteps,
     gridCols: gridColsProp,
-    header: headerMode = "page",
+    header: headerProp,
     icon,
-    keyboardNavigation = true,
+    keyboardNavigation = props.variant !== "embedded",
     mutationMode: mutationModeProp,
     onCreate,
     onDelete,
@@ -827,6 +832,10 @@ export function ResourcePage<
     title,
     toolbar,
   } = props;
+  const m = useUiMessages();
+  const createLabel = createLabelProp ?? m.page.create;
+  const embedded = props.variant === "embedded";
+  const headerMode = headerProp ?? (embedded ? "toolbar" : "page");
   const {
     actions,
     allows,
@@ -895,6 +904,19 @@ export function ResourcePage<
     useBuiltInDelete,
     useBuiltInEdit,
   } = useResourceTableModel<T>(props);
+  // An embedded list shows a filter row only when it has something to filter by, or when
+  // something is already filtering it (a `?q=` in the URL, say): never filtered with no way
+  // to see why or clear it.
+  const wantsFilters = !!(
+    filtersProp?.length ||
+    props.statusFilter ||
+    props.searchFields?.length ||
+    savedViews?.length ||
+    onSaveView ||
+    // Search or a status filter; a sort (a column click) isn't a filter.
+    page.search !== "" ||
+    page.statusValue.length > 0
+  );
 
   const showCreateButton = (onCreate || useBuiltInCreate) && allows("create");
   const createButton = showCreateButton ? (
@@ -993,7 +1015,7 @@ export function ResourcePage<
                     ? badgeCol.render(item, badgeVal, actions)
                     : badgeVal != null
                       ? String(badgeVal)
-                      : "—"}
+                      : m.common.empty}
                 </span>
               )}
               {priceVal != null && (
@@ -1013,7 +1035,7 @@ export function ResourcePage<
                     ? col.render(item, val, actions)
                     : val != null
                       ? String(val)
-                      : "—"}
+                      : m.common.empty}
                 </p>
               );
             })}
@@ -1045,7 +1067,7 @@ export function ResourcePage<
                   ? col.render(item, val, actions)
                   : val != null
                     ? String(val)
-                    : "—"}
+                    : m.common.empty}
               </span>
             );
           })}
@@ -1097,7 +1119,7 @@ export function ResourcePage<
       {...(headerMode === "toolbar" ? { header: "toolbar" as const } : {})}
       filters={renderSlot(
         DataFilters,
-        slots?.filters,
+        slots?.filters !== undefined ? slots.filters : embedded && !wantsFilters ? null : undefined,
         {
           search: page.filterConfig.search,
           onSearchChange: handleSearchChange,
@@ -1115,12 +1137,25 @@ export function ResourcePage<
           onClearAll: page.hasActiveFilters ? handleClearFilters : undefined,
           showSearch:
             capabilities?.search !== false &&
-            !(resourceServerPaging && !serverSearchFields?.length),
+            // Server and cursor paging search on the server, which needs the columns.
+            !((resourceServerPaging || loadMore) && !serverSearchFields?.length),
           showSort: capabilities?.sort !== false,
         },
         slotProps?.filters,
       )}
       {...shellSlotProps}
+      {...(embedded && headerMode === "toolbar"
+        ? {
+            // Only with the toolbar header: an explicit `header="page"` keeps the full header.
+            headerOptions: {
+              showCount: false,
+              showViewSettings: false,
+              showViewToggle: !!renderCardProp,
+              configurable: false,
+              ...shellSlotProps?.headerOptions,
+            },
+          }
+        : {})}
       className={cn(className, shellSlotProps?.className)}
     >
       {bulkActions &&
@@ -1199,7 +1234,7 @@ export function ResourcePage<
           ...(openOnCardClick && renderCardProp && detail !== "none"
             ? {
                 onItemClick: handleRowClick,
-                getItemLabel: (item: T) => `Open ${titleOf(item)}`.trim(),
+                getItemLabel: (item: T) => fillMessage(m.common.openItem, { name: titleOf(item) }).trim(),
               }
             : {}),
           renderCard: (item: T, index: number) =>
@@ -1239,10 +1274,10 @@ export function ResourcePage<
               testID="resource-page-load-more"
             >
               {loadMore.loading
-                ? "Loading…"
+                ? m.common.loading
                 : loadMore.hasMore
-                  ? "Load more"
-                  : `All ${loadMore.loaded.toLocaleString()} loaded`}
+                  ? m.page.loadMore
+                  : fillMessage(m.page.allLoaded, { loaded: loadMore.loaded.toLocaleString() })}
             </Button>
           )}
           <p
@@ -1252,7 +1287,10 @@ export function ResourcePage<
             data-testid="resource-page-load-status"
           >
             {loadMore.lastLoaded > 0
-              ? `Loaded ${loadMore.lastLoaded.toLocaleString()} more. ${loadMore.loaded.toLocaleString()} shown.`
+              ? fillMessage(m.page.loadedMore, {
+                  added: loadMore.lastLoaded.toLocaleString(),
+                  loaded: loadMore.loaded.toLocaleString(),
+                })
               : ""}
           </p>
         </div>
@@ -1263,8 +1301,10 @@ export function ResourcePage<
           className="px-3 py-2 text-sm text-muted-foreground"
           data-testid="resource-page-truncated"
         >
-          Showing the first {displayData.length.toLocaleString()} of{" "}
-          {displayTotal.toLocaleString()} records.
+          {fillMessage(m.page.truncated, {
+            shown: displayData.length.toLocaleString(),
+            total: displayTotal.toLocaleString(),
+          })}
         </p>
       )}
       {isServerControlled && pagerOnPageChange && pagerMisconfigured && (
@@ -1289,7 +1329,7 @@ export function ResourcePage<
       )}
       {isServerControlled && pagerOnPageChange && !pagerMisconfigured && (
         <nav
-          aria-label="Pagination"
+          aria-label={m.page.pagination}
           // The previous page stays on screen while the next one loads.
           aria-busy={
             (resourceServerPaging && resourceHook.list.isPlaceholderData) ||
@@ -1304,8 +1344,8 @@ export function ResourcePage<
             aria-live="polite"
           >
             {displayTotal === 0
-              ? "No records"
-              : `Showing ${rangeFrom}-${rangeTo} of ${displayTotal}`}
+              ? m.page.noRecords
+              : fillMessage(m.page.range, { from: rangeFrom, to: rangeTo, total: displayTotal })}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -1316,13 +1356,13 @@ export function ResourcePage<
               testID="resource-page-prev"
             >
               <ChevronLeft className="h-4 w-4 mr-1" aria-hidden="true" />
-              Previous
+              {m.page.previous}
             </Button>
             <span
               className="text-muted-foreground"
               data-testid="resource-page-indicator"
             >
-              Page {currentPage} of {totalPages}
+              {fillMessage(m.page.pageOf, { page: currentPage, pages: totalPages })}
             </span>
             <Button
               variant="outline"
@@ -1331,7 +1371,7 @@ export function ResourcePage<
               onClick={() => pagerOnPageChange(currentPage + 1)}
               testID="resource-page-next"
             >
-              Next
+              {m.page.next}
               <ChevronRight className="h-4 w-4 ml-1" aria-hidden="true" />
             </Button>
           </div>
@@ -1353,14 +1393,14 @@ export function ResourcePage<
                 item: {} as T,
                 open: detailOpen,
                 onClose: closeDetail,
-                title: "Record not found",
+                title: m.page.notFoundTitle,
                 width: detailWidth,
                 layout: detail === "modal" ? "dialog" : "sheet",
                 children: () => (
                   <p className="text-sm text-muted-foreground" data-testid="resource-page-link-missing">
                     {isDataReadError(linked.error) && linked.error.outcome === "forbidden"
                       ? linked.error.message
-                      : "This record doesn't exist, or you don't have access to it."}
+                      : m.page.notFoundBody}
                   </p>
                 ),
               }

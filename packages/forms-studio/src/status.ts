@@ -1,8 +1,7 @@
 // A form page's status chip and its four child navigation items with their counts. Pure.
 import type { FormDefinition } from "@marktiderman/genesis-forms";
 import type { FormAvailability } from "./availability";
-import type { SubNavItem } from "@marktiderman/genesis-ui/layout";
-import type { ChipTone } from "@marktiderman/genesis-ui/resource/rules";
+import type { ChipTone } from "@marktiderman/genesis-core/resource";
 
 /**
  * A form's status chip: "Live · version 3", "Draft", "Paused · version 3"… `availability`
@@ -34,8 +33,23 @@ export function formStatusChip(
 /** The form page's four places, in order. */
 export type FormTab = "questions" | "logic" | "responses" | "settings";
 
-/** One of a form page's child navigation items: genesis-ui's `SubNavItem`, plus its place. */
-export type FormNavItem = SubNavItem & { id: FormTab; badge?: number };
+/**
+ * A child navigation item, by shape: the fields genesis-ui's `SubNavItem` reads, without
+ * importing genesis-ui (so `/rules` needs no React). `Icon` is the icon's type
+ * (genesis-ui's is lucide's `LucideIcon`); with no icons it is `never`, and the item has
+ * none. A `FormNavItem` is a `SubNavItem` whenever `Icon` is a `LucideIcon` or `never`.
+ */
+export interface NavItemShape<Icon = never> {
+  to: string;
+  label: string;
+  icon?: Icon;
+  badge?: string | number;
+  disabled?: boolean;
+  end?: boolean;
+}
+
+/** One of a form page's child navigation items: a `SubNavItem` by shape, plus its place. */
+export type FormNavItem<Icon = never> = NavItemShape<Icon> & { id: FormTab; badge?: number };
 
 /** How many questions a definition asks, and how many rules plus endings it has. */
 export function formCounts(definition: FormDefinition | null | undefined): {
@@ -57,14 +71,14 @@ export function formCounts(definition: FormDefinition | null | undefined): {
  * specific match keeps from lighting up on the others) or a function giving each place's
  * address. A count left out (or null) shows no badge.
  */
-export function formNavItems(
+export function formNavItems<Icon = never>(
   at: string | ((tab: FormTab) => string),
   counts: { questions?: number | null; logic?: number | null; responses?: number | null } = {},
   /** Each place's icon, for the rail and the phone's bottom bar (`FORM_NAV_ICONS`). */
-  icons?: Partial<Record<FormTab, SubNavItem["icon"]>>,
-): FormNavItem[] {
+  icons?: Partial<Record<FormTab, Icon>>,
+): FormNavItem<Icon>[] {
   const to = typeof at === "function" ? at : (tab: FormTab) => (tab === "questions" ? at : `${at}?tab=${tab}`);
-  const item = (id: FormTab, label: string, badge?: number | null): FormNavItem => {
+  const item = (id: FormTab, label: string, badge?: number | null): FormNavItem<Icon> => {
     const icon = icons?.[id];
     return {
       id,

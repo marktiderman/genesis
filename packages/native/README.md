@@ -303,9 +303,14 @@ export const observability = createObservability({
       dsn: process.env.EXPO_PUBLIC_SENTRY_DSN,
       signature: versionSignature({ application: Application, updates: Updates, platform: Platform.OS }),
       applicationId: Application.applicationId,
+      // Only your own hosts get Sentry's trace headers (default: none).
+      tracePropagationTargets: [process.env.EXPO_PUBLIC_SUPABASE_URL!],
     }),
   ],
 });
+
+// One screen boundary for every route that exports it (see "Screen errors" below).
+export const ScreenErrorBoundary = observability.screenBoundary();
 
 // app/_layout.tsx
 function RootLayout() {
@@ -315,9 +320,31 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
 ```
 
 - **One error path.** Every error the shell catches (a render error in either boundary, a global
-  error, a failed boot, an unhandled rejection) goes to the block's `onError` and then to yours.
-  A sink that throws is reported to `onProblem` and never stops the other sinks or the fatal screen.
-  `observability.captureError(error, { source: "sync" })` reports one you caught yourself.
+  error, a failed boot, an unhandled rejection, a query or mutation that failed unexpectedly) goes
+  to the block's `onError` and then to yours. A sink that throws is reported to `onProblem` and
+  never stops the other sinks or the fatal screen. `observability.captureError(error, { source:
+  "sync" })` reports one you caught yourself.
+- **Packages report through one seam.** Creating the block makes it genesis-core's error reporter
+  (`setErrorReporter`), so a package's `reportError(error, "chat:attachment-action")` (a card's
+  action that failed, a draft that couldn't be saved, a realtime subscription that threw) reaches
+  the sinks as a non-fatal error with that source. Without the block, `reportError` writes to the
+  console in development and does nothing in production. `reportErrors: false` opts out.
+- **Failed queries and mutations.** The shell watches its QueryClient's caches (yours too, when you
+  pass `queryClient.client`) and reports a query or mutation that failed for good (after its
+  retries) as `query` / `mutation`, tagged `query.key` / `mutation.key` with the key's first
+  segment only (`["tasks", id]` → `tasks`; a segment that looks like an id is left out). Only
+  unexpected errors (`classifyError(e).report`): offline, signed out, a record that's gone and the
+  server's expected refusals (forbidden, a conflict, a rejected value) are the screen's to show.
+  Opt one out with `meta: { reportErrors: false }`, or all of them with
+  `<GenesisNativeApp reportQueryErrors={false}>`. `reportQueryErrors(client, report)` is exported
+  for a client outside the shell.
+- **What kind of error.** `classifyError(error)` (from `@marktiderman/genesis-native`, or
+  `@marktiderman/genesis-core/errors`) returns `{ kind, message, report }`: `kind` is `offline`,
+  `unauthenticated`, `forbidden`, `not-found`, `conflict`, `invalid` or `unexpected`; `message` is
+  a safe sentence from the catalogue (`errorMessages`, reworded with `{ messages }`), never the
+  error's own text; `report` says whether it is worth a crash report. Use it in a toast:
+  `toast.error(classifyError(e).message)`. The fatal and screen errors show the same sentence in
+  a release build, and the error's own text only in development.
 - **Init order.** `sentrySink` runs `Sentry.init` when it is called, so build the block at module
   scope, in a module the root layout imports before anything else: errors while the app's modules
   load are caught too. A second call in the same process (Fast Refresh) reuses the client.
@@ -350,8 +377,20 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   (`/(app)/clients/[id]`), never the values in it. Sentry's `expoRouterIntegration` (on by
   default in `sentrySink`) records its own navigation spans and time to initial display, so the
   Sentry sink skips the block's navigation breadcrumbs.
-- **Crashes count.** A fatal error (the fatal screen, a failed boot) is sent as unhandled,
-  so Sentry's release health counts it as a crash; a non-fatal one as handled.
+- **Crashes count.** A fatal error (the fatal screen, a failed boot) and an unhandled promise
+  rejection are sent as unhandled, so Sentry's release health counts them; everything else as
+  handled.
+- **Trace headers.** `tracePropagationTargets` (strings matched anywhere in the URL, or regular
+  expressions) lists the hosts that get Sentry's `sentry-trace` and `baggage` headers: your
+  Supabase project and your own API. Default none, so a third-party host never sees your trace
+  ids and its CORS never trips on them. It wins over `init.tracePropagationTargets`.
+- **Flush before an update reloads.** The block registers a before-reload hook
+  (`onBeforeReload`): the updates block's banner reload and channel switch await it, so queued
+  events are sent before `reloadAsync` throws the runtime away. It waits at most
+  `flushBeforeReloadMs` (2000; 0 turns it off). `observability.flush(ms)` flushes on demand.
+- **Point a support request at the event.** `observability.lastEventId()` is the id of the last
+  error event a sink sent, and `observability.replayId()` the session replay's id when replay is
+  on; a feedback or support screen attaches them.
 - **Environments.** `development` in `__DEV__`; otherwise one per kind of build from the channel:
   `production`, `preview` (`preview` and `pr-<number>`), `development`. Override with `environment`.
 - **Releases.** `sentrySink` sets `release` to `<applicationId>@<version>+<build>` and `dist` to the
@@ -360,6 +399,23 @@ export default observability.wrap(RootLayout); // Sentry.wrap: touch and profile
   told apart from the binary it runs on. Without an application id or version, it leaves the
   release to Sentry rather than guess.
 - **Without a DSN** `sentrySink` starts nothing (a warning outside development).
+
+**Screen errors.** The shell's boundary is fatal: it replaces the whole app. For one screen that
+throws, export a screen boundary from a route or layout file as Expo Router's `ErrorBoundary`:
+
+```tsx
+// app/(app)/messages/_layout.tsx: a screen in this tab that throws shows "This screen hit a
+// problem" with Try again; the tab bar and the other tabs keep working.
+export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/observability";
+```
+
+`observability.screenBoundary(fallback?)` reports the error once, non-fatal (source `screen`),
+shows `fallback` (default `ScreenErrorScreen`, Genesis UI) with "Try again" (Expo Router's
+`retry`), and is wrapped with each sink's route wrapper: the Sentry sink uses
+`Sentry.wrapExpoRouterErrorBoundary` when this Sentry has it (8.17+), and since that wrapper
+reports the error itself (with the route attached), the block doesn't send it to Sentry twice.
+Without the block, `createScreenErrorBoundary()` reports through `reportError`. Outside Expo
+Router, wrap a subtree in `<ScreenErrorBoundary>`.
 - `useRecentActivity()` gives the last breadcrumbs and errors, scrubbed (the devtools overlay
   shows them).
 
@@ -453,6 +509,19 @@ with a text field, Mark as read) when the block starts; a button tap reaches
 typed text, the link and the notifier's notification id. A backend that sets
 `usesInstallationId` gets this install's id (made once, kept across sign-ins)
 as `register`'s fourth argument; `supabasePushBackend` doesn't.
+
+An app with its own device functions (its own `register` / `forget` RPCs) doesn't
+stub `loadPreferences` / `savePreferences`: it spreads in the notifier's, and
+Settings → Notifications works.
+
+```ts
+import { notificationsPushPreferences } from "@marktiderman/genesis-notifications/native";
+
+const backend: PushBackend = { register, forget, ...notificationsPushPreferences(supabase) };
+```
+
+Spread it after your own keys: a `loadPreferences` or `savePreferences` written later in the object
+replaces its functions.
 
 ```ts
 // lib/push.ts
@@ -624,9 +693,22 @@ What it sets:
   minimum iOS and team. The app embeds it and depends on it.
 - **EAS:** `extra.eas.build.experimental.ios.appExtensions`. The extension is
   a separate bundle id, so it needs its own provisioning profile. EAS Build
-  reads this entry and creates the App ID, its capability and the profile with
-  the app's. You don't create them by hand. A local `expo run:ios` on a device
-  needs an Apple team (`ios.appleTeamId`) that can sign both.
+  reads this entry and registers the extension's App ID with the app's, but on
+  a first build its capability sync can fail ("invalid value at
+  bundleIdCapabilities attributes") and leave the extension without a profile.
+  Before the first build with the plugin, once per app:
+  1. In the Apple developer portal (Certificates, Identifiers & Profiles →
+     Identifiers), open the `<bundle id>.NotificationService` App ID (create it
+     if EAS hasn't) and enable **Communication Notifications**. Leave it off
+     with `communication: false`.
+  2. From a checkout that has the plugin in its app config, run
+     `eas credentials --platform ios`, pick the **production** profile, then
+     **Build Credentials** → **All: Set up all the required credentials to
+     build your project**. EAS makes the extension's provisioning profile
+     (and the app's, if missing) with that capability.
+
+  After that, EAS Build reuses the profiles. A local `expo run:ios` on a
+  device needs an Apple team (`ios.appleTeamId`) that can sign both.
 
 **The payload contract.** The sender sets `mutableContent: true`, or the
 extension never runs. `richPushMessage(message, { image, senderAvatar })`
@@ -656,6 +738,41 @@ It hasn't been run on a device or from an EAS build. Whether EAS's build number
 increment reaches the extension (its `CURRENT_PROJECT_VERSION` is set at
 prebuild) hasn't been checked either. Donated conversations stay in Siri's
 suggestions after a person turns previews off.
+
+## Continue on the web: openOnWeb
+
+`openOnWeb(path, options)` from `/web-handoff` opens a page of the web app signed in as the
+person using the app, for work the app leaves to the web. It asks the app's server for a
+single-use, 60-second link (genesis-supabase's `createWebHandoff`; the whole flow, its threats
+and its lifetimes are in that package's README under "Continue on the web") and opens it.
+
+```ts
+import * as WebBrowser from "expo-web-browser";
+import { openOnWeb } from "@marktiderman/genesis-native/web-handoff";
+
+await openOnWeb("/clients/1/forms", {
+  endpoint: "https://app.example.com/api/auth/handoff",
+  getAccessToken: async () => (await supabase.auth.getSession()).data.session?.access_token,
+  browser: WebBrowser,
+  browserOptions: { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET },
+});
+```
+
+- It throws for anything but a path on the web app (`https://…`, `//host`, `/\host`); the
+  server checks again.
+- Without a session, with the server unreachable (8 seconds), for an account without an email
+  or after too many links in a minute, it opens the page signed out (`{ signedIn: false, reason }`):
+  the person signs in there and lands on the path. It never opens a URL on another origin.
+- **Signing out:** call `signOutOnWeb({ endpoint: "https://app.example.com/api/auth/handoff-signout",
+  getAccessToken })` just before the app's own sign-out. It ends the web sessions this app
+  session handed off (only those) and never throws, so it can't block signing out.
+- **The browser:** `openBrowserAsync` (SFSafariViewController on iOS, a Custom Tab on Android),
+  not `Linking.openURL`. The person stays in the app, and Done brings them back. The in-app
+  browser keeps its website data between openings, separate from Safari, so the first handoff
+  asks "Continue as {email}?" once and later ones go straight to the page. Safari might be signed
+  in as someone else and ask every time. Not `openAuthSessionAsync`: it shows the system
+  "wants to use … to sign in" alert on every open. On Android a Custom Tab shares Chrome's
+  storage; the page asks before switching people there too.
 
 ## Blocks
 
@@ -723,6 +840,7 @@ TanStack persister packages, for `/updates` `react-native-safe-area-context`
 (with `expo-updates` and `expo-application` passed in), and for `/push`
 `expo-notifications`, passed in too.
 `/observability` takes `@sentry/react-native` and `expo-observe` passed in;
-`/devtools` takes expo-sensors' `Accelerometer` and React Native's `DevSettings` passed in.
+`/devtools` takes expo-sensors' `Accelerometer` and React Native's `DevSettings` passed in;
+`/web-handoff` takes `expo-web-browser` passed in.
 
 @stability Beta

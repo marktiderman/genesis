@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-notifications",
-  "version": "0.1.2",
+  "version": "0.2.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -87,7 +87,9 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:>=0.2.0 <1.0.0",
+    "@marktiderman/genesis-supabase": "workspace:>=0.7.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@react-email/components": "^1.0.0",
@@ -96,6 +98,9 @@
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@marktiderman/genesis-core": {
+      "optional": true
+    },
     "@marktiderman/genesis-native": {
       "optional": true
     },
@@ -119,7 +124,9 @@
     }
   },
   "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-native": "workspace:^",
+    "@marktiderman/genesis-supabase": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@react-email/components": "1.0.12",
@@ -185,7 +192,7 @@
         "steps": [
           "Mirror your registry on deploy: syncNotificationTypes(adminClient, notifications) from @marktiderman/genesis-notifications/server.",
           "Say who administers notifications: replace private.genesis_notifications_admin(uuid, uuid) in a migration of your own, after this one (genesis-notifications README, Admins).",
-          "Deploy functions/genesis-notifications and schedule POST …/run every minute and POST …/receipts every 15 minutes, with GENESIS_NOTIFICATIONS_CRON_SECRET as the bearer token; point Resend's webhook at …/webhooks/resend.",
+          "Deploy functions/genesis-notifications and schedule POST \u2026/run every minute and POST \u2026/receipts every 15 minutes, with GENESIS_NOTIFICATIONS_CRON_SECRET as the bearer token; point Resend's webhook at \u2026/webhooks/resend.",
           "Coming from genesis-supabase's push migration (0005): stop calling genesis-push-send, and remove its pgTAP test (tests/database/*genesis_push.test.sql): two of its assertions describe the token takeover this migration closes."
         ]
       }

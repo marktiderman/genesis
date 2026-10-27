@@ -30,7 +30,12 @@ export type { Prefs } from "./prefs";
 export { connectSurface, openSurface, syncSidePanel } from "./surfaces";
 export type { OpenSurfaceOptions, Surface, SurfaceMode } from "./surfaces";
 export { showPageBar } from "./page-bar";
-export type { PageBarAction, PageBarChip, PageBarModel } from "./page-bar";
+export type {
+  PageBarAction,
+  PageBarChip,
+  PageBarIcon,
+  PageBarModel,
+} from "./page-bar";
 export { pingNativeHost, startNativeJob } from "./native";
 export type { NativeJob, NativeJobOptions } from "./native";
 export { commandKeys, isMac, shortcutKeys } from "./keys";

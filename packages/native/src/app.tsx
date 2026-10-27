@@ -12,7 +12,9 @@
  *             └ errorBoundary → `bottomSheet`'s provider, if given → your screens (or `signedOut`)
  *
  * Every error the shell catches goes to each block's `onError` (the
- * observability block reports it) and then to the app's own `onError`.
+ * observability block reports it) and then to the app's own `onError`:
+ * render, global, boot and unhandled-rejection errors, and queries and
+ * mutations that failed unexpectedly (`reportQueryErrors`).
  *
  * `blocks` (`defineBlock` declarations a native shell can run) are resolved
  * once: requirements checked, boot steps run behind the splash, roots
@@ -55,7 +57,7 @@ import {
 } from "./errors";
 import { SessionProvider, createSessionStore, type AuthClientLike } from "./auth";
 import { useHeldLink, type HeldLinkAuth, type LinkHold } from "./held-link";
-import { connectQueryLifecycle, createNativeQueryClient, type QueryLifecycleOptions, type QueryPersistence } from "./query";
+import { connectQueryLifecycle, createNativeQueryClient, reportQueryErrors, type QueryLifecycleOptions, type QueryPersistence } from "./query";
 import { resolveBlocks } from "@marktiderman/genesis-features/blocks";
 import { BlocksProvider, reportToBlocks, type NativeBlock } from "./blocks";
 import type { DevtoolsSlots } from "./devtools/slots";
@@ -172,6 +174,15 @@ export interface GenesisNativeAppProps {
   /** `AppState` and NetInfo, so queries refetch on focus and know the network. */
   lifecycle?: QueryLifecycleOptions;
   /**
+   * Report queries and mutations that failed for good to `onError` (and so
+   * to the observability block), non-fatal, as `query` / `mutation` with the
+   * key's first segment as a tag. Only unexpected errors: offline, signed
+   * out, not found and the server's expected refusals are left to the
+   * screen. One query opts out with `meta: { reportErrors: false }`.
+   * Default true. Read once.
+   */
+  reportQueryErrors?: boolean;
+  /**
    * Every caught error, after the blocks' own `onError` (the observability
    * block, `createObservability` from `/observability`, reports to Sentry
    * there). A throwing reporter is ignored.
@@ -279,6 +290,7 @@ function ThemedShell(props: GenesisNativeAppProps) {
   const toolbarWithoutScroll = Boolean(keyboardToolbar) && !keyboardScroll;
   useEffect(() => {
     if (typeof __DEV__ === "undefined" || !__DEV__) return;
+    // genesis-allow-console: development-only set-up mistakes, shown as LogBox errors on purpose.
     if (missingProvider) console.error(MISSING_KEYBOARD_PROVIDER);
     if (toolbarWithoutScroll) console.error(TOOLBAR_WITHOUT_SCROLL);
   }, [missingProvider, toolbarWithoutScroll]);
@@ -391,6 +403,8 @@ function Shell(props: GenesisNativeAppProps) {
     if (enable) installRejectionTracker({ enable, onError });
   }, [rejectionTracker]);
   useEffect(() => (lifecycle ? connectQueryLifecycle(lifecycle) : undefined), [lifecycle]);
+  const [queryReports] = useState(() => props.reportQueryErrors !== false);
+  useEffect(() => (queryReports ? reportQueryErrors(client, onError) : undefined), [client, queryReports]);
 
   // Splash: up until boot has finished (the session step included), or failed.
   const settled = bootState.status === "ready" || bootState.status === "failed" || fatal !== null;

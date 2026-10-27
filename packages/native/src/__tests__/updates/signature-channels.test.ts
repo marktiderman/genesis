@@ -4,6 +4,7 @@ import { versionSignature } from "../../updates/signature";
 import { createChannelSwitcher } from "../../updates/channels";
 import { createReloadGuard } from "../../updates/checker";
 import { fakeUpdates, memoryStorage } from "./fakes";
+import { onBeforeReload } from "../../reload";
 
 const application = { nativeApplicationVersion: "1.4.0", nativeBuildVersion: "37" };
 
@@ -64,6 +65,20 @@ describe("channel switching", () => {
     expect(updates.fetchUpdateAsync).toHaveBeenCalled();
     expect(updates.reloadAsync).toHaveBeenCalled();
     expect(await switcher.requested()).toBe("pr-42");
+  });
+
+  it("flushes (the before-reload hooks) before a channel switch reloads", async () => {
+    const updates = fakeUpdates({ next: { id: "pr-build" } });
+    const order: string[] = [];
+    updates.reloadAsync.mockImplementation(async () => void order.push("reload"));
+    const off = onBeforeReload(() => void order.push("flush"));
+    try {
+      const switcher = createChannelSwitcher({ updates, enabled: true, guard: createReloadGuard(), storage: memoryStorage() });
+      expect(await switcher.switchTo("pr-42")).toEqual({ kind: "reloading" });
+    } finally {
+      off();
+    }
+    expect(order).toEqual(["flush", "reload"]);
   });
 
   it("doesn't reload mid-form; the channel applies on the next launch", async () => {

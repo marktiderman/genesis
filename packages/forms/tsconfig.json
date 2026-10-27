@@ -13,7 +13,7 @@
     "declaration": true,
     "noEmit": true,
     "paths": {
-      "@marktiderman/genesis-notifications/runner": ["../notifications/src/runner/index.ts"],
+      "@marktiderman/genesis-supabase/runner": ["../supabase/src/runner.ts"],
       "@marktiderman/genesis-connect/secrets": ["../connect/src/secrets.ts"]
     }
   },

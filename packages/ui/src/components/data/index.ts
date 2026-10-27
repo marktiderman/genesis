@@ -36,6 +36,8 @@ export {
   type ResourceDeleteConfirmCopy,
 } from "./ResourcePage";
 export { useResourceTable, type ResourceTableState } from "./use-resource-table";
+// A list screen from a genesis-core/resource-view view, mapped onto ResourcePage.
+export * from "./resource-view";
 export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,

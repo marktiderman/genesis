@@ -20,6 +20,9 @@ export interface FeatureRegistryClient {
 type RpcResult =
   { data: unknown; error: null } | { data: null; error: PostgrestErrorLike };
 
+/** A flag value as the database hands it out: the JSON an OpenFeature flag can hold. @stability Beta */
+export type FlagStateValue = boolean | string | number | { readonly [key: string]: unknown };
+
 /**
  * A tenant's runtime state for the gate, shaped to spread into a
  * `GateContext`: `{ platform, ...await featureGateState(client, tenantId) }`.
@@ -31,8 +34,8 @@ export interface FeatureGateState {
   off: string[];
   /** Feature ids the tenant holds an active entitlement for. */
   entitlements: string[];
-  /** Flag values set for the tenant, by flag name. */
-  flags: Record<string, unknown>;
+  /** Flag values for the tenant (platform values applied), by flag name. */
+  flags: Record<string, FlagStateValue>;
 }
 
 const strings = (value: unknown): string[] =>
@@ -48,22 +51,21 @@ const strings = (value: unknown): string[] =>
  *
  * @stability Beta
  */
-export async function featureGateState(
-  client: FeatureRegistryClient,
-  tenantId: string,
-): Promise<FeatureGateState> {
-  const data = must(
-    (await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult,
-  ) as Record<string, unknown> | null;
-  const flags = data?.flags;
-  return {
-    off: strings(data?.off),
-    entitlements: strings(data?.entitled),
-    flags:
-      flags && typeof flags === "object" && !Array.isArray(flags)
-        ? { ...(flags as Record<string, unknown>) }
-        : {},
-  };
+export async function featureGateState(client: FeatureRegistryClient, tenantId: string): Promise<FeatureGateState> {
+  const data = must((await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult);
+  // Anything but the expected shape is an error, never "nothing set": an empty answer would turn
+  // switched-off features back on.
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("feature_gate_state returned no state");
+  const { off, entitled, flags } = data as Record<string, unknown>;
+  if (!Array.isArray(off) || !Array.isArray(entitled) || !flags || typeof flags !== "object" || Array.isArray(flags)) {
+    throw new TypeError("feature_gate_state returned an unexpected shape");
+  }
+  const values: Record<string, FlagStateValue> = {};
+  for (const [key, value] of Object.entries(flags as Record<string, unknown>)) {
+    if (typeof value === "boolean" || typeof value === "string" || typeof value === "number") values[key] = value;
+    else if (value && typeof value === "object" && !Array.isArray(value)) values[key] = value as { [key: string]: unknown };
+  }
+  return { off: strings(off), entitlements: strings(entitled), flags: values };
 }
 
 /** `features.json` as `genesis features build` writes it. @stability Beta */
@@ -74,8 +76,29 @@ export interface FeatureRegistryDocument {
 
 /** @stability Beta */
 export interface SyncFeatureRegistryOptions {
-  /** This build's version: an increasing number, such as the build time in milliseconds. Older versions are refused. */
+  /**
+   * This build's version: an increasing number such as the build time in milliseconds, so an old
+   * production deployment (Vercel keeps VERCEL_ENV=production on every one) can't sync over a newer
+   * one. Older versions than the last sync are refused.
+   */
   version: number;
+  /** Allow a registry that drops more than a fifth of the features (at least 3). Default false. */
+  allowShrink?: boolean;
+}
+
+/** JSON with object keys sorted, so the hash doesn't depend on key order. */
+function canonical(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).filter(
+      ([, v]) => v !== undefined,
+    );
+    return `{${entries
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
 }
 
 async function sha256(text: string): Promise<string> {
@@ -90,12 +113,14 @@ async function sha256(text: string): Promise<string> {
 
 /**
  * Copy the registry into the database: `sync_feature_registry`. Call it with
- * the service key when a deploy starts. Returns false when the database
- * already has this registry or a newer one.
+ * the service key when a production deployment starts serving, never from a
+ * preview. Returns false when the database already has this registry or a
+ * newer one; throws (`22023`) for an empty registry or one that drops most
+ * features, unless `allowShrink`.
  *
  * ```ts
  * import registry from "../features.json";
- * await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
+ * if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
  * ```
  *
  * @stability Beta
@@ -115,7 +140,7 @@ export async function syncFeatureRegistry(
     key,
     ...flag,
   }));
-  const hash = await sha256(JSON.stringify({ features, flags }));
+  const hash = await sha256(canonical({ features, flags }));
   return (
     must(
       (await client.rpc("sync_feature_registry", {
@@ -123,6 +148,7 @@ export async function syncFeatureRegistry(
         hash,
         features,
         flags,
+        allow_shrink: options.allowShrink ?? false,
       })) as RpcResult,
     ) === true
   );

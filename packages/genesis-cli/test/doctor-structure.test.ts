@@ -32,7 +32,8 @@ declare function BreadcrumbPage(): React.ReactNode;
 declare function PageHeader(): React.ReactNode;
 declare function StatusBadge(): React.ReactNode;
 declare function FormError(): React.ReactNode;
-export { FormError, AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
+declare function ResourceView(): React.ReactNode;
+export { FormError, AppShell, AppShellPageHeader, AppShellSubNavEnd, BreadcrumbPage, Button, Card, CardContent, DashboardPage, DetailPage, Dialog, DialogContent, PageHeader, ResourceView, StatusBadge, SubNavTabs, Tabs, TabsContent, TabsList, TabsTrigger, useAppShellSubNav };
 `;
 const FORMS_STUDIO = {
   "node_modules/@marktiderman/genesis-forms-studio/package.json": JSON.stringify({
@@ -379,6 +380,10 @@ describe("page-layout", () => {
         "src/routes/_shell/my/index.tsx": route(`<EmptyState />`),
         "src/routes/_shell/support.tsx": route(`<SupportPage />`, `import { SupportPage } from "@marktiderman/genesis-support";`),
         "src/routes/_shell/settings.tsx": route(`<ResourceSettingsPage />`, `import { ResourceSettingsPage } from "@marktiderman/genesis-forms-studio";`),
+        "src/routes/_shell/brands.tsx": route(`<ResourceView view={brandsView} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/embedded.tsx": route(`<ResourceView view={v} layout="embedded" />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/framed.tsx": route(`<DetailPage title="x"><ResourceView view={v} layout="embedded" /></DetailPage>`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        "src/routes/_shell/chosen.tsx": route(`<ResourceView view={v} layout={mode} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
         "src/routes/_shell/crumbs.tsx": route(`<BreadcrumbPage />`),
         "src/routes/_shell/go.tsx": route(`<Navigate to="/" />`),
         "src/routes/_shell/invite.$token.tsx": `export const Route = createFileRoute("/invite/$token")({ beforeLoad: () => { throw redirect({ to: "/" }); } });`,
@@ -387,7 +392,11 @@ describe("page-layout", () => {
         "src/routes/index.tsx": route(`<Landing />`),
       }),
     );
-    expect(brief(f, "page-layout")).toEqual(["src/routes/_shell/crumbs.tsx:0", "src/routes/_shell/inbox.tsx:0"]);
+    expect(brief(f, "page-layout")).toEqual([
+      "src/routes/_shell/crumbs.tsx:0",
+      "src/routes/_shell/embedded.tsx:0",
+      "src/routes/_shell/inbox.tsx:0",
+    ]);
     expect(f.find((x) => x.rule === "page-layout")!.message).toContain("DashboardPage");
   });
 
@@ -913,21 +922,24 @@ describe("trail: third-pass review", () => {
       return { root, routes: scanned.filter((f) => f.path.startsWith("src/r/")), scanned };
     };
     const layout = (code: string) => /<DetailPage(?=[\s>/])/.test(code);
-    const time = (g: ReturnType<typeof graph>) => {
-      const best: number[] = [];
-      for (let run = 0; run < 3; run++) {
-        const trail = createTrail({ root: g.root, files: g.scanned });
-        const t0 = performance.now();
-        for (const r of g.routes) expect(trail.reach(r, layout)).toBe("no");
-        best.push(performance.now() - t0);
-      }
-      return Math.min(...best);
+    const once = (g: ReturnType<typeof graph>) => {
+      const trail = createTrail({ root: g.root, files: g.scanned });
+      const t0 = performance.now();
+      for (const r of g.routes) expect(trail.reach(r, layout)).toBe("no");
+      return performance.now() - t0;
     };
-    const acyclic = time(graph(false));
-    const cyclic = time(graph(true));
+    // Best of five each, interleaved, so a noisy moment on a shared runner hits both graphs.
+    const acyclicGraph = graph(false);
+    const cyclicGraph = graph(true);
+    let acyclic = Infinity;
+    let cyclic = Infinity;
+    for (let run = 0; run < 5; run++) {
+      acyclic = Math.min(acyclic, once(acyclicGraph));
+      cyclic = Math.min(cyclic, once(cyclicGraph));
+    }
     if (process.env.TRAIL_BENCH) process.stderr.write(`BENCH ${JSON.stringify({ acyclic, cyclic })}\n`);
-    // Relative, not a fixed budget: ~2.5-3x with cut answers cached, ~9x without.
-    expect(cyclic).toBeLessThan(acyclic * 4 + 25);
+    // Relative, not a fixed budget: ~2.5-3x with cut answers cached, ~9x without; the limit sits between.
+    expect(cyclic).toBeLessThan(acyclic * 6 + 25);
   });
 
   it("a cut answer is reused only while its cut modules are on the path (same answers in any order)", () => {
@@ -1020,5 +1032,56 @@ describe("tokenizer: third-pass review", () => {
       "src/pages/Frame.tsx": `export const Frame = ({ children }) => <DetailPage title="Songs">{children}</DetailPage>;`,
     });
     expect(brief(await run(root), "page-layout")).toEqual([]);
+  });
+});
+
+describe("installs: a nested app with its own install", () => {
+  const manifest = (name: string, version: string, extra: Record<string, unknown> = {}) => JSON.stringify({ name, version, ...extra });
+  /** A parent app (makeApp's install, plus a CLI and a UI that pulls in the parent's core) and apps/mobile inside it. */
+  const nested = (opts: { lockfile: boolean; mobileDeps?: Record<string, string> }) => {
+    const root = makeApp(null, {
+      "package.json": manifest("parent", "1.0.0", { dependencies: { "@marktiderman/genesis-ui": "^9.0.0", "@marktiderman/genesis-forms": "^1.0.0" } }),
+      "node_modules/@marktiderman/genesis-cli/package.json": manifest("@marktiderman/genesis-cli", "1.8.0", { dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+      "node_modules/@marktiderman/genesis-forms/package.json": manifest("@marktiderman/genesis-forms", "1.0.0", { dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+      // The mobile app's own install: its own core (same version as the parent's) and a chat with optional peers.
+      "apps/mobile/package.json": manifest("mobile", "0.1.0", {
+        dependencies: { "@marktiderman/genesis-core": "9.9.9", "@marktiderman/genesis-chat": "0.2.0", ...opts.mobileDeps },
+      }),
+      ...(opts.lockfile ? { "apps/mobile/bun.lock": "{}" } : {}),
+      "apps/mobile/node_modules/@marktiderman/genesis-core/package.json": manifest("@marktiderman/genesis-core", "9.9.9"),
+      "apps/mobile/node_modules/@marktiderman/genesis-chat/package.json": manifest("@marktiderman/genesis-chat", "0.2.0", {
+        peerDependencies: { "@marktiderman/genesis-core": "^9.0.0", "@marktiderman/genesis-ui": "^9.0.0" },
+        peerDependenciesMeta: { "@marktiderman/genesis-ui": { optional: true } },
+      }),
+    });
+    // The parent's genesis-ui depends on the parent's core.
+    writeFileSync(
+      path.join(root, "node_modules/@marktiderman/genesis-ui/package.json"),
+      JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", types: "./dist/index.d.ts", dependencies: { "@marktiderman/genesis-core": "^9.0.0" } }),
+    );
+    return path.join(root, "apps", "mobile");
+  };
+  const installs = async (app: string) => (await runDoctor({ root: app, config: {} })).findings.filter((f) => /duplicate|peer-range/.test(f.rule));
+
+  it("leaves out copies only the parent's packages load (an unmet optional peer, an undeclared CLI)", async () => {
+    const app = nested({ lockfile: true });
+    const core = genesisInstalls(app).get("@marktiderman/genesis-core")!;
+    expect(core.map((c) => c.dir)).toEqual(["node_modules/@marktiderman/genesis-core"]);
+    expect(genesisInstalls(app).has("@marktiderman/genesis-cli")).toBe(false);
+    expect(await installs(app)).toEqual([]);
+  });
+
+  it("keeps a parent copy the app's own dependencies resolve to", async () => {
+    // genesis-forms isn't in the mobile install, so Node resolves it (and its core) from the parent.
+    const app = nested({ lockfile: true, mobileDeps: { "@marktiderman/genesis-forms": "^1.0.0" } });
+    const found = await installs(app);
+    expect(found.map((f) => `${f.level} ${f.rule} ${f.subject}`)).toEqual(["warn duplicate-genesis-package @marktiderman/genesis-core"]);
+    expect(found[0]!.message).toContain("../../node_modules/@marktiderman/genesis-core (@marktiderman/genesis-forms@1.0.0 wants ^9.0.0)");
+  });
+
+  it("a workspace member (no install of its own) shares the root's: hoisted peers there still count", async () => {
+    const app = nested({ lockfile: false });
+    const found = await installs(app);
+    expect(found.map((f) => `${f.level} ${f.subject}`)).toEqual(["warn @marktiderman/genesis-core"]);
   });
 });

@@ -87,7 +87,7 @@ export const tenantFeaturesBlock = defineBlock({
 
 /**
  * The feature registry block: the registry mirrored into the app's database
- * on deploy, entitlements, per-tenant flag values and SQL `feature_on()`,
+ * on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`,
  * for the feature gate. Needs the tenant features block.
  *
  * @stability Beta
@@ -101,6 +101,11 @@ export const featureMirrorBlock = defineBlock({
         package: PACKAGE,
         file: "migrations/0008_genesis_feature_registry.sql",
         test: "migrations/tests/0008_genesis_feature_registry.test.sql",
+      },
+      {
+        package: PACKAGE,
+        file: "migrations/0014_genesis_feature_registry_hardening.sql",
+        test: "migrations/tests/0014_genesis_feature_registry_hardening.test.sql",
       },
     ],
     privacy: {
@@ -123,5 +128,51 @@ export const jobsBlock = defineBlock({
   contributes: {
     migrations: [{ package: PACKAGE, file: "migrations/0007_genesis_jobs.sql", test: "migrations/tests/0007_genesis_jobs.test.sql" }],
     privacy: { notes: ["Job payloads hold ids, never content or secrets; finished jobs are deleted after 14 days."] },
+  },
+});
+
+/**
+ * The web handoff block: continue on the web, already signed in. The routes are
+ * `createWebHandoff` from `/web-handoff/server`, the page uses `/web-handoff`, and the native
+ * app calls `openOnWeb` from genesis-native.
+ *
+ * @stability Beta
+ */
+export const webHandoffBlock = defineBlock({
+  id: "web-handoff",
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      { package: PACKAGE, file: "migrations/0015_genesis_web_handoff.sql", test: "migrations/tests/0015_genesis_web_handoff.test.sql" },
+    ],
+    privacy: {
+      notes: [
+        "Logs each handoff (who, which page, when) for 30 days; keeps a SHA-256 digest of each link's token, never the token or a sign-in token.",
+      ],
+    },
+  },
+});
+
+/**
+ * The owner-access block: the contract every Genesis block with owned rows
+ * calls in its policies. Two fail-closed wrappers over the app's hooks
+ * (`genesis_owner_can`, `genesis_readable_owners`): a missing or broken hook
+ * means no.
+ *
+ * @stability Experimental
+ */
+export const ownerAccessBlock = defineBlock({
+  id: "owner-access",
+  requires: ["tenant-features"],
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [
+      {
+        package: PACKAGE,
+        file: "migrations/0009_genesis_owner_access.sql",
+        test: "migrations/tests/0009_genesis_owner_access.test.sql",
+      },
+    ],
+    privacy: { notes: ["Stores nothing; it only asks the app's hooks who may read and write."] },
   },
 });

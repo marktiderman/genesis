@@ -104,15 +104,22 @@ package's deprecated `ShareDialog` does that for you).
 
 ## Rules only
 
-`@marktiderman/genesis-forms-studio/rules` has the pure functions without React, for a server:
-`summarizeResponses`, the filters, `answerColumns`, `answersByKey`, `answerCell`, `toCsv`,
-`carryAnswers` (re-exported from genesis-forms), `formAvailability`, `takesResponses`,
-and the rest (`prefilledUrl`, `embedSnippet` and `dayLabel` are still here, deprecated: they
-moved to `@marktiderman/genesis-ui/resource/rules`). For a forms list: `slugFromTitle` ("How was class?" →
+`@marktiderman/genesis-forms-studio/rules` has the pure functions without React, for a server
+or a phone app: `summarizeResponses`, the filters, `headlineNumbers` and `headlineCards`,
+`answerColumns`, `answersByKey`, `answerCell`, `toCsv`, `carryAnswers` (re-exported from
+genesis-forms), `formAvailability`, `takesResponses`, `formNavItems` and the rest (`prefilledUrl`,
+`embedSnippet` and `dayLabel` are still here, deprecated: they moved to
+`@marktiderman/genesis-core/resource`). For a forms list: `slugFromTitle` ("How was class?" →
 `how-was-class`), `SLUG_PATTERN` and `validateSlug`, and for a duplicate `copyTitle` ("Copy of …")
 and `freeSlug` (the first of `slug`, `slug-2`… not taken). `offersSubmitAnother` says whether a
 thank-you page offers "Send another response" (never on a one-response-per-person form that isn't
 anonymous).
+
+`/rules` loads only genesis-forms and genesis-core, never React, react-dom or genesis-ui, so those
+three are optional peers: install them for the components, not for the rules. A test walks the
+built `dist/rules.js` and `dist/rules.d.ts` to keep it so, and imports `/rules` in Node with no
+React installed. `formNavItems` returns items shaped like genesis-ui's `SubNavItem`
+(`FormNavItem`), which pass straight to `useAppShellSubNav`.
 
 ## Moved to genesis-ui
 
@@ -121,8 +128,8 @@ lessons and worksheets use the same page: `ResourceHeader`, `ReadinessChip`, `re
 `readinessChip`, `ResponsesToolbar`, `HeadlineNumbers`, `SummaryCard`, `FollowUpList`,
 `ResourceSettingsPage`, `SettingsSection`, `ShareDialog`, `Chip`, `dayLabel`, `SAVE_STATE_LABEL`,
 `prefilledUrl`, `embedSnippet` and their types. Import them from
-`@marktiderman/genesis-ui/resource` (the pure ones also from `/resource/rules`, safe on a
-server).
+`@marktiderman/genesis-ui/resource` (the pure ones also from `/resource/rules`, or from
+`@marktiderman/genesis-core/resource` where genesis-ui isn't installed).
 
 This package still exports every one of those names, marked `@deprecated`, and they behave as
 before: the deprecated `ShareDialog`, `ReadinessChip`, `readinessOf` and `readinessChip` pass the

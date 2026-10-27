@@ -19,6 +19,7 @@ import { fakeSupabase, flush, memoryStorage, retryableFetchError, settle, type F
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 const provider = createMockProvider({});
@@ -154,6 +155,8 @@ describe("GenesisNativeApp", () => {
   it("shows the plain fatal screen when the shell can't start (a step id clashes with its own)", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const onError = vi.fn();
+    // A development build shows the error's own text (a set-up mistake names itself).
+    vi.stubGlobal("__DEV__", true);
     setup({ steps: [{ id: "genesis:session", run: () => {} }], onError });
     await act(flush);
     expect(screen.getByTestId("genesis-fatal-plain")).toBeTruthy();
@@ -168,7 +171,9 @@ describe("GenesisNativeApp", () => {
     }
     setup({ children: <Broken /> });
     await act(flush);
-    expect(screen.getByText("screen broke")).toBeTruthy();
+    expect(screen.getByTestId("genesis-fatal")).toBeTruthy();
+    // A release build never shows the error's own text: it can hold an email or a store's internals.
+    expect(screen.queryByText("screen broke")).toBeNull();
   });
 
   it("reports unhandled promise rejections through the tracker", async () => {
@@ -178,7 +183,21 @@ describe("GenesisNativeApp", () => {
     await act(flush);
     vi.spyOn(console, "warn").mockImplementation(() => {});
     options?.onUnhandled(1, new Error("unawaited"));
-    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "unawaited" }), { fatal: false, source: "rejection" });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "unawaited" }), { fatal: false, handled: false, source: "rejection" });
+  });
+
+  it("reports a query that failed unexpectedly to onError, non-fatal, unless reportQueryErrors is false", async () => {
+    const run = async (props: Partial<GenesisNativeAppProps>) => {
+      const onError = vi.fn();
+      const client = createNativeQueryClient({ defaultOptions: { queries: { retry: false } } });
+      const view = setup({ onError, queryClient: { client }, ...props });
+      await act(flush);
+      await act(() => client.fetchQuery({ queryKey: ["tasks", 7], queryFn: () => Promise.reject(new Error("server fell over")) }).catch(() => {}));
+      view.unmount();
+      return onError;
+    };
+    expect(await run({})).toHaveBeenCalledWith(expect.objectContaining({ message: "server fell over" }), { fatal: false, source: "query", tags: { "query.key": "tasks" } });
+    expect(await run({ reportQueryErrors: false })).not.toHaveBeenCalled();
   });
 
   it("renders the signedOut slot for a signed-out user, and the screens once signed in", async () => {

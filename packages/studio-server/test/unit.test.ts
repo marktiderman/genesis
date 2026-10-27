@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, createStudioHandler, databaseDecides, jwtAuth, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
+import { byResource, createStudioHandler, databaseDecides, jwtAuth, jwtVerifier, switchToUser, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
 import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider, createSupabaseStudioProvider } from "../src/client";
 
@@ -511,5 +511,81 @@ describe("supabaseAuth issuers", () => {
     expect(await auth(await req("http://127.0.0.1:54321/auth/v1"))).toMatchObject({ sub: "u1" });
     expect(await auth(await req("http://kong:8000/auth/v1"))).toMatchObject({ sub: "u1" });
     expect(await auth(await req("https://abc.supabase.co/auth/v1"))).toBeNull();
+  });
+});
+
+describe("jwtVerifier", () => {
+  const verify = jwtVerifier({ secret: SECRET, audience: "authenticated" });
+
+  it("checks a raw token by jwtAuth's rules", async () => {
+    expect(await verify(await sign({ sub: "u-1", aud: "authenticated" }))).toMatchObject({ sub: "u-1" });
+    expect(await verify(await sign({ sub: "u", aud: "anon" }))).toBeNull();
+    expect(await verify(await sign({ sub: "u", aud: "authenticated" }, SECRET, "-1m"))).toBeNull();
+    expect(await verify("")).toBeNull();
+  });
+});
+
+describe("switchToUser", () => {
+  const identity = { role: "authenticated", claims: { sub: "u-1", role: "authenticated", email: "a@b.test" } };
+
+  /** A tagged query that records each statement as parameterised text. */
+  function recorder() {
+    const calls: { text: string; values: unknown[] }[] = [];
+    const query = async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      calls.push({ text: strings.reduce((out, part, i) => out + (i ? `$${i}` : "") + part, ""), values });
+      return [];
+    };
+    return { calls, query };
+  }
+
+  it("sets every setting as a parameter, then checks current_user", async () => {
+    const { calls, query } = recorder();
+    await switchToUser(query, identity, { headers: { "x-app": "gamify" }, statementTimeoutMs: 5000 });
+    expect(calls[0]!.text).toContain("set_config('role', $1::text, true)");
+    expect(calls[0]!.text).toContain("set_config('request.headers', $6::text, true)");
+    expect(calls[0]!.values).toEqual([
+      "authenticated",
+      JSON.stringify(identity.claims),
+      "u-1",
+      "authenticated",
+      "a@b.test",
+      JSON.stringify({ "x-app": "gamify" }),
+      "",
+      "",
+      "{}",
+      "5000",
+      "authenticated",
+      "off",
+    ]);
+    expect(calls[1]!.text).toMatch(/^do \$check\$/);
+    expect(calls[1]!.values).toEqual([]);
+  });
+
+  it("refuses a role outside allowRoles, and a token whose role differs", async () => {
+    const { query, calls } = recorder();
+    await expect(switchToUser(query, { role: "service_role", claims: { sub: "u" } })).rejects.toThrow(/allowRoles/);
+    await expect(switchToUser(query, { role: "postgres", claims: {} })).rejects.toThrow(/allowRoles/);
+    await expect(
+      switchToUser(query, { role: "authenticated", claims: { sub: "u", role: "service_role" } }),
+    ).rejects.toThrow(/token's role/);
+    await expect(switchToUser(query, { role: "staff", claims: { role: "staff" } }, { allowRoles: ["staff"] })).resolves.toBeUndefined();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("refuses a statement timeout that would turn it off", async () => {
+    const { query } = recorder();
+    for (const ms of [0, -1, Number.NaN]) {
+      await expect(switchToUser(query, identity, { statementTimeoutMs: ms })).rejects.toThrow(/at least 1/);
+    }
+  });
+
+  it("refuses credential or badly named headers, and a missing role", async () => {
+    const { query, calls } = recorder();
+    for (const name of ["authorization", "cookie", "apikey", "x-api-key", "x-auth-token", "x-access-token", "x-session-id", "x-csrf-token"]) {
+      await expect(switchToUser(query, identity, { headers: { [name]: "x" } })).rejects.toThrow(/credential/);
+    }
+    await expect(switchToUser(query, identity, { headers: { "X-App": "x" } })).rejects.toThrow(/lower-case/);
+    await expect(switchToUser(query, { role: "", claims: {} })).rejects.toThrow(/role/);
+    expect(calls).toHaveLength(0);
   });
 });

@@ -1,5 +1,43 @@
 # @marktiderman/genesis-supabase
 
+## 0.7.0
+
+### Minor Changes
+
+- 18a5a4f: Migration `0014_genesis_feature_registry_hardening` (feature-mirror block) changes behaviour 0.6.0 shipped in 0008: server code is told apart from a person by the request's role (`current_setting('role')`), not by `request.jwt.claims`, so a session that switches to `authenticated` without claims is no longer treated as server code; `feature_shipped` answers a signed-in person only for customer-facing features; a flag that leaves the registry loses its `platform_value`; and `feature_entitlements` gets an index on `feature_id` for active rows. The docs now say to sync with the build time, not the time a deployment started.
+- a211c61: New migration `0009_genesis_owner_access.sql` and the `owner-access` block. It defines the owner-access contract that Genesis blocks with owned rows call in their policies.
+  - `private.genesis_owner_readable()` and `private.genesis_owner_allows(tenant, person_id, team_id, organization_id, action)` wrap the app's hooks, `genesis_readable_owners` and `genesis_owner_can`.
+  - They fail closed: a missing or broken hook, no signed-in person, a null tenant or an unknown action means no.
+
+  A pgTAP test sits beside the migration.
+
+  Features: owner-access
+
+## 0.6.2
+
+### Patch Changes
+
+- Updated dependencies [7cdf0fe]
+  - @marktiderman/genesis-features@0.6.0
+
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies [bc5a348]
+  - @marktiderman/genesis-features@0.5.0
+
+## 0.6.0
+
+### Minor Changes
+
+- 85e23e1: Migration `0008_genesis_feature_registry` (block `feature-mirror`, needs `tenant-features`): the feature registry mirrored into the database on deploy (`features`, `feature_flags`, `sync_feature_registry`, never backwards), `feature_entitlements`, per-tenant `tenant_flag_values`, SQL `feature_on(tenant, feature)` for row security (shipped and, when paid, entitled), and `feature_gate_state(tenant)` for members. Client helpers `syncFeatureRegistry` and `featureGateState`. Platform-wide flag values (`feature_flags.platform_value`) act as a kill switch over tenant values. Requests are judged by their role: an authenticated request without a person is refused, never treated as server code.
+
+### Patch Changes
+
+- Updated dependencies [773e809]
+  - @marktiderman/genesis-features@0.4.1
+
 ## 0.5.0
 
 ### Minor Changes

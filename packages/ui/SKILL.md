@@ -5,7 +5,7 @@ description: Build web UI with the Genesis design system (@marktiderman/genesis-
 
 # genesis-ui
 
-Genesis is a starting point, not a ceiling. **Reuse > Extend > Create**: before
+Genesis is a starting point, not a ceiling. **Reuse > Extend > Invent** ([the Genesis way](https://github.com/marktiderman/genesis/blob/main/docs/FRAMEWORK.md)): before
 writing a component, find the export that already answers the question, then
 step down the ladder one rung — never off it.
 
@@ -386,7 +386,8 @@ most specific sibling wins) and an optional `badge` (a count or short status, sh
 it over.
 For live data (badge counts) the page calls `useAppShellSubNav(items, { mode? })`, which
 replaces the node's items while it is mounted, and puts a host chip at the end of the tab row with
-`<AppShellSubNavEnd>…</AppShellSubNavEnd>`. The page's resource header (breadcrumb, title,
+`<AppShellSubNavEnd>…</AppShellSubNavEnd>` (on phones, where the bottom bar replaces the row,
+the chip moves to a compact strip under the page header, so it stays reachable). The page's resource header (breadcrumb, title,
 status, actions) goes in `<AppShellPageHeader>…</AppShellPageHeader>`, which the shell renders
 above the tab row (on phones too; at the top of the content when there is no row). Both are
 portals; when a layout and its page both mount one, the page's (innermost) renders, and the same
