@@ -8,7 +8,7 @@
  * - `useResourceForm` starts an edit form from `provider.toFormValues`.
  * - `GenesisProvider` uses a `queryClient` it is given instead of its own.
  */
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -182,6 +182,78 @@ describe("useResourceForm — an edit never blanks what it didn't load", () => {
     });
     expect(update).not.toHaveBeenCalled();
     expect(onSuccess).toHaveBeenCalledWith({ id: "t1", owner_id: "u1" });
+  });
+
+  // A form with its inputs mounted, as a screen has them (values without an input aren't kept).
+  type FormOptions = Parameters<typeof useResourceForm>[0];
+  function mountForm(wrapper: (p: { children: ReactNode }) => ReactNode, options: FormOptions) {
+    const current: { form?: ReturnType<typeof useResourceForm> } = {};
+    function Harness(props: FormOptions) {
+      const state = useResourceForm(props);
+      current.form = state;
+      return (
+        <>
+          {state.resolvedFields.map((f) => (
+            <input key={f.key} {...state.form.register(f.key)} />
+          ))}
+        </>
+      );
+    }
+    const view = render(<Harness {...options} />, { wrapper });
+    return { current, rerender: (next: FormOptions) => view.rerender(<Harness {...next} />) };
+  }
+
+  it("doesn't require a read-only-on-edit field the row didn't load", async () => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    const { current } = mountForm(wrapper, {
+      resource: "tasks",
+      action: "edit",
+      id: "t1",
+      initialData: { id: "t1", title: "Write", notes: "n" },
+      fields: [...fields, { key: "owner_id", type: "text" as const, required: true, readOnlyOnEdit: true }],
+    });
+    act(() => {
+      current.form!.form.setValue("title", "Rewrite", { shouldDirty: true });
+    });
+    // Through the resolver, as a submit button does.
+    await act(async () => {
+      await current.form!.form.handleSubmit(current.form!.handleSave)();
+    });
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update.mock.calls[0]![1].data).not.toHaveProperty("owner_id");
+  });
+
+  it("never takes a hidden field from the URL", () => {
+    const { wrapper } = setup();
+    window.history.replaceState(null, "", "/?practice_id=p2&title=FromUrl");
+    try {
+      const { current } = mountForm(wrapper, {
+        resource: "tasks",
+        action: "create",
+        fields: [...fields, { key: "practice_id", type: "hidden" as const, hidden: true, defaultValue: "p1" }],
+      });
+      expect(current.form!.form.getValues()).toMatchObject({ practice_id: "p1", title: "FromUrl" });
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
+
+  it("follows new screen defaults in a mounted create form, keeping what the person typed", () => {
+    const { wrapper } = setup();
+    const options = (scope: string): FormOptions => ({
+      resource: "tasks",
+      action: "create",
+      fields: [...fields, { key: "practice_id", type: "hidden" as const, hidden: true, defaultValue: scope }],
+    });
+    const { current, rerender } = mountForm(wrapper, options("p1"));
+    rerender(options("p2"));
+    expect(current.form!.form.getValues("practice_id")).toBe("p2");
+    act(() => {
+      current.form!.form.setValue("title", "Mine", { shouldDirty: true });
+    });
+    rerender(options("p3"));
+    expect(current.form!.form.getValues()).toMatchObject({ practice_id: "p3", title: "Mine" });
   });
 });
 
