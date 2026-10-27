@@ -560,6 +560,12 @@ export interface ResourcePageProps<
   // Built-in form support (Phase 2)
   /** Enable built-in create form (ignored if onCreate callback is provided). */
   allowCreate?: boolean;
+  /**
+   * After the built-in form saves: the row and whether it was a create or an edit (to open a
+   * builder for a new row, say). A pessimistic save (the default) gives the row the server
+   * returned, with its key; an optimistic or undoable one gives the values sent.
+   */
+  onSaved?: (row: T, action: "create" | "edit") => void;
   /** Enable built-in edit form (ignored if onEdit callback is provided). */
   allowEdit?: boolean;
   /** Field definitions for the built-in form. */
@@ -802,6 +808,7 @@ export function ResourcePage<
     keyboardNavigation = props.variant !== "embedded",
     mutationMode: mutationModeProp,
     onCreate,
+    onSaved,
     onDelete,
     onDeleteView,
     onEdit,
@@ -1456,7 +1463,8 @@ export function ResourcePage<
             fields: formFields,
             listData: page.data as Record<string, unknown>[],
             renderForm: renderFormProp,
-            onSuccess: () => {
+            onSuccess: (row: Record<string, unknown>) => {
+              onSaved?.(row as T, formAction);
               // The list refetches via useResourceForm's invalidation. After
               // an edit the peek stays open and re-resolves its row by key
               // (see `selectedItem`), so it shows the saved values; a create

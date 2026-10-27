@@ -426,7 +426,25 @@ describe("ResourceView review fixes", () => {
       wrapper: wrap(provider()),
     });
     const filled = result.current.formFields!.filter((f) => f.hidden);
-    expect(filled).toEqual([{ key: "practice_id", type: "hidden", hidden: true, defaultValue: "p1" }]);
+    expect(filled).toEqual([{ key: "practice_id", type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: "p1" }]);
+  });
+
+  it("starts a create at the screen's defaults without filtering the list; the filter wins", async () => {
+    localStorage.clear();
+    const p = provider();
+    const getList = vi.spyOn(p, "getList");
+    const { result } = renderHook(
+      () => useResourceViewProps({ view, filter: { practice_id: "p1" }, defaults: { practice_id: "p2", name: "Untitled", nope: 1 } as never }),
+      { wrapper: wrap(p) },
+    );
+    const fields = result.current.formFields!;
+    // A shown field starts at the value; a hidden one is create-only; the filter wins a clash.
+    expect(fields.find((f) => f.key === "name")).toMatchObject({ defaultValue: "Untitled" });
+    expect(fields.filter((f) => f.hidden)).toEqual([{ key: "practice_id", type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: "p1" }]);
+    expect(result.current.resourceOptions?.defaultFilters).toEqual([{ field: "practice_id", operator: "eq", value: "p1" }]);
+    const alone = renderHook(() => useResourceViewProps({ view, defaults: { practice_id: "p2" } }), { wrapper: wrap(provider()) });
+    expect(alone.result.current.resourceOptions?.defaultFilters).toBeUndefined();
+    expect(getList).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ filters: expect.arrayContaining([expect.objectContaining({ value: "p2" })]) }));
   });
 
   it("keeps a URL sort on a field column in cursor mode", async () => {

@@ -16098,6 +16098,13 @@
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
             },
             {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+            },
+            {
               "name": "onSaveView",
               "type": "((name: string) => void)",
               "required": false,
@@ -16567,6 +16574,13 @@
               "description": "Server-data mode: pre-fetched data array."
             },
             {
+              "name": "defaults",
+              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
+            },
+            {
               "name": "defaultView",
               "type": "ViewModeDefault",
               "required": false,
@@ -16641,7 +16655,7 @@
               "type": "Readonly<Record<string, string | number | boolean | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\"."
+              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
             },
             {
               "name": "filters",
@@ -16845,6 +16859,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
             },
             {
               "name": "onSaveView",
@@ -17224,6 +17245,13 @@
               "description": "Server-data mode: pre-fetched data array."
             },
             {
+              "name": "defaults",
+              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
+            },
+            {
               "name": "defaultView",
               "type": "ViewModeDefault",
               "required": false,
@@ -17298,7 +17326,7 @@
               "type": "Readonly<Record<string, string | number | boolean | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\"."
+              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
             },
             {
               "name": "filters",
@@ -17502,6 +17530,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
             },
             {
               "name": "onSaveView",
@@ -17881,6 +17916,13 @@
               "description": "Server-data mode: pre-fetched data array."
             },
             {
+              "name": "defaults",
+              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
+            },
+            {
               "name": "defaultView",
               "type": "ViewModeDefault",
               "required": false,
@@ -17955,7 +17997,7 @@
               "type": "Readonly<Record<string, string | number | boolean | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\"."
+              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
             },
             {
               "name": "filters",
@@ -18159,6 +18201,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
             },
             {
               "name": "onSaveView",
@@ -21629,6 +21678,13 @@
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
             },
             {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+            },
+            {
               "name": "onSaveView",
               "type": "((name: string) => void)",
               "required": false,
@@ -22256,6 +22312,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: invoked by the error panel's Retry button. The button\nonly appears when this is supplied, so a caller with no way to retry\nsimply omits it and gets an error panel without a dead control. In\nclient-side mode the button is already wired to `useResource`'s own\n`refetch` and this prop is ignored."
+            },
+            {
+              "name": "onSaved",
+              "type": "((row: T, action: \"create\" | \"edit\") => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
             },
             {
               "name": "onSaveView",

@@ -23,8 +23,13 @@ export interface ResourceViewOptions {
   columns?: string;
   /** A tab the view defines: its columns and its filter. */
   preset?: string;
-  /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". */
+  /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". A new row gets them too. */
   filter?: Filter;
+  /**
+   * Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike
+   * `filter`, they don't narrow the list. A field the form shows starts at the value instead.
+   */
+  defaults?: Filter;
   /** How rows show first. The user's own pick is remembered. */
   mode?: "table" | "grid" | "list";
   title?: string;
@@ -82,7 +87,7 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { view, layout = "page", columns: columnPreset, preset, filter, mode, title, subtitle, can, resourceOptions, cells, ...rest } = props;
+  const { view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, ...rest } = props;
   const cell = useDisplayCell();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
@@ -133,25 +138,32 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const filterKey = JSON.stringify(filter ?? {});
+  const defaultsKey = JSON.stringify(defaults ?? {});
 
   // The form lists only fields a writer may send. A field that can't change after create is
   // shown read-only when editing.
   const formFields = useMemo(() => {
     const editable = new Set(view.writable("edit"));
     const writable = new Set(view.writable("create"));
+    const starts = JSON.parse(defaultsKey) as Filter;
     const shown = view
       .form("create")
       // JSON and lists need editors of their own; the plain form would send them back as text.
       .filter((f) => writable.has(f.field.name) && f.display !== "json" && !f.field.array)
-      .map((f) => formField(f, editable.has(f.field.name)));
-    // The screen's filter fills those fields on create (the client a session belongs to). Hidden,
-    // and never sent on edit, where only changed fields go.
+      .map((f) => {
+        const def = formField(f, editable.has(f.field.name));
+        return Object.hasOwn(starts, def.key) ? { ...def, defaultValue: starts[def.key] } : def;
+      });
+    // The screen's filter (the client a session belongs to) and its defaults fill the other
+    // fields on create: hidden, and never sent on edit. The filter wins, so a new row stays in
+    // the list it was made from.
     const keys = new Set(shown.map((f) => f.key));
-    const filled = Object.entries(JSON.parse(filterKey) as Filter)
+    const values = { ...starts, ...(JSON.parse(filterKey) as Filter) };
+    const filled = Object.entries(values)
       .filter(([key]) => !keys.has(key) && view.field(key))
-      .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, defaultValue: value }));
+      .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: value }));
     return [...shown, ...filled];
-  }, [view, filterKey]);
+  }, [view, filterKey, defaultsKey]);
 
   const defaultFilters = useMemo(
     () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(filter), ...(resourceOptions?.defaultFilters ?? [])],

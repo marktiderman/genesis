@@ -628,10 +628,16 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       // A field the opened record didn't carry goes only when the person changed it (compared by
       // value: RHF's dirtyFields updates only when read during render).
       const opened = formSource as Record<string, unknown> | undefined;
+      // A field read-only when editing is never written by an edit: sending even its unchanged
+      // value would fail on a column the person may not update.
+      const lockedOnEdit = new Set(action === "edit" ? resolvedFields.filter((f) => f.readOnlyOnEdit).map((f) => f.key) : []);
+      const writable = lockedOnEdit.size
+        ? Object.fromEntries(Object.entries(submitted).filter(([k]) => !lockedOnEdit.has(k)))
+        : submitted;
       const formData =
         action === "edit" && updates === "loaded" && opened
           ? Object.fromEntries(
-              Object.entries(submitted).filter(
+              Object.entries(writable).filter(
                 // Changed: what an input shows differs from where it started, or, for a value saved
                 // without an input (a direct handleSave), the value itself does.
                 ([k, v]) =>
@@ -639,7 +645,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
                   !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]),
               ),
             )
-          : submitted;
+          : writable;
       try {
         let recordId: string | number | undefined;
         if (action === "edit") {
@@ -709,7 +715,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
         reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues],
+    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues, resolvedFields],
   );
 
   const onSubmit = useCallback(
