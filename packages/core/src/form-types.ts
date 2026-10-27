@@ -32,6 +32,7 @@ export interface ResourceFormFieldDef {
   defaultValue?: unknown;
   options?: SelectOption[];
   hidden?: boolean;
+  /** Shown read-only when editing, and never sent by an edit (a create still sends it). */
   readOnlyOnEdit?: boolean;
   description?: string;
   min?: number;

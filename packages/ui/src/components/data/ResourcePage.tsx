@@ -560,6 +560,15 @@ export interface ResourcePageProps<
   // Built-in form support (Phase 2)
   /** Enable built-in create form (ignored if onCreate callback is provided). */
   allowCreate?: boolean;
+  /**
+   * After the built-in form saves: the row and whether it was a create or an edit (to open a
+   * builder for a new row, say). A pessimistic save (the default) runs it once the server has the
+   * row, and gives that row with its key. An optimistic or undoable save runs it as the save is
+   * accepted, before the write lands: the values sent, no key for a create, and it isn't taken
+   * back by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling
+   * its `onSuccess`.
+   */
+  onSaved?: (row: T, action: "create" | "edit") => void;
   /** Enable built-in edit form (ignored if onEdit callback is provided). */
   allowEdit?: boolean;
   /** Field definitions for the built-in form. */
@@ -802,6 +811,7 @@ export function ResourcePage<
     keyboardNavigation = props.variant !== "embedded",
     mutationMode: mutationModeProp,
     onCreate,
+    onSaved,
     onDelete,
     onDeleteView,
     onEdit,
@@ -1456,7 +1466,8 @@ export function ResourcePage<
             fields: formFields,
             listData: page.data as Record<string, unknown>[],
             renderForm: renderFormProp,
-            onSuccess: () => {
+            onSuccess: (row: Record<string, unknown>) => {
+              onSaved?.(row as T, formAction);
               // The list refetches via useResourceForm's invalidation. After
               // an edit the peek stays open and re-resolves its row by key
               // (see `selectedItem`), so it shows the saved values; a create
