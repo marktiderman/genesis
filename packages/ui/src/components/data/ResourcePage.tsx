@@ -1085,6 +1085,7 @@ export function ResourcePage<
   const shellSlotProps = slotProps?.shell;
 
   return (
+    <>
     <Shell
       title={title}
       subtitle={subtitle}
@@ -1378,6 +1379,9 @@ export function ResourcePage<
         </nav>
       )}
 
+    </Shell>
+    {/* The overlays sit beside the shell, not in it: the shell swaps its children for the
+        empty state, and New on an empty list must still open the form. */}
       {/* Detail panel / modal — DetailPanel's `layout` prop picks the shell;
           "panel" gets its default fixed slide-in sheet, "modal" gets a
           centered dialog. Both share one implementation (header, content,
@@ -1491,6 +1495,6 @@ export function ResourcePage<
           },
           slotProps?.deleteDialog,
         )}
-    </Shell>
+    </>
   );
 }
