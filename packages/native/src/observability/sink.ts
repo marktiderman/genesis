@@ -16,11 +16,22 @@ import type { EventValues } from "./events";
 export interface ErrorContext {
   /** True when the app could not go on (a render error, a failed boot, a fatal global error). */
   fatal: boolean;
-  /** `boundary`, `global`, `boot`, `rejection` (the shell's), or the app's own (`updates:policy`, `sync`). */
+  /**
+   * `boundary`, `global`, `boot`, `rejection`, `screen`, `query`, `mutation`
+   * (the shell's), a package's (`chat:attachment-action`, through
+   * `reportError` from genesis-core) or the app's own (`updates:policy`, `sync`).
+   */
   source: string;
   componentStack?: string;
   /** The route pattern on screen (`/(app)/settings`), when known. */
   route?: string | null;
+  /**
+   * False when nothing caught it (an unhandled promise rejection): release
+   * health counts it. Default: handled unless `fatal`.
+   */
+  handled?: boolean;
+  /** Low-cardinality labels (`query.key: "tasks"`), scrubbed like everything else. */
+  tags?: Readonly<Record<string, string>>;
 }
 
 export type BreadcrumbLevel = "debug" | "info" | "warning" | "error";
@@ -60,6 +71,24 @@ export interface ObservabilitySink {
   timing?(name: string, ms: number, tags?: TimingTags): void;
   /** Wraps the root layout (Sentry's `wrap`, EAS Observe's `ObserveRoot.wrap`). */
   wrap?<P extends Record<string, unknown>>(root: ComponentType<P>): ComponentType<P>;
+  /**
+   * Wraps an Expo Router per-route `ErrorBoundary` (Sentry's
+   * `wrapExpoRouterErrorBoundary`). A sink that wraps reports the route's
+   * error itself, so the block's screen boundary doesn't send it to that sink again.
+   */
+  wrapRouteErrorBoundary?(boundary: ComponentType<RouteErrorBoundaryProps>): ComponentType<RouteErrorBoundaryProps>;
+  /** Send what is queued, within `timeoutMs`; resolves false when it didn't finish. Called before an update reloads the app. */
+  flush?(timeoutMs: number): PromiseLike<boolean> | boolean | void;
+  /** The id of the last error event this sink sent, for a support request or feedback. */
+  lastEventId?(): string | undefined;
+  /** The current session replay's id, when replay is on. */
+  replayId?(): string | undefined;
+}
+
+/** What Expo Router gives a route's `ErrorBoundary`: the error, and `retry` to render the route again. */
+export interface RouteErrorBoundaryProps {
+  error: Error;
+  retry: () => Promise<void>;
 }
 
 /** A copy of `error` whose message and stack have been scrubbed (for sinks that don't scrub themselves). */

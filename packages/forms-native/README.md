@@ -65,6 +65,12 @@ function CheckIn() {
 - On the ending, the `status` slot follows the queued submission: waiting for a connection,
   sending, sent, or failed (with a retry).
 
+- What the form survives but shouldn't hide (an `onQueued` that throws, a draft that can't be saved
+  or cleared, a retry that can't start) is reported through `reportError` from
+  `@marktiderman/genesis-core/errors` (`forms-native:on-queued`, `forms-native:draft-save`,
+  `forms-native:draft-clear`, `forms-native:retry`): the native observability block sends it to
+  Sentry. `@marktiderman/genesis-core` is a peer dependency.
+
 The `draft` and `outbox` props are typed structurally (`FormDraftLike`, `OutboxLike`), so your own
 implementations fit as well.
 

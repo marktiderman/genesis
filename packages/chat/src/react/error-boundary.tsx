@@ -3,15 +3,17 @@
  * `ChatErrorBoundary`: what one message (or one app attachment card) draws can't take the whole
  * thread down. Messages carry what other people sent, and app renderers get sender-controlled
  * data, so a render that throws shows its fallback instead, and the error goes to `onError`
- * (console.error by default) so it is never silent. `resetKeys` lets it try again once what it
+ * (by default `reportError` from genesis-core, source `chat:render`: the app's crash reporter
+ * when it registered one, the console in development) so it is never silent. `resetKeys` lets it try again once what it
  * draws changes (the app's data arrived).
  */
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportError } from "@marktiderman/genesis-core/errors";
 
 export interface ChatErrorBoundaryProps {
   /** Drawn instead of the children once they throw. */
   fallback: ReactNode;
-  /** Told about the error; console.error by default. */
+  /** Told about the error. Default `reportError(error, "chat:render")` from genesis-core. */
   onError?: (error: unknown, info: ErrorInfo) => void;
   /** When any of these changes (by identity), a boundary showing its fallback tries the children again. */
   resetKeys?: readonly unknown[];
@@ -37,7 +39,7 @@ export class ChatErrorBoundary extends Component<ChatErrorBoundaryProps, { faile
 
   override componentDidCatch(error: unknown, info: ErrorInfo) {
     if (this.props.onError) this.props.onError(error, info);
-    else console.error("genesis-chat: a message couldn't be drawn", error);
+    else reportError(error, "chat:render");
   }
 
   override render() {

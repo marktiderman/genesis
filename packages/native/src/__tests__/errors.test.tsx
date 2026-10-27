@@ -2,7 +2,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
+import { errorMessages } from "@marktiderman/genesis-core/errors";
 import {
+  errorDetails,
   FatalScreen,
   GenesisErrorBoundary,
   PlainFatalScreen,
@@ -37,7 +39,7 @@ describe("GenesisErrorBoundary", () => {
         <Screen />
       </GenesisErrorBoundary>,
     );
-    expect(screen.getByText("render broke")).toBeTruthy();
+    expect(screen.getByTestId("genesis-fatal")).toBeTruthy();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "render broke" }), expect.objectContaining({ fatal: true, source: "boundary" }));
 
     shouldThrow = false;
@@ -142,16 +144,69 @@ describe("installRejectionTracker", () => {
     installRejectionTracker({ enable: (o) => void (options = o), onError });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     options?.onUnhandled(7, new Error("fetch failed"));
-    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "fetch failed" }), { fatal: false, source: "rejection" });
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: "fetch failed" }), { fatal: false, handled: false, source: "rejection" });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("id: 7"));
     warn.mockRestore();
+  });
+});
+
+describe("errorDetails", () => {
+  it("shows the error's own text only in development", () => {
+    vi.stubGlobal("__DEV__", true);
+    expect(errorDetails(new Error("person@example.com broke"))).toBe("person@example.com broke");
+    vi.unstubAllGlobals();
+  });
+
+  it("shows the safe sentence for a known kind, and nothing for a plain bug, in a release build", () => {
+    vi.stubGlobal("__DEV__", false);
+    expect(errorDetails(new TypeError("Network request failed"))).toBe(errorMessages.offline);
+    expect(errorDetails(new Error("person@example.com broke"))).toBeUndefined();
+    vi.unstubAllGlobals();
+  });
+
+  it("keeps the fatal screen's text safe in a release build", () => {
+    vi.stubGlobal("__DEV__", false);
+    render(<FatalScreen error={new Error("token=abc for person@example.com")} retry={() => {}} />);
+    vi.unstubAllGlobals();
+    expect(screen.queryByText(/person@example.com/)).toBeNull();
+  });
+});
+
+describe("GenesisErrorBoundary as a screen boundary", () => {
+  it("reports non-fatal with its own source", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function Broken(): never {
+      throw new Error("x");
+    }
+    const onError = vi.fn();
+    render(
+      <GenesisErrorBoundary fallback={() => <span data-testid="fb" />} onError={onError} fatal={false} source="screen">
+        <Broken />
+      </GenesisErrorBoundary>,
+    );
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ fatal: false, source: "screen" }));
+  });
+
+  it("still shows the fallback when onError throws", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function Broken(): never {
+      throw new Error("x");
+    }
+    render(
+      <GenesisErrorBoundary fallback={() => <span data-testid="fb" />} onError={() => { throw new Error("reporter"); }}>
+        <Broken />
+      </GenesisErrorBoundary>,
+    );
+    expect(screen.getByTestId("fb")).toBeTruthy();
   });
 });
 
 describe("PlainFatalScreen", () => {
   it("shows the error and retries with React Native primitives only", () => {
     const retry = vi.fn();
+    vi.stubGlobal("__DEV__", true);
     render(<PlainFatalScreen error={new Error("no theme")} retry={retry} />);
+    vi.unstubAllGlobals();
     expect(screen.getByText("no theme")).toBeTruthy();
     fireEvent.click(screen.getByTestId("genesis-fatal-plain-retry"));
     expect(retry).toHaveBeenCalled();

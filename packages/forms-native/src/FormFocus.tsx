@@ -36,6 +36,7 @@ import {
   type FocusTarget,
   type RendererRegistry,
 } from "@marktiderman/genesis-forms-react";
+import { reportError } from "@marktiderman/genesis-core/errors";
 import { useReducedMotion } from "@marktiderman/genesis-ui-native/hooks";
 import { KEYBOARD_TOOLBAR_HEIGHT, composeHeaderOptions, useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
 import { ContentStep, defaultContentRegistry, type ContentRendererRegistry } from "./content";
@@ -317,14 +318,14 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
       try {
         p.onQueued?.(item, e);
       } catch (error) {
-        console.warn("[forms-native] onQueued threw.", error);
+        reportError(error, "forms-native:on-queued");
       }
     }
     // Only now is the submission safe; a draft that can't be removed is reported, not fatal.
     try {
       await p.draft?.clear();
     } catch (error) {
-      console.warn("[forms-native] The draft couldn't be removed after sending.", error);
+      reportError(error, "forms-native:draft-clear");
     }
   };
 
@@ -371,7 +372,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") return;
       flushProgress();
-      void latest.current.draft?.flush().catch((error) => console.warn("[forms-native] The draft couldn't be saved.", error));
+      void latest.current.draft?.flush().catch((error: unknown) => reportError(error, "forms-native:draft-save"));
     });
     return () => sub.remove();
   }, [flushProgress]);
@@ -504,7 +505,7 @@ function FormBody(props: FormFocusProps & { engine: FormEngine }) {
                   onRetry:
                     outbox?.retry && queued
                       ? () => {
-                          Promise.resolve(outbox.retry?.(queued)).catch((error) => console.warn("[forms-native] The retry couldn't start.", error));
+                          Promise.resolve(outbox.retry?.(queued)).catch((error: unknown) => reportError(error, "forms-native:retry"));
                         }
                       : undefined,
                   testID: `${testID}-status`,

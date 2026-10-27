@@ -7,6 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import postgres from "postgres";
+import { IdentitySwitchError, settingsStatement, switchSettings } from "./switch";
 
 export type SqlRow = Record<string, unknown>;
 
@@ -62,13 +63,7 @@ export interface StudioDatabase {
   end(): Promise<void>;
 }
 
-/** Thrown when the transaction did not end up as the requested role. */
-export class IdentitySwitchError extends Error {
-  constructor(expected: string, actual: unknown) {
-    super(`Expected to act as "${expected}" but the session is "${String(actual)}". Refusing to run.`);
-    this.name = "IdentitySwitchError";
-  }
-}
+export { IdentitySwitchError };
 
 // Postgres type OIDs for date and time values. They are handed back exactly
 // as Postgres prints them instead of as a JS Date: a Date keeps only
@@ -166,42 +161,18 @@ function wrap(sql: postgres.Sql, owned: boolean): StudioDatabase {
         const query = queryOver(tx);
         // `set_config(..., true)` is `SET LOCAL`: it ends with the
         // transaction, so nothing leaks to the next request on this
-        // connection. Every value is a parameter, never interpolated.
-        //
-        // Each setting is set here, not inherited, because a session-level
-        // value someone else left on a pooled server connection would
-        // otherwise apply. That includes Supabase's older per-claim settings:
-        // its `auth.uid()`, `auth.role()` and `auth.email()` read
-        // `request.jwt.claim.sub`/`.role`/`.email` FIRST, so leaving them
-        // unset would let a stale `sub` decide whose rows RLS shows.
-        const claim = (name: string) => {
-          const value = identity.claims[name];
-          return typeof value === "string" ? value : "";
-        };
-        await query(
-          `select set_config('role', $1::text, true),
-                  set_config('request.jwt.claims', $2::text, true),
-                  set_config('request.jwt.claim.sub', $3::text, true),
-                  set_config('request.jwt.claim.role', $4::text, true),
-                  set_config('request.jwt.claim.email', $5::text, true),
-                  set_config('statement_timeout', $6::text, true),
-                  set_config('lock_timeout', $7::text, true),
-                  set_config('idle_in_transaction_session_timeout', $8::text, true),
-                  set_config('datestyle', 'ISO, YMD', true),
-                  set_config('intervalstyle', 'postgres', true),
-                  set_config('timezone', 'UTC', true),
-                  set_config('standard_conforming_strings', 'on', true)`,
-          [
-            identity.role,
-            JSON.stringify(identity.claims),
-            claim("sub"),
-            claim("role"),
-            claim("email"),
-            String(statementTimeoutMs),
-            String(Math.min(statementTimeoutMs, 3_000)),
-            String(statementTimeoutMs * 2),
-          ],
-        );
+        // connection. Every value is a parameter, never interpolated, and
+        // every setting is set here, not inherited (see `switchSettings`).
+        const { text, params } = settingsStatement([
+          ...switchSettings(identity, { statementTimeoutMs }),
+          ["lock_timeout", String(Math.min(statementTimeoutMs, 3_000))],
+          ["idle_in_transaction_session_timeout", String(statementTimeoutMs * 2)],
+          ["datestyle", "ISO, YMD"],
+          ["intervalstyle", "postgres"],
+          ["timezone", "UTC"],
+          ["standard_conforming_strings", "on"],
+        ]);
+        await query(text, params);
         const [who] = await query("select current_user as role");
         if (who?.role !== identity.role) throw new IdentitySwitchError(identity.role, who?.role);
         return fn(query);

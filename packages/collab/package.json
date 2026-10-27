@@ -1,0 +1,46 @@
+{
+  "name": "@marktiderman/genesis-collab",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Collaboration and sharing for Genesis apps: a space (a subject, an audience, roles, a visibility policy and timing) for anything more than one person works on, with the rules for who sees whose contributions and when, in the app's own Supabase (the genesis_collab schema) and in a headless core for the interface. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/collab"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "react-native": "./src/index.ts",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "react-native": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0"
+  }
+}

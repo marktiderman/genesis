@@ -42,11 +42,27 @@ export function bearerToken(request: Request): string | null {
   return match?.[1] ?? null;
 }
 
+/** Turns a raw token into verified claims, or `null` when it doesn't verify. */
+export type StudioTokenVerifier = (token: string) => Promise<StudioClaims | null>;
+
 /**
  * Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of
  * `secret` and `jwksUrl` is required.
  */
 export function jwtAuth(options: JwtAuthOptions): StudioAuth {
+  const verify = jwtVerifier(options);
+  return async (request) => {
+    const token = bearerToken(request);
+    return token ? verify(token) : null;
+  };
+}
+
+/**
+ * `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a
+ * bearer header, e.g. a socket handshake's `auth.token`. Same rules: the
+ * signature, `exp`, `sub`, the audience and the issuer.
+ */
+export function jwtVerifier(options: JwtAuthOptions): StudioTokenVerifier {
   if (Boolean(options.secret) === Boolean(options.jwksUrl)) {
     throw new Error("jwtAuth needs exactly one of `secret` or `jwksUrl`.");
   }
@@ -70,8 +86,7 @@ export function jwtAuth(options: JwtAuthOptions): StudioAuth {
     verify = (token) => jwtVerify(token, jwks, claimsCheck);
   }
 
-  return async (request) => {
-    const token = bearerToken(request);
+  return async (token) => {
     if (!token) return null;
     try {
       const { payload } = await verify(token);
@@ -99,6 +114,15 @@ export interface SupabaseAuthOptions {
  * `<url>/auth/v1`, audience `authenticated`.
  */
 export function supabaseAuth(options: SupabaseAuthOptions): StudioAuth {
+  return jwtAuth(supabaseJwtOptions(options));
+}
+
+/** `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. */
+export function supabaseVerifier(options: SupabaseAuthOptions): StudioTokenVerifier {
+  return jwtVerifier(supabaseJwtOptions(options));
+}
+
+function supabaseJwtOptions(options: SupabaseAuthOptions): JwtAuthOptions {
   const base = options.url.replace(/\/+$/, "");
   const expected = `${base}/auth/v1`;
   // Inside the local Supabase stack, an Edge Function reaches the project as
@@ -107,11 +131,11 @@ export function supabaseAuth(options: SupabaseAuthOptions): StudioAuth {
   // stack, so there, a localhost issuer is accepted too. The signature is
   // still checked against this project's own keys, either way.
   const localStack = /^https?:\/\/kong(:\d+)?$/.test(base);
-  return jwtAuth({
+  return {
     ...(options.jwtSecret ? { secret: options.jwtSecret } : { jwksUrl: `${base}/auth/v1/.well-known/jwks.json` }),
     issuer: localStack
       ? (iss) => iss === expected || /^http:\/\/(127\.0\.0\.1|localhost):\d+\/auth\/v1$/.test(iss)
       : expected,
     audience: "authenticated",
-  });
+  };
 }

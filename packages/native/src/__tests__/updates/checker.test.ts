@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createReloadGuard, createUpdateChecker } from "../../updates/checker";
 import { fakeUpdates } from "./fakes";
+import { onBeforeReload } from "../../reload";
 
 describe("the update checker", () => {
   it("downloads a newer update and never reloads on its own", async () => {
@@ -13,6 +14,21 @@ describe("the update checker", () => {
     expect(updates.reloadAsync).not.toHaveBeenCalled();
     expect(await checker.reload()).toBe(true);
     expect(updates.reloadAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("runs the before-reload hooks (the observability flush) before reloading", async () => {
+    const updates = fakeUpdates({ next: { id: "next-1111" } });
+    const order: string[] = [];
+    updates.reloadAsync.mockImplementation(async () => void order.push("reload"));
+    const off = onBeforeReload(async () => void order.push("flush"));
+    try {
+      const checker = createUpdateChecker({ updates, guard: createReloadGuard() });
+      await checker.check();
+      expect(await checker.reload()).toBe(true);
+    } finally {
+      off();
+    }
+    expect(order).toEqual(["flush", "reload"]);
   });
 
   it("never reloads while a form holds the guard, and lets the tap through once it lets go", async () => {
