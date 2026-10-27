@@ -1,5 +1,11 @@
 # @marktiderman/genesis-core
 
+## 1.14.1
+
+### Patch Changes
+
+- 137f05b: ViewerScope reports roles that aren't plain JSON through `reportError` rather than `console.warn`.
+
 ## 1.14.0
 
 ### Minor Changes
