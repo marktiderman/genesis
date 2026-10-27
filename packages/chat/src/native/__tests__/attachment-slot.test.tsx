@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { createElement, useLayoutEffect, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import type { ChatAttachment, ChatMessage } from "../../core/types";
 import type { ChatAttachmentKind } from "../../react/index";
 import { attachmentPreview, slotUrl, splitCardAttachments, type ChatAttachmentSlotProps } from "../attachment-cards";
@@ -127,7 +128,8 @@ describe("the attachment slot", () => {
   it("shows pending while an async action runs, then an error when it rejects", async () => {
     let reject!: (e: Error) => void;
     const toggle = vi.fn(() => new Promise((_, r) => (reject = r)));
-    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
     const task = attachment({ ref: { title: "Journal" } });
     render(<MessageBubble row={row(message({ attachments: [task] }))} me={ME} urls={{}} group={false} reducedMotion attachmentKinds={{ task: taskKind({ done: false }, toggle) }} attachmentSlot={TaskCard} testID="b" />);
     fireEvent.click(screen.getByTestId("b-card-0-check"));
@@ -138,6 +140,9 @@ describe("the attachment slot", () => {
     expect(toggle).toHaveBeenCalledTimes(1);
     await act(async () => reject(new Error("offline")));
     expect(screen.getByTestId("b-card-0-slot-error").textContent).toBe(chatNativeCopy.cardActionFailed);
+    // Reported through genesis-core's seam (the app's crash reporter), not only the console.
+    expect(reporter).toHaveBeenCalledWith(expect.objectContaining({ message: "offline" }), { source: "chat:attachment-action" });
+    restore();
     expect(screen.getByTestId("b-bubble").getAttribute("aria-label")).toContain(chatNativeCopy.cardActionFailed);
     expect(screen.getByTestId("b-card-0-check").getAttribute("aria-busy")).toBe("false");
   });

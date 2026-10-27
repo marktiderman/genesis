@@ -21,6 +21,7 @@ import { useCallback, useLayoutEffect, useRef, useState, type ComponentType, typ
 import { Linking, View } from "react-native";
 import { NativeButton, NativeIcon, NativeText } from "@marktiderman/genesis-ui-native/components";
 import { useThemeRoles } from "@marktiderman/genesis-ui-native/hooks";
+import { reportError } from "@marktiderman/genesis-core/errors";
 import type { ChatAttachment, ChatMessage } from "../core/types";
 import type { ChatAttachmentKind, ChatCardContext } from "../react/index";
 import { attachmentPreview, callAttachmentKind as call, cardTitle, messagePreview } from "../react/previews";
@@ -126,7 +127,7 @@ export function useCardRuns(options: CardRunOptions | string): { stateOf(id: str
     async (id: string, task: () => unknown) => {
       if (busy.current.has(id)) return;
       const failed = (e: unknown, text = failedText) => {
-        if (typeof __DEV__ !== "undefined" && __DEV__) console.warn("[genesis-chat] an attachment card's action failed:", e);
+        reportError(e, "chat:attachment-action");
         setStates((s) => ({ ...s, [id]: { pending: false, error: text } }));
       };
       let result: unknown;
@@ -237,8 +238,8 @@ export function ChatAttachmentCard({ attachment, message, kind, mine = false, on
     title = call(kind, "title", attachment, ctx) ?? "";
     subtitle = call(kind, "subtitle", attachment, ctx);
   } catch (e) {
-    // An app's kind that throws shows as a plain card, and says so in development.
-    if (typeof __DEV__ !== "undefined" && __DEV__) console.warn(`[genesis-chat] attachment kind "${attachment.kind}" threw:`, e);
+    // An app's kind that throws shows as a plain card, and is reported (the kind is the app's name for it, not content).
+    reportError(e, { source: "chat:attachment-kind", tags: { kind: attachment.kind } });
   }
   title = title || attachment.name || attachment.kind;
   const action = cardAction(kind, attachment, message, onOpenAttachment, ctx);
@@ -367,4 +368,3 @@ function Reported({ id, empty, onEmpty, children }: { id: string; empty: boolean
   return <>{children}</>;
 }
 
-declare const __DEV__: boolean | undefined;

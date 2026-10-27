@@ -15,6 +15,7 @@
  */
 import { toError, type UpdatesModuleLike, type UpdatesOnError, type UpdatesStorageLike } from "./modules";
 import type { ReloadGuard } from "./checker";
+import { runBeforeReload } from "../reload";
 
 export type ChannelSwitchResult =
   /** The reload was sent; JS may stop at any moment. */
@@ -83,6 +84,8 @@ export function createChannelSwitcher(options: ChannelSwitcherOptions): ChannelS
       const check = await u.checkForUpdateAsync();
       if (check.isAvailable || check.isRollBackToEmbedded) await u.fetchUpdateAsync();
       if (!guard.canReload()) return { kind: "blocked" };
+      // Queued crash reports and events would be lost with the runtime: flush them first.
+      await runBeforeReload();
       await u.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
       return { kind: "reloading" };
     } catch (raw) {

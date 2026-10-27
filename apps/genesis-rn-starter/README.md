@@ -291,6 +291,13 @@ it (App Store Review Guideline 4.8): `defineStarter` refuses Google without Appl
   imports it first, and the root layout is exported wrapped (`wrapRoot`). Release and dist come
   from the version signature, with the update id and channel as tags. Source map upload is
   optional: the commented plugin line in `app.config.ts` says what to turn on.
+- **Errors per tab.** Each tab's `_layout.tsx` exports `ScreenErrorBoundary` (from
+  `src/lib/observability.ts`) as its Expo Router `ErrorBoundary`: a screen that throws shows "This
+  screen hit a problem" with Try again, the tab bar keeps working, and the error is reported
+  non-fatal (through Sentry's `wrapExpoRouterErrorBoundary`). Queries and mutations that fail
+  unexpectedly are reported too; offline, signed-out and refused requests are not.
+- **Trace headers.** `tracePropagationTargets` lists the hosts that get Sentry's trace headers:
+  this app's Supabase project only. Add your own API's origin there; every other host gets none.
 - **Source maps.** Builds upload theirs to EAS for EAS Observe (`uploadSourceMaps: true` in the
   preview and production profiles of `eas.json`), so its stack traces are symbolicated. The
   workflows' update jobs set `upload_sentry_sourcemaps: false`: left unset, EAS tries a Sentry

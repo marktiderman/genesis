@@ -107,6 +107,63 @@ describe("sentrySink", () => {
     expect(sink.scrubsErrors).toBe(true);
   });
 
+  it("sends trace headers to no host by default, and only to the hosts the app names", () => {
+    const none = fakeSentry();
+    sentrySink(none.sentry, { dsn: "https://k@o1.ingest.sentry.io/2" });
+    expect(none.options().tracePropagationTargets).toEqual([]);
+    const own = fakeSentry();
+    sentrySink(own.sentry, { dsn: "https://k@o1.ingest.sentry.io/2", tracePropagationTargets: ["https://abc.supabase.co", /^https:\/\/api\.example\.com/] });
+    expect(own.options().tracePropagationTargets).toEqual(["https://abc.supabase.co", /^https:\/\/api\.example\.com/]);
+    // The option wins over `init`; `init` alone still works.
+    const both = fakeSentry();
+    sentrySink(both.sentry, { dsn: "https://k@o1.ingest.sentry.io/2", tracePropagationTargets: ["a.co"], init: { tracePropagationTargets: ["b.co"] } });
+    expect(both.options().tracePropagationTargets).toEqual(["a.co"]);
+    const initOnly = fakeSentry();
+    sentrySink(initOnly.sentry, { dsn: "https://k@o1.ingest.sentry.io/2", init: { tracePropagationTargets: ["b.co"] } });
+    expect(initOnly.options().tracePropagationTargets).toEqual(["b.co"]);
+  });
+
+  it("marks an unhandled rejection unhandled, at error level, and adds scrubbed tags", () => {
+    const { sentry } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: "https://k@o1.ingest.sentry.io/2" });
+    const error = new Error("x");
+    sink.captureError?.(error, { fatal: false, handled: false, source: "rejection" });
+    expect((sentry.captureException.mock.calls[0] as unknown[])[1]).toMatchObject({ mechanism: { handled: false }, captureContext: { level: "error" } });
+    sink.captureError?.(error, { fatal: false, source: "query", tags: { "query.key": "tasks", odd: "a@b.co" } });
+    expect((sentry.captureException.mock.calls[1] as unknown[])[1]).toMatchObject({
+      mechanism: { handled: true, type: "genesis.query" },
+      captureContext: { tags: { "query.key": "tasks", odd: "[email]", "genesis.source": "query" } },
+    });
+  });
+
+  it("flushes, gives the last event id and the replay id, and wraps a route's ErrorBoundary", async () => {
+    const { sentry } = fakeSentry();
+    const Boundary = () => null;
+    const wrapped = () => null;
+    const extended = Object.assign(sentry, {
+      flush: vi.fn(async () => true),
+      getReplay: () => ({ getReplayId: () => "replay-1" }),
+      wrapExpoRouterErrorBoundary: vi.fn(() => wrapped),
+    });
+    const sink = sentrySink(extended, { dsn: "https://k@o1.ingest.sentry.io/2" });
+    expect(await sink.flush?.(1500)).toBe(true);
+    // React Native's flush takes no timeout: the block's deadline bounds it.
+    expect(extended.flush).toHaveBeenCalledWith();
+    expect(sink.lastEventId?.()).toBeUndefined();
+    sink.captureError?.(new Error("x"), { fatal: false, source: "app" });
+    expect(sink.lastEventId?.()).toBe("event-id");
+    expect(sink.replayId?.()).toBe("replay-1");
+    expect(sink.wrapRouteErrorBoundary?.(Boundary)).toBe(wrapped);
+  });
+
+  it("has no flush or route wrapper when this Sentry doesn't", () => {
+    const { sentry } = fakeSentry();
+    const sink = sentrySink(sentry, { dsn: "https://k@o1.ingest.sentry.io/2" });
+    expect(sink.flush).toBeUndefined();
+    expect(sink.wrapRouteErrorBoundary).toBeUndefined();
+    expect(sink.replayId?.()).toBeUndefined();
+  });
+
   it("sets the user as an id only, and leaves navigation breadcrumbs to the router integration", () => {
     const { sentry } = fakeSentry();
     const sink = sentrySink(sentry, { dsn: "https://k@o1.ingest.sentry.io/2" });

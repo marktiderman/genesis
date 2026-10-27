@@ -14,6 +14,7 @@
  */
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { reportError } from "@marktiderman/genesis-core/errors";
 import type { Channel, ChannelChoices, MatrixRow, NotificationRegistry, NotificationRow } from "../core/index";
 import { notificationsClient, type FeedFilter, type NotificationsClient, type NotificationsSupabaseLike } from "../supabase/index";
 
@@ -61,7 +62,7 @@ export function NotificationsProvider({ client, registry, userId, realtime = tru
         void queryClient.invalidateQueries({ queryKey: notificationKeys.all(userId) });
       });
     } catch (error) {
-      console.warn(`[genesis-notifications] couldn't listen for feed changes: ${error instanceof Error ? error.message : "unknown error"}`);
+      reportError(error, "notifications:realtime-subscribe");
       return undefined;
     }
   }, [resolved, userId, realtime, queryClient]);

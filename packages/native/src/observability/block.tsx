@@ -11,13 +11,27 @@
  * and a `route.time_on_screen` timing for the route left. Route patterns
  * (`/(app)/clients/[id]`) are used, never the values in them.
  *
+ * Creating it also:
+ * - registers it as genesis-core's error reporter (`setErrorReporter`), so a
+ *   package's `reportError(e, "chat:…")` reaches the sinks as a non-fatal error;
+ * - registers a before-reload hook (`onBeforeReload`) that flushes the sinks
+ *   before an update reloads the app.
+ *
+ * `observability.screenBoundary()` is an Expo Router `ErrorBoundary` for a
+ * route (reported non-fatal, wrapped by Sentry's route wrapper), and
+ * `lastEventId()` / `replayId()` let a support or feedback screen point at
+ * the event.
+ *
  * Everything a sink receives has been scrubbed (see `scrub.ts`), and the
  * last breadcrumbs and errors are kept, scrubbed, for the devtools overlay
  * (`recent`).
  */
 import { createContext, useContext, useEffect, useRef, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { defineBlock } from "@marktiderman/genesis-features/blocks";
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { useSession } from "../auth";
+import { onBeforeReload } from "../reload";
+import { createScreenErrorBoundary, type ScreenErrorProps } from "../screen-boundary";
 import type { NativeBlock, NativeBlockRootProps } from "../blocks";
 import type { ErrorReport } from "../errors";
 import { checkEvent, type EventProps, type EventSchema } from "./events";
@@ -60,6 +74,13 @@ export interface ObservabilityOptions<E extends EventSchema = EventSchema> {
   recent?: { breadcrumbs?: number; errors?: number };
   /** A sink threw, or `track` was called with something the schema doesn't allow. Default `console.warn` in development. */
   onProblem?: (problem: string, error?: unknown) => void;
+  /**
+   * Become genesis-core's error reporter, so packages' `reportError` calls
+   * reach the sinks. Default true; the last block created wins.
+   */
+  reportErrors?: boolean;
+  /** Flush the sinks before an update reloads the app, within this many milliseconds. Default 2000; 0 turns it off. */
+  flushBeforeReloadMs?: number;
   now?: () => number;
 }
 
@@ -78,12 +99,27 @@ export interface ObservabilityBlock<E extends EventSchema = EventSchema> extends
   wrap<P extends Record<string, unknown>>(root: ComponentType<P>): ComponentType<P>;
   /** The last breadcrumbs and errors, scrubbed, for the devtools overlay. */
   readonly recent: RecentStore;
+  /** Send what every sink has queued; resolves false when one didn't finish within `timeoutMs` (default 2000). */
+  flush(timeoutMs?: number): Promise<boolean>;
+  /** The id of the last error event a sink sent (Sentry's), for a support request or feedback. */
+  lastEventId(): string | undefined;
+  /** The current session replay's id, when a sink records replays. */
+  replayId(): string | undefined;
+  /**
+   * An Expo Router `ErrorBoundary` for a route: reports the error non-fatal
+   * (source `screen`), shows `fallback` (default `ScreenErrorScreen`) with
+   * "Try again", and is wrapped by each sink's route wrapper (Sentry's
+   * `wrapExpoRouterErrorBoundary`). Build it once, at module scope.
+   */
+  screenBoundary(fallback?: ComponentType<ScreenErrorProps>): ComponentType<ScreenErrorProps>;
   /** For the shell: every error it catches. */
   readonly onError: (error: Error, report: ErrorReport) => void;
   readonly Root: ComponentType<NativeBlockRootProps>;
 }
 
 declare const __DEV__: boolean | undefined;
+
+let releaseReloadHook: (() => void) | undefined;
 
 const TIMING_NAME = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/;
 
@@ -124,6 +160,7 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
   const problem =
     options.onProblem ??
     ((message: string, error?: unknown) => {
+      // genesis-allow-console: the block's own development warning; it can't report to itself.
       if (typeof __DEV__ !== "undefined" && __DEV__) console.warn(`[observability] ${message}`, error ?? "");
     });
   const recent = createRecentStore(options.recent?.breadcrumbs ?? 50, options.recent?.errors ?? 20);
@@ -158,9 +195,16 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
     each("breadcrumb", (s) => s.breadcrumb?.(crumb));
   };
 
-  const captureError = (value: unknown, context: Partial<ErrorContext> = {}) => {
+  const captureError = (value: unknown, context: Partial<ErrorContext> = {}, skip?: ReadonlySet<ObservabilitySink>) => {
     const error = toError(value);
-    const full: ErrorContext = { fatal: context.fatal ?? false, source: context.source ?? "app", route: context.route ?? route, componentStack: context.componentStack };
+    const full: ErrorContext = {
+      fatal: context.fatal ?? false,
+      source: context.source ?? "app",
+      route: context.route ?? route,
+      componentStack: context.componentStack,
+      ...(context.handled !== undefined ? { handled: context.handled } : {}),
+      ...(context.tags ? { tags: context.tags } : {}),
+    };
     let safe: Error | undefined;
     const scrubbed = () => (safe ??= scrubbedError(error));
     try {
@@ -168,8 +212,54 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
     } catch {
       // never let the overlay's list stop a report
     }
-    const forSinks = full.componentStack ? { ...full, componentStack: scrubString(full.componentStack) } : full;
-    each("captureError", (s) => s.captureError?.(s.scrubsErrors ? error : scrubbed(), s.scrubsErrors ? full : forSinks));
+    let forSinks: ErrorContext = full;
+    try {
+      forSinks = {
+        ...full,
+        ...(full.componentStack ? { componentStack: scrubString(full.componentStack) } : {}),
+        ...(full.tags ? { tags: scrubValue(full.tags) as Record<string, string> } : {}),
+      };
+    } catch {
+      // Tags that can't be scrubbed are dropped, never sent raw.
+      forSinks = { ...full, componentStack: undefined, tags: undefined };
+    }
+    each("captureError", (s) => {
+      if (skip?.has(s)) return;
+      s.captureError?.(s.scrubsErrors ? error : scrubbed(), s.scrubsErrors ? full : forSinks);
+    });
+  };
+
+  const flush = async (timeoutMs = 2000): Promise<boolean> => {
+    const results = sinks.map(async (sink) => {
+      if (!sink.flush) return true;
+      try {
+        return (await sink.flush(timeoutMs)) !== false;
+      } catch (error) {
+        problem(`${sink.name}.flush threw`, error);
+        return false;
+      }
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => resolve(false), timeoutMs);
+    });
+    try {
+      return await Promise.race([Promise.all(results).then((all) => all.every(Boolean)), deadline]);
+    } finally {
+      if (timer !== undefined) clearTimeout(timer);
+    }
+  };
+
+  const firstOf = (read: (sink: ObservabilitySink) => string | undefined): string | undefined => {
+    for (const sink of sinks) {
+      try {
+        const value = read(sink);
+        if (value) return value;
+      } catch (error) {
+        problem(`${sink.name} threw reading an id`, error);
+      }
+    }
+    return undefined;
   };
 
   const setUser = (id: string | null) => {
@@ -263,7 +353,35 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
     wrap(root) {
       return sinks.reduce((wrapped, sink) => (sink.wrap ? sink.wrap(wrapped) : wrapped), root);
     },
-    onError: (error, report) => captureError(error, { fatal: report.fatal, source: report.source, componentStack: report.componentStack }),
+    onError: (error, report) =>
+      captureError(error, {
+        fatal: report.fatal,
+        source: report.source,
+        componentStack: report.componentStack,
+        ...(report.handled !== undefined ? { handled: report.handled } : {}),
+        ...(report.tags ? { tags: report.tags } : {}),
+      }),
+    flush,
+    lastEventId: () => firstOf((s) => s.lastEventId?.()),
+    replayId: () => firstOf((s) => s.replayId?.()),
+    screenBoundary(fallback) {
+      const wrapping = sinks.filter((s) => s.wrapRouteErrorBoundary);
+      // A sink whose wrapper reports the route's error (Sentry's) isn't sent it a second time.
+      const skip = new Set(wrapping);
+      return createScreenErrorBoundary({
+        fallback,
+        onError: (error, report) => captureError(error, { fatal: report.fatal, source: report.source }, skip),
+        wrap: wrapping.map((sink) => (boundary: ComponentType<ScreenErrorProps>) => {
+          try {
+            return sink.wrapRouteErrorBoundary!(boundary);
+          } catch (error) {
+            problem(`${sink.name}.wrapRouteErrorBoundary threw`, error);
+            skip.delete(sink);
+            return boundary;
+          }
+        }),
+      });
+    },
     Root: function ObservabilityRoot({ children }: NativeBlockRootProps) {
       return (
         <ObservabilityContext.Provider value={block as ObservabilityBlock}>
@@ -274,6 +392,15 @@ export function createObservability<const E extends EventSchema = EventSchema>(o
       );
     },
   };
+  if (options.reportErrors !== false) {
+    setErrorReporter((value, context) =>
+      captureError(value, { fatal: context.fatal ?? false, source: context.source, ...(context.tags ? { tags: context.tags } : {}) }),
+    );
+  }
+  const flushMs = options.flushBeforeReloadMs ?? 2000;
+  // The newest block replaces the last one's hook (Fast Refresh builds the block again).
+  releaseReloadHook?.();
+  releaseReloadHook = flushMs > 0 && sinks.some((s) => s.flush) ? onBeforeReload(() => flush(flushMs)) : undefined;
   return block;
 }
 

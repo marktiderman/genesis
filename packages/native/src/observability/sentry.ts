@@ -19,7 +19,14 @@
  *   `beforeBreadcrumb`, `beforeSendLog`), and the user as an id only;
  * - no default PII, screenshots, view hierarchy or accessibility labels, and
  *   touch breadcrumbs without the touched element's label (labels hold names);
- * - fatal errors marked unhandled, so release health counts them as crashes.
+ * - fatal errors and unhandled promise rejections marked unhandled, so
+ *   release health counts them;
+ * - trace headers (`sentry-trace`, `baggage`) sent only to the hosts in
+ *   `tracePropagationTargets` (none by default), never to every request;
+ * - `flush` before an update reloads the app (the observability block
+ *   registers it), the last event id and the replay id for a support
+ *   request, and `wrapExpoRouterErrorBoundary` around the block's screen
+ *   boundary.
  *
  * Native crashes (sentry-cocoa, sentry-android) are built on the device's
  * native side and don't pass through these JavaScript hooks.
@@ -32,7 +39,7 @@
 import type { ComponentType } from "react";
 import type { VersionSignature } from "../updates/signature";
 import { scrubEvent, scrubRecord, scrubString } from "./scrub";
-import type { ObservabilitySink } from "./sink";
+import type { ObservabilitySink, RouteErrorBoundaryProps } from "./sink";
 
 type Options = Record<string, unknown>;
 type Hook<T> = (value: T, hint?: unknown) => T | null | PromiseLike<T | null>;
@@ -50,6 +57,13 @@ export interface SentryLike {
   setUser(user: { id: string } | null): void;
   setTag(key: string, value: string): void;
   expoRouterIntegration?(options?: { enableTimeToInitialDisplay?: boolean }): unknown;
+  /** Sentry 8.17+ (`wrapExpoRouterErrorBoundary`): reports a route's error from its `ErrorBoundary`. */
+  wrapExpoRouterErrorBoundary?(boundary: ComponentType<RouteErrorBoundaryProps>): ComponentType<RouteErrorBoundaryProps>;
+  /** Sends what is queued. Takes no timeout on React Native: the observability block holds the deadline. */
+  flush?(): PromiseLike<boolean>;
+  lastEventId?(): string | undefined;
+  /** The active session replay integration, when replay is on (`getReplay()?.getReplayId()`). */
+  getReplay?(): { getReplayId(): string | null | undefined } | undefined;
   metrics?: {
     distribution(name: string, value: number, options?: Options): void;
     count(name: string, value?: number, options?: Options): void;
@@ -69,6 +83,15 @@ export interface SentrySinkOptions {
   tracesSampleRate?: number;
   /** Navigation spans and time to initial display through Expo Router. Default true. */
   expoRouter?: boolean | { enableTimeToInitialDisplay?: boolean };
+  /**
+   * The URLs that get Sentry's trace headers (`sentry-trace`, `baggage`),
+   * as strings (matched anywhere in the URL) or regular expressions: your
+   * own API and Supabase project (`["https://abc.supabase.co"]`). Default
+   * none: no request carries them, so third-party hosts never see your
+   * trace ids and their CORS never trips on the extra headers. Wins over
+   * `init.tracePropagationTargets`.
+   */
+  tracePropagationTargets?: readonly (string | RegExp)[];
   /** More integrations (replay, profiling). Masking is yours to set on them. */
   integrations?: readonly unknown[];
   /**
@@ -140,6 +163,7 @@ function chain<T>(ours: (value: T) => T | null, theirs: unknown): Hook<T> {
 export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): ObservabilitySink {
   const { dsn, signature, applicationId, scrub = true } = options;
   if (!dsn) {
+    // genesis-allow-console: a build set-up warning, before any reporter exists.
     if (!isDev()) (options.onMissingDsn ?? (() => console.warn("[observability] EXPO_PUBLIC_SENTRY_DSN is not set: errors are not reported to Sentry.")))();
     return { name: "sentry (no DSN)" };
   }
@@ -168,6 +192,8 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
       reportAccessibilityIdentifier: false,
       tracesSampleRate: options.tracesSampleRate ?? (environment === "production" ? 0.2 : 1),
       ...extra,
+      // Only the app's own hosts: Sentry's mobile default would add the headers to every request.
+      tracePropagationTargets: [...(options.tracePropagationTargets ?? (Array.isArray(extra.tracePropagationTargets) ? extra.tracePropagationTargets : []))],
       dsn,
       environment,
       ...sentryRelease(signature, applicationId),
@@ -185,17 +211,22 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
     for (const [key, value] of Object.entries(signatureTags(signature))) sentry.setTag(key, value);
   }
 
+  let lastEventId: string | undefined;
   return {
     name: "sentry",
     // Sentry deduplicates by error object, and `beforeSend` scrubs: it always gets the original.
     scrubsErrors: true,
     captureError(error, context) {
-      sentry.captureException(error, {
-        // Unhandled when the app could not go on, so release health counts it as a crash.
-        mechanism: { handled: !context.fatal, type: `genesis.${context.source}` },
+      lastEventId = sentry.captureException(error, {
+        // Unhandled when the app could not go on, or nothing caught it, so release health counts it.
+        mechanism: { handled: context.handled ?? !context.fatal, type: `genesis.${context.source}` },
         captureContext: {
           level: context.fatal ? "fatal" : "error",
-          tags: { "genesis.source": context.source, ...(context.route ? { route: context.route } : {}) },
+          tags: {
+            ...(context.tags ? (scrub ? scrubRecord(context.tags) ?? {} : context.tags) : {}),
+            "genesis.source": context.source,
+            ...(context.route ? { route: context.route } : {}),
+          },
           ...(context.componentStack ? { contexts: { react: { componentStack: scrub ? scrubString(context.componentStack) : context.componentStack } } } : {}),
         },
       });
@@ -218,5 +249,9 @@ export function sentrySink(sentry: SentryLike, options: SentrySinkOptions): Obse
     },
     timing: (name, ms, tags) => sentry.metrics?.distribution(name, ms, { unit: "millisecond", attributes: tags }),
     wrap: (root) => sentry.wrap(root),
+    wrapRouteErrorBoundary: sentry.wrapExpoRouterErrorBoundary ? (boundary) => sentry.wrapExpoRouterErrorBoundary!(boundary) : undefined,
+    flush: sentry.flush ? () => sentry.flush!() : undefined,
+    lastEventId: () => sentry.lastEventId?.() ?? lastEventId,
+    replayId: () => sentry.getReplay?.()?.getReplayId() ?? undefined,
   };
 }

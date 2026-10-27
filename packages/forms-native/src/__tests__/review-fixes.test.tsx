@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { createForm, defineForm, f } from "@marktiderman/genesis-forms";
 import { KeyboardScrollProvider, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
 import { announcements } from "../../test-utils/rn-mock";
@@ -57,7 +58,8 @@ describe("queueing", () => {
       getSnapshot: () => snapshot,
       subscribe: () => () => {},
     };
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
     render(
       <FormFocus
         form={abc}
@@ -77,7 +79,9 @@ describe("queueing", () => {
     expect(queued).toHaveLength(1);
     expect(queued[0]!.idempotencyKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     expect(queryTestId("form-ending")).not.toBeNull();
-    warn.mockRestore();
+    // The host's bug is reported through genesis-core's seam (the app's crash reporter).
+    expect(reporter).toHaveBeenCalledWith(expect.objectContaining({ message: "host bug" }), { source: "forms-native:on-queued" });
+    restore();
     vi.stubGlobal("crypto", crypto);
   });
 

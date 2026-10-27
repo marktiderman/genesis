@@ -209,6 +209,46 @@ is already in use." with no field. Anything else (check constraints) is left
 unmapped. Your own provider or `prepare` rule can
 throw `new DataWriteError("invalid", "…", { fields: { slug: "Pick another slug." } })`.
 
+## Errors: what kind, and reporting one (`/errors`)
+
+`classifyError(error)` sorts anything thrown into a kind a screen can act on, with a sentence
+that is safe to show and whether it is worth a crash report:
+
+```ts
+import { classifyError, reportError } from "@marktiderman/genesis-core/errors";
+
+try {
+  await save();
+} catch (e) {
+  const { message, report } = classifyError(e);
+  toast.error(message); // "You're offline. Check your connection and try again."
+  if (report) reportError(e, "settings:save");
+}
+```
+
+| Kind | From | Report |
+| --- | --- | --- |
+| `offline` | each runtime's "network request failed", Supabase's fetch errors, `isOffline()` | no |
+| `unauthenticated` | outcome `unauthenticated`, `PGRST301`–`303`, `28000`, HTTP 401, a missing auth session | no |
+| `forbidden` | outcome `forbidden`, `42501`, HTTP 403 | no |
+| `not-found` | outcome `gone`, `PGRST116`, HTTP 404 / 410 | no |
+| `conflict` | outcomes `conflict` and `duplicate`, `23505`, HTTP 409 / 412 | no |
+| `invalid` | a rejected value (outcome `invalid`, `22***`, `23***`) | no |
+| `invalid` | a wrong request (a read's `invalid`, `PGRST1**`, `42703`, `42P01`, HTTP 400 / 422) | yes |
+| `unexpected` | anything else | yes |
+
+`message` comes from `errorMessages` (English), never the error's own text; pass
+`{ messages: { offline: "…" } }` to reword or translate.
+
+`reportError(error, context)` is the one way a Genesis package reports an error it caught and
+handled (a card's action that threw, a draft that couldn't be saved). `context` is a source,
+`package:part`, or `{ source, fatal?, tags? }` with low-cardinality tags only. The host decides
+where it goes with `setErrorReporter(reporter)` (it returns the undo); the native observability
+block registers itself, so these reach Sentry, scrubbed. With no reporter, it is written with
+`console.warn` in development and dropped in production. It never throws. Package code doesn't
+call `console.error` / `console.warn` or leave a `catch {}` empty: `pnpm check:error-reporting`
+fails CI on either (a deliberate console call carries `// genesis-allow-console: <reason>`).
+
 ## Mutation modes
 
 `useResource` (its `create`, `update`, `remove`) and `useResourceForm` take

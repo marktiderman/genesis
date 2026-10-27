@@ -12,6 +12,7 @@
  */
 import { createStore, type Store } from "./store";
 import { manifestField, toError, type UpdatesModuleLike, type UpdatesOnError } from "./modules";
+import { runBeforeReload } from "../reload";
 
 export interface ReloadGuard {
   /** Hold reloads off until the returned function is called. */
@@ -173,6 +174,8 @@ export function createUpdateChecker(options: UpdateCheckerOptions): UpdateChecke
       }
       store.setState({ status: "reloading", blocked: false });
       try {
+        // Queued crash reports and events would be lost with the runtime: flush them first.
+        await runBeforeReload();
         await updates.reloadAsync(reloadScreenOptions ? { reloadScreenOptions } : undefined);
         return true;
       } catch (raw) {
