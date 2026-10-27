@@ -227,13 +227,16 @@ function resolveFields(
 }
 
 /** Build a zod schema from resolved fields */
-function buildSchema(fields: ResourceFormFieldDef[]) {
+function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" = "create") {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const field of fields) {
     const fieldType = field.type ?? "text";
 
     if (field.hidden || fieldType === "hidden") continue;
+    // An edit never sends a field read-only on edit, so it isn't checked either: a row loaded
+    // without it would otherwise fail "required" on a field the person can't fill.
+    if (action === "edit" && field.readOnlyOnEdit) continue;
 
     // File/image fields store File objects — z.any() is intentional here because
     // the File API shape varies by platform (browser File, React Native asset, etc.)
@@ -379,6 +382,8 @@ function buildDefaults(
   if (typeof window !== "undefined" && typeof window.location !== "undefined" && typeof window.location.search === "string" && action === "create" && prefillFromUrl !== false) {
     const params = new URLSearchParams(window.location.search);
     for (const field of fields) {
+      // A hidden field is the screen's (its filter or defaults), never the URL's.
+      if (field.hidden || field.type === "hidden") continue;
       const val = params.get(field.key);
       if (val != null) {
         defaults[field.key] = field.type === "number" ? Number(val) : val;
@@ -454,8 +459,8 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Build schema
   const schema = useMemo(
-    () => buildSchema(resolvedFields),
-    [resolvedFields],
+    () => buildSchema(resolvedFields, action),
+    [resolvedFields, action],
   );
 
   // Build defaults (with optional draft restoration)
@@ -504,6 +509,22 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     reValidateMode: "onChange",
     shouldUnregister: true,
   });
+
+  // A create form that stays mounted follows its defaults: the screen's hidden values (a new
+  // filter or defaults) always, the rest only while the person hasn't typed anything.
+  const firstDefaults = useRef(defaultValues);
+  useEffect(() => {
+    // By value: a screen may hand a new but equal object every render.
+    if (action !== "create" || sameValue(firstDefaults.current, defaultValues)) return;
+    firstDefaults.current = defaultValues;
+    if (!form.formState.isDirty) {
+      form.reset(defaultValues);
+      return;
+    }
+    for (const field of resolvedFields) {
+      if (field.hidden || field.type === "hidden") form.setValue(field.key, defaultValues[field.key]);
+    }
+  }, [action, defaultValues, form, resolvedFields]);
 
   // Autosave effect — persist form values to storage for create mode
   useEffect(() => {
@@ -649,7 +670,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       // An edit with nothing left to write (only read-only fields) has nothing to send.
       if (action === "edit" && Object.keys(formData).length === 0) {
         markSaved();
-        onSuccess?.({ ...(effectiveData ?? {}) });
+        onSuccess?.({ ...(effectiveData ?? {}), ...(id != null && id !== "" ? { id } : {}) });
         return;
       }
       try {

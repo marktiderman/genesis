@@ -470,9 +470,35 @@ describe("ResourceView review fixes", () => {
     expect(fields.find((f) => f.key === "name")).toMatchObject({ defaultValue: "Untitled" });
     expect(fields.filter((f) => f.hidden)).toEqual([{ key: "practice_id", type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: "p1" }]);
     expect(result.current.resourceOptions?.defaultFilters).toEqual([{ field: "practice_id", operator: "eq", value: "p1" }]);
-    const alone = renderHook(() => useResourceViewProps({ view, defaults: { practice_id: "p2" } }), { wrapper: wrap(provider()) });
-    expect(alone.result.current.resourceOptions?.defaultFilters).toBeUndefined();
-    expect(getList).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ filters: expect.arrayContaining([expect.objectContaining({ value: "p2" })]) }));
+    expect(getList).not.toHaveBeenCalled();
+    // Defaults alone never reach the list request.
+    const listed = provider();
+    const listSpy = vi.spyOn(listed, "getList");
+    render(<ResourceView view={view} defaults={{ practice_id: "p2" }} mode="table" detail="none" />, { wrapper: wrap(listed) });
+    await waitFor(() => expect(listSpy).toHaveBeenCalled());
+    for (const [, params] of listSpy.mock.calls) {
+      expect(JSON.stringify(params.filters ?? [])).not.toContain("p2");
+    }
+  });
+
+  it("reads a timestamp on the ViewerScope's clock when the column has none", async () => {
+    localStorage.clear();
+    const dated = defineView(brands, { fields: { updated_at: { display: "date" } }, columns: { default: ["name", "updated_at"] } });
+    const p = provider();
+    p.getList = vi.fn(async () => ({ data: [{ ...ROWS[0]!, updated_at: "2026-01-03T03:00:00Z" }], total: 1 })) as DataProvider["getList"];
+    const Base = wrap(p);
+    render(<ResourceView view={dated} mode="table" detail="none" />, {
+      wrapper: ({ children }) => (
+        <Base>
+          <ViewerScope viewer="u1" timeZone="Asia/Tokyo">
+            {children}
+          </ViewerScope>
+        </Base>
+      ),
+    });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    // Noon on Jan 3 in Tokyo, though the browser here is in Los Angeles (still Jan 2).
+    expect(within(row).getByText(/Jan 3, 2026/)).toBeTruthy();
   });
 
   it("keeps a URL sort on a field column in cursor mode", async () => {
