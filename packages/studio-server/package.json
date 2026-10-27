@@ -54,7 +54,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
     "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",

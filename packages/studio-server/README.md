@@ -373,7 +373,7 @@ await pool.begin(async (tx) => {
 - **CommonJS:** `require("@marktiderman/genesis-studio-server/auth")` loads `dist/auth.cjs`, with its
   own `.d.cts` types (and `typesVersions` for TypeScript's older `node` resolution). Its one
   dependency, `jose`, is ESM-only and is loaded with Node's `require(esm)`, so the CommonJS entry
-  needs Node 20.19+ or 22.12+. Everything in `./auth` is stateless apart from the
+  needs Node 20.19+ or 22.12+, which the package's `engines` declares. Everything in `./auth` is stateless apart from the
   `IdentitySwitchError` class: in ESM, `.` and `./auth` share one copy of it, but a CommonJS
   `require` gets its own, so across formats test `error.name === "IdentitySwitchError"` rather than
   `instanceof`.
