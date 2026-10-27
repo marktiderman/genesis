@@ -347,6 +347,8 @@ describe("ViewerScope", () => {
     vi.stubEnv("NODE_ENV", "production");
     try {
       expect(scopeClock("Not/AZone", "America/Los_Angeles")).toBe("America/Los_Angeles");
+      // Once per zone, however often it is asked (every render of a ViewerScope).
+      expect(scopeClock("Not/AZone", "America/Los_Angeles")).toBe("America/Los_Angeles");
       expect(reporter).toHaveBeenCalledTimes(1);
       expect(String(reporter.mock.calls[0]![0])).toContain('"Not/AZone"');
       expect(reporter.mock.calls[0]![1]).toMatchObject({ source: "core:viewer-scope" });

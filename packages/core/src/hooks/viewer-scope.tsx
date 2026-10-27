@@ -173,7 +173,7 @@ export interface ViewerScopeProps {
 /**
  * The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it
  * doesn't know is never a quiet fallback: it throws in development, and in production it is
- * reported (`reportError`) before the viewer's clock is used, so a misspelt zone can't show
+ * reported (`reportError`, once per zone) before the viewer's clock is used, so a misspelt zone can't show
  * times on the wrong clock unnoticed.
  */
 export function scopeClock(scopeTimeZone: string | null | undefined, viewerZone: string): string {
@@ -181,9 +181,16 @@ export function scopeClock(scopeTimeZone: string | null | undefined, viewerZone:
   if (isTimeZone(scopeTimeZone)) return scopeTimeZone;
   const error = new RangeError(`[genesis-core] scopeTimeZone "${scopeTimeZone}" isn't a time zone this runtime knows (an IANA name such as "Europe/Berlin")`);
   if (process.env.NODE_ENV !== "production") throw error;
-  reportError(error, "core:viewer-scope");
+  // Once per zone: a bad zone in a long-lived screen must not flood the error reporter.
+  if (!reportedScopeZones.has(scopeTimeZone)) {
+    reportedScopeZones.add(scopeTimeZone);
+    reportError(error, "core:viewer-scope");
+  }
   return viewerZone;
 }
+
+/** The unknown scope zones already reported, so each is reported once per page load. */
+const reportedScopeZones = new Set<string>();
 
 /**
  * Keeps one viewer's cached data from ever showing to the next. Children
@@ -202,7 +209,8 @@ export function scopeClock(scopeTimeZone: string | null | undefined, viewerZone:
 export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const zone = personTimeZone({ timeZone });
-  const scopeZone = scopeClock(scopeTimeZone, zone);
+  // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
+  const scopeZone = useMemo(() => scopeClock(scopeTimeZone, zone), [scopeTimeZone, zone]);
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
