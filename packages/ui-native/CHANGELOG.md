@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ui-native
 
+## 2.8.0
+
+### Minor Changes
+
+- 41bc738: NativeResourceView sorts within each `groupBy` section by the view's `orderBy` (`defaultSorts: [groupBy, orderBy]`). A provider without `multiSort` still applies only the group sort, so sections stay whole. New `serverSorts(view)`; `serverSort(view)` returns its first entry.
+
 ## 2.7.1
 
 ### Patch Changes
