@@ -1,0 +1,36 @@
+packages/ui-native/src/data/resource-view/display.tsx
+  s_9bf81edc5cc904::t_dffaa2492bac89 183
+packages/ui/src/components/data/__tests__/resource-view-relation-labels.test.tsx
+  s_9bf81edc5cc904::t_57c132f9a85050 182-183
+packages/core/src/hooks/use-relation-label.ts
+  s_9bf81edc5cc904::t_dffaa2492bac89 25-27,128-131,163-164,166,184
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_9bf81edc5cc904::t_8ffcbcde1ec945 54
+  s_9bf81edc5cc904::t_57c132f9a85050 594,596-610
+  s_9bf81edc5cc904::t_5f41d2a1231dc8 595
+packages/ui-native/src/data/resource-view/messages.ts
+  s_9bf81edc5cc904::t_dffaa2492bac89 9-13
+docs/RESOURCE-VIEW.md
+  s_9bf81edc5cc904::t_dffaa2492bac89 151-154
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_9bf81edc5cc904::t_dffaa2492bac89 213
+  s_9bf81edc5cc904::t_57c132f9a85050 23
+.changeset/view-relation-labels-review.md
+  s_9bf81edc5cc904::t_4f0a28b802944b 1-7
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "984dd3d3feb093b032921edf28b56563e87239fb",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
