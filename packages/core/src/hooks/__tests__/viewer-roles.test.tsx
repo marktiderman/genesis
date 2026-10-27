@@ -11,6 +11,7 @@ import type { DataProvider } from "../../provider/types";
 import { defineView } from "../../resource-view";
 import type { ResourceContract } from "../../schema/types";
 import type { GenesisViewerRoles } from "../../viewer";
+import { setErrorReporter } from "../../errors";
 import { executeWrite, pendingWriteCount } from "../mutation-mode";
 import { NO_VIEWER, ViewerScope, useViewer, type Viewer } from "../viewer-scope";
 
@@ -128,10 +129,11 @@ describe("ViewerScope roles", () => {
     spy.mockRestore();
   });
 
-  it("in production, roles that aren't plain JSON warn once and count as unknown: the guard refuses", async () => {
+  it("in production, roles that aren't plain JSON are reported once and count as unknown: the guard refuses", async () => {
     reset();
     vi.stubEnv("NODE_ENV", "production");
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.fn();
+    const restore = setErrorReporter(warn);
     try {
       const { wrap } = setup();
       const at = (teamRoles: Set<string>) => wrap(<ViewerScope viewer="ann" roles={{ teamRoles } as never}><Probe /></ViewerScope>);
@@ -142,8 +144,9 @@ describe("ViewerScope roles", () => {
       await screen.findByText("ann|Only editors add notes.|loaded");
       expect(warn).toHaveBeenCalledTimes(1);
       expect(String(warn.mock.calls[0]![0])).toMatch(/plain JSON/);
+      expect(warn.mock.calls[0]![1]).toEqual({ source: "core:viewer-scope" });
     } finally {
-      warn.mockRestore();
+      restore();
       vi.unstubAllEnvs();
     }
   });

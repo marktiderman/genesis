@@ -1,6 +1,7 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { dayIn, personTimeZone, type Day } from "../dates";
+import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
@@ -33,7 +34,7 @@ function rolesKeyOf(roles: GenesisViewerRoles): string | undefined {
   if (!notPlain) return key;
   if (!warnedNotPlain) {
     warnedNotPlain = true;
-    console.warn("[genesis-core] ViewerScope roles must be plain JSON (no Set, Map or class); treating them as unknown, so guards that need them refuse");
+    reportError(new TypeError("ViewerScope roles must be plain JSON (no Set, Map or class); treating them as unknown, so guards that need them refuse"), "core:viewer-scope");
   }
   return undefined;
 }
