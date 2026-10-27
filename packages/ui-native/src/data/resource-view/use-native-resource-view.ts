@@ -124,18 +124,25 @@ export function screenValues(...filters: (Filter | undefined)[]): Record<string,
 /** Pages kept loaded by default (cursor paging). */
 export const DEFAULT_MAX_PAGES = 10;
 
+type ServerSort = { field: string; order: "asc" | "desc" };
+
 /**
- * The server sort: the `groupBy` field first, so every page arrives in section order and a later
- * page never lands in the middle of an earlier section; else the view's `orderBy`. (A second sort
- * key within a group needs `useInfiniteResource` to take several sorts.)
+ * The server sorts: the `groupBy` field first, so every page arrives in section order and a later
+ * page never lands in the middle of an earlier section, then the view's `orderBy` within each
+ * group. A provider without `multiSort` applies only the first.
  */
-export function serverSort<T extends Row>(view: AnyResourceView<T>): { field: string; order: "asc" | "desc" } | undefined {
+export function serverSorts<T extends Row>(view: AnyResourceView<T>): ServerSort[] {
   const groupBy = view.definition.groupBy as string | undefined;
   const orderBy = view.definition.orderBy;
-  // TODO: within a group the view's orderBy is dropped (one sort only). Pass [groupBy, orderBy] once
-  // useInfiniteResource takes several sorts (the coming multi-sort, owned by core).
-  if (groupBy) return { field: groupBy, order: orderBy?.field === groupBy ? (orderBy.direction ?? "asc") : "asc" };
-  return orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc" } : undefined;
+  const order: ServerSort | undefined = orderBy ? { field: orderBy.field as string, order: orderBy.direction ?? "asc" } : undefined;
+  if (!groupBy) return order ? [order] : [];
+  if (order?.field === groupBy) return [order];
+  return [{ field: groupBy, order: "asc" }, ...(order ? [order] : [])];
+}
+
+/** The first of {@link serverSorts}: what a provider that sorts by one field gets. */
+export function serverSort<T extends Row>(view: AnyResourceView<T>): ServerSort | undefined {
+  return serverSorts(view)[0];
 }
 
 export function useNativeResourceView<T extends Row = Row>(
@@ -153,14 +160,14 @@ export function useNativeResourceView<T extends Row = Row>(
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const createKey = JSON.stringify(screenValues(tabFilter, filter));
   const createDefaults = useMemo(() => JSON.parse(createKey) as Record<string, string | number | boolean>, [createKey]);
-  const sort = useMemo(() => serverSort(view), [view]);
+  const sorts = useMemo(() => serverSorts(view), [view]);
   const searchFields = useMemo(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
     [searchOption, view.labelField],
   );
   const pages = useInfiniteResource<T & BaseRecord>(view.resource, {
     defaultFilters,
-    ...(sort ? { defaultSort: sort } : {}),
+    ...(sorts.length ? { defaultSorts: sorts } : {}),
     ...(perPage ? { perPage } : {}),
     maxPages,
     ...(searchFields ? { searchFields } : {}),
