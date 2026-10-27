@@ -32,45 +32,47 @@ bar and a practice switcher, it remembers your choice, and Done leaves it.
 
 ## Decision (proposed)
 
-### 1. One navigation config, declared once, for web and native
+### 1. A zone is a module: a top-level navigation item
 
-`defineNavigation({ zones, destinations })` in `genesis-core/navigation`, pure and platform-neutral.
+Mark: "zones should be defined by the module or top level navigation item." There is no separate
+list of zones. Every top-level item in the navigation tree is a zone, and the destinations under it
+are that zone's navigation. Gym, Coaching, Team (EOS) and Admin are top-level items, so they are
+zones. Entering one, whether by tapping it, following a link into it or switching to it, scopes the
+navigation to its children. A module that turns on (`feature`, ADR 0001) brings its zone with it.
+
+`defineNavigation(items)` in `genesis-core/navigation`, pure and platform-neutral, extends today's
+`NavigationNode` tree:
 
 ```ts
-interface Destination {
+interface NavItem {
   id: string;
   label: string;
-  path: string;                       // a route, as resolveNavigation matches it
+  path: string;                        // a route, as resolveNavigation matches it
   icon: { lucide: string; sf?: string; md?: string };
-  zones: ZoneId[];                    // where it appears; one destination can sit in several
-  feature?: FeatureId;                // checked with featureOn (ADR 0001)
-  visible?: (viewer: Viewer) => boolean;   // roles and anything else app-specific
-  order?: number;                     // within a zone; lower first
-  phone?: "tab" | "more" | "hidden";  // where it goes on a phone; default "tab", overflow to More
-}
-
-interface Zone {
-  id: ZoneId;                         // "home", "gym", "coaching", "team", "admin", …
-  label: string;
-  icon: Destination["icon"];
-  feature?: FeatureId;                // the zone exists only where this is on
-  visible?: (viewer: Viewer) => boolean;
-  entry: string;                      // where entering the zone lands
-  scope?: "login" | "tenant";         // "tenant": the zone is per practice, with a picker
+  feature?: FeatureId;                 // checked with featureOn (ADR 0001); off hides the item and everything under it
+  visible?: (viewer: Viewer) => boolean;    // roles and anything else app-specific
+  order?: number;                      // among its siblings; lower first
+  phone?: "tab" | "more" | "hidden";   // where it goes on a phone; default "tab", overflow to More
+  children?: NavItem[];                // on a top-level item: the zone's navigation
+  scope?: "login" | "tenant";          // top level only; "tenant": the zone is per practice, with a picker
 }
 ```
 
-Blocks keep contributing: a block's `BlockNavItem` gains `zones` and `feature` and becomes a
-`Destination`, so a package can add a destination without the app wiring it by hand. The app's
-config still decides the zones and their order.
+- **Top level = zones.** `navigationFor` lists the top-level items a viewer has; these are the
+  zones the switcher offers. The zone's landing page is its `path`.
+- **Children = the zone's tabs.** Inside a zone, the phone tab bar and the sidebar show its
+  children, gated and ordered.
+- **A module declares its own zone.** A package's block contributes a top-level `NavItem` with its
+  children (`BlockNavItem` becomes `NavItem`), so turning a module on adds its zone with no app
+  wiring. The app's config orders the zones and can add destinations to a module's zone.
 
 ### 2. One resolver, gated by one snapshot
 
 `navigationFor(config, gate: GateSnapshot, viewer, pathname)` returns:
 
-- `zones`: the zones this viewer has, in order, after `featureOn` and `visible`;
-- `zone`: the current one, decided by the path (a path belongs to the first zone that lists it);
-- `tabs` and `more`: the current zone's destinations for a phone, after gating and ordering;
+- `zones`: the top-level items this viewer has, in order, after `featureOn` and `visible`;
+- `zone`: the current one, decided by the path (the top-level item the path sits under);
+- `tabs` and `more`: the current zone's children for a phone, after gating and ordering;
 - `items`: the same for a sidebar;
 - the `resolveNavigation` trail, parent and params, as today.
 
@@ -106,14 +108,14 @@ disagree, and the phone tab bar on the web matches the native one.
   which also clears Genesis's reimplementation check.
 - Gamify and other Genesis apps get zones for free, or a single implicit zone if they don't
   declare any.
-- `BlockNavItem` changes shape. It has no consumers, so it can be changed now.
+- `BlockNavItem` becomes `NavItem` with `children`. It has no consumers, so it can be changed now.
 
 ## Open questions
 
 1. Is Home a zone, or above the zones? Growth90's Today rolls up every practice and kind of work for
    the login (`docs/design/user-is-the-root.md`). Proposed: Home stays the roll-up and is always
    there; the others are focused workspaces.
-2. Which zones Growth90 starts with: proposed Home, Gym, Coaching, Team (EOS) and Admin.
+2. Growth90's top-level items, and so its zones: proposed Home, Gym, Coaching, Team (EOS) and Admin.
 3. Is a zone per login or per practice? Proposed: a zone can say `scope: "tenant"` (Admin, Gym for
    staff) and get a practice picker; members' zones are per login.
 4. Should Growth90 ship a gym zone on mobile before this lands, built like admin mode, and move it
