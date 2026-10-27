@@ -1,0 +1,22 @@
+docs/adr/0003-navigation-zones.md
+  s_18dd9cee35b819::t_2d8cf8960756d2 152-154
+  s_18dd9cee35b819::t_53644543c1c26c 86-114,118-136
+  s_18dd9cee35b819::t_d0dfa5c2e8f2f7 75
+  s_18dd9cee35b819::t_2fc79a73f8469a 55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7bf1696adf844285a4f30903112e88e859619dcf",
+  "prompts": {},
+  "sessions": {
+    "s_18dd9cee35b819": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7805c4d7-a33e-43c0-bb63-abb5899a0aae",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
