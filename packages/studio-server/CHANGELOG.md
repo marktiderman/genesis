@@ -1,5 +1,20 @@
 # @marktiderman/genesis-studio-server
 
+## 0.4.0
+
+### Minor Changes
+
+- 0d8925a: Export the identity switch for an app's own API: `switchToUser` runs inside any transaction (postgres.js, or Drizzle's `sql` with `tx.execute`). It sets the role, the JWT claims and an allow-listed `request.headers` (credential headers refused), then checks `current_user`. `jwtVerifier` and `supabaseVerifier` verify a raw token, such as a socket handshake's. The studio handler now uses the same switch, and also clears `request.headers` on every transaction.
+
+### Patch Changes
+
+- 319d36d: Harden `switchToUser`:
+  - It switches only to `authenticated` or `anon` unless `allowRoles` lists others, and it refuses a token whose `role` claim names a different role.
+  - A check in SQL now aborts the transaction when the switch didn't take, when the role bypasses RLS, or when the login is a superuser or BYPASSRLS (`allowPrivilegedLogin` is for local development).
+  - A statement timeout below 1 ms is refused.
+  - More credential-like header names are refused.
+  - `request.method`, `request.path` and `request.cookies` are cleared on every switch.
+
 ## 0.3.1
 
 ### Patch Changes
