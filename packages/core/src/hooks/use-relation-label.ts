@@ -22,8 +22,9 @@ const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const NAMING = /^(name|title|label|full_name|display_name)$/;
 
 type Waiter = { resolve: (label: string | null) => void; reject: (error: unknown) => void };
-// Keyed by the id as text (so 1 and "1" share a request), keeping the id as the cell gave it:
-// a provider that compares strictly (the mock's `in`) must get a number back as a number.
+// Keyed by the id's type and text, so 1 and "1" are both sent as given: a provider that compares
+// strictly (the mock's `in`) must get a number as a number. Rows match by text either way, since
+// a database may hand back 1 for "1".
 type Asked = { id: Identifier; waiters: Waiter[] };
 type Batch = { reference: FieldReference; labelField: string | undefined; ids: Map<string, Asked> };
 
@@ -124,7 +125,10 @@ async function flush(provider: DataProvider, batch: Batch): Promise<void> {
         found.set(key, words(name));
       }
       // An id the viewer can't see, or one that's gone, has no words.
-      for (const k of chunk) ids.get(k)?.waiters.forEach((w) => w.resolve(found.get(k) ?? null));
+      for (const k of chunk) {
+        const asked = ids.get(k);
+        asked?.waiters.forEach((w) => w.resolve(found.get(String(asked.id)) ?? null));
+      }
     } catch (error) {
       fail(chunk, error);
     }
@@ -156,9 +160,10 @@ export function loadRelationLabel(
     }, 0);
   }
   return new Promise((resolve, reject) => {
-    const asked = batch!.ids.get(String(id)) ?? { id, waiters: [] };
+    const idKey = `${typeof id}:${String(id)}`;
+    const asked = batch!.ids.get(idKey) ?? { id, waiters: [] };
     asked.waiters.push({ resolve, reject });
-    batch!.ids.set(String(id), asked);
+    batch!.ids.set(idKey, asked);
   });
 }
 
@@ -176,7 +181,7 @@ export function useRelationLabel(
   const provider = useDataProvider();
   const { labelField, enabled = true } = options;
   const linked: Identifier | null = typeof id === "string" || (typeof id === "number" && Number.isFinite(id)) ? id : null;
-  const key = linked === null ? null : String(linked);
+  const key = linked === null ? null : `${typeof linked}:${String(linked)}`;
   const query = useQuery({
     queryKey: [reference?.resource, "relation-label", { field: reference?.field, labelField: labelField ?? null, id: key }],
     enabled: enabled && Boolean(reference && key),

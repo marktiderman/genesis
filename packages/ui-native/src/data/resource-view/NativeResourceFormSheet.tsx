@@ -20,7 +20,7 @@ import { NativeText } from "../../components/text";
 import { NavBarSaveButton } from "../../layouts/nav-bar";
 import { NativeResourceFormFieldRenderer } from "../NativeResourceFormField";
 import { dateToDay, dayToDate, displayText, isEmptyValue, resolveZone, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
-import { fill } from "./messages";
+import { defaultNativeResourceViewMessages, fill } from "./messages";
 import { shownFields, type NativeFormField } from "./mapping";
 import type { SaveResult } from "./use-native-resource-view";
 
@@ -210,7 +210,7 @@ function FormField({
       : linked
         ? linkLabel === undefined
           ? messages.common.empty
-          : (linkLabel ?? field.missingLabel ?? messages.common.hiddenLink)
+          : (linkLabel ?? field.missingLabel ?? messages.common.hiddenLink ?? defaultNativeResourceViewMessages.common.hiddenLink!)
         : displayText(field.display, value, messages, resolveZone(undefined, zones));
     return (
       <View testID={id} style={{ gap: 4 }} accessibilityLabel={`${field.label}, ${shown}`}>

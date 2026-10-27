@@ -148,8 +148,10 @@ export const brandsView = defineView(contracts["public.brands"], {
   `labelField` (`provider.describe`), else a `name`/`title`-like field. Every cell asks for its
   own id and `useRelationLabel` sends the ids asked for in the same moment as one
   `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource (100 ids a
-  request, or the provider's `maxPerPage` if lower), selecting only the key and the naming field.
-  A link never shows its raw id: a row the viewer can't see, one that's gone, or a failed read
+  request, or the provider's `maxPerPage` if lower), selecting only the key and the naming field when one is known (the view's
+  `labelField` or `describe`'s). With neither, it reads whole linked rows (still under the
+  viewer's row-level security) and takes a `name`/`title`-like field, so set `labelField` where
+  the linked rows carry more than a screen should load. A link never shows its raw id: a row the viewer can't see, one that's gone, or a failed read
   shows the field's `missingLabel` ("Someone you can't see"), else the catalogue's
   `common.hiddenLink`. Labels are cached for a minute and refresh when the linked resource is
   written. Native's read-only link in the form sheet shows the same words.

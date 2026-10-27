@@ -179,6 +179,8 @@ describe("relation labels", () => {
     const last = await cellsOf("Line 4");
     await waitFor(() => expect(within(last).getByText("Item 5")).toBeTruthy());
     expect(asked.map((ids) => ids.length)).toEqual([2, 2, 1]);
+    // Sent as numbers, as the cells hold them.
+    expect(asked.flat().every((id) => typeof id === "number")).toBe(true);
     for (const call of getList.mock.calls.filter(([r]) => r === "items")) expect(call[1].pagination!.perPage).toBe(2);
   });
 });

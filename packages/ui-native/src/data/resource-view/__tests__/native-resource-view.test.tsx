@@ -51,6 +51,7 @@ import {
   formFieldsFor,
   formatDay,
   NativeResourceView,
+  NativeResourceViewMessagesProvider,
   openableUrl,
   rowItem,
   screenValues,
@@ -588,6 +589,23 @@ describe("links and the screen's filter", () => {
     const asks = (p.getList as ReturnType<typeof vi.fn>).mock.calls.filter(([r]) => r === "forms");
     expect(asks).toHaveLength(1);
     expect(asks[0]![1].filters).toEqual([{ field: "id", operator: "in", value: ["f1"] }]);
+  });
+
+  it("falls back to the English for a hidden link when an older catalogue has no hiddenLink", async () => {
+    const { common, ...rest } = messages;
+    const { hiddenLink: _dropped, ...older } = common;
+    void _dropped;
+    render(
+      <NativeResourceViewMessagesProvider value={{ ...rest, common: older }}>
+        <NativeResourceView view={questionsView} filter={{ form_id: "f1" }} />
+      </NativeResourceViewMessagesProvider>,
+      { wrapper: wrap(questionProvider()) },
+    );
+    const row = await screen.findByTestId("native-resource-view-row-q1");
+    act(() => {
+      row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "edit" }));
+    });
+    await waitFor(() => expect(screen.getByTestId("native-resource-view-form-field-form_id-value").textContent).toBe("Not available"));
   });
 
   it("sends the filter's link on create although it's read-only, and never on edit", async () => {
