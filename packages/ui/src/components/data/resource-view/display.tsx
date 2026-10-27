@@ -3,7 +3,7 @@
 // draw the same view their own way. An app replaces any of them with DisplayRenderersProvider.
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { isSafeUrl, titleCase } from "@marktiderman/genesis-core";
+import { isSafeUrl, titleCase, useViewer } from "@marktiderman/genesis-core";
 import type { DisplayHint, ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
 import { useUiMessages, type UiMessages } from "../../../messages";
 import { Chip } from "../../resource/chip";
@@ -125,17 +125,19 @@ export function DisplayRenderersProvider({
   return <DisplayRenderersContext.Provider value={value}>{children}</DisplayRenderersContext.Provider>;
 }
 
-/** Draw one cell: the empty mark for no value or a cell the row hides (`when`), else its hint's renderer. */
+/** Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. */
 export function useDisplayCell(): (column: ResolvedColumn<Record<string, unknown>>, row: Record<string, unknown>) => ReactNode {
   const renderers = useContext(DisplayRenderersContext);
   const messages = useUiMessages();
+  // `when` reads the viewer too: a new viewer or new roles redraws the cells.
+  const viewer = useViewer();
   return useMemo(
     () => (column, row) => {
-      if (column.when && !column.when(row)) return messages.common.empty;
+      if (column.when && !column.when(row, viewer)) return messages.common.empty;
       const value = column.value(row);
       if (isEmpty(value)) return messages.common.empty;
       return renderers[column.display](value, { row, column, messages });
     },
-    [renderers, messages],
+    [renderers, messages, viewer],
   );
 }

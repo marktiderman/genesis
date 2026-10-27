@@ -8,11 +8,11 @@
 // West of UTC, where `new Date("2026-01-02")` is the 1st.
 (globalThis as unknown as { process: { env: Record<string, string> } }).process.env.TZ = "America/Los_Angeles";
 
-import { render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type ListParams } from "@marktiderman/genesis-core";
+import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import { DateCell } from "../cell-formatters";
 import { DisplayRenderersProvider, ResourceView, useResourceView, useResourceViewProps } from "../resource-view";
@@ -234,6 +234,143 @@ describe("ResourceView", () => {
 
   it("refuses a tab the view doesn't define", () => {
     expect(() => renderHook(() => useResourceViewProps({ view, preset: "nope" }), { wrapper: wrap(provider()) })).toThrow(/no preset "nope"/);
+  });
+});
+
+describe("ResourceView with viewer-aware guards", () => {
+  const isEditor = (v: Viewer) => ((v.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineView(brands, {
+    fields: { secret: { label: "Secret", when: (_r, v) => isEditor(v) } },
+    columns: { default: ["name", "secret"] },
+    form: ["name"],
+    can: {
+      create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+      delete: (r, v) => (r.is_default ? "The default brand stays." : isEditor(v) ? true : "Only editors delete brands."),
+    },
+  });
+
+  function scoped(p: DataProvider) {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    return ({ children, viewer, roles }: { children: ReactNode; viewer?: string; roles?: { teamRoles: string[] } }) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        {viewer ? (
+          <ViewerScope viewer={viewer} roles={roles}>
+            {children}
+          </ViewerScope>
+        ) : (
+          children
+        )}
+      </GenesisProvider>
+    );
+  }
+
+  it("refuses one viewer, allows another, and asks again when the viewer changes", async () => {
+    localStorage.clear();
+    const Scoped = scoped(provider());
+    // renderHook's wrapper takes no props: it reads who is looking from here.
+    let who: { viewer: string; roles: { teamRoles: string[] } } = { viewer: "bob", roles: { teamRoles: ["reader"] } };
+    const { result, rerender } = renderHook(() => useResourceView({ view: guarded }), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <Scoped viewer={who.viewer} roles={who.roles}>
+          {children}
+        </Scoped>
+      ),
+    });
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.can("create")).toBe(false);
+    expect(result.current.can("delete", ROWS[1])).toBe(false);
+    // A new viewer remounts the screen under ViewerScope; the guards are asked again.
+    who = { viewer: "ann", roles: { teamRoles: ["editor"] } };
+    rerender();
+    await waitFor(() => expect(result.current.can("create")).toBe(true));
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.can("delete", ROWS[1])).toBe(true);
+    // The guard still narrows for the editor.
+    expect(result.current.can("delete", ROWS[0])).toBe(false);
+  });
+
+  it("hands `when` the viewer: hidden for one viewer, shown for another", async () => {
+    localStorage.clear();
+    const Scoped = scoped(provider());
+    const { unmount } = render(
+      <Scoped viewer="bob" roles={{ teamRoles: ["reader"] }}>
+        <ResourceView view={guarded} mode="table" detail="none" />
+      </Scoped>,
+    );
+    const row = (await screen.findByText("Contoso")).closest("tr")!;
+    expect(within(row).queryByText("shown")).toBeNull();
+    unmount();
+    render(
+      <Scoped viewer="ann" roles={{ teamRoles: ["editor"] }}>
+        <ResourceView view={guarded} mode="table" detail="none" />
+      </Scoped>,
+    );
+    const other = (await screen.findByText("Contoso")).closest("tr")!;
+    expect(within(other).getByText("shown")).toBeTruthy();
+  });
+
+  // The same viewer, only roles changing: ViewerScope keeps the screen mounted, so the guards and
+  // `when` must be asked again from the viewer in their memos' dependencies.
+  it("asks the guards and `when` again when only the roles change, without remounting", async () => {
+    localStorage.clear();
+    const withUpdate = defineView(brands, {
+      fields: { secret: { label: "Secret", when: (_r, v) => isEditor(v) } },
+      columns: { default: ["name", "secret"] },
+      form: ["name"],
+      can: {
+        create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+        update: (_r, v) => (isEditor(v) ? true : "Only editors edit brands."),
+        delete: (r, v) => (r.is_default ? "The default brand stays." : isEditor(v) ? true : "Only editors delete brands."),
+      },
+    });
+    let mounts = 0;
+    function Mounts() {
+      useState(() => (mounts += 1));
+      return null;
+    }
+    const Scoped = scoped(provider());
+    const at = (roles?: { teamRoles: string[] }) => (
+      <Scoped viewer="ann" roles={roles}>
+        <Mounts />
+        <ResourceView view={withUpdate} mode="table" />
+      </Scoped>
+    );
+    const newButton = () => screen.queryByRole("button", { name: /new|add/i, hidden: true });
+    const secret = () => within(screen.getAllByText("Contoso").map((e) => e.closest("tr")).find(Boolean)!).queryByText("shown");
+    const edit = () => screen.queryByTestId("detail-panel-edit");
+    const del = () => screen.queryByTestId("detail-panel-delete");
+
+    // Roles not known yet: every guard refuses, the cell is hidden.
+    const { rerender } = render(at(undefined));
+    await screen.findByText("Contoso");
+    fireEvent.click(screen.getByText("Contoso").closest("tr")!);
+    expect(newButton()).toBeNull();
+    expect(secret()).toBeNull();
+    expect(edit()).toBeNull();
+    expect(del()).toBeNull();
+
+    // Roles arrive (undefined → editor): the same mounted screen allows, and shows the cell.
+    rerender(at({ teamRoles: ["editor"] }));
+    await waitFor(() => expect(newButton()).toBeTruthy());
+    expect(secret()).toBeTruthy();
+    expect(edit()).toBeTruthy();
+    expect(del()).toBeTruthy();
+
+    // Roles change (editor → reader): refused again and hidden again, still the same mount.
+    rerender(at({ teamRoles: ["reader"] }));
+    await waitFor(() => expect(newButton()).toBeNull());
+    await waitFor(() => expect(secret()).toBeNull());
+    expect(edit()).toBeNull();
+    expect(del()).toBeNull();
+    expect(mounts).toBe(1);
+  });
+
+  it("fails closed without a ViewerScope", async () => {
+    localStorage.clear();
+    const { result } = renderHook(() => useResourceView({ view: guarded }), { wrapper: scoped(provider()) });
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    expect(result.current.can("create")).toBe(false);
+    expect(result.current.can("delete", ROWS[1])).toBe(false);
   });
 });
 

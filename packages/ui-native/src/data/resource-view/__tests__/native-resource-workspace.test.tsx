@@ -9,10 +9,10 @@
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type ListParams } from "@marktiderman/genesis-core";
+import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView, defineWorkspace } from "@marktiderman/genesis-core/resource-view";
 import { getNativeResourceWorkspaceStackOptions, NativeResourceWorkspace, NativeResourceWorkspaceMenu, parseSettingNumber } from "..";
 
@@ -291,5 +291,66 @@ describe("NativeResourceWorkspace review fixes", () => {
     expect(parseSettingNumber("1,5,0")).toBeNull();
     expect(parseSettingNumber("abc")).toBeNull();
     expect(parseSettingNumber("")).toBeNull();
+  });
+});
+
+describe("NativeResourceWorkspace when only the viewer's roles change", () => {
+  const isEditor = (v?: Viewer) => ((v?.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineWorkspace(
+    defineView(brands, {
+      can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change brands.") },
+      actions: [{ name: "publish", label: "Publish", can: (_b, v) => (isEditor(v) ? true : "Only editors publish.") }],
+    }),
+    { sections: [{ id: "settings", label: "Settings", settings: ["name"] }] },
+  );
+
+  // ViewerScope keeps the same viewer's screen mounted when the roles change, so the menu's action
+  // guards and the settings' update guard must be asked again with the new viewer.
+  it("asks the action and settings guards again, without remounting", async () => {
+    const sheet = vi.spyOn(ActionSheetIOS, "showActionSheetWithOptions").mockImplementation(() => {});
+    let mounts = 0;
+    function Mounts() {
+      useState(() => (mounts += 1));
+      return null;
+    }
+    const Base = wrap(provider());
+    const at = (roles?: { teamRoles: string[] }) => (
+      <Base>
+        <ViewerScope viewer="ann" roles={roles as never}>
+          <Mounts />
+          <NativeResourceWorkspaceMenu workspace={guarded} row={brand} />
+          <NativeResourceWorkspace workspace={guarded} row={brand} />
+        </ViewerScope>
+      </Base>
+    );
+    const menu = () => {
+      fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
+      return sheet.mock.calls.at(-1)![0].options;
+    };
+    const locked = () => screen.queryByTestId("native-resource-workspace-settings-locked")?.textContent ?? null;
+    const name = () => screen.getByTestId("native-resource-workspace-settings-name-input") as HTMLInputElement;
+    const save = () => screen.queryByTestId("native-resource-workspace-settings-save");
+
+    // Roles not known yet: the action is refused with its reason, the settings are read-only.
+    const { rerender } = render(at(undefined));
+    expect(menu()).toEqual(["Publish (Only editors publish.)", "Cancel"]);
+    expect(locked()).toContain("Only editors change brands.");
+    expect(name().disabled).toBe(true);
+    expect(save()).toBeNull();
+
+    // Roles arrive (undefined → editor): the same mounted screen allows both.
+    rerender(at({ teamRoles: ["editor"] }));
+    await waitFor(() => expect(locked()).toBeNull());
+    expect(menu()).toEqual(["Publish", "Cancel"]);
+    expect(name().disabled).toBe(false);
+    expect(save()).toBeTruthy();
+
+    // Roles change (editor → reader): refused and read-only again, still the same mount.
+    rerender(at({ teamRoles: ["reader"] }));
+    await waitFor(() => expect(locked()).toContain("Only editors change brands."));
+    expect(menu()).toEqual(["Publish (Only editors publish.)", "Cancel"]);
+    expect(name().disabled).toBe(true);
+    expect(save()).toBeNull();
+    expect(mounts).toBe(1);
   });
 });

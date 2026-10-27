@@ -12,7 +12,7 @@
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "react-native";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
 import type { Allowed, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
@@ -109,7 +109,10 @@ function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messag
     enabled: !onAction && !!provider.describe,
     staleTime: Infinity,
   });
+  // The view's action guards read the viewer (ViewerScope's id, scope and roles).
+  const viewer = useViewer();
   const actions = workspace.headerFor(row as T & DataRow, {
+    viewer,
     runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
@@ -451,8 +454,9 @@ function SettingsGroup({
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
     return workspace.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
   }, [workspace, view, sectionId]);
-  // The view's update guard: when it refuses, the settings are read-only with its reason.
-  const locked = workspace.settingsLocked(row);
+  // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
+  const viewer = useViewer();
+  const locked = workspace.settingsLocked(row, viewer);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.key, row[f.key]])));
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);

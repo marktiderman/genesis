@@ -8,6 +8,7 @@ import type { Identifier } from "../provider/types";
 import { readinessOf, type Readiness } from "../resource";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { ViewDefinitionError } from "./define-view";
+import type { Viewer } from "../viewer";
 import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, ViewTone } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a child list can be any resource
@@ -97,6 +98,8 @@ export interface WorkspaceHeaderOptions<Row extends DataRow = DataRow> {
   runnable?: boolean;
   /** The action names the provider reports serving (`ResourceSchema.actions`), when it reports them. Others are hidden. */
   served?: readonly string[];
+  /** Who is looking (`useViewer()`), for the view's action guards. Without it they get no one. */
+  viewer?: Viewer;
 }
 
 /** A readiness check with its tone resolved. */
@@ -120,10 +123,11 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
   /** The record's address for the provider: its key fields (`keyFields`), composite keys encoded. */
   recordId(row: Row): Identifier;
   /**
-   * Why settings can't be saved for this row: the view's `can("update", row)` reason, or `null`
-   * when they can. Renderers then show the settings read-only with the reason.
+   * Why settings can't be saved for this row and viewer: the view's `can("update", row, viewer)`
+   * reason, or `null` when they can. Renderers then show the settings read-only with the reason.
+   * Without a viewer the guard gets no one, so one that needs the viewer locks them.
    */
-  settingsLocked(row: Row): string | null;
+  settingsLocked(row: Row, viewer?: Viewer): string | null;
   headerFor(row: Row, options?: WorkspaceHeaderOptions<Row>): WorkspaceHeader;
   /**
    * Settings fields as the view's form resolves them (`view.form("edit")`), in the order listed:
@@ -321,7 +325,7 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
         const own = options.can?.(name, row);
         if (own === false) continue;
         // Guards only narrow: the screen's refusal wins, then the view's.
-        const allowed: Allowed = typeof own === "string" ? own || REFUSED : view.canAction(name, row);
+        const allowed: Allowed = typeof own === "string" ? own || REFUSED : view.canAction(name, row, options.viewer);
         actions.push(Object.freeze({ ...actionByName.get(name)!, allowed }));
       }
     }
@@ -370,8 +374,8 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     hasReadiness: Boolean(readiness),
     section: (id: string) => byId.get(id),
     recordId: (row: Row) => encodeRecordKey(view.contract, row),
-    settingsLocked: (row: Row) => {
-      const allowed = view.can("update", row);
+    settingsLocked: (row: Row, viewer?: Viewer) => {
+      const allowed = view.can("update", row, viewer);
       return allowed === true ? null : typeof allowed === "string" && allowed.trim() ? allowed : REFUSED;
     },
     headerFor,

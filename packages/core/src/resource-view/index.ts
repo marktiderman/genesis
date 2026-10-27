@@ -27,7 +27,10 @@ export type {
   ViewGuards,
   ViewPreset,
   ViewTone,
+  Viewer,
 } from "./types";
+export { NO_VIEWER } from "../viewer";
+export type { GenesisViewerRoles } from "../viewer";
 export { defineWorkspace, isWorkspace } from "./workspace";
 export type {
   ResolvedReadinessItem,

@@ -545,6 +545,11 @@ Pass the viewer's saved `timeZone` too: `useViewerScope().day` is today on their
 when the page comes back into view, and across midnight), and `keys.for(useViewerScope())` uses it
 as the key's `day`, so no screen works out "today" itself.
 
+`roles` (optional) is what the viewer may do there, for view guards: `useViewer()` returns
+`{ id, scope, roles }` (or `NO_VIEWER` outside a ViewerScope). `GenesisViewerRoles` is empty; an app
+fills it by module augmentation. Roles compare by value; arriving roles keep the cache, different
+roles reset it. They never decide access (docs/RESOURCE-VIEW.md, "Viewer-aware guards").
+
 With a persisted cache (a native app's saved query cache), pass the viewer it was saved for as
 `persistedViewer`, or the first known viewer empties it on every cold start. Without `ViewerScope`, call `clearViewerCache(queryClient)` in the sign-in and
 sign-out actions, before the session changes: it also sends the old viewer's waiting undoable
