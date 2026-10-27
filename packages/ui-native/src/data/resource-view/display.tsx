@@ -11,7 +11,7 @@ import { titleCase } from "@marktiderman/genesis-core";
 import { isTimeZone, personTimeZone, wallClock } from "@marktiderman/genesis-core/dates";
 import { useViewer } from "@marktiderman/genesis-core/hooks";
 import { isSafeUrl } from "@marktiderman/genesis-core/urls";
-import type { DisplayHint, ResolvedColumn, ViewTone } from "@marktiderman/genesis-core/resource-view";
+import { valueText, type DisplayHint, type ResolvedColumn, type ViewTone } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeImage } from "../../components/image";
 import { NativeText } from "../../components/text";
@@ -172,7 +172,7 @@ export const nativeDisplayRenderers: DisplayRenderers = {
   percent: text("percent"),
   boolean: text("boolean"),
   badge: (value, { column }) => (
-    <NativeBadge variant={badgeVariant(column.tones?.[String(value)])}>{titleCase(String(value))}</NativeBadge>
+    <NativeBadge variant={badgeVariant(column.tones?.[String(value)])}>{valueText(column.labels, value)}</NativeBadge>
   ),
   date: text("date"),
   datetime: text("datetime"),

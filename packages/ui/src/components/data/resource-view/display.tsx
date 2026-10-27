@@ -3,8 +3,8 @@
 // draw the same view their own way. An app replaces any of them with DisplayRenderersProvider.
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { isSafeUrl, titleCase, useViewer } from "@marktiderman/genesis-core";
-import type { DisplayHint, ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
+import { isSafeUrl, useViewer } from "@marktiderman/genesis-core";
+import { valueText, type DisplayHint, type ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
 import { useUiMessages, type UiMessages } from "../../../messages";
 import { Chip } from "../../resource/chip";
 
@@ -72,7 +72,7 @@ export const webDisplayRenderers: DisplayRenderers = {
   percent: (value) => numeric(value, PERCENT),
   boolean: (value, { messages }) => (value === true || value === "true" ? messages.common.yes : messages.common.no),
   badge: (value, { column }) => (
-    <Chip tone={column.tones?.[String(value)] ?? "muted"}>{titleCase(String(value))}</Chip>
+    <Chip tone={column.tones?.[String(value)] ?? "muted"}>{valueText(column.labels, value)}</Chip>
   ),
   date: (value) => formatDay(value),
   datetime: (value, { column }) => formatInstant(value, column.timeZone),

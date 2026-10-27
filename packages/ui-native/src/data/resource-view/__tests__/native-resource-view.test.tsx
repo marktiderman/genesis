@@ -229,6 +229,20 @@ describe("sections", () => {
     ]);
   });
 
+  it("titles sections and form choices in the view's words", () => {
+    const labelled = defineView(brands, {
+      fields: { status: { labels: { active: "Published", draft: "In progress" } } },
+      form: ["name", "status"],
+      groupBy: "status",
+    });
+    expect(sectionsFor(labelled, ROWS, messages).map((s) => s.title)).toEqual(["Published", "Archived"]);
+    expect(formFieldsFor(labelled, "create").find((f) => f.key === "status")!.options).toEqual([
+      { value: "active", label: "Published" },
+      { value: "archived", label: "Archived" },
+      { value: "draft", label: "In progress" },
+    ]);
+  });
+
   it("is one untitled section without groupBy, and none for no rows", () => {
     expect(sectionsFor(summaryView, ROWS, messages).map((s) => s.title)).toEqual([""]);
     expect(sectionsFor(summaryView, [], messages)).toEqual([]);

@@ -346,7 +346,7 @@ function SettingField({
     return <ToggleRow label={f.label} checked={value === true} onCheckedChange={(v) => onChange(v)} disabled={disabled} testID={id} rowTestID={testID} />;
   }
   const empty = f.field.nullable ? null : "";
-  if (f.field.enumValues?.length) {
+  if (f.options?.length) {
     return (
       <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled}>
         <Select value={value == null ? "" : String(value)} onValueChange={(v) => onChange(v)} disabled={disabled}>
@@ -354,9 +354,9 @@ function SettingField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {f.field.enumValues.map((v) => (
-              <SelectItem key={v} value={v}>
-                {v}
+            {f.options.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
               </SelectItem>
             ))}
           </SelectContent>

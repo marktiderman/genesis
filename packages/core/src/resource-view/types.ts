@@ -40,6 +40,11 @@ export interface ViewField<Row extends DataRow = DataRow> {
   display?: DisplayHint;
   /** A badge's tone per value, e.g. `{ active: "success", archived: "muted" }`. */
   tones?: Readonly<Record<string, ViewTone>>;
+  /**
+   * The words for a value, e.g. `{ draft: "In progress" }`: badges, form choices, group titles.
+   * A value without one shows in title case. Keys must be the field's enum values, if it has any.
+   */
+  labels?: Readonly<Record<string, string>>;
   /** Longest text a form accepts. Feeds the derived validation. */
   max?: number;
   /** Shown read-only even where the server would accept a write. Never widens. */
@@ -193,6 +198,8 @@ export interface ResolvedColumn<Row extends DataRow = DataRow> {
   field?: FieldSchema;
   value: (row: Row) => unknown;
   tones?: Readonly<Record<string, ViewTone>>;
+  /** The words for a value (`ViewField.labels`); `valueText` reads them. */
+  labels?: Readonly<Record<string, string>>;
   /** Whether to show the cell. Without a viewer it answers for no one (fail closed). */
   when?: (row: Row, viewer?: Viewer) => boolean;
   timeZone?: ViewField["timeZone"];
@@ -206,6 +213,8 @@ export interface ResolvedFormField {
   required: boolean;
   readOnly: boolean;
   max?: number;
+  /** An enum field's choices, in the contract's order, with the view's words. */
+  options?: readonly { value: string; label: string }[];
   /** The heading it sits under, or null for none. */
   section: string | null;
   sectionTitle: string | null;
@@ -228,6 +237,8 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   field(name: string): FieldSchema | undefined;
   label(name: string): string;
   display(name: string): DisplayHint;
+  /** A value in words: the field's `labels`, else title case. For badges, choices and group titles. */
+  valueLabel(name: string, value: unknown): string;
   columns(preset?: string): readonly ResolvedColumn<Row>[];
   form(mode: "create" | "edit"): readonly ResolvedFormField[];
   /** Fields a writer may send: the form's, never generated, read-only, key or scope fields. */
