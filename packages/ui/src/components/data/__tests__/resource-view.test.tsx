@@ -8,9 +8,9 @@
 // West of UTC, where `new Date("2026-01-02")` is the 1st.
 (globalThis as unknown as { process: { env: Record<string, string> } }).process.env.TZ = "America/Los_Angeles";
 
-import { render, renderHook, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
@@ -307,6 +307,62 @@ describe("ResourceView with viewer-aware guards", () => {
     );
     const other = (await screen.findByText("Contoso")).closest("tr")!;
     expect(within(other).getByText("shown")).toBeTruthy();
+  });
+
+  // The same viewer, only roles changing: ViewerScope keeps the screen mounted, so the guards and
+  // `when` must be asked again from the viewer in their memos' dependencies.
+  it("asks the guards and `when` again when only the roles change, without remounting", async () => {
+    localStorage.clear();
+    const withUpdate = defineView(brands, {
+      fields: { secret: { label: "Secret", when: (_r, v) => isEditor(v) } },
+      columns: { default: ["name", "secret"] },
+      form: ["name"],
+      can: {
+        create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+        update: (_r, v) => (isEditor(v) ? true : "Only editors edit brands."),
+        delete: (r, v) => (r.is_default ? "The default brand stays." : isEditor(v) ? true : "Only editors delete brands."),
+      },
+    });
+    let mounts = 0;
+    function Mounts() {
+      useState(() => (mounts += 1));
+      return null;
+    }
+    const Scoped = scoped(provider());
+    const at = (roles?: { teamRoles: string[] }) => (
+      <Scoped viewer="ann" roles={roles}>
+        <Mounts />
+        <ResourceView view={withUpdate} mode="table" />
+      </Scoped>
+    );
+    const newButton = () => screen.queryByRole("button", { name: /new|add/i, hidden: true });
+    const secret = () => within(screen.getAllByText("Contoso").map((e) => e.closest("tr")).find(Boolean)!).queryByText("shown");
+    const edit = () => screen.queryByTestId("detail-panel-edit");
+    const del = () => screen.queryByTestId("detail-panel-delete");
+
+    // Roles not known yet: every guard refuses, the cell is hidden.
+    const { rerender } = render(at(undefined));
+    await screen.findByText("Contoso");
+    fireEvent.click(screen.getByText("Contoso").closest("tr")!);
+    expect(newButton()).toBeNull();
+    expect(secret()).toBeNull();
+    expect(edit()).toBeNull();
+    expect(del()).toBeNull();
+
+    // Roles arrive (undefined → editor): the same mounted screen allows, and shows the cell.
+    rerender(at({ teamRoles: ["editor"] }));
+    await waitFor(() => expect(newButton()).toBeTruthy());
+    expect(secret()).toBeTruthy();
+    expect(edit()).toBeTruthy();
+    expect(del()).toBeTruthy();
+
+    // Roles change (editor → reader): refused again and hidden again, still the same mount.
+    rerender(at({ teamRoles: ["reader"] }));
+    await waitFor(() => expect(newButton()).toBeNull());
+    await waitFor(() => expect(secret()).toBeNull());
+    expect(edit()).toBeNull();
+    expect(del()).toBeNull();
+    expect(mounts).toBe(1);
   });
 
   it("fails closed without a ViewerScope", async () => {

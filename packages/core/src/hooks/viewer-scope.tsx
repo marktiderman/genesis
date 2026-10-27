@@ -7,21 +7,35 @@ import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
 
 export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
 
+let warnedNotPlain = false;
+
 /**
  * Roles as a value: object keys and lists sorted, so `["editor", "owner"]` equals
- * `["owner", "editor"]`. A Set, Map or class would stringify as `{}` and hide a change, so it throws.
+ * `["owner", "editor"]`. A Set, Map or class would stringify as `{}` and hide a change: in
+ * development that throws; in production it warns once and the roles count as unknown (undefined).
  */
-function rolesKeyOf(roles: GenesisViewerRoles): string {
+function rolesKeyOf(roles: GenesisViewerRoles): string | undefined {
+  let notPlain = false;
   const plain = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(plain).map((x) => [stableJson(x), x] as const).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, x]) => x);
     if (v && typeof v === "object") {
       const proto = Object.getPrototypeOf(v);
-      if (proto !== Object.prototype && proto !== null) throw new TypeError("[genesis-core] ViewerScope roles must be plain JSON (no Set, Map or class)");
+      if (proto !== Object.prototype && proto !== null) {
+        if (process.env.NODE_ENV !== "production") throw new TypeError("[genesis-core] ViewerScope roles must be plain JSON (no Set, Map or class)");
+        notPlain = true;
+        return null;
+      }
       return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, plain(x)]));
     }
     return v;
   };
-  return stableJson(plain(roles));
+  const key = stableJson(plain(roles));
+  if (!notPlain) return key;
+  if (!warnedNotPlain) {
+    warnedNotPlain = true;
+    console.warn("[genesis-core] ViewerScope roles must be plain JSON (no Set, Map or class); treating them as unknown, so guards that need them refuse");
+  }
+  return undefined;
 }
 
 /** Today in `zone`, rechecked when the page comes back into view and at the next minute boundary while it's open. */
@@ -129,7 +143,9 @@ export interface ViewerScopeProps {
    * so a new object with the same roles changes nothing. Undefined while they load: guards that
    * need them refuse. Arriving (undefined → roles) or going back to undefined changes nothing;
    * different roles send the person's waiting writes, then reread every query, with nothing
-   * remounted. Plain JSON values only (lists are compared as sets, in any order).
+   * remounted. Plain JSON values only (lists are compared as sets, in any order): a Set, Map or
+   * class instance throws in development; in production it warns once and the roles count as
+   * unknown (as if undefined), so guards that need them refuse.
    */
   roles?: GenesisViewerRoles;
   /**
@@ -163,9 +179,10 @@ export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, f
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
   // Roles by value too: undefined stays undefined, so "not known yet" never equals "none".
+  // Roles that aren't plain JSON count as unknown in production (rolesKeyOf warns; development throws).
   const rolesKey = roles === undefined ? undefined : rolesKeyOf(roles);
   const value = useMemo<ViewerContext>(
-    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(roles !== undefined ? { roles } : {}), timeZone: zone, day }),
+    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(rolesKey !== undefined ? { roles } : {}), timeZone: zone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [viewer, scopeKey, rolesKey, zone, day],
   );

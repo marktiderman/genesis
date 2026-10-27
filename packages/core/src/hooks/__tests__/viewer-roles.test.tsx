@@ -128,6 +128,26 @@ describe("ViewerScope roles", () => {
     spy.mockRestore();
   });
 
+  it("in production, roles that aren't plain JSON warn once and count as unknown: the guard refuses", async () => {
+    reset();
+    vi.stubEnv("NODE_ENV", "production");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const { wrap } = setup();
+      const at = (teamRoles: Set<string>) => wrap(<ViewerScope viewer="ann" roles={{ teamRoles } as never}><Probe /></ViewerScope>);
+      const { rerender } = render(at(new Set(["editor"])));
+      await screen.findByText("ann|Only editors add notes.|loaded");
+      expect(seen.at(-1)).not.toHaveProperty("roles");
+      rerender(at(new Set(["editor", "owner"])));
+      await screen.findByText("ann|Only editors add notes.|loaded");
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).toMatch(/plain JSON/);
+    } finally {
+      warn.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("different roles reread every query under them, without remounting", async () => {
     reset();
     const { client, wrap } = setup();
