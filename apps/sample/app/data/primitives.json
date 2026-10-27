@@ -6912,8 +6912,147 @@
           "props": []
         },
         {
+          "name": "serverSorts",
+          "summary": "The server sorts: the `groupBy` field first, so every page arrives in section order and a later\npage never lands in the middle of an earlier section, then the view's `orderBy` within each\ngroup. A provider without `multiSort` applies only the first.",
+          "props": [
+            {
+              "name": "actions",
+              "type": "() => readonly ResolvedViewAction[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The view's actions, in order, frozen."
+            },
+            {
+              "name": "can",
+              "type": "{ (action: \"create\", viewer?: Viewer | undefined): Allowed; (action: \"update\" | \"delete\", row: T & DataRow, viewer?: Viewer | undefined): Allowed; }",
+              "required": true,
+              "defaultValue": null,
+              "description": "Whether the view's guard allows it for this viewer: `true`, or the guard's reason. Without a\nviewer, guards get `NO_VIEWER` (no one), so one that needs the viewer refuses."
+            },
+            {
+              "name": "canAction",
+              "type": "(name: string, row: T & DataRow, viewer?: Viewer | undefined) => Allowed",
+              "required": true,
+              "defaultValue": null,
+              "description": "Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the\nserver allows. Throws {@link ViewDefinitionError} for a name the view doesn't define."
+            },
+            {
+              "name": "columns",
+              "type": "(preset?: string | undefined) => readonly ResolvedColumn<T & DataRow>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "contract",
+              "type": "any",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "definition",
+              "type": "Readonly<ViewDefinition<any, T & DataRow>>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "display",
+              "type": "(name: string) => DisplayHint",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "field",
+              "type": "(name: string) => FieldSchema | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "form",
+              "type": "(mode: \"create\" | \"edit\") => readonly ResolvedFormField[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "(name: string) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "labelField",
+              "type": "string | undefined",
+              "required": true,
+              "defaultValue": null,
+              "description": "The field that names a row, for links, pickers and the peek's title."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "presets",
+              "type": "readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The column presets this view has, `default` first."
+            },
+            {
+              "name": "resource",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The resource name the provider addresses."
+            },
+            {
+              "name": "summary",
+              "type": "(row: T & DataRow) => RowSummary",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "valueLabel",
+              "type": "(name: string, value: unknown) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "A value in words: the field's `labels`, else title case. For badges, choices and group titles."
+            },
+            {
+              "name": "writable",
+              "type": "(mode: \"create\" | \"edit\") => readonly string[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "Fields a writer may send: the form's, never generated, read-only, key or scope fields."
+            }
+          ]
+        },
+        {
           "name": "serverSort",
-          "summary": "The server sort: the `groupBy` field first, so every page arrives in section order and a later\npage never lands in the middle of an earlier section; else the view's `orderBy`. (A second sort\nkey within a group needs `useInfiniteResource` to take several sorts.)",
+          "summary": "The first of {@link serverSorts}: what a provider that sorts by one field gets.",
           "props": [
             {
               "name": "actions",
