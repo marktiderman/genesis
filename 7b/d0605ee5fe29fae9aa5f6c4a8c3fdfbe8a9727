@@ -1,0 +1,23 @@
+packages/ui/src/components/data/__tests__/resource-page-empty-overlays.test.tsx
+  s_3daa86e3ae6031::t_1cc2b4ac753c2f 1-78
+.changeset/resource-page-empty-overlays.md
+  s_3daa86e3ae6031::t_1955a39da1a714 1-5
+packages/ui/src/components/data/ResourcePage.tsx
+  s_3daa86e3ae6031::t_983ebdf98c35f0 1088,1382-1384,1498
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7bd0605ee5fe29fae9aa5f6c4a8c3fdfbe8a9727",
+  "prompts": {},
+  "sessions": {
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
