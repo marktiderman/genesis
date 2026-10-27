@@ -1,0 +1,137 @@
+packages/native/src/reload.ts
+  s_1f35d570c63beb::t_8724a8bc969217 1-56
+packages/native/src/__tests__/observability/reporting.test.tsx
+  s_1f35d570c63beb::t_a5c6673935e900 1-151
+packages/core/src/errors.ts
+  s_1f35d570c63beb::t_6cc50d712f7630 1-260
+packages/native/src/screen-boundary.tsx
+  s_1f35d570c63beb::t_065f5cc847c51e 1-108
+  s_1f35d570c63beb::t_89723877cec02b 109-116
+scripts/check-error-reporting.mjs
+  s_1f35d570c63beb::t_f731d6e5ceb3e6 1-229
+  s_1f35d570c63beb::t_a45ef1492d8c7e 230
+packages/core/src/__tests__/errors.test.ts
+  s_1f35d570c63beb::t_fcf5a27e03e9d4 1-160
+.changeset/chat-report-errors.md
+  s_1f35d570c63beb::t_3bd0c34d0d6d52 1-5
+.changeset/core-error-reporting.md
+  s_1f35d570c63beb::t_c1a39f054e2a1d 1-8
+.changeset/forms-native-report-errors.md
+  s_1f35d570c63beb::t_ec9f672d91af29 1-5
+.changeset/native-observability-depth.md
+  s_1f35d570c63beb::t_804657f94bc18f 1-14
+.changeset/notifications-report-errors.md
+  s_1f35d570c63beb::t_125d2334048cf0 1-5
+apps/genesis-rn-starter/README.md
+  s_1f35d570c63beb::t_aa131aef0b0551 294-300
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_1f35d570c63beb::t_22763cdf1b3990 392-400
+apps/genesis-rn-starter/src/app/(app)/(home)/_layout.tsx
+  s_1f35d570c63beb::t_9f5dfa955af10a 7-9
+apps/genesis-rn-starter/src/app/(app)/messages/_layout.tsx
+  s_1f35d570c63beb::t_b19783de465481 12-14
+apps/genesis-rn-starter/src/app/(app)/notifications/_layout.tsx
+  s_1f35d570c63beb::t_ff020f7e67947a 7-9
+apps/genesis-rn-starter/src/app/(app)/settings/_layout.tsx
+  s_1f35d570c63beb::t_d94284454f2c8d 7-9
+apps/genesis-rn-starter/src/lib/observability.ts
+  s_1f35d570c63beb::t_63148d8f5c9622 17,20,38-39,49-56
+package.json
+  s_1f35d570c63beb::t_f2534657dd0973 12,26
+packages/chat/README.md
+  s_1f35d570c63beb::t_8a948178bbc084 370-375
+packages/chat/src/__tests__/review-fixes-web.test.tsx
+  s_1f35d570c63beb::t_36da72af23ba2c 12,133-151
+packages/chat/src/native/__tests__/attachment-slot.test.tsx
+  s_1f35d570c63beb::t_a64c3be6c829d9 7,131-132,143-145
+packages/chat/src/native/attachment-cards.tsx
+  s_1f35d570c63beb::t_9f78d8dba26d22 24,130,241-242
+packages/chat/src/react/error-boundary.tsx
+  s_1f35d570c63beb::t_84bb698db24bfd 6-7,11,16,42
+packages/core/README.md
+  s_1f35d570c63beb::t_1bc19cd9ce9cb5 212-251
+packages/core/package.json
+  s_1f35d570c63beb::t_eee73458d530f2 77-80
+packages/core/src/index.ts
+  s_1f35d570c63beb::t_9dc2e650e77bfb 51-66
+packages/core/tsup.config.ts
+  s_1f35d570c63beb::t_ace895ad40ee5c 24
+packages/forms-native/README.md
+  s_1f35d570c63beb::t_b30e27c95243b0 68-73
+packages/forms-native/package.json
+  s_1f35d570c63beb::t_57fdfbe7f3cf6f 48,56
+packages/forms-native/src/FormFocus.tsx
+  s_1f35d570c63beb::t_c064796dda4b87 39,321,328,375,508
+packages/forms-native/src/__tests__/review-fixes.test.tsx
+  s_1f35d570c63beb::t_ae5e6dd8d87039 6,61-62,82-84
+packages/forms-native/src/renderers/index.tsx
+  s_1f35d570c63beb::t_65bb5df73af4c5 76
+packages/native/README.md
+  s_1f35d570c63beb::t_1c4a822030a8bf 306-307,312-314,323-347,380-393,402-418
+packages/native/src/__tests__/app.test.tsx
+  s_1f35d570c63beb::t_f77c4ea0fcae23 22,158-159,174-176,186-200
+packages/native/src/__tests__/errors.test.tsx
+  s_1f35d570c63beb::t_495f1b02b7506d 5,7,42,147,153-203,207,209
+packages/native/src/__tests__/observability/sentry.test.ts
+  s_1f35d570c63beb::t_755afec42fc257 110-166
+packages/native/src/__tests__/query-errors.test.ts
+  s_1f35d570c63beb::t_6e8dfbedcbddae 1-92
+packages/native/src/__tests__/reload.test.ts
+  s_1f35d570c63beb::t_ff46c407816aa4 1-41
+packages/native/src/__tests__/screen-boundary.test.tsx
+  s_1f35d570c63beb::t_d030d0c3286519 1-71
+packages/native/src/__tests__/updates/checker.test.ts
+  s_1f35d570c63beb::t_6f74d569d1a335 5,19-33
+packages/native/src/__tests__/updates/signature-channels.test.ts
+  s_1f35d570c63beb::t_0918fef2b51de9 7,70-83
+packages/native/src/app.tsx
+  s_1f35d570c63beb::t_28bc5572e415b5 15-17,60,176-184,293,406-407
+packages/native/src/errors.tsx
+  s_1f35d570c63beb::t_2887fbdedc1cea 11,14-27,41,63,74-79,81-84,98-101,117-125,184,214-216,224,227
+packages/native/src/index.ts
+  s_1f35d570c63beb::t_687e7167120634 48,50-68,73-76
+packages/native/src/observability/block.tsx
+  s_1f35d570c63beb::t_681797817dd51e 14-24,31,33-34,77-83,102-114,122-123,163,198,200-207,215-262,356-384,395-403
+packages/native/src/observability/index.ts
+  s_1f35d570c63beb::t_6fcf3633f0dbfa 40,45
+packages/native/src/observability/sentry.ts
+  s_1f35d570c63beb::t_cc3487159c02e9 22-29,42,60-66,86-94,166,195-196,214,220-222,225-229,252-255
+packages/native/src/observability/sink.ts
+  s_1f35d570c63beb::t_380855760449fb 19-23,28-34,74-91
+packages/native/src/query.ts
+  s_1f35d570c63beb::t_d9908af7efb0b0 7-9,103-166
+packages/native/src/updates/channels.ts
+  s_1f35d570c63beb::t_edae69f314ea57 18,87-88
+packages/native/src/updates/checker.ts
+  s_1f35d570c63beb::t_c717c42858493d 15,177-178
+packages/notifications/README.md
+  s_1f35d570c63beb::t_789f439d859735 97-101
+packages/notifications/package.json
+  s_1f35d570c63beb::t_8696f47d1a3e22 90,101-103,127,195
+packages/notifications/src/__tests__/ui.test.tsx
+  s_1f35d570c63beb::t_23994c1d6370e5 8,76-98
+packages/notifications/src/react/index.tsx
+  s_1f35d570c63beb::t_d912dc3ce5a063 17,65
+packages/notifications/src/supabase/index.ts
+  s_1f35d570c63beb::t_2773c7e68baae8 178
+pnpm-lock.yaml
+  s_1f35d570c63beb::t_d9e858f4e2c775 934-936,1272-1274
+scripts/__tests__/check-error-reporting.test.mjs
+  s_1f35d570c63beb::t_c2a2df107489e3 1-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c103d2dec624bac46ec3577c087dc9f0ba3e424e",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
