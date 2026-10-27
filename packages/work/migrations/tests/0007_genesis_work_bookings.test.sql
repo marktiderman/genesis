@@ -5,7 +5,7 @@
 -- If your app already has the hooks, they are dropped and replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(32);
+select plan(37);
 
 -- a1 runs tenant 1's gym; b2 and d4 are members (b2 has a person record, d4 only a login); p5 is a
 -- member's person record with no login yet; c3 belongs to tenant 2.
@@ -148,6 +148,23 @@ select throws_ok($$ insert into genesis_work.session_attendees (session_id) valu
 update genesis_work.session_attendees set booking_status = 'booked' where attendee_person_id = pg_temp.record('e5');
 update genesis_work.sessions set status = 'ended' where id = pg_temp.session(1);
 select is(genesis_work.settle_session_bookings(pg_temp.session(1)), 1, 'settling marks a booked absentee a no-show');
+
+-- RSVPs coupled to places ---------------------------------------------------------------------
+select pg_temp.as_server();
+insert into genesis_work.sessions (id, tenant_id, organization_id, title, scheduled_at, capacity)
+values (pg_temp.session(3), pg_temp.tenant(1), pg_temp.tenant(1), 'Open day', now() + interval '3 days', 1),
+       (pg_temp.session(4), pg_temp.tenant(1), pg_temp.tenant(1), 'Social', now() + interval '4 days', null);
+select pg_temp.sign_in('b2');
+select is(genesis_work.rsvp_session(pg_temp.session(3), 'going'), 'booked', 'going to a session with places books one');
+select pg_temp.sign_in('d4');
+select is(genesis_work.rsvp_session(pg_temp.session(3), 'going'), 'waitlisted', 'going when it''s full waitlists');
+select pg_temp.sign_in('b2');
+select is(genesis_work.rsvp_session(pg_temp.session(3), 'maybe'), 'maybe', 'maybe gives the place back');
+select pg_temp.as_server();
+select is((select booking_status || ' ' || rsvp from genesis_work.session_attendees where session_id = pg_temp.session(3) and user_id = pg_temp.person('d4')),
+  'booked going', 'and the waitlist takes it');
+select pg_temp.sign_in('b2');
+select is(genesis_work.rsvp_session(pg_temp.session(4), 'going'), 'going', 'an open session just records the answer');
 
 -- Series --------------------------------------------------------------------------------------
 select pg_temp.sign_in('a1');

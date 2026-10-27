@@ -9,6 +9,9 @@
 --
 -- RSVPs and bookings, two answers on the same attendee row:
 --   rsvp:           the attendee's answer to an invitation: going, maybe or declined. Any session.
+--                   genesis_work.rsvp_session couples it to places: for a session with a capacity,
+--                   going books (or waitlists) and maybe or declined gives a place back; it can
+--                   answer for a whole series.
 --   booking_status: a place in a session with a capacity: booked, waitlisted, cancelled,
 --                   late_cancelled or no_show. Null means invited, not booked. Whether someone
 --                   came is `present`, as before; there is no "attended" status.
@@ -563,6 +566,60 @@ begin
 end;
 $$;
 
+-- Answers an invitation: going, maybe or declined. For a session with a capacity, going takes a
+-- place (booked, or waitlisted when full) through book_session, and maybe or declined gives back a
+-- place held. `person` answers for one of the caller's person records (or, for a writer, anyone's).
+-- `whole_series` answers for this session and every later one in its series that is still on the
+-- series' schedule. Returns the answer, or the booking status where a place is involved.
+create or replace function genesis_work.rsvp_session(session uuid, answer text, person uuid default null, whole_series boolean default false)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  first genesis_work.sessions;
+  s genesis_work.sessions;
+  row_id uuid;
+  held text;
+  result text;
+begin
+  if answer is null or answer not in ('going', 'maybe', 'declined') then
+    raise exception 'An answer is going, maybe or declined' using errcode = '22023';
+  end if;
+  select * into first from genesis_work.sessions x where x.id = session;
+  if not found then
+    raise exception 'permission denied for session' using errcode = '42501';
+  end if;
+  for s in select * from genesis_work.sessions x
+            where x.id = first.id
+               or (whole_series and first.series_id is not null and x.series_id = first.series_id
+                   and not x.detached and x.status = 'scheduled' and x.scheduled_at > first.scheduled_at)
+            order by x.scheduled_at loop
+    if s.capacity is not null and answer = 'going' then
+      result := genesis_work.book_session(s.id, person);
+    else
+      perform set_config('genesis_work.booking', 'on', true);
+      row_id := private.genesis_booking_target(s, person);
+      perform set_config('genesis_work.booking', '', true);
+      select a.booking_status into held from genesis_work.session_attendees a where a.id = row_id;
+      if held in ('booked', 'waitlisted') and answer <> 'going' then
+        perform genesis_work.cancel_booking(s.id, person);
+      end if;
+      result := answer;
+    end if;
+    update genesis_work.session_attendees a set rsvp = answer
+     where a.session_id = s.id
+       and (case when person is not null then a.attendee_person_id = person
+                 else private.genesis_sessions_is_me(a.user_id, a.tenant_id, a.attendee_person_id) end);
+    if s.id = first.id and s.capacity is null then
+      result := answer;
+    end if;
+  end loop;
+  return result;
+end;
+$$;
+
 -- An attendee checks themselves in, from an hour before the start until the session ends.
 create or replace function genesis_work.check_in(session uuid, source text default 'app')
 returns void
@@ -693,6 +750,8 @@ revoke execute on function genesis_work.book_session(uuid, uuid) from public, an
 grant execute on function genesis_work.book_session(uuid, uuid) to authenticated, service_role;
 revoke execute on function genesis_work.cancel_booking(uuid, uuid) from public, anon;
 grant execute on function genesis_work.cancel_booking(uuid, uuid) to authenticated, service_role;
+revoke execute on function genesis_work.rsvp_session(uuid, text, uuid, boolean) from public, anon;
+grant execute on function genesis_work.rsvp_session(uuid, text, uuid, boolean) to authenticated, service_role;
 revoke execute on function genesis_work.check_in(uuid, text) from public, anon;
 grant execute on function genesis_work.check_in(uuid, text) to authenticated;
 revoke execute on function genesis_work.extend_series(uuid, integer) from public, anon;
@@ -700,20 +759,22 @@ grant execute on function genesis_work.extend_series(uuid, integer) to authentic
 revoke execute on function genesis_work.settle_session_bookings(uuid) from public, anon, authenticated;
 grant execute on function genesis_work.settle_session_bookings(uuid) to service_role;
 
--- Attendees: a person attendee reads, rates, answers and leaves their own row, like a login.
+-- Attendees: a person attendee reads, rates, answers and leaves their own row, like a login. The
+-- viewer-people set is an uncorrelated subquery, so it's computed once per statement.
 drop policy session_attendees_read on genesis_work.session_attendees;
 create policy session_attendees_read on genesis_work.session_attendees for select to authenticated
-  using (private.genesis_sessions_is_me(user_id, tenant_id, attendee_person_id)
+  using (user_id = (select auth.uid())
+         or (tenant_id, attendee_person_id) in (select v.tenant_id, v.person_id from private.genesis_viewer_person_ids() v)
          or exists (select 1 from private.genesis_owner_readable() r
                     where r.tenant_id = session_attendees.tenant_id
                       and r.owner_id = coalesce(session_attendees.person_id, session_attendees.team_id, session_attendees.organization_id)));
 drop policy session_attendees_leave on genesis_work.session_attendees;
 create policy session_attendees_leave on genesis_work.session_attendees for delete to authenticated
-  using (private.genesis_sessions_is_me(user_id, tenant_id, attendee_person_id));
+  using (user_id = (select auth.uid()) or (tenant_id, attendee_person_id) in (select v.tenant_id, v.person_id from private.genesis_viewer_person_ids() v));
 drop policy session_attendees_rate on genesis_work.session_attendees;
 create policy session_attendees_rate on genesis_work.session_attendees for update to authenticated
-  using (private.genesis_sessions_is_me(user_id, tenant_id, attendee_person_id))
-  with check (private.genesis_sessions_is_me(user_id, tenant_id, attendee_person_id));
+  using (user_id = (select auth.uid()) or (tenant_id, attendee_person_id) in (select v.tenant_id, v.person_id from private.genesis_viewer_person_ids() v))
+  with check (user_id = (select auth.uid()) or (tenant_id, attendee_person_id) in (select v.tenant_id, v.person_id from private.genesis_viewer_person_ids() v));
 
 alter table genesis_work.session_series enable row level security;
 create policy session_series_read on genesis_work.session_series for select to authenticated
