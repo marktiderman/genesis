@@ -32,7 +32,7 @@ export type FlagStateValue = boolean | string | number | { readonly [key: string
 export interface FeatureGateState {
   /** Feature ids the tenant switched off. */
   off: string[];
-  /** Feature ids the tenant holds an active entitlement for. */
+  /** Feature ids with an active entitlement: the tenant's, plus the person's own (0017). */
   entitlements: string[];
   /** Flag values for the tenant (platform values applied), by flag name. */
   flags: Record<string, FlagStateValue>;
@@ -43,16 +43,32 @@ const strings = (value: unknown): string[] =>
     ? value.filter((v): v is string => typeof v === "string")
     : [];
 
+/** @stability Beta */
+export interface FeatureGateStateOptions {
+  /**
+   * With the service key only: add this person's own entitlements (the app's person id, not a
+   * login), for a snapshot built on the server. A signed-in person's client gets their own
+   * without it, and is refused (`42501`) with it.
+   */
+  personId?: string;
+}
+
 /**
  * A tenant's switches, entitlements and flag values: `feature_gate_state`.
- * Works with a signed-in person's client (for tenants they belong to) or the
- * service key. Throws a `SupabaseQueryError` (`42501`) for anyone else, so a
- * refusal is never mistaken for "nothing set".
+ * Works with a signed-in person's client (for tenants they belong to; their own
+ * person entitlements are included) or the service key. Throws a
+ * `SupabaseQueryError` (`42501`) for anyone else, so a refusal is never mistaken
+ * for "nothing set".
  *
  * @stability Beta
  */
-export async function featureGateState(client: FeatureRegistryClient, tenantId: string): Promise<FeatureGateState> {
-  const data = must((await client.rpc("feature_gate_state", { tenant: tenantId })) as RpcResult);
+export async function featureGateState(
+  client: FeatureRegistryClient,
+  tenantId: string,
+  options: FeatureGateStateOptions = {},
+): Promise<FeatureGateState> {
+  const args = options.personId === undefined ? { tenant: tenantId } : { tenant: tenantId, person: options.personId };
+  const data = must((await client.rpc("feature_gate_state", args)) as RpcResult);
   // Anything but the expected shape is an error, never "nothing set": an empty answer would turn
   // switched-off features back on.
   if (!data || typeof data !== "object" || Array.isArray(data)) throw new TypeError("feature_gate_state returned no state");

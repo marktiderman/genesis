@@ -202,10 +202,18 @@
           {
             "file": "migrations/0014_genesis_feature_registry_hardening.sql",
             "test": "migrations/tests/0014_genesis_feature_registry_hardening.test.sql"
+          },
+          {
+            "file": "migrations/0016_genesis_viewer_people.sql",
+            "test": "migrations/tests/0016_genesis_viewer_people.test.sql"
+          },
+          {
+            "file": "migrations/0017_genesis_person_entitlements.sql",
+            "test": "migrations/tests/0017_genesis_person_entitlements.test.sql"
           }
         ],
         "steps": [
-          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME } (the build time, from a production deployment only)). Grant paid features by writing feature_entitlements from your billing webhook."
+          "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME } (the build time, from a production deployment only)). Grant paid features by writing feature_entitlements from your billing webhook (a tenant's) or calling grant_person_entitlement (one person's). For person grants, define private.genesis_viewer_people(viewer) as 0016 shows."
         ]
       },
       "owner-access": {
@@ -234,13 +242,17 @@
           {
             "file": "migrations/0009_genesis_owner_access.sql",
             "test": "migrations/tests/0009_genesis_owner_access.test.sql"
+          },
+          {
+            "file": "migrations/0016_genesis_viewer_people.sql",
+            "test": "migrations/tests/0016_genesis_viewer_people.test.sql"
           }
         ],
         "install": [
           "@supabase/supabase-js@^2.118.0"
         ],
         "steps": [
-          "Define private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) and private.genesis_readable_owners(viewer) in your own migration, as the header of 0009 shows. Without them the wrappers answer no."
+          "Define private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) and private.genesis_readable_owners(viewer) in your own migration, as the header of 0009 shows, and private.genesis_viewer_people(viewer) as 0016 shows. Without them the wrappers answer no."
         ]
       },
       "web-handoff": {
