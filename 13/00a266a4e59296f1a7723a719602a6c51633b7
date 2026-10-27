@@ -1,0 +1,23 @@
+AGENTS.md
+  s_26495fc9681b7e::t_10887391ecdf51 40
+features.json
+  s_26495fc9681b7e::t_6f2a055bab76b9 2083,4312,4314,4368,4370,4419,4421,4473,4475,4583,4585,4634,4636
+features.ts
+  s_26495fc9681b7e::t_afb54bcb465a9a 920,1888,1890,1910,1912,1932,1934,1954,1956,2002,2004,2024,2026
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1300a266a4e59296f1a7723a719602a6c51633b7",
+  "prompts": {},
+  "sessions": {
+    "s_26495fc9681b7e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5c422c-84c1-438e-92dc-04be689d1e63",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
