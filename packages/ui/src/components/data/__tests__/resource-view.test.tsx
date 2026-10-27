@@ -232,6 +232,23 @@ describe("ResourceView", () => {
     expect(result.current.searchFields).toEqual(["name"]);
   });
 
+  it("shows a badge and its form choices in the view's words", async () => {
+    localStorage.clear();
+    const labelled = defineView(brands, {
+      fields: { status: { labels: { active: "Published" } } },
+      columns: { default: ["name", "status"] },
+      form: ["name", "status"],
+    });
+    render(<ResourceView view={labelled} mode="table" detail="none" />, { wrapper: wrap(provider()) });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    expect(within(row).getByText("Published")).toBeTruthy();
+    const { result } = renderHook(() => useResourceViewProps({ view: labelled }), { wrapper: wrap(provider()) });
+    expect(result.current.formFields!.find((f) => f.key === "status")!.options).toEqual([
+      { value: "active", label: "Published" },
+      { value: "archived", label: "Archived" },
+    ]);
+  });
+
   it("refuses a tab the view doesn't define", () => {
     expect(() => renderHook(() => useResourceViewProps({ view, preset: "nope" }), { wrapper: wrap(provider()) })).toThrow(/no preset "nope"/);
   });

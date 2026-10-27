@@ -196,7 +196,10 @@ function FormField({
   const error = f.formState.errors[field.key]?.message as string | undefined;
   if (field.readOnly) {
     // A link shows its raw id until batched relation labels arrive.
-    const shown = displayText(field.display, f.getValues(field.key), messages, resolveZone(undefined, zones));
+    const value: unknown = f.getValues(field.key);
+    // A choice shows in the view's words (its `labels`).
+    const choice = field.options?.find((o) => o.value === String(value));
+    const shown = choice ? choice.label : displayText(field.display, value, messages, resolveZone(undefined, zones));
     return (
       <View testID={id} style={{ gap: 4 }} accessibilityLabel={`${field.label}, ${shown}`}>
         <NativeLabel>{field.label}</NativeLabel>

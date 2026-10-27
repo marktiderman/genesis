@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26",
+  "generatedAt": "2026-10-27",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7033,6 +7033,13 @@
               "required": true,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "valueLabel",
+              "type": "(name: string, value: unknown) => string",
+              "required": true,
+              "defaultValue": null,
+              "description": "A value in words: the field's `labels`, else title case. For badges, choices and group titles."
             },
             {
               "name": "writable",

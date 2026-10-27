@@ -85,7 +85,9 @@ export function sectionsFor<T extends Row>(
     if (!group) {
       const title = isEmptyValue(value)
         ? fill(messages.list.noGroup, { label: view.label(field).toLowerCase() })
-        : displayText(display, value, messages);
+        : display === "badge"
+          ? view.valueLabel(field, value)
+          : displayText(display, value, messages);
       group = { key, title, data: [] };
       groups.set(key, group);
     }
@@ -244,7 +246,7 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
     .filter((f) => f.display !== "json" && !f.field.array)
     .filter((f) => mode === "edit" || writable.has(f.field.name))
     .map((f) => {
-      const options = f.field.enumValues?.map((value) => ({ value, label: displayText("badge", value, EMPTY_WORDS) }));
+      const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
       const readOnly = !writable.has(f.field.name);
       return {
         key: f.field.name,
@@ -261,9 +263,6 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
       };
     });
 }
-
-// Only `badge` is formatted here, which reads no messages.
-const EMPTY_WORDS = { common: { empty: "", yes: "", no: "" } } as NativeResourceViewMessages;
 
 /** Fields shown for these values: a field whose `visible` says no is hidden, and isn't saved. */
 export function shownFields(fields: readonly NativeFormField[], values: Readonly<Record<string, unknown>>): NativeFormField[] {

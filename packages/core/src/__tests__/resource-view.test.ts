@@ -5,7 +5,7 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
-import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, ViewDefinitionError } from "../resource-view";
+import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, valueText, ViewDefinitionError } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
@@ -109,6 +109,54 @@ describe("defineView defaults", () => {
     expect(Object.isFrozen(view)).toBe(true);
     expect(Object.isFrozen(view.columns())).toBe(true);
     expect(view.columns()).toBe(view.columns());
+  });
+});
+
+describe("labels", () => {
+  const view = defineView<typeof brands, BrandRow>(brands, {
+    fields: { status: { labels: { active: "Published" }, tones: { active: "success" } } },
+    form: ["name", "status"],
+  });
+
+  it("says a value in the view's words, else in title case", () => {
+    expect(view.valueLabel("status", "active")).toBe("Published");
+    expect(view.valueLabel("status", "archived")).toBe("Archived");
+    expect(view.valueLabel("name", "on_hold")).toBe("On Hold");
+    expect(valueText({ draft: "In progress" }, "draft")).toBe("In progress");
+    // Own keys only: an inherited name is never a label.
+    expect(valueText({}, "constructor")).toBe("Constructor");
+  });
+
+  it("carries labels to columns and choices to the form, frozen", () => {
+    const status = view.columns().find((c) => c.key === "status")!;
+    expect(status.labels).toEqual({ active: "Published" });
+    const field = view.form("create").find((f) => f.field.name === "status")!;
+    expect(field.options).toEqual([
+      { value: "active", label: "Published" },
+      { value: "archived", label: "Archived" },
+    ]);
+    expect(Object.isFrozen(field.options)).toBe(true);
+    expect(Object.isFrozen(view.definition.fields!.status!.labels)).toBe(true);
+    expect(view.form("create").find((f) => f.field.name === "name")!.options).toBeUndefined();
+  });
+
+  it("copies labels, so changing the object passed in changes nothing", () => {
+    const labels: Record<string, string> = { active: "Live" };
+    const copy = defineView<typeof brands, BrandRow>(brands, { fields: { status: { labels } } });
+    labels["active"] = "Changed";
+    expect(copy.valueLabel("status", "active")).toBe("Live");
+  });
+
+  it("refuses a label for a value the field doesn't have, or one that isn't text", () => {
+    expect(() => defineView<typeof brands, BrandRow>(brands, { fields: { status: { labels: { paused: "Paused" } } } })).toThrow(
+      /labels names "paused", which isn't one of its values/,
+    );
+    expect(() =>
+      defineView<typeof brands, BrandRow>(brands, { fields: { status: { labels: { active: "" } } } }),
+    ).toThrow(/labels\.active isn't text/);
+    expect(() =>
+      defineView<typeof brands, BrandRow>(brands, { fields: { status: { labels: ["Live"] as never } } }),
+    ).toThrow(/isn't a map of values to words/);
   });
 });
 
