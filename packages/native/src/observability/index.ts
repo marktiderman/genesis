@@ -37,8 +37,10 @@ export {
   type ObservabilitySink,
   type ObserveLike,
   type ObserveSinkOptions,
+  type RouteErrorBoundaryProps,
   type TimingTags,
 } from "./sink";
 export { sentrySink, sentryRelease, signatureTags, type SentryLike, type SentrySinkOptions } from "./sentry";
 export { defineEvents, checkEvent, type EventCheck, type EventPropSpec, type EventProps, type EventSchema, type EventValues } from "./events";
+export { ScreenErrorScreen, createScreenErrorBoundary, type ScreenErrorProps } from "../screen-boundary";
 export { FILTERED, isSecretKey, scrubEvent, scrubRecord, scrubString, scrubUrl, scrubValue, type ScrubbableEvent } from "./scrub";

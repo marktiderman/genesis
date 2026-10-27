@@ -389,6 +389,15 @@ describe("chat", () => {
     }
   });
 
+  it("gives every tab a reported screen boundary, and sends trace headers to its own Supabase only", () => {
+    for (const tab of ["(home)", "notifications", "messages", "settings"]) {
+      expect(read(join("src/app/(app)", tab, "_layout.tsx")), tab).toContain('export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/observability";');
+    }
+    const observability = read("src/lib/observability.ts");
+    expect(observability).toContain("observability.screenBoundary()");
+    expect(observability).toMatch(/tracePropagationTargets: \[env\.supabaseUrl/);
+  });
+
   it("starts each conversation's thread fresh: the screen is keyed by the conversation id", () => {
     expect(read("src/app/(app)/messages/[id].tsx")).toMatch(/<ChatThreadScreen key=\{id\} conversationId=\{id\}/);
   });

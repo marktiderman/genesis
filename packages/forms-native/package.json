@@ -45,6 +45,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:>=0.7.0 <1.0.0",
     "@marktiderman/genesis-forms-react": "workspace:>=0.3.0 <1.0.0",
     "@marktiderman/genesis-ui-native": "workspace:^",
@@ -52,6 +53,7 @@
     "react-native": ">=0.76.0"
   },
   "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-forms-react": "workspace:^",

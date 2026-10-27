@@ -931,6 +931,9 @@ importers:
 
   packages/forms-native:
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -1266,6 +1269,9 @@ importers:
         specifier: workspace:^
         version: link:../features
     devDependencies:
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../core
       '@marktiderman/genesis-native':
         specifier: workspace:^
         version: link:../native

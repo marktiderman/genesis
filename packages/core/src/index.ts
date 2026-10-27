@@ -48,5 +48,21 @@ export {
 // Links checked before they reach an href or src
 export { isSafeUrl, normalizeLinkUrl } from "./urls";
 
+// Reporting caught errors, and what kind of error it is
+export {
+  classifyError,
+  defaultErrorReporter,
+  errorMessages,
+  getErrorReporter,
+  reportError,
+  setErrorReporter,
+  type ClassifiedError,
+  type ClassifyErrorOptions,
+  type ErrorKind,
+  type ErrorMessages,
+  type ErrorReportContext,
+  type ErrorReporter,
+} from "./errors";
+
 // Utils
 export { titleCase } from "./utils";

@@ -94,6 +94,11 @@ test, and the `functions/genesis-notifications` Edge Function template.
    settings screen then reads and saves this package's preferences row (each category switch is that
    category's push channel; quiet hours and previews are the row's own columns).
 
+   If the provider can't listen for feed changes (the realtime subscription throws), the feed still
+   works without live updates and the error is reported through `reportError` from
+   `@marktiderman/genesis-core/errors` (`notifications:realtime-subscribe`), which the native
+   observability block sends to Sentry. `/react` needs `@marktiderman/genesis-core` (a peer).
+
 ## Sending
 
 ```ts

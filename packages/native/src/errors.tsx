@@ -8,7 +8,22 @@
 import { Component, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { Pressable, Text, View } from "react-native";
 import { NativeButton, NativeEmptyState } from "@marktiderman/genesis-ui-native/components";
+import { classifyError } from "@marktiderman/genesis-core/errors";
 import { toError } from "./boot";
+
+declare const __DEV__: boolean | undefined;
+
+/**
+ * What a fatal or screen error says under its title: the safe sentence for
+ * its kind (offline, signed out…), or nothing for a plain bug. The error's
+ * own text can hold an email, an id or a store's internals, so it is shown
+ * only in development builds.
+ */
+export function errorDetails(error: Error): string | undefined {
+  if (typeof __DEV__ !== "undefined" && __DEV__) return error.message;
+  const classified = classifyError(error);
+  return classified.kind === "unexpected" ? undefined : classified.message;
+}
 
 export interface FatalScreenProps {
   error: Error;
@@ -23,7 +38,7 @@ export function FatalScreen({ error, retry }: FatalScreenProps) {
       variant="error"
       title="Something went wrong"
       body="The app hit a problem. Try again, and if it keeps happening, close and reopen the app."
-      details={error.message}
+      details={errorDetails(error)}
       primaryAction={
         <NativeButton onPress={retry} testID="genesis-fatal-retry">
           Try again
@@ -45,7 +60,7 @@ export function PlainFatalScreen({ error, retry }: FatalScreenProps) {
       <Text accessibilityRole="header" style={{ fontSize: 17, fontWeight: "600" }}>
         Something went wrong
       </Text>
-      <Text style={{ textAlign: "center" }}>{error.message}</Text>
+      <Text style={{ textAlign: "center" }}>{errorDetails(error) ?? "Try again, and if it keeps happening, close and reopen the app."}</Text>
       <Pressable accessibilityRole="button" onPress={retry} testID="genesis-fatal-plain-retry" style={{ padding: 12 }}>
         <Text style={{ fontSize: 17 }}>Try again</Text>
       </Pressable>
@@ -56,8 +71,17 @@ export function PlainFatalScreen({ error, retry }: FatalScreenProps) {
 export interface ErrorReport {
   /** True when the app could not go on (a render error, a failed boot, a fatal global error). */
   fatal: boolean;
-  source: "boundary" | "global" | "boot" | "rejection";
+  /**
+   * `boundary` (the shell's), `screen` (a screen boundary), `global`, `boot`,
+   * `rejection`, `query` and `mutation` (a failed query or mutation the
+   * shell's query client saw).
+   */
+  source: "boundary" | "screen" | "global" | "boot" | "rejection" | "query" | "mutation";
   componentStack?: string;
+  /** False when nothing caught it (an unhandled promise rejection). Default: handled unless fatal. */
+  handled?: boolean;
+  /** Low-cardinality labels (`query.key`), never ids. */
+  tags?: Readonly<Record<string, string>>;
 }
 
 export type OnError = (error: Error, report: ErrorReport) => void;
@@ -71,6 +95,10 @@ export interface GenesisErrorBoundaryProps {
   resetKey?: unknown;
   /** Called by the fallback's retry, after the error is cleared. */
   onRetry?: () => void;
+  /** Reported as fatal (the app could not go on). Default true; a screen boundary reports false. */
+  fatal?: boolean;
+  /** The report's source. Default `boundary`. */
+  source?: ErrorReport["source"];
 }
 
 interface BoundaryState {
@@ -86,7 +114,15 @@ export class GenesisErrorBoundary extends Component<GenesisErrorBoundaryProps, B
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo) {
-    this.props.onError?.(toError(error), { fatal: true, source: "boundary", componentStack: info.componentStack ?? undefined });
+    try {
+      this.props.onError?.(toError(error), {
+        fatal: this.props.fatal ?? true,
+        source: this.props.source ?? "boundary",
+        componentStack: info.componentStack ?? undefined,
+      });
+    } catch {
+      // A failing reporter must not stop the fallback.
+    }
   }
 
   override componentDidUpdate(previous: GenesisErrorBoundaryProps) {
@@ -145,6 +181,7 @@ export function installGlobalErrorHandler({ errorUtils, onError, onFatal, alread
   });
   return () => {
     // With no previous handler, leave one that only logs, never ours (it would call an unmounted app).
+    // genesis-allow-console: the last handler left once the shell is gone; nothing else is listening.
     errorUtils.setGlobalHandler(previous ?? ((error) => console.error(error)));
   };
 }
@@ -174,8 +211,9 @@ export function defaultRejectionTracker(): EnableRejectionTracker | undefined {
 }
 
 /**
- * Report unhandled promise rejections to `onError` (non-fatal). This replaces
- * React Native's own tracker, so each rejection is also written with
+ * Report unhandled promise rejections to `onError`: non-fatal, and unhandled
+ * (`handled: false`), so release health counts them. This replaces React
+ * Native's own tracker, so each rejection is also written with
  * `console.warn`, which LogBox shows in development as before.
  */
 export function installRejectionTracker({ enable, onError }: { enable: EnableRejectionTracker; onError: OnError }): void {
@@ -183,9 +221,10 @@ export function installRejectionTracker({ enable, onError }: { enable: EnableRej
     allRejections: true,
     onUnhandled: (id, rejection) => {
       const error = toError(rejection);
+      // genesis-allow-console: React Native's own tracker writes this warning; replacing it must too (LogBox).
       console.warn(`Uncaught (in promise, id: ${id}): ${error.message}`);
       try {
-        onError(error, { fatal: false, source: "rejection" });
+        onError(error, { fatal: false, handled: false, source: "rejection" });
       } catch {
         // A failing reporter must not throw inside the promise machinery.
       }

@@ -21,6 +21,7 @@ export default defineConfig({
     "src/resource-view/index.ts",
     "src/urls.ts",
     "src/csv.ts",
+    "src/errors.ts",
   ],
   format: ["esm"],
   dts: true,

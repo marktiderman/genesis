@@ -367,7 +367,12 @@ One message can't break a thread: each row renders inside `ChatErrorBoundary` ("
 couldn't be shown"), an `attachment` slot that throws falls back to `GenericAttachment`, and an
 `attachmentKinds` entry is used only for its own key (never `constructor` and the like) when its
 `title` returns a string; a kind whose functions throw or return the wrong shapes gets the
-generic card. Errors go to the console.
+generic card. A row that can't be drawn is reported through `reportError` from
+`@marktiderman/genesis-core/errors` (source `chat:render`), unless you pass `ChatErrorBoundary`
+an `onError`. On native, a card's action that fails and an `attachmentKinds` entry that throws are
+reported the same way (`chat:attachment-action`, `chat:attachment-kind`): the native
+observability block sends them to Sentry; without a reporter they go to the console in
+development.
 
 - **Topics**: `ChatThread` shows `ChatTopicBar` (All plus each topic, a lock on closed ones) when
   the conversation has topics (`showTopics` shows it before the first, for owners). Owners and

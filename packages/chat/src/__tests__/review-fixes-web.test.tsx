@@ -9,6 +9,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, configure, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { ChatError } from "../core/client";
 import type { ChatAttachment } from "../core/types";
 import { CATCH_UP_MAX_PAGES, CATCH_UP_PAGE, ChatProvider, chatKeys, useConversation, useLinkPreviews, type ChatProviderProps } from "../react";
@@ -128,6 +129,25 @@ describe("one bad message can't take the thread down", () => {
     );
     expect(screen.getByText("could not draw")).toBeTruthy();
     expect(onError).toHaveBeenCalled();
+  });
+
+  it("ChatErrorBoundary without onError reports through genesis-core's reportError", () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
+    const Boom = () => {
+      throw new Error("row broke");
+    };
+    try {
+      render(
+        <ChatErrorBoundary fallback={<span>could not draw</span>}>
+          <Boom />
+        </ChatErrorBoundary>,
+      );
+    } finally {
+      restore();
+    }
+    expect(reporter).toHaveBeenCalledWith(expect.objectContaining({ message: "row broke" }), { source: "chat:render" });
   });
 });
 

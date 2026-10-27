@@ -73,6 +73,7 @@ export function NativeFieldRenderer({
   if (!Component && !reported.current && !warned.has(binding.field.type)) {
     reported.current = true;
     warned.add(binding.field.type);
+    // genesis-allow-console: a development set-up hint (an unregistered field type), not an error.
     console.warn(`[forms-native] No renderer for field type "${binding.field.type}"; it shows a note instead. Register one with registry.extend().`);
   }
   const Draw = Component ?? Unsupported;

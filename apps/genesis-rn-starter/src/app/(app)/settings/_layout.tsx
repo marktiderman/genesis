@@ -4,3 +4,6 @@ import { Stack } from "expo-router";
 export default function SettingsStack() {
   return <Stack />;
 }
+
+/** A screen in this tab that throws shows Try again here; the tab bar and the other tabs keep working. */
+export { ScreenErrorBoundary as ErrorBoundary } from "@/lib/observability";
