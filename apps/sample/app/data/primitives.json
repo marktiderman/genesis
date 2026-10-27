@@ -1571,7 +1571,7 @@
         },
         {
           "name": "formatDay",
-          "summary": "A calendar day, the same day on every clock.",
+          "summary": "A day. A calendar day (`YYYY-MM-DD`) from its parts; a timestamp as the day it is on `zone`'s\nclock (core's `wallClock`), so an 8pm edit in New York isn't tomorrow's (its UTC day).",
           "props": []
         },
         {
@@ -16102,7 +16102,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",
@@ -16865,7 +16865,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",
@@ -17536,7 +17536,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",
@@ -18207,7 +18207,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",
@@ -21682,7 +21682,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",
@@ -22318,7 +22318,7 @@
               "type": "((row: T, action: \"create\" | \"edit\") => void)",
               "required": false,
               "defaultValue": null,
-              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) gives the row the server\nreturned, with its key; an optimistic or undoable one gives the values sent."
+              "description": "After the built-in form saves: the row and whether it was a create or an edit (to open a\nbuilder for a new row, say). A pessimistic save (the default) runs it once the server has the\nrow, and gives that row with its key. An optimistic or undoable save runs it as the save is\naccepted, before the write lands: the values sent, no key for a create, and it isn't taken\nback by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling\nits `onSuccess`."
             },
             {
               "name": "onSaveView",

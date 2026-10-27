@@ -160,5 +160,28 @@ describe("useResourceForm — an edit never blanks what it didn't load", () => {
     });
     expect(create.mock.calls[0]![1].data).toMatchObject({ owner_id: "u2" });
   });
+
+  it("sends nothing when an edit has only read-only fields left, and still succeeds", async () => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const onSuccess = vi.fn();
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    const { result } = renderHook(
+      () =>
+        useResourceForm({
+          resource: "tasks",
+          action: "edit",
+          id: "t1",
+          initialData: { id: "t1", owner_id: "u1" },
+          fields: [{ key: "owner_id", type: "text" as const, readOnlyOnEdit: true }],
+          onSuccess,
+        }),
+      { wrapper },
+    );
+    await act(async () => {
+      await result.current.handleSave({ owner_id: "u1" });
+    });
+    expect(update).not.toHaveBeenCalled();
+    expect(onSuccess).toHaveBeenCalledWith({ id: "t1", owner_id: "u1" });
+  });
 });
 

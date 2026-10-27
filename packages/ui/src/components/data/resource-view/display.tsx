@@ -30,12 +30,34 @@ function numeric(value: unknown, format: Intl.NumberFormat): string {
   return Number.isFinite(n) ? format.format(n) : String(value);
 }
 
-/** A calendar day from its parts, so it is the same day on every clock (never `new Date(day)`). */
-function formatDay(value: unknown): string {
+// One day formatter per zone, as for instants below.
+const DAYS = new Map<string, Intl.DateTimeFormat>();
+function dayFormat(zone: string | undefined): Intl.DateTimeFormat {
+  const key = zone ?? "";
+  let format = DAYS.get(key);
+  if (!format) {
+    try {
+      format = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: zone });
+    } catch {
+      format = DAY;
+    }
+    DAYS.set(key, format);
+  }
+  return format;
+}
+
+/**
+ * A day. A calendar day (`YYYY-MM-DD`) from its parts, so it is the same day on every clock (never
+ * `new Date(day)`); a timestamp as the day it is on the column's clock, so an 8pm edit in New York
+ * isn't tomorrow's (its UTC day).
+ */
+function formatDay(value: unknown, timeZone?: string): string {
   const text = String(value);
-  const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
-  if (!day) return text;
-  return DAY.format(new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (day) return DAY.format(new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
+  const at = /^\d{4}-\d{2}-\d{2}[T ]/.test(text) ? new Date(text) : null;
+  if (!at || Number.isNaN(at.getTime())) return text;
+  return dayFormat(timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined).format(at);
 }
 
 // One formatter per zone: building an Intl.DateTimeFormat costs ~40x a format call.
@@ -74,7 +96,7 @@ export const webDisplayRenderers: DisplayRenderers = {
   badge: (value, { column }) => (
     <Chip tone={column.tones?.[String(value)] ?? "muted"}>{valueText(column.labels, value)}</Chip>
   ),
-  date: (value) => formatDay(value),
+  date: (value, { column }) => formatDay(value, column.timeZone),
   datetime: (value, { column }) => formatInstant(value, column.timeZone),
   // The linked row's id until relation labels arrive (batched per page, never per cell).
   relation: (value) => String(value),

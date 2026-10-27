@@ -646,6 +646,12 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
               ),
             )
           : writable;
+      // An edit with nothing left to write (only read-only fields) has nothing to send.
+      if (action === "edit" && Object.keys(formData).length === 0) {
+        markSaved();
+        onSuccess?.({ ...(effectiveData ?? {}) });
+        return;
+      }
       try {
         let recordId: string | number | undefined;
         if (action === "edit") {

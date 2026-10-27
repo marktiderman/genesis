@@ -562,8 +562,11 @@ export interface ResourcePageProps<
   allowCreate?: boolean;
   /**
    * After the built-in form saves: the row and whether it was a create or an edit (to open a
-   * builder for a new row, say). A pessimistic save (the default) gives the row the server
-   * returned, with its key; an optimistic or undoable one gives the values sent.
+   * builder for a new row, say). A pessimistic save (the default) runs it once the server has the
+   * row, and gives that row with its key. An optimistic or undoable save runs it as the save is
+   * accepted, before the write lands: the values sent, no key for a create, and it isn't taken
+   * back by an undo. A `slotProps.form.onSuccess` replaces it; a `slots.form` runs it by calling
+   * its `onSuccess`.
    */
   onSaved?: (row: T, action: "create" | "edit") => void;
   /** Enable built-in edit form (ignored if onEdit callback is provided). */

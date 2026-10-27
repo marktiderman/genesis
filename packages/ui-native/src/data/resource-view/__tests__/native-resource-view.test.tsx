@@ -697,6 +697,9 @@ describe("calendar days", () => {
     // Only a whole day: a timestamp or trailing text isn't one.
     expect(dayToDate("2026-01-02T00:00:00Z")).toBeNull();
     expect(formatDay("2026-01-02junk")).toBe("2026-01-02junk");
+    // A timestamp is the day on the clock asked for, not its UTC day: 8pm in New York on Jan 2.
+    expect(formatDay("2026-01-03T01:00:00Z", "America/New_York")).toBe(new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(2026, 0, 2)));
+    expect(formatDay("2026-01-03T01:00:00Z", "UTC")).toBe(new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(2026, 0, 3)));
     // What `new Date(day)` would have shown here: the day before.
     expect(new Date("2026-01-02").getDate()).toBe(1);
   });

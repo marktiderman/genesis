@@ -145,7 +145,9 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const formFields = useMemo(() => {
     const editable = new Set(view.writable("edit"));
     const writable = new Set(view.writable("create"));
-    const starts = JSON.parse(defaultsKey) as Filter;
+    // What a new row starts with: the defaults, then the filter over them, so a new row stays in
+    // the list it was made from.
+    const starts = { ...(JSON.parse(defaultsKey) as Filter), ...(JSON.parse(filterKey) as Filter) };
     const shown = view
       .form("create")
       // JSON and lists need editors of their own; the plain form would send them back as text.
@@ -154,12 +156,10 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
         const def = formField(f, editable.has(f.field.name));
         return Object.hasOwn(starts, def.key) ? { ...def, defaultValue: starts[def.key] } : def;
       });
-    // The screen's filter (the client a session belongs to) and its defaults fill the other
-    // fields on create: hidden, and never sent on edit. The filter wins, so a new row stays in
-    // the list it was made from.
+    // They fill the fields the form doesn't show too (the client a session belongs to): hidden,
+    // and never sent on edit.
     const keys = new Set(shown.map((f) => f.key));
-    const values = { ...starts, ...(JSON.parse(filterKey) as Filter) };
-    const filled = Object.entries(values)
+    const filled = Object.entries(starts)
       .filter(([key]) => !keys.has(key) && view.field(key))
       .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: value }));
     return [...shown, ...filled];
@@ -201,8 +201,9 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     // Server paging by default: a list never loads a whole table to search it in the browser.
     pagination: "server",
     formFields,
-    allowCreate: formFields.length > 0,
-    allowEdit: formFields.length > 0,
+    // Only the view's own fields make a form: the hidden ones a filter or defaults add don't.
+    allowCreate: formFields.some((f) => !f.hidden),
+    allowEdit: formFields.some((f) => !f.hidden),
     allowDelete: true,
     can: allows,
     ...(copy?.create ? { createLabel: copy.create } : {}),
