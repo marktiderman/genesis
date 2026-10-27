@@ -50,7 +50,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@supabase/supabase-js": ">=2.81.0"
   },
   "peerDependenciesMeta": {

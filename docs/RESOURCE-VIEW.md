@@ -165,8 +165,9 @@ export const brandsView = defineView(contracts["public.brands"], {
 - **Footer totals:** `totals: (rows) => ...` for a figure such as a week's completion %.
 - **Dates are days or instants, never confused.** The `date` hint formats a calendar day
   (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
-  with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "practice"` (or
-  a field) renders it in another zone, for example class times. "Today" and "this week" filters
+  with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "scope"` renders it
+  on the clock of whatever the screen is scoped to (ViewerScope's `scopeTimeZone`: a location's, a
+  league's), and an IANA name on that zone, for example class times. "Today" and "this week" filters
   are person-days from the scope (`personDay`, `startOfWeek`, `dayRangeIn`), so no view or screen
   computes "today" itself, and Genesis code never slices an ISO string to get a date.
 - **Columns shown only when the data allows.** A function source can mask a value by policy (an
@@ -182,7 +183,7 @@ export const brandsView = defineView(contracts["public.brands"], {
 
 ```tsx
 <ResourceView view={brandsView} />
-<ResourceView view={brandsView} columns="compact" layout="embedded" filter={{ practice_id }} />
+<ResourceView view={brandsView} columns="compact" layout="embedded" filter={{ org_id }} />
 <ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} mode="cards" />
 ```
 
@@ -199,7 +200,8 @@ Screen settings:
 - `mode`: `table`, `grid` (cards), `list` or `sheet`;
 - `header`: parts on or off, or one part filled;
 - `slots`: `peekExtra`, `detail`, `card`, `toolbar`, `rowActions`, `header`;
-- `onTotal`: for a parent tab's badge.
+- `onTotal`: for a parent tab's badge;
+- `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
 
 `useResourceView(view, options)` is the headless form, with the same state as `useResourceTable`.
 
@@ -289,7 +291,7 @@ What's needed from the app's database:
   `security_invoker` view over a base table whose SELECT is revoked, or a function. A field marked
   `sensitive` is refused at render time when the provider can't confirm the user may read it (fail
   closed).
-- **Scope is never trusted.** A scope default such as `practice_id` comes from the browser. Every
+- **Scope is never trusted.** A scope default such as `org_id` comes from the browser. Every
   scoped resource needs:
   - INSERT and UPDATE policies `WITH CHECK` membership;
   - the tenant column immutable after insert;
@@ -311,15 +313,20 @@ What's needed from the app's database:
 ## Scope
 
 `ViewerScope` (core) stays the one boundary. It already answers *who* is looking and resets the
-cache. It gains an optional `scope` object that answers *where*: the current practice, person or
-space, or a set of them (`personIds: string[]`).
+cache. It gains an optional `scope` object that answers *where*: a person or space, a set of people
+(`personIds: string[]`), or whatever the app scopes to, under its own key in the open slot
+(`scope={{ orgId }}`, `scope={{ leagueId }}`, `scope={{ locationId }}`). Genesis names no tenant:
+each app's word for it is its own. To read an app key typed, augment `ResourceScope` once, as with
+`GenesisViewerRoles`:
+`declare module "@marktiderman/genesis-core" { interface ResourceScope { leagueId?: string } }`.
+`scopeTimeZone` is that scope's clock, for columns with `timeZone: "scope"`.
 
 - Scope becomes server filters, never a filter on loaded rows, so paging and totals stay right.
   It's part of every cache key.
 - A view declares which scope keys it needs, so a missing scope fails loudly in development.
-  `scopeValues(view, useViewerScope().scope)` turns them into a screen's `filter` (`practice_id`
-  read as `practice_id` or `practiceId`), and throws in development when one is missing.
-- A screen's `filter` and `defaults` override the scope: an admin screen across practices and a
+  `scopeValues(view, useViewerScope().scope)` turns them into a screen's `filter` (`league_id`
+  read as `league_id` or `leagueId`), and throws in development when one is missing.
+- A screen's `filter` and `defaults` override the scope: an admin screen across organizations and a
   client screen can share one view.
 - `ResourceView` requires `ViewerScope` above it.
 
@@ -375,6 +382,49 @@ The augmentation is TypeScript's interface merging into a module ("Module augmen
 handbook's Declaration Merging page): it patches the existing `GenesisViewerRoles`, so it must
 target a module that exports it (`@marktiderman/genesis-core`, or its `/resource-view` subpath),
 and adds no new top-level declarations.
+
+## Tree mode
+
+`tree` on a screen nests rows under their parent, built from the flat list the screen already
+loads. It is a screen option, not a `mode`: it applies to the table and list views; grid and sheet
+ignore it for now.
+
+```tsx
+<ResourceView
+  view={leaguesView}
+  tree={{ getParentId: (league) => league.parent_id, defaultExpanded: 1, cascadeSelect: false }}
+/>
+```
+
+- **Built from data.** `getParentId(row)` names the parent's key (the row key ResourcePage uses:
+  `getKey`, else `id`); `null`, `undefined` or `""` is a root. Nested input is never needed. A
+  row whose parent isn't loaded is a root, and a cycle loses one link rather than hiding rows.
+- **Depth is computed** from the tree, and the indent and the expand arrow sit in the first cell
+  (the list view's title). Nothing else in the row changes.
+- **Open state** is uncontrolled (`defaultExpanded`: `true` every parent, a depth such as `1` for
+  the roots' children, `false` none, the default) or controlled (`expanded`, a set of keys, with
+  `onExpandedChange`), as selection is.
+- **Sort applies within siblings.** A header sort reorders each set of siblings; a child never
+  leaves its parent.
+- **A filter keeps ancestors.** Search and the status filter keep every match and each of its
+  ancestors, opened so the match shows, and drawn muted (`data-tree-context`) so the match stands
+  out. Anything else is left out, a match's own non-matching children included.
+- **Selection doesn't cascade** by default. `cascadeSelect: true` makes selecting a row select its
+  descendants (collapsed ones too) and clearing it clear them.
+- **Accessible.** The table is a WAI-ARIA treegrid: rows carry `aria-level`, `aria-expanded`
+  (parents only), `aria-posinset` and `aria-setsize`; on a row's open button → opens a closed row,
+  then moves to its first child, and ← closes an open row, then moves to its parent. The arrow is
+  a labelled button ("Expand North"), out of the tab order where the row's keys do its job.
+- **Client data only.** A tree needs every row, so `tree` loads the whole list
+  (`pagination="client"`, up to `clientRowLimit`, with the usual "only N loaded" warning).
+  `pagination="server"` or `"cursor"` with `tree` throws, and `genesis doctor`'s
+  `resource-view-tree` rule says so in CI. Children loaded from the server on expand are not part
+  of this.
+- **Headless.** The logic is genesis-core's `treeRows` (no React: build, visible rows, sort within
+  siblings, filter with ancestors), with `initialExpanded`, `setExpanded` and
+  `cascadeSelection`. `useResourceView` runs it: `rows` are the visible rows in order, and
+  `tree` holds each row's node (depth, open state, position), the open set and `setExpanded`.
+  NativeResourceView doesn't draw trees yet; it can reuse the same core logic.
 
 ## Speed and scale
 
@@ -523,7 +573,8 @@ already a working screen.
 | 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts | Port |
 | 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView | Shell with app owners |
 | 2 | `ResourceWorkspace` and `NativeResourceWorkspace`: header, sections, settings, readiness from the same view | — |
-| later | Tree mode for nested records, conditional form fields | — |
+| 3 | Tree mode on the web: `tree={{ getParentId, defaultExpanded, cascadeSelect }}` on table and list ([Tree mode](#tree-mode)); logic in `genesis-core/resource-view` | Shell (review) |
+| later | Tree mode in NativeResourceView (reusing core's `treeRows`), children loaded on expand, conditional form fields | — |
 
 Web phase 1 is about 5 days. Each phase ships as its own release.
 

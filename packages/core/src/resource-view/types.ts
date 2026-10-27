@@ -68,8 +68,11 @@ export interface ViewField<Row extends DataRow = DataRow> {
   when?: (row: Row, viewer: Viewer) => boolean;
   /** In a form: show the field only while this holds for the form's values. A hidden field isn't saved. */
   visible?: (values: Readonly<Record<string, unknown>>) => boolean;
-  /** A timestamp's clock: the viewer's (default), the practice's, or a fixed IANA zone. */
-  timeZone?: "viewer" | "practice" | (string & {});
+  /**
+   * A timestamp's clock: the viewer's (default), the scope's (the zone of whatever the screen is
+   * scoped to: ViewerScope's `scopeTimeZone`, or NativeResourceView's prop), or a fixed IANA zone.
+   */
+  timeZone?: "viewer" | "scope" | (string & {});
 }
 
 /** A column computed from the row, never stored or sent. */
@@ -189,7 +192,7 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   /** Named operations on one row, in the order a menu shows them. Names are unique. */
   actions?: readonly ViewAction<Row>[];
   summary?: (row: Row) => RowSummary;
-  /** The scope keys this view needs above it (`["practice_id"]`). They stay out of forms. */
+  /** The scope keys this view needs above it (`["org_id"]`). They stay out of forms. */
   scope?: readonly FieldNameOf<C>[];
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;

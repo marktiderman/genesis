@@ -41,7 +41,7 @@
   },
   "peerDependencies": {
     "@hookform/resolvers": "^5.1.0",
-    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@tanstack/react-query": "^5.0.0",
     "@tanstack/react-virtual": "^3.14.0",

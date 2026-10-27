@@ -307,14 +307,34 @@ describe("ViewerScope", () => {
         mounts.push("mount");
         return Math.random();
       });
-      return <p data-id={id}>{`${viewer}@${scope.practiceId ?? "-"}`}</p>;
+      return <p data-id={id}>{`${viewer}@${scope.orgId ?? "-"}`}</p>;
     }
-    const view = (practiceId: string) => wrap(<ViewerScope viewer="ann" scope={{ practiceId }}><Where /></ViewerScope>);
+    const view = (orgId: string) => wrap(<ViewerScope viewer="ann" scope={{ orgId }}><Where /></ViewerScope>);
     const { rerender } = render(view("p1"));
     await screen.findByText("ann@p1");
     rerender(view("p2"));
     await screen.findByText("ann@p2");
     expect(mounts).toEqual(["mount"]);
+  });
+
+  it("gives the scope's clock as scopeTimeZone: the valid zone passed, else the viewer's", async () => {
+    const { wrap } = setup();
+    function Clock() {
+      const { timeZone, scopeTimeZone } = useViewerScope();
+      return <p>{`${timeZone}|${scopeTimeZone}`}</p>;
+    }
+    const at = (scopeTimeZone?: string) =>
+      wrap(
+        <ViewerScope viewer="ann" timeZone="America/Los_Angeles" scopeTimeZone={scopeTimeZone}>
+          <Clock />
+        </ViewerScope>,
+      );
+    const { rerender } = render(at("Asia/Tokyo"));
+    await screen.findByText("America/Los_Angeles|Asia/Tokyo");
+    rerender(at(undefined));
+    await screen.findByText("America/Los_Angeles|America/Los_Angeles");
+    rerender(at("Not/AZone"));
+    await screen.findByText("America/Los_Angeles|America/Los_Angeles");
   });
 
   it("useViewerScope needs a ViewerScope; useOptionalViewerScope is null without one", () => {

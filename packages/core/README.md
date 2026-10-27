@@ -570,7 +570,7 @@ export const worksheetKeys = defineQueryKeys("worksheet-items", {
 });
 
 // Reading: keys exist only for a scope. `viewer` is required; `group` and `day` when the read depends on them.
-useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: practiceId }).lessonParts(people), queryFn });
+useQuery({ queryKey: worksheetKeys.for({ viewer: userId, group: orgId }).lessonParts(people), queryFn });
 
 // Invalidating:
 queryClient.invalidateQueries({ queryKey: worksheetKeys.all });              // the whole domain
@@ -590,9 +590,12 @@ Keys are `[domain, kind, { ...fields, viewer, group?, day? }]`. `where(fields, k
 field that is equal (`1` matches `"1"`; objects in any key order), an array field containing the
 value, or for an array value an array field containing every item. Never a substring.
 
-`ViewerScope` also carries **where** the viewer is working: `scope={{ practiceId }}` (or
-`personId`, `spaceId`, a `personIds` set). Read it with `useViewerScope()`; screens turn it into
-server filters and create defaults. It never decides access, and changing it remounts nothing.
+`ViewerScope` also carries **where** the viewer is working: `personId`, `spaceId`, a `personIds`
+set, or the app's own key in the open slot (`scope={{ orgId }}`, `scope={{ leagueId }}`). Read it
+with `useViewerScope()`; screens turn it into server filters and create defaults (a view's
+`scope: ["league_id"]` reads `league_id`, then `leagueId`). It never decides access, and changing
+it remounts nothing. `scopeTimeZone` is the zone of whatever the viewer is scoped to (a location, a
+league): view columns with `timeZone: "scope"` read on it.
 Pass the viewer's saved `timeZone` too: `useViewerScope().day` is today on their clock (kept current
 when the page comes back into view, and across midnight), and `keys.for(useViewerScope())` uses it
 as the key's `day`, so no screen works out "today" itself.

@@ -46,7 +46,7 @@
     "lucide-react": "^1.0.0"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:>=1.12.0 <2.0.0",
+    "@marktiderman/genesis-core": "workspace:>=1.12.0 <3.0.0",
     "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:>=2.14.0 <3.0.0",
     "react": "^19.0.0",

@@ -17,10 +17,11 @@ import { NativeImage } from "../../components/image";
 import { NativeText } from "../../components/text";
 import { defaultNativeResourceViewMessages, type NativeResourceViewMessages } from "./messages";
 
-/** The clocks a timestamp can be read on: the viewer's and the practice's (IANA names). */
+/** The clocks a timestamp can be read on: the viewer's and the scope's (IANA names). */
 export interface DisplayTimeZones {
   viewer: string;
-  practice: string;
+  /** The zone of whatever the screen is scoped to (a location, a league, a team): `timeZone: "scope"`. */
+  scope: string;
 }
 
 /** What a renderer gets besides the value (as on the web, with native's messages and clocks). */
@@ -76,10 +77,10 @@ export function formatDay(value: unknown, zone: string = personTimeZone()): stri
   return DAY.format(new Date(wall.year, wall.month - 1, wall.day));
 }
 
-/** A column's clock: "viewer" (the default) and "practice" from `zones`, else a valid IANA name. */
+/** A column's clock: "viewer" (the default) and "scope" from `zones`, else a valid IANA name. */
 export function resolveZone(zone: string | undefined, zones: DisplayTimeZones): string {
   if (!zone || zone === "viewer") return zones.viewer;
-  if (zone === "practice") return zones.practice;
+  if (zone === "scope") return zones.scope;
   return isTimeZone(zone) ? zone : zones.viewer;
 }
 
@@ -242,7 +243,7 @@ export const DisplayTimeZonesProvider = TimeZonesContext.Provider;
 /** The clocks for timestamps: the nearest provider's, else the device's for both. */
 export function useDisplayTimeZones(): DisplayTimeZones {
   const zones = useContext(TimeZonesContext);
-  return useMemo(() => zones ?? { viewer: personTimeZone(), practice: personTimeZone() }, [zones]);
+  return useMemo(() => zones ?? { viewer: personTimeZone(), scope: personTimeZone() }, [zones]);
 }
 
 /** Replace some of the renderers for everything below (nested providers build on each other). */

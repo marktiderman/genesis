@@ -11,6 +11,51 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Scope-neutral names — `@marktiderman/genesis-core` 2.0, `@marktiderman/genesis-ui-native` 3.0 (breaking; **major**)
+
+🔴 **Action required** for apps that use a practice clock or `practiceTimeZone`. Run the codemod:
+`genesis upgrade` runs it when genesis-core crosses 2.0.0, or run it by hand:
+
+```bash
+genesis codemod genesis-core-2-scope-names --dry-run   # lists the files
+genesis codemod genesis-core-2-scope-names
+```
+
+Genesis's scope and clock APIs used one app's word for its tenant ("practice"). They now name
+whatever the screen is scoped to, so an organization, a location, a league or a team reads the same.
+The umbrella `@marktiderman/genesis` takes a **minor** for the same break (it is on 0.x).
+
+| Before | After | Codemod |
+| --- | --- | --- |
+| `ResourceScope.practiceId` (a named key) | the app's own key in the open slot: `scope={{ practiceId }}` still passes it; `scope={{ orgId }}`, `scope={{ leagueId }}` are as good | Nothing to rewrite. When a file reads `practiceId`, it prints the augmentation below |
+| view field `timeZone: "practice"` | `timeZone: "scope"` | Rewritten |
+| NativeResourceView `practiceTimeZone="…"` | `scopeTimeZone="…"` (or set `scopeTimeZone` on `ViewerScope` once) | Rewritten |
+| `resolveZone("practice", zones)`, `DisplayTimeZones.practice` | `resolveZone("scope", zones)`, `DisplayTimeZones.scope` | `resolveZone` rewritten; rename a hand-built `{ viewer, practice }` object's key yourself |
+
+- **Typing an app key.** `ResourceScope` keeps its open slot, so `scope.practiceId` is `unknown`
+  without a declaration. Declare the app's keys once (module augmentation, as for
+  `GenesisViewerRoles`):
+
+  ```ts
+  declare module "@marktiderman/genesis-core" {
+    interface ResourceScope {
+      practiceId?: string;
+    }
+  }
+  ```
+
+- **What changes if you don't migrate.** `timeZone: "practice"` still type-checks (any IANA name
+  does), but it is no longer special: it isn't a zone, so the column falls back to the viewer's
+  clock. `practiceTimeZone` on NativeResourceView is a type error.
+- **New:** `ViewerScope`'s `scopeTimeZone` (`useViewerScope().scopeTimeZone`) is the scope's clock.
+  `timeZone: "scope"` columns read on it on the web as well; before, the web drew a practice-clock
+  column on the viewer's clock.
+- **No other package needed changing.** chat, switchboard, forms-native, forms-studio,
+  notifications, studio, product and support now accept genesis-core 2 and genesis-ui-native 3 as
+  peers beside the versions they accepted before (a patch each).
+
+---
+
 ## `@marktiderman/genesis-ui` — `Tooltip`, `Tabs` and `ScrollArea` move to Radix (breaking behavior; **major** semver bump)
 
 🔴 **Action required** — nothing needs editing to *compile*, but working code can stop working. Read the three checks below before upgrading.

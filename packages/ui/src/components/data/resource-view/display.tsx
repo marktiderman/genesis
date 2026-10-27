@@ -174,16 +174,19 @@ export function useDisplayCell(): (column: ResolvedColumn<Record<string, unknown
   // `when` reads the viewer too: a new viewer or new roles redraws the cells.
   const viewer = useViewer();
   // The viewer's clock, for timestamps on columns without a zone of their own.
-  const viewerZone = useOptionalViewerScope()?.timeZone;
+  const viewerScope = useOptionalViewerScope();
+  const viewerZone = viewerScope?.timeZone;
+  // The scope's clock (a location's, a league's), for columns with `timeZone: "scope"`.
+  const scopeZone = viewerScope?.scopeTimeZone ?? viewerZone;
   return useMemo(
     () => (column, row) => {
       if (column.when && !column.when(row, viewer)) return messages.common.empty;
       const value = column.value(row);
       if (isEmpty(value)) return messages.common.empty;
-      const own = column.timeZone && column.timeZone !== "viewer" && column.timeZone !== "practice" ? column.timeZone : undefined;
-      const timeZone = own && isTimeZone(own) ? own : viewerZone;
+      const own = column.timeZone && column.timeZone !== "viewer" && column.timeZone !== "scope" ? column.timeZone : undefined;
+      const timeZone = own && isTimeZone(own) ? own : column.timeZone === "scope" ? scopeZone : viewerZone;
       return renderers[column.display](value, { row, column, messages, ...(timeZone ? { timeZone } : {}) });
     },
-    [renderers, messages, viewer, viewerZone],
+    [renderers, messages, viewer, viewerZone, scopeZone],
   );
 }

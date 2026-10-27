@@ -1,6 +1,6 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { dayIn, personTimeZone, type Day } from "../dates";
+import { dayIn, isTimeZone, personTimeZone, type Day } from "../dates";
 import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
@@ -72,16 +72,17 @@ export async function clearViewerCache(queryClient: QueryClient): Promise<void> 
 }
 
 /**
- * Where the viewer is working: the current practice, person or space, or a set
- * of people. Screens turn it into server filters and create defaults; it never
- * decides access (row-level security does).
+ * Where the viewer is working: the person, space or set of people Genesis knows by name, plus
+ * whatever the app scopes to under its own key (`{ orgId }`, `{ leagueId }`, `{ locationId }`).
+ * Screens turn it into server filters and create defaults (a view's `scope: ["league_id"]` reads
+ * `league_id`, then `leagueId`); it never decides access (row-level security does).
  */
 export interface ResourceScope {
-  practiceId?: string;
   personId?: string;
   spaceId?: string;
   /** Several people at once (a coach's client list, a group). */
   personIds?: readonly string[];
+  /** The app's own scope keys: `orgId`, `leagueId`, `locationId`, … */
   [key: string]: unknown;
 }
 
@@ -92,6 +93,11 @@ export interface ViewerContext {
   roles?: GenesisViewerRoles;
   /** The zone the viewer's days are counted in: theirs if known, else the device's. */
   timeZone: string;
+  /**
+   * The zone of whatever the viewer is scoped to (a location, a league), for columns with
+   * `timeZone: "scope"`: ViewerScope's `scopeTimeZone` when valid, else {@link timeZone}.
+   */
+  scopeTimeZone?: string;
   /**
    * Today on the viewer's clock (YYYY-MM-DD), kept current when the page comes back into view.
    * Use it for every "today" read and as query keys' `day`: `keys.for(useViewerScope())`.
@@ -154,6 +160,11 @@ export interface ViewerScopeProps {
    * rendering on a server, whose own zone is rarely the viewer's.
    */
   timeZone?: string | null;
+  /**
+   * The IANA zone of whatever the viewer is scoped to (a location, a league), when it has one.
+   * Columns with `timeZone: "scope"` read on it; without it they read on the viewer's clock.
+   */
+  scopeTimeZone?: string | null;
   /** Shown while the session loads (and for the one render a change takes). */
   fallback?: ReactNode;
   children: ReactNode;
@@ -173,9 +184,10 @@ export interface ViewerScopeProps {
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const zone = personTimeZone({ timeZone });
+  const scopeZone = scopeTimeZone && isTimeZone(scopeTimeZone) ? scopeTimeZone : zone;
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
@@ -183,9 +195,9 @@ export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, f
   // Roles that aren't plain JSON count as unknown in production (rolesKeyOf warns; development throws).
   const rolesKey = roles === undefined ? undefined : rolesKeyOf(roles);
   const value = useMemo<ViewerContext>(
-    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(rolesKey !== undefined ? { roles } : {}), timeZone: zone, day }),
+    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(rolesKey !== undefined ? { roles } : {}), timeZone: zone, scopeTimeZone: scopeZone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [viewer, scopeKey, rolesKey, zone, day],
+    [viewer, scopeKey, rolesKey, zone, scopeZone, day],
   );
   // The last roles known for this viewer. Arriving (undefined → roles) or going back to undefined
   // changes nothing; different roles for the same person send their waiting writes, then reread
