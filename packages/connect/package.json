@@ -1,0 +1,63 @@
+{
+  "name": "@marktiderman/genesis-connect",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Connect an outside account, server side: encrypted secrets with key versioning (AES-256-GCM, HKDF per purpose, a keyring with rotation) and an OAuth connector kit (authorization code with PKCE, a signed state, the verifier in a cookie, a pinned callback origin) on Web Request and Response, with Google built in. fetch and WebCrypto only, no dependencies: Node 20+, edge and Workers. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/connect"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./secrets": {
+      "import": {
+        "types": "./dist/secrets.d.ts",
+        "default": "./dist/secrets.js"
+      },
+      "require": {
+        "types": "./dist/secrets.d.cts",
+        "default": "./dist/secrets.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12"
+  }
+}
