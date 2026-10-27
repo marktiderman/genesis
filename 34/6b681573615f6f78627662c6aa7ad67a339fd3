@@ -1,0 +1,21 @@
+docs/RESOURCE-VIEW.md
+  s_2550badb988043::t_d370400f186ced 170-173,421-426
+packages/ui/src/components/data/__tests__/data-table-tree.test.tsx
+  s_2550badb988043::t_2f7edc4a598813 47,80-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "346b681573615f6f78627662c6aa7ad67a339fd3",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
