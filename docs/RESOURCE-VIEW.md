@@ -335,12 +335,16 @@ export const notesView = defineView(contracts["public.notes"], {
 - **Pure and synchronous.** Guards read the row and the viewer, nothing else. A new viewer or new
   roles asks every guard again.
 - **One-argument guards still work**: `(row) => …` ignores the viewer.
-- **Roles compare by value.** ViewerScope compares `roles` like query keys (a stable stringify
-  with sorted keys), so a new object with equal roles each render changes nothing. Roles arriving
-  (undefined → roles) or going back to undefined while they reload keep the cache. Only a
-  different viewer, or roles changing to different roles, resets it: the cache empties and the
-  screens remount. A roles change keeps the same session, so the viewer's waiting writes are sent,
-  not dropped.
+- **Roles compare by value.** ViewerScope compares `roles` as plain JSON with sorted keys and
+  lists in any order, so a new object with equal roles each render changes nothing. Roles arriving
+  (undefined → roles) or going back to undefined while they reload change nothing. Different roles
+  for the same viewer send the viewer's waiting writes (the session is still theirs; a write the
+  new roles refuse fails like any refused write), then reread every query, with nothing remounted
+  or emptied. Until the reread lands, rows the old roles could see stay on screen; guards already
+  use the new roles, and row-level security refuses any write they no longer allow. Only a
+  different viewer empties the cache and remounts the screens, dropping waiting writes. Roles that
+  aren't plain JSON (a Set, Map or class) throw in development; in production they warn once and
+  count as unknown, so guards refuse.
 
 The augmentation is TypeScript's interface merging into a module ("Module augmentation" in the
 handbook's Declaration Merging page): it patches the existing `GenesisViewerRoles`, so it must
