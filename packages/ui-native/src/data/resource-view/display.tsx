@@ -180,7 +180,7 @@ function RelationText({ value, context }: { value: unknown; context: DisplayCont
     ? String(value)
     : label === undefined
       ? messages.common.empty
-      : (label ?? column.missingLabel ?? messages.common.hiddenLink);
+      : (label ?? column.missingLabel ?? messages.common.hiddenLink ?? defaultNativeResourceViewMessages.common.hiddenLink!);
   return <NativeText preset="body">{shown}</NativeText>;
 }
 
