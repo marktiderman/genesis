@@ -346,12 +346,19 @@ await pool.begin(async (tx) => {
 - **Headers:** `headers` becomes `request.headers`, as PostgREST exposes it, for a policy or
   function that reads one. Pass only what they read. `authorization`, `cookie`, `apikey` and other
   credential headers are refused.
-- **The check:** after the switch, `current_user` must be the role, or it throws
-  `IdentitySwitchError` and the transaction rolls back.
-- **A privileged pool:** the switch works on any login, so a server can keep one privileged
-  connection for its own writes and still run user work under RLS on it. The studio handler itself
-  keeps refusing a privileged login, as a second line of defence. For a role check in SQL, read
-  `current_setting('role')` or `current_user`, never a claim: a claim is whatever the token said.
+- **The role:** `authenticated` or `anon` unless `allowRoles` lists others, and `claims.role`, when
+  set, must be the same role.
+- **The check:** after the switch, a check in SQL makes sure `current_user` is the role and can't
+  bypass RLS, and that the login is neither a superuser nor BYPASSRLS. A failure raises inside the
+  transaction, so Postgres aborts it and it throws `IdentitySwitchError`. Catching that error
+  doesn't let anything go on as the login.
+- **The login:** use a dedicated `NOINHERIT` login that is neither a superuser nor BYPASSRLS, set up
+  the same way as the studio's (see [Attach a project](#attach-a-project-under-15-minutes)). On a
+  privileged login, code inside the transaction could undo the switch with `reset role`, so such a
+  login is refused (`allowPrivilegedLogin` is for local development only). Keep server-owned writes
+  on a separate privileged pool that never runs user work.
+- **Role checks in SQL:** read `current_setting('role')` or `current_user`, never a claim, since a
+  claim is only what the token said.
 
 ## Operational notes
 

@@ -12,25 +12,26 @@ import type { Identity } from "./db";
 
 /** Thrown when the transaction did not end up as the requested role. */
 export class IdentitySwitchError extends Error {
-  constructor(expected: string, actual: unknown) {
-    super(`Expected to act as "${expected}" but the session is "${String(actual)}". Refusing to run.`);
+  constructor(expected: string, actual: unknown, detail?: string) {
+    super(
+      detail
+        ? `Refusing to act as "${expected}": ${detail}.`
+        : `Expected to act as "${expected}" but the session is "${String(actual)}". Refusing to run.`,
+    );
     this.name = "IdentitySwitchError";
   }
 }
 
 /**
- * Headers that carry a credential. `request.headers` is readable by every
- * function and policy in the transaction, so none of these may go into it.
+ * Header names that may carry a credential. `request.headers` is readable by
+ * every function and policy in the transaction, so none of these may go into
+ * it. A pattern, not a list, so `x-auth-token`, `x-session-id` and the like
+ * are caught too.
  */
-const CREDENTIAL_HEADERS = new Set([
-  "authorization",
-  "proxy-authorization",
-  "cookie",
-  "set-cookie",
-  "apikey",
-  "x-api-key",
-  "x-supabase-api-key",
-]);
+const CREDENTIAL_HEADER = /auth|token|secret|passw|cookie|session|api-?key|csrf|xsrf|signature|credential/;
+
+/** The roles `switchToUser` switches to unless `allowRoles` says otherwise. */
+export const DEFAULT_SWITCH_ROLES: readonly string[] = ["authenticated", "anon"];
 
 export interface SwitchOptions {
   /**
@@ -42,8 +43,19 @@ export interface SwitchOptions {
    * connection never applies.
    */
   headers?: Readonly<Record<string, string>>;
-  /** `statement_timeout` for the rest of the transaction, in milliseconds. Default: the server's. */
+  /** `statement_timeout` for the rest of the transaction, in milliseconds (above 0). Default: the server's. */
   statementTimeoutMs?: number;
+  /**
+   * The roles this call may switch to. Default {@link DEFAULT_SWITCH_ROLES}. Never list a role
+   * that bypasses row-level security (Supabase's `service_role`): the check after the switch
+   * refuses one anyway.
+   */
+  allowRoles?: readonly string[];
+  /**
+   * Allow a superuser or BYPASSRLS login, for local development only. On such a login, code
+   * inside the transaction can undo the switch with `reset role`. Default false.
+   */
+  allowPrivilegedLogin?: boolean;
 }
 
 /** The settings, in order, as `[name, value]`. Every value is sent as a parameter. */
@@ -54,7 +66,7 @@ export function switchSettings(identity: Identity, options: SwitchOptions = {}):
     if (name !== name.toLowerCase() || !/^[a-z0-9-]+$/.test(name)) {
       throw new Error(`Header name "${name}" must be lower-case letters, digits and dashes.`);
     }
-    if (CREDENTIAL_HEADERS.has(name)) throw new Error(`The "${name}" header carries a credential and can't be exposed.`);
+    if (CREDENTIAL_HEADER.test(name)) throw new Error(`The "${name}" header carries a credential and can't be exposed.`);
     if (typeof value !== "string") throw new Error(`Header "${name}" must be a string.`);
     headers[name] = value;
   }
@@ -72,9 +84,17 @@ export function switchSettings(identity: Identity, options: SwitchOptions = {}):
     ["request.jwt.claim.role", claim("role")],
     ["request.jwt.claim.email", claim("email")],
     ["request.headers", JSON.stringify(headers)],
+    // PostgREST's other request settings: cleared, so a value left on the connection never applies.
+    ["request.method", ""],
+    ["request.path", ""],
+    ["request.cookies", "{}"],
   ];
   if (options.statementTimeoutMs !== undefined) {
-    settings.push(["statement_timeout", String(Math.max(0, Math.floor(options.statementTimeoutMs)))]);
+    // 0 would turn the timeout off.
+    if (!Number.isFinite(options.statementTimeoutMs) || options.statementTimeoutMs < 1) {
+      throw new Error("statementTimeoutMs must be at least 1.");
+    }
+    settings.push(["statement_timeout", String(Math.floor(options.statementTimeoutMs))]);
   }
   return settings;
 }
@@ -94,8 +114,7 @@ export function settingsStatement(settings: readonly [string, string][]): { text
 }
 
 /**
- * Runs a tagged-template query inside the caller's transaction and resolves
- * with its rows: postgres.js's `tx` as it is, or for Drizzle
+ * Runs a tagged-template query inside the caller's transaction: postgres.js's `tx` as it is, or for Drizzle
  * `(strings, ...values) => tx.execute(sql(strings, ...values))`.
  */
 export type TaggedQuery = (strings: TemplateStringsArray, ...values: never[]) => unknown;
@@ -104,23 +123,41 @@ function template(parts: string[]): TemplateStringsArray {
   return Object.assign([...parts], { raw: [...parts] }) as unknown as TemplateStringsArray;
 }
 
-/** Rows from a driver's result: an array (postgres.js, Drizzle over it) or `{ rows }` (node-postgres). */
-function rowsOf(result: unknown): Record<string, unknown>[] {
-  if (Array.isArray(result)) return result as Record<string, unknown>[];
-  const rows = (result as { rows?: unknown } | null)?.rows;
-  return Array.isArray(rows) ? (rows as Record<string, unknown>[]) : [];
-}
+/**
+ * Checks, in SQL, that the switch took and holds: `current_user` is the role
+ * asked for and can't bypass row-level security, and the login can't undo the
+ * switch. A failure raises inside the transaction, so Postgres aborts it: a
+ * caller that catches the error can't go on as the login.
+ */
+const CHECK_SQL = `do $check$
+declare
+  expected text := current_setting('genesis.switch_role', true);
+  privileged_user boolean;
+  privileged_login boolean;
+begin
+  select rolsuper or rolbypassrls into privileged_user from pg_roles where rolname = current_user;
+  select rolsuper or rolbypassrls into privileged_login from pg_roles where rolname = session_user;
+  if current_user <> coalesce(expected, '') or coalesce(privileged_user, true) then
+    raise exception 'genesis switch: expected "%", session is "%"', expected, current_user using errcode = '42501';
+  end if;
+  if coalesce(privileged_login, true) and current_setting('genesis.switch_allow_privileged', true) is distinct from 'on' then
+    raise exception 'genesis switch: login "%" is a superuser or bypasses RLS', session_user using errcode = '42501';
+  end if;
+end
+$check$`;
 
 /**
- * Switch the current transaction to `identity`, then check that it took:
- * `current_user` must be `identity.role`, or it throws `IdentitySwitchError`
- * and the caller's transaction rolls back. Call it first, inside a
- * transaction; outside one, the settings end with the statement.
+ * Switch the current transaction to `identity`, then check, in SQL, that it
+ * took: `current_user` must be `identity.role` and must not bypass RLS, or the
+ * transaction is aborted and it throws `IdentitySwitchError`. Call it first,
+ * inside a transaction; outside one, the settings end with the statement.
  *
- * It works on any login, including a privileged one an app also uses for
- * server-owned writes: after the switch, RLS applies as it would for the user,
- * and the check refuses to go on if it didn't. (The studio handler still
- * refuses a privileged login, as a second line of defence.)
+ * - **The role** must be in `allowRoles` (default `authenticated` and `anon`),
+ *   and `claims.role`, when set, must be the same role.
+ * - **The login** must be a NOINHERIT login that isn't a superuser and doesn't
+ *   bypass RLS, as the studio handler's is (see the README). On a privileged
+ *   login, code inside the transaction could undo the switch with
+ *   `reset role`, so one is refused unless `allowPrivilegedLogin` is set.
  *
  * ```ts
  * // Drizzle
@@ -136,10 +173,29 @@ function rowsOf(result: unknown): Record<string, unknown>[] {
  * ```
  */
 export async function switchToUser(query: TaggedQuery, identity: Identity, options: SwitchOptions = {}): Promise<void> {
-  const settings = switchSettings(identity, options);
+  const allowed = options.allowRoles ?? DEFAULT_SWITCH_ROLES;
+  if (!allowed.includes(identity.role)) {
+    throw new Error(`switchToUser won't switch to role "${identity.role}": it isn't in allowRoles.`);
+  }
+  const claimRole = identity.claims.role;
+  if (claimRole !== undefined && claimRole !== identity.role) {
+    throw new Error(`The token's role "${String(claimRole)}" isn't "${identity.role}".`);
+  }
+  const settings: [string, string][] = [
+    ...switchSettings(identity, options),
+    ["genesis.switch_role", identity.role],
+    ["genesis.switch_allow_privileged", options.allowPrivilegedLogin ? "on" : "off"],
+  ];
   const parts = settings.map(([name], i) => `${i === 0 ? "select " : "::text, true), "}set_config('${name}', `);
   parts.push("::text, true)");
   await query(template(parts), ...(settings.map(([, value]) => value) as never[]));
-  const [who] = rowsOf(await query(template(["select current_user as role"])));
-  if (who?.role !== identity.role) throw new IdentitySwitchError(identity.role, who?.role);
+  try {
+    await query(template([CHECK_SQL]));
+  } catch (error) {
+    const message = (error as { message?: unknown } | null)?.message;
+    if (typeof message === "string" && message.startsWith("genesis switch:")) {
+      throw new IdentitySwitchError(identity.role, undefined, message.slice("genesis switch: ".length));
+    }
+    throw error;
+  }
 }

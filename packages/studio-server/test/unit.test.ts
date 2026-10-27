@@ -533,7 +533,7 @@ describe("switchToUser", () => {
     const calls: { text: string; values: unknown[] }[] = [];
     const query = async (strings: TemplateStringsArray, ...values: unknown[]) => {
       calls.push({ text: strings.reduce((out, part, i) => out + (i ? `$${i}` : "") + part, ""), values });
-      return calls.length === 1 ? [] : [{ role: "authenticated" }];
+      return [];
     };
     return { calls, query };
   }
@@ -550,21 +550,38 @@ describe("switchToUser", () => {
       "authenticated",
       "a@b.test",
       JSON.stringify({ "x-app": "gamify" }),
+      "",
+      "",
+      "{}",
       "5000",
+      "authenticated",
+      "off",
     ]);
-    expect(calls[1]!.text).toBe("select current_user as role");
+    expect(calls[1]!.text).toMatch(/^do \$check\$/);
+    expect(calls[1]!.values).toEqual([]);
   });
 
-  it("reads rows from node-postgres's { rows } too", async () => {
-    let n = 0;
+  it("refuses a role outside allowRoles, and a token whose role differs", async () => {
+    const { query, calls } = recorder();
+    await expect(switchToUser(query, { role: "service_role", claims: { sub: "u" } })).rejects.toThrow(/allowRoles/);
+    await expect(switchToUser(query, { role: "postgres", claims: {} })).rejects.toThrow(/allowRoles/);
     await expect(
-      switchToUser(async () => (n++ === 0 ? { rows: [] } : { rows: [{ role: "authenticated" }] }), identity),
-    ).resolves.toBeUndefined();
+      switchToUser(query, { role: "authenticated", claims: { sub: "u", role: "service_role" } }),
+    ).rejects.toThrow(/token's role/);
+    await expect(switchToUser(query, { role: "staff", claims: { role: "staff" } }, { allowRoles: ["staff"] })).resolves.toBeUndefined();
+    expect(calls).toHaveLength(2);
+  });
+
+  it("refuses a statement timeout that would turn it off", async () => {
+    const { query } = recorder();
+    for (const ms of [0, -1, Number.NaN]) {
+      await expect(switchToUser(query, identity, { statementTimeoutMs: ms })).rejects.toThrow(/at least 1/);
+    }
   });
 
   it("refuses credential or badly named headers, and a missing role", async () => {
     const { query, calls } = recorder();
-    for (const name of ["authorization", "cookie", "apikey", "x-api-key"]) {
+    for (const name of ["authorization", "cookie", "apikey", "x-api-key", "x-auth-token", "x-access-token", "x-session-id", "x-csrf-token"]) {
       await expect(switchToUser(query, identity, { headers: { [name]: "x" } })).rejects.toThrow(/credential/);
     }
     await expect(switchToUser(query, identity, { headers: { "X-App": "x" } })).rejects.toThrow(/lower-case/);
