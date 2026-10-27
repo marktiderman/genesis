@@ -107,10 +107,16 @@ export const featureMirrorBlock = defineBlock({
         file: "migrations/0014_genesis_feature_registry_hardening.sql",
         test: "migrations/tests/0014_genesis_feature_registry_hardening.test.sql",
       },
+      { package: PACKAGE, file: "migrations/0016_genesis_viewer_people.sql", test: "migrations/tests/0016_genesis_viewer_people.test.sql" },
+      {
+        package: PACKAGE,
+        file: "migrations/0017_genesis_person_entitlements.sql",
+        test: "migrations/tests/0017_genesis_person_entitlements.test.sql",
+      },
     ],
     privacy: {
       notes: [
-        "Stores which tenants hold which paid features and flag values; no personal data.",
+        "Stores which tenants and which people (the app's person ids) hold which paid features, and flag values.",
       ],
     },
   },
@@ -172,6 +178,7 @@ export const ownerAccessBlock = defineBlock({
         file: "migrations/0009_genesis_owner_access.sql",
         test: "migrations/tests/0009_genesis_owner_access.test.sql",
       },
+      { package: PACKAGE, file: "migrations/0016_genesis_viewer_people.sql", test: "migrations/tests/0016_genesis_viewer_people.test.sql" },
     ],
     privacy: { notes: ["Stores nothing; it only asks the app's hooks who may read and write."] },
   },

@@ -35,6 +35,12 @@ describe("featureGateState", () => {
     expect(rpc).toHaveBeenCalledWith("feature_gate_state", { tenant: "t1" });
   });
 
+  it("names a person for server code", async () => {
+    const { client, rpc } = fakeClient({ data: { off: [], entitled: ["classes"], flags: {} }, error: null });
+    expect((await featureGateState(client, "t1", { personId: "p1" })).entitlements).toEqual(["classes"]);
+    expect(rpc).toHaveBeenCalledWith("feature_gate_state", { tenant: "t1", person: "p1" });
+  });
+
   it("throws on an empty or malformed answer instead of reporting nothing set", async () => {
     for (const data of [null, [], { off: [], entitled: [] }, { off: "x", entitled: [], flags: {} }]) {
       const { client } = fakeClient({ data, error: null });
