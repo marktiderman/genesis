@@ -298,6 +298,55 @@ space, or a set of them (`personIds: string[]`).
   client screen can share one view.
 - `ResourceView` requires `ViewerScope` above it.
 
+## Viewer-aware guards
+
+Guards, action guards and `when` get the viewer as their last argument: `create(viewer)`,
+`update(row, viewer)`, `delete(row, viewer)`, an action's `can(row, viewer)` and a field's
+`when(row, viewer)`. The viewer is `{ id, scope, roles? }`, read by `useViewer()` from the nearest
+`ViewerScope`. ResourceView, NativeResourceView and both workspaces read it themselves and pass it
+to every cell, the peek, swipe actions, the create button, header actions and the settings lock.
+Outside a renderer, pass it yourself: `view.can("update", row, viewer)`,
+`view.canAction("archive", row, viewer)`, `workspace.settingsLocked(row, viewer)`,
+`workspace.headerFor(row, { viewer })`.
+
+```ts
+// Once in the app: the roles it knows. Core's interface is empty; the app fills it.
+declare module "@marktiderman/genesis-core" {
+  interface GenesisViewerRoles {
+    teamRoles?: readonly ("owner" | "editor" | "reader")[];
+  }
+}
+
+<ViewerScope viewer={userId} scope={{ teamId }} roles={{ teamRoles }}>…</ViewerScope>
+
+export const notesView = defineView(contracts["public.notes"], {
+  can: { update: (row, viewer) => (row.owner_id === viewer.id ? true : "Only its owner edits a note.") },
+  actions: [{ name: "share", label: "Share", can: (_row, viewer) => (viewer.roles?.teamRoles?.includes("editor") ? true : "Editors share notes.") }],
+  fields: { private_note: { when: (row, viewer) => row.owner_id === viewer.id } },
+});
+```
+
+- **Guards narrow what the page shows; RLS is the boundary.** A guard is never a security check:
+  it hides or refuses a control the server would refuse anyway. Anything a guard enforces, the
+  database enforces too.
+- **Fail closed.** Without a ViewerScope the viewer is `NO_VIEWER` (`{ id: null, scope: {} }`),
+  and so are calls that don't pass one, so a guard that needs the viewer refuses with its reason.
+  Roles are undefined until the app knows them, and a guard that needs them refuses meanwhile.
+- **Pure and synchronous.** Guards read the row and the viewer, nothing else. A new viewer or new
+  roles asks every guard again.
+- **One-argument guards still work**: `(row) => …` ignores the viewer.
+- **Roles compare by value.** ViewerScope compares `roles` like query keys (a stable stringify
+  with sorted keys), so a new object with equal roles each render changes nothing. Roles arriving
+  (undefined → roles) or going back to undefined while they reload keep the cache. Only a
+  different viewer, or roles changing to different roles, resets it: the cache empties and the
+  screens remount. A roles change keeps the same session, so the viewer's waiting writes are sent,
+  not dropped.
+
+The augmentation is TypeScript's interface merging into a module ("Module augmentation" in the
+handbook's Declaration Merging page): it patches the existing `GenesisViewerRoles`, so it must
+target a module that exports it (`@marktiderman/genesis-core`, or its `/resource-view` subpath),
+and adds no new top-level declarations.
+
 ## Speed and scale
 
 The defaults are chosen for large data:

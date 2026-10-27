@@ -31,15 +31,17 @@ vi.mock("@marktiderman/genesis-core/hooks", async (importOriginal) => {
 
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Alert, Linking } from "react-native";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   DataWriteError,
   defineResource,
   GenesisProvider,
+  ViewerScope,
   type DataProvider,
   type ListParams,
+  type Viewer,
 } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import {
@@ -280,6 +282,111 @@ describe("guards to swipe actions", () => {
       row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "delete" }));
     });
     expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+  });
+});
+
+describe("viewer-aware guards", () => {
+  const handlers = () => ({ onEdit: vi.fn(), onDelete: vi.fn(), onRefused: vi.fn() });
+  const isEditor = (v: Viewer) => ((v.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineView(brands, {
+    form: ["name"],
+    can: {
+      create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+      update: (_r, v) => (isEditor(v) ? true : "Only editors edit brands."),
+    },
+  });
+  const ann: Viewer = { id: "ann", scope: {}, roles: { teamRoles: ["editor"] } as never };
+  const bob: Viewer = { id: "bob", scope: {}, roles: { teamRoles: ["reader"] } as never };
+
+  it("refuses one viewer's swipe and allows another's; no viewer refuses", () => {
+    const edit = (viewer?: Viewer) =>
+      swipeActionsFor(guarded, ROWS[1]!, { messages, softDelete: false, editable: true, ...(viewer ? { viewer } : {}), ...handlers() }).find(
+        (a) => a.id === "edit",
+      )!.reason;
+    expect(edit(bob)).toBe("Only editors edit brands.");
+    expect(edit(ann)).toBeUndefined();
+    expect(edit()).toBe("Only editors edit brands.");
+  });
+
+  it("reads the viewer from ViewerScope for create, and fails closed without one", async () => {
+    const at = (viewer?: string, roles?: { teamRoles: string[] }) => {
+      const Base = wrap(provider());
+      return ({ children }: { children: ReactNode }) => (
+        <Base>{viewer ? <ViewerScope viewer={viewer} roles={roles as never}>{children}</ViewerScope> : children}</Base>
+      );
+    };
+    const editor = renderHook(() => useNativeResourceView(guarded), { wrapper: at("ann", { teamRoles: ["editor"] }) });
+    await waitFor(() => expect(editor.result.current.canCreate).toBe(true));
+    const reader = renderHook(() => useNativeResourceView(guarded), { wrapper: at("bob", { teamRoles: ["reader"] }) });
+    await waitFor(() => expect(reader.result.current.canCreate).toBe("Only editors add brands."));
+    const nobody = renderHook(() => useNativeResourceView(guarded), { wrapper: at() });
+    expect(nobody.result.current.canCreate).toBe("Only editors add brands.");
+  });
+});
+
+describe("viewer-aware guards when only the roles change", () => {
+  const isEditor = (v?: Viewer) => ((v?.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineView(brands, {
+    fields: { secret: { label: "Secret", when: (_r, v) => isEditor(v) } },
+    columns: { default: ["name", "secret"] },
+    form: ["name"],
+    can: {
+      create: (v) => (isEditor(v) ? true : "Only editors add brands."),
+      update: (_r, v) => (isEditor(v) ? true : "Only editors edit brands."),
+      delete: (_r, v) => (isEditor(v) ? true : "Only editors delete brands."),
+    },
+  });
+
+  // ViewerScope keeps the same viewer's screen mounted when the roles change, so create, the row's
+  // actions and `when` must be asked again from the viewer in their memos' dependencies.
+  it("asks create, edit, delete and `when` again, without remounting", async () => {
+    let mounts = 0;
+    function Mounts() {
+      useState(() => (mounts += 1));
+      return null;
+    }
+    const Base = wrap(provider());
+    const at = (roles?: { teamRoles: string[] }) => (
+      <Base>
+        <ViewerScope viewer="ann" roles={roles as never}>
+          <Mounts />
+          <NativeResourceView view={guarded} />
+        </ViewerScope>
+      </Base>
+    );
+    const reason = (id: "edit" | "delete") => screen.queryByTestId(`native-resource-view-peek-${id}-reason`)?.textContent ?? null;
+    const peek = () => screen.getByTestId("native-resource-view-peek").textContent;
+    const pressCreate = () => fireEvent.click(screen.getByTestId("native-resource-view-create"));
+
+    // Roles not known yet: create explains instead of opening, edit and delete are refused, the value hidden.
+    const { rerender } = render(at(undefined));
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    await screen.findByTestId("native-resource-view-peek");
+    expect(peek()).toContain("Secret");
+    expect(peek()).not.toContain("shown");
+    expect(reason("edit")).toBe("Only editors edit brands.");
+    expect(reason("delete")).toBe("Only editors delete brands.");
+    pressCreate();
+    expect(alert).toHaveBeenLastCalledWith("New brand", "Only editors add brands.");
+
+    // Roles arrive (undefined → editor): the same mounted screen allows, and shows the value.
+    alert.mockClear();
+    rerender(at({ teamRoles: ["editor"] }));
+    await waitFor(() => expect(reason("edit")).toBeNull());
+    expect(reason("delete")).toBeNull();
+    expect(peek()).toContain("shown");
+    pressCreate();
+    expect(alert).not.toHaveBeenCalled();
+    fireEvent.click(await screen.findByTestId("native-resource-view-form-cancel"));
+
+    // Roles change (editor → reader): refused and hidden again, still the same mount.
+    rerender(at({ teamRoles: ["reader"] }));
+    await waitFor(() => expect(reason("edit")).toBe("Only editors edit brands."));
+    expect(reason("delete")).toBe("Only editors delete brands.");
+    await waitFor(() => expect(peek()).not.toContain("shown"));
+    pressCreate();
+    expect(alert).toHaveBeenLastCalledWith("New brand", "Only editors add brands.");
+    expect(mounts).toBe(1);
   });
 });
 

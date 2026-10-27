@@ -7,8 +7,9 @@
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, type DataProvider, type ListParams } from "@marktiderman/genesis-core";
+import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
 import { defineView, defineWorkspace } from "@marktiderman/genesis-core/resource-view";
 import { AppShell, type NavItem } from "../../layout/AppShell";
 import type { NavigationNode } from "../../../navigation";
@@ -254,5 +255,72 @@ describe("ResourceWorkspace review fixes", () => {
     render2(brand, provider({ describe: vi.fn(async () => ({ ...brands, access: {}, actions: [{ name: "purge", label: "Purge" }] })) as never }));
     await waitFor(() => expect(screen.queryByTestId("resource-workspace-action-publish")).toBeNull());
     expect(screen.getByTestId("resource-workspace-action-purge")).toBeTruthy();
+  });
+});
+
+describe("ResourceWorkspace when only the viewer's roles change", () => {
+  const isEditor = (v?: Viewer) => ((v?.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
+  const guarded = defineWorkspace(
+    defineView(brands, {
+      can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change brands.") },
+      actions: [{ name: "publish", label: "Publish", can: (_b, v) => (isEditor(v) ? true : "Only editors publish.") }],
+    }),
+    { sections: [{ id: "settings", label: "Settings", settings: ["website", "notes"] }] },
+  );
+
+  // ViewerScope keeps the same viewer's screen mounted when the roles change, so the header's
+  // action guards and the settings' update guard must be asked again with the new viewer.
+  it("asks the action and settings guards again, without remounting", async () => {
+    let mounts = 0;
+    function Mounts() {
+      useState(() => (mounts += 1));
+      return null;
+    }
+    const p = provider();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const at = (roles?: { teamRoles: string[] }) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ViewerScope viewer="ann" roles={roles}>
+          <Mounts />
+          <AppShell
+            appName="Test"
+            navigation={tree}
+            options={{ showThemeToggle: false, configurable: false, subNav: "tabs" }}
+            activePath="/brands/b1/settings"
+          >
+            <ResourceWorkspace workspace={guarded as never} row={brand} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+          </AppShell>
+        </ViewerScope>
+      </GenesisProvider>
+    );
+    const publish = () => screen.getByTestId("resource-workspace-action-publish") as HTMLButtonElement;
+    const locked = () => screen.queryByTestId("resource-workspace-settings-locked");
+    const notes = () => screen.getByTestId("resource-workspace-settings-notes-input") as HTMLInputElement;
+    const save = () => screen.queryByTestId("resource-workspace-settings-save");
+
+    // Roles not known yet: the action is refused with its reason, the settings are read-only.
+    const { rerender } = render(at(undefined));
+    expect(publish().disabled).toBe(true);
+    expect(publish().title).toBe("Only editors publish.");
+    expect(locked()?.textContent).toBe("Only editors change brands.");
+    expect(notes().disabled).toBe(true);
+    expect(save()).toBeNull();
+
+    // Roles arrive (undefined → editor): the same mounted screen allows both.
+    rerender(at({ teamRoles: ["editor"] }));
+    await waitFor(() => expect(publish().disabled).toBe(false));
+    expect(publish().title).not.toBe("Only editors publish.");
+    expect(locked()).toBeNull();
+    expect(notes().disabled).toBe(false);
+    expect(save()).toBeTruthy();
+
+    // Roles change (editor → reader): refused and read-only again, still the same mount.
+    rerender(at({ teamRoles: ["reader"] }));
+    await waitFor(() => expect(publish().disabled).toBe(true));
+    expect(publish().title).toBe("Only editors publish.");
+    expect(locked()?.textContent).toBe("Only editors change brands.");
+    expect(notes().disabled).toBe(true);
+    expect(save()).toBeNull();
+    expect(mounts).toBe(1);
   });
 });

@@ -9,6 +9,7 @@ import type {
   ResourceView,
   RowPicture,
   RowSummary,
+  Viewer,
 } from "@marktiderman/genesis-core/resource-view";
 import { rowPicture } from "@marktiderman/genesis-core/resource-view";
 import type { InboxSwipeAction } from "../../layouts/inbox-page";
@@ -104,17 +105,21 @@ export interface NativeResourceSwipeAction extends InboxSwipeAction {
 /** A screen's own rule. It only narrows: `false` hides the action, a sentence shows it refused. */
 export type NativeResourceScreenCan<T> = (action: "create" | "update" | "delete", row?: T) => Allowed | boolean;
 
-/** The effective right: the screen's rule AND the view's guard (never OR). */
+/**
+ * The effective right: the screen's rule AND the view's guard (never OR). The guard gets the
+ * viewer (`useViewer()`); without one it gets no one, so a guard that needs it refuses.
+ */
 export function allowed<T extends Row>(
   view: AnyResourceView<T>,
   action: "create" | "update" | "delete",
   row: T | undefined,
   screen?: NativeResourceScreenCan<T>,
+  viewer?: Viewer,
 ): Allowed | false {
   const own = screen?.(action, row);
   if (own === false) return false;
   if (typeof own === "string") return own;
-  const guard = action === "create" ? view.can("create") : row ? view.can(action, row as T & DataRow) : true;
+  const guard = action === "create" ? view.can("create", viewer) : row ? view.can(action, row as T & DataRow, viewer) : true;
   return guard;
 }
 
@@ -125,6 +130,8 @@ export interface SwipeActionOptions<T> {
   /** The view has fields a writer may change when editing. */
   editable: boolean;
   screen?: NativeResourceScreenCan<T>;
+  /** Who is looking (`useViewer()`), for the view's guards. */
+  viewer?: Viewer;
   onEdit: (row: T) => void;
   onDelete: (row: T) => void;
   /** A refused action was pressed: say why. */
@@ -140,7 +147,7 @@ export function swipeActionsFor<T extends Row>(
   row: T,
   options: SwipeActionOptions<T>,
 ): NativeResourceSwipeAction[] {
-  const { messages, softDelete, editable, screen, onEdit, onDelete, onRefused } = options;
+  const { messages, softDelete, editable, screen, viewer, onEdit, onDelete, onRefused } = options;
   const actions: NativeResourceSwipeAction[] = [];
   const add = (id: string, label: string, icon: string, right: Allowed | false, run: () => void, destructive = false) => {
     if (right === false) return;
@@ -154,12 +161,12 @@ export function swipeActionsFor<T extends Row>(
       onPress: reason ? () => onRefused(label, reason) : run,
     });
   };
-  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen), () => onEdit(row));
+  if (editable) add("edit", messages.common.edit, "edit", allowed(view, "update", row, screen, viewer), () => onEdit(row));
   add(
     "delete",
     softDelete ? messages.bin.action : messages.delete.action,
     "trash",
-    allowed(view, "delete", row, screen),
+    allowed(view, "delete", row, screen, viewer),
     () => onDelete(row),
     true,
   );

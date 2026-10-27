@@ -2,6 +2,7 @@
 // genesis-sites' defineSection). Everything a renderer needs is resolved here, so web, native and
 // the extension draw the same labels, columns and form.
 
+import { NO_VIEWER, type Viewer } from "../viewer";
 import { keyFields } from "../schema/keys";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
@@ -107,7 +108,10 @@ const own = <V>(record: Readonly<Record<string, V>> | undefined, key: string): V
  * export const brandsView = defineView(contracts["public.brands"], {
  *   fields: { status: { display: "badge", tones: { active: "success" } } },
  *   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
- *   can: { delete: (row) => (row.is_default ? "The default brand stays." : true) },
+ *   can: {
+ *     delete: (row) => (row.is_default ? "The default brand stays." : true),
+ *     update: (row, viewer) => (row.owner_id === viewer.id ? true : "Only its owner edits a brand."),
+ *   },
  *   actions: [{ name: "archive", label: "Archive", can: (row) => (row.is_default ? "The default brand stays." : true) }],
  * });
  * ```
@@ -259,7 +263,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           field: byName.get(column)!,
           value: (row: Row) => row[column],
           ...(v?.tones ? { tones: v.tones } : {}),
-          ...(v?.when ? { when: v.when } : {}),
+          ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
           ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
         });
       }),
@@ -312,10 +316,14 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
 
   // ── Guards and summary ───────────────────────────────────────────────
   const guards = definition.can ?? {};
-  function can(action: "create" | "update" | "delete", row?: Row): Allowed {
-    if (action === "create") return guards.create?.() ?? true;
+  // `can("create", viewer)` and `can("update", row, viewer)`; no viewer means no one (fail closed).
+  function can(action: "create" | "update" | "delete", rowOrViewer?: Row | Viewer, maybeViewer?: Viewer): Allowed {
+    // Plain JavaScript can pass a row to create: that row would be read as the viewer.
+    if (action === "create" && maybeViewer !== undefined) throw new TypeError(`[genesis-core] ${contract.name}: can("create", viewer) takes no row`);
+    if (action === "create") return guards.create?.((rowOrViewer as Viewer | undefined) ?? NO_VIEWER) ?? true;
     const guard = guards[action];
-    return guard && row ? guard(row) : true;
+    const row = rowOrViewer as Row | undefined;
+    return guard && row ? guard(row, maybeViewer ?? NO_VIEWER) : true;
   }
   const actionGuards = new Map(actionList.map((a) => [a.name, a.can]));
   const resolvedActions: readonly ResolvedViewAction[] = Object.freeze(
@@ -329,11 +337,11 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       }),
     ),
   );
-  function canAction(name: string, row: Row): Allowed {
+  function canAction(name: string, row: Row, viewer: Viewer = NO_VIEWER): Allowed {
     if (!actionGuards.has(name)) throw new ViewDefinitionError(contract.name, [`no action "${name}"`]);
     const guard = actionGuards.get(name);
     if (!guard) return true;
-    const result: unknown = guard(row);
+    const result: unknown = guard(row, viewer);
     // Only `true` allows; a reason is shown as given; anything else (false, "", undefined) refuses.
     if (result === true) return true;
     return typeof result === "string" && result.trim() ? result : "This isn't allowed.";

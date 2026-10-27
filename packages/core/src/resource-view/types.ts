@@ -3,8 +3,9 @@
 
 import type { ChipTone } from "../resource/status";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
+import type { Viewer } from "../viewer";
 
-export type { RowOf };
+export type { RowOf, Viewer };
 
 /** A chip's colour: the one Genesis tone set (`ChipTone`, genesis-core/resource). */
 export type ViewTone = ChipTone;
@@ -44,10 +45,12 @@ export interface ViewField<Row extends DataRow = DataRow> {
   /** Shown read-only even where the server would accept a write. Never widens. */
   readOnly?: boolean;
   /**
-   * Show the cell only when the row says so: for values a server function masks by policy
-   * (`(row) => row.author_visible`). The masking itself is the server's.
+   * Show the cell only when the row (and the viewer) say so: for values a server function masks
+   * by policy (`(row) => row.author_visible`). The masking itself is the server's. It hides
+   * table cells and the peek only: not workspace settings, an edit form's prefilled values, a
+   * view's `summary` or header, or sorting and searching on the column.
    */
-  when?: (row: Row) => boolean;
+  when?: (row: Row, viewer: Viewer) => boolean;
   /** In a form: show the field only while this holds for the form's values. A hidden field isn't saved. */
   visible?: (values: Readonly<Record<string, unknown>>) => boolean;
   /** A timestamp's clock: the viewer's (default), the practice's, or a fixed IANA zone. */
@@ -85,11 +88,15 @@ export type Allowed = true | string;
 /**
  * Row rules the server can't cheaply express ("the default brand can't be deleted"). They only
  * narrow: the effective right is the server's AND these. An invariant goes in the database too.
+ *
+ * Each gets the viewer (`useViewer()`: id, scope, roles). Outside a ViewerScope it is
+ * `{ id: null, scope: {} }`, so a guard that needs it refuses with its reason. Pure and
+ * synchronous; never a security check (row-level security is the boundary).
  */
 export interface ViewGuards<Row extends DataRow> {
-  create?: () => Allowed;
-  update?: (row: Row) => Allowed;
-  delete?: (row: Row) => Allowed;
+  create?: (viewer: Viewer) => Allowed;
+  update?: (row: Row, viewer: Viewer) => Allowed;
+  delete?: (row: Row, viewer: Viewer) => Allowed;
 }
 
 /**
@@ -103,7 +110,7 @@ export interface ViewGuards<Row extends DataRow> {
 export interface ViewAction<Row extends DataRow = DataRow> extends RowAction {
   /** Drawn as destructive (red, the menu's destructive style). */
   destructive?: boolean;
-  can?: (row: Row) => Allowed;
+  can?: (row: Row, viewer: Viewer) => Allowed;
 }
 
 /** An action as a renderer lists it: the words only. Ask `view.canAction` whether a row allows it. */
@@ -186,7 +193,8 @@ export interface ResolvedColumn<Row extends DataRow = DataRow> {
   field?: FieldSchema;
   value: (row: Row) => unknown;
   tones?: Readonly<Record<string, ViewTone>>;
-  when?: (row: Row) => boolean;
+  /** Whether to show the cell. Without a viewer it answers for no one (fail closed). */
+  when?: (row: Row, viewer?: Viewer) => boolean;
   timeZone?: ViewField["timeZone"];
 }
 
@@ -224,14 +232,18 @@ export interface ResourceView<C extends ResourceContract = ResourceContract, Row
   form(mode: "create" | "edit"): readonly ResolvedFormField[];
   /** Fields a writer may send: the form's, never generated, read-only, key or scope fields. */
   writable(mode: "create" | "edit"): readonly string[];
-  can(action: "create"): Allowed;
-  can(action: "update" | "delete", row: Row): Allowed;
+  /**
+   * Whether the view's guard allows it for this viewer: `true`, or the guard's reason. Without a
+   * viewer, guards get `NO_VIEWER` (no one), so one that needs the viewer refuses.
+   */
+  can(action: "create", viewer?: Viewer): Allowed;
+  can(action: "update" | "delete", row: Row, viewer?: Viewer): Allowed;
   /** The view's actions, in order, frozen. */
   actions(): readonly ResolvedViewAction[];
   /**
    * Whether this row allows the named action: `true`, or the guard's reason. Only narrows what the
    * server allows. Throws {@link ViewDefinitionError} for a name the view doesn't define.
    */
-  canAction(name: string, row: Row): Allowed;
+  canAction(name: string, row: Row, viewer?: Viewer): Allowed;
   summary(row: Row): RowSummary;
 }

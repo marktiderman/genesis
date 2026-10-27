@@ -9,7 +9,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
+import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import type { Allowed, ResolvedFormField, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
@@ -97,7 +97,10 @@ export function ResourceWorkspace<T extends Row = Row>(props: ResourceWorkspaceP
     enabled: !onAction && !!provider.describe,
     staleTime: Infinity,
   });
+  // The view's action guards read the viewer (ViewerScope's id, scope and roles).
+  const viewer = useViewer();
   const header = workspace.headerFor(record, {
+    viewer,
     runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
@@ -241,8 +244,9 @@ function SettingsForm({
   const provider = useDataProvider();
   const view = workspace.view;
   const fields = workspace.settingsFields(sectionId);
-  // The view's update guard: when it refuses, the settings are read-only with its reason.
-  const locked = workspace.settingsLocked(row);
+  // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
+  const viewer = useViewer();
+  const locked = workspace.settingsLocked(row, viewer);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])));
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const changed = useMemo(() => {
