@@ -115,7 +115,7 @@ export type IdSet =
  */
 export interface GateContext {
   platform: FeaturePlatform;
-  /** Feature ids the tenant holds an active entitlement for. */
+  /** Feature ids with an active entitlement: the tenant's, and the viewer's own (a person grant). */
   entitlements?: IdSet;
   /** Feature ids the tenant switched off. */
   off?: IdSet;

@@ -604,6 +604,15 @@ way: [ADR 0001](../../docs/adr/0001-one-feature-gate.md).
   marked `in_registry = false`; its tenant values stay, and (0014) its platform value is cleared.
 - **Paid access.** `feature_entitlements` (tenant, feature, source, `active`, optional `ends_at`). Your billing
   webhook writes it with the service key.
+- **Paid access for one person (0016, 0017).** `feature_person_entitlements` holds grants to the app's person
+  record, not a login: a membership, a class pack or a coaching package bought before sign-up counts once the
+  person signs in. Server code writes them with `grant_person_entitlement(tenant, person, feature, source,
+  source_ref, starts_at, ends_at)` (idempotent on `source_ref`, so a replayed webhook changes nothing) and
+  `revoke_person_entitlement(...)`. Which person records a login is comes from your
+  `private.genesis_viewer_people(viewer)` hook, read through the fail-closed `private.genesis_viewer_person_ids()`
+  (0016, shared with every block that gives something to a person record). `feature_on`,
+  `feature_entitled_tenants` and `feature_gate_state(tenant)` count the signed-in person's own grants; server
+  code gets the tenant's answer, or names a person with `feature_gate_state(tenant, person)`.
 - **Flag values.** `tenant_flag_values` overrides a flag's default for one tenant (service key).
 - **The gate in SQL.** `feature_on(tenant, feature)` is true for a shipped feature that, when paid, has an
   active entitlement; a signed-in caller outside the tenant gets false. It runs once per row, so in policies
@@ -630,7 +639,8 @@ import registry from "../features.json";
 // When a production deployment starts serving (never from a preview):
 if (process.env.VERCEL_ENV === "production") await syncFeatureRegistry(admin, registry, { version: BUILD_TIME });
 
-const state = await featureGateState(supabase, teamId); // per session
+const state = await featureGateState(supabase, teamId); // per session; includes the person's own grants
+// On the server, for one person: await featureGateState(admin, teamId, { personId })
 const snapshot = gateSnapshot({ features, flags }, { platform: "web", ...state }, { version: BUILD_TIME });
 ```
 
