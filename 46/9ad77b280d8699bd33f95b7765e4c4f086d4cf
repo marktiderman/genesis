@@ -1,0 +1,47 @@
+.changeset/multi-sort-keyset.md
+  s_2550badb988043::t_abc8e936d6c9af 1-7
+packages/core/README.md
+  s_2550badb988043::t_14656f6b26fa66 291-299,310-311,316,318-323,326-327
+packages/core/src/hooks/use-infinite-resource.ts
+  s_a1b83c03f697d3::t_2c5776fdce4647 32-36,88,90-91,110,122-126,143-145,153,261
+packages/core/src/provider/__tests__/supabase-multisort.test.ts
+  s_a1b83c03f697d3::t_92903466ede8cb 1-265
+packages/core/src/provider/mock-provider.ts
+  s_a1b83c03f697d3::t_b98e32eb833c95 122-124,126-130
+packages/core/src/provider/supabase-provider.ts
+  s_3daa86e3ae6031::t_9f7ffe809a971c 10,314-326,328,330,335-339,363-366,378-384,386-389,391-396,398,401-411,414-435,437,439,836-847,853-854,871,874,876,889-892,899-901,903,905-907,956-966,1031
+packages/ui/src/hooks/__tests__/core-infinite-resource.test.tsx
+  s_a1b83c03f697d3::t_b800ab3415bf43 105-128
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "469ad77b280d8699bd33f95b7765e4c4f086d4cf",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_3daa86e3ae6031": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f14c5377-45a5-4222-990e-f4d5b19f3e17",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_a1b83c03f697d3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a4cc7668-a484-4157-a266-c0ceb31bcffe",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
