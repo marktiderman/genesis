@@ -79,6 +79,10 @@ describe("studio-server-auth-import", () => {
       "src/worker.mjs": 'import { switchToUser } from "@marktiderman/genesis-studio-server/dist/switch.js";\n',
       "src/fine.cjs": 'const auth = require("@marktiderman/genesis-studio-server/auth");\n',
       "src/server.test.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+      // The scan's exclusions and the app's own ignore apply here too.
+      "src/client.gen.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+      "vendor/legacy.cjs": 'require("@marktiderman/genesis-studio-server");\n',
+      "genesis.config.json": JSON.stringify({ doctor: { ignore: ["vendor/**"] } }),
     });
     expect(found.map((f) => [f.file, f.line])).toEqual([
       ["src/server.cjs", 1],

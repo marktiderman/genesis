@@ -18,7 +18,8 @@
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
-import { lineAt } from "./scan.js";
+import { DEFAULT_IGNORE, lineAt } from "./scan.js";
+import { globMatcher } from "./glob.js";
 import { stripBlockComments } from "../../../../scripts/lib/color-literals.mjs";
 import { appScripts } from "../upgrade/codemods.js";
 import { augmentsResourceScope, findRemovedScopeNames, PRACTICE_ID_AUGMENTATION, readsPracticeId } from "../upgrade/scope-names.js";
@@ -118,12 +119,15 @@ const ROOT_REQUIRE = /\brequire\s*\(\s*["']@marktiderman\/genesis-studio-server[
 /**
  * The files this rule reads: the doctor's scan, plus the app's `.cjs` and `.mjs` files, which the
  * default scan leaves out (widening the default would put every `.cjs` config under the color and
- * token rules) and which are where a CommonJS `require` usually is. Tests are skipped, as in the scan.
+ * token rules) and which are where a CommonJS `require` usually is. What the scan excludes (tests,
+ * fixtures, `*.gen.*`, the app's `ignore`) is excluded here too.
  */
 function moduleFiles(ctx: DoctorContext): { path: string; code: string }[] {
   const scanned = new Set(ctx.files.map((f) => f.path));
+  // The scan's own exclusions (tests, fixtures, mocks, `*.gen.*`) and the app's `ignore`.
+  const ignored = globMatcher([...DEFAULT_IGNORE, ...(ctx.config.ignore ?? [])]);
   const extra = appScripts(ctx.root)
-    .filter((rel) => /\.(c|m)js$/.test(rel) && !scanned.has(rel) && !/\.(test|spec)\.[cm]js$/.test(rel) && !rel.split("/").includes("__tests__"))
+    .filter((rel) => /\.(c|m)js$/.test(rel) && !scanned.has(rel) && !ignored(rel))
     .map((rel) => ({ path: rel, code: stripBlockComments(readFileSync(path.join(ctx.root, rel), "utf8"), true) }));
   return [...ctx.files.filter((f) => SCRIPT_EXTS.has(f.ext)), ...extra];
 }
