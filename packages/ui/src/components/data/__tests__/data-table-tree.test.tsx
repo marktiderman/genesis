@@ -44,7 +44,7 @@ describe("DataTable draws a tree", () => {
     { key: "name", header: "Name", sortable: true },
     { key: "rank", header: "Rank", sortable: true },
   ];
-  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void }) {
+  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void; pagination?: boolean; pageSize?: number }) {
     const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set(["north"]));
     const tree = treeRows(ROWS, { getId: (r) => r.id, getParentId, expanded });
     return (
@@ -75,6 +75,17 @@ describe("DataTable draws a tree", () => {
     expect(row("North B").hasAttribute("aria-expanded")).toBe(false);
     expect(within(row("North B")).getAllByRole("gridcell").length).toBe(2);
     expect((nameCell(row("North A")).firstElementChild as HTMLElement).style.paddingInlineStart).toBe("1.25rem");
+  });
+
+  it("pages the visible rows in tree order, and opening a row keeps the page", () => {
+    render(<Drawn pagination pageSize={2} />);
+    // North, North B | North A, South: the family is split across pages, as documented.
+    expect(names()).toEqual(["North", "North B"]);
+    fireEvent.click(screen.getByText("1 / 2").parentElement!.querySelectorAll("button")[1]!);
+    expect(names()).toEqual(["North A", "South"]);
+    fireEvent.click(screen.getByRole("button", { name: "Expand North A" }));
+    // Still page 2, now with North A's child.
+    expect(names()).toEqual(["North A", "North A One"]);
   });
 
   it("opens and closes from the arrow", () => {

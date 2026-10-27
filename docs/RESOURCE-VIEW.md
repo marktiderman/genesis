@@ -167,7 +167,10 @@ export const brandsView = defineView(contracts["public.brands"], {
   (`YYYY-MM-DD`) from its parts, never `new Date(day)`. A timestamp renders on the viewer's clock
   with `genesis-core/dates` (`wallClock(personTimeZone(viewer), at)`). `timeZone: "scope"` renders it
   on the clock of whatever the screen is scoped to (ViewerScope's `scopeTimeZone`: a location's, a
-  league's), and an IANA name on that zone, for example class times. "Today" and "this week" filters
+  league's), and an IANA name on that zone, for example class times. `timeZone` is a closed type
+  (`"viewer"`, `"scope"` or an IANA name), and `defineView` refuses a zone the runtime doesn't
+  know, so a misspelt or removed name (`"practice"`) fails when the view loads instead of drawing
+  times on the viewer's clock. "Today" and "this week" filters
   are person-days from the scope (`personDay`, `startOfWeek`, `dayRangeIn`), so no view or screen
   computes "today" itself, and Genesis code never slices an ISO string to get a date.
 - **Columns shown only when the data allows.** A function source can mask a value by policy (an
@@ -415,6 +418,12 @@ ignore it for now.
   (parents only), `aria-posinset` and `aria-setsize`; on a row's open button → opens a closed row,
   then moves to its first child, and ← closes an open row, then moves to its parent. The arrow is
   a labelled button ("Expand North"), out of the tab order where the row's keys do its job.
+- **Pages can split a family.** The table's client-side pager cuts the visible rows into pages
+  of a fixed size, in tree order, so an expanded parent can sit at the bottom of one page with
+  its children at the top of the next. A child's indent and `aria-level` still say where it
+  belongs, and opening or closing a row keeps the current page. Keeping a family on one page
+  would make page sizes uneven and page counts change as rows open; for a tree that shouldn't
+  split, raise the page size or turn the table's paging off (`slotProps={{ table: { pagination: false, virtualize: true } }}`).
 - **Client data only.** A tree needs every row, so `tree` loads the whole list
   (`pagination="client"`, up to `clientRowLimit`, with the usual "only N loaded" warning).
   `pagination="server"` or `"cursor"` with `tree` throws, and `genesis doctor`'s
