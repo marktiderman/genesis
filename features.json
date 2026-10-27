@@ -4519,10 +4519,9 @@
     {
       "id": "owner-access",
       "name": "Owner access",
-      "summary": "0009_genesis_owner_access in genesis-supabase: the owner-access contract every Genesis block with owned rows calls in its policies. genesis_owner_readable() and genesis_owner_allows(tenant, person_id, team_id, organization_id, action) wrap the app's hooks genesis_readable_owners and genesis_owner_can, failing closed: a missing or broken hook, no signed-in person, a null tenant or an unknown action means no.",
+      "summary": "Moved into Growth90 with genesis-work, its only user (packages/work there). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
       "category": "Platform",
-      "status": "building",
-      "horizon": "now",
+      "status": "retired",
       "layer": "service",
       "keywords": [
         "access",
@@ -4536,10 +4535,6 @@
         "server": "building",
         "web": "building",
         "native": "building"
-      },
-      "entry": {
-        "web": "@marktiderman/genesis-supabase",
-        "native": "@marktiderman/genesis-supabase"
       },
       "requires": [
         "supabase-kit",
@@ -4564,16 +4559,7 @@
         "The wrappers answer only for the signed-in person; anon and public can't call them.",
         "Not yet used by an app."
       ],
-      "reviewedAt": "2026-10-26",
-      "links": {
-        "code": [
-          "packages/supabase/migrations/0009_genesis_owner_access.sql",
-          "packages/supabase/src/blocks.ts"
-        ],
-        "docs": [
-          "packages/supabase/migrations/0009_genesis_owner_access.sql"
-        ]
-      },
+      "reviewedAt": "2026-10-27",
       "access": "all",
       "flags": []
     },
