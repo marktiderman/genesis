@@ -46,7 +46,9 @@ export interface ViewField<Row extends DataRow = DataRow> {
   readOnly?: boolean;
   /**
    * Show the cell only when the row (and the viewer) say so: for values a server function masks
-   * by policy (`(row) => row.author_visible`). The masking itself is the server's.
+   * by policy (`(row) => row.author_visible`). The masking itself is the server's. It hides
+   * table cells and the peek only: not workspace settings, an edit form's prefilled values, a
+   * view's `summary` or header, or sorting and searching on the column.
    */
   when?: (row: Row, viewer: Viewer) => boolean;
   /** In a form: show the field only while this holds for the form's values. A hidden field isn't saved. */
@@ -191,7 +193,8 @@ export interface ResolvedColumn<Row extends DataRow = DataRow> {
   field?: FieldSchema;
   value: (row: Row) => unknown;
   tones?: Readonly<Record<string, ViewTone>>;
-  when?: (row: Row, viewer: Viewer) => boolean;
+  /** Whether to show the cell. Without a viewer it answers for no one (fail closed). */
+  when?: (row: Row, viewer?: Viewer) => boolean;
   timeZone?: ViewField["timeZone"];
 }
 

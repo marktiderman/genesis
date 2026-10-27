@@ -88,6 +88,17 @@ describe("viewer-aware guards", () => {
     expect(old.canAction("pin", row, bob)).toBe(true);
   });
 
+  it("refuse a row passed to create from plain JavaScript, rather than read it as the viewer", () => {
+    const loose = view.can as unknown as (action: string, a?: unknown, b?: unknown) => unknown;
+    expect(() => loose("create", row, ann)).toThrow(/takes no row/);
+  });
+
+  it("a column's `when` called without a viewer answers for no one", () => {
+    const privateNote = view.columns().find((c) => c.key === "private_note");
+    expect(privateNote?.when?.(row)).toBe(false);
+    expect(privateNote?.when?.(row, ann)).toBe(true);
+  });
+
   it("types the viewer and the augmented roles", () => {
     expectTypeOf(view.canAction).parameter(2).toEqualTypeOf<Viewer | undefined>();
     expectTypeOf<NonNullable<Viewer["roles"]>["teamRoles"]>().toEqualTypeOf<readonly ("owner" | "editor" | "reader")[] | undefined>();

@@ -1,11 +1,28 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { createContext, Fragment, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { dayIn, personTimeZone, type Day } from "../dates";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
 import { dropPendingWrites, flushPendingWrites } from "./mutation-mode";
 
 export { NO_VIEWER, type GenesisViewerRoles, type Viewer };
+
+/**
+ * Roles as a value: object keys and lists sorted, so `["editor", "owner"]` equals
+ * `["owner", "editor"]`. A Set, Map or class would stringify as `{}` and hide a change, so it throws.
+ */
+function rolesKeyOf(roles: GenesisViewerRoles): string {
+  const plain = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(plain).map((x) => [stableJson(x), x] as const).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, x]) => x);
+    if (v && typeof v === "object") {
+      const proto = Object.getPrototypeOf(v);
+      if (proto !== Object.prototype && proto !== null) throw new TypeError("[genesis-core] ViewerScope roles must be plain JSON (no Set, Map or class)");
+      return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, plain(x)]));
+    }
+    return v;
+  };
+  return stableJson(plain(roles));
+}
 
 /** Today in `zone`, rechecked when the page comes back into view and at the next minute boundary while it's open. */
 function useToday(zone: string): Day {
@@ -110,8 +127,9 @@ export interface ViewerScopeProps {
   /**
    * What the viewer may do there (see `GenesisViewerRoles`), for view guards. Compared by value,
    * so a new object with the same roles changes nothing. Undefined while they load: guards that
-   * need them refuse. Arriving (undefined → roles) or going back to undefined keeps the cache;
-   * changing to different roles empties it and remounts, as a new viewer does.
+   * need them refuse. Arriving (undefined → roles) or going back to undefined changes nothing;
+   * different roles send the person's waiting writes, then reread every query, with nothing
+   * remounted. Plain JSON values only (lists are compared as sets, in any order).
    */
   roles?: GenesisViewerRoles;
   /**
@@ -145,38 +163,44 @@ export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, f
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
   // Roles by value too: undefined stays undefined, so "not known yet" never equals "none".
-  const rolesKey = roles === undefined ? undefined : stableJson(roles);
+  const rolesKey = roles === undefined ? undefined : rolesKeyOf(roles);
   const value = useMemo<ViewerContext>(
     () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(roles !== undefined ? { roles } : {}), timeZone: zone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [viewer, scopeKey, rolesKey, zone, day],
   );
-  // Who the children were last mounted for: the viewer, the last roles known for them (undefined
-  // until some arrive), and how many times they were reset. Undefined before the first mount.
-  const [mounted, setMounted] = useState<{ viewer: string | null; roles: string | undefined; epoch: number } | undefined>(undefined);
+  // The last roles known for this viewer. Arriving (undefined → roles) or going back to undefined
+  // changes nothing; different roles for the same person send their waiting writes, then reread
+  // everything under the new roles. Nothing remounts: the person, their drafts and their
+  // navigation are the same.
+  const known = useRef<{ viewer: string | null | undefined; roles: string | undefined }>({ viewer, roles: undefined });
+  useEffect(() => {
+    if (known.current.viewer !== viewer) known.current = { viewer, roles: undefined };
+    if (rolesKey === undefined) return;
+    const previous = known.current.roles;
+    known.current.roles = rolesKey;
+    if (previous === undefined || previous === rolesKey) return;
+    // The session is still theirs: their writes go out, and the database decides each one with the
+    // roles as they are when it arrives (a refused one fails as any refused write does).
+    void flushPendingWrites(queryClient).then(() => queryClient.invalidateQueries());
+  }, [viewer, rolesKey, queryClient]);
+  // Who the children were last mounted for, and how many times they were reset. Undefined before
+  // the first mount.
+  const [mounted, setMounted] = useState<{ viewer: string | null; epoch: number } | undefined>(undefined);
   if (viewer === undefined) return <>{fallback}</>;
-  // Roles arriving or going back to undefined are not a new identity; different roles are.
-  const rolesChanged = mounted !== undefined && mounted.roles !== undefined && rolesKey !== undefined && rolesKey !== mounted.roles;
-  if (mounted !== undefined && mounted.viewer === viewer && !rolesChanged) {
-    if (rolesKey !== undefined && rolesKey !== mounted.roles) setMounted({ ...mounted, roles: rolesKey });
-  } else {
+  if (mounted === undefined || mounted.viewer !== viewer) {
     const keep = mounted === undefined && persistedViewer !== undefined && persistedViewer === viewer;
     // Nothing for the new viewer is mounted yet, so emptying now can't strand
     // a fetch; the old viewer's screens unmount with this render.
     if (!keep) {
-      if (rolesChanged && mounted.viewer === viewer) {
-        // Same person, new roles: the session is still theirs, so their waiting writes go out.
-        void flushPendingWrites(queryClient);
-      } else {
-        // The session already belongs to the new viewer: the old one's unsent
-        // writes must never go out under it. (clearViewerCache, run before the
-        // session changes, sends them instead.)
-        dropPendingWrites(queryClient);
-      }
+      // The session already belongs to the new viewer: the old one's unsent
+      // writes must never go out under it. (clearViewerCache, run before the
+      // session changes, sends them instead.)
+      dropPendingWrites(queryClient);
       void queryClient.cancelQueries();
       queryClient.clear();
     }
-    setMounted({ viewer, roles: rolesKey, epoch: (mounted?.epoch ?? 0) + 1 });
+    setMounted({ viewer, epoch: (mounted?.epoch ?? 0) + 1 });
     return <>{fallback}</>;
   }
   return (

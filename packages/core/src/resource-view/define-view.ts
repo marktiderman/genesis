@@ -263,7 +263,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           field: byName.get(column)!,
           value: (row: Row) => row[column],
           ...(v?.tones ? { tones: v.tones } : {}),
-          ...(v?.when ? { when: v.when } : {}),
+          ...(v?.when ? { when: (row: Row, viewer: Viewer = NO_VIEWER) => v.when!(row, viewer) } : {}),
           ...(v?.timeZone ? { timeZone: v.timeZone } : {}),
         });
       }),
@@ -318,6 +318,8 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const guards = definition.can ?? {};
   // `can("create", viewer)` and `can("update", row, viewer)`; no viewer means no one (fail closed).
   function can(action: "create" | "update" | "delete", rowOrViewer?: Row | Viewer, maybeViewer?: Viewer): Allowed {
+    // Plain JavaScript can pass a row to create: that row would be read as the viewer.
+    if (action === "create" && maybeViewer !== undefined) throw new TypeError(`[genesis-core] ${contract.name}: can("create", viewer) takes no row`);
     if (action === "create") return guards.create?.((rowOrViewer as Viewer | undefined) ?? NO_VIEWER) ?? true;
     const guard = guards[action];
     const row = rowOrViewer as Row | undefined;
