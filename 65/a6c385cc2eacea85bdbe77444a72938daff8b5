@@ -1,0 +1,36 @@
+packages/core/src/hooks/__tests__/viewer-roles.test.tsx
+  s_1f35d570c63beb::t_bae8587698744b 110-131
+  s_1f35d570c63beb::t_3e046ce0482272 165,167-231
+  s_1f35d570c63beb::t_3e23da1061d319 146-147,150-164
+  s_1f35d570c63beb::t_0886eba33ea060 7,9-10,14
+  s_1f35d570c63beb::t_4453de94b74acd 166
+packages/core/src/hooks/viewer-scope.tsx
+  s_1f35d570c63beb::t_a311837f42985a 10-26
+  s_1f35d570c63beb::t_8b84c614203c48 130-132
+  s_1f35d570c63beb::t_84ebb39066ba0b 166,172-189,191,196-199,203
+  s_1f35d570c63beb::t_e76d0f9b3e495b 2
+.changeset/viewer-guards-core.md
+  s_1f35d570c63beb::t_20e2c1bc2e4d88 5
+packages/core/src/__tests__/viewer-guards.test.ts
+  s_1f35d570c63beb::t_bc4a6e48cc1166 91-101
+packages/core/src/resource-view/define-view.ts
+  s_1f35d570c63beb::t_6a606dddc43aa6 266,321-322
+packages/core/src/resource-view/types.ts
+  s_1f35d570c63beb::t_f7fe857a0ff8c7 49-51,196-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "65a6c385cc2eacea85bdbe77444a72938daff8b5",
+  "prompts": {},
+  "sessions": {
+    "s_1f35d570c63beb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "61f8e2d2-6e0e-4f31-b23e-d43ca528635a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
