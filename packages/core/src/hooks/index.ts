@@ -23,6 +23,7 @@
 
 export { useResource, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
+export { useRelationLabel, loadRelationLabel, type UseRelationLabelOptions } from "./use-relation-label";
 export {
   useInfiniteResource,
   type UseInfiniteResourceOptions,

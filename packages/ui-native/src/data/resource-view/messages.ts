@@ -6,6 +6,8 @@ export interface NativeResourceViewMessages {
   common: {
     /** Shown for an empty value. */
     empty: string;
+    /** A link whose row this viewer can't see, or that's gone (never its raw id). */
+    hiddenLink: string;
     yes: string;
     no: string;
     cancel: string;
@@ -70,6 +72,7 @@ export interface NativeResourceViewMessages {
 export const defaultNativeResourceViewMessages: NativeResourceViewMessages = {
   common: {
     empty: "—",
+    hiddenLink: "Not available",
     yes: "Yes",
     no: "No",
     cancel: "Cancel",
