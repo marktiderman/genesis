@@ -178,7 +178,12 @@ Screen settings:
 
 - `layout`: `page`, `embedded` or `compact`;
 - `columns`: a preset;
-- `filter` and `defaults`, which override the scope;
+- `filter`: equality filters on the list, which a new row also gets. A field the form shows
+  starts at the filter's value; one it doesn't show is filled hidden and sent on create only;
+- `defaults`: values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only
+  and never a list filter. A field the form shows starts at the value; the filter wins a clash;
+- `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
+  A pessimistic save gives the server's row with its key;
 - `mode`: `table`, `grid` (cards), `list` or `sheet`;
 - `header`: parts on or off, or one part filled;
 - `slots`: `peekExtra`, `detail`, `card`, `toolbar`, `rowActions`, `header`;

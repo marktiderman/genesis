@@ -426,7 +426,79 @@ describe("ResourceView review fixes", () => {
       wrapper: wrap(provider()),
     });
     const filled = result.current.formFields!.filter((f) => f.hidden);
-    expect(filled).toEqual([{ key: "practice_id", type: "hidden", hidden: true, defaultValue: "p1" }]);
+    expect(filled).toEqual([{ key: "practice_id", type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: "p1" }]);
+  });
+
+  it("lets the filter win a clash with defaults on a shown field too", () => {
+    const { result } = renderHook(
+      () => useResourceViewProps({ view, filter: { status: "archived" }, defaults: { status: "active", name: "Untitled" } }),
+      { wrapper: wrap(provider()) },
+    );
+    expect(result.current.formFields!.find((f) => f.key === "status")).toMatchObject({ defaultValue: "archived" });
+  });
+
+  it("makes no form from a filter alone: a view with no form fields offers no New or Edit", () => {
+    const listOnly = defineView(brands, { form: [] });
+    const { result } = renderHook(() => useResourceViewProps({ view: listOnly, filter: { practice_id: "p1" } }), {
+      wrapper: wrap(provider()),
+    });
+    expect(result.current.allowCreate).toBe(false);
+    expect(result.current.allowEdit).toBe(false);
+  });
+
+  it("shows a timestamp under the date hint as its day on the viewer's clock, not its UTC day", async () => {
+    localStorage.clear();
+    const dated = defineView(brands, { fields: { updated_at: { display: "date" } }, columns: { default: ["name", "updated_at"] } });
+    const p = provider();
+    p.getList = vi.fn(async () => ({ data: [{ ...ROWS[0]!, updated_at: "2026-01-03T03:00:00Z" }], total: 1 })) as DataProvider["getList"];
+    render(<ResourceView view={dated} mode="table" detail="none" />, { wrapper: wrap(p) });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    // 7pm on Jan 2 in Los Angeles.
+    expect(within(row).getByText(/Jan 2, 2026/)).toBeTruthy();
+  });
+
+  it("starts a create at the screen's defaults without filtering the list; the filter wins", async () => {
+    localStorage.clear();
+    const p = provider();
+    const getList = vi.spyOn(p, "getList");
+    const { result } = renderHook(
+      () => useResourceViewProps({ view, filter: { practice_id: "p1" }, defaults: { practice_id: "p2", name: "Untitled", nope: 1 } as never }),
+      { wrapper: wrap(p) },
+    );
+    const fields = result.current.formFields!;
+    // A shown field starts at the value; a hidden one is create-only; the filter wins a clash.
+    expect(fields.find((f) => f.key === "name")).toMatchObject({ defaultValue: "Untitled" });
+    expect(fields.filter((f) => f.hidden)).toEqual([{ key: "practice_id", type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: "p1" }]);
+    expect(result.current.resourceOptions?.defaultFilters).toEqual([{ field: "practice_id", operator: "eq", value: "p1" }]);
+    expect(getList).not.toHaveBeenCalled();
+    // Defaults alone never reach the list request.
+    const listed = provider();
+    const listSpy = vi.spyOn(listed, "getList");
+    render(<ResourceView view={view} defaults={{ practice_id: "p2" }} mode="table" detail="none" />, { wrapper: wrap(listed) });
+    await waitFor(() => expect(listSpy).toHaveBeenCalled());
+    for (const [, params] of listSpy.mock.calls) {
+      expect(JSON.stringify(params.filters ?? [])).not.toContain("p2");
+    }
+  });
+
+  it("reads a timestamp on the ViewerScope's clock when the column has none", async () => {
+    localStorage.clear();
+    const dated = defineView(brands, { fields: { updated_at: { display: "date" } }, columns: { default: ["name", "updated_at"] } });
+    const p = provider();
+    p.getList = vi.fn(async () => ({ data: [{ ...ROWS[0]!, updated_at: "2026-01-03T03:00:00Z" }], total: 1 })) as DataProvider["getList"];
+    const Base = wrap(p);
+    render(<ResourceView view={dated} mode="table" detail="none" />, {
+      wrapper: ({ children }) => (
+        <Base>
+          <ViewerScope viewer="u1" timeZone="Asia/Tokyo">
+            {children}
+          </ViewerScope>
+        </Base>
+      ),
+    });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    // Noon on Jan 3 in Tokyo, though the browser here is in Los Angeles (still Jan 2).
+    expect(within(row).getByText(/Jan 3, 2026/)).toBeTruthy();
   });
 
   it("keeps a URL sort on a field column in cursor mode", async () => {

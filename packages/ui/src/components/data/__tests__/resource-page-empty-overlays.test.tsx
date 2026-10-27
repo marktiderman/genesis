@@ -5,7 +5,7 @@
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GenesisProvider } from "../../../provider";
 import { DataPageShell } from "../DataPageShell";
@@ -64,6 +64,19 @@ describe("ResourcePage on an empty list", () => {
     fireEvent.submit(within(dialog).getByLabelText(/note title/i).closest("form")!);
     expect(await screen.findByText("First")).toBeTruthy();
     await waitFor(() => expect(screen.queryByText("No notes yet")).toBeNull());
+  });
+
+  it("hands the saved row to onSaved, with its key", async () => {
+    const onSaved = vi.fn();
+    renderEmpty({ onSaved });
+    const dialog = await openNew();
+    fireEvent.change(within(dialog).getByLabelText(/note title/i), { target: { value: "First" } });
+    fireEvent.submit(within(dialog).getByLabelText(/note title/i).closest("form")!);
+    await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1));
+    const [row, action] = onSaved.mock.calls[0]!;
+    expect(action).toBe("create");
+    expect(row).toMatchObject({ title: "First" });
+    expect(row.id).toBeTruthy();
   });
 
   it("still mounts the form beside a custom shell", async () => {

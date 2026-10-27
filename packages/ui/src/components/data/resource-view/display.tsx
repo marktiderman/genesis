@@ -4,6 +4,8 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { isSafeUrl, useViewer } from "@marktiderman/genesis-core";
+import { isTimeZone } from "@marktiderman/genesis-core/dates";
+import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { valueText, type DisplayHint, type ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
 import { useUiMessages, type UiMessages } from "../../../messages";
 import { Chip } from "../../resource/chip";
@@ -13,6 +15,11 @@ export interface DisplayContext {
   row: Record<string, unknown>;
   column: ResolvedColumn<Record<string, unknown>>;
   messages: UiMessages;
+  /**
+   * The clock a timestamp is read on: the column's own zone, else the viewer's (ViewerScope's
+   * `timeZone`). Undefined outside a ViewerScope, which means the browser's.
+   */
+  timeZone?: string;
 }
 
 export type DisplayRenderer = (value: unknown, context: DisplayContext) => ReactNode;
@@ -30,12 +37,34 @@ function numeric(value: unknown, format: Intl.NumberFormat): string {
   return Number.isFinite(n) ? format.format(n) : String(value);
 }
 
-/** A calendar day from its parts, so it is the same day on every clock (never `new Date(day)`). */
-function formatDay(value: unknown): string {
+// One day formatter per zone, as for instants below.
+const DAYS = new Map<string, Intl.DateTimeFormat>();
+function dayFormat(zone: string | undefined): Intl.DateTimeFormat {
+  const key = zone ?? "";
+  let format = DAYS.get(key);
+  if (!format) {
+    try {
+      format = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeZone: zone });
+    } catch {
+      format = DAY;
+    }
+    DAYS.set(key, format);
+  }
+  return format;
+}
+
+/**
+ * A day. A calendar day (`YYYY-MM-DD`) from its parts, so it is the same day on every clock (never
+ * `new Date(day)`); a timestamp as the day it is on the column's clock, so an 8pm edit in New York
+ * isn't tomorrow's (its UTC day).
+ */
+function formatDay(value: unknown, timeZone?: string): string {
   const text = String(value);
-  const day = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
-  if (!day) return text;
-  return DAY.format(new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (day) return DAY.format(new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])));
+  const at = /^\d{4}-\d{2}-\d{2}[T ]/.test(text) ? new Date(text) : null;
+  if (!at || Number.isNaN(at.getTime())) return text;
+  return dayFormat(timeZone).format(at);
 }
 
 // One formatter per zone: building an Intl.DateTimeFormat costs ~40x a format call.
@@ -58,7 +87,7 @@ function instantFormat(zone: string | undefined): Intl.DateTimeFormat {
 function formatInstant(value: unknown, timeZone: string | undefined): string {
   const at = new Date(String(value));
   if (Number.isNaN(at.getTime())) return String(value);
-  return instantFormat(timeZone && timeZone !== "viewer" && timeZone !== "practice" ? timeZone : undefined).format(at);
+  return instantFormat(timeZone).format(at);
 }
 
 /** Genesis's web renderers. Every one shows text it can't draw, never a broken cell. */
@@ -74,8 +103,8 @@ export const webDisplayRenderers: DisplayRenderers = {
   badge: (value, { column }) => (
     <Chip tone={column.tones?.[String(value)] ?? "muted"}>{valueText(column.labels, value)}</Chip>
   ),
-  date: (value) => formatDay(value),
-  datetime: (value, { column }) => formatInstant(value, column.timeZone),
+  date: (value, { timeZone }) => formatDay(value, timeZone),
+  datetime: (value, { timeZone }) => formatInstant(value, timeZone),
   // The linked row's id until relation labels arrive (batched per page, never per cell).
   relation: (value) => String(value),
   url: (value) =>
@@ -131,13 +160,17 @@ export function useDisplayCell(): (column: ResolvedColumn<Record<string, unknown
   const messages = useUiMessages();
   // `when` reads the viewer too: a new viewer or new roles redraws the cells.
   const viewer = useViewer();
+  // The viewer's clock, for timestamps on columns without a zone of their own.
+  const viewerZone = useOptionalViewerScope()?.timeZone;
   return useMemo(
     () => (column, row) => {
       if (column.when && !column.when(row, viewer)) return messages.common.empty;
       const value = column.value(row);
       if (isEmpty(value)) return messages.common.empty;
-      return renderers[column.display](value, { row, column, messages });
+      const own = column.timeZone && column.timeZone !== "viewer" && column.timeZone !== "practice" ? column.timeZone : undefined;
+      const timeZone = own && isTimeZone(own) ? own : viewerZone;
+      return renderers[column.display](value, { row, column, messages, ...(timeZone ? { timeZone } : {}) });
     },
-    [renderers, messages, viewer],
+    [renderers, messages, viewer, viewerZone],
   );
 }

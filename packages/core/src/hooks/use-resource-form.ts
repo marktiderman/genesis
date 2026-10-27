@@ -227,13 +227,16 @@ function resolveFields(
 }
 
 /** Build a zod schema from resolved fields */
-function buildSchema(fields: ResourceFormFieldDef[]) {
+function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" = "create") {
   const shape: Record<string, z.ZodTypeAny> = {};
 
   for (const field of fields) {
     const fieldType = field.type ?? "text";
 
     if (field.hidden || fieldType === "hidden") continue;
+    // An edit never sends a field read-only on edit, so it isn't checked either: a row loaded
+    // without it would otherwise fail "required" on a field the person can't fill.
+    if (action === "edit" && field.readOnlyOnEdit) continue;
 
     // File/image fields store File objects — z.any() is intentional here because
     // the File API shape varies by platform (browser File, React Native asset, etc.)
@@ -379,6 +382,8 @@ function buildDefaults(
   if (typeof window !== "undefined" && typeof window.location !== "undefined" && typeof window.location.search === "string" && action === "create" && prefillFromUrl !== false) {
     const params = new URLSearchParams(window.location.search);
     for (const field of fields) {
+      // A hidden field is the screen's (its filter or defaults), never the URL's.
+      if (field.hidden || field.type === "hidden") continue;
       const val = params.get(field.key);
       if (val != null) {
         defaults[field.key] = field.type === "number" ? Number(val) : val;
@@ -454,8 +459,8 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
 
   // Build schema
   const schema = useMemo(
-    () => buildSchema(resolvedFields),
-    [resolvedFields],
+    () => buildSchema(resolvedFields, action),
+    [resolvedFields, action],
   );
 
   // Build defaults (with optional draft restoration)
@@ -504,6 +509,22 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
     reValidateMode: "onChange",
     shouldUnregister: true,
   });
+
+  // A create form that stays mounted follows its defaults: the screen's hidden values (a new
+  // filter or defaults) always, the rest only while the person hasn't typed anything.
+  const firstDefaults = useRef(defaultValues);
+  useEffect(() => {
+    // By value: a screen may hand a new but equal object every render.
+    if (action !== "create" || sameValue(firstDefaults.current, defaultValues)) return;
+    firstDefaults.current = defaultValues;
+    if (!form.formState.isDirty) {
+      form.reset(defaultValues);
+      return;
+    }
+    for (const field of resolvedFields) {
+      if (field.hidden || field.type === "hidden") form.setValue(field.key, defaultValues[field.key]);
+    }
+  }, [action, defaultValues, form, resolvedFields]);
 
   // Autosave effect — persist form values to storage for create mode
   useEffect(() => {
@@ -628,10 +649,16 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       // A field the opened record didn't carry goes only when the person changed it (compared by
       // value: RHF's dirtyFields updates only when read during render).
       const opened = formSource as Record<string, unknown> | undefined;
+      // A field read-only when editing is never written by an edit: sending even its unchanged
+      // value would fail on a column the person may not update.
+      const lockedOnEdit = new Set(action === "edit" ? resolvedFields.filter((f) => f.readOnlyOnEdit).map((f) => f.key) : []);
+      const writable = lockedOnEdit.size
+        ? Object.fromEntries(Object.entries(submitted).filter(([k]) => !lockedOnEdit.has(k)))
+        : submitted;
       const formData =
         action === "edit" && updates === "loaded" && opened
           ? Object.fromEntries(
-              Object.entries(submitted).filter(
+              Object.entries(writable).filter(
                 // Changed: what an input shows differs from where it started, or, for a value saved
                 // without an input (a direct handleSave), the value itself does.
                 ([k, v]) =>
@@ -639,7 +666,13 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
                   !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]),
               ),
             )
-          : submitted;
+          : writable;
+      // An edit with nothing left to write (only read-only fields) has nothing to send.
+      if (action === "edit" && Object.keys(formData).length === 0) {
+        markSaved();
+        onSuccess?.({ ...(effectiveData ?? {}), ...(id != null && id !== "" ? { id } : {}) });
+        return;
+      }
       try {
         let recordId: string | number | undefined;
         if (action === "edit") {
@@ -709,7 +742,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
         reportError(err instanceof Error ? err : new Error(String(err)));
       }
     },
-    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues],
+    [form, action, provider, resource, id, effectiveData, formSource, queryClient, onSuccess, autosaveEnabled, storage, invalidates, mutationMode, undoDelayMs, onUndoable, reportError, markSaved, updates, defaultValues, resolvedFields],
   );
 
   const onSubmit = useCallback(

@@ -62,9 +62,18 @@ export function dateToDay(date: Date): string {
 }
 
 /** A calendar day, the same day on every clock. */
-export function formatDay(value: unknown): string {
+/**
+ * A day. A calendar day (`YYYY-MM-DD`) from its parts; a timestamp as the day it is on `zone`'s
+ * clock (core's `wallClock`), so an 8pm edit in New York isn't tomorrow's (its UTC day).
+ */
+export function formatDay(value: unknown, zone: string = personTimeZone()): string {
   const date = dayToDate(value);
-  return date ? DAY.format(date) : String(value);
+  if (date) return DAY.format(date);
+  const text = String(value);
+  const at = /^\d{4}-\d{2}-\d{2}[T ]/.test(text) ? new Date(text) : null;
+  if (!at || Number.isNaN(at.getTime()) || !isTimeZone(zone)) return text;
+  const wall = wallClock(zone, at);
+  return DAY.format(new Date(wall.year, wall.month - 1, wall.day));
 }
 
 /** A column's clock: "viewer" (the default) and "practice" from `zones`, else a valid IANA name. */
@@ -116,7 +125,7 @@ export function displayText(
     case "badge":
       return titleCase(String(value));
     case "date":
-      return formatDay(value);
+      return formatDay(value, timeZone);
     case "datetime":
       return formatInstant(value, timeZone);
     case "url": {
