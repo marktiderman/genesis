@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 131
+      "count": 132
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -1576,7 +1576,7 @@
         },
         {
           "name": "resolveZone",
-          "summary": "A column's clock: \"viewer\" (the default) and \"practice\" from `zones`, else a valid IANA name.",
+          "summary": "A column's clock: \"viewer\" (the default) and \"scope\" from `zones`, else a valid IANA name.",
           "props": []
         },
         {
@@ -3885,18 +3885,18 @@
               "description": "Rows per page. Default 25."
             },
             {
-              "name": "practiceTimeZone",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "The practice's IANA zone, for columns with `timeZone: \"practice\"`. Timestamps otherwise read\non the viewer's clock (ViewerScope's zone, else the device's)."
-            },
-            {
               "name": "preset",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A tab the view defines: its server filter."
+            },
+            {
+              "name": "scopeTimeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The IANA zone of whatever this screen is scoped to (a location, a league, a team), for columns\nwith `timeZone: \"scope\"`. Default: ViewerScope's `scopeTimeZone`, else the viewer's clock.\nTimestamps on other columns read on the viewer's clock (ViewerScope's zone, else the device's)."
             },
             {
               "name": "searchable",
@@ -7388,6 +7388,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the content, merged after the defaults, e.g.\n`z-[60]` to lift it above a side panel that sits at `z-50`. Raise the content's own\n`className` to match."
             }
           ]
         },
@@ -11887,6 +11894,13 @@
               "description": "Sticky header on scroll"
             },
             {
+              "name": "tree",
+              "type": "DataTableTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode, drawn: `items` are already the tree's visible rows in order (genesis-core's\n`treeRows`, which `useResourceView` / ResourcePage's `tree` run), so the table doesn't sort\nthem again: a header click reports through `onSortChange`, and the caller sorts within\nsiblings. The table becomes a WAI-ARIA treegrid (`aria-level`, `aria-expanded`,\n`aria-posinset`, `aria-setsize`), the first column gets the indent and the expand arrow, and on\na row's open button → opens a row (then moves to its first child) and ← closes it (then moves\nto its parent)."
+            },
+            {
               "name": "virtualize",
               "type": "boolean | { height?: number; estimateRowHeight?: number; } | undefined",
               "required": false,
@@ -12221,6 +12235,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the content, merged after the defaults, e.g.\n`z-[60]` to lift it above a side panel that sits at `z-50`. Raise the content's own\n`className` to match."
             },
             {
               "name": "showCloseButton",
@@ -13997,7 +14018,7 @@
             },
             {
               "name": "table",
-              "type": "DeepPartial<{ noRecords: string; selectRow: string; selectAll: string; columns: string; resetColumns: string; ascending: string; descending: string; sortedBy: string; rows: string; noRows: string; range: string; pageOf: string; }>",
+              "type": "DeepPartial<{ noRecords: string; selectRow: string; expandRow: string; collapseRow: string; selectAll: string; columns: string; resetColumns: string; ascending: string; descending: string; sortedBy: string; rows: string; noRows: string; range: string; pageOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -16315,6 +16336,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
               "name": "urlState",
               "type": "SearchParamsAdapter | ResourceUrlStateOptions",
               "required": false,
@@ -16426,7 +16454,7 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/ResourceView.tsx",
       "stability": "stable",
-      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
       "primaryComponent": "ResourceView",
       "components": [
         {
@@ -17085,6 +17113,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
               "name": "urlState",
               "type": "SearchParamsAdapter | ResourceUrlStateOptions",
               "required": false,
@@ -17102,7 +17137,7 @@
         },
         {
           "name": "ResourceView",
-          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
           "props": [
             {
               "name": "view",
@@ -17754,6 +17789,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
@@ -18425,6 +18467,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
@@ -19717,6 +19766,13 @@
               "description": ""
             },
             {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the sheet, merged after the defaults, e.g. a\nlighter scrim or a different `z-index`. Mirrors `DialogContent`'s `overlayClassName`."
+            },
+            {
               "name": "showCloseButton",
               "type": "boolean",
               "required": false,
@@ -20556,7 +20612,15 @@
         {
           "name": "Table",
           "summary": "",
-          "props": []
+          "props": [
+            {
+              "name": "containerClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the scroll container that wraps the `<table>`, merged after its defaults\n(`relative w-full overflow-auto`). A sticky header needs the container to be the scroll\nbox: give it a height, e.g. `containerClassName=\"max-h-96\"`, and the header\n`className=\"sticky top-0 bg-background\"`. `className` still styles the `<table>` itself."
+            }
+          ]
         },
         {
           "name": "TableHeader",
@@ -21115,6 +21179,59 @@
               "required": false,
               "defaultValue": "top",
               "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "tree-indent",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/TreeIndent.tsx",
+      "stability": "stable",
+      "summary": "The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content.",
+      "primaryComponent": "TreeIndent",
+      "components": [
+        {
+          "name": "TreeIndent",
+          "summary": "The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content.",
+          "props": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row's name, for the arrow's label (\"Expand North\")."
+            },
+            {
+              "name": "node",
+              "type": "Pick<TreeNode<unknown>, \"depth\" | \"hasChildren\" | \"expanded\">",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onToggle",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "focusable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Whether the arrow is a tab stop. A table whose rows take ← and → leaves it out of the tab\norder (the row's keys do its job); a list without row keys keeps it in."
             }
           ]
         }
@@ -21895,6 +22012,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
               "name": "urlState",
               "type": "SearchParamsAdapter | ResourceUrlStateOptions",
               "required": false,
@@ -22529,6 +22653,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
