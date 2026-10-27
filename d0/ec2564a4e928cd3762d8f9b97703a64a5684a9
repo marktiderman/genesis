@@ -1,0 +1,21 @@
+packages/genesis-cli/src/doctor/api-usage.ts
+  s_2550badb988043::t_2dd677083e6499 21-22,122-123,127-128,130
+packages/genesis-cli/test/doctor-api-usage.test.ts
+  s_2550badb988043::t_64a96178e7121c 82-85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d0ec2564a4e928cd3762d8f9b97703a64a5684a9",
+  "prompts": {},
+  "sessions": {
+    "s_2550badb988043": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d71b6317-4d78-4e83-8104-820e0c7b724b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
