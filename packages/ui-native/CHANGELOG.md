@@ -1,5 +1,11 @@
 # @marktiderman/genesis-ui-native
 
+## 2.7.1
+
+### Patch Changes
+
+- 2000540: Badges, form choices, native group titles and read-only form values use the view's `labels` for an enum's words.
+
 ## 2.7.0
 
 ### Minor Changes
