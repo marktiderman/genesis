@@ -1,5 +1,13 @@
 # @marktiderman/genesis
 
+## 0.9.19
+
+### Patch Changes
+
+- Updated dependencies [afae598]
+  - @marktiderman/genesis-features@0.6.1
+  - @marktiderman/genesis-forms@0.10.0
+
 ## 0.9.18
 
 ### Patch Changes

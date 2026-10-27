@@ -1,5 +1,13 @@
 # @marktiderman/genesis-cli
 
+## 1.13.2
+
+### Patch Changes
+
+- 68c89fb: `genesis doctor` compares features.ts from the repository root, so a nested app whose registry is the root's src/features.ts no longer warns when a package's exports change alongside it.
+- Updated dependencies [afae598]
+  - @marktiderman/genesis-features@0.6.1
+
 ## 1.13.1
 
 ### Patch Changes
