@@ -29,6 +29,11 @@ import { resourceKeys } from "../query-keys";
 
 export interface UseInfiniteResourceOptions {
   defaultSort?: SortParam;
+  /**
+   * Sort by several fields, first one first, e.g. a grouped list: the group, then the order
+   * within it. Wins over `defaultSort`. On a provider without `multiSort` only the first applies.
+   */
+  defaultSorts?: SortParam[];
   /** Re-synced when its value changes, like `useResource`'s. */
   defaultFilters?: FilterParam[];
   /** Rows per page. Default 25. */
@@ -80,7 +85,10 @@ export interface UseInfiniteResourceReturn<T> {
   isFetchingNextPage: boolean;
   /** The params every page is asked with (without its page and cursor). */
   params: Omit<ListParams, "pagination"> & { perPage: number };
+  /** Sort by one field (or none). Replaces every sort. */
   setSort: (sort: SortParam | undefined) => void;
+  /** Sort by several fields, first one first. */
+  setSorts: (sorts: SortParam[]) => void;
   setFilters: (filters: FilterParam[]) => void;
   setSearch: (query: string) => void;
 }
@@ -99,6 +107,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
 ): UseInfiniteResourceReturn<T> {
   const {
     defaultSort,
+    defaultSorts,
     defaultFilters,
     perPage = 25,
     defaultSearch = "",
@@ -110,7 +119,11 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
   } = options;
   const provider = useDataProvider();
 
-  const [sort, setSort] = useState<SortParam | undefined>(defaultSort);
+  const [sorts, setSortsRaw] = useState<SortParam[]>(() =>
+    defaultSorts && defaultSorts.length > 0 ? defaultSorts : defaultSort ? [defaultSort] : [],
+  );
+  const setSort = useCallback((next: SortParam | undefined) => setSortsRaw(next ? [next] : []), []);
+  const setSorts = useCallback((next: SortParam[]) => setSortsRaw(next), []);
   const [filters, setFiltersRaw] = useState<FilterParam[]>(defaultFilters ?? []);
   const [search, setSearch] = useState(defaultSearch);
 
@@ -127,7 +140,9 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
   const params = useMemo(() => {
     const p: Omit<ListParams, "pagination"> & { perPage: number } = {
       perPage,
-      sort,
+      // The first sort is `sort` too, for a provider that sorts by one field only.
+      sort: sorts[0],
+      ...(sorts.length > 1 ? { sorts } : {}),
       filters: filters.length > 0 ? filters : undefined,
       select,
     };
@@ -135,7 +150,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
       p.search = { query: search, fields: searchFields };
     }
     return p;
-  }, [perPage, sort, filters, select, search, searchFields]);
+  }, [perPage, sorts, filters, select, search, searchFields]);
 
   // Whether the provider pages by cursor (it sends `nextCursor`), learnt from the first page.
   const cursorMode = useRef(false);
@@ -243,6 +258,7 @@ export function useInfiniteResource<T extends BaseRecord = BaseRecord>(
     isFetchingNextPage,
     params,
     setSort,
+    setSorts,
     setFilters,
     setSearch,
   };

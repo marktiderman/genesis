@@ -288,6 +288,15 @@ const tasks = useInfiniteResource("tasks", {
 tasks.rows;           // every loaded row
 tasks.total;          // from the first page's count
 tasks.hasNextPage && tasks.fetchNextPage();
+
+// A grouped list: by the group, then the order within it.
+const steps = useInfiniteResource("steps", {
+  defaultSorts: [
+    { field: "stage", order: "asc" },
+    { field: "position", order: "desc" },
+  ],
+});
+steps.setSorts([{ field: "stage", order: "desc" }]); // setSort(one) replaces them too
 ```
 
 - **The contract.** `getList` with `pagination: { page, perPage, cursor }`,
@@ -298,21 +307,24 @@ tasks.hasNextPage && tasks.fetchNextPage();
   A provider that doesn't ignores `cursor` and pages by `page`;
   `useInfiniteResource` then pages by offset until `total` rows are loaded.
 - **Supabase.**
-  - It orders by the sort column and then the `orderKey` (default `id`) and
+  - It orders by each sort column (`sorts`, first one first, else `sort`)
+    and then the `orderKey` (default `id`), and
     fetches one row more than the page to tell whether there is a next
     page. A page is at most `maxPerPage - 1` rows, so that extra row fits
     under PostgREST's `max-rows`.
   - The cursor (opaque, base64 JSON) holds the last row's sort and key
-    values and the sort it was made for. A cursor from another sort is
+    values and the sorts it was made for. A cursor from other sorts is
     refused.
-  - The keyset filter handles ascending and descending sorts, ties (broken
-    by the key) and null sort values, matching Postgres's default null
-    placement (last when ascending, first when descending, pinned in the
-    query).
+  - The keyset filter handles ascending and descending sorts, mixed across
+    columns, ties (broken by the key) and null sort values, matching
+    Postgres's default null placement (last when ascending, first when
+    descending, pinned in the query). It is spelled out one column at a
+    time: a row comparison `(a, b) > (x, y)` wouldn't follow that null
+    placement, and PostgREST's filters can't express one.
   - It refuses, with an `invalid` `DataReadError` whose `cause` says why:
     `orderKey: false`, a sort on an embedded field (`author.name`), a sort
-    column with non-scalar values, and a `select` that leaves out the sort
-    or key column.
+    column with non-scalar values, and a `select` that leaves out a sort
+    column or the key.
   - Only the first page is counted.
 - **Writes and pending patches.** Pages live under
   `[resource, "infinite", params]`, so writes (which invalidate `[resource]`)

@@ -119,11 +119,15 @@ export function createMockProvider(
     const total = rows.length;
 
     // Sort.
-    if (params.sort) {
-      const { field, order } = params.sort;
+    // By each sort field in turn (`sorts`, else `sort`).
+    const sorts = params.sorts && params.sorts.length > 0 ? params.sorts : params.sort ? [params.sort] : [];
+    if (sorts.length > 0) {
       rows.sort((a, b) => {
-        const cmp = compareValues(a[field], b[field]);
-        return order === "desc" ? -cmp : cmp;
+        for (const { field, order } of sorts) {
+          const cmp = compareValues(a[field], b[field]);
+          if (cmp !== 0) return order === "desc" ? -cmp : cmp;
+        }
+        return 0;
       });
     }
 
