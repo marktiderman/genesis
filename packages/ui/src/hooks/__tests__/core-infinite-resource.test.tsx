@@ -102,6 +102,30 @@ describe("useInfiniteResource", () => {
     expect(result.current.rows.map((r) => r.id)).toEqual(["t1", "t2", "t3", "t4", "t5"]);
   });
 
+  it("sorts by several fields: sorts first-to-last, the first also as sort, and setSort/setSorts replace them", async () => {
+    const provider = cursorProvider();
+    const { wrapper } = wrap(provider);
+    const grouped = [
+      { field: "group", order: "asc" as const },
+      { field: "position", order: "desc" as const },
+    ];
+    const { result } = renderHook(() => useInfiniteResource<Row>("tasks", { perPage: 2, defaultSorts: grouped }), { wrapper });
+    await waitFor(() => expect(result.current.rows).toHaveLength(2));
+    const first = vi.mocked(provider.getList).mock.calls[0]![1];
+    expect(first.sorts).toEqual(grouped);
+    expect(first.sort).toEqual(grouped[0]);
+
+    act(() => result.current.setSort({ field: "title", order: "asc" }));
+    await waitFor(() => expect(vi.mocked(provider.getList).mock.calls.length).toBeGreaterThan(1));
+    const single = vi.mocked(provider.getList).mock.calls.at(-1)![1];
+    expect(single.sort).toEqual({ field: "title", order: "asc" });
+    expect(single.sorts).toBeUndefined();
+
+    act(() => result.current.setSorts([{ field: "title", order: "desc" }, { field: "id", order: "asc" }]));
+    await waitFor(() => expect(vi.mocked(provider.getList).mock.calls.at(-1)![1].sorts).toHaveLength(2));
+    expect(result.current.params.sort).toEqual({ field: "title", order: "desc" });
+  });
+
   it("shows a row once when it moved into a later page meanwhile", async () => {
     // t2 is pushed onto page 2 by a new row before it, after page 1 loaded.
     let rowsNow = ALL;

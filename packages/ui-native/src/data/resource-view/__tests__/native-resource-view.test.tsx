@@ -56,6 +56,7 @@ import {
   screenValues,
   sectionsFor,
   serverSort,
+  serverSorts,
   formatInstant,
   resolveZone,
   swipeActionsFor,
@@ -773,7 +774,7 @@ describe("paging and search", () => {
   it("keeps at most 10 pages loaded by default, and takes the screen's number", () => {
     hooks.infiniteOptions.length = 0;
     renderHook(() => useNativeResourceView(plainView), { wrapper: wrap(provider()) });
-    expect(hooks.infiniteOptions.at(-1)).toMatchObject({ maxPages: 10, defaultSort: { field: "status", order: "asc" } });
+    expect(hooks.infiniteOptions.at(-1)).toMatchObject({ maxPages: 10, defaultSorts: [{ field: "status", order: "asc" }, { field: "name", order: "asc" }] });
     renderHook(() => useNativeResourceView(summaryView, { maxPages: 3 }), { wrapper: wrap(provider()) });
     expect(hooks.infiniteOptions.at(-1)).toMatchObject({ maxPages: 3 });
   });
@@ -786,6 +787,22 @@ describe("paging and search", () => {
       order: "desc",
     });
     expect(serverSort(summaryView)).toBeUndefined();
+  });
+
+  it("sorts within each group by orderBy: the group first, then the order", () => {
+    const grouped = defineView(brands, { groupBy: "status", orderBy: { field: "name", direction: "desc" } });
+    expect(serverSorts(grouped)).toEqual([
+      { field: "status", order: "asc" },
+      { field: "name", order: "desc" },
+    ]);
+    // A provider that sorts by one field keeps the sections whole.
+    expect(serverSort(grouped)).toEqual({ field: "status", order: "asc" });
+    expect(serverSorts(defineView(brands, { groupBy: "status" }))).toEqual([{ field: "status", order: "asc" }]);
+    expect(serverSorts(summaryView)).toEqual([]);
+    hooks.infiniteOptions.length = 0;
+    renderHook(() => useNativeResourceView(grouped), { wrapper: wrap(provider()) });
+    expect(hooks.infiniteOptions.at(-1)).toMatchObject({ defaultSorts: serverSorts(grouped) });
+    expect(hooks.infiniteOptions.at(-1)).not.toHaveProperty("defaultSort");
   });
 
   it("doesn't redraw rows while the person types", async () => {
