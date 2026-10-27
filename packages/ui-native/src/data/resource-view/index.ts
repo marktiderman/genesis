@@ -48,3 +48,14 @@ export {
   type NativeResourceSwipeAction,
 } from "./mapping";
 export { defaultNativeResourceViewMessages, type NativeResourceViewMessages } from "./messages";
+export {
+  NativeResourceWorkspace,
+  NativeResourceWorkspaceMenu,
+  getNativeResourceWorkspaceStackOptions,
+  defaultNativeResourceWorkspaceMessages,
+  SEGMENTED_SECTIONS_MAX,
+  parseSettingNumber,
+  type NativeResourceWorkspaceProps,
+  type NativeResourceWorkspaceHeaderProps,
+  type NativeResourceWorkspaceMessages,
+} from "./NativeResourceWorkspace";

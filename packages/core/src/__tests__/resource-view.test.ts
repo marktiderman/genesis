@@ -2,7 +2,7 @@
  * defineView: a contract plus what it means to people. Names are checked once, defaults come from
  * the contract, and the result is frozen, so every platform draws the same view.
  */
-import { describe, expect, expectTypeOf, it } from "vitest";
+import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
 import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, ViewDefinitionError } from "../resource-view";
@@ -482,6 +482,71 @@ describe("scopeValues", () => {
       expect(scopeValues(scoped, {})).toEqual({});
     } finally {
       process.env.NODE_ENV = env;
+    }
+  });
+});
+
+describe("review fixes: actions and pictures", () => {
+  it("only true allows an action; false, empty or missing reasons refuse", () => {
+    const view = defineView(brands, {
+      actions: [
+        { name: "a", label: "A", can: () => false as never },
+        { name: "b", label: "B", can: () => "  " },
+        { name: "c", label: "C", can: () => undefined as never },
+        { name: "d", label: "D", can: () => "Not now." },
+      ],
+    });
+    expect(view.canAction("a", row)).toBe("This isn't allowed.");
+    expect(view.canAction("b", row)).toBe("This isn't allowed.");
+    expect(view.canAction("c", row)).toBe("This isn't allowed.");
+    expect(view.canAction("d", row)).toBe("Not now.");
+  });
+
+  it("trims action names before checking them", () => {
+    expect(() => defineView(brands, { actions: [{ name: "archive", label: "A" }, { name: " archive ", label: "B" }] })).toThrow(
+      /actions lists "archive" twice/,
+    );
+    expect(() => defineView(brands, { actions: [{ name: " delete", label: "A" }] })).toThrow(/reserved/);
+    const view = defineView(brands, { actions: [{ name: " archive ", label: "A" }] });
+    expect(view.actions()[0]!.name).toBe("archive");
+    expect(view.canAction("archive", row)).toBe(true);
+  });
+
+  it("marks destructive actions, and checks the flag", () => {
+    const view = defineView(brands, { actions: [{ name: "purge", label: "Purge", destructive: true }, { name: "copy", label: "Copy" }] });
+    expect(view.actions()).toEqual([
+      { name: "purge", label: "Purge", destructive: true },
+      { name: "copy", label: "Copy" },
+    ]);
+    expect(() => defineView(brands, { actions: [{ name: "x", label: "X", destructive: "yes" as never }] })).toThrow(/destructive isn't true or false/);
+  });
+
+  it("takes only http(s) and root-relative image sources", () => {
+    for (const src of ["mailto:a@example.com", "tel:+15550100", "#logo", "javascript:x", "//cdn.example/a.png"]) {
+      expect(rowPicture({ title: "x", image: { src, name: "Ada Lovelace" } })).toEqual({ kind: "initials", text: "AL" });
+    }
+    expect(rowPicture({ title: "x", image: { src: "HTTPS://example.com/a.png" } })).toMatchObject({ kind: "image" });
+    expect(rowPicture({ title: "x", image: { src: "/a.png" } })).toMatchObject({ kind: "image", fallback: "" });
+  });
+
+  it("initials skip punctuation", () => {
+    expect(initialsOf("Ada (Admin)")).toBe("AA");
+    expect(initialsOf("\"Bo\" O'Neil!")).toBe("BO");
+  });
+
+  it("initials work without Intl.Segmenter", async () => {
+    vi.resetModules();
+    const real = Intl.Segmenter;
+    (Intl as { Segmenter?: unknown }).Segmenter = undefined;
+    try {
+      const { initialsOf: fallback } = await import("../resource-view/picture");
+      expect(fallback("Ana-María López")).toBe("AL");
+      expect(fallback("Ada (Admin)")).toBe("AA");
+      expect(fallback("😊 Jones")).toBe("J");
+      expect(fallback("🎉🎉")).toBe("");
+    } finally {
+      (Intl as { Segmenter?: unknown }).Segmenter = real;
+      vi.resetModules();
     }
   });
 });
