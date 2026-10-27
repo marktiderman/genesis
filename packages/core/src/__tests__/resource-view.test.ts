@@ -160,6 +160,40 @@ describe("labels", () => {
   });
 });
 
+describe("defineView labelField", () => {
+  it("carries a link's labelField to its column and form field", () => {
+    const notes = defineResource<{ id: string; body: string; owner_id: string }>()({
+      name: "notes",
+      key: "id",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "body", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "people", field: "id" } },
+      ],
+    });
+    const view = defineView(notes, { fields: { owner_id: { labelField: "display_name", missingLabel: "Someone" } }, form: ["body", "owner_id"], columns: { default: ["body", "owner_id"] } });
+    expect(view.columns().find((c) => c.key === "owner_id")!.labelField).toBe("display_name");
+    expect(view.form("edit").find((f) => f.field.name === "owner_id")!.labelField).toBe("display_name");
+    expect(view.columns().find((c) => c.key === "owner_id")!.missingLabel).toBe("Someone");
+    expect(view.form("edit").find((f) => f.field.name === "owner_id")!.missingLabel).toBe("Someone");
+  });
+
+  it("refuses one on a field that isn't a link, or one that isn't a field name", () => {
+    expect(() => defineView<typeof brands, BrandRow>(brands, { fields: { name: { labelField: "title" } } })).toThrow(
+      /fields\.name\.labelField is set, but "name" isn't a link/,
+    );
+    expect(() =>
+      defineView<typeof brands, BrandRow>(brands, { fields: { practice_id: { labelField: "name,secret" } } }),
+    ).toThrow(/fields\.practice_id\.labelField isn't a field name/);
+    expect(() => defineView<typeof brands, BrandRow>(brands, { fields: { name: { missingLabel: "Hidden" } } })).toThrow(
+      /fields\.name\.missingLabel is set, but "name" isn't a link/,
+    );
+    expect(() => defineView<typeof brands, BrandRow>(brands, { fields: { practice_id: { missingLabel: " " } } })).toThrow(
+      /fields\.practice_id\.missingLabel isn't text/,
+    );
+  });
+});
+
 describe("defineView settings", () => {
   const view = defineView<typeof brands, BrandRow>(brands, {
     copy: { noun: "label", title: "Labels" },
@@ -312,7 +346,7 @@ describe("defineView review fixes", () => {
         { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
       ],
     } as const satisfies ResourceContract;
-    const v = defineView(c, { form: ["body", "owner_id"] });
+    const v = defineView(c, { form: ["body", "owner_id"], columns: { default: ["body", "owner_id"] } });
     expect(v.form("create").find((f) => f.field.name === "owner_id")!.readOnly).toBe(true);
     expect(v.writable("create")).toEqual(["body"]);
   });

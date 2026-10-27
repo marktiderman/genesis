@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Controller, useForm } from "react-hook-form";
 import type { ResourceFormFieldDef } from "@marktiderman/genesis-core";
+import { useRelationLabel } from "@marktiderman/genesis-core/hooks";
 import { NativeButton } from "../../components/button";
 import { NativeDatePicker, NativeTimePicker } from "../../components/date-time-picker";
 import { NativeInlineAlert } from "../../components/inline-alert";
@@ -18,7 +19,7 @@ import { NativeSheet, NativeSheetScrollView } from "../../components/sheet";
 import { NativeText } from "../../components/text";
 import { NavBarSaveButton } from "../../layouts/nav-bar";
 import { NativeResourceFormFieldRenderer } from "../NativeResourceFormField";
-import { dateToDay, dayToDate, displayText, resolveZone, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
+import { dateToDay, dayToDate, displayText, isEmptyValue, resolveZone, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
 import { fill } from "./messages";
 import { shownFields, type NativeFormField } from "./mapping";
 import type { SaveResult } from "./use-native-resource-view";
@@ -194,12 +195,23 @@ function FormField({
   const messages = useNativeResourceViewMessages();
   const zones = useDisplayTimeZones();
   const error = f.formState.errors[field.key]?.message as string | undefined;
+  // Before any return, as every hook must be. Only a read-only link asks.
+  const linkLabel = useRelationLabel(field.references, f.getValues(field.key), {
+    ...(field.labelField ? { labelField: field.labelField } : {}),
+    enabled: field.readOnly && field.display === "relation",
+  });
   if (field.readOnly) {
-    // A link shows its raw id until batched relation labels arrive.
     const value: unknown = f.getValues(field.key);
-    // A choice shows in the view's words (its `labels`).
+    // A choice shows in the view's words (its `labels`), a link as the linked row's words.
     const choice = field.options?.find((o) => o.value === String(value));
-    const shown = choice ? choice.label : displayText(field.display, value, messages, resolveZone(undefined, zones));
+    const linked = field.references && field.display === "relation" && !isEmptyValue(value);
+    const shown = choice
+      ? choice.label
+      : linked
+        ? linkLabel === undefined
+          ? messages.common.empty
+          : (linkLabel ?? field.missingLabel ?? messages.common.hiddenLink)
+        : displayText(field.display, value, messages, resolveZone(undefined, zones));
     return (
       <View testID={id} style={{ gap: 4 }} accessibilityLabel={`${field.label}, ${shown}`}>
         <NativeLabel>{field.label}</NativeLabel>

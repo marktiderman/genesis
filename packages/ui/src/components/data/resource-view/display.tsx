@@ -3,7 +3,7 @@
 // draw the same view their own way. An app replaces any of them with DisplayRenderersProvider.
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
-import { isSafeUrl, useViewer } from "@marktiderman/genesis-core";
+import { isSafeUrl, useRelationLabel, useViewer } from "@marktiderman/genesis-core";
 import { isTimeZone } from "@marktiderman/genesis-core/dates";
 import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { valueText, type DisplayHint, type ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
@@ -90,6 +90,19 @@ function formatInstant(value: unknown, timeZone: string | undefined): string {
   return instantFormat(timeZone).format(at);
 }
 
+/**
+ * A link as the linked row's words (batched per page). A plain relation field with no `references`
+ * shows its value; a linked row that's hidden or gone shows words, never its raw id.
+ */
+function RelationText({ value, context }: { value: unknown; context: DisplayContext }) {
+  const { column, messages } = context;
+  const reference = column.field?.references;
+  const label = useRelationLabel(reference, value, column.labelField ? { labelField: column.labelField } : {});
+  if (!reference) return <>{String(value)}</>;
+  if (label === undefined) return <span aria-busy="true">{messages.common.empty}</span>;
+  return <>{label ?? column.missingLabel ?? messages.common.hiddenLink}</>;
+}
+
 /** Genesis's web renderers. Every one shows text it can't draw, never a broken cell. */
 export const webDisplayRenderers: DisplayRenderers = {
   text: (value) => (typeof value === "object" ? JSON.stringify(value) : String(value)),
@@ -105,8 +118,8 @@ export const webDisplayRenderers: DisplayRenderers = {
   ),
   date: (value, { timeZone }) => formatDay(value, timeZone),
   datetime: (value, { timeZone }) => formatInstant(value, timeZone),
-  // The linked row's id until relation labels arrive (batched per page, never per cell).
-  relation: (value) => String(value),
+  // The linked row's words, batched across the page (one query per linked resource), else its id.
+  relation: (value, context) => <RelationText value={value} context={context} />,
   url: (value) =>
     isSafeUrl(value) && /^https?:/i.test(value.trim()) ? (
       <a href={value.trim()} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">

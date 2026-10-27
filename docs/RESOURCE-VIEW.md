@@ -48,7 +48,7 @@ build only what's missing.
 | Form, sections, conditional fields, validation | `ResourceFormFieldDef` (`group`, `visible`, `disabled`, `maxLength`, `relation`), `useResourceForm` with zod `buildSchema`; studio's `formSchema` and `StudioFormConfig` (`sections`, `visibleWhen`) | **Promote studio's `formSchema` and `form-config` to core.** The view's `form` compiles to `ResourceFormFieldDef[]`, so conditional fields ship in phase 1 |
 | CSV export and import | studio `exportCsv` and `parseCsv` (paged through the provider, formula-safe); forms-studio `toCsv`; forms-builder `parseCsvRows` | **Promote one CSV helper to core**, and fix the leading-space formula case there |
 | Grouping, sort and filter state | studio `query-state` (sorts, filters, group) | Promote to core, used by `groupBy` and presets |
-| Relation labels with no N+1 | studio `usePageLinkLabels` (batched) | Promote, used by the `relation` hint |
+| Relation labels with no N+1 | studio `usePageLinkLabels` (batched) | **Done:** core `useRelationLabel` batches every id asked for in one tick into one `in` query per linked resource; the `relation` hint uses it on web and native |
 | Bulk, import, row actions | provider `updateMany`, `deleteMany`, `importRows({ dryRun })`, `runAction`; studio `BulkEditDialog`, `ImportDialog` | Reuse through the provider, gated on `capabilities()` |
 | Header, peek, filters, saved views | `PageHeader`, `DataFilters`, `SavedViewItem`, `DataPageShell`, `DetailPanel`, `ResourceDetailPage`, `ResourceHeader`, `HeadlineNumbers`, `Chip` | Reuse as the header parts and summary chips |
 | Drag order, sheet, kanban | `SortableList`, `SheetGrid`, `KanbanBoard` | Reuse |
@@ -122,7 +122,7 @@ export const brandsView = defineView(contracts["public.brands"], {
       tones: { active: "success" },        // the chip's colour per value
       labels: { draft: "In progress" },    // the words per value; others show in title case
     },
-    owner_id: { display: "relation" },     // picker and label via references and labelField
+    owner_id: { labelField: "full_name" }, // a link shows the linked row's words (default: its labelField)
   },
   columns: { default: ["name", "status", "created_at"], compact: ["name"] },
   form: ["name", { section: "advanced", fields: ["slug"] }],
@@ -143,6 +143,16 @@ export const brandsView = defineView(contracts["public.brands"], {
   native group titles and read-only form values all use them. A summary chip reads the same
   words through `view.valueLabel("status", row.status)`; `valueText(labels, value)` does it
   without a view. Keys must be the field's enum values, so a renamed value fails at start-up.
+- **Links have words.** A field with `references` gets the `relation` hint, and its cell shows the
+  linked row's words, not its id: the view's `labelField`, else the linked resource's
+  `labelField` (`provider.describe`), else a `name`/`title`-like field. Every cell asks for its
+  own id and `useRelationLabel` sends the ids asked for in the same moment as one
+  `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource (100 ids a
+  request, or the provider's `maxPerPage` if lower), selecting only the key and the naming field.
+  A link never shows its raw id: a row the viewer can't see, one that's gone, or a failed read
+  shows the field's `missingLabel` ("Someone you can't see"), else the catalogue's
+  `common.hiddenLink`. Labels are cached for a minute and refresh when the linked resource is
+  written. Native's read-only link in the form sheet shows the same words.
 - **Validation is derived** from the contract (nullability, enums, `max`) as a Standard Schema
   (zod). `validate` only adds rules.
 - **Computed columns** (`columns: { full_name: { value: (r) => ... } }`) and **row actions**

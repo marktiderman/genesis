@@ -559,7 +559,7 @@ describe("links and the screen's filter", () => {
   const questionProvider = () =>
     provider({ getList: vi.fn(async () => ({ data: [QUESTION], total: 1 })) as unknown as DataProvider["getList"] });
 
-  it("shows a read-only link as its label and raw id, never an input", async () => {
+  it("shows a read-only link as text, never an input, and words when its row is hidden", async () => {
     render(<NativeResourceView view={questionsView} filter={{ form_id: "f1" }} />, { wrapper: wrap(questionProvider()) });
     const row = await screen.findByTestId("native-resource-view-row-q1");
     act(() => {
@@ -568,8 +568,26 @@ describe("links and the screen's filter", () => {
     const field = await screen.findByTestId("native-resource-view-form-field-form_id");
     expect(field.querySelector("input")).toBeNull();
     expect(field.textContent).toContain("Form");
-    expect(screen.getByTestId("native-resource-view-form-field-form_id-value").textContent).toBe("f1");
+    // getList answers every resource with the question, so form f1 isn't found: words, not "f1".
+    await waitFor(() => expect(screen.getByTestId("native-resource-view-form-field-form_id-value").textContent).toBe("Not available"));
     expect(formFieldsFor(questionsView, "create").map((f) => f.key)).toEqual(["prompt"]);
+  });
+
+  it("shows a read-only link in the linked row's words once they arrive", async () => {
+    const p = provider({
+      getList: vi.fn(async (resource: string) =>
+        resource === "forms" ? { data: [{ id: "f1", title: "Exit survey" }], total: -1 } : { data: [QUESTION], total: 1 },
+      ) as unknown as DataProvider["getList"],
+    });
+    render(<NativeResourceView view={questionsView} filter={{ form_id: "f1" }} />, { wrapper: wrap(p) });
+    const row = await screen.findByTestId("native-resource-view-row-q1");
+    act(() => {
+      row.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "edit" }));
+    });
+    await waitFor(() => expect(screen.getByTestId("native-resource-view-form-field-form_id-value").textContent).toBe("Exit survey"));
+    const asks = (p.getList as ReturnType<typeof vi.fn>).mock.calls.filter(([r]) => r === "forms");
+    expect(asks).toHaveLength(1);
+    expect(asks[0]![1].filters).toEqual([{ field: "id", operator: "in", value: ["f1"] }]);
   });
 
   it("sends the filter's link on create although it's read-only, and never on edit", async () => {

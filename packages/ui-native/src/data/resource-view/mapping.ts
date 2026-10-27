@@ -2,7 +2,7 @@
 // SectionList, guards as swipe actions, and the form sheet's fields. NativeResourceView and
 // useNativeResourceView draw from these, and the tests check them directly.
 
-import type { DataRow } from "@marktiderman/genesis-core";
+import type { DataRow, FieldReference } from "@marktiderman/genesis-core";
 import type {
   Allowed,
   DisplayHint,
@@ -198,6 +198,10 @@ export interface NativeFormField {
   readOnly: boolean;
   max?: number;
   options?: { value: string; label: string }[];
+  /** For a link: what it points at and the linked row's naming field, so it shows the row's words. */
+  references?: FieldReference;
+  labelField?: string;
+  missingLabel?: string;
   /** The heading it sits under; null for the form's first, untitled group. */
   section: string | null;
   sectionTitle: string | null;
@@ -257,6 +261,9 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
         readOnly,
         ...(f.max !== undefined ? { max: f.max } : {}),
         ...(options ? { options } : {}),
+        ...(f.field.references ? { references: f.field.references } : {}),
+        ...(f.labelField ? { labelField: f.labelField } : {}),
+        ...(f.missingLabel ? { missingLabel: f.missingLabel } : {}),
         section: f.section,
         sectionTitle: f.sectionTitle,
         ...(f.visible ? { visible: f.visible } : {}),

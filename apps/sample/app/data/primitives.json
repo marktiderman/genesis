@@ -13948,7 +13948,7 @@
             },
             {
               "name": "common",
-              "type": "DeepPartial<{ empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
+              "type": "DeepPartial<{ empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14029,7 +14029,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 9 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 9 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
