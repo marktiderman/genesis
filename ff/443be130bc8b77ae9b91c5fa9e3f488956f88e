@@ -1,0 +1,56 @@
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_9bf81edc5cc904::t_03b135f7cd56dd 88-90,249
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_9bf81edc5cc904::t_a41f15e8bb8573 199-202
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_9bf81edc5cc904::t_03b135f7cd56dd 60
+packages/core/src/resource-view/index.ts
+  s_9bf81edc5cc904::t_09cb9fea7ef0a6 5
+packages/core/src/__tests__/resource-view.test.ts
+  s_9bf81edc5cc904::t_e362393faed8b3 8,115-160
+  s_9bf81edc5cc904::t_d3a9da7acffef2 161-162
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_9bf81edc5cc904::t_e362393faed8b3 235-251
+packages/core/src/resource-view/types.ts
+  s_9bf81edc5cc904::t_330fe742c50f75 43-47,201-202,216-217,240-241
+packages/ui/src/components/data/resource-view/ResourceWorkspace.tsx
+  s_9bf81edc5cc904::t_03b135f7cd56dd 349,357-359
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_9bf81edc5cc904::t_e362393faed8b3 232-245
+apps/sample/app/data/primitives.json
+  s_9bf81edc5cc904::t_5d37edc0665f4f 2,7037-7042
+  s_9bf81edc5cc904::t_b9555787cfd663 7043
+packages/core/src/resource-view/define-view.ts
+  s_9bf81edc5cc904::t_09cb9fea7ef0a6 20,105-109
+  s_9bf81edc5cc904::t_330fe742c50f75 140-142,147-149,180-191,255,295,339-341,408
+  s_9bf81edc5cc904::t_b7a79b21c63bdd 143-146
+  s_9bf81edc5cc904::t_83f5fcc26776b4 110
+packages/ui-native/src/data/resource-view/display.tsx
+  s_9bf81edc5cc904::t_345016deec4bc4 14
+  s_9bf81edc5cc904::t_03b135f7cd56dd 175
+packages/ui/src/components/data/resource-view/display.tsx
+  s_9bf81edc5cc904::t_345016deec4bc4 7
+  s_9bf81edc5cc904::t_03b135f7cd56dd 6,75
+.changeset/view-labels-core.md
+  s_9bf81edc5cc904::t_bcc38f8fd10c60 1-5
+.changeset/view-labels-ui.md
+  s_9bf81edc5cc904::t_b3c819b7e8c8de 1-6
+docs/RESOURCE-VIEW.md
+  s_9bf81edc5cc904::t_1c3f2266bdcf54 120-124,131,142-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ff443be130bc8b77ae9b91c5fa9e3f488956f88e",
+  "prompts": {},
+  "sessions": {
+    "s_9bf81edc5cc904": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3b4c9501-df29-4872-bfc1-d1c904dc349c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
