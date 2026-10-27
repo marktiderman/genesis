@@ -37,6 +37,37 @@ export interface RemovedScopeName {
 }
 
 type Span = readonly [number, number];
+
+/**
+ * `text` with every comment blanked to spaces (newlines kept), so offsets and lines stay the same.
+ * Strings stay as they are. Everything below reads the masked text: an apostrophe in a comment
+ * (`// the viewer's clock`) can't open a "string" that swallows the brackets after it, and a removed
+ * name in a comment is never matched. The doctor reads comment-stripped code too, so the codemod and
+ * the rule see the same thing.
+ */
+export function maskComments(text: string): string {
+  const out = text.split("");
+  let quote: string | null = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (quote) {
+      if (ch === "\\") i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      quote = ch;
+      continue;
+    }
+    if (ch === "/" && (text[i + 1] === "/" || text[i + 1] === "*")) {
+      const line = text[i + 1] === "/";
+      const end = line ? (text.indexOf("\n", i) === -1 ? text.length : text.indexOf("\n", i)) : text.indexOf("*/", i + 2) === -1 ? text.length : text.indexOf("*/", i + 2) + 2;
+      for (let k = i; k < end; k++) if (out[k] !== "\n") out[k] = " ";
+      i = end - 1;
+    }
+  }
+  return out.join("");
+}
 const within = (spans: readonly Span[], at: number) => spans.some(([a, b]) => at >= a && at < b);
 
 /** Whether `name` is imported from a Genesis package in `text` (`import { name }`, `import { type name }`, `import { x as name }`). */
@@ -167,7 +198,9 @@ function zoneBindings(text: string, hook: boolean, type: boolean): string[] {
 const escape = (name: string) => name.replace(/\$/g, "\\$");
 
 /** Every removed name in `text`, in file order, each with its rewrite. Empty for a file that imports no Genesis package. */
-export function findRemovedScopeNames(text: string): RemovedScopeName[] {
+export function findRemovedScopeNames(source: string): RemovedScopeName[] {
+  // Offsets in the masked text are offsets in `source`: the mask keeps every length.
+  const text = maskComments(source);
   if (!IMPORTS_GENESIS.test(text)) return [];
   const out: RemovedScopeName[] = [];
   const has = (name: string) => importedFromGenesis(text, name);
@@ -213,7 +246,8 @@ export function findRemovedScopeNames(text: string): RemovedScopeName[] {
     out.push({ index: at, what: "DisplayTimeZones.practice", instead: "scope", start: at, end: at + "practice".length, replacement: "scope" });
   }
   for (const name of zoneBindings(text, has("useDisplayTimeZones"), has("DisplayTimeZones"))) {
-    for (const m of text.matchAll(new RegExp(`\\b${escape(name)}\\s*\\??\\.\\s*(practice)\\b`, "g"))) {
+    // Identifier-aware edges: `\b` doesn't sit before `$`, and must not match inside `x$zones`.
+    for (const m of text.matchAll(new RegExp(`(?<![\\w$])${escape(name)}\\s*\\??\\.\\s*(practice)(?![\\w$])`, "g"))) {
       const at = m.index! + m[0].length - "practice".length;
       out.push({ index: m.index!, what: "DisplayTimeZones.practice", instead: `${name}.scope`, start: at, end: at + "practice".length, replacement: "scope" });
     }

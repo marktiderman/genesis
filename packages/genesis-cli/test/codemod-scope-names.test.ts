@@ -1,7 +1,7 @@
 // @feat:cli-upgrade
 import { describe, expect, it } from "vitest";
 import { codemodById, codemodsFor, CODEMODS, scopeNeutralNames } from "../src/upgrade/codemods.js";
-import { findRemovedScopeNames } from "../src/upgrade/scope-names.js";
+import { findRemovedScopeNames, rewriteScopeNames } from "../src/upgrade/scope-names.js";
 import { makeApp, read } from "./blocks-helpers.js";
 
 const VIEW = `import { defineView } from "@marktiderman/genesis-core/resource-view";
@@ -105,6 +105,33 @@ describe("genesis-core-2-scope-names", () => {
     expect(out[10]).toContain('closes_at: { timeZone: "scope" }');
     expect(out[11]).toContain('starts_at: { timeZone: "scope" }');
     expect(out[12]).toBe("export const S = () => <NativeResourceView view={v} scopeTimeZone={zone} />;");
+  });
+
+  it("isn't thrown by an apostrophe in a comment: the span ends where the call does", async () => {
+    const text = [
+      'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+      "export const v = defineView(c, {",
+      "  // the viewer's clock, unless the scope's",
+      '  fields: { starts_at: { timeZone: "practice" } },',
+      "});",
+      'export const reminder = { timeZone: "practice" };',
+      '/* timeZone: "practice" in a comment is left alone */',
+    ].join("\n");
+    const out = rewriteScopeNames(text).split("\n");
+    expect(out[3]).toContain('timeZone: "scope"');
+    expect(out[5]).toBe('export const reminder = { timeZone: "practice" };');
+    expect(out[6]).toBe('/* timeZone: "practice" in a comment is left alone */');
+    expect(findRemovedScopeNames(text)).toHaveLength(1);
+  });
+
+  it("finds a $-named DisplayTimeZones binding, and not one inside a longer name", () => {
+    const text = [
+      'import { useDisplayTimeZones } from "@marktiderman/genesis-ui-native";',
+      "const $zones = useDisplayTimeZones();",
+      "export const a = $zones.practice;",
+      "export const b = x$zones.practice;",
+    ].join("\n");
+    expect(rewriteScopeNames(text).split("\n").slice(2)).toEqual(["export const a = $zones.scope;", "export const b = x$zones.practice;"]);
   });
 
   it("reports nothing left after it runs, on a Growth90-shaped view", async () => {
