@@ -52,7 +52,7 @@ interface NavItem {
   feature?: FeatureId;                 // checked with featureOn (ADR 0001); off hides the item and everything under it
   visible?: (viewer: Viewer) => boolean;    // roles and anything else app-specific
   order?: number;                      // among its siblings; lower first
-  phone?: "tab" | "more" | "hidden";   // where it goes on a phone; default "tab", overflow to More
+  phone?: "tab" | "hidden";            // on a phone; default "tab", at most five per zone
   children?: NavItem[];                // on a top-level item: the zone's navigation
   scope?: "login" | "tenant";          // top level only; "tenant": the zone is per practice, with a picker
 }
@@ -72,7 +72,7 @@ interface NavItem {
 
 - `zones`: the top-level items this viewer has, in order, after `featureOn` and `visible`;
 - `zone`: the current one, decided by the path (the top-level item the path sits under);
-- `tabs` and `more`: the current zone's children for a phone, after gating and ordering;
+- `tabs`: the current zone's children for a phone, after gating and ordering, at most five;
 - `items`: the same for a sidebar;
 - the `resolveNavigation` trail, parent and params, as today.
 
@@ -83,22 +83,57 @@ disagree, and the phone tab bar on the web matches the native one.
 
 - **Web** (`genesis-ui`): `AppShell` takes `navigation={resolved}`. A `ZoneSwitcher` goes in
   `headerSlot`.
-- **Native** (`genesis-ui-native`, `genesis-native`):
-  - `ZoneTabs` renders a zone as expo-router `NativeTabs`;
-  - a `NavBarTitleMenu` switcher, the native title menu Growth90 already asked for in
-    `docs/genesis-upstream.md`;
-  - `useZone()`, which remembers the last zone per login, generalising Growth90's
-    `src/lib/admin.ts`.
-
-  Expo Router is file-based, so every destination a zone can show needs a route file. The shell
-  resolves the zone's tab set before mounting, because native tabs remount when one is hidden or
-  shown. Past four or five tabs, a "More" tab lists the rest.
+- **Native** (`genesis-ui-native`, `genesis-native`), on Expo SDK 58 and expo-router 58 (checked
+  against the installed source and the SDK 58 docs):
+  - **Every zone is a root Stack screen with a real URL segment** (`/gym/…`, `/coaching/…`), holding
+    its own `NativeTabs` and a Stack per tab. Admin mode already works this way. It can't be a
+    route group shared between zones, because a cold deep link into a shared group picks the first
+    group alphabetically, and Expo's docs advise against shared routes for showing different roles
+    different screens. `NativeTabs` can't nest, so a zone can't live inside the Home tabs.
+  - **`Stack.Protected guard={zones.gym} redirectTo="/"`** guards each zone in the root layout.
+    `NativeTabs` has no `.Protected`.
+  - **`ZoneTabs`** renders the zone. It resolves the tab set *before* mounting and doesn't change
+    which tabs show, or their order, while the zone is on screen. `NativeTabs` keys itself on the
+    visible tab names in order, so any change recreates the native tab bar and every tab's state.
+    Badges, labels and icons can change freely.
+    - If a feature turns off while a person is inside a zone, the tab becomes `disabled` and its
+      screen explains why. `hidden` applies the next time they enter.
+    - The switcher prefetches the zone's gate before navigating, so the loading state rarely shows.
+  - **Switching zones** is `router.replace` to the zone's last tab, with a fade. `useZone()` keeps
+    the last zone and tab per login, generalising Growth90's `src/lib/admin.ts`. Server data
+    survives in the query cache. Keeping every zone mounted underneath is avoided, because
+    `NativeTabs` renders every tab at once.
+  - **Switcher UI.** SDK 58 has no native title menu: nothing exposes UIKit's `titleMenuProvider`.
+    - The switcher is a labelled `Stack.Toolbar.Menu` (native UIMenu, stable since expo-router
+      58.0.16) at the top left, showing the current zone's name, with a checkmark on the current
+      zone.
+    - On Android the same menu needs `@expo/ui`. Until Growth90 adds that, Android uses an action
+      sheet.
+    - The `NavBarTitleMenu` ask in Growth90's `docs/genesis-upstream.md` stays open for when the
+      platform has it.
+  - **iPad:** `sidebarAdaptable` (iOS 18+); `preferredPlacement` (iOS 27, expo-router 58.0.26+).
 
 ### 4. Rules
 
-- One zone means no switcher. A gym-only member never sees one.
-- Deep links open in the zone their path belongs to.
-- Zones gate navigation only. Routes still guard themselves with the same `featureOn`, and data
+From Apple's tab bar guidance, Material 3, and how Slack, Notion, Salesforce, Airbnb, HubSpot,
+Wodify, Mindbody and PushPress handle modules and roles:
+
+- **Five tabs or fewer per zone, and no More tab.** Android throws on a sixth tab, and Apple's
+  guidance says "Avoid overflow tabs". A module that needs more puts a sidebar on the web and iPad,
+  and moves secondary pages into its screens.
+- **Tabs don't move while you're in a zone.** Apple: "Don't disable or hide tab bar buttons." The
+  tab set is decided on entry.
+- **One zone means no switcher**, decided at sign-in. Gmail drops its tab bar when Chat and Meet are
+  off, and Wodify members never see the coach toggle.
+- **The switcher is visible and labelled with the current zone**, never only a swipe or a long
+  press. Airbnb hosts report not finding the travelling/hosting switch, and mode slips are the
+  known failure of modes (NN/g).
+- **Each zone keeps its place.** Coming back lands on its last tab. Trainerize, which makes
+  coaches log out to switch roles, is the cautionary tale.
+- **A practice is a picker inside a zone, not another zone**, like Shopify's store name or
+  Mindbody's location toggle. That's `scope: "tenant"`.
+- **Deep links open in the zone their path belongs to.**
+- **Zones gate navigation only.** Routes still guard themselves with the same `featureOn`, and data
   stays guarded by row-level security.
 
 ## Consequences
@@ -114,7 +149,9 @@ disagree, and the phone tab bar on the web matches the native one.
 
 1. Is Home a zone, or above the zones? Growth90's Today rolls up every practice and kind of work for
    the login (`docs/design/user-is-the-root.md`). Proposed: Home stays the roll-up and is always
-   there; the others are focused workspaces.
+   there; the others are focused workspaces. The strongest apps (Notion, Slack, Asana) keep Home and
+   Inbox the same in every workspace, as a queue of what needs you, and Airbnb's host Today is ordered
+   by urgency.
 2. Growth90's top-level items, and so its zones: proposed Home, Gym, Coaching, Team (EOS) and Admin.
 3. Is a zone per login or per practice? Proposed: a zone can say `scope: "tenant"` (Admin, Gym for
    staff) and get a practice picker; members' zones are per login.
