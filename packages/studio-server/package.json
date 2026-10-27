@@ -18,6 +18,13 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "auth": [
+        "./dist/auth.d.cts"
+      ]
+    }
+  },
   "bin": {
     "genesis-studio-server": "./dist/cli.js"
   },
@@ -30,6 +37,16 @@
     "./client": {
       "types": "./dist/client.d.ts",
       "import": "./dist/client.js"
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.js"
+      },
+      "require": {
+        "types": "./dist/auth.d.cts",
+        "default": "./dist/auth.cjs"
+      }
     }
   },
   "files": [
@@ -40,7 +57,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -51,7 +68,7 @@
     "postgres": "^3.4.9"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "^1.11.0"
+    "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
