@@ -40,6 +40,16 @@ Never change a genesis-work table. Instead:
   Installed items are the tenant's own, editable rows. Installing again or a newer version keeps
   what the tenant changed, and uninstalling removes only what nobody touched or used.
 
+## Content packs
+
+`@marktiderman/genesis-work/packs` holds the generic packs. Each is a `defineContentPack` manifest that server code installs into one tenant with `genesis_work.install_content_pack(tenant, manifest, installed_by)`:
+
+- `weeklyTeamMeetingPack`: a 60-minute weekly meeting agenda.
+- `oneOnOnesPack`: a 30-minute one-on-one.
+- `quarterlyObjectivesPack`: a quarterly planning session and a confidence field on goals.
+
+`workPacks` lists them all. An app publishes its own packs the same way, from its own package.
+
 ## Status
 
 Experimental and private until its first publish.
