@@ -1,0 +1,52 @@
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_5beca2076873c9::t_76d5d02d79cccb 1-449
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_5beca2076873c9::t_d444b848e8688b 1-395
+  s_5beca2076873c9::t_5083be9a689d4b 396-408
+packages/genesis-cli/src/doctor/ratchet.ts
+  s_5beca2076873c9::t_9049b0da7c338c 1-56
+packages/genesis-cli/src/doctor/contracts.ts
+  s_5beca2076873c9::t_11be3930a70e32 1-65
+packages/genesis-cli/src/doctor/primitives.ts
+  s_5beca2076873c9::t_c1387341922237 1-244
+.changeset/doctor-package-rules-cli.md
+  s_5beca2076873c9::t_a72bc7adc421b8 1-13
+features.json
+  s_5beca2076873c9::t_d89564bf802f83 1757-1803
+features.ts
+  s_5beca2076873c9::t_b520983245be87 762-782
+packages/genesis-cli/README.md
+  s_5beca2076873c9::t_187e151d863298 379,408-411,413-415,512,552,561-670,712-715,728
+packages/genesis-cli/src/cli.ts
+  s_5beca2076873c9::t_49a8165c956586 10-12,163,189,212-254
+packages/genesis-cli/src/doctor/config.ts
+  s_5beca2076873c9::t_5f6c0c74c23291 152-154,159-161,197-198,203-207,371,374-401
+packages/genesis-cli/src/doctor/index.ts
+  s_5beca2076873c9::t_7db26dde944989 36-40,65-91,108,110-113,125-126,133-134,148-157,168,180,204,206,210-214,217-228,230,252,276,292
+packages/genesis-cli/src/doctor/packages.ts
+  s_5beca2076873c9::t_aff27d826e7fce 14-15,33,360-386,411
+packages/genesis-cli/src/doctor/patterns.ts
+  s_5beca2076873c9::t_511a4b3cedf8d2 30,36,92-96,110-111
+packages/genesis-cli/src/doctor/rules.ts
+  s_5beca2076873c9::t_43de64816f5603 62-71
+packages/genesis-cli/src/doctor/types.ts
+  s_5beca2076873c9::t_6a9ed17a64d0ac 63-87,160-172,248-249,269-270,276-354
+packages/genesis-cli/src/vite.ts
+  s_5beca2076873c9::t_bb53965ed69160 77-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "04b85c82ac40e225d7454ae549fe4189b392792c",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
