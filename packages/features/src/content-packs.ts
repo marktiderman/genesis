@@ -35,12 +35,13 @@ export {
 
 /**
  * Checks one section's items for the block that owns it, and returns every
- * problem (an empty list when they're fine). `at` names the section, for
- * messages that point at an item.
+ * problem (an empty list when they're fine). Messages are relative to the
+ * section ("weekly: minutes must be more than 0"): the checker puts the pack
+ * and section in front. A validator that throws is reported as a problem.
  *
  * @stability Beta
  */
-export type ContentPackSectionValidator = (items: readonly unknown[], at: string) => readonly string[];
+export type ContentPackSectionValidator = (items: readonly unknown[]) => readonly string[];
 
 /** A pack's sections: block id → that block's items. @stability Beta */
 export type ContentPackSections = Readonly<Record<string, readonly unknown[]>>;
@@ -103,7 +104,9 @@ function keyProblems(where: string, items: readonly unknown[] | undefined): stri
 /** The block ids a pack's sections need, whatever it declares. @stability Beta */
 export function contentPackBlocks(pack: ContentPackDef): string[] {
   const needed = new Set<string>(legacyContentPackBlocks(pack));
-  for (const [block, items] of Object.entries(pack.sections ?? {})) {
+  const sections = pack.sections;
+  const entries = sections && typeof sections === "object" && !Array.isArray(sections) ? Object.entries(sections) : [];
+  for (const [block, items] of entries) {
     if (Array.isArray(items) && items.length) needed.add(block);
   }
   return [...needed].sort();
@@ -115,8 +118,15 @@ function test(blocks: EnabledBlocks): (id: string) => boolean {
   return (id) => set.has(id);
 }
 
-function isEnabledBlocks(value: unknown): value is EnabledBlocks {
-  return typeof value === "function" || (typeof value === "object" && value !== null && Symbol.iterator in value);
+/** The second argument: the installed blocks (ids or a predicate), or options. Anything else is a caller's mistake. */
+function checkOptions(value: unknown): ContentPackCheckOptions {
+  if (value === undefined) return {};
+  if (typeof value === "function") return { installed: value as EnabledBlocks };
+  if (typeof value === "object" && value !== null) {
+    if (Symbol.iterator in value) return { installed: value as EnabledBlocks };
+    return value as ContentPackCheckOptions;
+  }
+  throw new TypeError(`contentPackProblems: the second argument is the installed block ids (a list or a predicate) or options, not ${value === null ? "null" : typeof value}`);
 }
 
 /**
@@ -128,7 +138,7 @@ function isEnabledBlocks(value: unknown): value is EnabledBlocks {
  * @stability Beta
  */
 export function contentPackProblems(pack: ContentPackDef, installedOrOptions?: EnabledBlocks | ContentPackCheckOptions): string[] {
-  const options: ContentPackCheckOptions = isEnabledBlocks(installedOrOptions) ? { installed: installedOrOptions } : (installedOrOptions ?? {});
+  const options = checkOptions(installedOrOptions);
   const at = `content pack ${typeof pack?.id === "string" ? pack.id : "?"}`;
   const problems: string[] = [];
   if (typeof pack?.id !== "string" || !KEBAB.test(pack.id)) problems.push(`${at}: id must be kebab-case`);
@@ -143,13 +153,17 @@ export function contentPackProblems(pack: ContentPackDef, installedOrOptions?: E
     if (!KEY.test(label)) problems.push(`${at}: label key "${label}" is not a key`);
     if (typeof text !== "string" || !text.trim()) problems.push(`${at}: label "${label}" needs display text`);
   }
-  const validators: Record<string, ContentPackSectionValidator> = {};
+  // A null-prototype map: section keys come from the pack, so `constructor` must not find Object.
+  const validators: Record<string, ContentPackSectionValidator> = Object.create(null);
   for (const block of options.blocks ?? []) {
     const validate = block.contributes?.contentSection;
-    if (validate) validators[block.id] = validate;
+    if (typeof validate === "function") validators[block.id] = validate;
   }
-  Object.assign(validators, options.validators);
-  for (const [block, items] of Object.entries(pack.sections ?? {})) {
+  for (const [block, validate] of Object.entries(options.validators ?? {})) if (typeof validate === "function") validators[block] = validate;
+  const sections = pack.sections;
+  const sectionsOk = sections === undefined || (typeof sections === "object" && sections !== null && !Array.isArray(sections));
+  if (!sectionsOk) problems.push(`${at}: sections must be an object keyed by block id`);
+  for (const [block, items] of sectionsOk ? Object.entries(sections ?? {}) : []) {
     const where = `${at}.sections.${block}`;
     if (!KEY.test(block)) problems.push(`${where}: "${block}" is not a block id`);
     if (!Array.isArray(items)) {
@@ -158,7 +172,15 @@ export function contentPackProblems(pack: ContentPackDef, installedOrOptions?: E
     }
     problems.push(...keyProblems(where, items));
     const validate = validators[block];
-    if (validate) for (const problem of validate(items, where)) problems.push(`${where}: ${problem}`);
+    if (!validate) continue;
+    let found: readonly string[] | undefined;
+    try {
+      found = validate(items);
+    } catch (error) {
+      problems.push(`${where}: the block's validator failed: ${error instanceof Error ? error.message : String(error)}`);
+      continue;
+    }
+    for (const problem of Array.isArray(found) ? found : []) problems.push(`${where}: ${problem}`);
   }
   problems.push(...legacyContentPackProblems(pack, at, keyProblems));
   // Every block a section fills must be declared, and (when known) installed.

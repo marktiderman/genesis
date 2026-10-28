@@ -1,5 +1,5 @@
 /** @feat:content-packs */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BlockError, ContentPackError, contentPackBlocks, contentPackProblems, defineBlock, defineContentPack, type ContentPackDef, type ContentPackSectionValidator } from "../blocks-entry";
 
 const PACK = {
@@ -117,6 +117,46 @@ describe("content pack sections", () => {
     expect(contentPackProblems(GENERIC, { installed: ["meetings"], blocks: [meetingsBlock] })).toEqual([
       "content pack starter: needs the checklists block, which isn't installed",
     ]);
+  });
+
+  it("prefixes a validator's messages once: they are relative to the section", () => {
+    const pack = { ...GENERIC, sections: { ...GENERIC.sections, meetings: [{ key: "weekly", minutes: 0 }] } } as ContentPackDef;
+    const problems = contentPackProblems(pack, { validators: { meetings } });
+    expect(problems).toEqual(["content pack starter.sections.meetings: weekly: minutes must be more than 0"]);
+    expect(problems[0]!.split("sections.meetings").length).toBe(2);
+    // Validators get the items only, so no message can carry the section path twice.
+    const spy = vi.fn(() => []);
+    contentPackProblems(pack, { validators: { meetings: spy } });
+    expect(spy.mock.calls[0]).toHaveLength(1);
+  });
+
+  it("reports a validator that throws or returns nothing, instead of throwing", () => {
+    const throws: ContentPackSectionValidator = () => {
+      throw new Error("bad shape");
+    };
+    const nothing = (() => undefined) as unknown as ContentPackSectionValidator;
+    expect(contentPackProblems(GENERIC, { validators: { meetings: throws, checklists: nothing } })).toEqual([
+      "content pack starter.sections.meetings: the block's validator failed: bad shape",
+    ]);
+  });
+
+  it("refuses a second argument that is neither the installed blocks nor options", () => {
+    expect(() => contentPackProblems(GENERIC, "meetings" as never)).toThrow(TypeError);
+    expect(() => contentPackProblems(GENERIC, 3 as never)).toThrow(TypeError);
+    expect(() => contentPackProblems(GENERIC, null as never)).toThrow(TypeError);
+    expect(contentPackProblems(GENERIC, new Set(["meetings"]))).toEqual(["content pack starter: needs the checklists block, which isn't installed"]);
+  });
+
+  it("looks validators up as own properties only, so a section named like an Object member is just a section", () => {
+    const pack = { ...GENERIC, requires: ["constructor", "tostring"], sections: { constructor: [{ key: "a" }], tostring: [{ key: "b" }] } } as unknown as ContentPackDef;
+    expect(contentPackProblems(pack)).toEqual([]);
+    expect(contentPackProblems(pack, { validators: {} })).toEqual([]);
+  });
+
+  it("refuses sections that aren't an object keyed by block id", () => {
+    for (const sections of [[], [[{ key: "a" }]], "meetings", 3]) {
+      expect(contentPackProblems({ ...GENERIC, sections } as unknown as ContentPackDef)).toContain("content pack starter: sections must be an object keyed by block id");
+    }
   });
 
   it("is a block contribution defineBlock accepts", () => {

@@ -194,7 +194,9 @@ export async function recapPrompt(input: RecapInput): Promise<string> {
 export async function draftPrompt(input: DraftReplyInput): Promise<string> {
   const lines = await transcriptLines(input.messages, input);
   const voice = input.voice?.trim() ? `\n\nTheir voice: ${neutralise(input.voice.trim().slice(0, 500))}` : "";
-  return `<transcript>\n${lines.map((l) => l.line).join("\n")}\n</transcript>${voice}\n\nDraft the next message from You.`;
+  // The draft is for "You": say so when You hasn't written, so the model never takes another participant's side.
+  const silent = lines.some((l) => /^\[[^\]]*\] You(?: \(internal note\))?: /.test(l.line)) ? "" : "\n\nNo message in the transcript is labelled You: You haven't written yet.";
+  return `<transcript>\n${lines.map((l) => l.line).join("\n")}\n</transcript>${voice}${silent}\n\nDraft the next message from You.`;
 }
 
 export function createChatAssistant(options: ChatAssistantOptions): ChatAssistant {

@@ -166,6 +166,13 @@ describe("createChatAssistant", () => {
     expect(JSON.stringify(body.messages)).not.toContain("sleep");
   });
 
+  it("tells the model when the person it drafts for hasn't written yet, so it never drafts as someone else", async () => {
+    const none = await draftPrompt({ messages, resolveName: (id) => names[id] });
+    expect(none).toContain("No message in the transcript is labelled You: You haven't written yet.");
+    const mine = await draftPrompt({ messages, me: "coach", resolveName: (id) => names[id] });
+    expect(mine).not.toContain("haven't written yet");
+  });
+
   it("says \"a conversation\" by default, and the context when given", async () => {
     expect(recapSystem()).toContain("You summarise a conversation for someone catching up.");
     expect(draftSystem()).toContain("the person labelled You in a conversation.");

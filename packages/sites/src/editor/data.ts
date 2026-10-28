@@ -55,9 +55,31 @@ const noSlots: SlotKeys = () => [];
 
 const hideOnValue = (hideOn: readonly string[]): string => (hideOn.includes("mobile") && hideOn.includes("desktop") ? "both" : (hideOn[0] ?? "none"));
 
-/** A node as a Puck item. Unknown types keep their props, so nothing is lost. */
+/**
+ * A node's props at its section's current version: the section's migrations
+ * run, so the editor shows (and an edit saves) today's fields. A node whose
+ * migration fails, or of an unknown or newer section, keeps its props as
+ * they are; the canvas reports it.
+ */
+function currentProps(node: SectionNode): { props: Record<string, unknown>; v: number } {
+  const def = getSection(node.type);
+  if (!def || node.v >= def.version) return { props: structuredClone(node.props), v: node.v };
+  let props: Record<string, unknown> = structuredClone(node.props);
+  try {
+    for (let n = node.v + 1; n <= def.version; n++) {
+      const step = def.migrations?.[n];
+      if (step) props = step(props);
+    }
+  } catch {
+    return { props: structuredClone(node.props), v: node.v };
+  }
+  return { props, v: def.version };
+}
+
+/** A node as a Puck item, at its section's current version. Unknown types keep their props, so nothing is lost. */
 export function nodeToItem(node: SectionNode, slotKeys: SlotKeys = noSlots): PuckItem {
-  const props: Record<string, unknown> = { ...structuredClone(node.props) };
+  const current = currentProps(node);
+  const props: Record<string, unknown> = { ...current.props };
   for (const key of slotKeys(node.type)) {
     const nested = props[key];
     if (Array.isArray(nested)) props[key] = nested.map((n) => nodeToItem(n as SectionNode, slotKeys));
@@ -67,7 +89,7 @@ export function nodeToItem(node: SectionNode, slotKeys: SlotKeys = noSlots): Puc
     props: {
       ...props,
       id: node.id,
-      _v: node.v,
+      _v: current.v,
       ...(node.variant ? { _variant: node.variant } : {}),
       _hidden: node.hidden === true,
       _hideOn: node.hideOn?.length ? hideOnValue(node.hideOn) : "none",

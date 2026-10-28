@@ -97,8 +97,8 @@
       },
       {
         "kind": "field",
-        "id": "sessions",
-        "key": "sessions",
+        "id": "daysOnPlan",
+        "key": "daysOnPlan",
         "type": "number",
         "label": "How many days did you get through your plan, {{field:name}}?",
         "required": true,
@@ -117,8 +117,8 @@
       },
       {
         "kind": "field",
-        "id": "slept",
-        "key": "slept",
+        "id": "tookBreaks",
+        "key": "tookBreaks",
         "type": "yes-no",
         "label": "Did you take a proper break most days?"
       },

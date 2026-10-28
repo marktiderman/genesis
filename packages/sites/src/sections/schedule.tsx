@@ -3,7 +3,8 @@
  * hosts them and where they meet.
  *
  * - `grid`: on wider screens an accessible table (a caption, a header cell
- *   per day and per time, an empty slot said as "No class"); on a phone a
+ *   per day and per time, an empty slot said as `emptyText`, "Nothing
+ *   scheduled" by default); on a phone a
  *   day picker (radio buttons, one day's classes at a time) that needs no
  *   script: the stylesheet shows the day whose radio is checked, and shows
  *   every day where the browser can't.
@@ -45,8 +46,8 @@ const Session = z.object({
   type: TypeId.optional(),
   /** Who leads it: shown as "with …". */
   host: Line(60).optional(),
-  /** @deprecated Use `host`; read when `host` is left out. */
-  coach: Line(60).optional(),
+  /** @deprecated Use `host`. Still accepted; version 2 moves it into `host`, and the editor hides it. */
+  coach: Line(60).optional().meta({ deprecated: true }),
   location: Line(60).optional(),
   note: Line(80).optional(),
   /** Book this class (an outbound link, say). */
@@ -200,9 +201,21 @@ function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
   );
 }
 
+/** Version 2: a session's `coach` moves into `host` (kept when `host` is set) and is dropped. */
+function coachToHost(props: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(props.sessions)) return props;
+  const sessions = props.sessions.map((s: unknown) => {
+    if (!s || typeof s !== "object" || !("coach" in s)) return s;
+    const { coach, ...rest } = s as Record<string, unknown>;
+    return rest.host === undefined || rest.host === "" ? (coach === undefined ? rest : { ...rest, host: coach }) : rest;
+  });
+  return { ...props, sessions };
+}
+
 export const scheduleSection = defineSection({
   type: "schedule",
-  version: 1,
+  version: 2,
+  migrations: { 2: coachToHost },
   label: "Timetable",
   description: "The week's classes by time and day, with host and place: a table on wider screens and a day picker on a phone.",
   category: "content",
