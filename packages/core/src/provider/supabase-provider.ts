@@ -54,6 +54,8 @@ interface SupabaseQueryBuilder {
  */
 export interface SupabaseClient {
   from(table: string): SupabaseQueryBuilder;
+  /** Another schema's tables, for a resource named `schema.table` outside `public`. */
+  schema?(name: string): { from(table: string): SupabaseQueryBuilder };
   /** Supabase Realtime; needed only for `subscribe` (see `SupabaseProviderOptions.realtime`). */
   channel?(name: string): SupabaseRealtimeChannel;
   /** Releases a channel made by `channel()`. */
@@ -107,6 +109,8 @@ export interface SupabaseRealtimeChannel {
  */
 export interface SupabaseClientInput {
   from(table: string): unknown;
+  /** Another schema's tables, for a resource named `schema.table` outside `public`. Any real client's `schema` fits. */
+  schema?(name: string): { from(table: string): unknown };
   /** Database functions, for a resource whose `source` is an `rpc`. Any real client's `rpc` fits. */
   rpc?(fn: string, args?: Record<string, unknown>, options?: { count?: "exact" | "planned" | "estimated" }): unknown;
   /** Supabase Realtime, for `subscribe`. Any real client's `channel` fits. */
@@ -437,13 +441,23 @@ export function keysetClauses(state: CursorState): string {
   return [...main, `and(${equal.join(",")},${keyAhead})`, ...tail].join(",");
 }
 
-/** `"schema.table"` or `"table"` (schema `public`), as Realtime names them. */
-function realtimeTable(resource: string): { schema: string; table: string } {
+/**
+ * `"schema.table"` or `"table"` (schema `public`): the name a generated
+ * contract gives a resource, split the way PostgREST and Realtime name it.
+ */
+export function splitRelation(resource: string): { schema: string; table: string } {
   const dot = resource.indexOf(".");
   const strip = (name: string) => name.replace(/"/g, "");
   return dot < 0
     ? { schema: "public", table: strip(resource) }
     : { schema: strip(resource.slice(0, dot)), table: strip(resource.slice(dot + 1)) };
+}
+
+/** The same `public` resource named the other way: `public.goals` ↔ `goals`; other schemas have one spelling. */
+function otherSpelling(resource: string): string {
+  const { schema, table } = splitRelation(resource);
+  if (schema !== "public") return resource;
+  return resource.includes(".") ? table : `public.${table}`;
 }
 
 let realtimeChannelSeq = 0;
@@ -580,7 +594,16 @@ export function createSupabaseProvider(
   // Write helpers
   // ---------------------------------------------------------------------------
 
-  const from = (resource: string) => client.from(resource) as SupabaseQueryBuilder;
+  /** The table or view `name` names, in its schema: `public` through `from(table)`, any other through `schema(s).from(table)`. */
+  function relation(name: string): SupabaseQueryBuilder {
+    const { schema, table } = splitRelation(name);
+    if (schema === "public") return client.from(table) as SupabaseQueryBuilder;
+    // A client without schema() (not supabase-js) gets the name as given, as before.
+    if (typeof client.schema !== "function") return client.from(name) as SupabaseQueryBuilder;
+    return client.schema(schema).from(table) as SupabaseQueryBuilder;
+  }
+
+  const from = (resource: string) => relation(resource);
 
   /** How a list of `resource` counts its total: the caller's, else the resource's, else exact. */
   function countMode(resource: string, params: ListParams): CountMode {
@@ -630,11 +653,12 @@ export function createSupabaseProvider(
       const builder = client.rpc(source.rpc, source.args?.() ?? {}, count ? { count } : undefined) as SupabaseQueryBuilder;
       return builder.select(cols);
     }
-    const table = client.from(source ?? resource) as SupabaseQueryBuilder;
+    const table = relation(source ?? resource);
     return count ? table.select(cols, { count }) : table.select(cols);
   }
+  /** A resource's rules, keyed either way: `"public.goals"` finds `goals`, and `goals` finds `"public.goals"`. */
   const configFor = (resource: string): SupabaseResourceConfig =>
-    options.resources?.[resource] ?? {};
+    options.resources?.[resource] ?? options.resources?.[otherSpelling(resource)] ?? {};
   const nounFor = (resource: string) => configFor(resource).noun ?? "record";
 
   /**
@@ -691,7 +715,7 @@ export function createSupabaseProvider(
     const all = options.realtime;
     if (!all) return false;
     if (all === true) return true;
-    return typeof all === "function" ? all(resource) : all.includes(resource);
+    return typeof all === "function" ? all(resource) : all.includes(resource) || all.includes(otherSpelling(resource));
   }
 
   function isBinTable(resource: string): boolean {
@@ -699,7 +723,7 @@ export function createSupabaseProvider(
     if (mode) return mode === "bin";
     const bin = options.binTables;
     if (!bin) return false;
-    return typeof bin === "function" ? bin(resource) : bin.includes(resource);
+    return typeof bin === "function" ? bin(resource) : bin.includes(resource) || bin.includes(otherSpelling(resource));
   }
 
   /** Awaits a write-path query: its rows, or a `DataWriteError`. */
@@ -1054,7 +1078,7 @@ export function createSupabaseProvider(
         }
         return () => {};
       }
-      const { schema, table } = realtimeTable(resource);
+      const { schema, table } = splitRelation(resource);
       // One record is matched below, not with a server-side `id=eq.` filter, so it can share the
       // resource's channel. A list's first equality filter narrows the channel on the server.
       // Not for a resource read from a view or function: the filter may name a column only the view

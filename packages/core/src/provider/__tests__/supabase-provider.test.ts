@@ -785,3 +785,65 @@ describe("searchFields config: the query", () => {
     expect(calls.find((c) => c.method === "or")?.args).toEqual(['title.ilike."%x%"']);
   });
 });
+
+describe("schema-qualified resource names", () => {
+  // A generated contract names its resources `schema.table`; PostgREST wants the table, in its schema.
+  const schemaClient = {
+    ...client,
+    schema: (name: string) => {
+      calls.push({ method: "schema", args: [name] });
+      return client;
+    },
+  };
+  const fromArgs = () => calls.filter((c) => c.method === "from" || c.method === "schema").map((c) => `${c.method}:${c.args[0]}`);
+
+  it("reads and writes a public resource by its table name", async () => {
+    const p = createSupabaseProvider(schemaClient);
+    queue.push({ data: [{ id: "g1" }], error: null, count: 1 });
+    await p.getList("public.goals", {});
+    queue.push(ok({ id: "g2" }));
+    await p.create("public.goals", { data: { title: "T" } });
+    queue.push(ok([{ id: "g2" }]));
+    await p.update("public.goals", { id: "g2", data: { title: "U" } });
+    queue.push(ok([{ id: "g2" }]));
+    await p.deleteOne("public.goals", { id: "g2" });
+    expect(fromArgs()).toEqual(["from:goals", "from:goals", "from:goals", "from:goals"]);
+  });
+
+  it("reads another schema's table through schema()", async () => {
+    queue.push({ data: [], error: null, count: 0 });
+    await createSupabaseProvider(schemaClient).getList("work.tasks", {});
+    expect(fromArgs()).toEqual(["schema:work", "from:tasks"]);
+  });
+
+  it("gives a client without schema() the name as it was given", async () => {
+    queue.push({ data: [], error: null, count: 0 });
+    await createSupabaseProvider(client).getList("work.tasks", {});
+    expect(fromArgs()).toEqual(["from:work.tasks"]);
+  });
+
+  it("keeps bare names working, and finds a resource's rules under either spelling", async () => {
+    const create = vi.fn(async () => "p1");
+    await createSupabaseProvider(schemaClient, { resources: { practices: { create } } }).create("public.practices", { data: {} });
+    expect(create).toHaveBeenCalledTimes(1);
+    const create2 = vi.fn(async () => "p2");
+    await createSupabaseProvider(schemaClient, { resources: { "public.practices": { create: create2 } } }).create("practices", {
+      data: {},
+    });
+    expect(create2).toHaveBeenCalledTimes(1);
+    calls = [];
+    queue.push(ok([{ id: "g1" }]));
+    await createSupabaseProvider(schemaClient, { resources: { goals: { source: "public.my_goals" } } }).getOne("public.goals", {
+      id: "g1",
+    });
+    expect(fromArgs()).toEqual(["from:my_goals"]);
+  });
+
+  it("matches binTables under either spelling", async () => {
+    queue.push(ok([{ id: "c1" }]), ok([]), ok([]));
+    const res = await createSupabaseProvider(schemaClient, { binTables: ["commitments"] }).deleteOne("public.commitments", { id: "c1" });
+    expect(res.data).toEqual({ id: "c1" });
+    // The bin path: visible, delete, then not visible (a plain delete would take one response).
+    expect(queue).toEqual([]);
+  });
+});
