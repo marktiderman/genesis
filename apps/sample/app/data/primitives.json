@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27",
+  "generatedAt": "2026-10-28",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -3844,10 +3844,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, string | number | boolean | readonly (string | number)[] | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`, sent as `in`; a create never takes a list). A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
             },
             {
               "name": "header",
@@ -11449,6 +11449,13 @@
               "description": "Number of filtered/visible items"
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createAction",
               "type": "ReactNode",
               "required": false,
@@ -11503,6 +11510,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Singular entity name for generated text, e.g. \"session\""
+            },
+            {
+              "name": "entityNamePlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several of `entityName` (\"people\"), when not `entityName` + \"s\"."
             },
             {
               "name": "errorMessage",
@@ -13996,6 +14010,13 @@
               "description": ""
             },
             {
+              "name": "form",
+              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "kanban",
               "type": "DeepPartial<{ noItems: string; card: string; cardInLabel: string; pickUp: string; move: string; moveTo: string; moved: string; moveFailed: string; pickedUp: string; pickedUpTouch: string; over: string; droppedBack: string; cancelled: string; instructions: string; }>",
               "required": false,
@@ -14004,7 +14025,7 @@
             },
             {
               "name": "page",
-              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; loadMore: string; allLoaded: string; loadedMore: string; truncated: string; pagination: string; noRecords: string; range: string; ... 5 more ...; deleteFailed: string; }>",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 9 more ...; deleteFailed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14050,7 +14071,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 9 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 10 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -14319,6 +14340,13 @@
               "description": ""
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words, overriding the UI catalogue's `page.countOne`, `countOther` and\n`countFiltered`. Templates take `{count}`, `{total}`, `{noun}` and `{nouns}`."
+            },
+            {
               "name": "createAction",
               "type": "ReactNode",
               "required": false,
@@ -14366,6 +14394,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Singular entity for “N rows” copy when unfiltered"
+            },
+            {
+              "name": "entityNamePlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several of `entityName`, when not `entityName` + \"s\"."
             },
             {
               "name": "icon",
@@ -15463,6 +15498,13 @@
               "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
             },
             {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"): the title reads \"New goal\" / \"Edit goal\" (the UI\ncatalogue's `form`). Without it the title is built from `resource`, as before."
+            },
+            {
               "name": "onDirtyChange",
               "type": "((isDirty: boolean, confirmLeave: () => boolean) => void)",
               "required": false,
@@ -15516,7 +15558,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The title, over everything else."
             },
             {
               "name": "undoDelayMs",
@@ -15846,6 +15888,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -15965,6 +16014,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -16040,6 +16096,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -16588,6 +16658,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -16603,7 +16680,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -16680,10 +16757,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -16719,6 +16796,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -16810,6 +16894,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -17266,6 +17364,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -17281,7 +17386,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -17358,10 +17463,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -17397,6 +17502,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -17488,6 +17600,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -17944,6 +18070,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -17959,7 +18092,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -18036,10 +18169,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -18075,6 +18208,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -18166,6 +18306,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -21522,6 +21676,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -21641,6 +21802,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -21716,6 +21884,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -22165,6 +22347,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -22284,6 +22473,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -22359,6 +22555,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",

@@ -98,6 +98,26 @@ that:
 - the browser build includes only resources and fields that some view references, and no
   comment text other than `@genesis` labels. The full catalog stays out of client bundles.
 
+A view in the database (`create view my_goals with (security_invoker) as select * from goals
+where …`) that Postgres can update on its own (one table in `from`, no joins, grouping or
+`distinct`) gets its table's facts: each plain column's nullability, default, link, enum values
+and comment, the table's primary key when every key column is in the view, and the table's
+`noun`, `nounPlural` and `labelField`. The view's own comments win. A computed column, and a view
+that doesn't qualify, keep only what the catalog says about the view. A single-column `CHECK`
+that lists values (`status in ('open', 'done')`, alone or `or status is null`) becomes the
+field's `enumValues`, so the form offers a choice and the row type is a union.
+
+Contracts are named `schema.table`, with a part quoted when it holds a dot (`"my.s"."we.ird"`).
+The Supabase provider splits on the first dot outside quotes and sends a `public` resource to
+`client.from(table)` and any other to `client.schema(name).from(table)`; a bare name still means
+`public`. Its per-resource config, `binTables` and `realtime` match either spelling of a `public`
+resource. With both `goals` and `public.goals` in `resources`, the key spelled the way the caller
+names the resource wins, and the other spelling is used only when that key is absent.
+
+Columns are traced by position, so one renamed with `alter view … rename column` keeps its own
+facts. A view's own column (computed, or a view that doesn't qualify) leaves `nullable` out of the
+contract, since Postgres reports every view column as nullable.
+
 The provider config holds the data-side facts. These are owned by the data layer, not views:
 
 - `source`: a table, a `security_invoker` view, or a set-returning function (`{ rpc, args }`), including `security definer` functions that mask values by policy;
@@ -194,10 +214,13 @@ Screen settings:
 
 - `layout`: `page`, `embedded` or `compact`;
 - `columns`: a preset;
-- `filter`: equality filters on the list, which a new row also gets. A field the form shows
-  starts at the filter's value; one it doesn't show is filled hidden and sent on create only;
+- `filter`: filters on the list, which a new row also gets. `null` means "is empty" and a list
+  means "any of" (`{ status: ["open", "blocked"] }`, sent as `in`; a new row doesn't get a list).
+  A field the form shows starts at the filter's value; one it doesn't show is filled hidden and
+  sent on create only;
 - `defaults`: values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only
-  and never a list filter. A field the form shows starts at the value; the filter wins a clash;
+  and never a list filter. A field the form shows starts at the value; one it doesn't show is
+  filled hidden and sent on create, like `filter`. The filter wins a clash;
 - `onSaved(row, action)`: after the built-in form saves, e.g. to open a builder for a new row.
   A pessimistic save gives the server's row with its key;
 - `mode`: `table`, `grid` (cards), `list` or `sheet`;
@@ -207,6 +230,36 @@ Screen settings:
 - `tree`: nested rows from a flat list ([Tree mode](#tree-mode)).
 
 `useResourceView(view, options)` is the headless form, with the same state as `useResourceTable`.
+
+An input left empty is no value, when the contract says whether its column takes null (the view
+passes `nullable` and `hasDefault` to the form; a hand-written `ResourceFormFieldDef` can set
+them too). A create leaves it out, so the column's default (or null) applies; an edit sends null
+once the person empties it. A text column that can't be null keeps `""` (on a create, only when
+it has no default), and so does a value the screen started the field at (`filter`, `defaults`).
+A field the contract says nothing about, and an edit of a field nobody touched, send what they
+always did. The phone's NativeResourceView follows the same rule.
+
+### Words: each step overrides the one before
+
+Every piece of text has a Genesis default, and the app can always override it:
+
+1. **The resource name.** `my_goals` gives the noun "my goal" and the title "My Goals". Plurals
+   invert the singulars (entry → entries, person → people); with only a derived noun, a label that
+   reads as a plural ("People") is used for several.
+2. **The contract:** `noun`, `nounPlural` and `label`, which `introspect` reads from the table
+   comment (`comment on table goals is '@genesis {"noun": "goal"}'`). A simple view inherits its
+   table's noun.
+3. **The view's `copy`:** `noun`, `nounPlural`, `title`, `create`, `form.createTitle` /
+   `form.editTitle`, and `count.one` / `count.other` / `count.filtered`. Templates take `{noun}`,
+   `{nouns}`, `{count}` and `{total}`.
+4. **The screen's props:** `title`, `noun`, `nounPlural`, `formTitles`, `countFormat`,
+   `createLabel`.
+
+ResourceView hands the resolved noun to the count ("1 goal", "3 goals", "2 of 3") and to the form
+("New goal", "Edit goal"). The default templates are the UI catalogue's (`page.countOne`,
+`page.countOther`, `page.countFiltered`, `form.createTitle`, `form.editTitle`), so an app rewords
+or translates them once with `UiMessagesProvider`. A ResourceForm without a noun keeps its old
+title ("Create My Goal").
 
 ## Customise in steps
 

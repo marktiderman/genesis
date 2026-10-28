@@ -19,6 +19,7 @@ import {
   useResourceForm,
   type DataProvider,
 } from "@marktiderman/genesis-core";
+import { blankValues } from "@marktiderman/genesis-core/hooks";
 
 function setup(extra: Partial<DataProvider> = {}) {
   const base = createMockProvider({ tasks: [{ id: "t1", title: "Write", status: "done" }] }, { delay: 0 });
@@ -257,3 +258,127 @@ describe("useResourceForm — an edit never blanks what it didn't load", () => {
   });
 });
 
+
+describe("useResourceForm — an empty input is no value", () => {
+  const fields = [
+    { key: "title", type: "text" as const, required: true },
+    { key: "due_on", type: "date" as const, nullable: true },
+    { key: "points", type: "number" as const, nullable: true },
+    { key: "stage", type: "select" as const, nullable: true, options: [{ value: "a", label: "A" }] },
+    { key: "owner_id", type: "relation" as const, nullable: true },
+    { key: "notes", type: "textarea" as const, nullable: true },
+    { key: "created_by", type: "text" as const, nullable: false, hasDefault: true },
+    { key: "code", type: "text" as const, nullable: false },
+    // No column facts: as before.
+    { key: "legacy", type: "text" as const },
+    { key: "legacy_on", type: "date" as const },
+    // The screen started it at "" (a filter or default): kept.
+    { key: "started", type: "text" as const, nullable: true, defaultValue: "" },
+  ];
+  const blank = {
+    title: "T", due_on: "", points: "", stage: "", owner_id: "", notes: "", created_by: "", code: "", legacy: "", legacy_on: "", started: "",
+  };
+  const asBefore = { code: "", legacy: "", legacy_on: "", started: "" };
+
+  it("leaves blanks of known columns out of a create, so the columns' defaults apply", () => {
+    expect(blankValues(blank, fields, "create")).toEqual({ title: "T", ...asBefore });
+  });
+
+  it("clears a known column the person emptied to null on an edit", () => {
+    expect(blankValues(blank, fields, "edit", new Set(Object.keys(blank)))).toEqual({
+      title: "T", due_on: null, points: null, stage: null, owner_id: null, notes: null, created_by: "", ...asBefore,
+    });
+  });
+
+  it("leaves an edit's untouched fields as they were", () => {
+    expect(blankValues(blank, fields, "edit", new Set(["due_on"]))).toEqual({ ...blank, due_on: null });
+  });
+
+  it("treats a cleared number input (undefined) like an empty one, and tells cleared from untouched", () => {
+    expect(blankValues({ title: "T", points: undefined }, fields, "edit", new Set(["points"]))).toEqual({ title: "T", points: null });
+    expect(blankValues({ title: "T", points: undefined }, fields, "edit", new Set())).toEqual({ title: "T", points: undefined });
+    expect(blankValues({ title: "T", points: undefined }, fields, "create")).toEqual({ title: "T" });
+  });
+
+  it("keeps every real value, falsy ones included", () => {
+    const values = { title: "T", points: 0, notes: null, done: false, tags: [] };
+    expect(blankValues(values, fields, "create")).toEqual(values);
+  });
+
+  it("sends a create without an empty nullable date, and an edit that empties it with null", async () => {
+    const create = vi.fn(async (_r: string, { data }: { data: unknown }) => ({ data: { id: "t9", ...(data as object) } }));
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ create: create as unknown as DataProvider["create"], update: update as unknown as DataProvider["update"] });
+    const dates = [
+      { key: "title", type: "text" as const },
+      { key: "due_on", type: "date" as const, nullable: true },
+      { key: "notes", type: "text" as const, nullable: true },
+    ];
+    const { result: created } = renderHook(() => useResourceForm({ resource: "tasks", action: "create", fields: dates }), { wrapper });
+    await act(async () => {
+      await created.current.handleSave({ title: "New", due_on: "", notes: "" });
+    });
+    expect(create.mock.calls[0]![1].data).toEqual({ title: "New" });
+    const { result: edited } = renderHook(
+      () =>
+        useResourceForm({
+          resource: "tasks",
+          action: "edit",
+          id: "t1",
+          initialData: { id: "t1", title: "W", due_on: "2026-01-01", notes: "" },
+          fields: dates,
+        }),
+      { wrapper },
+    );
+    act(() => {
+      edited.current.form.setValue("due_on", "");
+    });
+    await act(async () => {
+      await edited.current.handleSave({ title: "W", due_on: "", notes: "" });
+    });
+    // The emptied date is null; the untouched "" note goes as it was.
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "W", due_on: null, notes: "" });
+  });
+
+  it("sends null when an edit clears a number input", async () => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    const numbers = [{ key: "title", type: "text" as const }, { key: "points", type: "number" as const, nullable: true }];
+    const { result } = renderHook(
+      () => useResourceForm({ resource: "tasks", action: "edit", id: "t1", initialData: { id: "t1", title: "W", points: 5 }, fields: numbers }),
+      { wrapper },
+    );
+    act(() => {
+      result.current.form.setValue("points", undefined);
+    });
+    await act(async () => {
+      await result.current.handleSave({ title: "W", points: undefined });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "W", points: null });
+  });
+
+  it("submits an optional field a screen started at null, as null", async () => {
+    const create = vi.fn(async (_r: string, { data }: { data: unknown }) => ({ data: { id: "t9", ...(data as object) } }));
+    const { wrapper } = setup({ create: create as unknown as DataProvider["create"] });
+    const started = [
+      { key: "title", type: "text" as const, required: true },
+      { key: "due_on", type: "date" as const, required: false, nullable: true, defaultValue: null },
+      { key: "points", type: "number" as const, required: false, nullable: true, defaultValue: null },
+    ];
+    const { result } = renderHook(() => useResourceForm({ resource: "tasks", action: "create", fields: started }), { wrapper });
+    act(() => {
+      result.current.form.setValue("title", "New");
+    });
+    await act(async () => {
+      await result.current.form.handleSubmit(result.current.handleSave)();
+    });
+    // Validation lets the null start through (it used to stop the submit)...
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(result.current.form.formState.errors).toEqual({});
+    // ...and a null is sent as null, never dropped as an empty input.
+    await act(async () => {
+      await result.current.handleSave({ title: "New", due_on: null, points: null });
+    });
+    expect(create.mock.calls[1]![1].data).toEqual({ title: "New", due_on: null, points: null });
+  });
+});

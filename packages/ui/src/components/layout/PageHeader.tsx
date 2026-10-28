@@ -17,6 +17,7 @@ import { ViewToggle, type ViewMode } from "../patterns/view-toggle";
 import { ViewSettings } from "../patterns/view-settings";
 import type { Density } from "../../hooks/use-view-settings";
 import { cn } from "../../utils";
+import { fillMessage, useUiMessages } from "../../messages";
 import {
   readStoredOptions as readStoredOptionsRaw,
   writeStoredOptions,
@@ -72,7 +73,7 @@ export interface PageHeaderOptions {
 /** @stability Beta */
 export type PageHeaderOptionKey = keyof PageHeaderOptions;
 
-/** Naive English pluralization for the count badge — singular at exactly 1. */
+/** Naive English plural for the count badge when no `entityNamePlural` is given — singular at exactly 1. */
 function pluralizeEntity(entity: string, count: number): string {
   if (count === 1) return entity;
   return entity.endsWith("s") ? entity : `${entity}s`;
@@ -182,6 +183,13 @@ export interface PageHeaderProps {
   totalCount?: number;
   /** Singular entity for “N rows” copy when unfiltered */
   entityName?: string;
+  /** Several of `entityName`, when not `entityName` + "s". */
+  entityNamePlural?: string;
+  /**
+   * The count's words, overriding the UI catalogue's `page.countOne`, `countOther` and
+   * `countFiltered`. Templates take `{count}`, `{total}`, `{noun}` and `{nouns}`.
+   */
+  countFormat?: { one?: string; other?: string; filtered?: string };
   countActive?: boolean;
   viewMode?: ViewMode;
   onViewModeChange?: (mode: ViewMode) => void;
@@ -228,6 +236,8 @@ export function PageHeader({
   count,
   totalCount,
   entityName,
+  entityNamePlural,
+  countFormat,
   countActive = false,
   viewMode,
   onViewModeChange,
@@ -324,6 +334,12 @@ export function PageHeader({
 
   const detailsLabel = resolved.detailsLabel ?? "Details";
   const entity = entityName || "item";
+  const m = useUiMessages();
+  const countText = (): string => {
+    const values = { count: countActive ? count! : totalCount!, total: totalCount!, noun: entity, nouns: entityNamePlural ?? pluralizeEntity(entity, 2) };
+    if (countActive) return fillMessage(countFormat?.filtered ?? m.page.countFiltered, values);
+    return fillMessage(totalCount === 1 ? (countFormat?.one ?? m.page.countOne) : (countFormat?.other ?? m.page.countOther), values);
+  };
 
   const toggles: ToggleDef[] = (
     [
@@ -374,9 +390,7 @@ export function PageHeader({
 
       {hasCount && resolved.showCount !== false ? (
         <Badge variant="secondary" className="text-xs">
-          {countActive
-            ? `${count} of ${totalCount}`
-            : `${totalCount} ${pluralizeEntity(entity, totalCount!)}`}
+          {countText()}
         </Badge>
       ) : null}
 
