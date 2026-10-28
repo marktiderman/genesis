@@ -551,3 +551,87 @@ describe("DateCell", () => {
     expect(DateCell({ relative: false })(null, "2026-01-02")).toBe("Jan 2, 2026");
   });
 });
+
+describe("ResourceView words: resource name, then contract, then view copy, then screen", () => {
+  type Goal = { id: string; title: string; due_on: string | null };
+  const fields = [
+    { name: "id", type: "string", hasDefault: true },
+    { name: "title", type: "string" },
+    { name: "due_on", type: "datetime", dbType: "date", nullable: true },
+  ] as const;
+  const bare = defineResource<Goal>()({ name: "public.my_goals", key: "id", fields });
+  const named = defineResource<Goal>()({ name: "public.my_goals", key: "id", noun: "goal", fields });
+  const goals = (n: number): DataProvider => ({
+    ...provider(),
+    getList: vi.fn(async () => {
+      const rows = Array.from({ length: n }, (_, i) => ({ id: `g${i}`, title: `Goal ${i}`, due_on: null }));
+      return { data: rows, total: rows.length };
+    }) as DataProvider["getList"],
+  });
+  const openForm = async () => {
+    fireEvent.click(await screen.findByRole("button", { name: /New/ }));
+    return screen.findByRole("dialog");
+  };
+
+  it("counts and titles the form with the contract's noun", async () => {
+    localStorage.clear();
+    const v = defineView(named, { form: ["title", "due_on"] });
+    const { unmount } = render(<ResourceView view={v} mode="table" detail="none" />, { wrapper: wrap(goals(1)) });
+    expect(await screen.findByText("1 goal")).toBeTruthy();
+    expect(within(await openForm()).getByText("New goal")).toBeTruthy();
+    unmount();
+    render(<ResourceView view={v} mode="table" detail="none" />, { wrapper: wrap(goals(2)) });
+    expect(await screen.findByText("2 goals")).toBeTruthy();
+  });
+
+  it("falls back to the resource name without one", async () => {
+    localStorage.clear();
+    const v = defineView(bare, { form: ["title"] });
+    render(<ResourceView view={v} mode="table" detail="none" />, { wrapper: wrap(goals(1)) });
+    expect(await screen.findByText("1 my goal")).toBeTruthy();
+    expect(within(await openForm()).getByText("New my goal")).toBeTruthy();
+  });
+
+  it("lets the view's copy override the contract, and the screen override the view", async () => {
+    localStorage.clear();
+    const v = defineView(named, {
+      form: ["title"],
+      copy: { nounPlural: "targets", count: { one: "{count} target" }, form: { createTitle: "Set a {noun}" } },
+    });
+    const { unmount } = render(<ResourceView view={v} mode="table" detail="none" />, { wrapper: wrap(goals(1)) });
+    expect(await screen.findByText("1 target")).toBeTruthy();
+    expect(within(await openForm()).getByText("Set a goal")).toBeTruthy();
+    unmount();
+    render(<ResourceView view={v} mode="table" detail="none" formTitles={{ create: "Add one" }} />, { wrapper: wrap(goals(3)) });
+    expect(await screen.findByText("3 targets")).toBeTruthy();
+    expect(within(await openForm()).getByText("Add one")).toBeTruthy();
+  });
+
+  it("marks the form's fields nullable and defaulted from the contract", () => {
+    const v = defineView(named, { form: ["title", "due_on"] });
+    const { result } = renderHook(() => useResourceViewProps({ view: v }), { wrapper: wrap(provider()) });
+    expect(result.current.formFields!.find((f) => f.key === "due_on")).toMatchObject({ nullable: true });
+    expect(result.current.formFields!.find((f) => f.key === "title")!.nullable).toBeUndefined();
+  });
+});
+
+describe("ResourceView list filters", () => {
+  it("sends a list as `in`, and never starts a new row from it", async () => {
+    localStorage.clear();
+    const p = provider();
+    const getList = vi.spyOn(p, "getList");
+    const { result } = renderHook(() => useResourceViewProps({ view, filter: { status: ["active", "archived"], practice_id: "p1" } }), {
+      wrapper: wrap(p),
+    });
+    expect(result.current.resourceOptions?.defaultFilters).toEqual([
+      { field: "status", operator: "in", value: ["active", "archived"] },
+      { field: "practice_id", operator: "eq", value: "p1" },
+    ]);
+    const fields = result.current.formFields!;
+    expect(fields.find((f) => f.key === "status")!.defaultValue).toBeUndefined();
+    expect(fields.filter((f) => f.hidden).map((f) => f.key)).toEqual(["practice_id"]);
+    render(<ResourceView view={view} filter={{ status: ["archived"] }} mode="table" detail="none" />, { wrapper: wrap(p) });
+    await waitFor(() => expect(getList).toHaveBeenCalled());
+    expect(getList.mock.calls.at(-1)![1].filters).toContainEqual({ field: "status", operator: "in", value: ["archived"] });
+  });
+});

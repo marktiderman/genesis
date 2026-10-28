@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 151 components · 536 other exports · 400 standalone types across 11 packages and entry points.
+**Totals:** 153 components · 573 other exports · 433 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -31,14 +31,16 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 
-### Other exports (49)
+### Other exports (67)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty (""): a create leaves it out, so the column's default (or null) applies, and an edit clears it to null. "" stays only for a text column that can't be null and, on a create, has no default to fall... |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
+| [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
 | [`clearViewerCache`](../packages/core/src/hooks/viewer-scope.tsx) | value | — | _(no summary)_ |
 | [`createLocalStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | localStorage adapter with SSR safety. |
 | [`createMemoryStorageAdapter`](../packages/core/src/storage/adapters.ts) | function | — | In-memory adapter for testing and SSR. |
@@ -51,25 +53,37 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`decodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | The inverse of {@link encodeRecordKey}: field name → value. |
 | [`DEFAULT_DRAFT_DELAY_MS`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DEFAULT_LIVE_DEBOUNCE_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How long a burst of change events is gathered into one refetch. |
+| [`DEFAULT_LIVE_RESYNC_MS`](../packages/core/src/hooks/use-live.ts) | const | — | How often a live read refetches anyway while the page is visible. Realtime checks each change against the row's new state, so a row the viewer stops being allowed to see (binned, made a draft, moved to another practice) sends them nothin... |
 | [`DEFAULT_RPC_MESSAGES`](../packages/core/src/provider/write-helpers.ts) | const | — | The words shown for a code when the caller gives none. A guard's own `raise exception` (P0001) keeps its words. |
 | [`DEFAULT_UNDO_DELAY_MS`](../packages/core/src/hooks/mutation-mode.ts) | const | — | How long an `undoable` write waits for an undo before it is sent. |
 | [`DEFAULT_UNSAVED_CHANGES_MESSAGE`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | const | — | _(no summary)_ |
+| [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
 | [`defineQueryKeys`](../packages/core/src/query-keys.ts) | function | — | The keys of one domain. Each query maps its arguments to the fields that make it distinct (sort arrays so order never makes two keys): |
+| [`defineResource`](../packages/core/src/schema/types.ts) | function | — | Declares a resource contract for a row type, keeping the literal contract (field names, key, labelField) and attaching the row type so views can read it with `RowOf`. `labelField` must be one of the row's fields. |
 | [`DRAFT_NOT_SAVED`](../packages/core/src/hooks/draft-controller.ts) | const | — | _(no summary)_ |
 | [`DraftController`](../packages/core/src/hooks/draft-controller.ts) | class | — | The rules of a draft, without React: one write at a time, add then change, no write when nothing changed or for an empty value, merge into a row another tab started, start again on a new revision, retry network failures, and a final writ... |
 | [`dropPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Drops every write on this client not yet sent, without reporting them: the viewer who made them is gone, so they must never be sent (or re-applied) under the next one. Writes already sending finish under the old session. |
 | [`encodeRecordKey`](../packages/core/src/schema/keys.ts) | function | — | One `Identifier` for a row. |
+| [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`fieldErrorsFromPostgrest`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Reads which columns a Postgres constraint error is about, from PostgREST's `message` / `details`, and gives safe messages for them. Only plain column names are taken from the store's text; the values it echoes are never used. A unique vi... |
 | [`flushPendingWrites`](../packages/core/src/hooks/mutation-mode.ts) | value | — | _(no summary)_ |
+| [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
 | [`isDataReadError`](../packages/core/src/schema/read-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isDataWriteError`](../packages/core/src/schema/write-outcome.ts) | function | — | `instanceof` fails when two copies of this package are installed, so check the shape instead. |
 | [`isNetworkFailure`](../packages/core/src/hooks/draft-controller.ts) | function | — | The default `isRetryable`: a request that never reached the store. A refusal never is. |
+| [`isSafeUrl`](../packages/core/src/urls.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
 | [`keyFields`](../packages/core/src/schema/keys.ts) | function | — | The key of a contract as a list, whichever form `key` was declared in. |
+| [`loadRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The words for one linked id, batched with every other id asked for in the same tick: one `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource and naming field. Resolves null when the row has no words or isn't... |
+| [`NO_VIEWER`](../packages/core/src/hooks/viewer-scope.tsx) | value | — | _(no summary)_ |
+| [`normalizeLinkUrl`](../packages/core/src/urls.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
+| [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
+| [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`titleCase`](../packages/core/src/utils.ts) | function | — | Convert a key string to title case. "created_at" -> "Created At" "firstName" -> "First Name" |
 | [`toDataWriteError`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Turns anything a write threw, or the `{ message, code }` error a Supabase client returned, into a `DataWriteError`. A `DataWriteError` passes through unchanged; anything else keeps its message and `code`, and is kept as the `cause`. |
@@ -78,16 +92,20 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
+| [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
+| [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
 | [`useResource`](../packages/core/src/hooks/use-resource.ts) | function | — | _(no summary)_ |
 | [`useResourceForm`](../packages/core/src/hooks/use-resource-form.ts) | function | — | _(no summary)_ |
 | [`useStorage`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useUnsavedChangesGuard`](../packages/core/src/hooks/use-unsaved-changes-guard.ts) | function | — | Warns before unsaved changes are lost, without depending on a router. |
+| [`useViewer`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can sit in a memo's dependencies. |
+| [`useViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (97)
+### Types (111)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -98,7 +116,11 @@ export type { BaseRecord };
 export type { BulkChange };
 export type { BulkResult };
 export type { CallRpcOptions };
+export type { ClassifiedError };
+export type { ClassifyErrorOptions };
+export type { CountMode };
 export type { CreateOrAdoptOptions };
+export type { CreateOrAdoptResult };
 export type { CreateParams };
 export type { CreateResult };
 export type { DataProvider };
@@ -113,12 +135,17 @@ export type { DraftSeed };
 export type { DraftState };
 export type { DraftStatus };
 export type { DraftValue };
+export type { ErrorKind };
+export type { ErrorMessages };
+export type { ErrorReportContext };
+export type { ErrorReporter };
 export type { FieldPermissions };
 export type { FieldReference };
 export type { FieldSchema };
 export type { FieldType };
 export type { FilterOperator };
 export type { FilterParam };
+export type { GenesisViewerRoles };
 export type { GetManyParams };
 export type { GetManyResult };
 export type { GetOneParams };
@@ -150,9 +177,11 @@ export type { ResourceContract };
 export type { ResourceFormFieldDef };
 export type { ResourceRelation };
 export type { ResourceSchema };
+export type { ResourceScope };
 export type { ResourceSummary };
 export type { RowAction };
 export type { RowFailure };
+export type { RowOf };
 export type { RpcClient };
 export type { ScalarFilter };
 export type { ScopedKey };
@@ -175,6 +204,7 @@ export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
 export type { UseOneOptions };
+export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
 export type { UseResourceFormReturn };
 export type { UseResourceOptions };
@@ -185,6 +215,8 @@ export type { UseWizardReturn };
 export type { UseWriteOptions };
 export type { UseWriteReturn };
 export type { VersionField };
+export type { Viewer };
+export type { ViewerContext };
 export type { WidgetHint };
 export type { WizardStep };
 export type { WriteEvent };
@@ -271,7 +303,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (42)
+### Components (43)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -308,6 +340,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
 | [`StatusBadge`](../packages/ui/src/components/patterns/status-badge.tsx) | `StatusBadgeProps` | Beta | Status-specific badge for progress/health states — the EOS/OKR-style "on track / at risk / off track" goal vocabulary plus common task-lifecycle states ("done", "blocked", "in progress"). |
+| [`Table`](../packages/ui/src/components/ui/table.tsx) | `TableProps` | — | _(no summary)_ |
 | [`ToggleRow`](../packages/ui/src/components/patterns/toggle-row.tsx) | `ToggleRowProps` | Beta | ToggleRow — `SettingsRow` pre-wired with a `Switch`: the common label+description+on/off row for settings and preferences UI. |
 | [`Toolbar`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarProps` | Beta | Toolbar — a grouped set of controls that behaves as ONE tab stop. |
 | [`ToolbarButton`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarButtonProps` | Beta | ToolbarButton — a button that participates in the toolbar's roving tabindex. |
@@ -318,7 +351,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (264)
+### Other exports (263)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -562,7 +595,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`statusBadgeVariants`](../packages/ui/src/components/patterns/status-badge.tsx) | const | — | _(no summary)_ |
 | [`SummaryCard`](../packages/ui/src/components/resource/index.ts) | value | — | _(no summary)_ |
 | [`Switch`](../packages/ui/src/components/ui/switch.tsx) | value | — | _(no summary)_ |
-| [`Table`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableBody`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableCaption`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
 | [`TableCell`](../packages/ui/src/components/ui/table.tsx) | value | — | _(no summary)_ |
@@ -689,8 +721,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`escapeHtml`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Escape text for use in HTML element content and quoted attributes. |
 | [`isRichTextDoc`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `value` is shaped like a rich text document (`{ type: "doc" }`). |
 | [`isRichTextEmpty`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when the document has no visible text and no embeds. |
-| [`isSafeUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | True when `url` is safe to put in an `href`: an absolute http(s), mailto or tel URL, a root-relative path (`/lessons/1`) or a fragment (`#notes`). |
-| [`normalizeLinkUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Turn what a person typed into the link field into a safe href, or `null`. `example.com/page` becomes `https://example.com/page`; an email address becomes a `mailto:` link. |
+| [`isSafeUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | value | — | _(no summary)_ |
+| [`normalizeLinkUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | value | — | _(no summary)_ |
 | [`parseVideoUrl`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | function | — | Recognise a YouTube, Vimeo or Loom video URL (watch, share, short and embed forms) and reduce it to its provider and id. Returns `null` for anything else, including other hosts that merely look similar. |
 | [`richTextClassName`](../packages/ui/src/components/rich-text/rich-text.tsx) | const | — | Typography for rendered rich text, shared by `RichText` and the editor's editable area so a document looks the same while writing and reading. Exported for apps that render stored HTML themselves. |
 | [`RichTextLimitError`](../packages/ui/src/components/rich-text/rich-text-doc.ts) | class | — | Thrown by `sanitizeRichTextDoc` when a document breaks a limit it was given. |
@@ -991,7 +1023,7 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 
 **Barrel:** [`packages/native/src/index.ts`](../packages/native/src/index.ts)
 
-### Components (5)
+### Components (6)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -1000,29 +1032,41 @@ The native app shell: `GenesisNativeApp` (boot behind the splash, fatal screen, 
 | [`FatalScreen`](../packages/native/src/errors.tsx) | `FatalScreenProps` | — | The default fatal screen: what went wrong and "Try again". |
 | [`GenesisErrorBoundary`](../packages/native/src/errors.tsx) | `GenesisErrorBoundaryProps` | — | An error boundary whose fallback gets `{ error, retry }`. |
 | [`GenesisNativeApp`](../packages/native/src/app.tsx) | `GenesisNativeAppProps` | Beta | The root of an Expo app: theme, keyboard, data, boot behind the splash, errors, session and held links. |
+| [`ScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | `ScreenErrorBoundaryProps` | Beta | A boundary around part of a screen tree, for apps without Expo Router's per-route boundaries: non-fatal, reported, with "Try again". |
 
-### Other exports (22)
+### Other exports (33)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`BEFORE_RELOAD_TIMEOUT_MS`](../packages/native/src/reload.ts) | const | — | The default deadline for every hook together. |
 | [`BootProvider`](../packages/native/src/boot.tsx) | function | — | Makes a boot readable with `useBoot()`. |
 | [`BootTimeoutError`](../packages/native/src/boot.tsx) | class | — | Thrown when a step takes longer than its timeout. |
+| `classifyError` | value | — | _(no summary)_ |
 | [`connectQueryLifecycle`](../packages/native/src/query.ts) | function | — | Tell TanStack Query when the app comes to the front (refetch stale queries) and when the network comes and goes. Returns the cleanup. |
 | [`createBoot`](../packages/native/src/boot.tsx) | function | — | The boot controller: runs `steps` once each, in order, with a timeout per step. |
 | [`createHydrationGate`](../packages/native/src/hydration-gate.ts) | function | — | A gate that holds writes until a persisted store has hydrated. |
 | [`createLinkHold`](../packages/native/src/held-link.ts) | function | — | A place to hold one deep link until sign-in completes; lives outside React. |
 | [`createNativeQueryClient`](../packages/native/src/query.ts) | function | — | A QueryClient for a phone. `networkMode: "offlineFirst"` runs a query or mutation once whatever the network says, then pauses its retries while the device is offline (`onlineManager`, which `connectQueryLifecycle` feeds from NetInfo), co... |
+| [`createScreenErrorBoundary`](../packages/native/src/screen-boundary.tsx) | function | Beta | An Expo Router `ErrorBoundary`: reports each error once (non-fatal, source `screen`) and shows `fallback`. Build it once, at module scope. |
 | [`createSessionStore`](../packages/native/src/auth.tsx) | function | — | The Supabase session as a store: `load` reads it once, `start` follows auth events. |
 | [`DAY_MS`](../packages/native/src/query.ts) | const | — | One day in milliseconds: the default max age of the saved query cache. |
 | [`defaultErrorUtils`](../packages/native/src/errors.tsx) | function | — | `globalThis.ErrorUtils` in a React Native runtime, undefined elsewhere. |
 | [`defaultRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Hermes's rejection tracker, when the app runs on Hermes. React Native sends unhandled rejections to `ExceptionsManager` (LogBox in development), never to `ErrorUtils`' global handler, so without this they never reach `onError`. |
+| [`errorDetails`](../packages/native/src/errors.tsx) | function | — | What a fatal or screen error says under its title: the safe sentence for its kind (offline, signed out…), or nothing for a plain bug. The error's own text can hold an email, an id or a store's internals, so it is shown only in developmen... |
+| `errorMessages` | value | — | _(no summary)_ |
 | [`installGlobalErrorHandler`](../packages/native/src/errors.tsx) | function | — | Route global errors to `onError`. A fatal one goes to `onFatal` instead of React Native's default handler, which would close the app; a non-fatal one still reaches the previous handler (LogBox in development). Returns a function that put... |
-| [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError` (non-fatal). This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox shows in development as before. |
+| [`installRejectionTracker`](../packages/native/src/errors.tsx) | function | — | Report unhandled promise rejections to `onError`: non-fatal, and unhandled (`handled: false`), so release health counts them. This replaces React Native's own tracker, so each rejection is also written with `console.warn`, which LogBox s... |
 | [`mergeBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The merge `useBlockSettings` does, without hooks (subtitles already read). @stability Beta |
 | [`normalizeLink`](../packages/native/src/links.ts) | function | — | The app path for `url`, `"/"` when it is unknown, or `null` when it is ignored. |
+| [`onBeforeReload`](../packages/native/src/reload.ts) | function | Beta | Run `hook` before every reload the updates block starts. Returns the unregister. @stability Beta |
 | [`PlainFatalScreen`](../packages/native/src/errors.tsx) | function | — | The last-resort fatal screen: React Native primitives only, no theme, no context, nothing that can itself fail. Shown when the providers could not start, or when the `fatal` slot threw. |
+| [`queryKeyName`](../packages/native/src/query.ts) | function | — | The first segment of a query or mutation key, when it is a name; never the ids after it. |
+| `reportError` | value | — | _(no summary)_ |
+| [`reportQueryErrors`](../packages/native/src/query.ts) | function | Beta | Hand every query and mutation that failed for good (after its retries) to `report`, as a non-fatal `query` or `mutation` error tagged with the key's first segment (`query.key: "tasks"`), never the ids after it. |
+| [`runBeforeReload`](../packages/native/src/reload.ts) | value | — | _(no summary)_ |
+| [`ScreenErrorScreen`](../packages/native/src/screen-boundary.tsx) | function | Beta | The default screen fallback: the screen hit a problem, and "Try again". @stability Beta |
 | [`SessionProvider`](../packages/native/src/auth.tsx) | function | — | Makes a session store readable with `useSession()`. |
 | [`useBlocks`](../packages/native/src/blocks.tsx) | function | Beta | The resolved blocks: their ids, nav entries, Settings rows, routes and the rest, each tagged with its FeatureId. Throws outside `GenesisNativeApp`. |
 | [`useBlockSettings`](../packages/native/src/blocks.tsx) | function | Beta | The app's Settings sections with every block's rows added: each row goes at the end of the section its `section` names (by `order`, then block order), and a section no one has yet is added after the rest. |
@@ -1030,7 +1074,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useHeldLink`](../packages/native/src/held-link.ts) | function | — | Follow the held link after a sign-in, drop it otherwise; returns the link still held. |
 | [`useSession`](../packages/native/src/auth.tsx) | function | — | The session and whether it is known yet. Inside `GenesisNativeApp` or a `SessionProvider`. |
 
-### Types (38)
+### Types (47)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1038,6 +1082,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { AppStateLike };
 export type { AsyncStorageLike };
 export type { AuthClientLike };
+export type { BeforeReloadHook };
 export type { BlockSettingsSection };
 export type { BootController };
 export type { BootOptions };
@@ -1045,7 +1090,11 @@ export type { BootState };
 export type { BootStatus };
 export type { BootStep };
 export type { BootStepContext };
+export type { ClassifiedError };
+export type { ClassifyErrorOptions };
 export type { EnableRejectionTracker };
+export type { ErrorKind };
+export type { ErrorMessages };
 export type { ErrorReport };
 export type { ErrorUtilsLike };
 export type { GlobalErrorHandlerOptions };
@@ -1061,8 +1110,12 @@ export type { NativeBlockRootProps };
 export type { NativeQueryClientOptions };
 export type { NetInfoLike };
 export type { OnError };
+export type { QueryErrorReporter };
 export type { QueryLifecycleOptions };
 export type { QueryPersistence };
+export type { ReportQueryErrorsOptions };
+export type { ScreenErrorBoundaryOptions };
+export type { ScreenErrorProps };
 export type { SessionState };
 export type { SessionStatus };
 export type { SessionStore };
@@ -1217,7 +1270,7 @@ Data Studio server handler (Request → Response) that acts as the signed-in use
 
 **Barrel:** [`packages/studio-server/src/index.ts`](../packages/studio-server/src/index.ts)
 
-### Other exports (19)
+### Other exports (23)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1233,17 +1286,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createPostgresDatabase`](../packages/studio-server/src/db.ts) | function | — | A `StudioDatabase` over a Postgres connection string, or over a postgres.js pool you already have. A pool you pass in keeps its own type parsing, so dates arrive as JS Dates rather than Postgres's exact text; version tokens are unaffecte... |
 | [`createStudioHandler`](../packages/studio-server/src/handler.ts) | function | — | Create the handler. It opens one transaction per request, switches to the signed-in user (`set local role` plus their verified claims), and only then reads the catalog or touches a row, so the database's own privileges and row rules alwa... |
 | [`databaseDecides`](../packages/studio-server/src/authorize.ts) | function | — | Turn the studio on for every table, and let the database decide: each user reads, edits, adds and deletes exactly what their grants and row rules allow, sees history and comments on the rows they can see, and runs the row actions configu... |
+| [`DEFAULT_SWITCH_ROLES`](../packages/studio-server/src/switch.ts) | const | — | The roles `switchToUser` switches to unless `allowRoles` says otherwise. |
 | [`HISTORY_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | Reads a record's audit history. |
-| [`IdentitySwitchError`](../packages/studio-server/src/db.ts) | class | — | Thrown when the transaction did not end up as the requested role. |
+| [`IdentitySwitchError`](../packages/studio-server/src/db.ts) | value | — | _(no summary)_ |
 | [`jwtAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify a bearer JWT with a shared secret or a JWKS endpoint. Exactly one of `secret` and `jwksUrl` is required. |
+| [`jwtVerifier`](../packages/studio-server/src/auth.ts) | function | — | `jwtAuth`'s check on a raw token, for a token that doesn't arrive as a bearer header, e.g. a socket handshake's `auth.token`. Same rules: the signature, `exp`, `sub`, the audience and the issuer. |
 | [`OUTBOX_AUDIT_FUNCTION`](../packages/studio-server/src/setup-sql.ts) | const | — | The `outbox` sink's audit function: writes the log entry and queues it. |
 | [`PermanentDeliveryError`](../packages/studio-server/src/outbox.ts) | class | — | Throw this from `deliver` when retrying can't help (the receiver rejected the payload). |
 | [`STUDIO_PROTOCOL_VERSION`](../packages/studio-server/src/protocol.ts) | const | — | Bumped on any incompatible change; the handler rejects other versions. |
 | [`studioSetupSql`](../packages/studio-server/src/setup-sql.ts) | function | — | SQL that installs the tamper-proof audit trail: |
 | [`supabaseAuth`](../packages/studio-server/src/auth.ts) | function | — | Verify Supabase Auth access tokens: JWKS from the project, issuer `<url>/auth/v1`, audience `authenticated`. |
 | [`supabaseStudio`](../packages/studio-server/src/supabase.ts) | function | — | The studio handler for a Supabase project, on for every table in `public`: each user sees and edits what their row rules allow, every write is version-checked and audited (`genesis_studio.audit_log`, from `genesis studio init`'s migratio... |
+| [`supabaseVerifier`](../packages/studio-server/src/auth.ts) | function | — | `supabaseAuth`'s check on a raw token, e.g. a socket handshake's. |
+| [`switchToUser`](../packages/studio-server/src/switch.ts) | value | — | _(no summary)_ |
 
-### Types (45)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1289,8 +1346,11 @@ export type { StudioHandler };
 export type { StudioHandlerOptions };
 export type { StudioRequest };
 export type { StudioRow };
+export type { StudioTokenVerifier };
 export type { SupabaseAuthOptions };
 export type { SupabaseStudioOptions };
+export type { SwitchOptions };
+export type { TaggedQuery };
 export type { UndoResponse };
 export type { UpdateResponse };
 ```
@@ -1303,7 +1363,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (43)
+### Other exports (48)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1313,8 +1373,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
+| [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs.ts) | const | Beta | Where a custom field lives, and the block that owns that table. @stability Beta |
+| [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
+| [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
+| [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. |
 | [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
 | [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
+| [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Whether its blocks are installed is checked at install time with {@link contentPackProblems}. |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
@@ -1353,7 +1418,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (41)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1366,6 +1431,13 @@ export type { BlockNavItem };
 export type { BlockPrivacy };
 export type { BlockRoute };
 export type { BlockSettingsRow };
+export type { ContentPackDef };
+export type { ContentPackFieldDefinition };
+export type { ContentPackFieldTarget };
+export type { ContentPackForm };
+export type { ContentPackMetricTemplate };
+export type { ContentPackRoadmapTemplate };
+export type { ContentPackSessionType };
 export type { Contributed };
 export type { EnabledBlocks };
 export type { FeatureAccess };
