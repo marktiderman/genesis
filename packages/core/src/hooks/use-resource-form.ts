@@ -251,9 +251,11 @@ function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" =
         let schema = z.coerce.number({ message: "Must be a number" });
         if (field.min != null) schema = schema.min(field.min);
         if (field.max != null) schema = schema.max(field.max);
+        // An optional field may start at null (a screen's `filter` of null): accept it as is,
+        // before coercion would turn it into 0.
         shape[field.key] = field.required !== false
           ? schema
-          : schema.optional();
+          : z.null().or(schema).optional();
         break;
       }
       case "array": {
@@ -314,8 +316,9 @@ function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" =
             `${field.label ?? titleCase(field.key)} must be ${field.maxLength} characters or fewer`,
           );
         }
+        // An optional field may start at null (a screen's `filter` of null); "" is an empty input.
         shape[field.key] = field.required === false
-          ? schema.optional().or(z.literal(""))
+          ? schema.optional().nullable().or(z.literal(""))
           : schema;
         break;
       }
@@ -343,7 +346,7 @@ export function buildArrayItemDefaults(
 const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "url", "hidden"]);
 
 /**
- * What a save sends for an input left empty (""). Only a field whose column the form knows
+ * What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows
  * about (`nullable` set, as ResourceView sets it from a generated contract) is changed:
  * a create leaves it out, so the column's default (or null) applies, and an edit the person
  * made clears it to null. Everything else goes as before, `""` included: a field without
@@ -362,7 +365,7 @@ export function blankValues(
   for (const [key, value] of Object.entries(values)) {
     const field = byKey.get(key);
     const asBefore =
-      value !== "" ||
+      (value !== "" && value !== undefined) ||
       field?.nullable === undefined ||
       field.defaultValue === "" ||
       (action === "edit" && changed !== undefined && !changed.has(key)) ||

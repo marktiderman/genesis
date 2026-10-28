@@ -294,6 +294,12 @@ describe("useResourceForm — an empty input is no value", () => {
     expect(blankValues(blank, fields, "edit", new Set(["due_on"]))).toEqual({ ...blank, due_on: null });
   });
 
+  it("treats a cleared number input (undefined) like an empty one, and tells cleared from untouched", () => {
+    expect(blankValues({ title: "T", points: undefined }, fields, "edit", new Set(["points"]))).toEqual({ title: "T", points: null });
+    expect(blankValues({ title: "T", points: undefined }, fields, "edit", new Set())).toEqual({ title: "T", points: undefined });
+    expect(blankValues({ title: "T", points: undefined }, fields, "create")).toEqual({ title: "T" });
+  });
+
   it("keeps every real value, falsy ones included", () => {
     const values = { title: "T", points: 0, notes: null, done: false, tags: [] };
     expect(blankValues(values, fields, "create")).toEqual(values);
@@ -332,5 +338,47 @@ describe("useResourceForm — an empty input is no value", () => {
     });
     // The emptied date is null; the untouched "" note goes as it was.
     expect(update.mock.calls[0]![1].data).toEqual({ title: "W", due_on: null, notes: "" });
+  });
+
+  it("sends null when an edit clears a number input", async () => {
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ update: update as unknown as DataProvider["update"] });
+    const numbers = [{ key: "title", type: "text" as const }, { key: "points", type: "number" as const, nullable: true }];
+    const { result } = renderHook(
+      () => useResourceForm({ resource: "tasks", action: "edit", id: "t1", initialData: { id: "t1", title: "W", points: 5 }, fields: numbers }),
+      { wrapper },
+    );
+    act(() => {
+      result.current.form.setValue("points", undefined);
+    });
+    await act(async () => {
+      await result.current.handleSave({ title: "W", points: undefined });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "W", points: null });
+  });
+
+  it("submits an optional field a screen started at null, as null", async () => {
+    const create = vi.fn(async (_r: string, { data }: { data: unknown }) => ({ data: { id: "t9", ...(data as object) } }));
+    const { wrapper } = setup({ create: create as unknown as DataProvider["create"] });
+    const started = [
+      { key: "title", type: "text" as const, required: true },
+      { key: "due_on", type: "date" as const, required: false, nullable: true, defaultValue: null },
+      { key: "points", type: "number" as const, required: false, nullable: true, defaultValue: null },
+    ];
+    const { result } = renderHook(() => useResourceForm({ resource: "tasks", action: "create", fields: started }), { wrapper });
+    act(() => {
+      result.current.form.setValue("title", "New");
+    });
+    await act(async () => {
+      await result.current.form.handleSubmit(result.current.handleSave)();
+    });
+    // Validation lets the null start through (it used to stop the submit)...
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(result.current.form.formState.errors).toEqual({});
+    // ...and a null is sent as null, never dropped as an empty input.
+    await act(async () => {
+      await result.current.handleSave({ title: "New", due_on: null, points: null });
+    });
+    expect(create.mock.calls[1]![1].data).toEqual({ title: "New", due_on: null, points: null });
   });
 });
