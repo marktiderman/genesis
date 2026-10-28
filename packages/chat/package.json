@@ -171,7 +171,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "ai": "7.0.148",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "hls.js": "1.7.3",
     "lucide-react": "^1.28.0",
     "react": "^19.2.5",
@@ -179,7 +179,7 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "genesis": {
     "blocks": {
