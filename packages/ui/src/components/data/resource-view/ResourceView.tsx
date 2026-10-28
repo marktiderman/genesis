@@ -5,7 +5,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -104,7 +104,11 @@ function singleValues(filter: Filter): Defaults {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree, ...rest } = props;
+  const {
+    view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
+    ...rest
+  } = props;
   const cell = useDisplayCell();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
@@ -203,6 +207,10 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const orderBy = view.definition.orderBy;
   const copy = view.definition.copy;
+  const createTitle = screenFormTitles?.create ?? copy?.form?.createTitle;
+  const editTitle = screenFormTitles?.edit ?? copy?.form?.editTitle;
+  const formTitles =
+    createTitle || editTitle ? { ...(createTitle ? { create: createTitle } : {}), ...(editTitle ? { edit: editTitle } : {}) } : undefined;
   // Tree mode (`tree`) needs every row: a page of a tree would cut parents from their children,
   // and a server-side search would drop the ancestors that give a match its place.
   if (screenTree && rest.pagination !== undefined && rest.pagination !== "client") {
@@ -233,13 +241,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     allowEdit: formFields.some((f) => !f.hidden),
     allowDelete: true,
     can: allows,
-    // The record's name for the count and the form: the contract's, or the view's own (`copy`).
-    noun: view.noun,
-    nounPlural: view.nounPlural,
-    ...(copy?.count ? { countFormat: copy.count } : {}),
-    ...(copy?.form?.createTitle || copy?.form?.editTitle
-      ? { formTitles: { ...(copy.form.createTitle ? { create: copy.form.createTitle } : {}), ...(copy.form.editTitle ? { edit: copy.form.editTitle } : {}) } }
-      : {}),
+    // The record's name for the count and the form: the screen's, else the view's (its copy, then
+    // the contract's). A screen noun without a plural gets that noun's plural, never the view's.
+    noun: screenNoun ?? view.noun,
+    nounPlural: screenNounPlural ?? (screenNoun ? plural(screenNoun) : view.nounPlural),
+    // Per entry: a screen's title or count words replace only the ones it names.
+    ...(copy?.count || screenCountFormat ? { countFormat: { ...copy?.count, ...screenCountFormat } } : {}),
+    ...(formTitles ? { formTitles } : {}),
     ...(copy?.create ? { createLabel: copy.create } : {}),
     ...(copy?.empty?.title ? { emptyMessage: copy.empty.title } : {}),
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),

@@ -635,3 +635,35 @@ describe("ResourceView list filters", () => {
     expect(getList.mock.calls.at(-1)![1].filters).toContainEqual({ field: "status", operator: "in", value: ["archived"] });
   });
 });
+
+describe("ResourceView screen words merge with the view's", () => {
+  type Goal = { id: string; title: string };
+  const goalsContract = defineResource<Goal>()({
+    name: "public.goals",
+    key: "id",
+    noun: "goal",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "title", type: "string" },
+    ],
+  });
+  const v = defineView(goalsContract, {
+    form: ["title"],
+    copy: { form: { createTitle: "Set a goal", editTitle: "Change the goal" }, count: { one: "{count} goal set", other: "{count} goals set" } },
+  });
+  const props = (screen: Partial<Parameters<typeof useResourceViewProps>[0]>) =>
+    renderHook(() => useResourceViewProps({ view: v, ...screen }), { wrapper: wrap(provider()) }).result.current;
+
+  it("derives the plural from a screen noun given without one", () => {
+    expect(props({ noun: "task" })).toMatchObject({ noun: "task", nounPlural: "tasks" });
+    expect(props({ noun: "entry" }).nounPlural).toBe("entries");
+    expect(props({ noun: "person", nounPlural: "folks" }).nounPlural).toBe("folks");
+    expect(props({})).toMatchObject({ noun: "goal", nounPlural: "goals" });
+  });
+
+  it("merges form titles and count words per entry", () => {
+    expect(props({ formTitles: { edit: "Fix it" } }).formTitles).toEqual({ create: "Set a goal", edit: "Fix it" });
+    expect(props({}).formTitles).toEqual({ create: "Set a goal", edit: "Change the goal" });
+    expect(props({ countFormat: { other: "{count} in all" } }).countFormat).toEqual({ one: "{count} goal set", other: "{count} in all" });
+  });
+});
