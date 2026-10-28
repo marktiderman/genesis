@@ -23,6 +23,9 @@ const BLOCKED = new Set([
   "f0da2349cc4699bc288012fb30f6fdea97b96ca098fa54e449d6d80f61661505",
   "74b451b085f0831fe7dbafb1aec0cccc23a066a00a774c126d4f9e1fbf8c26d8",
   "2142487324cdb6d8c5049bc331d48db21152f53ab33d0e4faaaa91ea79ba5f2d",
+  "0d1c9373ac1681ac4525443ac86217b2eb12deec2a90a2e47fad1eaec224e91a",
+  "50a949349c63896899821981b0cee30e3f0b61a37cb55a852aeb360f61cfba19",
+  "8ca2101047362ac367ca21fcad6e438bc3bb0cc870b6edbecdd8e50068dc3808",
 ]);
 
 const SKIP = /\.(png|jpe?g|gif|webp|ico|icns|woff2?|ttf|otf|pdf|zip|gz|mp4|mov|wasm)$/i;
@@ -47,6 +50,8 @@ for (const file of files) {
   }
   if (text.includes("\0")) continue; // binary
   text.split("\n").forEach((line, i) => {
+    // A lockfile's base64 integrity hash splits into chance words at its capitals.
+    if (/\bintegrity:/.test(line)) return;
     for (const word of words(line)) {
       let blocked = seen.get(word);
       if (blocked === undefined) seen.set(word, (blocked = BLOCKED.has(hash(word))));
