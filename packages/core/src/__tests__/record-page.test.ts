@@ -1,10 +1,10 @@
 /**
- * defineWorkspace: one record's screen from a view. Checked once and frozen; the helpers give
+ * defineRecordPage: one record's screen from a view. Checked once and frozen; the helpers give
  * every platform the same header, settings and readiness.
  */
 import { describe, expect, it, vi } from "vitest";
 
-import { defineView, defineWorkspace, isWorkspace, ViewDefinitionError } from "../resource-view";
+import { defineView, defineRecordPage, isRecordPage, ViewDefinitionError } from "../resource-view";
 import { defineResource } from "../schema/types";
 
 type Brand = {
@@ -65,7 +65,7 @@ const productsView = defineView(products);
 
 const row: Brand = { id: "b1", name: "Northwind", website: null, is_default: true, public: false, updated_at: "" };
 
-const workspace = defineWorkspace(brandsView, {
+const workspace = defineRecordPage(brandsView, {
   header: { actions: ["archive"] },
   sections: [
     { id: "products", label: "Products", list: { view: productsView, filter: (b) => ({ brand_id: b.id }) } },
@@ -80,10 +80,10 @@ const workspace = defineWorkspace(brandsView, {
   ],
 });
 
-describe("defineWorkspace", () => {
+describe("defineRecordPage", () => {
   it("resolves the sections, frozen", () => {
-    expect(isWorkspace(workspace)).toBe(true);
-    expect(isWorkspace(brandsView)).toBe(false);
+    expect(isRecordPage(workspace)).toBe(true);
+    expect(isRecordPage(brandsView)).toBe(false);
     expect(Object.isFrozen(workspace)).toBe(true);
     expect(workspace.sections.map((s) => [s.id, s.kind])).toEqual([
       ["products", "list"],
@@ -106,9 +106,9 @@ describe("defineWorkspace", () => {
   });
 
   it("offers every view action when the header names none", () => {
-    const all = defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] });
+    const all = defineRecordPage(brandsView, { sections: [{ id: "a", label: "A" }] });
     expect(all.headerActions).toEqual(["archive", "duplicate"]);
-    const none = defineWorkspace(brandsView, { header: { actions: [] }, sections: [{ id: "a", label: "A" }] });
+    const none = defineRecordPage(brandsView, { header: { actions: [] }, sections: [{ id: "a", label: "A" }] });
     expect(none.headerFor(row).actions).toEqual([]);
   });
 
@@ -136,7 +136,7 @@ describe("defineWorkspace", () => {
       { key: "1:Has a name", title: "Has a name", ok: true, tone: "success" },
       { key: "2:Is public", title: "Is public", ok: false, tone: "danger" },
     ]);
-    const odd = defineWorkspace(brandsView, {
+    const odd = defineRecordPage(brandsView, {
       sections: [{ id: "a", label: "A" }],
       readiness: () => [{ title: "Odd", ok: true, tone: "purple" as never }],
     });
@@ -148,12 +148,12 @@ describe("defineWorkspace", () => {
     expect(workspace.readinessSummary(row)).toEqual({ state: "problems", count: 1 });
     expect(workspace.readinessSummary({ ...row, public: true })).toEqual({ state: "warnings", count: 1 });
     expect(workspace.readinessSummary({ ...row, public: true, website: "https://x.example" })).toEqual({ state: "ready", count: 0 });
-    expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessFor(row)).toEqual([]);
-    expect(defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessSummary(row)).toBeNull();
+    expect(defineRecordPage(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessFor(row)).toEqual([]);
+    expect(defineRecordPage(brandsView, { sections: [{ id: "a", label: "A" }] }).readinessSummary(row)).toBeNull();
   });
 });
 
-describe("defineWorkspace review fixes", () => {
+describe("defineRecordPage review fixes", () => {
   it("freezes the sections and each settings list", () => {
     expect(Object.isFrozen(workspace.sections)).toBe(true);
     const settings = workspace.section("settings");
@@ -162,12 +162,12 @@ describe("defineWorkspace review fixes", () => {
   });
 
   it("locks settings when the view refuses update, with the reason", () => {
-    const locked = defineWorkspace(defineView(brands, { can: { update: (b) => (b.is_default ? "Locked." : true) } }), {
+    const locked = defineRecordPage(defineView(brands, { can: { update: (b) => (b.is_default ? "Locked." : true) } }), {
       sections: [{ id: "s", label: "S", settings: ["name"] }],
     });
     expect(locked.settingsLocked(row)).toBe("Locked.");
     expect(locked.settingsLocked({ ...row, is_default: false })).toBeNull();
-    const silent = defineWorkspace(defineView(brands, { can: { update: () => "" } }), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
+    const silent = defineRecordPage(defineView(brands, { can: { update: () => "" } }), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
     expect(silent.settingsLocked(row)).toBe("This isn't allowed.");
   });
 
@@ -182,12 +182,12 @@ describe("defineWorkspace review fixes", () => {
         { name: "name", type: "string" },
       ],
     });
-    const ws = defineWorkspace(defineView(pairs), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
+    const ws = defineRecordPage(defineView(pairs), { sections: [{ id: "s", label: "S", settings: ["name"] }] });
     expect(ws.recordId({ a: "x", b: "y", name: "n" })).toBe('["x","y"]');
   });
 
   it("narrows header actions by the screen's can and by the provider", () => {
-    const all = defineWorkspace(brandsView, { sections: [{ id: "a", label: "A" }] });
+    const all = defineRecordPage(brandsView, { sections: [{ id: "a", label: "A" }] });
     const free = { ...row, is_default: false };
     expect(all.headerFor(free, { can: (name) => (name === "duplicate" ? false : true) }).actions.map((a) => a.name)).toEqual(["archive"]);
     expect(all.headerFor(free, { can: (name) => (name === "archive" ? "Not today." : true) }).actions[0]!.allowed).toBe("Not today.");
@@ -198,7 +198,7 @@ describe("defineWorkspace review fixes", () => {
   });
 
   it("refuses an empty list filter, or one without single values, in development", () => {
-    const bad = defineWorkspace(brandsView, {
+    const bad = defineRecordPage(brandsView, {
       sections: [
         { id: "all", label: "All", list: { view: productsView, filter: () => ({}) } },
         { id: "odd", label: "Odd", list: { view: productsView, filter: () => ({ brand_id: ["b1"] as never }) } },
@@ -216,7 +216,7 @@ describe("defineWorkspace review fixes", () => {
   });
 });
 
-describe("defineWorkspace checks", () => {
+describe("defineRecordPage checks", () => {
   const problemsOf = (fn: () => unknown): string => {
     try {
       fn();
@@ -229,7 +229,7 @@ describe("defineWorkspace checks", () => {
 
   it("settings must be writable on edit", () => {
     const problems = problemsOf(() =>
-      defineWorkspace(brandsView, {
+      defineRecordPage(brandsView, {
         sections: [{ id: "s", label: "S", settings: ["updated_at", "id", "colour" as never, "name", "name"] }],
       }),
     );
@@ -242,7 +242,7 @@ describe("defineWorkspace checks", () => {
   it("settings can't be JSON, lists, links or sensitive fields, even when the form lists them", () => {
     const richView = defineView(rich, { form: ["name", "meta", "tags", "owner_id", "secret"] });
     const problems = problemsOf(() =>
-      defineWorkspace(richView, { sections: [{ id: "s", label: "S", settings: ["name", "meta", "tags", "owner_id", "secret"] }] }),
+      defineRecordPage(richView, { sections: [{ id: "s", label: "S", settings: ["name", "meta", "tags", "owner_id", "secret"] }] }),
     );
     expect(problems).toContain('"meta", which is JSON');
     expect(problems).toContain('"tags", which is a list');
@@ -252,20 +252,20 @@ describe("defineWorkspace checks", () => {
   });
 
   it("rejects keys a section doesn't have", () => {
-    expect(problemsOf(() => defineWorkspace(brandsView, { sections: [{ id: "s", label: "S", setting: ["name"] } as never] }))).toContain(
+    expect(problemsOf(() => defineRecordPage(brandsView, { sections: [{ id: "s", label: "S", setting: ["name"] } as never] }))).toContain(
       'sections.s has "setting", which isn\'t a section key',
     );
   });
 
   it("header actions must be view actions", () => {
     expect(
-      problemsOf(() => defineWorkspace(brandsView, { header: { actions: ["explode", "archive", "archive"] }, sections: [{ id: "a", label: "A" }] })),
+      problemsOf(() => defineRecordPage(brandsView, { header: { actions: ["explode", "archive", "archive"] }, sections: [{ id: "a", label: "A" }] })),
     ).toMatch(/header.actions names "explode", which isn't a view action[\s\S]*header.actions lists "archive" twice/);
   });
 
   it("section ids are unique, and each has a label", () => {
     const problems = problemsOf(() =>
-      defineWorkspace(brandsView, {
+      defineRecordPage(brandsView, {
         sections: [
           { id: "a", label: "A" },
           { id: "a", label: "Again" },
@@ -280,9 +280,9 @@ describe("defineWorkspace checks", () => {
   });
 
   it("sections don't nest", () => {
-    const inner = defineWorkspace(productsView, { sections: [{ id: "x", label: "X" }] });
+    const inner = defineRecordPage(productsView, { sections: [{ id: "x", label: "X" }] });
     const problems = problemsOf(() =>
-      defineWorkspace(brandsView, {
+      defineRecordPage(brandsView, {
         sections: [
           { id: "a", label: "A", list: { view: inner as never, filter: () => ({}) } },
           { id: "b", label: "B", sections: [] } as never,
@@ -299,7 +299,7 @@ describe("defineWorkspace checks", () => {
 
   it("a section is a list, settings or a slot, never two", () => {
     const problems = problemsOf(() =>
-      defineWorkspace(brandsView, {
+      defineRecordPage(brandsView, {
         sections: [
           { id: "a", label: "A", list: { view: productsView, filter: () => ({}) }, settings: ["name"] } as never,
           { id: "b", label: "B", list: { view: {} as never, filter: "x" as never } },
@@ -314,20 +314,20 @@ describe("defineWorkspace checks", () => {
   });
 
   it("needs sections", () => {
-    expect(problemsOf(() => defineWorkspace(brandsView, { sections: [] }))).toContain("sections is empty");
-    expect(problemsOf(() => defineWorkspace(brandsView, {} as never))).toContain("sections isn't a list");
+    expect(problemsOf(() => defineRecordPage(brandsView, { sections: [] }))).toContain("sections is empty");
+    expect(problemsOf(() => defineRecordPage(brandsView, {} as never))).toContain("sections isn't a list");
   });
 });
 
 
-describe("defineWorkspace with viewer-aware guards", () => {
+describe("defineRecordPage with viewer-aware guards", () => {
   type Who = { teamRoles?: readonly string[] };
   const isEditor = (v: { roles?: object }) => ((v.roles as Who | undefined)?.teamRoles ?? []).includes("editor");
   const view = defineView(brands, {
     can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change settings.") },
     actions: [{ name: "publish", label: "Publish", can: (_b, v) => (v.id ? true : "Sign in to publish.") }],
   });
-  const workspace = defineWorkspace(view, { sections: [{ id: "settings", label: "Settings", settings: ["name"] }] });
+  const workspace = defineRecordPage(view, { sections: [{ id: "settings", label: "Settings", settings: ["name"] }] });
   const brand: Brand = { id: "b1", name: "North", website: null, is_default: false, public: true, updated_at: "2026-01-01T00:00:00Z" };
   const ann = { id: "ann", scope: {}, roles: { teamRoles: ["editor"] } as never };
   const bob = { id: "bob", scope: {}, roles: { teamRoles: ["reader"] } as never };
@@ -341,5 +341,13 @@ describe("defineWorkspace with viewer-aware guards", () => {
   it("asks header action guards with the viewer", () => {
     expect(workspace.headerFor(brand, { viewer: bob }).actions[0]!.allowed).toBe(true);
     expect(workspace.headerFor(brand).actions[0]!.allowed).toBe("Sign in to publish.");
+  });
+});
+
+describe("the names before the rename", () => {
+  it("still work for one release", async () => {
+    const mod = await import("../resource-view");
+    expect(mod.defineWorkspace).toBe(mod.defineRecordPage);
+    expect(mod.isWorkspace).toBe(mod.isRecordPage);
   });
 });

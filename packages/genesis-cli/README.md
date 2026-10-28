@@ -638,7 +638,7 @@ silently. `rules` works too, but warns (`package-rule-override`) until the reaso
   "doctor": {
     "packageRules": {
       "core/direct-data-access": { "files": ["src/**/*.tsx", "src/lib/**/*.ts"], "exclude": ["src/lib/server/**"], "reason": "Our data functions live in src/lib; check them too." },
-      "ui/record-pages-use-resource-workspace": { "level": "off", "reason": "Every record page is a builder." }
+      "ui/record-pages-use-record-page": { "level": "off", "reason": "Every record page is a builder." }
     },
     "allow": [{ "rule": "ui/lists-use-resource-view", "file": "src/components/data/RecordTable.tsx", "reason": "The legacy wrapper; it goes when the last screen moves." }]
   }

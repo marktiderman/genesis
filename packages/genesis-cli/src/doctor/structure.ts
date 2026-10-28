@@ -24,7 +24,7 @@ const GENESIS_PACKAGE = /^@marktiderman\/genesis(?:-[\w-]+)?(?:\/|$)/;
  * `BreadcrumbPage`), or `ResourceView`, which draws a ResourcePage from a view.
  */
 const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView)$/;
-/** A package screen built on a Genesis layout: a `…Page` / `…Screen` / `…Workspace` imported from a Genesis package. */
+/** A package screen built on a Genesis layout: a `…Page` / `…Screen` / `…Record page` imported from a Genesis package. */
 /**
  * A `<ResourceView … layout="embedded" …>` tag, up to its first `>`. The trail blanks string contents
  * but keeps their length, and `layout` is typed `"page" | "embedded" | "compact"`, so a literal of eight
@@ -150,7 +150,7 @@ export function checkLocalGenesisCopies(ctx: DoctorContext): void {
  * `resource-workspace`: in a folder where one detail page puts its header in
  * AppShellPageHeader, the other detail pages that don't.
  */
-export function checkResourceWorkspaces(ctx: DoctorContext): void {
+export function checkRecordPages(ctx: DoctorContext): void {
   if (isNative(ctx) || !ctx.genesis.values.has("AppShellPageHeader")) return;
   const header = /<AppShellPageHeader(?=[\s>/])/;
   const byFolder = new Map<string, RouteFile[]>();

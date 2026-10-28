@@ -135,7 +135,7 @@ export const AGENTS_END = "<!-- genesis-primitives:end -->";
 const RULES = [
   "Use the Genesis primitive for the need first: reuse, then extend, then invent (docs/FRAMEWORK.md, G1 to G6).",
   "Never copy an older screen as a template. Old screens predate the primitives; the doctor flags what they did.",
-  "A list screen is a view (`defineView`) rendered by `ResourceView`; a record page is `ResourceWorkspace`; on the phone, `NativeResourceView`.",
+  "A list screen is a view (`defineView`) rendered by `ResourceView`; a record page is `RecordPage`; on the phone, `NativeResourceView`.",
   "Screens never call the database client (`supabase.from`, `.rpc`) directly: reads go through a view or a named data function, writes through the resource's provider rules.",
   "When no primitive fits, write the gap up for Genesis before inventing, then invent in the app on Genesis primitives.",
   "Run `genesis doctor` before you finish; it enforces these rules.",

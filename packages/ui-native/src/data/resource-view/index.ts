@@ -50,13 +50,18 @@ export {
 } from "./mapping";
 export { defaultNativeResourceViewMessages, type NativeResourceViewMessages } from "./messages";
 export {
+  NativeRecordPage,
+  NativeRecordPageMenu,
+  getNativeRecordPageStackOptions,
+  defaultNativeRecordPageMessages,
+  SEGMENTED_SECTIONS_MAX,
+  parseSettingNumber,
+  type NativeRecordPageProps,
+  type NativeRecordPageHeaderProps,
+  type NativeRecordPageMessages,
   NativeResourceWorkspace,
   NativeResourceWorkspaceMenu,
   getNativeResourceWorkspaceStackOptions,
   defaultNativeResourceWorkspaceMessages,
-  SEGMENTED_SECTIONS_MAX,
-  parseSettingNumber,
   type NativeResourceWorkspaceProps,
-  type NativeResourceWorkspaceHeaderProps,
-  type NativeResourceWorkspaceMessages,
-} from "./NativeResourceWorkspace";
+} from "./NativeRecordPage";

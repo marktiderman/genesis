@@ -13,5 +13,5 @@ export {
   type DisplayRenderer,
   type DisplayRenderers,
 } from "./display";
-export { ResourceWorkspace, type ResourceWorkspaceProps } from "./ResourceWorkspace";
+export { RecordPage, ResourceWorkspace, type RecordPageProps, type ResourceWorkspaceProps } from "./RecordPage";
 export { RowAvatar } from "./RowAvatar";

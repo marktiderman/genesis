@@ -390,8 +390,8 @@ describe("the real package declarations", () => {
       "src/routes/builder.$id.tsx": "export const B = () => <BuilderLayout><DetailPage title=\"x\" /></BuilderLayout>;\n",
     });
     expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/record-pages")).toEqual([
-      "ui-rules/record-pages-use-resource-workspace warn src/routes/items.$id.jsx:1 DetailPage",
-      "ui-rules/record-pages-use-resource-workspace warn src/routes/records/[id].tsx:1 DetailPage",
+      "ui-rules/record-pages-use-record-page warn src/routes/items.$id.jsx:1 DetailPage",
+      "ui-rules/record-pages-use-record-page warn src/routes/records/[id].tsx:1 DetailPage",
     ]);
   });
 

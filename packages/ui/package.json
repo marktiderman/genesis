@@ -516,6 +516,7 @@
           "unless": {
             "renders": [
               "ResourceView",
+              "RecordPage",
               "ResourceWorkspace"
             ]
           },
@@ -525,7 +526,7 @@
           "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView."
         },
         {
-          "id": "record-pages-use-resource-workspace",
+          "id": "record-pages-use-record-page",
           "need": "a record page",
           "level": "warn",
           "platform": "web",
@@ -549,14 +550,15 @@
           },
           "unless": {
             "renders": [
+              "RecordPage",
               "ResourceWorkspace",
               "BuilderLayout"
             ]
           },
-          "use": "a workspace (defineWorkspace from @marktiderman/genesis-core/resource-view) rendered by <ResourceWorkspace>",
+          "use": "a record page (defineRecordPage from @marktiderman/genesis-core/resource-view) rendered by <RecordPage>",
           "import": "@marktiderman/genesis-ui/data",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#resourceworkspace",
-          "why": "One record's header, actions, sections, child lists and settings come from its workspace description, the same on web and phone. Builders (BuilderLayout) are exempt."
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordpage",
+          "why": "One record's header, actions, sections, child lists and settings come from its record page description, the same on web and phone. Builders (BuilderLayout) are exempt."
         }
       ],
       "primitives": [

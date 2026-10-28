@@ -1,4 +1,4 @@
-// defineWorkspace: one record's screen from a view (docs/RESOURCE-VIEW.md, "ResourceWorkspace").
+// defineRecordPage: one record's screen from a view (docs/RESOURCE-VIEW.md, "RecordPage").
 // A header (the row's summary and the view's actions), sections (a child list, a few settings, or
 // a slot the screen fills) and readiness checks. Checked once and frozen like defineView, with no
 // React, so web and native draw the same screen from it.
@@ -15,39 +15,39 @@ import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, View
 type AnyView = ResourceView<ResourceContract<any>, any>;
 
 /** Equality filters for a child list, sent to the server: `{ brand_id: brand.id }`. `null` is "is empty". */
-export type WorkspaceFilter = Readonly<Record<string, string | number | boolean | null>>;
+export type RecordPageFilter = Readonly<Record<string, string | number | boolean | null>>;
 
 interface SectionBase {
-  /** Unique in the workspace; the screen's route segment or slot key. */
+  /** Unique in the record page; the screen's route segment or slot key. */
   id: string;
   label: string;
 }
 
 /** A child list: another view, filtered by this record. */
-export interface WorkspaceListSection<Row extends DataRow = DataRow> extends SectionBase {
-  list: { view: AnyView; filter: (row: Row) => WorkspaceFilter };
+export interface RecordPageListSection<Row extends DataRow = DataRow> extends SectionBase {
+  list: { view: AnyView; filter: (row: Row) => RecordPageFilter };
   settings?: never;
 }
 
 /** A few of this record's own fields, edited in place. Each must be in `view.writable("edit")`. */
-export interface WorkspaceSettingsSection<Name extends string = string> extends SectionBase {
+export interface RecordPageSettingsSection<Name extends string = string> extends SectionBase {
   settings: readonly Name[];
   list?: never;
 }
 
 /** A section the screen fills itself, through a slot keyed by `id`. */
-export interface WorkspaceSlotSection extends SectionBase {
+export interface RecordPageSlotSection extends SectionBase {
   list?: never;
   settings?: never;
 }
 
-export type WorkspaceSection<Row extends DataRow = DataRow, Name extends string = string> =
-  | WorkspaceListSection<Row>
-  | WorkspaceSettingsSection<Name>
-  | WorkspaceSlotSection;
+export type RecordPageSection<Row extends DataRow = DataRow, Name extends string = string> =
+  | RecordPageListSection<Row>
+  | RecordPageSettingsSection<Name>
+  | RecordPageSlotSection;
 
 /** One readiness check: "Has a logo", ok or not, and why not. */
-export interface WorkspaceReadinessItem {
+export interface RecordPageReadinessItem {
   /** A stable key for the check; default its position and title. */
   id?: string;
   title: string;
@@ -57,22 +57,22 @@ export interface WorkspaceReadinessItem {
   tone?: ViewTone;
 }
 
-/** What `defineWorkspace` accepts. */
-export interface WorkspaceDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
+/** What `defineRecordPage` accepts. */
+export interface RecordPageDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   /** The view actions the header offers, by name, in order. Default: every view action. */
   header?: { actions?: readonly string[] };
-  sections: readonly WorkspaceSection<Row, FieldNameOf<C>>[];
-  readiness?: (row: Row) => readonly WorkspaceReadinessItem[];
+  sections: readonly RecordPageSection<Row, FieldNameOf<C>>[];
+  readiness?: (row: Row) => readonly RecordPageReadinessItem[];
 }
 
 /** A section as a renderer draws it. */
-export type ResolvedWorkspaceSection =
+export type ResolvedRecordPageSection =
   | { readonly id: string; readonly label: string; readonly kind: "list"; readonly view: AnyView }
   | { readonly id: string; readonly label: string; readonly kind: "settings"; readonly settings: readonly string[] }
   | { readonly id: string; readonly label: string; readonly kind: "slot" };
 
 /** A header action with whether this row allows it. */
-export interface WorkspaceHeaderAction {
+export interface RecordPageHeaderAction {
   readonly name: string;
   readonly label: string;
   readonly confirm?: string;
@@ -83,15 +83,15 @@ export interface WorkspaceHeaderAction {
 }
 
 /** The header for one row: the view's summary plus the header's actions. */
-export interface WorkspaceHeader {
+export interface RecordPageHeader {
   readonly title: string;
   readonly subtitle?: string;
   readonly chips: readonly { label: string; tone?: ViewTone }[];
-  readonly actions: readonly WorkspaceHeaderAction[];
+  readonly actions: readonly RecordPageHeaderAction[];
 }
 
 /** What a screen and its provider add to the header: they only narrow the view's guards. */
-export interface WorkspaceHeaderOptions<Row extends DataRow = DataRow> {
+export interface RecordPageHeaderOptions<Row extends DataRow = DataRow> {
   /** The screen's own rule: `false` hides the action, a sentence refuses it with that reason. */
   can?: (action: string, row: Row) => Allowed | boolean;
   /** Whether anything can run actions here (the screen's `onAction`, or the provider's `runAction`). `false` hides them all. */
@@ -112,14 +112,14 @@ export interface ResolvedReadinessItem {
   readonly tone: ViewTone;
 }
 
-/** What `defineWorkspace` returns: frozen, with pure helpers for the renderers. */
-export interface ResourceWorkspace<C extends ResourceContract = ResourceContract, Row extends DataRow = RowOf<C>> {
+/** What `defineRecordPage` returns: frozen, with pure helpers for the renderers. */
+export interface RecordPage<C extends ResourceContract = ResourceContract, Row extends DataRow = RowOf<C>> {
   readonly view: ResourceView<C, Row>;
-  readonly sections: readonly ResolvedWorkspaceSection[];
+  readonly sections: readonly ResolvedRecordPageSection[];
   /** The header's action names, in order. */
   readonly headerActions: readonly string[];
   readonly hasReadiness: boolean;
-  section(id: string): ResolvedWorkspaceSection | undefined;
+  section(id: string): ResolvedRecordPageSection | undefined;
   /** The record's address for the provider: its key fields (`keyFields`), composite keys encoded. */
   recordId(row: Row): Identifier;
   /**
@@ -128,7 +128,7 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
    * Without a viewer the guard gets no one, so one that needs the viewer locks them.
    */
   settingsLocked(row: Row, viewer?: Viewer): string | null;
-  headerFor(row: Row, options?: WorkspaceHeaderOptions<Row>): WorkspaceHeader;
+  headerFor(row: Row, options?: RecordPageHeaderOptions<Row>): RecordPageHeader;
   /**
    * Settings fields as the view's form resolves them (`view.form("edit")`), in the order listed:
    * one section's, or every settings section's without an id.
@@ -140,7 +140,7 @@ export interface ResourceWorkspace<C extends ResourceContract = ResourceContract
    * A list section's filter for this row. In development, a filter with no key, or a value that
    * isn't a string, number, boolean or null, throws: it would show every child row.
    */
-  listFilter(sectionId: string, row: Row): WorkspaceFilter;
+  listFilter(sectionId: string, row: Row): RecordPageFilter;
   /** The readiness checks for this row, tones resolved; empty without `readiness`. */
   readinessFor(row: Row): readonly ResolvedReadinessItem[];
   /**
@@ -169,8 +169,8 @@ function unsettable(field: FieldSchema | undefined): string | null {
   return null;
 }
 
-/** Whether a value is a workspace (`defineWorkspace`'s result). */
-export function isWorkspace(value: unknown): value is ResourceWorkspace {
+/** Whether a value is a record page (`defineRecordPage`'s result). */
+export function isRecordPage(value: unknown): value is RecordPage {
   return typeof value === "object" && value !== null && (value as Record<symbol, unknown>)[WORKSPACE] === true;
 }
 
@@ -187,7 +187,7 @@ function isView(value: unknown): value is AnyView {
  * One record's screen from its view:
  *
  * ```ts
- * export const brandWorkspace = defineWorkspace(brandsView, {
+ * export const brandRecordPage = defineRecordPage(brandsView, {
  *   header: { actions: ["archive"] },
  *   sections: [
  *     { id: "products", label: "Products", list: { view: productsView, filter: (b) => ({ brand_id: b.id }) } },
@@ -199,12 +199,12 @@ function isView(value: unknown): value is AnyView {
  * ```
  *
  * Throws {@link ViewDefinitionError} for a settings field the view can't write, a header action
- * the view doesn't define, a repeated section id, or a section that holds another workspace.
+ * the view doesn't define, a repeated section id, or a section that holds another record page.
  */
-export function defineWorkspace<C extends ResourceContract, Row extends DataRow = RowOf<C>>(
+export function defineRecordPage<C extends ResourceContract, Row extends DataRow = RowOf<C>>(
   view: ResourceView<C, Row>,
-  definition: WorkspaceDefinition<C, Row>,
-): ResourceWorkspace<C, Row> {
+  definition: RecordPageDefinition<C, Row>,
+): RecordPage<C, Row> {
   const where = `${view.resource} workspace`;
   const problems: string[] = [];
   const writable = new Set(view.writable("edit"));
@@ -216,22 +216,22 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
   else if (input.length === 0) problems.push("sections is empty");
   const ids = new Set<string>();
   const settingsSeen = new Set<string>();
-  const sections: ResolvedWorkspaceSection[] = [];
-  const filters = new Map<string, (row: Row) => WorkspaceFilter>();
+  const sections: ResolvedRecordPageSection[] = [];
+  const filters = new Map<string, (row: Row) => RecordPageFilter>();
   input.forEach((raw, i) => {
     const at = `sections[${i}]`;
     if (!raw || typeof raw !== "object") {
       problems.push(`${at} isn't a section`);
       return;
     }
-    const s = raw as WorkspaceSection<Row> & Record<string, unknown>;
+    const s = raw as RecordPageSection<Row> & Record<string, unknown>;
     const name = typeof s.id === "string" && s.id.trim() ? s.id : undefined;
     if (!name) problems.push(`${at} has no id`);
     else if (ids.has(name)) problems.push(`sections lists "${name}" twice`);
     else ids.add(name);
     const label = `sections.${name ?? i}`;
     if (typeof s.label !== "string" || !s.label.trim()) problems.push(`${label} has no label`);
-    if (isWorkspace(s) || "sections" in s || "workspace" in s) {
+    if (isRecordPage(s) || "sections" in s || "workspace" in s) {
       problems.push(`${label} holds a workspace; sections don't nest`);
       return;
     }
@@ -245,11 +245,11 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     }
     if (hasList) {
       const list = s.list as { view?: unknown; filter?: unknown };
-      if (isWorkspace(list?.view)) problems.push(`${label}.list.view is a workspace; sections don't nest`);
+      if (isRecordPage(list?.view)) problems.push(`${label}.list.view is a workspace; sections don't nest`);
       else if (!isView(list?.view)) problems.push(`${label}.list.view isn't a view`);
       if (typeof list?.filter !== "function") problems.push(`${label}.list.filter isn't a function`);
-      if (name && isView(list?.view) && !isWorkspace(list.view) && typeof list.filter === "function") {
-        filters.set(name, list.filter as (row: Row) => WorkspaceFilter);
+      if (name && isView(list?.view) && !isRecordPage(list.view) && typeof list.filter === "function") {
+        filters.set(name, list.filter as (row: Row) => RecordPageFilter);
         sections.push(Object.freeze({ id: name, label: s.label, kind: "list", view: list.view }));
       }
       return;
@@ -315,10 +315,10 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     return out;
   };
 
-  const headerFor = (row: Row, options: WorkspaceHeaderOptions<Row> = {}): WorkspaceHeader => {
+  const headerFor = (row: Row, options: RecordPageHeaderOptions<Row> = {}): RecordPageHeader => {
     const summary = view.summary(row);
     const served = options.served ? new Set(options.served) : null;
-    const actions: WorkspaceHeaderAction[] = [];
+    const actions: RecordPageHeaderAction[] = [];
     if (options.runnable !== false) {
       for (const name of headerActions) {
         if (served && !served.has(name)) continue;
@@ -404,5 +404,21 @@ export function defineWorkspace<C extends ResourceContract, Row extends DataRow 
     },
     readinessFor,
     readinessSummary,
-  }) as ResourceWorkspace<C, Row>;
+  }) as RecordPage<C, Row>;
 }
+
+// The names before record pages were called record pages ("workspace" now means where the viewer
+// is working: docs/adr/0004-workspaces.md). Kept for one minor release.
+
+/** @deprecated Renamed `defineRecordPage`. */
+export const defineWorkspace = defineRecordPage;
+/** @deprecated Renamed `isRecordPage`. */
+export const isWorkspace = isRecordPage;
+/** @deprecated Renamed `RecordPage`. */
+export type ResourceWorkspace<C extends ResourceContract = ResourceContract, Row extends DataRow = RowOf<C>> = RecordPage<C, Row>;
+/** @deprecated Renamed `RecordPageDefinition`. */
+export type WorkspaceDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> = RecordPageDefinition<C, Row>;
+/** @deprecated Renamed `RecordPageSection`. */
+export type WorkspaceSection<Row extends DataRow = DataRow, Name extends string = string> = RecordPageSection<Row, Name>;
+/** @deprecated Renamed `RecordPageHeaderAction`. */
+export type WorkspaceHeaderAction = RecordPageHeaderAction;

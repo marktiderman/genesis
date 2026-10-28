@@ -1,7 +1,7 @@
-// NativeResourceWorkspace: one record's screen from a genesis-core workspace (defineWorkspace),
+// NativeRecordPage: one record's screen from a genesis-core record page (defineRecordPage),
 // in native patterns:
 //   - the title in the navigation bar and the actions in the header menu, through
-//     `getNativeResourceWorkspaceStackOptions` (the host's <Stack.Screen options>), as SettingsPage does;
+//     `getNativeRecordPageStackOptions` (the host's <Stack.Screen options>), as SettingsPage does;
 //   - up to four sections as a segmented control; more as pushed rows (`onOpenSection`);
 //   - a list section → an embedded NativeResourceView of the child view, filtered by the row;
 //   - a settings section → inset grouped settings rows, saving only its listed keys, a zero-row
@@ -14,7 +14,7 @@ import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "re
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
-import type { Allowed, ResourceWorkspace as Workspace, WorkspaceHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import type { Allowed, RecordPage as RecordPageDef, RecordPageHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -37,14 +37,14 @@ import { NativeResourceView, type NativeResourceViewProps } from "./NativeResour
 type Row = Record<string, unknown>;
 type Values = Record<string, unknown>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; the row is what matters here
-type AnyWorkspace<T extends Row> = Workspace<ResourceContract<any>, T & DataRow>;
+type AnyRecordPage<T extends Row> = RecordPageDef<ResourceContract<any>, T & DataRow>;
 
 /**
- * The words NativeResourceWorkspace shows. Override any of them with `messages`. The readiness
+ * The words NativeRecordPage shows. Override any of them with `messages`. The readiness
  * chip's keys (`ready`, `empty`, `pending`, `problems`, `warnings`) are genesis-core/resource's
  * `readinessChip` labels: unset, they use its defaults.
  */
-export interface NativeResourceWorkspaceMessages extends ReadinessLabels {
+export interface NativeRecordPageMessages extends ReadinessLabels {
   actions: string;
   cancel: string;
   save: string;
@@ -61,7 +61,7 @@ export interface NativeResourceWorkspaceMessages extends ReadinessLabels {
   notANumber: string;
 }
 
-export const defaultNativeResourceWorkspaceMessages: NativeResourceWorkspaceMessages = {
+export const defaultNativeRecordPageMessages: NativeRecordPageMessages = {
   actions: "Actions",
   cancel: "Cancel",
   save: "Save",
@@ -85,22 +85,22 @@ export const SEGMENTED_SECTIONS_MAX = 4;
 
 // ── Header: title and menu ────────────────────────────────────────────
 
-export interface NativeResourceWorkspaceHeaderProps<T extends Row = Row> {
-  workspace: AnyWorkspace<T>;
+export interface NativeRecordPageHeaderProps<T extends Row = Row> {
+  page: AnyRecordPage<T>;
   row: T;
   /** Runs an allowed (and confirmed) action. Default: the provider's `runAction`. */
   onAction?: (name: string, row: T) => unknown;
   /** The screen's own rule: `false` hides an action, a sentence refuses it. Only narrows. */
   can?: (action: string, row: T) => Allowed | boolean;
-  messages?: Partial<NativeResourceWorkspaceMessages>;
+  messages?: Partial<NativeRecordPageMessages>;
 }
 
 /** Runs header actions: guards explain, confirms ask, one at a time, failures in an alert. */
-function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messages }: NativeResourceWorkspaceHeaderProps<T>) {
-  const words = { ...defaultNativeResourceWorkspaceMessages, ...messages };
+function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }: NativeRecordPageHeaderProps<T>) {
+  const words = { ...defaultNativeRecordPageMessages, ...messages };
   const provider = useDataProvider();
   const queryClient = useQueryClient();
-  const view = workspace.view;
+  const view = page.view;
   // Actions show only where something can run them, and only those the provider serves when it says.
   const capabilities = useCapabilities(view.resource, { enabled: !onAction && !!provider.capabilities });
   const described = useQuery({
@@ -111,7 +111,7 @@ function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messag
   });
   // The view's action guards read the viewer (ViewerScope's id, scope and roles).
   const viewer = useViewer();
-  const actions = workspace.headerFor(row as T & DataRow, {
+  const actions = page.headerFor(row as T & DataRow, {
     viewer,
     runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
@@ -120,13 +120,13 @@ function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messag
   // One action at a time: a second press while one runs does nothing.
   const running = useRef(false);
   const [pending, setPending] = useState(false);
-  const run = async (a: WorkspaceHeaderAction) => {
+  const run = async (a: RecordPageHeaderAction) => {
     if (running.current) return;
     running.current = true;
     setPending(true);
     try {
       if (onAction) await onAction(a.name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: workspace.recordId(row as T & DataRow), action: a.name });
+      else if (provider.runAction) await provider.runAction(view.resource, { id: page.recordId(row as T & DataRow), action: a.name });
       else throw new DataWriteError("error", fill(words.noRunner, { name: a.label }));
       await queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
     } catch (error) {
@@ -136,7 +136,7 @@ function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messag
       setPending(false);
     }
   };
-  const press = (a: WorkspaceHeaderAction) => {
+  const press = (a: RecordPageHeaderAction) => {
     if (running.current) return;
     if (a.allowed !== true) return Alert.alert(a.label, a.allowed);
     if (!a.confirm) return void run(a);
@@ -153,22 +153,22 @@ function useHeaderActions<T extends Row>({ workspace, row, onAction, can, messag
 const A11Y_PREFIX = "action:";
 
 /**
- * The header menu: a button that lists the workspace's actions. On iOS an action sheet
+ * The header menu: a button that lists the record page's actions. On iOS an action sheet
  * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
  * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
-export function NativeResourceWorkspaceMenu<T extends Row = Row>(props: NativeResourceWorkspaceHeaderProps<T> & { testID?: string }) {
+export function NativeRecordPageMenu<T extends Row = Row>(props: NativeRecordPageHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
   const { actions, press, pending, words } = useHeaderActions(props);
   const [open, setOpen] = useState(false);
   if (actions.length === 0) return null;
-  const labelOf = (a: WorkspaceHeaderAction) => (a.allowed === true ? a.label : `${a.label} (${a.allowed})`);
+  const labelOf = (a: RecordPageHeaderAction) => (a.allowed === true ? a.label : `${a.label} (${a.allowed})`);
   const show = () => {
     if (Platform.OS === "ios") {
       const destructive = actions.flatMap((a, i) => (a.destructive ? [i] : []));
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          title: props.workspace.headerFor(props.row as T & DataRow).title,
+          title: props.page.headerFor(props.row as T & DataRow).title,
           options: [...actions.map(labelOf), words.cancel],
           cancelButtonIndex: actions.length,
           ...(destructive.length ? { destructiveButtonIndex: destructive } : {}),
@@ -238,29 +238,29 @@ export function NativeResourceWorkspaceMenu<T extends Row = Row>(props: NativeRe
 }
 
 /**
- * `<Stack.Screen options>` for a workspace: the record's title in the navigation bar and the
+ * `<Stack.Screen options>` for a record page: the record's title in the navigation bar and the
  * actions in the header menu.
  *
  * ```tsx
- * <Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />
+ * <Stack.Screen options={getNativeRecordPageStackOptions({ page: brandRecordPage, row: brand })} />
  * ```
  */
-export function getNativeResourceWorkspaceStackOptions<T extends Row>(
-  props: NativeResourceWorkspaceHeaderProps<T> & Omit<ScreenHeaderProps, "headerTitle">,
+export function getNativeRecordPageStackOptions<T extends Row>(
+  props: NativeRecordPageHeaderProps<T> & Omit<ScreenHeaderProps, "headerTitle">,
 ): Record<string, unknown> {
-  const { workspace, row, onAction, can, messages, ...header } = props;
-  const menu = { workspace, row, ...(onAction ? { onAction } : {}), ...(can ? { can } : {}), ...(messages ? { messages } : {}) };
+  const { page, row, onAction, can, messages, ...header } = props;
+  const menu = { page, row, ...(onAction ? { onAction } : {}), ...(can ? { can } : {}), ...(messages ? { messages } : {}) };
   return composeHeaderOptions({
     ...header,
-    headerTitle: workspace.headerFor(row as T & DataRow).title,
-    headerRight: header.headerRight ?? (workspace.headerActions.length ? () => <NativeResourceWorkspaceMenu {...menu} /> : undefined),
+    headerTitle: page.headerFor(row as T & DataRow).title,
+    headerRight: header.headerRight ?? (page.headerActions.length ? () => <NativeRecordPageMenu {...menu} /> : undefined),
   });
 }
 
 // ── Screen ────────────────────────────────────────────────────────────
 
-export interface NativeResourceWorkspaceProps<T extends Row = Row> {
-  workspace: AnyWorkspace<T>;
+export interface NativeRecordPageProps<T extends Row = Row> {
+  page: AnyRecordPage<T>;
   /** The record, as the screen loaded it. A save refreshes it through the cache. */
   row: T;
   /**
@@ -283,31 +283,31 @@ export interface NativeResourceWorkspaceProps<T extends Row = Row> {
   slots?: Partial<Record<string, ReactNode>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
-  messages?: Partial<NativeResourceWorkspaceMessages>;
+  messages?: Partial<NativeRecordPageMessages>;
   testID?: string;
 }
 
 /**
- * One record's screen from a workspace:
+ * One record's screen, from its record page (defineRecordPage):
  *
  * ```tsx
- * <Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />
- * <NativeResourceWorkspace workspace={brandWorkspace} row={brand} />
+ * <Stack.Screen options={getNativeRecordPageStackOptions({ page: brandRecordPage, row: brand })} />
+ * <NativeRecordPage page={brandRecordPage} row={brand} />
  * ```
  */
-export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResourceWorkspaceProps<T>) {
-  const { workspace, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
-  const words = { ...defaultNativeResourceWorkspaceMessages, ...messages };
+export function NativeRecordPage<T extends Row = Row>(props: NativeRecordPageProps<T>) {
+  const { page, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
+  const words = { ...defaultNativeRecordPageMessages, ...messages };
   const colors = useThemeRoles();
   const queryClient = useQueryClient();
   const record = row as T & DataRow;
-  const sections = workspace.sections;
+  const sections = page.sections;
   const many = sections.length > SEGMENTED_SECTIONS_MAX;
   const [local, setLocal] = useState<string | undefined>(undefined);
   const activeId = section ?? local ?? (many ? undefined : sections[0]?.id);
-  const active = activeId ? workspace.section(activeId) : undefined;
-  const readiness = workspace.readinessFor(record);
-  const summary = workspace.readinessSummary(record);
+  const active = activeId ? page.section(activeId) : undefined;
+  const readiness = page.readinessFor(record);
+  const summary = page.readinessSummary(record);
   const chip = summary ? readinessChip(summary, words) : null;
 
   const choose = (id: string) => {
@@ -395,7 +395,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
         testID={`${testID}-list`}
         {...lists?.[active.id]}
         title={false}
-        filter={workspace.listFilter(active.id, record)}
+        filter={page.listFilter(active.id, record)}
       />
     );
   } else if (active?.kind === "settings") {
@@ -403,13 +403,13 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         <SettingsGroup
           // A fresh draft per record and section.
-          key={`${String(workspace.recordId(record))}:${active.id}`}
-          workspace={workspace}
+          key={`${String(page.recordId(record))}:${active.id}`}
+          page={page}
           sectionId={active.id}
           row={record}
           words={words}
           onSaved={(saved) => {
-            void queryClient.invalidateQueries({ queryKey: [...resourceKeys(workspace.view.resource).all] });
+            void queryClient.invalidateQueries({ queryKey: [...resourceKeys(page.view.resource).all] });
             onSaved?.(saved as T);
           }}
           testID={`${testID}-settings`}
@@ -432,7 +432,7 @@ export function NativeResourceWorkspace<T extends Row = Row>(props: NativeResour
 // ── Settings ──────────────────────────────────────────────────────────
 
 function SettingsGroup({
-  workspace,
+  page,
   sectionId,
   row,
   words,
@@ -440,23 +440,23 @@ function SettingsGroup({
   testID,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
-  workspace: Workspace<ResourceContract<any>, any>;
+  page: RecordPageDef<ResourceContract<any>, any>;
   sectionId: string;
   row: DataRow;
-  words: NativeResourceWorkspaceMessages;
+  words: NativeRecordPageMessages;
   onSaved: (row: DataRow) => void;
   testID: string;
 }) {
   const provider = useDataProvider();
-  const view = workspace.view;
+  const view = page.view;
   // The view's edit-form mapping (the form sheet's), narrowed to this section's keys in their order.
   const fields = useMemo(() => {
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
-    return workspace.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
-  }, [workspace, view, sectionId]);
+    return page.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
+  }, [page, view, sectionId]);
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
-  const locked = workspace.settingsLocked(row, viewer);
+  const locked = page.settingsLocked(row, viewer);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.key, row[f.key]])));
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -476,7 +476,7 @@ function SettingsGroup({
     setRefusal(null);
     try {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: workspace.recordId(row), data: workspace.settingsPatch(sectionId, changed) });
+      const result = await provider.update(view.resource, { id: page.recordId(row), data: page.settingsPatch(sectionId, changed) });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
       else onSaved(result.data as DataRow);
@@ -491,7 +491,7 @@ function SettingsGroup({
     <View style={{ gap: 12 }}>
       {refusal ? <NativeInlineAlert testID={`${testID}-refusal`} variant="destructive" description={refusal} /> : null}
       {locked !== null ? <NativeInlineAlert testID={`${testID}-locked`} variant="info" description={locked} /> : null}
-      <Group testID={`${testID}-group`} title={workspace.section(sectionId)?.label}>
+      <Group testID={`${testID}-group`} title={page.section(sectionId)?.label}>
         {shown.map((f, i) => (
           <Cell key={f.key} last={i === shown.length - 1}>
             <SettingRow
@@ -515,6 +515,35 @@ function SettingsGroup({
     </View>
   );
 }
+
+// The names before record pages were called record pages ("workspace" now means where the viewer
+// is working: docs/adr/0004-workspaces.md). Kept for one minor release; `workspace` is now `page`.
+
+type OldPage<P extends { page: unknown }> = Omit<P, "page"> & { workspace: P["page"] };
+
+/** @deprecated Renamed `NativeRecordPageProps`; its `workspace` prop is now `page`. */
+export type NativeResourceWorkspaceProps<T extends Row = Row> = OldPage<NativeRecordPageProps<T>>;
+
+/** @deprecated Renamed `NativeRecordPage`, with `page` in place of `workspace`. */
+export function NativeResourceWorkspace<T extends Row = Row>({ workspace, ...props }: NativeResourceWorkspaceProps<T>) {
+  return <NativeRecordPage<T> {...props} page={workspace} />;
+}
+
+/** @deprecated Renamed `NativeRecordPageMenu`, with `page` in place of `workspace`. */
+export function NativeResourceWorkspaceMenu<T extends Row = Row>({ workspace, ...props }: OldPage<NativeRecordPageHeaderProps<T>> & { testID?: string }) {
+  return <NativeRecordPageMenu<T> {...props} page={workspace} />;
+}
+
+/** @deprecated Renamed `getNativeRecordPageStackOptions`, with `page` in place of `workspace`. */
+export function getNativeResourceWorkspaceStackOptions<T extends Row>({
+  workspace,
+  ...props
+}: OldPage<NativeRecordPageHeaderProps<T>> & Omit<ScreenHeaderProps, "headerTitle">): Record<string, unknown> {
+  return getNativeRecordPageStackOptions<T>({ ...props, page: workspace });
+}
+
+/** @deprecated Renamed `defaultNativeRecordPageMessages`. */
+export const defaultNativeResourceWorkspaceMessages = defaultNativeRecordPageMessages;
 
 /**
  * A number as typed: "1.5" or, with a comma as the decimal mark, "1,5". Anything else (an empty
@@ -542,7 +571,7 @@ function SettingRow({
   value: unknown;
   error?: string | undefined;
   disabled: boolean;
-  words: NativeResourceWorkspaceMessages;
+  words: NativeRecordPageMessages;
   onChange: (v: unknown, error?: string) => void;
   testID: string;
 }) {

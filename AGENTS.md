@@ -26,7 +26,7 @@ AGENTS.md and skill):
 - **A list** is a view: `defineView` (`@marktiderman/genesis-core/resource-view`) rendered by
   `<ResourceView>` (`@marktiderman/genesis-ui/data`). Never a hand-built table, and `ResourcePage`
   only as an escape hatch inside a component that renders ResourceView.
-- **A record's page** is `<ResourceWorkspace>` from the same description.
+- **A record's page** is `<RecordPage>` from the same description.
 - **On the phone**, the same view through `NativeResourceView` (`@marktiderman/genesis-ui-native/data`).
 - **Data** goes through the view and the resource's provider rules. A screen never calls
   `supabase.from`, `.rpc` or `.schema(…).from` itself.
