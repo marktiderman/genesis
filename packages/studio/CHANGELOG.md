@@ -1,5 +1,11 @@
 # @marktiderman/genesis-studio
 
+## 0.2.2
+
+### Patch Changes
+
+- 4c5a9f4: Accept genesis-core 2 and genesis-ui-native 3 as peers, beside the versions accepted before. None of these packages used the renamed scope names (`ResourceScope.practiceId`, `timeZone: "practice"`, `practiceTimeZone`), so they work with either. Without the wider ranges, the core and ui-native majors would have forced a major release of every one of them.
+
 ## 0.2.1
 
 ### Patch Changes
