@@ -1,0 +1,167 @@
+.changeset/form-empty-inputs.md
+  s_5beca2076873c9::t_2e9ad49c72ed17 5,7
+.changeset/introspect-views-checks.md
+  s_5beca2076873c9::t_28d28115419a2d 5-7
+.changeset/native-resource-view-empty-lists.md
+  s_5beca2076873c9::t_9ef37919b90b61 2,5
+.changeset/provider-schema-names.md
+  s_5beca2076873c9::t_6df6bf3c1ae1a7 1-7
+.changeset/resource-view-words.md
+  s_5beca2076873c9::t_e7216cf7316816 5,7
+apps/sample/app/data/primitives.json
+  s_5beca2076873c9::t_815edd26316270 2,3847,3850,11451-11457,11514-11520,14012-14018,14028,14074,14342-14348,14398-14404,15500-15506,15561,15890-15896,16016-16022,16100-16113,16660-16666,16683,16760,16763,16800-16806,16898-16911,17366-17372,17389,17466,17469,17506-17512,17604-17617,18072-18078,18095,18172,18175,18212-18218,18310-18323,21678-21684,21804-21810,21888-21901,22349-22355,22475-22481,22559-22572
+docs/RESOURCE-VIEW.md
+  s_5beca2076873c9::t_327b0748c36283 101-120,217-220,222-223,234-263
+docs/component-reference.md
+  s_5beca2076873c9::t_1c1794367c9cae 7,34,40,42-44,49,56,60,62,67,69-70,74,76-78,82,85-86,95-96,101-102,108,119-121,123,138-141,148,180,184,207,218-219,246,248-252,258,260,262-264,266,268,306,334,343,411,482,493,505,556,558,562,564-565,578-579,597,625,654-656,728-729,940-941,1030,1039,1041,1047,1050,1056,1061-1062,1064,1067,1069-1073,1081,1089,1097-1098,1100-1101,1117,1120-1122,1153,1170,1277,1293,1295,1297,1304-1305,1307,1353,1356-1357,1370,1380-1383,1386,1393-1394,1400,1417,1425,1438-1444
+packages/chat/CHANGELOG.md
+  s_5beca2076873c9::t_0c1b86b8b872dc 3-8
+packages/chat/package.json
+  s_5beca2076873c9::t_a0e73ec0eec1a4 3
+packages/core/CHANGELOG.md
+  s_5beca2076873c9::t_50ece8986dded0 3-28
+packages/core/package.json
+  s_5beca2076873c9::t_36a0460a7fbad5 3
+packages/core/src/__tests__/resource-view.test.ts
+  s_5beca2076873c9::t_81d8b1b1dee1ea 380-395
+packages/core/src/form-types.ts
+  s_5beca2076873c9::t_26b6fa2d8e62cf 37-45
+packages/core/src/hooks/index.ts
+  s_5beca2076873c9::t_b77ad0171180bd 64
+packages/core/src/hooks/use-resource-form.ts
+  s_5beca2076873c9::t_2a0e56da5fbf7e 254-255,258,319,321,345-378,695,707-713
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_5beca2076873c9::t_22b667cd7ee29f 788-895
+packages/core/src/provider/supabase-provider.ts
+  s_5beca2076873c9::t_771fce8b1c36c7 57-58,112-113,249-250,253-257,286-287,450-455,457-494,631-640,690,693,695,752,760,1115
+packages/core/src/resource-view/define-view.ts
+  s_5beca2076873c9::t_4f2ea32509de59 100-116,290-296
+packages/core/src/resource-view/index.ts
+  s_5beca2076873c9::t_6604f2e9ff088e 5
+packages/core/src/resource-view/types.ts
+  s_5beca2076873c9::t_455da7c02a8336 174-179,181,183,189,191-197
+packages/data-switchboard/CHANGELOG.md
+  s_5beca2076873c9::t_9895d43c65ef2b 3-8
+packages/data-switchboard/package.json
+  s_5beca2076873c9::t_4d543adfa45a85 3
+packages/forms-native/CHANGELOG.md
+  s_5beca2076873c9::t_7c87af6c373992 3-8
+packages/forms-native/package.json
+  s_5beca2076873c9::t_76d7b3000959c7 3
+packages/forms-studio/CHANGELOG.md
+  s_5beca2076873c9::t_659d879fb033bd 3-8
+packages/forms-studio/package.json
+  s_5beca2076873c9::t_d0f05c48c4a09a 3
+packages/genesis-cli/CHANGELOG.md
+  s_5beca2076873c9::t_e93aee0cc1c09a 3-16
+packages/genesis-cli/README.md
+  s_5beca2076873c9::t_4c953e33b7fffc 54-56
+packages/genesis-cli/package.json
+  s_5beca2076873c9::t_e4dcce3dc998d4 3
+packages/genesis-cli/src/introspect/catalog-text.ts
+  s_5beca2076873c9::t_ed269d47447e5e 1-211
+packages/genesis-cli/src/introspect/emit.ts
+  s_5beca2076873c9::t_186f2e79ffe3fb 49-50
+packages/genesis-cli/src/introspect/index.ts
+  s_5beca2076873c9::t_1d44eaee1ce3d8 5
+packages/genesis-cli/src/introspect/model.ts
+  s_5beca2076873c9::t_ed7f5cc91bf4a0 12-17,71-79
+packages/genesis-cli/src/introspect/openapi.ts
+  s_5beca2076873c9::t_4ccf6c199eb1b9 8,53,74
+packages/genesis-cli/src/introspect/postgres.ts
+  s_5beca2076873c9::t_2289f3d399105a 7,9,14-15,19,30-53,55,57,73,76-77,82-83,86-87,96,98-121,123-125,127-139,141-142,144-145,151-152,158-272,274-278
+packages/genesis-cli/test/fixtures/introspect/view-renamed.txt
+  s_5beca2076873c9::t_960cec0758d53a 1
+packages/genesis-cli/test/fixtures/introspect/view-select-star.txt
+  s_5beca2076873c9::t_310c6ebb41eadc 1
+packages/genesis-cli/test/introspect-catalog-text.test.ts
+  s_5beca2076873c9::t_24558195eeb04b 1-75
+packages/genesis-cli/test/introspect.test.ts
+  s_5beca2076873c9::t_adabea5f06d404 238-268,279-293,302,305-390
+packages/genesis/CHANGELOG.md
+  s_5beca2076873c9::t_a0507517de1829 3-41
+packages/genesis/package.json
+  s_5beca2076873c9::t_cea1cc94d4391b 3
+packages/native/CHANGELOG.md
+  s_5beca2076873c9::t_5d9ed152dc5d9d 3-11
+packages/native/package.json
+  s_5beca2076873c9::t_20d3ca8570661a 3
+packages/notifications/CHANGELOG.md
+  s_5beca2076873c9::t_ecf8aa0399319d 3-8
+packages/notifications/package.json
+  s_5beca2076873c9::t_cc5b2ed2a1ef6c 3
+packages/product/CHANGELOG.md
+  s_5beca2076873c9::t_848523e123ec53 3-8
+packages/product/package.json
+  s_5beca2076873c9::t_a797004478f3d8 3
+packages/studio-server/CHANGELOG.md
+  s_5beca2076873c9::t_b6ba869930365f 3-12
+packages/studio-server/package.json
+  s_5beca2076873c9::t_90b661899919fe 3
+packages/studio/CHANGELOG.md
+  s_5beca2076873c9::t_50c5fb8b7e6854 3-8
+packages/studio/package.json
+  s_5beca2076873c9::t_294139e3a6b2ab 3
+packages/supabase/CHANGELOG.md
+  s_5beca2076873c9::t_caf27123b96c09 3-10
+packages/supabase/package.json
+  s_5beca2076873c9::t_f10704937c641a 3
+packages/support/CHANGELOG.md
+  s_5beca2076873c9::t_add056e482f75b 3-8
+packages/support/package.json
+  s_5beca2076873c9::t_5282ec29a05dc7 3
+packages/ui-native/CHANGELOG.md
+  s_5beca2076873c9::t_1b4a01d6061da5 3-26
+packages/ui-native/package.json
+  s_5beca2076873c9::t_229e3566971020 3
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_5beca2076873c9::t_24df7e835d340a 532-576
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_5beca2076873c9::t_3d8e0df12c400e 199-202,266-267,304-313,318-319
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_5beca2076873c9::t_d1c0ef92e8b510 31,40-41,111-116,124-126,166-171
+packages/ui/CHANGELOG.md
+  s_5beca2076873c9::t_1744c30daf92d5 3-43
+packages/ui/package.json
+  s_5beca2076873c9::t_e9ecec4474997d 3
+packages/ui/src/components/data/DataPageShell.tsx
+  s_5beca2076873c9::t_eead6f6fc73a97 23-26,110-111,180-181
+packages/ui/src/components/data/DataTable.tsx
+  s_5beca2076873c9::t_1b7a3d1d8ad8a1 915,919-921,1124-1126
+packages/ui/src/components/data/ResourceForm.tsx
+  s_5beca2076873c9::t_a08c053c963acf 35,48,50-54,314,336-338,341-349
+packages/ui/src/components/data/ResourcePage.tsx
+  s_5beca2076873c9::t_3a79e06ba12ea0 530-540,818-821,1142-1144,1491-1494
+packages/ui/src/components/data/__tests__/data-table-tree.test.tsx
+  s_5beca2076873c9::t_ee7033b9ce5c0c 47,109-116
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_5beca2076873c9::t_58b5cc36de49b1 554-669
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_5beca2076873c9::t_d6757aaa9aa446 8,16-18,28-31,37,76-78,88-93,97-101,107-111,171,190-192,210-213,244-250
+packages/ui/src/components/layout/PageHeader.tsx
+  s_5beca2076873c9::t_61c823af1cf07d 20,76,186-192,239-240,337-342,393
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_5beca2076873c9::t_053b0d0172ee17 22,261-384
+packages/ui/src/messages-en.ts
+  s_5beca2076873c9::t_c9c35e0e731f94 32-36,56-62
+scripts/__tests__/gen-component-reference.test.mjs
+  s_5beca2076873c9::t_dd0768cd7b8748 1-43
+scripts/gen-component-reference.mjs
+  s_5beca2076873c9::t_1ad9ff93d8d136 36,169,216-229,231-237,269-303,340-344,349,564-565
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5a3448f222f833ff1f3bcd0846970933e3cef222",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
