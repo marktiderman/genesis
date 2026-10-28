@@ -1,0 +1,23 @@
+.changeset/provider-schema-names.md
+  s_5beca2076873c9::t_f9a57fdb9fe196 5
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_5beca2076873c9::t_038321e854f391 873,876-877,883-896
+packages/core/src/provider/supabase-provider.ts
+  s_5beca2076873c9::t_cd935caed49ac8 249-250,286-288,490,753-756,764-765
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "46f6c6440a29bea727faab0ee29ba5945146583f",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
