@@ -667,3 +667,42 @@ describe("ResourceView screen words merge with the view's", () => {
     expect(props({ countFormat: { other: "{count} in all" } }).countFormat).toEqual({ one: "{count} goal set", other: "{count} in all" });
   });
 });
+
+describe("ResourceView follows the viewer's scope", () => {
+  function inScope(scope: Record<string, unknown>) {
+    const p = provider();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ViewerScope viewer="u-1" scope={scope} timeZone="UTC">
+          {children}
+        </ViewerScope>
+      </GenesisProvider>
+    );
+    return wrapper;
+  }
+  const filters = (props: ReturnType<typeof useResourceViewProps>) =>
+    (props.resourceOptions?.defaultFilters ?? []).map((f) => [f.field, f.operator, f.value]);
+
+  it("filters by the view's scope keys and starts new rows in the scope, with no screen code", async () => {
+    const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: inScope({ practiceId: "p1" }) });
+    await waitFor(() => expect(result.current).toBeTruthy());
+    expect(filters(result.current)).toContainEqual(["practice_id", "eq", "p1"]);
+  });
+
+  it("filters a roll-up's list to any of its values", async () => {
+    const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: inScope({ practiceId: ["p1", "p2"] }) });
+    await waitFor(() => expect(result.current).toBeTruthy());
+    expect(filters(result.current)).toContainEqual(["practice_id", "in", ["p1", "p2"]]);
+  });
+
+  it("lets the screen's own filter win, and a screen opt out", async () => {
+    const own = renderHook(() => useResourceViewProps({ view, filter: { practice_id: "p9" } }), { wrapper: inScope({ practiceId: "p1" }) });
+    await waitFor(() => expect(own.result.current).toBeTruthy());
+    expect(filters(own.result.current)).toContainEqual(["practice_id", "eq", "p9"]);
+    expect(filters(own.result.current)).not.toContainEqual(["practice_id", "eq", "p1"]);
+    const off = renderHook(() => useResourceViewProps({ view, scoped: false }), { wrapper: inScope({ practiceId: "p1" }) });
+    await waitFor(() => expect(off.result.current).toBeTruthy());
+    expect(filters(off.result.current)).toEqual([]);
+  });
+});

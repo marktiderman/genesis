@@ -60,6 +60,13 @@ export {
   type ViewerContext,
   type ResourceScope,
 } from "./viewer-scope";
+export {
+  WorkspaceScope,
+  useWorkspace,
+  rememberedWorkspaceId,
+  type WorkspaceContext,
+  type WorkspaceScopeProps,
+} from "./workspace-scope";
 export { DEFAULT_LIVE_DEBOUNCE_MS, DEFAULT_LIVE_RESYNC_MS, type LiveOptions } from "./use-live";
 export { useResourceForm, buildArrayItemDefaults, blankValues, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";

@@ -4,7 +4,7 @@
 
 export { defineView, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
-export { scopeValues } from "./scope";
+export { scopeFilter, scopeValues } from "./scope";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
 export type { ResourceTree, TreeNode, TreeOptions, TreeResult } from "./tree";
 export type {

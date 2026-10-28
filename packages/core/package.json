@@ -64,6 +64,10 @@
       "types": "./dist/navigation.d.ts",
       "import": "./dist/navigation.js"
     },
+    "./workspaces": {
+      "types": "./dist/workspaces.d.ts",
+      "import": "./dist/workspaces.js"
+    },
     "./testing": {
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"

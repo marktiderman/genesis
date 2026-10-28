@@ -567,6 +567,12 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
         {
+          "need": "choosing which organization (or the roll-up, or personal) the viewer is working in",
+          "use": "WorkspaceSwitcher in AppShell's headerSlot, under a WorkspaceScope (genesis-core) that scopes every view to it",
+          "import": "@marktiderman/genesis-ui/layout",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0004-workspaces.md"
+        },
+        {
           "need": "a dashboard, settings or form page",
           "use": "DashboardPage, SettingsPage (SettingsRow, ToggleRow), FormPage",
           "import": "@marktiderman/genesis-ui",
