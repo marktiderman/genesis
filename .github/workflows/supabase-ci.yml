@@ -262,7 +262,14 @@ jobs:
         if: inputs.image-registry != ''
         env:
           REGISTRY: ${{ inputs.image-registry }}
-        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
+        # A registry is a host (and optional port or path): anything else, a newline above all,
+        # could write a second variable into GITHUB_ENV.
+        run: |
+          if ! [[ "$REGISTRY" =~ ^[A-Za-z0-9.:/-]+$ ]]; then
+            echo "::error title=supabase-ci::image-registry must be a registry host, such as ghcr.io"
+            exit 1
+          fi
+          echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
 
       - name: Check for Docker Hub credentials
         id: hub
