@@ -101,7 +101,7 @@
             ]
           },
           "unless": {
-            "pattern": "\\bexport\\s+(?:async\\s+)?(?:function|const)\\s+(?:loader|action)\\b|\\bcreateServerFn\\b"
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
           },
           "use": "the browser client in screens, the handler in a server route",
           "import": "@marktiderman/genesis-studio-server/client",

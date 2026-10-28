@@ -262,7 +262,7 @@ export function checkAgentGuide(ctx: DoctorContext): void {
   if (state.agents !== "ok") {
     const message = {
       missing: `has no genesis-primitives block; ${fix}`,
-      broken: `has a broken genesis-primitives block (a ${AGENTS_START} or ${AGENTS_END} marker is missing or out of order); fix the markers by hand, then ${fix}`,
+      broken: `has a broken genesis-primitives block (a ${AGENTS_START} or ${AGENTS_END} marker is missing, repeated or out of order); fix the markers by hand, then ${fix}`,
       stale: `has a genesis-primitives block that doesn't match the installed Genesis packages; ${fix}`,
     }[state.agents];
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message });

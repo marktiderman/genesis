@@ -220,7 +220,7 @@ export function doctorBlock(json: unknown, file: string, explicit: boolean): unk
  * doctor settings. A block that also holds an app setting is the app's, so a typo such as `plugin`
  * beside `rules` reaches validateConfig and fails instead of hiding the whole block.
  */
-function isPackageDeclaration(block: unknown): boolean {
+export function isPackageDeclaration(block: unknown): boolean {
   if (typeof block === "string") return true;
   if (!isObject(block)) return false;
   const keys = Object.keys(block).filter((k) => k !== "$comment");

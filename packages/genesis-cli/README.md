@@ -411,8 +411,8 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
-| `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the config file at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine; a config file new since the base isn't compared. |
-| `rules-weakened` | error | Under `--base`: `rules` or `packageRules` sets a rule lower than it ran at the merge base (for a rule not set there, its own level; when that isn't known, only a new `off` or `info` counts), or `packageRules` narrows a package rule's files (an `exclude` glob, or `files` that drop one of the base's). Rules only tighten. |
+| `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
+| `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
 
 It also prints **Available but unused**: the Genesis components no file imports, and a
 **Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
@@ -664,8 +664,10 @@ since the catalog would leave it out. Run `genesis agents` after each Genesis up
 untracked. Without `--base` every rule runs at its level, as before; when git can't compare,
 `ratchet-skipped` says so and nothing is lowered. `allow` entries still remove findings,
 ratcheted or not: they are the recorded ratchet, file by file, and under `--base` the list only
-shrinks: `allow-grew` fails an entry the config file at the merge base didn't have, and
-`rules-weakened` fails a rule `rules` or `packageRules` lowered or narrowed since. These two and
+shrinks: `allow-grew` fails an entry the doctor settings at the merge base didn't have, and
+`rules-weakened` fails a rule the base's settings set that this branch lowers, turns off or
+excludes files from (compared with the base's settings only). Neither runs when the base had no
+doctor settings. These two and
 `ratchet-skipped` guard the config itself, so `rules` and `allow` can't name them (the config is
 refused), and the ratchet never lowers them, nor the other rules about the config, packages or
 generated files (`stale-exception`, `package-rule-override`, `package-rules-invalid`,

@@ -403,11 +403,17 @@ describe("the real package declarations", () => {
       "src/routes/studio.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const handle = createServerFn().handler(() => createStudioHandler());\n',
       "src/components/Preview.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport const P = () => { validateSubmission(); return null; };\n',
       "src/components/Admin.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const A = () => null;\n',
+      "src/routes/listed.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nconst loader = () => validateSubmission();\nexport { loader };\n',
+      "src/routes/directive.tsx": '// Server actions\n"use server";\nimport { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function save() { return validateSubmission(); }\n',
+      "src/routes/client.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function clientLoader() { return validateSubmission(); }\nexport const C = ({ loaderData }) => null;\n',
+      "src/routes/named.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\n// createServerFn is mentioned, not called\nconst createServerFnLike = 1;\nexport const N = () => createServerFnLike;\n',
     });
     const result = await runDoctor({ root, config: {} });
     expect(brief(result.findings, "forms-rules/").concat(brief(result.findings, "studio-server-rules/"))).toEqual([
       "forms-rules/server-check-on-server warn src/components/Preview.tsx:1 @marktiderman/genesis-forms/server",
+      "forms-rules/server-check-on-server warn src/routes/client.tsx:1 @marktiderman/genesis-forms/server",
       "studio-server-rules/handler-on-server warn src/components/Admin.tsx:1 @marktiderman/genesis-studio-server",
+      "studio-server-rules/handler-on-server warn src/routes/named.tsx:1 @marktiderman/genesis-studio-server",
     ]);
   });
 });
@@ -530,21 +536,65 @@ describe("ratchet", () => {
     expect(result.ok).toBe(false);
   });
 
-  it("reports a removed entry that had raised a rule as rules-weakened", async () => {
-    const root = makeApp(null, {
-      ...widgets({ prefer: [LIST_RULE] }),
-      "src/Screen.tsx": SCREEN,
-      "genesis.config.json": JSON.stringify({ doctor: { packageRules: { "widgets/lists-use-widget-view": { level: "error", reason: "Strict." } } } }),
-    });
+  /** A git repo at `files` on main, then `head` committed on a work branch; the doctor run with --base main. */
+  const branch = async (files: Record<string, string>, head: Record<string, string | null>, fixture: string | null = null) => {
+    const root = makeApp(fixture, files);
     const git = gitIn(root);
     git("init", "-q", "-b", "main");
     git("add", "-A");
     git("commit", "-q", "-m", "base");
     git("checkout", "-q", "-b", "work");
-    writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ doctor: {} }));
-    const result = await runDoctor({ root, base: "main" });
-    expect(brief(result.findings, "rules-weakened")).toEqual(["rules-weakened error genesis config:0 widgets/lists-use-widget-view"]);
-    expect(result.findings.find((f) => f.rule === "rules-weakened")!.message).toContain('is back to its own level "warn", lower than "error"');
+    for (const [file, content] of Object.entries(head)) {
+      if (content === null) git("rm", "-q", file);
+      else {
+        mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+        writeFileSync(path.join(root, file), content);
+      }
+    }
+    git("add", "-A");
+    git("commit", "-q", "--allow-empty", "-m", "head");
+    clearPackageRulesCache();
+    return runDoctor({ root, base: "main" });
+  };
+  const guards = (r: { findings: Finding[] }) => [...brief(r.findings, "rules-weakened"), ...brief(r.findings, "allow-grew"), ...brief(r.findings, "ratchet-skipped")];
+  const doctorConfig = (doctor: Record<string, unknown>) => JSON.stringify({ doctor });
+
+  it("doesn't compare a config the base didn't have: adopting the doctor, or adding the doctor block", async () => {
+    const adopted = doctorConfig({
+      rules: { "raw-tag": "off" },
+      packageRules: { "widgets/lists-use-widget-view": { exclude: ["src/Screen.tsx"], reason: "Legacy." } },
+      allow: [{ rule: "raw-tag", file: "src/form.tsx", reason: "Legacy." }],
+    });
+    expect(guards(await branch({ ...widgets({ prefer: [LIST_RULE] }), "src/Screen.tsx": SCREEN }, { "genesis.config.json": adopted }, "raw-tag"))).toEqual([]);
+    const noBlock = await branch({ "genesis.config.json": JSON.stringify({ features: {} }) }, { "genesis.config.json": JSON.stringify({ features: {}, doctor: { rules: { "raw-tag": "off" } } }) }, "raw-tag");
+    expect(guards(noBlock)).toEqual([]);
+  });
+
+  it("compares a config moved between package.json and genesis.config.json with where it was", async () => {
+    const pkg = (doctor?: Record<string, unknown>) => JSON.stringify({ name: "app", version: "1.0.0", ...(doctor ? { genesis: { doctor } } : {}) });
+    const same = { rules: { "raw-tag": "warn" } };
+    expect(guards(await branch({ "package.json": pkg(same) }, { "package.json": pkg(), "genesis.config.json": doctorConfig(same) }, "raw-tag"))).toEqual([]);
+    const lowered = await branch({ "package.json": pkg(same) }, { "package.json": pkg(), "genesis.config.json": doctorConfig({ rules: { "raw-tag": "info" } }) }, "raw-tag");
+    expect(guards(lowered)).toEqual(["rules-weakened error genesis config:0 raw-tag"]);
+  });
+
+  it("compares with the base config only: pinning a rule its package raised, a new non-off setting, a renamed entry and wider files all pass", async () => {
+    const files = { ...widgets({ prefer: [LIST_RULE] }), "src/Screen.tsx": SCREEN, "genesis.config.json": doctorConfig({}) };
+    // The package raises its rule to error; the app keeps it at warn for now.
+    const raised = { "node_modules/@marktiderman/genesis-widgets/package.json": JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "2.0.0", genesis: { doctor: { prefer: [{ ...LIST_RULE, level: "error" }] } } }) };
+    const pinned = doctorConfig({ packageRules: { "widgets/lists-use-widget-view": { level: "warn", reason: "Migrating." } } });
+    expect(guards(await branch(files, { ...raised, "genesis.config.json": pinned }))).toEqual([]);
+    // A new entry at info (a no-op for an info rule) isn't compared; a new "off" is.
+    const added = await branch(files, { "genesis.config.json": doctorConfig({ rules: { "scope-practice-id": "info", "raw-tag": "off" } }) });
+    expect(guards(added)).toEqual(["rules-weakened error genesis config:0 raw-tag"]);
+    // A package renames its rule and the app renames its entry: a new entry, not "off", so not flagged.
+    const before = doctorConfig({ packageRules: { "widgets/lists-use-widget-view": { level: "info", reason: "Legacy." } } });
+    const renamed = { "node_modules/@marktiderman/genesis-widgets/package.json": JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "2.0.0", genesis: { doctor: { prefer: [{ ...LIST_RULE, id: "lists-use-widget-views" }] } } }) };
+    const after = doctorConfig({ packageRules: { "widgets/lists-use-widget-views": { level: "info", reason: "Legacy." } } });
+    expect(guards(await branch({ ...files, "genesis.config.json": before }, { ...renamed, "genesis.config.json": after }))).toEqual([]);
+    // Files changed to something wider isn't compared; only a new exclude glob is.
+    const wider = doctorConfig({ packageRules: { "widgets/lists-use-widget-view": { files: ["**/*"], reason: "Everything." } } });
+    expect(guards(await branch(files, { "genesis.config.json": wider }))).toEqual([]);
   });
 
   it("reports rules and packageRules that lower or narrow a rule since the base (rules-weakened); tightening is fine", async () => {
@@ -573,7 +623,7 @@ describe("ratchet", () => {
       "rules-weakened error genesis config:0 widgets/lists-use-widget-view",
     ]);
     const messages = result.findings.filter((f) => f.rule === "rules-weakened").map((f) => f.message);
-    expect(messages.join("\n")).toMatch(/"warn", lower than "error" since main[\s\S]*narrows the files/);
+    expect(messages.join("\n")).toMatch(/"warn", lower than "error" since main[\s\S]*excludes src\/Screen\.tsx/);
     expect(brief((await runDoctor({ root })).findings, "rules-weakened")).toEqual([]);
   });
 
@@ -665,7 +715,7 @@ describe("primitives catalog and agent guide", () => {
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
   });
 
-  it("calls a repeated marker broken, so a copied start marker never eats the text after it", () => {
+  it("calls a repeated marker broken, so a copied start marker never eats the text after it", async () => {
     const root = makeApp(null, {
       ...widgets({ prefer: [LIST_RULE] }),
       "AGENTS.md": `# Notes\n\nQuoted: <!-- genesis-primitives:start -->\n\nOur own rules.\n\n<!-- genesis-primitives:start -->\nold\n<!-- genesis-primitives:end -->\n`,
@@ -673,6 +723,8 @@ describe("primitives catalog and agent guide", () => {
     expect(agentGuideState(root, discoverPackages(root)).agents).toBe("broken");
     expect(() => writeAgentGuide(root, discoverPackages(root))).toThrow(/broken/);
     expect(readFileSync(path.join(root, "AGENTS.md"), "utf8")).toContain("Our own rules.");
+    const stale = (await runDoctor({ root, config: {} })).findings.find((f) => f.rule === "agent-guide-stale" && f.file === "AGENTS.md");
+    expect(stale!.message).toContain("missing, repeated or out of order");
   });
 
   it("writes JSX names in catalog cells as code, so Markdown doesn't read them as tags", () => {

@@ -58,7 +58,7 @@ const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
 const UNLESS_KEYS = new Set(["renders", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
 const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "primitives", "plugin", "$comment"]);
-export const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
+const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
 
 /** `ui` for `@marktiderman/genesis-ui`, `genesis` for the umbrella, the full name for anything else. */
 export function ruleNamespace(packageName: string): string {

@@ -115,7 +115,7 @@
             ]
           },
           "unless": {
-            "pattern": "\\bexport\\s+(?:async\\s+)?(?:function|const)\\s+(?:loader|action)\\b|\\bcreateServerFn\\b"
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
           },
           "use": "the server check in a server function or API route",
           "import": "@marktiderman/genesis-forms/server",

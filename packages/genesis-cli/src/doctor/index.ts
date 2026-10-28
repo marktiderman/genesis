@@ -33,12 +33,12 @@ import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
-import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, SCRIPT_GLOBS, unknownPackageRuleSettings } from "./package-rules.js";
+import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
 import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { existsSync } from "node:fs";
-import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts, Level } from "./types.js";
+import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
 export {
@@ -161,17 +161,10 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const guarded = (config.allow?.length ?? 0) + Object.keys(config.rules ?? {}).length + Object.keys(config.packageRules ?? {}).length > 0;
   let configSkipped = false;
   if (options.base && configFile) {
-    const before = configAtBase(configFile, options.base, options.configPath !== undefined);
-    if (before) {
-      const prefer = new Map(preferRules(packages).map((r) => [r.ruleId, r]));
-      const defaults = defaultLevels(raw, prefer.values());
+    const before = configAtBase(root, options.base, options.configPath !== undefined ? configFile : undefined);
+    if (before && before !== "absent") {
       raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
-      raw.push(
-        ...rulesWeakened(config, before, options.base, (rule) => defaults.get(rule), (rule) => {
-          const r = prefer.get(rule);
-          return r && { files: r.files ?? SCRIPT_GLOBS, exclude: r.exclude ?? [] };
-        }),
-      );
+      raw.push(...rulesWeakened(config, before, options.base));
     }
     // Uncompared: an error when the config holds something to compare, else just the warning.
     configSkipped = !before && guarded;
@@ -238,19 +231,6 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];
-}
-
-/** Each rule's level when config doesn't set it: a package rule's declared level, else the highest it was reported at. */
-function defaultLevels(raw: readonly FindingInput[], prefer: Iterable<{ ruleId: string; level?: Level }>): Map<string, Level> {
-  const rank = { info: 1, warn: 2, error: 3 };
-  const out = new Map<string, Level>();
-  for (const f of raw) {
-    const level = f.level ?? "error";
-    const had = out.get(f.rule);
-    if (!had || rank[level] > rank[had]) out.set(f.rule, level);
-  }
-  for (const r of prefer) out.set(r.ruleId, r.level ?? "warn");
-  return out;
 }
 
 /**

@@ -10,8 +10,8 @@
  */
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
-import { doctorBlock, META_RULES } from "./config.js";
-import type { AllowEntry, DoctorConfig, FindingInput, Finding, Level, PackageRuleSetting, RuleSetting } from "./types.js";
+import { doctorBlock, isPackageDeclaration, META_RULES } from "./config.js";
+import type { AllowEntry, DoctorConfig, FindingInput, Finding, PackageRuleSetting, RuleSetting } from "./types.js";
 
 function git(root: string, args: string[]): string | null {
   const r = spawnSync("git", args, { cwd: root, encoding: "utf8" });
@@ -42,29 +42,47 @@ export interface BaseConfig {
 
 const objectOr = <T>(v: unknown): T => (typeof v === "object" && v !== null && !Array.isArray(v) ? v : {}) as T;
 
+/** A file as it was at `rev`, read from `dir`; undefined when it didn't exist there, null when git can't tell. */
+function showAt(dir: string, rev: string, file: string): string | null | undefined {
+  const at = `${rev}:./${file}`;
+  if (git(dir, ["cat-file", "-e", at]) === null) return undefined;
+  return git(dir, ["show", at]);
+}
+
 /**
- * The `allow`, `rules` and `packageRules` of a config file as it was at the merge base with `base`.
- * Empty when the file didn't exist there (adopting the doctor records the first list); null when git
- * can't tell, or the file there isn't JSON.
+ * The doctor settings in effect at the merge base with `base`, found the way loadConfig finds them:
+ * the explicit file, else genesis.config.json's `doctor`, else package.json's `genesis.doctor` (an
+ * app's, not a package declaration). "absent" when there were none (adopting the doctor, or a config
+ * new since the base: nothing to compare); null when git can't tell, or the file there isn't JSON.
  */
-export function configAtBase(file: string, base: string, explicit: boolean): BaseConfig | null {
-  const dir = path.dirname(file);
-  const mergeBase = git(dir, ["merge-base", base, "HEAD"])?.trim();
+export function configAtBase(root: string, base: string, explicitFile?: string): BaseConfig | "absent" | null {
+  const mergeBase = git(root, ["merge-base", base, "HEAD"])?.trim();
   if (!mergeBase) return null;
-  const at = `${mergeBase}:./${path.basename(file)}`;
-  if (git(dir, ["cat-file", "-e", at]) === null) return { allow: [], rules: {}, packageRules: {} };
-  const text = git(dir, ["show", at]);
-  if (text === null) return null;
-  try {
-    const block = objectOr<{ allow?: unknown; rules?: unknown; packageRules?: unknown }>(doctorBlock(JSON.parse(text), file, explicit));
-    return {
-      allow: Array.isArray(block.allow) ? (block.allow as AllowEntry[]) : [],
-      rules: objectOr(block.rules),
-      packageRules: objectOr(block.packageRules),
-    };
-  } catch {
-    return null;
+  const candidates = explicitFile
+    ? [{ dir: path.dirname(explicitFile), file: path.basename(explicitFile), explicit: true }]
+    : [
+        { dir: root, file: "genesis.config.json", explicit: false },
+        { dir: root, file: "package.json", explicit: false },
+      ];
+  for (const c of candidates) {
+    const text = showAt(c.dir, mergeBase, c.file);
+    if (text === null) return null;
+    if (text === undefined) continue;
+    let block: unknown;
+    try {
+      block = doctorBlock(JSON.parse(text), c.file, c.explicit);
+    } catch {
+      return null;
+    }
+    // genesis.config.json wins when it exists, as in loadConfig, even without a doctor block.
+    if (block === undefined || (c.file === "package.json" && !c.explicit && isPackageDeclaration(block))) {
+      if (c.file === "genesis.config.json") return "absent";
+      continue;
+    }
+    const b = objectOr<{ allow?: unknown; rules?: unknown; packageRules?: unknown }>(block);
+    return { allow: Array.isArray(b.allow) ? (b.allow as AllowEntry[]) : [], rules: objectOr(b.rules), packageRules: objectOr(b.packageRules) };
   }
+  return "absent";
 }
 
 const allowKey = (a: Pick<AllowEntry, "rule" | "file" | "match">) => `${a.rule}\0${a.file ?? ""}\0${a.match ?? ""}`;
@@ -84,47 +102,29 @@ export function allowGrew(allow: readonly AllowEntry[], before: readonly AllowEn
 
 const RANK: Record<RuleSetting, number> = { off: 0, info: 1, warn: 2, error: 3 };
 
-/** A package rule's own globs, which a `packageRules` setting replaces. */
-export interface RuleScope {
-  files: readonly string[];
-  exclude: readonly string[];
-}
-
 /**
- * `rules-weakened`: a rule `rules` or `packageRules` sets lower than it ran at the merge base, or a
- * package rule whose files the config narrowed since (a new `exclude` glob, or `files` that don't
- * cover the base's). `defaults` gives a rule's level when nothing sets it; when that's unknown, only
- * a new "off" or "info" counts.
+ * `rules-weakened`, comparing the app's config with the base's only (never with a rule's own
+ * level, which a package upgrade may change): a rule the base config set and this config sets
+ * lower, a rule newly set to "off", and an `exclude` glob a `packageRules` entry gained. A new
+ * entry at any other level, or one for a renamed rule, isn't compared.
  */
-export function rulesWeakened(
-  config: DoctorConfig,
-  before: BaseConfig,
-  base: string,
-  defaults: (rule: string) => Level | undefined,
-  scope: (rule: string) => RuleScope | undefined,
-): FindingInput[] {
+export function rulesWeakened(config: DoctorConfig, before: BaseConfig, base: string): FindingInput[] {
   const out: FindingInput[] = [];
   const levelIn = (c: Pick<DoctorConfig, "rules" | "packageRules">, rule: string) => c.rules?.[rule] ?? c.packageRules?.[rule]?.level;
-  // The base's ids too: removing an entry that raised a rule lowers it back to its default.
-  const ids = new Set([...Object.keys(config.rules ?? {}), ...Object.keys(config.packageRules ?? {}), ...Object.keys(before.rules), ...Object.keys(before.packageRules)]);
+  const ids = new Set([...Object.keys(config.rules ?? {}), ...Object.keys(config.packageRules ?? {})]);
   for (const rule of ids) {
-    const set = levelIn(config, rule) ?? defaults(rule);
+    const set = levelIn(config, rule);
     if (set === undefined) continue;
-    const was = levelIn(before, rule) ?? defaults(rule);
-    if (was === undefined ? set === "off" || set === "info" : RANK[set] < RANK[was]) {
-      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `${rule} ${levelIn(config, rule) === undefined ? "is back to its own level" : "is set to"} "${set}"${was ? `, lower than "${was}"` : ""} since ${base}; rules only tighten, so fix what it finds instead` });
+    const was = levelIn(before, rule);
+    if (was === undefined ? set === "off" : RANK[set] < RANK[was]) {
+      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `${rule} is set to "${set}"${was ? `, lower than "${was}"` : ""} since ${base}; rules only tighten, so fix what it finds instead` });
     }
   }
   for (const [rule, setting] of Object.entries(config.packageRules ?? {})) {
-    const own = scope(rule);
-    if (!own) continue;
-    const was = before.packageRules[rule];
-    const files = setting.files ?? own.files;
-    const wasFiles = new Set(was?.files ?? own.files);
-    const wasExclude = new Set(was?.exclude ?? own.exclude);
-    const narrowed = [...wasFiles].some((g) => !files.includes(g)) || (setting.exclude ?? own.exclude).some((g) => !wasExclude.has(g));
-    if (narrowed) {
-      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `packageRules narrows the files ${rule} checks since ${base}; rules only tighten, so fix what it finds instead` });
+    const had = new Set(before.packageRules[rule]?.exclude ?? []);
+    const added = (setting.exclude ?? []).filter((g) => !had.has(g));
+    if (added.length) {
+      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `packageRules excludes ${added.join(", ")} from ${rule} since ${base}; rules only tighten, so fix what it finds instead` });
     }
   }
   return out;
