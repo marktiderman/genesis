@@ -1,0 +1,25 @@
+AGENTS.md
+  s_5beca2076873c9::t_226d7302c43d39 17-35,56,59
+docs/FRAMEWORK.md
+  s_5beca2076873c9::t_5ee9961bccc48f 93-99
+docs/RESOURCE-VIEW.md
+  s_5beca2076873c9::t_10e350311491ba 67
+packages/ui/SKILL.md
+  s_5beca2076873c9::t_34e194e788ef86 14-16,135-138,140,210-222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4adafbe7eeb831ca0e119a768f40bd63d8aff92",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
