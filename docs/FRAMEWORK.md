@@ -90,7 +90,13 @@ its config. Track both, separately: inventions show where an app is genuinely it
 which might be worth promoting); recreations show where Genesis isn't being used, or has a gap.
 `genesis doctor` already flags several kinds of recreation (raw HTML in place of Genesis
 components, exports that shadow Genesis's, hard-coded colors), and the native rule pack flags
-screens that don't use a Genesis screen layout.
+screens that don't use a Genesis screen layout. Each Genesis package also declares the
+primitives it owns and the doctor enforces them in every app that installs it: data screens
+that hand-build a list instead of a view rendered by `ResourceView` (and the app wrappers around
+those tables), record pages that assemble their own header instead of `ResourceWorkspace`, and
+direct data access (`supabase.from`, `.rpc`) in screens instead of the view and the resource's
+provider. `genesis primitives` lists every such rule, and `--base` ratchets them so new code
+meets them while old code moves screen by screen.
 
 ## Where an invention lives: the promotion ladder
 
