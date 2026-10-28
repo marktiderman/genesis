@@ -1,10 +1,14 @@
 /**
- * Content packs: versioned data that fills installed blocks (session types and
- * agendas, metric templates, custom field definitions, forms, roadmap templates,
- * labels). A pack is code, reviewed like any other: the publishing package
- * exports it, and an installer copies it into a tenant's editable rows, keeping
- * each row's source (pack, version, key) so an update can tell what a person
- * changed.
+ * Content packs: versioned data that fills installed blocks. A pack is code,
+ * reviewed like any other: the publishing package exports it, and an installer
+ * copies it into a tenant's editable rows, keeping each row's source (pack,
+ * version, key) so an update can tell what a person changed.
+ *
+ * A pack's `sections` are keyed by the block that owns them, and each holds
+ * that block's items. Genesis checks what every pack shares (id, version,
+ * publisher, requires, labels, and a unique `key` on every item); what an item
+ * holds is the block's business, checked by the validator the block registers
+ * (`contributes.contentSection` on `defineBlock`, or a `validators` map).
  *
  * `defineContentPack` checks a pack's shape; `contentPackProblems` with the
  * installed blocks also checks that every block it fills is there. Keys, not
@@ -12,79 +16,37 @@
  *
  * No zod here: packs ship to phones with `/blocks`.
  */
-import type { EnabledBlocks } from "./blocks";
+import type { BlockDef, EnabledBlocks } from "./blocks";
+import {
+  legacyContentPackBlocks,
+  legacyContentPackProblems,
+  type LegacyContentPackSections,
+} from "./content-packs-legacy";
 
-/** A content pack's settings for one session type, with its agenda. @stability Beta */
-export interface ContentPackSessionType {
-  key: string;
-  kind: string;
-  name: string;
-  description?: string;
-  defaultMinutes?: number;
-  agenda: readonly { key: string; title: string; minutes: number }[];
-}
+export {
+  CONTENT_PACK_FIELD_TARGETS,
+  type ContentPackFieldDefinition,
+  type ContentPackFieldTarget,
+  type ContentPackForm,
+  type ContentPackMetricTemplate,
+  type ContentPackRoadmapTemplate,
+  type ContentPackSessionType,
+} from "./content-packs-legacy";
 
-/** A metric to start from. @stability Beta */
-export interface ContentPackMetricTemplate {
-  key: string;
-  name: string;
-  unitType: string;
-  unit?: string;
-  cadence: string;
-  goalDirection: string;
-  goalValue?: number;
-  goalMax?: number;
-  measureKind?: string;
-  rollup?: string;
-}
+/**
+ * Checks one section's items for the block that owns it, and returns every
+ * problem (an empty list when they're fine). `at` names the section, for
+ * messages that point at an item.
+ *
+ * @stability Beta
+ */
+export type ContentPackSectionValidator = (items: readonly unknown[], at: string) => readonly string[];
 
-/** Where a custom field lives, and the block that owns that table. @stability Beta */
-export const CONTENT_PACK_FIELD_TARGETS = {
-  pursuits: "pursuits",
-  work_items: "pursuits",
-  metrics: "metrics",
-  sessions: "sessions",
-} as const;
-
-/** @stability Beta */
-export type ContentPackFieldTarget = keyof typeof CONTENT_PACK_FIELD_TARGETS;
-
-/** A custom field: a genesis-forms serializable field, on one of the work tables. @stability Beta */
-export interface ContentPackFieldDefinition {
-  key: string;
-  target: ContentPackFieldTarget;
-  label: string;
-  /** A genesis-forms serializable field: type, options, validation. */
-  field: { readonly type: string; readonly [key: string]: unknown };
-  required?: boolean;
-  visibility: "tenant" | "app" | "private";
-}
-
-/** A worksheet, assessment or form: a genesis-forms definition. @stability Beta */
-export interface ContentPackForm {
-  key: string;
-  kind: "worksheet" | "assessment" | "form";
-  title: string;
-  definition: { readonly [key: string]: unknown };
-  scoring?: unknown;
-}
-
-/** A roadmap to start from: items that release by a rule, linked to each other by key. @stability Beta */
-export interface ContentPackRoadmapTemplate {
-  key: string;
-  name: string;
-  items: readonly {
-    key: string;
-    kind: string;
-    title: string;
-    /** Another item's key in this template. */
-    ref?: string;
-    release: { rule: string; afterDays?: number; anchor?: string };
-  }[];
-}
+/** A pack's sections: block id → that block's items. @stability Beta */
+export type ContentPackSections = Readonly<Record<string, readonly unknown[]>>;
 
 /** One content pack, as its publisher defines it. @stability Beta */
-export interface ContentPackDef {
+export interface ContentPackDef extends LegacyContentPackSections {
   /** Kebab-case, unique per publisher. */
   id: string;
   name: string;
@@ -95,15 +57,25 @@ export interface ContentPackDef {
   publisher: string;
   /** The block ids it fills; installing is refused unless every one is installed. */
   requires: readonly string[];
-  /** Taxonomy: label key → display text, e.g. `"pursuit.quarter": "Quarterly goals"`. */
+  /** Taxonomy: label key → display text, e.g. `"project.phase": "Stage"`. */
   labels?: Readonly<Record<string, string>>;
-  sessionTypes?: readonly ContentPackSessionType[];
-  metricTemplates?: readonly ContentPackMetricTemplate[];
-  fieldDefinitions?: readonly ContentPackFieldDefinition[];
-  forms?: readonly ContentPackForm[];
-  roadmapTemplates?: readonly ContentPackRoadmapTemplate[];
+  /**
+   * The data it fills, by block id. Every item has a `key`, unique in its
+   * section and the same across versions; the rest is checked by the block's
+   * validator.
+   */
+  sections?: ContentPackSections;
 }
 
+/** @stability Beta */
+export interface ContentPackCheckOptions {
+  /** The installed blocks: every block the pack requires must be one. */
+  installed?: EnabledBlocks;
+  /** Blocks whose `contributes.contentSection` checks their section's items. */
+  blocks?: readonly BlockDef<string, unknown>[];
+  /** Section validators by block id; these win over a block's own. */
+  validators?: Readonly<Record<string, ContentPackSectionValidator>>;
+}
 /** Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta */
 export class ContentPackError extends Error {
   constructor(readonly problems: string[]) {
@@ -116,30 +88,23 @@ const KEBAB = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 const KEY = /^[a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*$/;
 const SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
 
-/** The block each section fills. */
-const SECTION_BLOCK = { sessionTypes: "sessions", metricTemplates: "metrics", forms: "forms", roadmapTemplates: "roadmap" } as const;
-
-function keyProblems(where: string, items: readonly { key: string }[] | undefined): string[] {
+function keyProblems(where: string, items: readonly unknown[] | undefined): string[] {
   const problems: string[] = [];
   const seen = new Set<string>();
   for (const [i, item] of (items ?? []).entries()) {
-    if (typeof item?.key !== "string" || !KEY.test(item.key)) problems.push(`${where}[${i}].key: "${String(item?.key)}" is not a key (lowercase, dots, dashes or underscores)`);
-    else if (seen.has(item.key)) problems.push(`${where}: the key "${item.key}" is used twice`);
-    else seen.add(item.key);
+    const key = (item as { key?: unknown } | null | undefined)?.key;
+    if (typeof key !== "string" || !KEY.test(key)) problems.push(`${where}[${i}].key: "${String(key)}" is not a key (lowercase, dots, dashes or underscores)`);
+    else if (seen.has(key)) problems.push(`${where}: the key "${key}" is used twice`);
+    else seen.add(key);
   }
   return problems;
 }
 
 /** The block ids a pack's sections need, whatever it declares. @stability Beta */
 export function contentPackBlocks(pack: ContentPackDef): string[] {
-  const needed = new Set<string>();
-  for (const [section, block] of Object.entries(SECTION_BLOCK)) {
-    const items = pack[section as keyof typeof SECTION_BLOCK];
-    if (items && items.length) needed.add(block);
-  }
-  for (const f of pack.fieldDefinitions ?? []) {
-    const block = CONTENT_PACK_FIELD_TARGETS[f.target];
-    if (block) needed.add(block);
+  const needed = new Set<string>(legacyContentPackBlocks(pack));
+  for (const [block, items] of Object.entries(pack.sections ?? {})) {
+    if (Array.isArray(items) && items.length) needed.add(block);
   }
   return [...needed].sort();
 }
@@ -150,13 +115,20 @@ function test(blocks: EnabledBlocks): (id: string) => boolean {
   return (id) => set.has(id);
 }
 
+function isEnabledBlocks(value: unknown): value is EnabledBlocks {
+  return typeof value === "function" || (typeof value === "object" && value !== null && Symbol.iterator in value);
+}
+
 /**
- * Every problem with a pack: its shape and, given the installed blocks, any
- * block it fills that isn't installed. An empty list means it can be installed.
+ * Every problem with a pack: its shape, each section's items (through the
+ * validator its block registers, when given) and, given the installed blocks,
+ * any block it fills that isn't installed. An empty list means it can be
+ * installed. The second argument is the installed blocks, or options.
  *
  * @stability Beta
  */
-export function contentPackProblems(pack: ContentPackDef, installed?: EnabledBlocks): string[] {
+export function contentPackProblems(pack: ContentPackDef, installedOrOptions?: EnabledBlocks | ContentPackCheckOptions): string[] {
+  const options: ContentPackCheckOptions = isEnabledBlocks(installedOrOptions) ? { installed: installedOrOptions } : (installedOrOptions ?? {});
   const at = `content pack ${typeof pack?.id === "string" ? pack.id : "?"}`;
   const problems: string[] = [];
   if (typeof pack?.id !== "string" || !KEBAB.test(pack.id)) problems.push(`${at}: id must be kebab-case`);
@@ -171,40 +143,31 @@ export function contentPackProblems(pack: ContentPackDef, installed?: EnabledBlo
     if (!KEY.test(label)) problems.push(`${at}: label key "${label}" is not a key`);
     if (typeof text !== "string" || !text.trim()) problems.push(`${at}: label "${label}" needs display text`);
   }
-  problems.push(
-    ...keyProblems(`${at}.sessionTypes`, pack.sessionTypes),
-    ...keyProblems(`${at}.metricTemplates`, pack.metricTemplates),
-    ...keyProblems(`${at}.fieldDefinitions`, pack.fieldDefinitions),
-    ...keyProblems(`${at}.forms`, pack.forms),
-    ...keyProblems(`${at}.roadmapTemplates`, pack.roadmapTemplates),
-  );
-  for (const s of pack.sessionTypes ?? []) {
-    problems.push(...keyProblems(`${at}.sessionTypes.${s.key}.agenda`, s.agenda));
-    for (const item of s.agenda ?? []) {
-      if (!(typeof item.minutes === "number" && item.minutes > 0)) problems.push(`${at}.sessionTypes.${s.key}.agenda.${item.key}: minutes must be more than 0`);
+  const validators: Record<string, ContentPackSectionValidator> = {};
+  for (const block of options.blocks ?? []) {
+    const validate = block.contributes?.contentSection;
+    if (validate) validators[block.id] = validate;
+  }
+  Object.assign(validators, options.validators);
+  for (const [block, items] of Object.entries(pack.sections ?? {})) {
+    const where = `${at}.sections.${block}`;
+    if (!KEY.test(block)) problems.push(`${where}: "${block}" is not a block id`);
+    if (!Array.isArray(items)) {
+      problems.push(`${where}: must be a list of items`);
+      continue;
     }
+    problems.push(...keyProblems(where, items));
+    const validate = validators[block];
+    if (validate) for (const problem of validate(items, where)) problems.push(`${where}: ${problem}`);
   }
-  for (const f of pack.fieldDefinitions ?? []) {
-    if (!Object.hasOwn(CONTENT_PACK_FIELD_TARGETS, f.target)) problems.push(`${at}.fieldDefinitions.${f.key}: target "${String(f.target)}" isn't one of ${Object.keys(CONTENT_PACK_FIELD_TARGETS).join(", ")}`);
-    if (typeof f.field?.type !== "string") problems.push(`${at}.fieldDefinitions.${f.key}: field needs a genesis-forms type`);
-    if (!["tenant", "app", "private"].includes(f.visibility)) problems.push(`${at}.fieldDefinitions.${f.key}: visibility must be tenant, app or private`);
-  }
-  for (const r of pack.roadmapTemplates ?? []) {
-    problems.push(...keyProblems(`${at}.roadmapTemplates.${r.key}.items`, r.items));
-    const keys = new Set((r.items ?? []).map((i) => i.key));
-    for (const item of r.items ?? []) {
-      if (item.ref !== undefined && (!keys.has(item.ref) || item.ref === item.key)) {
-        problems.push(`${at}.roadmapTemplates.${r.key}.items.${item.key}: ref "${item.ref}" isn't another item in this template`);
-      }
-    }
-  }
+  problems.push(...legacyContentPackProblems(pack, at, keyProblems));
   // Every block a section fills must be declared, and (when known) installed.
   const declared = new Set(pack.requires);
   for (const block of contentPackBlocks(pack)) {
     if (!declared.has(block)) problems.push(`${at}: fills the ${block} block but doesn't list it in requires`);
   }
-  if (installed !== undefined) {
-    const has = test(installed);
+  if (options.installed !== undefined) {
+    const has = test(options.installed);
     for (const block of pack.requires) if (!has(block)) problems.push(`${at}: needs the ${block} block, which isn't installed`);
   }
   return problems;
@@ -212,23 +175,24 @@ export function contentPackProblems(pack: ContentPackDef, installed?: EnabledBlo
 
 /**
  * Declare a content pack: returns it unchanged, typed, after checking its
- * shape (throws a {@link ContentPackError} listing every problem). Whether its
- * blocks are installed is checked at install time with
+ * shape (throws a {@link ContentPackError} listing every problem). Give the
+ * blocks it fills, or validators by block id, to check each section's items
+ * too. Whether its blocks are installed is checked at install time with
  * {@link contentPackProblems}.
  *
  * ```ts
  * export const weeklyTeamRhythm = defineContentPack({
  *   id: "weekly-team-rhythm", name: "Weekly team rhythm", version: "1.0.0",
- *   publisher: "@marktiderman/genesis-content", requires: ["sessions", "metrics"],
- *   labels: { "pursuit.quarter": "Quarterly goals" },
- *   sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }] }],
- * });
+ *   publisher: "@acme/content", requires: ["meetings"],
+ *   labels: { "project.phase": "Stage" },
+ *   sections: { meetings: [{ key: "weekly", name: "Weekly meeting", minutes: 60 }] },
+ * }, { blocks: [meetingsBlock] });
  * ```
  *
  * @stability Beta
  */
-export function defineContentPack<const T extends ContentPackDef>(pack: T): T {
-  const problems = contentPackProblems(pack);
+export function defineContentPack<const T extends ContentPackDef>(pack: T, options?: Omit<ContentPackCheckOptions, "installed">): T {
+  const problems = contentPackProblems(pack, { blocks: options?.blocks, validators: options?.validators });
   if (problems.length) throw new ContentPackError(problems);
   return pack;
 }

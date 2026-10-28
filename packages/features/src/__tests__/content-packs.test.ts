@@ -1,6 +1,6 @@
 /** @feat:content-packs */
 import { describe, expect, it } from "vitest";
-import { ContentPackError, contentPackBlocks, contentPackProblems, defineContentPack, type ContentPackDef } from "../blocks-entry";
+import { BlockError, ContentPackError, contentPackBlocks, contentPackProblems, defineBlock, defineContentPack, type ContentPackDef, type ContentPackSectionValidator } from "../blocks-entry";
 
 const PACK = {
   id: "weekly-team-rhythm",
@@ -64,5 +64,63 @@ describe("defineContentPack", () => {
     expect(contentPackProblems(PACK, (id) => id !== "metrics")).toEqual([
       "content pack weekly-team-rhythm: needs the metrics block, which isn't installed",
     ]);
+  });
+});
+
+// A block that owns meetings checks its own items; Genesis only knows keys.
+const meetings: ContentPackSectionValidator = (items) =>
+  items.flatMap((item) => {
+    const { key, minutes } = item as { key: string; minutes?: unknown };
+    return typeof minutes === "number" && minutes > 0 ? [] : [`${key}: minutes must be more than 0`];
+  });
+const meetingsBlock = defineBlock({ id: "meetings", contributes: { contentSection: meetings } });
+
+const GENERIC = {
+  id: "starter",
+  name: "Starter",
+  version: "1.0.0",
+  publisher: "@acme/content",
+  requires: ["meetings", "checklists"],
+  labels: { "project.phase": "Stage" },
+  sections: {
+    meetings: [{ key: "weekly", name: "Weekly", minutes: 60 }],
+    checklists: [{ key: "onboarding", steps: ["a", "b"] }],
+  },
+} as const satisfies ContentPackDef;
+
+describe("content pack sections", () => {
+  it("accepts any block's items, keyed, and needs the blocks it fills", () => {
+    expect(defineContentPack(GENERIC)).toBe(GENERIC);
+    expect(contentPackBlocks(GENERIC)).toEqual(["checklists", "meetings"]);
+    expect(contentPackProblems({ ...GENERIC, requires: ["meetings"] })).toEqual([
+      "content pack starter: fills the checklists block but doesn't list it in requires",
+    ]);
+  });
+
+  it("checks every item's key whatever the block", () => {
+    const bad = { ...GENERIC, sections: { meetings: [{ key: "a" }, { key: "a" }, { name: "no key" }], checklists: "nope" } } as unknown as ContentPackDef;
+    expect(contentPackProblems(bad)).toEqual([
+      'content pack starter.sections.meetings: the key "a" is used twice',
+      'content pack starter.sections.meetings[2].key: "undefined" is not a key (lowercase, dots, dashes or underscores)',
+      "content pack starter.sections.checklists: must be a list of items",
+    ]);
+  });
+
+  it("runs the validator a block registers, or one given by block id", () => {
+    const pack = { ...GENERIC, sections: { ...GENERIC.sections, meetings: [{ key: "weekly", minutes: 0 }] } } as ContentPackDef;
+    const expected = ["content pack starter.sections.meetings: weekly: minutes must be more than 0"];
+    expect(contentPackProblems(pack)).toEqual([]);
+    expect(contentPackProblems(pack, { blocks: [meetingsBlock] })).toEqual(expected);
+    expect(contentPackProblems(pack, { validators: { meetings } })).toEqual(expected);
+    expect(() => defineContentPack(pack, { blocks: [meetingsBlock] })).toThrow(ContentPackError);
+    // Options and the installed blocks together.
+    expect(contentPackProblems(GENERIC, { installed: ["meetings"], blocks: [meetingsBlock] })).toEqual([
+      "content pack starter: needs the checklists block, which isn't installed",
+    ]);
+  });
+
+  it("is a block contribution defineBlock accepts", () => {
+    expect(meetingsBlock.contributes?.contentSection).toBe(meetings);
+    expect(() => defineBlock({ id: "x", contributes: { contentSections: meetings } as never })).toThrow(BlockError);
   });
 });

@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 153 components · 574 other exports · 436 standalone types across 11 packages and entry points.
+**Totals:** 153 components · 574 other exports · 439 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1377,13 +1377,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AGENTS_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated block in AGENTS.md. |
 | [`BlockError`](../packages/features/src/blocks.ts) | class | Beta | Thrown by {@link defineBlock} and {@link resolveBlocks}; lists every problem at once. @stability Beta |
 | [`BrokenBlockError`](../packages/features/src/generate.ts) | class | — | Thrown when a generated block's markers are broken: one is missing, repeated or out of order. |
-| [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs.ts) | const | Beta | Where a custom field lives, and the block that owns that table. @stability Beta |
+| [`CONTENT_PACK_FIELD_TARGETS`](../packages/features/src/content-packs-legacy.ts) | const | Beta | Where a custom field lives, and the block that owns that table. |
 | [`contentPackBlocks`](../packages/features/src/content-packs.ts) | function | Beta | The block ids a pack's sections need, whatever it declares. @stability Beta |
 | [`ContentPackError`](../packages/features/src/content-packs.ts) | class | Beta | Thrown by {@link defineContentPack}; lists every problem at once. @stability Beta |
-| [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. |
+| [`contentPackProblems`](../packages/features/src/content-packs.ts) | function | Beta | Every problem with a pack: its shape, each section's items (through the validator its block registers, when given) and, given the installed blocks, any block it fills that isn't installed. An empty list means it can be installed. The sec... |
 | [`cycleProblems`](../packages/features/src/graph.ts) | function | Beta | Cycles through `requires`, each reported once, from where the depth-first search found it. @stability Beta |
 | [`defineBlock`](../packages/features/src/blocks.ts) | function | Beta | Declare a block. Validates it (id, requirements, platforms, contribution keys and duplicate ids within the block) and returns it frozen, so a typo fails where the block is written rather than where it is used: |
-| [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Whether its blocks are installed is checked at install time with {@link contentPackProblems}. |
+| [`defineContentPack`](../packages/features/src/content-packs.ts) | function | Beta | Declare a content pack: returns it unchanged, typed, after checking its shape (throws a {@link ContentPackError} listing every problem). Give the blocks it fills, or validators by block id, to check each section's items too. Whether its ... |
 | [`defineFeatures`](../packages/features/src/model.ts) | function | Beta | The one source of truth for a repo's features. Validates every entry and returns the same object, so running code reads it directly and the key type becomes the repo's `FeatureId`: |
 | [`defineFlags`](../packages/features/src/model.ts) | function | Beta | Flags, each tied to a feature of `features`. An unknown `feature` is a type error, and at runtime: - every flag needs an `owner`, a `kind`, a `default` and its `scopes`; - `release` and `experiment` flags need an `expires` date, `ops` fl... |
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
@@ -1422,7 +1422,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (48)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1435,12 +1435,15 @@ export type { BlockNavItem };
 export type { BlockPrivacy };
 export type { BlockRoute };
 export type { BlockSettingsRow };
+export type { ContentPackCheckOptions };
 export type { ContentPackDef };
 export type { ContentPackFieldDefinition };
 export type { ContentPackFieldTarget };
 export type { ContentPackForm };
 export type { ContentPackMetricTemplate };
 export type { ContentPackRoadmapTemplate };
+export type { ContentPackSectionValidator };
+export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
 export type { EnabledBlocks };
