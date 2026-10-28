@@ -12,6 +12,9 @@ import type { DoctorContext } from "./types.js";
 export const DEFAULT_CONTRACT_OUT = "resources.genesis.ts";
 export const DEFAULT_DATABASE_ENV = "DATABASE_URL";
 
+/** One shell word: as is when it's plain, else single-quoted, so a suggested command can be pasted. */
+const shellArg = (s: string) => (/^[\w./,@:+=-]+$/.test(s) ? s : `'${s.replace(/'/g, `'\\''`)}'`);
+
 /** The `source` line `genesis introspect` writes for a Postgres read. Shared so the check and the command agree. */
 export const postgresSource = (schemas: readonly string[]) => `Postgres (${schemas.join(", ")})`;
 
@@ -82,7 +85,7 @@ export async function checkContracts(ctx: DoctorContext, read: ContractReader = 
   }
   // The command runs from wherever the doctor ran, so its -o names the checked app's file from there.
   const target = path.relative(process.cwd(), path.join(ctx.root, out)) || out;
-  const command = `genesis introspect -o ${target} -s ${schemas.join(",")}${env === DEFAULT_DATABASE_ENV ? "" : ` --database-env ${env}`}`;
+  const command = `genesis introspect -o ${shellArg(target)} -s ${shellArg(schemas.join(","))}${env === DEFAULT_DATABASE_ENV ? "" : ` --database-env ${shellArg(env)}`}`;
   if (current !== expected) {
     ctx.report({
       rule: "contracts-stale",

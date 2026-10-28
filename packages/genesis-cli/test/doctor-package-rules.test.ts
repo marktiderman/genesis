@@ -816,6 +816,11 @@ describe("contracts-stale", () => {
       expect(stale.found[0]!.message).toContain("-s public,private --database-env GENESIS_TEST_DB_URL");
       // The command names the checked app's file from where the doctor ran, not the app-relative path.
       expect(stale.found[0]!.message).toContain(`-o ${path.relative(process.cwd(), path.join(app, "src/lib/resources.genesis.ts"))} `);
+      // A path a shell would split is quoted.
+      const spaced = makeApp(null, { "src/my lib/resources.genesis.ts": contract });
+      const quoted = ctx(spaced, { ...config, contracts: { ...config.contracts, out: "src/my lib/resources.genesis.ts" } });
+      await checkContracts(quoted.c, async () => ({ content: `${contract}// changed\n` }));
+      expect(quoted.found[0]!.message).toContain(`-o '${path.relative(process.cwd(), path.join(spaced, "src/my lib/resources.genesis.ts"))}' `);
       const named = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract }), { ...config, contracts: { ...config.contracts, schemas: ["app"] } });
       await checkContracts(named.c, async (_url, schemas) => {
         asked.push(schemas);
