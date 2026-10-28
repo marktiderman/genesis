@@ -8,7 +8,7 @@ const PACK = {
   version: "1.0.0",
   publisher: "@marktiderman/genesis-content",
   requires: ["sessions", "metrics", "pursuits"],
-  labels: { "pursuit.quarter": "Rocks" },
+  labels: { "pursuit.quarter": "Quarterly goals" },
   sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }, { key: "issues", title: "Issues", minutes: 60 }] }],
   metricTemplates: [{ key: "revenue", name: "Revenue", unitType: "currency", cadence: "weekly", goalDirection: "up" }],
   fieldDefinitions: [{ key: "confidence", target: "work_items", label: "Confidence", field: { type: "choice" }, visibility: "tenant" }],

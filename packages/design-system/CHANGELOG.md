@@ -119,7 +119,7 @@
 
   **`@marktiderman/genesis-design-system`** — extended the `status` color
   tokens (`tokens/dtcg/colors.json` source, mirrored in `src/tokens/colors.ts`
-  and regenerated into `src/tokens/native.ts`) with five new EOS/OKR-style
+  and regenerated into `src/tokens/native.ts`) with five new OKR-style
   progress tokens, each resolving to an existing `semantic` color (no new
   hues): `onTrack` / `done` → `semantic.success`, `atRisk` → `semantic.warning`,
   `offTrack` → `semantic.error` (joining the existing `blocked`, same color),
@@ -139,8 +139,7 @@
   already uses) — no raw hex in the component. `@marktiderman/genesis-design-system`
   is now a peer dependency of `@marktiderman/genesis-ui`.
 
-  Motivating consumer: `marktiderman/breakthrough`'s master-plan item 25 (U9)
-  replaces its local, raw-Tailwind-class `status-colors.ts` with this
+  Motivating consumer: a consumer app replaces its local, raw-Tailwind-class `status-colors.ts` with this
   token-backed `StatusBadge`.
 
 ## 1.1.1
@@ -237,21 +236,18 @@
 
 ### Minor Changes
 
-- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 (`@gamify/brand`) and A4.1 (`@acme/brand`).
+- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 and A4.1 (consumer `@<consumer>/brand` packages).
 - 210aa8f: BREAKING (allowed pre-1.0): brand presets removed from design-system; canonical schema gained `extensions` slot for consumer-specific scales; `rank` moved to extensions.
 
   PRD-07 Phase A2 / A2.7 / A2.9 / A2.10 — G-PR-2.
 
-  **Removed (4 brand presets and their DTCG token JSONs):**
-  - `src/presets/brand-acme.ts` + `tokens/dtcg/brands/acme.json`
-  - `src/presets/brand-breakthrough.ts` + `tokens/dtcg/brands/breakthrough.json`
-  - `src/presets/brand-team-tiderman.ts` + `tokens/dtcg/brands/team-tiderman.json`
-  - `src/presets/brand-gamify.ts` + `tokens/dtcg/brands/gamify.json`
-  - Re-exports of `acmeTheme/Colors`, `breakthroughTheme/Colors`, `teamTidermanTheme/Colors` from `src/index.ts`
+  **Removed (four consumer brand presets and their DTCG token JSONs):**
+  - Four `src/presets/brand-<name>.ts` files and their `tokens/dtcg/brands/<name>.json` token files
+  - Their `<name>Theme` / `<name>Colors` re-exports from `src/index.ts`
   - The 4 corresponding `dist/themes/<brand>.css` outputs (only `genesis.css` ships now)
 
   **Removed (provider surface):**
-  - `Brand` union narrowed from `"genesis" | "acme" | "breakthrough" | "team-tiderman" | "gamify"` → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
+  - `Brand` union narrowed from `"genesis"` plus four consumer brand names → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
 
   **Added (canonical schema — A2.9):**
   - `src/schema/brand.ts` exports `ColorScale`, `CanonicalBrand`, `BrandExtensions` (open-ended interface for consumer declaration merging), `isColorScale`, and `validateBrand`.

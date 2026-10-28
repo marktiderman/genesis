@@ -8,7 +8,7 @@
  * Domain vocabulary is NOT banned here — it is banned from *primitives*, and
  * carrying it is one of the things that makes a component a pattern. Per the
  * contract's most load-bearing test: "A primitive that knows the words
- * `onTrack`, `atRisk`, `engagement` or `rock` is not a primitive — it is a
+ * `onTrack`, `atRisk`, `engagement` or `quarterlyGoal` is not a primitive — it is a
  * pattern." `StatusBadge` is exactly that case and lives here for that reason.
  *
  * Everything here previously lived in `components/ui/` (primitives) or

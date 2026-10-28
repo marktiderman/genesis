@@ -1930,7 +1930,7 @@ export const features = defineFeatures({
     category: "Productivity",
     status: "retired",
     layer: "service",
-    keywords: ["metrics", "kpi", "scorecard", "measurables", "habits", "trend", "goals over time"],
+    keywords: ["metrics", "kpi", "measurables", "habits", "trend", "goals over time"],
     platforms: { server: "building", web: "building", native: "building" },
     requires: ["supabase-kit", "owner-access"],
     contributes: ["table: genesis_work.metrics", "table: genesis_work.metric_values", "table: genesis_work.metric_goal_changes", "view: genesis_work.metric_values_with_goal"],
@@ -1991,7 +1991,7 @@ export const features = defineFeatures({
   },
   "owner-access": {
     name: "Owner access",
-    summary: "Moved into Growth90 with genesis-work, its only user (packages/work there). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
+    summary: "Moved into an app as its own local package, with genesis-work (its only user). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
     category: "Platform",
     status: "retired",
     layer: "service",

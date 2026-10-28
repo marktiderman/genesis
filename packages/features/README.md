@@ -235,7 +235,7 @@ export const weeklyTeamRhythm = defineContentPack({
   version: "1.0.0",
   publisher: "@marktiderman/genesis-content",
   requires: ["sessions", "metrics"],
-  labels: { "pursuit.quarter": "Rocks" },
+  labels: { "pursuit.quarter": "Quarterly goals" },
   sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }] }],
   metricTemplates: [{ key: "revenue", name: "Revenue", unitType: "currency", cadence: "weekly", goalDirection: "up" }],
 });

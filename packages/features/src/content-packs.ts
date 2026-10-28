@@ -95,7 +95,7 @@ export interface ContentPackDef {
   publisher: string;
   /** The block ids it fills; installing is refused unless every one is installed. */
   requires: readonly string[];
-  /** Taxonomy: label key → display text, e.g. `"pursuit.quarter": "Rocks"`. */
+  /** Taxonomy: label key → display text, e.g. `"pursuit.quarter": "Quarterly goals"`. */
   labels?: Readonly<Record<string, string>>;
   sessionTypes?: readonly ContentPackSessionType[];
   metricTemplates?: readonly ContentPackMetricTemplate[];
@@ -220,7 +220,7 @@ export function contentPackProblems(pack: ContentPackDef, installed?: EnabledBlo
  * export const weeklyTeamRhythm = defineContentPack({
  *   id: "weekly-team-rhythm", name: "Weekly team rhythm", version: "1.0.0",
  *   publisher: "@marktiderman/genesis-content", requires: ["sessions", "metrics"],
- *   labels: { "pursuit.quarter": "Rocks" },
+ *   labels: { "pursuit.quarter": "Quarterly goals" },
  *   sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }] }],
  * });
  * ```

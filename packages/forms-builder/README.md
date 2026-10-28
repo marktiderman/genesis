@@ -301,7 +301,7 @@ Every choice question also has:
 
 - **Search box:** "When there are more than 10 options" (default), "Always" or "Never"
   (`props.searchable`).
-- **Fill in from the link:** a query parameter name, such as `location`, so `?location=cff` picks
+- **Fill in from the link:** a query parameter name, such as `location`, so `?location=riverside` picks
   that option (`props.prefill`, set with `setPrefill`), and a switch to hide the question when the
   link fills it in (`hideWhenPrefilled`; the answer is still saved).
 

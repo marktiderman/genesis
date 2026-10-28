@@ -339,7 +339,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`Spinner`](../packages/ui/src/components/ui/spinner.tsx) | `SpinnerProps` | — | _(no summary)_ |
 | [`Split`](../packages/ui/src/components/layout/split.tsx) | `SplitProps` | Beta | Split — the master-detail layout: two panes side by side above a breakpoint, stacked below it. |
 | [`Stack`](../packages/ui/src/components/layout/stack.tsx) | `StackProps` | Beta | Stack — one-dimensional flow. The single most-repeated shape in any application: a run of things in a line, evenly spaced. |
-| [`StatusBadge`](../packages/ui/src/components/patterns/status-badge.tsx) | `StatusBadgeProps` | Beta | Status-specific badge for progress/health states — the EOS/OKR-style "on track / at risk / off track" goal vocabulary plus common task-lifecycle states ("done", "blocked", "in progress"). |
+| [`StatusBadge`](../packages/ui/src/components/patterns/status-badge.tsx) | `StatusBadgeProps` | Beta | Status-specific badge for progress/health states — the OKR-style "on track / at risk / off track" goal vocabulary plus common task-lifecycle states ("done", "blocked", "in progress"). |
 | [`Table`](../packages/ui/src/components/ui/table.tsx) | `TableProps` | — | _(no summary)_ |
 | [`ToggleRow`](../packages/ui/src/components/patterns/toggle-row.tsx) | `ToggleRowProps` | Beta | ToggleRow — `SettingsRow` pre-wired with a `Switch`: the common label+description+on/off row for settings and preferences UI. |
 | [`Toolbar`](../packages/ui/src/components/ui/toolbar.tsx) | `ToolbarProps` | Beta | Toolbar — a grouped set of controls that behaves as ONE tab stop. |
