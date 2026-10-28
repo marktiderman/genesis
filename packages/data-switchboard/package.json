@@ -5,6 +5,17 @@
   "type": "module",
   "sideEffects": false,
   "description": "The Switchboard — pluggable, cross-runtime data-layer config for Genesis. Composes LEVELS (L1 Code / L2 Middle / L3 Production) × TIERS (A env / B resource / C field) so the app reads one canonical shape and never knows where data lives. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "data-layer",
+    "config",
+    "runtime"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/data-switchboard#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

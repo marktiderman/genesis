@@ -14,6 +14,19 @@
     "./dist/destinations.cjs"
   ],
   "description": "Genesis Forms engine: a serializable form definition, logic, navigation, validation and server-side checking. Zero dependencies; runs in browsers, React Native, Node and edge runtimes. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "form-engine",
+    "surveys",
+    "validation",
+    "typescript"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

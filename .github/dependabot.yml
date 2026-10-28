@@ -1,0 +1,39 @@
+# Dependency updates. Security updates are on in the repository settings; these are the
+# routine ones, weekly and grouped so they arrive as a few reviewable PRs.
+# `cooldown` waits a week after a release before proposing it, the same age rule the
+# lockfile and Edge Function imports follow: a compromised release is usually pulled within days.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+      runtime-minor:
+        dependency-type: production
+        update-types: [minor, patch]
+    ignore:
+      # Genesis's own packages move through changesets, not Dependabot.
+      - dependency-name: "@marktiderman/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/marktiderman/genesis/security/advisories/new
+    about: Report it privately, never in a public issue (SECURITY.md).
+  - name: Getting help
+    url: https://github.com/marktiderman/genesis/blob/main/SUPPORT.md
+    about: Where to look first, and how to report a bug.

@@ -5,6 +5,20 @@
   "type": "module",
   "sideEffects": false,
   "description": "Genesis Shadcn-based web components. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "react",
+    "ui",
+    "components",
+    "shadcn",
+    "tailwind",
+    "radix"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ui#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

@@ -5,6 +5,19 @@
   "type": "module",
   "sideEffects": false,
   "description": "Genesis platform-agnostic providers, hooks, and data layer. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "react",
+    "data-layer",
+    "providers",
+    "hooks",
+    "supabase"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

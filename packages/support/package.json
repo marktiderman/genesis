@@ -5,6 +5,27 @@
   "type": "module",
   "sideEffects": false,
   "description": "Support and feedback for Genesis apps, in the app's own Supabase: a feedback record (bug, idea, question, praise) with the app's context and screenshots, collector and sink seams with a Supabase sink, a web feedback panel and launcher, a native feedback screen with screenshot capture, annotation and shake to report, the person's reports with staff replies (on genesis-chat with the support-chat block: live, with files, an assignee and internal notes), and an idea board with votes and \"you asked, we shipped\". Declared as a defineBlock block. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "feedback",
+    "support",
+    "bug-reports",
+    "supabase",
+    "bug-report",
+    "screenshot",
+    "shake-to-report",
+    "idea-board",
+    "votes",
+    "help",
+    "support-inbox",
+    "help-desk",
+    "ticket-chat"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/support#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

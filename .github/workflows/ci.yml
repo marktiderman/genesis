@@ -24,7 +24,9 @@ jobs:
     # below those tests skip, so every other package's tests are unaffected.
     services:
       postgres:
-        image: postgres:17-alpine
+        # Docker's official image through AWS's public mirror: Docker Hub's anonymous pull
+        # limit is shared by every job on a runner's IP.
+        image: public.ecr.aws/docker/library/postgres:17-alpine
         env:
           POSTGRES_PASSWORD: postgres
         ports:

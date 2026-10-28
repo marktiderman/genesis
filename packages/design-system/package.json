@@ -4,6 +4,19 @@
   "private": false,
   "type": "module",
   "description": "Genesis brand-agnostic design tokens, canonical brand schema (with extensions slot), brand-genesis OOTB fallback, and theme generation. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "design-tokens",
+    "design-system",
+    "tailwind",
+    "dtcg",
+    "theming"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/design-system#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

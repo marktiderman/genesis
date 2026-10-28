@@ -5,6 +5,21 @@
   "type": "module",
   "sideEffects": false,
   "description": "One notifier for Genesis apps: a domain (chat, forms, sites, support) says who and what; this decides how and when. defineNotifications registers types (category, channels, critical, transactional, device action categories, Android channels); notify() queues them through a security-definer SQL function; the in-app feed is also the outbox; one runner (claim with SKIP LOCKED, retries with jittered backoff, deferrals) sends Expo push (batches of 100, receipts, dead tokens pruned, private previews) and Resend email (rendered once for byte-identical retries, tenant sender identities, RFC 8058 one-click unsubscribe, bounce and complaint suppression); preferences by category and channel with tenant defaults and quiet hours across daylight saving; secret links built at send time; erasure. Hooks for React and React Native, a web bell, feed, preferences matrix and admin views on genesis-ui, a native feed on genesis-ui-native. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "notifications",
+    "push",
+    "email",
+    "in-app",
+    "inbox",
+    "preferences",
+    "unsubscribe"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/notifications#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
