@@ -343,26 +343,31 @@ export function buildArrayItemDefaults(
 const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "url", "hidden"]);
 
 /**
- * What a save sends for an input left empty (""): a create leaves it out, so the column's
- * default (or null) applies, and an edit clears it to null. "" stays only for a text column
- * that can't be null and, on a create, has no default to fall back on.
+ * What a save sends for an input left empty (""). Only a field whose column the form knows
+ * about (`nullable` set, as ResourceView sets it from a generated contract) is changed:
+ * a create leaves it out, so the column's default (or null) applies, and an edit the person
+ * made clears it to null. Everything else goes as before, `""` included: a field without
+ * `nullable`, an edit of a field nobody touched (`changed` doesn't list it), a value the
+ * screen started the field at (its `defaultValue`), and a text column that can't be null
+ * (on a create, only when it has no default to fall back on).
  */
 export function blankValues(
   values: Record<string, unknown>,
   fields: readonly ResourceFormFieldDef[],
   action: "create" | "edit",
+  changed?: ReadonlySet<string>,
 ): Record<string, unknown> {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(values)) {
-    if (value !== "") {
-      out[key] = value;
-      continue;
-    }
     const field = byKey.get(key);
-    const keepsEmptyText =
-      TEXT_TYPES.has(field?.type ?? "text") && field?.nullable !== true && !(action === "create" && field?.hasDefault);
-    if (keepsEmptyText) out[key] = "";
+    const asBefore =
+      value !== "" ||
+      field?.nullable === undefined ||
+      field.defaultValue === "" ||
+      (action === "edit" && changed !== undefined && !changed.has(key)) ||
+      (TEXT_TYPES.has(field.type ?? "text") && !field.nullable && !(action === "create" && field.hasDefault));
+    if (asBefore) out[key] = value;
     else if (action === "edit") out[key] = null;
   }
   return out;
@@ -696,8 +701,13 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
               ),
             )
           : writable;
-      // An empty input is no value: left out of a create, null on an edit (see `blankValues`).
-      const formData = blankValues(changed, resolvedFields, action);
+      // An empty input the person left or made empty is no value (see `blankValues`).
+      const touched = new Set(
+        Object.entries(changed)
+          .filter(([k, v]) => !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]))
+          .map(([k]) => k),
+      );
+      const formData = blankValues(changed, resolvedFields, action, touched);
       // An edit with nothing left to write (only read-only fields) has nothing to send.
       if (action === "edit" && Object.keys(formData).length === 0) {
         markSaved();
