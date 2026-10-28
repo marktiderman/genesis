@@ -1,6 +1,6 @@
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, Fragment, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { dayIn, personTimeZone, type Day } from "../dates";
+import { dayIn, isTimeZone, personTimeZone, type Day } from "../dates";
 import { reportError } from "../errors";
 import { stableJson } from "./draft-controller";
 import { NO_VIEWER, type GenesisViewerRoles, type Viewer } from "../viewer";
@@ -72,16 +72,17 @@ export async function clearViewerCache(queryClient: QueryClient): Promise<void> 
 }
 
 /**
- * Where the viewer is working: the current practice, person or space, or a set
- * of people. Screens turn it into server filters and create defaults; it never
- * decides access (row-level security does).
+ * Where the viewer is working: the person, space or set of people Genesis knows by name, plus
+ * whatever the app scopes to under its own key (`{ orgId }`, `{ leagueId }`, `{ locationId }`).
+ * Screens turn it into server filters and create defaults (a view's `scope: ["league_id"]` reads
+ * `league_id`, then `leagueId`); it never decides access (row-level security does).
  */
 export interface ResourceScope {
-  practiceId?: string;
   personId?: string;
   spaceId?: string;
   /** Several people at once (a coach's client list, a group). */
   personIds?: readonly string[];
+  /** The app's own scope keys: `orgId`, `leagueId`, `locationId`, … */
   [key: string]: unknown;
 }
 
@@ -92,6 +93,11 @@ export interface ViewerContext {
   roles?: GenesisViewerRoles;
   /** The zone the viewer's days are counted in: theirs if known, else the device's. */
   timeZone: string;
+  /**
+   * The zone of whatever the viewer is scoped to (a location, a league), for columns with
+   * `timeZone: "scope"`: ViewerScope's `scopeTimeZone` when valid, else {@link timeZone}.
+   */
+  scopeTimeZone?: string;
   /**
    * Today on the viewer's clock (YYYY-MM-DD), kept current when the page comes back into view.
    * Use it for every "today" read and as query keys' `day`: `keys.for(useViewerScope())`.
@@ -154,10 +160,37 @@ export interface ViewerScopeProps {
    * rendering on a server, whose own zone is rarely the viewer's.
    */
   timeZone?: string | null;
+  /**
+   * The IANA zone of whatever the viewer is scoped to (a location, a league), when it has one.
+   * Columns with `timeZone: "scope"` read on it; without it they read on the viewer's clock.
+   */
+  scopeTimeZone?: string | null;
   /** Shown while the session loads (and for the one render a change takes). */
   fallback?: ReactNode;
   children: ReactNode;
 }
+
+/**
+ * The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it
+ * doesn't know is never a quiet fallback: it throws in development, and in production it is
+ * reported (`reportError`, once per zone) before the viewer's clock is used, so a misspelt zone can't show
+ * times on the wrong clock unnoticed.
+ */
+export function scopeClock(scopeTimeZone: string | null | undefined, viewerZone: string): string {
+  if (scopeTimeZone === undefined || scopeTimeZone === null || scopeTimeZone === "") return viewerZone;
+  if (isTimeZone(scopeTimeZone)) return scopeTimeZone;
+  const error = new RangeError(`[genesis-core] scopeTimeZone "${scopeTimeZone}" isn't a time zone this runtime knows (an IANA name such as "Europe/Berlin")`);
+  if (process.env.NODE_ENV !== "production") throw error;
+  // Once per zone: a bad zone in a long-lived screen must not flood the error reporter.
+  if (!reportedScopeZones.has(scopeTimeZone)) {
+    reportedScopeZones.add(scopeTimeZone);
+    reportError(error, "core:viewer-scope");
+  }
+  return viewerZone;
+}
+
+/** The unknown scope zones already reported, so each is reported once per page load. */
+const reportedScopeZones = new Set<string>();
 
 /**
  * Keeps one viewer's cached data from ever showing to the next. Children
@@ -173,9 +206,11 @@ export interface ViewerScopeProps {
  * </ViewerScope>
  * ```
  */
-export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, fallback = null, children }: ViewerScopeProps) {
+export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, scopeTimeZone, fallback = null, children }: ViewerScopeProps) {
   const queryClient = useQueryClient();
   const zone = personTimeZone({ timeZone });
+  // Memoised, and scopeClock reports a zone once, so a bad zone isn't reported on every render.
+  const scopeZone = useMemo(() => scopeClock(scopeTimeZone, zone), [scopeTimeZone, zone]);
   const day = useToday(zone);
   // A new scope object each render shouldn't re-render every reader: compare by value.
   const scopeKey = stableJson(scope ?? {});
@@ -183,9 +218,9 @@ export function ViewerScope({ viewer, persistedViewer, scope, roles, timeZone, f
   // Roles that aren't plain JSON count as unknown in production (rolesKeyOf warns; development throws).
   const rolesKey = roles === undefined ? undefined : rolesKeyOf(roles);
   const value = useMemo<ViewerContext>(
-    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(rolesKey !== undefined ? { roles } : {}), timeZone: zone, day }),
+    () => ({ viewer: viewer ?? null, scope: scope ?? {}, ...(rolesKey !== undefined ? { roles } : {}), timeZone: zone, scopeTimeZone: scopeZone, day }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [viewer, scopeKey, rolesKey, zone, day],
+    [viewer, scopeKey, rolesKey, zone, scopeZone, day],
   );
   // The last roles known for this viewer. Arriving (undefined → roles) or going back to undefined
   // changes nothing; different roles for the same person send their waiting writes, then reread

@@ -462,6 +462,23 @@ program
     if (report.doctor === "failed") process.exitCode = 1;
   });
 
+program
+  .command("codemod [id]")
+  .description("Run one of Genesis's codemods by hand (genesis upgrade runs them for you); without an id, list them")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .option("--dry-run", "List the files it would change; change nothing", false)
+  .action(async (id: string | undefined, opts: { dir: string; dryRun: boolean }) => {
+    const { CODEMODS, codemodById } = await import("./upgrade/codemods.js");
+    if (!id) {
+      for (const mod of CODEMODS) console.log(`${mod.id}  (${mod.package} ${mod.version})\n  ${mod.description}`);
+      return;
+    }
+    const mod = codemodById(id);
+    if (!mod) throw new Error(`No codemod "${id}". Run genesis codemod to list them.`);
+    const changed = await mod.run({ root: path.resolve(opts.dir), dryRun: opts.dryRun, log: (m) => console.log(m) });
+    console.log(changed.length ? `${opts.dryRun ? "Would change" : "✔ Changed"} ${changed.length} file${changed.length === 1 ? "" : "s"}:\n${changed.map((f) => `  ${f}`).join("\n")}` : "Nothing to change.");
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`✗ ${message}`);

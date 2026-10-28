@@ -6,6 +6,8 @@
  * does not pull in the page's components and icons.
  */
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { cascadeSelection } from "@marktiderman/genesis-core/resource-view";
+import type { ResourcePageTreeState } from "../../hooks/use-resource-page";
 import type { DataTableColumn, DataTableSort } from "./DataTable";
 import type {
   ResourceAction,
@@ -54,6 +56,7 @@ export function useResourceTableModel<
     icon,
     columns: columnsProp,
     getKey: getKeyProp,
+    tree: treeProp,
     detail = "panel",
     detailWidth = "md",
     titleField: titleFieldProp,
@@ -325,7 +328,15 @@ export function useResourceTableModel<
     titleField: titleFieldProp,
     subtitleField: subtitleFieldProp,
     controlled: isServerControlled || resourceCursorPaging,
+    ...(treeProp ? { tree: treeProp, ...(getKeyProp ? { getKey: getKeyProp } : {}) } : {}),
   });
+  // A tree is built from every row: a server page would cut parents from their children. Loud,
+  // never a tree drawn flat in silence.
+  if (treeProp && (isServerControlled || resourceCursorPaging)) {
+    throw new Error(
+      `ResourcePage(${resourceName ?? "data"}): \`tree\` needs every row on the client; use it with pagination="client" (the default) or \`data\`.`,
+    );
+  }
 
   // ── Server and cursor paging: push the filter row's state to the provider ──
   // Effects rather than the change handlers, so `initialFilters` and "Clear
@@ -503,14 +514,23 @@ export function useResourceTableModel<
   // ── Bulk selection ──
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const handleToggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }, []);
+  const pageTree = page.tree;
+  const handleToggleSelect = useCallback(
+    (id: string) => {
+      setSelectedIds((prev) =>
+        // Tree mode with `cascadeSelect`: the row and every descendant take its new state.
+        pageTree?.cascadeSelect
+          ? cascadeSelection(prev, id, pageTree.descendants(id))
+          : (() => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })(),
+      );
+    },
+    [pageTree],
+  );
 
   const handleToggleAll = useCallback(() => {
     setSelectedIds((prev) => {
@@ -1123,6 +1143,11 @@ export interface ResourceTableState<
   /** True when more than `clientRowLimit` rows exist and only that many were loaded. */
   truncated: boolean;
   /**
+   * Tree mode (the `tree` option): `rows` are the tree's visible rows in order, and this is each
+   * row's node (depth, open state), the open set, and `setExpanded`. Undefined for a flat list.
+   */
+  tree?: ResourcePageTreeState<T>;
+  /**
    * `pagination="cursor"`: whether more rows can be loaded, whether a page
    * is loading, and `load()` to append the next page. Undefined otherwise.
    */
@@ -1246,6 +1271,7 @@ export function useResourceTable<
     loading: m.isLoading,
     error: m.hasError,
     truncated: m.clientTruncated,
+    ...(m.page.tree ? { tree: m.page.tree } : {}),
     // Present only with `pagination="cursor"`.
     ...(m.loadMore ? { loadMore: m.loadMore } : {}),
     columns: m.tableColumns,

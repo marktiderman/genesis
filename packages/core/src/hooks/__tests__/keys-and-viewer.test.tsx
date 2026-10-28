@@ -9,7 +9,8 @@ import { defineQueryKeys, resourceKeys } from "../../query-keys";
 import { useInfiniteResource } from "../use-infinite-resource";
 import { useOne } from "../use-one";
 import { useResource } from "../use-resource";
-import { ViewerScope, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
+import { ViewerScope, scopeClock, useOptionalViewerScope, useViewerScope } from "../viewer-scope";
+import { setErrorReporter } from "../../errors";
 
 afterEach(cleanup);
 
@@ -307,14 +308,54 @@ describe("ViewerScope", () => {
         mounts.push("mount");
         return Math.random();
       });
-      return <p data-id={id}>{`${viewer}@${scope.practiceId ?? "-"}`}</p>;
+      return <p data-id={id}>{`${viewer}@${scope.orgId ?? "-"}`}</p>;
     }
-    const view = (practiceId: string) => wrap(<ViewerScope viewer="ann" scope={{ practiceId }}><Where /></ViewerScope>);
+    const view = (orgId: string) => wrap(<ViewerScope viewer="ann" scope={{ orgId }}><Where /></ViewerScope>);
     const { rerender } = render(view("p1"));
     await screen.findByText("ann@p1");
     rerender(view("p2"));
     await screen.findByText("ann@p2");
     expect(mounts).toEqual(["mount"]);
+  });
+
+  it("gives the scope's clock as scopeTimeZone: the valid zone passed, else the viewer's", async () => {
+    const { wrap } = setup();
+    function Clock() {
+      const { timeZone, scopeTimeZone } = useViewerScope();
+      return <p>{`${timeZone}|${scopeTimeZone}`}</p>;
+    }
+    const at = (scopeTimeZone?: string) =>
+      wrap(
+        <ViewerScope viewer="ann" timeZone="America/Los_Angeles" scopeTimeZone={scopeTimeZone}>
+          <Clock />
+        </ViewerScope>,
+      );
+    const { rerender } = render(at("Asia/Tokyo"));
+    await screen.findByText("America/Los_Angeles|Asia/Tokyo");
+    rerender(at(undefined));
+    await screen.findByText("America/Los_Angeles|America/Los_Angeles");
+  });
+
+  it("never falls back quietly from a scopeTimeZone it doesn't know: throws in development, reports in production", async () => {
+    expect(scopeClock(undefined, "America/Los_Angeles")).toBe("America/Los_Angeles");
+    expect(scopeClock("Asia/Tokyo", "America/Los_Angeles")).toBe("Asia/Tokyo");
+    expect(() => scopeClock("practice", "America/Los_Angeles")).toThrow(/scopeTimeZone "practice" isn't a time zone/);
+    expect(() => scopeClock("Not/AZone", "America/Los_Angeles")).toThrow(RangeError);
+
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      expect(scopeClock("Not/AZone", "America/Los_Angeles")).toBe("America/Los_Angeles");
+      // Once per zone, however often it is asked (every render of a ViewerScope).
+      expect(scopeClock("Not/AZone", "America/Los_Angeles")).toBe("America/Los_Angeles");
+      expect(reporter).toHaveBeenCalledTimes(1);
+      expect(String(reporter.mock.calls[0]![0])).toContain('"Not/AZone"');
+      expect(reporter.mock.calls[0]![1]).toMatchObject({ source: "core:viewer-scope" });
+    } finally {
+      vi.unstubAllEnvs();
+      restore();
+    }
   });
 
   it("useViewerScope needs a ViewerScope; useOptionalViewerScope is null without one", () => {

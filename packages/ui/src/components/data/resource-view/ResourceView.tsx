@@ -87,7 +87,7 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, ...rest } = props;
+  const { view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree, ...rest } = props;
   const cell = useDisplayCell();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
@@ -185,6 +185,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const orderBy = view.definition.orderBy;
   const copy = view.definition.copy;
+  // Tree mode (`tree`) needs every row: a page of a tree would cut parents from their children,
+  // and a server-side search would drop the ancestors that give a match its place.
+  if (screenTree && rest.pagination !== undefined && rest.pagination !== "client") {
+    throw new Error(
+      `ResourceView(${view.resource}): tree needs every row on the client; pagination="${rest.pagination}" can't page a tree. Leave pagination unset.`,
+    );
+  }
   const searchFields = rest.searchFields ?? (view.labelField ? [view.labelField] : undefined);
   return {
     resource: view.resource,
@@ -199,7 +206,9 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     getSubtitle: (row: T) => view.summary(row as T & DataRow).subtitle,
     detailFields,
     // Server paging by default: a list never loads a whole table to search it in the browser.
-    pagination: "server",
+    // A tree loads every row (up to `clientRowLimit`, with the page's "only N loaded" warning).
+    pagination: screenTree ? "client" : "server",
+    ...(screenTree ? { tree: screenTree } : {}),
     formFields,
     // Only the view's own fields make a form: the hidden ones a filter or defaults add don't.
     allowCreate: formFields.some((f) => !f.hidden),
@@ -227,6 +236,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
  * ```tsx
  * <ResourceView view={brandsView} />
  * <ResourceView view={sessionsView} layout="embedded" filter={{ client_id: id }} columns="compact" />
+ * <ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />
  * ```
  *
  * Customise in steps: a screen setting, then the view (every screen gets it), then a slot

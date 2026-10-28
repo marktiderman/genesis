@@ -26,6 +26,8 @@ import {
   type DataFilterConfig,
 } from "./DataFilters";
 import { DataTable, type DataTableSort } from "./DataTable";
+import { TreeIndent } from "./TreeIndent";
+import type { ResourceTree } from "@marktiderman/genesis-core/resource-view";
 import { DataBulkBar } from "./DataBulkBar";
 import { DataGrid } from "./DataGrid";
 import { DetailPanel } from "./DetailPanel";
@@ -648,6 +650,16 @@ export interface ResourcePageProps<
    */
   renderTable?: (items: T[]) => ReactNode;
   /**
+   * Tree mode: rows nest under the row `getParentId` names, built from the flat rows by
+   * genesis-core's `treeRows` (docs/RESOURCE-VIEW.md, "Tree mode"). Sort applies within siblings,
+   * search and the status filter keep each match's ancestors, open state is controlled
+   * (`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes
+   * selecting a row select its descendants. Table and list views draw the indent and the expand
+   * arrow; grid and custom cards stay flat. Client data only: `pagination="client"` (the
+   * default) or `data`; server and cursor paging throw.
+   */
+  tree?: ResourceTree<T>;
+  /**
    * With a custom `renderCard`: make each whole card (and list row) one
    * keyboard-reachable button that opens the detail, so the card needs no
    * `actions.open()` wiring and no hand-rolled `div role="button"`. Links and
@@ -914,6 +926,8 @@ export function ResourcePage<
     useBuiltInDelete,
     useBuiltInEdit,
   } = useResourceTableModel<T>(props);
+  // Tree mode's state (the `tree` option): each row's node and how to open or close one.
+  const pageTree = page.tree;
   // An embedded list shows a filter row only when it has something to filter by, or when
   // something is already filtering it (a `?q=` in the URL, say): never filtered with no way
   // to see why or clear it.
@@ -1062,12 +1076,20 @@ export function ResourcePage<
     const titleVal = titleCol
       ? String((item as Record<string, unknown>)[titleCol.key] ?? "")
       : "";
+    const node = pageTree?.nodes.get(keyOf(item));
+    const title = <span className="font-medium text-sm truncate">{titleVal}</span>;
     return (
       <div
         {...rowActivationProps(item, titleVal, "resource-list-row")}
         className="flex items-center justify-between px-3 py-2 border-b cursor-pointer hover:bg-muted/50 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
-        <span className="font-medium text-sm truncate">{titleVal}</span>
+        {node ? (
+          <TreeIndent node={node} name={titleVal} onToggle={(open) => pageTree!.setExpanded(keyOf(item), open)}>
+            {title}
+          </TreeIndent>
+        ) : (
+          title
+        )}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {cols.slice(1, 4).map((col) => {
             const val = (item as Record<string, unknown>)[col.key];
@@ -1237,6 +1259,8 @@ export function ResourcePage<
                 ...(isServerControlled
                   ? {}
                   : { sort: tableSort, onSortChange: handleTableSort }),
+                // Tree mode: the rows come in the tree's order; the table draws depth and arrows.
+                ...(pageTree ? { tree: { node: (id: string) => pageTree.nodes.get(id), setExpanded: pageTree.setExpanded } } : {}),
               },
               slotProps?.table,
             )

@@ -6,6 +6,7 @@ import { NO_VIEWER, type Viewer } from "../viewer";
 import { keyFields } from "../schema/keys";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
+import { isTimeZone } from "../dates";
 import type {
   Allowed,
   ComputedColumn,
@@ -187,6 +188,19 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     for (const [value, words] of Object.entries(v.labels)) {
       if (typeof words !== "string" || !words.trim()) problems.push(`fields.${name}.labels.${value} isn't text`);
       if (values?.length && !values.includes(value)) problems.push(`fields.${name}.labels names "${value}", which isn't one of its values`);
+    }
+  }
+  // A clock is "viewer", "scope" or a zone this runtime knows. Never a quiet fallback: a field
+  // drawn on the wrong clock shows the wrong times with nothing to say so.
+  for (const [name, v] of Object.entries(viewFields)) {
+    const zone: unknown = v?.timeZone;
+    if (zone === undefined || zone === "viewer" || zone === "scope") continue;
+    if (zone === "practice") {
+      problems.push(
+        `fields.${name}.timeZone "practice" was renamed "scope" in genesis-core 2; run \`genesis codemod genesis-core-2-scope-names\``,
+      );
+    } else if (!isTimeZone(zone)) {
+      problems.push(`fields.${name}.timeZone "${String(zone)}" isn't "viewer", "scope" or a time zone this runtime knows`);
     }
   }
   for (const [name, v] of Object.entries(viewFields)) {

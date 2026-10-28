@@ -81,7 +81,7 @@ describe("ViewerScope roles", () => {
   it("re-rendering with an equal new roles object doesn't reset or change the viewer", async () => {
     reset();
     const { client, wrap } = setup();
-    const at = (roles: Roles) => wrap(<ViewerScope viewer="ann" scope={{ practiceId: "p1" }} roles={roles}><Probe /></ViewerScope>);
+    const at = (roles: Roles) => wrap(<ViewerScope viewer="ann" scope={{ orgId: "p1" }} roles={roles}><Probe /></ViewerScope>);
     const { rerender } = render(at({ teamRoles: ["editor"] }));
     await screen.findByText("ann|allowed|loaded");
     const before = seen.at(-1);

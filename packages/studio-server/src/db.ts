@@ -7,7 +7,7 @@
 // ---------------------------------------------------------------------------
 
 import postgres from "postgres";
-import { IdentitySwitchError, settingsStatement, switchSettings } from "./switch";
+import { IdentitySwitchError, settingsStatement, switchRefusal, switchSettings } from "./switch";
 
 export type SqlRow = Record<string, unknown>;
 
@@ -172,7 +172,12 @@ function wrap(sql: postgres.Sql, owned: boolean): StudioDatabase {
           ["timezone", "UTC"],
           ["standard_conforming_strings", "on"],
         ]);
-        await query(text, params);
+        try {
+          await query(text, params);
+        } catch (error) {
+          // A login without the grant fails here; report it as the refused switch it is.
+          throw switchRefusal(identity.role, error) ?? error;
+        }
         const [who] = await query("select current_user as role");
         if (who?.role !== identity.role) throw new IdentitySwitchError(identity.role, who?.role);
         return fn(query);

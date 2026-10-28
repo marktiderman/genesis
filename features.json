@@ -452,6 +452,52 @@
       "flags": []
     },
     {
+      "id": "resource-tree",
+      "name": "Tree mode for lists",
+      "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",
+      "status": "beta",
+      "layer": "pattern",
+      "keywords": [
+        "tree",
+        "nested rows",
+        "hierarchy",
+        "parent",
+        "children",
+        "treegrid",
+        "expand",
+        "collapse"
+      ],
+      "platforms": {
+        "web": "beta"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "acceptance": [
+        "A ResourceView with tree nests a flat list under each row's parent, sorts within siblings and keeps the ancestors of a search match.",
+        "The table is a WAI-ARIA treegrid whose rows open with the right arrow key and close with the left."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/tree.ts",
+          "packages/ui/src/components/data/TreeIndent.tsx",
+          "packages/ui/src/hooks/use-resource-page.ts"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "data-provider",
       "name": "DataProvider and hooks",
       "summary": "The DataProvider contract, GenesisProvider, useResource / useOne / useResourceForm / useWizard, and a mock provider for tests.",

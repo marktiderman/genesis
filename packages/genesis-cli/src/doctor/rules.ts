@@ -30,6 +30,11 @@ export const BUILTIN_RULES = [
   "page-layout",
   // dates
   "iso-date-slice",
+  // Genesis API usage (api-usage.ts)
+  "resource-view-tree",
+  "studio-server-auth-import",
+  "removed-scope-name",
+  "scope-practice-id",
   // native pack
   "native-raw-primitive",
   "native-literal-color",

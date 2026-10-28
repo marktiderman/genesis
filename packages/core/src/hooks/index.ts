@@ -52,6 +52,7 @@ export {
   useViewerScope,
   useOptionalViewerScope,
   useViewer,
+  scopeClock,
   NO_VIEWER,
   type GenesisViewerRoles,
   type Viewer,
