@@ -173,41 +173,52 @@ export function renderAgentsBlock(rows: readonly PrimitiveRow[]): string {
   ].join("\n");
 }
 
-/** The AGENTS.md text with the block in place: replaced between its markers, or appended. */
-export function mergeAgentsBlock(agents: string | null, block: string): string {
-  const text = agents ?? "# Agent notes\n";
+/** Where the block's markers are: absent (neither), broken (one, or out of order), or the block's span. */
+function blockSpan(text: string): "absent" | "broken" | { start: number; end: number } {
   const s = text.indexOf(AGENTS_START);
   const e = text.indexOf(AGENTS_END);
-  if (s < 0 && e < 0) return `${text.replace(/\s*$/, "")}\n\n${block}\n`;
-  if (s < 0 || e < 0 || e < s) throw new Error(`AGENTS.md has a broken ${AGENTS_START} … ${AGENTS_END} block; fix it by hand.`);
-  return `${text.slice(0, s)}${block}${text.slice(e + AGENTS_END.length)}`;
+  if (s < 0 && e < 0) return "absent";
+  if (s < 0 || e < 0 || e < s) return "broken";
+  return { start: s, end: e + AGENTS_END.length };
 }
 
-/** The block currently in AGENTS.md (markers included), or null. */
-export function currentAgentsBlock(agents: string | null): string | null {
+/** The AGENTS.md text with the block in place: replaced between its markers, or appended, in the file's own line endings. */
+export function mergeAgentsBlock(agents: string | null, block: string): string {
+  const text = agents ?? "# Agent notes\n";
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const own = block.replace(/\n/g, eol);
+  const span = blockSpan(text);
+  if (span === "broken") throw new Error(`AGENTS.md has a broken ${AGENTS_START} … ${AGENTS_END} block; fix it by hand.`);
+  if (span === "absent") return `${text.replace(/\s*$/, "")}${eol}${eol}${own}${eol}`;
+  return `${text.slice(0, span.start)}${own}${text.slice(span.end)}`;
+}
+
+/** The block currently in AGENTS.md (markers included, line endings as `\n`), "broken" when a marker is missing or out of order, or null. */
+export function currentAgentsBlock(agents: string | null): string | "broken" | null {
   if (!agents) return null;
-  const s = agents.indexOf(AGENTS_START);
-  const e = agents.indexOf(AGENTS_END);
-  if (s < 0 || e < s) return null;
-  return agents.slice(s, e + AGENTS_END.length);
+  const span = blockSpan(agents);
+  if (span === "absent") return null;
+  if (span === "broken") return "broken";
+  return agents.slice(span.start, span.end).replace(/\r\n/g, "\n");
 }
 
 const read = (file: string) => (existsSync(file) ? readFileSync(file, "utf8") : null);
 
-/** `genesis agents`: write the skill and the AGENTS.md block. Returns the files it changed. */
+/** `genesis agents`: write the skill and the AGENTS.md block. Returns the files it changed. Writes nothing when AGENTS.md's block is broken. */
 export function writeAgentGuide(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): string[] {
   const rows = primitivesCatalog(packages);
   const changed: string[] = [];
+  const agents = path.join(root, agentsFile);
+  const before = read(agents);
+  // Merge first: a broken block throws before either file is touched.
+  const after = mergeAgentsBlock(before, renderAgentsBlock(rows));
   const skill = path.join(root, SKILL_PATH);
   const skillText = renderSkill(rows);
-  if (read(skill) !== skillText) {
+  if (read(skill)?.replace(/\r\n/g, "\n") !== skillText) {
     mkdirSync(path.dirname(skill), { recursive: true });
     writeFileSync(skill, skillText);
     changed.push(SKILL_PATH);
   }
-  const agents = path.join(root, agentsFile);
-  const before = read(agents);
-  const after = mergeAgentsBlock(before, renderAgentsBlock(rows));
   if (before !== after) {
     writeFileSync(agents, after);
     changed.push(agentsFile);
@@ -216,13 +227,17 @@ export function writeAgentGuide(root: string, packages: readonly DeclaringPackag
 }
 
 /** What `agent-guide-stale` found: the generated files that are missing or differ. */
-export function agentGuideState(root: string, packages: readonly DeclaringPackage[], agentsFile = "AGENTS.md"): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" } {
+export function agentGuideState(
+  root: string,
+  packages: readonly DeclaringPackage[],
+  agentsFile = "AGENTS.md",
+): { skill: "ok" | "missing" | "stale"; agents: "ok" | "missing" | "stale" | "broken" } {
   const rows = primitivesCatalog(packages);
-  const skill = read(path.join(root, SKILL_PATH));
+  const skill = read(path.join(root, SKILL_PATH))?.replace(/\r\n/g, "\n") ?? null;
   const block = currentAgentsBlock(read(path.join(root, agentsFile)));
   return {
     skill: skill === null ? "missing" : skill === renderSkill(rows) ? "ok" : "stale",
-    agents: block === null ? "missing" : block === renderAgentsBlock(rows) ? "ok" : "stale",
+    agents: block === null || block === "broken" ? (block ?? "missing") : block === renderAgentsBlock(rows) ? "ok" : "stale",
   };
 }
 
@@ -239,6 +254,11 @@ export function checkAgentGuide(ctx: DoctorContext): void {
     ctx.report({ rule: "agent-guide-stale", level: "warn", file: SKILL_PATH, message: `${state.skill === "missing" ? "is missing" : "doesn't match the installed Genesis packages"}; ${fix}` });
   }
   if (state.agents !== "ok") {
-    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message: `${state.agents === "missing" ? "has no genesis-primitives block" : "has a genesis-primitives block that doesn't match the installed Genesis packages"}; ${fix}` });
+    const message = {
+      missing: `has no genesis-primitives block; ${fix}`,
+      broken: `has a broken genesis-primitives block (a ${AGENTS_START} or ${AGENTS_END} marker is missing or out of order); fix the markers by hand, then ${fix}`,
+      stale: `has a genesis-primitives block that doesn't match the installed Genesis packages; ${fix}`,
+    }[state.agents];
+    ctx.report({ rule: "agent-guide-stale", level: "warn", file: "AGENTS.md", message });
   }
 }

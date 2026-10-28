@@ -5,6 +5,8 @@
  * - `vite dev`: logs problems and shows Vite's error overlay, re-checking
  *   (debounced) whenever a scanned file, the config or the rules doc changes.
  *
+ * Neither runs `contracts-stale`, which reads the database: the CLI and CI do.
+ *
  *   import { genesisDoctor } from "@marktiderman/genesis-cli/vite";
  *   export default defineConfig({ plugins: [genesisDoctor()] });
  */
@@ -39,7 +41,8 @@ export function genesisDoctor(options: GenesisDoctorOptions = {}): Plugin[] {
         root = options.root ?? config.root;
       },
       async buildStart() {
-        const result = await runDoctor({ root, configPath: options.configPath, strict: options.strict });
+        // The contract check reads a live database: `genesis doctor` in CI runs it, never a build.
+        const result = await runDoctor({ root, configPath: options.configPath, strict: options.strict, contracts: false });
         if (!result.ok) this.error(`Genesis doctor found problems:\n${formatProblems(result, options.strict)}`);
         if (result.warnings > 0) this.warn(formatReport(result));
       },

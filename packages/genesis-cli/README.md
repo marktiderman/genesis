@@ -407,10 +407,11 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything. |
-| `package-rules-invalid` | error | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate. Its rules don't run; the rest of the doctor does. See [Package rules](#package-rules). |
+| `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
-| `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, or one of the two is missing. An app with neither isn't checked. |
-| `ratchet-skipped` | warn | `--base` was given and something ratchets, but git couldn't compare (not a repository, or the ref isn't fetched): every rule ran at its full level. |
+| `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
+| `ratchet-skipped` | warn | `--base` was given and something ratchets (or a config file holds `allow`), but git couldn't compare (not a repository, or the ref isn't fetched): every rule ran at its full level and `allow` wasn't compared. |
+| `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the config file at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine; a config file new since the base isn't compared. |
 
 It also prints **Available but unused**: the Genesis components no file imports, and a
 **Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
@@ -511,7 +512,7 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
 | `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
 | `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
-| `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, `["public"]`, `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning. The Vite dev server skips it. |
+| `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, `["public"]`, `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning. A contract whose `// Source:` line isn't Postgres (one written with `--openapi`) is reported as `info` ("not checked"); check it with `genesis introspect --openapi … --check`. Line endings don't count. The Vite plugin skips it in builds and the dev server, so a build never reads a live database: run it with `genesis doctor` in CI. |
 | `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
@@ -660,7 +661,10 @@ fails when either is out of date, and the doctor's `agent-guide-stale` warns. Ru
 "ratcheted" in its message. Changed means committed on the branch, staged, edited or
 untracked. Without `--base` every rule runs at its level, as before; when git can't compare,
 `ratchet-skipped` says so and nothing is lowered. `allow` entries still remove findings,
-ratcheted or not: they are the recorded ratchet, file by file.
+ratcheted or not: they are the recorded ratchet, file by file, and under `--base` the list only
+shrinks: `allow-grew` fails an entry the config file at the merge base didn't have. `rules` sets
+the level of both like any rule. A shallow CI clone has no merge base, so check out with
+`fetch-depth: 0` and fetch the base ref (see [Which migrations are new](#rule-packs)).
 
 ```json
 { "doctor": { "ratchet": ["ui/lists-use-resource-view", "core/direct-data-access"] } }
@@ -784,7 +788,8 @@ export default defineConfig({ plugins: [genesisDoctor()] });
 `vite build` fails when the doctor finds errors (`genesisDoctor({ strict: true })` fails on
 warnings too). `vite dev` logs problems and shows Vite's error overlay, re-checks on every
 change under the app (plus `genesis.config.json` and the rules doc), shows the overlay to
-browsers that connect later, and reloads once everything passes. Options: `root`, `configPath`,
+browsers that connect later, and reloads once everything passes. Neither runs `contracts-stale`,
+which reads the database; run `genesis doctor` in CI for it. Options: `root`, `configPath`,
 `strict`, `debounceMs`. `vite` is an optional peer dependency.
 
 ### Programmatic use

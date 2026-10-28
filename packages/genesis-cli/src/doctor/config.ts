@@ -200,6 +200,16 @@ export function loadConfig(root: string, configPath?: string): LoadedConfig {
   return { config: {}, file: null, dir: root };
 }
 
+/**
+ * Where a config file keeps the doctor settings, as loadConfig reads it: a package.json under
+ * `genesis.doctor`, genesis.config.json under `doctor`, an explicit file under `doctor` or at the top.
+ */
+export function doctorBlock(json: unknown, file: string, explicit: boolean): unknown {
+  const j = json as { doctor?: unknown; genesis?: { doctor?: unknown } } | null;
+  if (path.basename(file) === "package.json") return j?.genesis?.doctor;
+  return explicit ? (j?.doctor ?? j) : j?.doctor;
+}
+
 /** A package's rule declaration (`prefer`, `primitives`, `plugin`, `enforce`), as opposed to an app's doctor settings. */
 function isPackageDeclaration(block: unknown): boolean {
   return typeof block === "string" || (isObject(block) && ["prefer", "primitives", "plugin", "enforce"].some((k) => k in block));

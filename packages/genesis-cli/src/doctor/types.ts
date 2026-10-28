@@ -351,4 +351,6 @@ export interface DeclaringPackage {
   declaration: PackageDeclaration | null;
   /** Why its declaration was refused, when it was. */
   error?: string;
+  /** What was left out of an accepted declaration (unknown keys, rules that don't validate), when anything was. */
+  ignored?: string[];
 }

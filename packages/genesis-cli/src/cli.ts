@@ -166,7 +166,8 @@ program
     const target = path.resolve(opts.out);
     if (opts.check) {
       const current = await fs.readFile(target, "utf-8").catch(() => null);
-      if (current !== content) {
+      // A checkout with Windows line endings holds the same contract.
+      if (current?.replace(/\r\n/g, "\n") !== content) {
         console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
         process.exit(1);
       }
@@ -225,6 +226,7 @@ program
     console.log(doctor.formatPrimitives(rows));
     const broken = packages.filter((p) => p.error);
     for (const p of broken) console.error(`! ${p.error}`);
+    for (const note of packages.flatMap((p) => p.ignored ?? [])) console.error(`! ${note}`);
     if (broken.length) process.exitCode = 1;
   });
 

@@ -31,12 +31,31 @@ export async function postgresContract(url: string, schemas: string[]): Promise<
 /** Test seam: what reads the contract from the database. */
 export type ContractReader = (url: string, schemas: string[]) => Promise<{ content: string }>;
 
+/** The `// Source:` line a generated contract carries, or null. */
+export function contractSource(content: string): string | null {
+  return /^\/\/ Source: (.*)$/m.exec(content.slice(0, 2000))?.[1]?.trim() ?? null;
+}
+
+const lf = (text: string) => text.replace(/\r\n/g, "\n");
+
 export async function checkContracts(ctx: DoctorContext, read: ContractReader = postgresContract): Promise<void> {
   const settings = ctx.config.contracts;
   if (!settings) return;
   const out = settings.out ?? DEFAULT_CONTRACT_OUT;
   const schemas = settings.schemas?.length ? settings.schemas : ["public"];
   const env = settings.databaseEnv ?? DEFAULT_DATABASE_ENV;
+  let current: string | null = null;
+  try {
+    current = lf(readFileSync(path.join(ctx.root, out), "utf8"));
+  } catch {
+    current = null;
+  }
+  // Only a contract read from Postgres can be re-read here; one from an OpenAPI document needs its URL and key.
+  const source = current === null ? null : contractSource(current);
+  if (source !== null && !source.startsWith("Postgres (")) {
+    ctx.report({ rule: "contracts-stale", level: "info", file: out, message: `not checked: it was generated from ${source.split(" ")[0]}, and the doctor compares only contracts read from Postgres; check it with genesis introspect --check and the same source` });
+    return;
+  }
   const url = process.env[env];
   if (!url) {
     ctx.report({ rule: "contracts-stale", level: "info", file: out, message: `not checked: set ${env} to the database URL to compare it with the database (as genesis introspect --check)` });
@@ -44,16 +63,10 @@ export async function checkContracts(ctx: DoctorContext, read: ContractReader = 
   }
   let expected: string;
   try {
-    expected = (await read(url, schemas)).content;
+    expected = lf((await read(url, schemas)).content);
   } catch (err) {
     ctx.report({ rule: "contracts-stale", level: "warn", file: out, message: `couldn't read the database through ${env}: ${(err as Error).message.split("\n")[0]}` });
     return;
-  }
-  let current: string | null = null;
-  try {
-    current = readFileSync(path.join(ctx.root, out), "utf8");
-  } catch {
-    current = null;
   }
   if (current !== expected) {
     ctx.report({

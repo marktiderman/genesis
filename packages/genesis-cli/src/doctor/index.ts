@@ -34,7 +34,7 @@ import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, check
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules } from "./package-rules.js";
-import { applyRatchet, changedSince } from "./ratchet.js";
+import { allowAtBase, allowGrew, applyRatchet, changedSince } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { existsSync } from "node:fs";
@@ -109,7 +109,7 @@ export interface RunDoctorOptions {
   base?: string;
   /** Files changed since `base`, app-relative, instead of asking git (tests, or a CI that already knows). */
   changedFiles?: string[];
-  /** Run the supabase pack's contract check (it reads the database). Default true; the Vite dev server passes false. */
+  /** Run the supabase pack's contract check (it reads the database). Default true; the Vite plugin (build and dev) passes false. */
   contracts?: boolean;
 }
 
@@ -145,15 +145,27 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     if (failure) raw.push(failure);
   }
 
-  let findings = applyConfig(raw, config, packageRuleIds(packages));
+  // Under --base: the ratchet's changed files, and the allow list against the base's. When git can't
+  // compare, one ratchet-skipped notice; it and allow-grew go through rules and allow like any finding.
   const newOnly = new Set([...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
+  let changed: Set<string> | null = null;
+  let skipped = false;
   if (options.base && (newOnly.size > 0 || config.ratchet)) {
-    const changed = options.changedFiles ? new Set(options.changedFiles) : changedSince(root, options.base);
-    if (changed) {
-      findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath: (f) => existsSync(path.join(root, f)) });
-    } else {
-      findings.push({ rule: "ratchet-skipped", level: "warn", file: "genesis config", line: 0, message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level` });
-    }
+    changed = options.changedFiles ? new Set(options.changedFiles) : changedSince(root, options.base);
+    skipped ||= !changed;
+  }
+  const configFile = "file" in loaded ? loaded.file : null;
+  if (options.base && configFile && config.allow?.length) {
+    const before = allowAtBase(configFile, options.base, options.configPath !== undefined);
+    if (before) raw.push(...allowGrew(config.allow ?? [], before, options.base));
+    skipped ||= !before;
+  }
+  if (skipped) {
+    raw.push({ rule: "ratchet-skipped", level: "warn", file: "genesis config", message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level and allow wasn't compared` });
+  }
+  let findings = applyConfig(raw, config, packageRuleIds(packages));
+  if (options.base && changed) {
+    findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath: (f) => existsSync(path.join(root, f)) });
   }
   const errors = findings.filter((f) => f.level === "error").length;
   const warnings = findings.filter((f) => f.level === "warn").length;

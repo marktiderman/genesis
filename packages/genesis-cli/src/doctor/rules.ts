@@ -65,6 +65,7 @@ export const BUILTIN_RULES = [
   "package-rule-override",
   // ratchet (ratchet.ts)
   "ratchet-skipped",
+  "allow-grew",
   // agent guide (primitives.ts)
   "agent-guide-stale",
   // supabase pack: contracts (contracts.ts)

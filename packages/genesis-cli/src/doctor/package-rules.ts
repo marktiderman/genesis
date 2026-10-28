@@ -40,6 +40,7 @@ import { globMatcher } from "./glob.js";
 import { loadPlugins } from "./plugins.js";
 import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
+import { localImportedNames } from "./source.js";
 import { importSpecifiers } from "./rules.js";
 import type { DeclaringPackage, DoctorContext, DoctorPlugin, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
 
@@ -78,11 +79,32 @@ export function toRegExp(source: string, flags = ""): RegExp {
 /**
  * Check one package's `genesis.doctor` value and return it normalized. Throws a
  * PackageDeclarationError naming the package and the key that's wrong.
+ *
+ * With `ignored`, it reads forward-compatibly, as an app's doctor reads installed packages: a
+ * package may be newer than this CLI, so an unknown key, or a `prefer` rule or primitive that
+ * doesn't validate, is left out and described in `ignored` instead of refusing the declaration.
  */
-export function validateDeclaration(raw: unknown, packageName: string, packageDir?: string): PackageDeclaration {
+export function validateDeclaration(raw: unknown, packageName: string, packageDir?: string, ignored?: string[]): PackageDeclaration {
   const fail = (msg: string): never => {
     throw new PackageDeclarationError(`${packageName}: genesis.doctor ${msg}`);
   };
+  const unknownKey = (where: string, key: string, known?: Set<string>) => {
+    const msg = `${where ? `${where} ` : ""}has an unknown key "${key}"${known ? ` (known: ${[...known].filter((k) => k !== "$comment").join(", ")})` : ""}`;
+    if (!ignored) return fail(msg);
+    ignored.push(`${packageName}: genesis.doctor ${msg}; ignored`);
+  };
+  // One rule or primitive that doesn't validate is left out on its own when reading leniently.
+  const each = <T>(list: unknown[], check: (item: unknown, i: number) => T): T[] =>
+    list.flatMap((item, i) => {
+      if (!ignored) return [check(item, i)];
+      try {
+        return [check(item, i)];
+      } catch (err) {
+        if (!(err instanceof PackageDeclarationError)) throw err;
+        ignored.push(`${err.message}; that entry is skipped`);
+        return [];
+      }
+    });
   if (typeof raw === "string") {
     if (!packageDir) fail(`points at ${raw}, but the package folder is unknown`);
     const file = path.resolve(packageDir!, raw);
@@ -94,12 +116,12 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
     } catch (err) {
       return fail(`file ${raw} is not valid JSON: ${(err as Error).message}`);
     }
-    return validateDeclaration(parsed, packageName, packageDir);
+    return validateDeclaration(parsed, packageName, packageDir, ignored);
   }
   if (raw === false) fail(`is false; say why with { "enforce": false, "reason": "…" }`);
   if (!isObject(raw)) fail(`must be an object (or a path to a JSON file in the package)`);
   const c = raw as Record<string, unknown>;
-  for (const key of Object.keys(c)) if (!DECLARATION_KEYS.has(key)) fail(`has an unknown key "${key}" (known: ${[...DECLARATION_KEYS].filter((k) => k !== "$comment").join(", ")})`);
+  for (const key of Object.keys(c)) if (!DECLARATION_KEYS.has(key)) unknownKey("", key, DECLARATION_KEYS);
   const enforce = c.enforce === undefined ? true : c.enforce;
   if (typeof enforce !== "boolean") fail(`enforce must be true or false`);
   if (c.reason !== undefined && (typeof c.reason !== "string" || !c.reason.trim())) fail(`reason must be a sentence`);
@@ -115,15 +137,15 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
     fail(`declares no rules; add "prefer" rules or a "plugin", or say { "enforce": false, "reason": "…" }`);
   }
   const ids = new Set<string>();
-  const rules = (prefer as unknown[]).map((r, i) => validatePrefer(r, `prefer[${i}]`, fail));
+  const rules = each(prefer as unknown[], (r, i) => validatePrefer(r, `prefer[${i}]`, fail, unknownKey));
   for (const r of rules) {
     if (ids.has(r.id)) fail(`defines the rule "${r.id}" twice`);
     ids.add(r.id);
   }
-  const entries = (primitives as unknown[]).map((p, i) => {
+  const entries = each(primitives as unknown[], (p, i) => {
     const where = `primitives[${i}]`;
     if (!isObject(p)) return fail(`${where} must be an object`);
-    for (const key of Object.keys(p)) if (!PRIMITIVE_KEYS.has(key)) fail(`${where} has an unknown key "${key}"`);
+    for (const key of Object.keys(p)) if (!PRIMITIVE_KEYS.has(key)) unknownKey(where, key);
     for (const key of ["need", "use"]) if (typeof p[key] !== "string" || !(p[key] as string).trim()) fail(`${where} needs "${key}"`);
     for (const key of ["import", "docs"]) if (p[key] !== undefined && typeof p[key] !== "string") fail(`${where}.${key} must be a string`);
     return p as unknown as PrimitiveEntry;
@@ -145,9 +167,9 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
   };
 }
 
-function validatePrefer(raw: unknown, where: string, fail: (msg: string) => never): PreferRule {
+function validatePrefer(raw: unknown, where: string, fail: (msg: string) => never, unknownKey: (where: string, key: string) => void): PreferRule {
   if (!isObject(raw)) return fail(`${where} must be an object`);
-  for (const key of Object.keys(raw)) if (!PREFER_KEYS.has(key)) fail(`${where} has an unknown key "${key}"`);
+  for (const key of Object.keys(raw)) if (!PREFER_KEYS.has(key)) unknownKey(where, key);
   if (typeof raw.id !== "string" || !ID.test(raw.id)) fail(`${where} needs an "id" of lower-case words and dashes`);
   const at = `${where} (${raw.id as string})`;
   for (const key of ["use", "why"]) if (typeof raw[key] !== "string" || !(raw[key] as string).trim()) fail(`${at} needs "${key}"`);
@@ -158,7 +180,7 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
   for (const key of ["files", "exclude"]) if (raw[key] !== undefined && !isStringList(raw[key])) fail(`${at}.${key} must be a list of globs`);
   if (!isObject(raw.forbid)) fail(`${at} needs "forbid": { jsx?, imports?, pattern? }`);
   const forbid = raw.forbid as Record<string, unknown>;
-  for (const key of Object.keys(forbid)) if (!FORBID_KEYS.has(key)) fail(`${at}.forbid has an unknown key "${key}"`);
+  for (const key of Object.keys(forbid)) if (!FORBID_KEYS.has(key)) unknownKey(`${at}.forbid`, key);
   if (!forbid.jsx && !forbid.imports && !forbid.pattern) fail(`${at}.forbid needs jsx, imports or pattern`);
   if (forbid.jsx !== undefined && !(isStringList(forbid.jsx) && forbid.jsx.every((n) => /^[A-Z][\w.]*$/.test(n)))) fail(`${at}.forbid.jsx must be a list of component names`);
   if (forbid.imports !== undefined && !isStringList(forbid.imports)) fail(`${at}.forbid.imports must be a list of import specifiers`);
@@ -166,7 +188,7 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
   if (raw.unless !== undefined) {
     if (!isObject(raw.unless)) fail(`${at}.unless must be an object`);
     const unless = raw.unless as Record<string, unknown>;
-    for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) fail(`${at}.unless has an unknown key "${key}"`);
+    for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) unknownKey(`${at}.unless`, key);
     if (unless.renders !== undefined && !isStringList(unless.renders)) fail(`${at}.unless.renders must be a list of component names`);
     if (unless.pattern !== undefined) checkPattern(unless.pattern, `${at}.unless.pattern`, fail);
   }
@@ -222,8 +244,10 @@ export function readDeclaringPackage(dir: string, local: boolean): DeclaringPack
   };
   const raw = json.genesis?.doctor;
   if (raw !== undefined) {
+    const ignored: string[] = [];
     try {
-      pkg.declaration = validateDeclaration(raw, json.name, path.resolve(dir));
+      pkg.declaration = validateDeclaration(raw, json.name, path.resolve(dir), ignored);
+      if (ignored.length) pkg.ignored = ignored;
     } catch (err) {
       pkg.error = (err as Error).message;
     }
@@ -270,7 +294,7 @@ export function discoverPackages(root: string): DeclaringPackage[] {
     const pkg = readDeclaringPackage(l.dir, true);
     if (pkg) byName.set(pkg.name, pkg);
   }
-  return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
+  return [...byName.values()].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 }
 
 /** Forget what was read (tests). */
@@ -340,39 +364,74 @@ function messageFor(rule: ResolvedPreferRule, found: string): string {
   return `${found}; use ${rule.use}${from}. ${rule.why}${docs}`;
 }
 
-/** Components a file exports by name (`export function RecordTable`, `export const RecordTable =`). */
-const EXPORTED_COMPONENT = /\bexport\s+(?:default\s+)?(?:function|const|let|class)\s+([A-Z][\w$]*)/g;
+/** A top-level declaration (at the start of a line): whether it is exported, and its name. */
+const TOP_LEVEL = /^(export\s+(default\s+)?)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([\w$]+)/gm;
+/** `export { A, B as C }` without `from`: names exported after their declaration. */
+const EXPORT_LIST = /\bexport\s*\{([^}]*)\}(?!\s*from)/g;
+
+/**
+ * The components a file exports whose own declaration renders a forbidden element, keyed by the
+ * name they are imported under (`default` for the default export). A declaration runs from its
+ * line to the next top-level declaration, so a sibling export that doesn't render it isn't one.
+ */
+function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledPrefer): Map<string, string> {
+  const out = new Map<string, string>();
+  const decls = [...file.code.matchAll(TOP_LEVEL)];
+  const listed = new Map<string, string[]>();
+  for (const m of file.code.matchAll(EXPORT_LIST)) {
+    for (const part of m[1]!.split(",")) {
+      const [local, exported] = part.trim().split(/\s+as\s+/);
+      if (local) listed.set(local, [...(listed.get(local) ?? []), exported ?? local]);
+    }
+  }
+  decls.forEach((d, i) => {
+    const name = d[3]!;
+    if (!/^[A-Z]/.test(name) || c.jsx.has(name)) return;
+    const end = decls[i + 1]?.index ?? file.code.length;
+    const hit = elements.find((m) => m.index! > d.index! && m.index! < end && c.jsx.has(m[1]!));
+    if (!hit) return;
+    const names = [...(d[1] ? [d[2] ? "default" : name] : []), ...(listed.get(name) ?? [])];
+    for (const n of names) out.set(n, hit[1]!);
+  });
+  return out;
+}
 
 /**
  * Run one compiled rule over the scanned files. A forbidden element counts
  * where it is rendered and, one level up, wherever an app component that
  * renders it is used: a local wrapper (`RecordTable` around `DataTable`) is
- * flagged once, and every screen that renders the wrapper is flagged too.
+ * flagged once, and every screen that imports and renders the wrapper is flagged too.
  */
 function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
   const own = c.rule.packageDir;
   const checked = ctx.files.filter((file) => SCRIPT.has(file.ext) && c.includes(file.path) && !c.excludes(file.path) && !inside(own, file.absolutePath));
   const exempt = (file: SourceFile, rendered: string[]) => rendered.some((n) => c.unlessRenders.has(n)) || (c.unlessPattern?.test(file.code) ?? false);
-  // Wrappers: exported components of files that render a forbidden element and aren't exempt.
-  const wrappers = new Map<string, string>();
+  // Wrappers, by file: exported components whose own body renders a forbidden element, in files that aren't exempt.
+  const wrappers = new Map<string, Map<string, string>>();
   const renderedBy = new Map<SourceFile, RegExpMatchArray[]>();
   for (const file of checked) {
-    const elements = JSX.has(file.ext) ? [...file.code.matchAll(ELEMENT)] : [];
+    if (!JSX.has(file.ext)) continue;
+    const elements = [...file.code.matchAll(ELEMENT)];
     renderedBy.set(file, elements);
-    if (!c.jsx.size) continue;
-    const hit = elements.find((m) => c.jsx.has(m[1]!));
-    if (!hit || exempt(file, elements.map((m) => m[1]!))) continue;
-    for (const m of file.code.matchAll(EXPORTED_COMPONENT)) if (!c.jsx.has(m[1]!)) wrappers.set(m[1]!, hit[1]!);
+    if (!c.jsx.size || exempt(file, elements.map((m) => m[1]!))) continue;
+    const found = wrappersIn(file, elements, c);
+    if (found.size) wrappers.set(file.absolutePath, found);
   }
   for (const file of checked) {
     const elements = renderedBy.get(file) ?? [];
     if (exempt(file, elements.map((m) => m[1]!))) continue;
     const report = (line: number, subject: string, found: string) =>
       ctx.report({ rule: c.rule.ruleId, level: c.level, file: file.path, line, subject, message: messageFor(c.rule, found) });
+    const imported = wrappers.size && elements.length ? localImportedNames(ctx.root, file) : null;
     for (const m of elements) {
       const name = m[1]!;
-      if (c.jsx.has(name)) report(lineAt(file.code, m.index!), name, `renders <${name}>`);
-      else if (wrappers.has(name) && !definesComponent(file.code, name)) report(lineAt(file.code, m.index!), name, `renders <${name}>, an app wrapper around <${wrappers.get(name)}>`);
+      if (c.jsx.has(name)) {
+        report(lineAt(file.code, m.index!), name, `renders <${name}>`);
+        continue;
+      }
+      const from = imported?.get(name.split(".")[0]!);
+      const around = from && !name.includes(".") ? wrappers.get(from.file)?.get(from.name) : undefined;
+      if (around) report(lineAt(file.code, m.index!), name, `renders <${name}>, an app wrapper around <${around}>`);
     }
     if (c.imports.length) {
       for (const { specifier, line } of importSpecifiers(file)) {
@@ -389,15 +448,14 @@ function runPrefer(ctx: DoctorContext, c: CompiledPrefer): void {
   }
 }
 
-/** Whether the file itself defines the component (the wrapper's own file, or a same-named local one). */
-const definesComponent = (code: string, name: string) => new RegExp(`\\b(?:function|const|let|class)\\s+${name.replace(/\$/g, "\\$")}\\b`).test(code);
-
 const isNative = (ctx: Pick<DoctorContext, "config">) => ctx.config.packs?.includes("native") ?? false;
 
 /**
  * The doctor plugin for every package's rules: invalid declarations as
  * `package-rules-invalid`, prefer rules, then each package's own plugin module
- * (its findings namespaced like its prefer rules).
+ * (its findings namespaced like its prefer rules). `package-rules-invalid` is a
+ * warning: a package newer than this CLI (or a broken one) must never fail an
+ * app's build; what it can't read is skipped and said.
  */
 export async function packageRulesPlugins(packages: readonly DeclaringPackage[]): Promise<DoctorPlugin[]> {
   const out: DoctorPlugin[] = [
@@ -405,7 +463,9 @@ export async function packageRulesPlugins(packages: readonly DeclaringPackage[])
       name: "package-rules",
       check(ctx) {
         for (const p of packages) {
-          if (p.error) ctx.report({ rule: "package-rules-invalid", file: `${p.name}/package.json`, subject: p.name, message: `${p.error}; its rules don't run` });
+          const at = { rule: "package-rules-invalid", level: "warn", file: `${p.name}/package.json`, subject: p.name } as const;
+          if (p.error) ctx.report({ ...at, message: `${p.error}; its rules don't run` });
+          for (const note of p.ignored ?? []) ctx.report({ ...at, message: `${note} (a newer @marktiderman/genesis-cli may read it)` });
         }
         const routes = routesDir(ctx);
         const settings = ctx.config.packageRules ?? {};
@@ -426,7 +486,7 @@ export async function packageRulesPlugins(packages: readonly DeclaringPackage[])
       loaded = await loadPlugins([file], p.dir);
     } catch (err) {
       const message = (err as Error).message;
-      out.push({ name: `${p.name} plugin`, check: (ctx) => ctx.report({ rule: "package-rules-invalid", file: `${p.name}/package.json`, subject: p.name, message }) });
+      out.push({ name: `${p.name} plugin`, check: (ctx) => ctx.report({ rule: "package-rules-invalid", level: "warn", file: `${p.name}/package.json`, subject: p.name, message }) });
       continue;
     }
     for (const plugin of loaded) {

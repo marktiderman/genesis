@@ -35,6 +35,12 @@ beforeEach(() => {
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
+/** git in a test repo, with no hooks (a global hook would write into the temp folder). */
+const gitIn =
+  (root: string) =>
+  (...args: string[]) =>
+    execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.email=t@example.com", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+
 const brief = (findings: Finding[], prefix: string) =>
   findings.filter((f) => f.rule.startsWith(prefix)).map((f) => `${f.rule} ${f.level} ${f.file}:${f.line}${f.subject ? ` ${f.subject}` : ""}`);
 
@@ -201,8 +207,51 @@ describe("package rules in the doctor", () => {
   it("reports an invalid declaration without stopping the run", async () => {
     const root = makeApp("raw-tag", widgets({ prefer: [{ id: "x" }] }));
     const result = await runDoctor({ root, config: {} });
-    expect(brief(result.findings, "package-rules-invalid")).toEqual(["package-rules-invalid error @marktiderman/genesis-widgets/package.json:0 @marktiderman/genesis-widgets"]);
+    expect(brief(result.findings, "package-rules-invalid")).toEqual(["package-rules-invalid warn @marktiderman/genesis-widgets/package.json:0 @marktiderman/genesis-widgets"]);
     expect(result.findings.some((f) => f.rule === "raw-tag")).toBe(true);
+  });
+
+  it("reads a newer package's declaration forward-compatibly: unknown keys and rules it can't read are skipped with a warning", async () => {
+    const declaration = { future: true, prefer: [{ ...LIST_RULE, severity: "high" }, { ...LIST_RULE, id: "no-calls", forbid: { calls: ["fetchRows"] } }] };
+    const root = makeApp(null, { ...widgets(declaration), "src/Screen.tsx": SCREEN });
+    const result = await runDoctor({ root, config: {} });
+    expect(brief(result.findings, "widgets/")).toHaveLength(4);
+    const notes = result.findings.filter((f) => f.rule === "package-rules-invalid");
+    expect(notes.map((f) => f.level)).toEqual(["warn", "warn", "warn", "warn"]);
+    expect(notes.map((f) => f.message).join("\n")).toMatch(/unknown key "future"[\s\S]*unknown key "severity"[\s\S]*unknown key "calls"[\s\S]*no-calls\)\.forbid needs jsx, imports or pattern; that entry is skipped/);
+    expect(result.ok).toBe(true);
+    // Authoring (the packages pack, validateDeclaration without a collector) stays strict.
+    expect(() => validateDeclaration(declaration, "@marktiderman/genesis-widgets")).toThrow(/unknown key "future"/);
+  });
+
+  it("lists packages in code-point order, the same on every machine", () => {
+    const root = makeApp(null, {
+      "genesis.config.json": JSON.stringify({ localPackages: ["packages/*"] }),
+      "packages/a/package.json": JSON.stringify({ name: "@acme/aa", version: "0.1.0", private: true }),
+      "packages/b/package.json": JSON.stringify({ name: "@acme/Kit", version: "0.1.0", private: true }),
+    });
+    expect(discoverPackages(root).map((p) => p.name).filter((n) => n.startsWith("@acme/"))).toEqual(["@acme/Kit", "@acme/aa"]);
+  });
+
+  it("flags a wrapper only where its own body renders the element, and its use only where it is imported from that file", async () => {
+    const root = makeApp(null, {
+      ...widgets({ prefer: [LIST_RULE] }),
+      "src/components/Tables.tsx": [
+        "export function RecordTable() {",
+        "  return <DataTable rows={[]} />;",
+        "}",
+        "export const Empty = () => <p>Nothing yet</p>;",
+        "",
+      ].join("\n"),
+      "src/routes/people.tsx": 'import { RecordTable as Table, Empty } from "../components/Tables";\nexport const P = () => <><Table /><Empty /></>;\n',
+      "src/routes/teams.tsx": 'import { RecordTable } from "@/components/Tables";\nexport const T = () => <RecordTable />;\n',
+      "src/routes/own.tsx": "const RecordTable = () => null;\nexport const O = () => <RecordTable />;\n",
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "widgets/")).toEqual([
+      "widgets/lists-use-widget-view warn src/components/Tables.tsx:2 DataTable",
+      "widgets/lists-use-widget-view warn src/routes/people.tsx:2 Table",
+      "widgets/lists-use-widget-view warn src/routes/teams.tsx:2 RecordTable",
+    ]);
   });
 
   it("loads a package's plugin module and namespaces its findings", async () => {
@@ -307,7 +356,7 @@ describe("ratchet", () => {
 
   it("reads changed files from git: committed since the merge base, edited and untracked", () => {
     const root = makeApp(null, { "src/a.ts": "export const a = 1;\n", "src/b.ts": "export const b = 1;\n" });
-    const git = (...args: string[]) => execFileSync("git", ["-c", "user.email=t@example.com", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+    const git = gitIn(root);
     git("init", "-q", "-b", "main");
     git("add", "-A");
     git("commit", "-q", "-m", "base");
@@ -318,10 +367,48 @@ describe("ratchet", () => {
     expect(changedSince(root, "no-such-ref")).toBeNull();
   });
 
-  it("warns that it ran at full levels when git can't compare", async () => {
+  it("warns that it ran at full levels when git can't compare, and rules can configure that notice", async () => {
     const root = makeApp(null, files);
     const result = await runDoctor({ root, config: {}, base: "no-such-ref" });
     expect(brief(result.findings, "ratchet-skipped")).toEqual(["ratchet-skipped warn genesis config:0"]);
+    expect(brief((await runDoctor({ root, config: { rules: { "ratchet-skipped": "off" } }, base: "no-such-ref" })).findings, "ratchet-skipped")).toEqual([]);
+    expect(brief((await runDoctor({ root, config: { rules: { "ratchet-skipped": "error" } }, base: "no-such-ref" })).findings, "ratchet-skipped")).toEqual(["ratchet-skipped error genesis config:0"]);
+  });
+
+  it("reads paths with non-ASCII characters as themselves", () => {
+    const root = makeApp(null, { "src/naïve.ts": "export const a = 1;\n" });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "src/naïve.ts"), "export const a = 2;\n");
+    writeFileSync(path.join(root, "src/café.ts"), "export const c = 1;\n");
+    expect([...(changedSince(root, "main") ?? [])].sort()).toEqual(["src/café.ts", "src/naïve.ts"]);
+  });
+
+  it("reports an allow entry the base ref's config didn't have (allow-grew); a changed reason is fine", async () => {
+    const config = (allow: unknown[]) => JSON.stringify({ doctor: { allow } });
+    const root = makeApp(null, { "genesis.config.json": config([{ rule: "raw-tag", file: "src/a.tsx", reason: "Old." }]) });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(
+      path.join(root, "genesis.config.json"),
+      config([
+        { rule: "raw-tag", file: "src/a.tsx", reason: "Reworded." },
+        { rule: "raw-tag", file: "src/b.tsx", match: "button", reason: "New." },
+      ]),
+    );
+    const grew = await runDoctor({ root, base: "main" });
+    expect(brief(grew.findings, "allow-grew")).toEqual(["allow-grew error src/b.tsx:0 raw-tag"]);
+    expect(grew.findings.find((f) => f.rule === "allow-grew")!.message).toContain("raw-tag (button) since main");
+    expect(brief((await runDoctor({ root })).findings, "allow-grew")).toEqual([]);
+    const unreadable = await runDoctor({ root, base: "no-such-ref" });
+    expect(brief(unreadable.findings, "allow-grew")).toEqual([]);
+    expect(brief(unreadable.findings, "ratchet-skipped")).toEqual(["ratchet-skipped warn genesis config:0"]);
   });
 });
 
@@ -359,6 +446,21 @@ describe("primitives catalog and agent guide", () => {
       `agent-guide-stale warn ${SKILL_PATH}:0`,
       "agent-guide-stale warn AGENTS.md:0",
     ]);
+  });
+
+  it("calls a lone end marker broken, writes nothing when it can't merge, and keeps AGENTS.md's line endings", async () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "AGENTS.md": "# Notes\n\n<!-- genesis-primitives:end -->\n" });
+    expect(agentGuideState(root, discoverPackages(root)).agents).toBe("broken");
+    expect(() => writeAgentGuide(root, discoverPackages(root))).toThrow(/broken/);
+    expect(existsSync(path.join(root, SKILL_PATH))).toBe(false);
+    expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toHaveLength(2);
+
+    writeFileSync(path.join(root, "AGENTS.md"), "# Notes\r\n\r\nOur own rules.\r\n");
+    writeAgentGuide(root, discoverPackages(root));
+    const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
+    expect(agents.replace(/\r\n/g, "")).not.toContain("\n");
+    expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
+    expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
   });
 
   it("stays quiet for an app that hasn't adopted the guide", async () => {
@@ -401,6 +503,28 @@ describe("contracts-stale", () => {
         throw new Error("connection refused");
       });
       expect(broken.found.map((f) => `${f.rule} ${f.level}`)).toEqual(["contracts-stale warn"]);
+    } finally {
+      delete process.env.GENESIS_TEST_DB_URL;
+    }
+  });
+
+  it("matches a contract checked out with CRLF, and doesn't compare one generated from OpenAPI with Postgres", async () => {
+    process.env.GENESIS_TEST_DB_URL = "postgres://example.invalid/db";
+    try {
+      const contract = "// Generated by `genesis introspect` — do not edit by hand.\n// Source: Postgres (public)\nexport {};\n";
+      const crlf = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract.replace(/\n/g, "\r\n") }), config);
+      await checkContracts(crlf.c, async () => ({ content: contract }));
+      expect(crlf.found).toEqual([]);
+
+      let read = false;
+      const openapi = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract.replace("Postgres (public)", "OpenAPI https://example.invalid/rest/v1/") }), config);
+      await checkContracts(openapi.c, async () => {
+        read = true;
+        return { content: contract };
+      });
+      expect(read).toBe(false);
+      expect(openapi.found.map((f) => `${f.rule} ${f.level}`)).toEqual(["contracts-stale info"]);
+      expect(openapi.found[0]!.message).toContain("generated from OpenAPI");
     } finally {
       delete process.env.GENESIS_TEST_DB_URL;
     }
