@@ -437,7 +437,7 @@
     "@types/react-dom": "^19.2.3",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.0.0",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "input-otp": "^1.4.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",

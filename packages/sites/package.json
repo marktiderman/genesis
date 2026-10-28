@@ -108,7 +108,7 @@
     "@types/react-dom": "^19.2.3",
     "axe-core": "^4.14.0",
     "esbuild": "^0.28.1",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "lucide-react": "^1.0.0",
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
