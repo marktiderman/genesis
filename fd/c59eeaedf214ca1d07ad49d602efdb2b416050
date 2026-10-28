@@ -1,0 +1,27 @@
+packages/core/src/form-types.ts
+  s_5beca2076873c9::t_4a21518c166777 37-45
+packages/core/src/hooks/index.ts
+  s_5beca2076873c9::t_563f256313495f 64
+packages/core/src/hooks/use-resource-form.ts
+  s_5beca2076873c9::t_8908c80d11110b 342-370,687,699-700
+packages/core/src/resource-view/types.ts
+  s_5beca2076873c9::t_3cf4be109bf4f1 174-179,181,183,189,191-197
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_5beca2076873c9::t_d5917b9388d434 22,261-318
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fdc59eeaedf214ca1d07ad49d602efdb2b416050",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
