@@ -3844,10 +3844,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, string | number | boolean | readonly (string | number)[] | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`, sent as `in`; a create never takes a list). A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
             },
             {
               "name": "header",

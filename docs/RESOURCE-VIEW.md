@@ -107,9 +107,16 @@ that doesn't qualify, keep only what the catalog says about the view. A single-c
 that lists values (`status in ('open', 'done')`, alone or `or status is null`) becomes the
 field's `enumValues`, so the form offers a choice and the row type is a union.
 
-Contracts are named `schema.table`. The Supabase provider sends a `public` one to
+Contracts are named `schema.table`, with a part quoted when it holds a dot (`"my.s"."we.ird"`).
+The Supabase provider splits on the first dot outside quotes and sends a `public` resource to
 `client.from(table)` and any other to `client.schema(name).from(table)`; a bare name still means
-`public`. Its per-resource config, `binTables` and `realtime` lists match either spelling.
+`public`. Its per-resource config, `binTables` and `realtime` match either spelling of a `public`
+resource. With both `goals` and `public.goals` in `resources`, the key spelled the way the caller
+names the resource wins, and the other spelling is used only when that key is absent.
+
+Columns are traced by position, so one renamed with `alter view … rename column` keeps its own
+facts. A view's own column (computed, or a view that doesn't qualify) leaves `nullable` out of the
+contract, since Postgres reports every view column as nullable.
 
 The provider config holds the data-side facts. These are owned by the data layer, not views:
 
@@ -224,16 +231,21 @@ Screen settings:
 
 `useResourceView(view, options)` is the headless form, with the same state as `useResourceTable`.
 
-An input left empty is no value. A create leaves it out, so the column's default (or null)
-applies; an edit sends null. Only a text column that can't be null keeps `""` (and, on a create,
-only when it has no default). The view passes each field's `nullable` and `hasDefault` from the
-contract to the form; a hand-written `ResourceFormFieldDef` can set them too.
+An input left empty is no value, when the contract says whether its column takes null (the view
+passes `nullable` and `hasDefault` to the form; a hand-written `ResourceFormFieldDef` can set
+them too). A create leaves it out, so the column's default (or null) applies; an edit sends null
+once the person empties it. A text column that can't be null keeps `""` (on a create, only when
+it has no default), and so does a value the screen started the field at (`filter`, `defaults`).
+A field the contract says nothing about, and an edit of a field nobody touched, send what they
+always did. The phone's NativeResourceView follows the same rule.
 
 ### Words: each step overrides the one before
 
 Every piece of text has a Genesis default, and the app can always override it:
 
-1. **The resource name.** `my_goals` gives the noun "my goal" and the title "My Goals".
+1. **The resource name.** `my_goals` gives the noun "my goal" and the title "My Goals". Plurals
+   invert the singulars (entry → entries, person → people); with only a derived noun, a label that
+   reads as a plural ("People") is used for several.
 2. **The contract:** `noun`, `nounPlural` and `label`, which `introspect` reads from the table
    comment (`comment on table goals is '@genesis {"noun": "goal"}'`). A simple view inherits its
    table's noun.

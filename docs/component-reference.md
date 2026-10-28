@@ -37,7 +37,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty (""): a create leaves it out, so the column's default (or null) applies, and an edit clears it to null. "" stays only for a text column that can't be null and, on a create, has no default to fall... |
+| [`blankValues`](../packages/core/src/hooks/use-resource-form.ts) | function | — | What a save sends for an input left empty (""). Only a field whose column the form knows about (`nullable` set, as ResourceView sets it from a generated contract) is changed: a create leaves it out, so the column's default (or null) appl... |
 | [`buildArrayItemDefaults`](../packages/core/src/hooks/use-resource-form.ts) | function | — | Build default values for a single array item from its sub-field definitions |
 | [`callRpc`](../packages/core/src/provider/write-helpers.ts) | value | — | _(no summary)_ |
 | [`classifyError`](../packages/core/src/errors.ts) | function | — | What kind of error this is, a sentence that is safe to show, and whether it is worth reporting. Understands the provider's `DataWriteError` and `DataReadError`, Postgres and PostgREST codes, HTTP statuses, Supabase's auth and fetch error... |
