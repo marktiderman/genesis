@@ -7,6 +7,12 @@
   Read this before building anything.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
   export across every package. Regenerate with `pnpm gen:component-reference`.
+- [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): proposal for how the packages are grouped
+  (foundation, platform services, domain blocks, tooling), what Linear, Cursor and the leading
+  starter kits build once, and a ranked list of what Genesis should build next.
+- [`AI.md`](./AI.md): proposal for `genesis-ai`, one layer for every AI call an app makes
+  (model aliases, versioned tasks, tools with approval, budgets, guardrails, tracing, chat UI,
+  retrieval), built on the Vercel AI SDK, with research on Anthropic's and OpenAI's guidance.
 - [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the
   data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
   write safety, the roadmap, and the decisions still open.
