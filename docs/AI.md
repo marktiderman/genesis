@@ -605,6 +605,47 @@ ask.
 What P0–P2 deliberately do **not** include: a chat UI, retrieval, an MCP server, agents, memory,
 on-device models and a hosted gateway.
 
+### P0 result (2026-10-28): yes, with four conditions
+
+`scripts/spikes/ai-sdk-p0.mjs` sends real AI SDK calls through a mock `fetch` that records each
+request and answers like the Messages API. It ran with `ai` 7.0.155 and `@ai-sdk/anthropic` 4.0.90
+on Node 22 (Growth90's server runtime), and on Deno 2.9.6 both from `node_modules` and through
+`npm:` imports with `ai` 7.0.148 and `@ai-sdk/anthropic` 4.0.85, as Supabase Edge Functions import
+them. **16 of 16 checks passed on all three:**
+
+| Check | Result |
+|---|---|
+| `output_config.effort` passes through | Yes (`providerOptions.anthropic.effort`) |
+| Refusal fallback `fallbacks: "default"` passes through | Yes, and the SDK adds the `server-side-fallback-2026-07-01` beta header itself |
+| No `temperature`, `top_p` or `top_k` sent | Yes, none unless set |
+| Structured output uses `output_config.format`, never forced `tool_choice` | Yes, explicitly (`structuredOutputMode: "outputFormat"`) and by default on Sonnet 5.5 |
+| Usage includes cache tokens | Yes: input split into uncached, cache read and cache write, plus output |
+| A refusal is distinguishable | Yes: `finishReason: "content-filter"`, `rawFinishReason: "refusal"`; maps to `refused` |
+| Streaming | Yes: text deltas, `effort` and final usage |
+
+The conditions, built into P1:
+
+1. **Pin the API version.** The provider sends `anthropic-version: 2023-06-01` unless told
+   otherwise. `createAnthropic({ headers: { "anthropic-version": "2026-10-21" } })` overrides it
+   (checked). The pinned version lives in the model capability records.
+2. **Pin the structured-output mode** to `outputFormat` rather than relying on `auto`.
+3. **Edge Functions import versions at least a day old.** Deno refuses npm versions published in
+   the last 24 hours by default, as a supply-chain guard. Keep the guard: Edge code pins versions
+   that have aged (the spike used ones at least a week old), the same spirit as the repo's lockfile
+   policy.
+4. **Footprint.** `ai` plus the Anthropic provider is 12 packages (about 29 MB, mostly `undici`),
+   and `ai` pulls in Vercel's gateway client even when no gateway is used. Fine for server code,
+   which is the only place `genesis-ai` imports the SDK.
+
+Not yet verified:
+
+- **A live call.** There is no API key in the environment the spike ran in. The same script with
+  the real `fetch` and a key is the first step of P1.
+- **Streaming to Expo with `expo/fetch` on a device.** P1 tasks are called by id and return whole
+  results, so device streaming is first needed for client-facing chat (C3). It is checked then.
+
+TanStack AI is still re-checked at the start of P1, as decided.
+
 ### The coaching track (after P2)
 
 In order of risk, so trust and evaluation data build before the AI speaks to clients. Each stage
