@@ -1,0 +1,27 @@
+.changeset/provider-schema-names.md
+  s_5beca2076873c9::t_416a528b7ad616 7
+.changeset/resource-view-words.md
+  s_5beca2076873c9::t_d3cdc483c1b203 6-7
+packages/core/src/resource-view/index.ts
+  s_5beca2076873c9::t_d095742c3b6f9e 5
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_5beca2076873c9::t_3233fa580fdb33 638-669
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_5beca2076873c9::t_462f154010f467 8,107-111,210-213,244-250
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e1551db2a56392e24cb517478908973388a0d38",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
