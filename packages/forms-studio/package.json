@@ -79,5 +79,19 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Its components are already checked by the built-in local-genesis-copy and page-layout rules (componentPackages).",
+      "primitives": [
+        {
+          "need": "a form's workspace: responses, settings, share",
+          "use": "ResponsesFilters, QuestionSummaryCards and the settings and share parts",
+          "import": "@marktiderman/genesis-forms-studio",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/forms-studio/README.md"
+        }
+      ]
+    }
   }
 }

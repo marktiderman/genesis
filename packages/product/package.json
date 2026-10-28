@@ -88,5 +88,11 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Repository tooling (the product board, triage and release notes), not app screens."
+    }
   }
 }

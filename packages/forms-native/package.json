@@ -67,5 +67,19 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "A renderer for Genesis Forms; the rule that forms go through Genesis Forms is genesis-forms-react's.",
+      "primitives": [
+        {
+          "need": "a form on the phone",
+          "use": "<FormFocus> (one step per screen)",
+          "import": "@marktiderman/genesis-forms-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FORMS.md"
+        }
+      ]
+    }
   }
 }

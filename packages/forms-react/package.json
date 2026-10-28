@@ -50,5 +50,29 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "forms-use-genesis-forms",
+          "need": "a form",
+          "level": "warn",
+          "forbid": {
+            "imports": [
+              "formik",
+              "react-final-form",
+              "final-form",
+              "@tanstack/react-form"
+            ],
+            "pattern": "import\\s*\\{[^}]*\\buseForm\\b[^}]*\\}\\s*from\\s*[\"']react-hook-form[\"']"
+          },
+          "use": "the view's form (ResourceForm) for a record, or useForm / useField from Genesis Forms for a questionnaire",
+          "import": "@marktiderman/genesis-forms-react",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FORMS.md",
+          "why": "Genesis forms carry validation, drafts and the server check; a second form library splits how forms behave."
+        }
+      ]
+    }
   }
 }

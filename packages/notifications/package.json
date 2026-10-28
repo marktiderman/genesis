@@ -196,6 +196,30 @@
           "Coming from genesis-supabase's push migration (0005): stop calling genesis-push-send, and remove its pgTAP test (tests/database/*genesis_push.test.sql): two of its assertions describe the token takeover this migration closes."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "notify-through-notifier",
+          "need": "sending an email or push",
+          "level": "warn",
+          "forbid": {
+            "imports": [
+              "resend",
+              "@sendgrid/mail",
+              "nodemailer",
+              "postmark",
+              "web-push",
+              "firebase-admin/messaging",
+              "expo-server-sdk"
+            ]
+          },
+          "use": "notify() with the type registered in defineNotifications",
+          "import": "@marktiderman/genesis-notifications/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/NOTIFICATIONS.md",
+          "why": "One notifier decides channels, preferences, quiet hours and delivery; a direct email or push call skips all of them."
+        }
+      ]
     }
   }
 }

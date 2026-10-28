@@ -65,5 +65,11 @@
   "dependencies": {
     "@dagrejs/dagre": "^3.1.1",
     "@xyflow/react": "^12.12.0"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Development tooling mounted in a playground, not app screens."
+    }
   }
 }

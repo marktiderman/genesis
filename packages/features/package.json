@@ -91,5 +91,23 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.12",
     "zod": "^4.4.3"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "no-env-feature-switches",
+          "need": "turning a feature on or off",
+          "level": "warn",
+          "forbid": {
+            "pattern": "\\b(?:import\\.meta\\.env|process\\.env)\\.(?:VITE_|NEXT_PUBLIC_|EXPO_PUBLIC_)?(?:FEATURE|FF|ENABLE|FLAG)_[A-Z0-9_]+"
+          },
+          "use": "a feature in features.ts read with featureOn / useFeature, or a flag",
+          "import": "@marktiderman/genesis-features",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/features/README.md",
+          "why": "An environment switch needs a redeploy to change and isn't in the feature registry."
+        }
+      ]
+    }
   }
 }

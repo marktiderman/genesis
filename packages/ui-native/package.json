@@ -152,5 +152,53 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "lists-use-native-resource-view",
+          "need": "a list screen on the phone",
+          "level": "warn",
+          "platform": "native",
+          "newOnly": true,
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "jsx": [
+              "FlatList",
+              "SectionList",
+              "NativeResourcePage"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "NativeResourceView",
+              "NativeResourceWorkspace"
+            ]
+          },
+          "use": "the web screen's view (defineView) rendered by <NativeResourceView>",
+          "import": "@marktiderman/genesis-ui-native/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#native",
+          "why": "The phone list comes from the same view as the web list: one description, two surfaces, no second set of helpers."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "a phone screen",
+          "use": "ScreenContainer, or a …Page / …Screen layout",
+          "import": "@marktiderman/genesis-ui-native/layouts",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
+        },
+        {
+          "need": "a record page on the phone",
+          "use": "NativeResourceWorkspace",
+          "import": "@marktiderman/genesis-ui-native/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#resourceworkspace"
+        }
+      ]
+    }
   }
 }

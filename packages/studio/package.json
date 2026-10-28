@@ -72,5 +72,35 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.12",
     "zod": "^4.3.6"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "raw-tables-use-studio",
+          "need": "editing a table's rows like a spreadsheet",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-ui/sheet-grid"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "ResourceView",
+              "DataStudio"
+            ]
+          },
+          "use": "a view's sheet mode (<ResourceView>) for a list, or <DataStudio> for a table's own rows",
+          "import": "@marktiderman/genesis-studio",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA-STUDIO.md",
+          "why": "Spreadsheet edits need version checks and an audit entry, as the signed-in user; a bare SheetGrid has neither."
+        }
+      ]
+    }
   }
 }
