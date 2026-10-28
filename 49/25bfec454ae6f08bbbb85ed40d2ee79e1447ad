@@ -1,0 +1,31 @@
+apps/genesis-rn-starter/package.json
+  s_eb8f273c0695bf::t_4671629ef492bb 84
+packages/ai/package.json
+  s_eb8f273c0695bf::t_44e61b571813f0 96
+packages/chat/package.json
+  s_eb8f273c0695bf::t_42daa2cfbf24a6 182
+packages/features/package.json
+  s_eb8f273c0695bf::t_992e4820249ad8 59,93
+packages/sites/package.json
+  s_eb8f273c0695bf::t_e62296e32f6100 120
+packages/studio/package.json
+  s_eb8f273c0695bf::t_6a59b1ff49d2ab 74
+packages/ui/package.json
+  s_eb8f273c0695bf::t_144f9d2ea533d9 456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4925bfec454ae6f08bbbb85ed40d2ee79e1447ad",
+  "prompts": {},
+  "sessions": {
+    "s_eb8f273c0695bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebe7fe83-aa8e-4bb2-aa43-5134866b623d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
