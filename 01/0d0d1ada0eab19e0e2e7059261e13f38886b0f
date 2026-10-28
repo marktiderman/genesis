@@ -1,0 +1,75 @@
+.changeset/doctor-package-rules-packages.md
+  s_5beca2076873c9::t_c0007f1775984b 1-31
+.changeset/doctor-package-rules-ui.md
+  s_5beca2076873c9::t_524aef55c834e0 1-7
+packages/chat/package.json
+  s_5beca2076873c9::t_8618978d8129bc 217-240
+packages/collab/package.json
+  s_5beca2076873c9::t_5adb9a709f2062 45-58
+packages/connect/package.json
+  s_5beca2076873c9::t_992724a7c573d4 62-84
+packages/core/package.json
+  s_5beca2076873c9::t_4ac7bc84180a06 114-164
+packages/data-switchboard/package.json
+  s_5beca2076873c9::t_7965c37c130792 71-76
+packages/design-system/package.json
+  s_5beca2076873c9::t_8dc45e92321703 80-93
+packages/extension/package.json
+  s_5beca2076873c9::t_b20f757878890f 69-86
+packages/features/package.json
+  s_5beca2076873c9::t_a9912da1efe95e 94-111
+packages/forms-builder/package.json
+  s_5beca2076873c9::t_f0b655069f6c9a 73-86
+packages/forms-devtools/package.json
+  s_5beca2076873c9::t_a2c4be28278fe7 68-73
+packages/forms-native/package.json
+  s_5beca2076873c9::t_70a1a77dc8ad51 70-83
+packages/forms-react/package.json
+  s_5beca2076873c9::t_5ce066218cc0f5 53-76
+packages/forms-studio/package.json
+  s_5beca2076873c9::t_baff22f23e23cf 82-95
+packages/forms-web/package.json
+  s_5beca2076873c9::t_9d794ee59cd329 64-77
+packages/forms/package.json
+  s_5beca2076873c9::t_81623387e9adfd 95-131
+packages/genesis-cli/package.json
+  s_5beca2076873c9::t_74b4042af30fba 92-97
+packages/genesis/package.json
+  s_5beca2076873c9::t_4cbbfc79f124a2 152-157
+packages/native/package.json
+  s_5beca2076873c9::t_ea2f23594fce60 323-348
+packages/notifications/package.json
+  s_5beca2076873c9::t_77fb226630fa28 199-222
+packages/product/package.json
+  s_5beca2076873c9::t_775413fca759a2 91-96
+packages/sites/package.json
+  s_5beca2076873c9::t_2ff9127f54082c 163-174
+packages/studio-server/package.json
+  s_5beca2076873c9::t_6e5fb31948ca8d 80-109
+packages/studio/package.json
+  s_5beca2076873c9::t_2053e11891facc 75-104
+packages/supabase/package.json
+  s_5beca2076873c9::t_cec7ca0141b501 253-281
+packages/support/package.json
+  s_5beca2076873c9::t_af72805e935e6c 305-330
+packages/ui-native/package.json
+  s_5beca2076873c9::t_5b02cd0fb692d8 155-202
+packages/ui/package.json
+  s_5beca2076873c9::t_603b56ffd5002e 480-574
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "010d0d1ada0eab19e0e2e7059261e13f38886b0f",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
