@@ -95,8 +95,10 @@ primitives it owns and the doctor enforces them in every app that installs it: d
 that hand-build a list instead of a view rendered by `ResourceView` (and the app wrappers around
 those tables), record pages that assemble their own header instead of `ResourceWorkspace`, and
 direct data access (`supabase.from`, `.rpc`) in screens instead of the view and the resource's
-provider. `genesis primitives` lists every such rule, and `--base` ratchets them so new code
-meets them while old code moves screen by screen.
+provider. `genesis primitives` lists every such rule. To hold new code to them while old code
+moves screen by screen, list them in `doctor.ratchet` and run the doctor with `--base` (a rule
+its package declares `newOnly` ratchets without the list); otherwise existing findings stay
+warnings, which `--strict` fails.
 
 ## Where an invention lives: the promotion ladder
 

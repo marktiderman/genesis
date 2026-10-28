@@ -160,7 +160,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const configFile = "file" in loaded ? loaded.file : null;
   const guarded = (config.allow?.length ?? 0) + Object.keys(config.rules ?? {}).length + Object.keys(config.packageRules ?? {}).length > 0;
   let configSkipped = false;
-  if (options.base && configFile && guarded) {
+  if (options.base && configFile) {
     const before = configAtBase(configFile, options.base, options.configPath !== undefined);
     if (before) {
       const prefer = new Map(preferRules(packages).map((r) => [r.ruleId, r]));
@@ -173,7 +173,9 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
         }),
       );
     }
-    configSkipped = !before;
+    // Uncompared: an error when the config holds something to compare, else just the warning.
+    configSkipped = !before && guarded;
+    skipped ||= !before;
   }
   if (skipped || configSkipped) {
     raw.push(

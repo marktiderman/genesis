@@ -518,8 +518,13 @@
           "newOnly": true,
           "files": [
             "{routes}/**/*$*.tsx",
+            "{routes}/**/*$*.jsx",
             "{routes}/**/*$*/**/*.tsx",
-            "{routes}/**/[*]/**/*.tsx"
+            "{routes}/**/*$*/**/*.jsx",
+            "{routes}/**/[*].tsx",
+            "{routes}/**/[*].jsx",
+            "{routes}/**/[*]/**/*.tsx",
+            "{routes}/**/[*]/**/*.jsx"
           ],
           "forbid": {
             "jsx": [
@@ -531,7 +536,6 @@
           "unless": {
             "renders": [
               "ResourceWorkspace",
-              "ResourceView",
               "BuilderLayout"
             ]
           },
@@ -551,7 +555,7 @@
         {
           "need": "a dashboard, settings or form page",
           "use": "DashboardPage, SettingsPage (SettingsRow, ToggleRow), FormPage",
-          "import": "@marktiderman/genesis-ui/dashboard-page",
+          "import": "@marktiderman/genesis-ui",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
         {
@@ -566,9 +570,14 @@
           "import": "@marktiderman/genesis-ui/empty-state"
         },
         {
-          "need": "formatted text",
-          "use": "RichTextEditor and RichText",
+          "need": "editing formatted text",
+          "use": "RichTextEditor",
           "import": "@marktiderman/genesis-ui/rich-text-editor"
+        },
+        {
+          "need": "showing formatted text",
+          "use": "RichText",
+          "import": "@marktiderman/genesis-ui/rich-text"
         }
       ]
     }

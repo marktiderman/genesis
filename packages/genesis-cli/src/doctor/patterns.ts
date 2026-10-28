@@ -33,7 +33,8 @@ export function parseRulesMarkdown(markdown: string): PatternRule[] {
     const value = raw.trim();
     if (key === "files" || key === "exclude") current[key] = value.split(",").map((s) => s.trim()).filter(Boolean);
     else if (key === "level") current.level = value as PatternRule["level"];
-    else if (key === "newOnly") current.newOnly = value === "true";
+    // Anything but true or false is kept as written, for compilePatternRules to refuse.
+    else if (key === "newOnly") current.newOnly = (value === "true" ? true : value === "false" ? false : value) as boolean;
     else current[key as "forbid" | "require" | "path" | "message"] = value;
   }
   return rules;
@@ -65,6 +66,9 @@ export function compilePatternRules(rules: PatternRule[], source: string): Compi
     const level = rule.level ?? "error";
     if (!["error", "warn", "info", "guide"].includes(level)) {
       throw new DoctorConfigError(`${source}: rule "${rule.id}" has level "${level}" (use error, warn, info or guide)`);
+    }
+    if (rule.newOnly !== undefined && typeof rule.newOnly !== "boolean") {
+      throw new DoctorConfigError(`${source}: rule "${rule.id}" has newOnly "${String(rule.newOnly)}" (use true or false)`);
     }
     if (level === "guide") continue;
     if (!rule.files?.length) throw new DoctorConfigError(`${source}: rule "${rule.id}" needs "files" (or level: guide)`);

@@ -219,12 +219,13 @@ program
     const doctor = await import("./doctor/index.js");
     const packages = doctor.discoverPackages(path.resolve(opts.dir));
     const rows = doctor.primitivesCatalog(packages);
-    if (opts.json) {
-      console.log(JSON.stringify({ primitives: rows, ...doctor.primitivesSummary(packages) }, null, 2));
-      return;
-    }
-    console.log(doctor.formatPrimitives(rows));
+    // A package whose declaration doesn't validate is missing from the catalog: say so and exit 1, in both formats.
     const broken = packages.filter((p) => p.error);
+    if (opts.json) {
+      console.log(JSON.stringify({ primitives: rows, ...doctor.primitivesSummary(packages), errors: broken.map((p) => p.error) }, null, 2));
+    } else {
+      console.log(doctor.formatPrimitives(rows));
+    }
     for (const p of broken) console.error(`! ${p.error}`);
     for (const note of packages.flatMap((p) => p.ignored ?? [])) console.error(`! ${note}`);
     if (broken.length) process.exitCode = 1;
@@ -239,6 +240,14 @@ program
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
     const packages = doctor.discoverPackages(root);
+    // The guide would leave out a package whose declaration doesn't validate: fix it first, in both modes.
+    const broken = packages.filter((p) => p.error);
+    if (broken.length) {
+      for (const p of broken) console.error(`✗ ${p.error}`);
+      console.error("✗ The agent guide can't include these packages; fix their declarations (or upgrade @marktiderman/genesis-cli) first.");
+      process.exitCode = 1;
+      return;
+    }
     if (opts.check) {
       const state = doctor.agentGuideState(root, packages);
       const bad = Object.entries(state).filter(([, v]) => v !== "ok");

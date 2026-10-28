@@ -39,7 +39,7 @@ const CORE: PrimitiveRow[] = [
   },
   {
     need: "a page inside the app shell",
-    use: "a Genesis page layout (`DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`) or `ResourceView`",
+    use: "a Genesis page layout (`DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`, from `@marktiderman/genesis-ui`) or `ResourceView` (from `@marktiderman/genesis-ui/data`)",
     import: "@marktiderman/genesis-ui",
     rule: "page-layout",
     from: "genesis-cli",
@@ -94,7 +94,12 @@ export function primitivesSummary(packages: readonly DeclaringPackage[]): { rule
   return { rules: rules.length + withPlugin.length, packages: new Set([...rules.map((r) => r.package), ...withPlugin.map((p) => p.name)]).size };
 }
 
-const cell = (s: string | undefined) => (s ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
+/** A Markdown table cell: pipes escaped, one line, and `<Name>` written as code so it isn't read as an HTML tag. */
+const cell = (s: string | undefined) =>
+  (s ?? "")
+    .replace(/\|/g, "\\|")
+    .replace(/\n/g, " ")
+    .replace(/(`[^`]*`)|<([A-Za-z][\w.]*)>/g, (m, code: string | undefined, name: string | undefined) => code ?? `\`<${name}>\``);
 
 /** The catalog as a Markdown table. */
 export function catalogTable(rows: readonly PrimitiveRow[], options: { docs?: boolean } = {}): string {
@@ -178,7 +183,8 @@ function blockSpan(text: string): "absent" | "broken" | { start: number; end: nu
   const s = text.indexOf(AGENTS_START);
   const e = text.indexOf(AGENTS_END);
   if (s < 0 && e < 0) return "absent";
-  if (s < 0 || e < 0 || e < s) return "broken";
+  // Exactly one of each, in order: a copied marker would otherwise pair with the wrong one and the write would eat the text between.
+  if (s < 0 || e < 0 || e < s || text.indexOf(AGENTS_START, s + 1) >= 0 || text.indexOf(AGENTS_END, e + 1) >= 0) return "broken";
   return { start: s, end: e + AGENTS_END.length };
 }
 

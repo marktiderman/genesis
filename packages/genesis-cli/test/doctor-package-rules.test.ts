@@ -1,5 +1,5 @@
 // @feat:doctor-package-rules
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,9 +7,12 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { clearLocalPackagesCache } from "../src/blocks/local.js";
 import { checkContracts } from "../src/doctor/contracts.js";
 import { applyRatchet } from "../src/doctor/ratchet.js";
+import { compilePatternRules, parseRulesMarkdown } from "../src/doctor/patterns.js";
 import {
   agentGuideState,
+  catalogTable,
   changedSince,
+  loadConfig,
   clearPackageRulesCache,
   discoverPackages,
   formatReport,
@@ -36,11 +39,11 @@ beforeEach(() => {
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
-/** git in a test repo, with no hooks (a global hook would write into the temp folder). */
+/** git in a test repo, with no hooks (a global hook would write into the temp folder) and no commit signing (a global key would prompt). */
 const gitIn =
   (root: string) =>
   (...args: string[]) =>
-    execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "user.email=t@example.com", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
+    execFileSync("git", ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-c", "user.email=t@example.com", "-c", "user.name=t", ...args], { cwd: root, stdio: "pipe" });
 
 const brief = (findings: Finding[], prefix: string) =>
   findings.filter((f) => f.rule.startsWith(prefix)).map((f) => `${f.rule} ${f.level} ${f.file}:${f.line}${f.subject ? ` ${f.subject}` : ""}`);
@@ -197,6 +200,24 @@ describe("package rules in the doctor", () => {
     });
     expect(brief(allowed.findings, "widgets/")).toEqual([]);
     expect(brief(allowed.findings, "stale-exception")).toEqual(["stale-exception warn src/Gone.tsx:0 widgets/lists-use-widget-view"]);
+  });
+
+  it("reads a package.json doctor block with an app setting as the app's, so a typo like plugin fails", () => {
+    const root = makeApp(null, { "package.json": JSON.stringify({ name: "app", genesis: { doctor: { rules: { "raw-tag": "warn" }, plugin: ["./rules.mjs"] } } }) });
+    expect(() => loadConfig(root)).toThrow(/unknown setting "plugin"/);
+    const pkg = makeApp(null, { "package.json": JSON.stringify({ name: "@acme/kit", genesis: { doctor: { enforce: false, reason: "Nothing to enforce." } } }) });
+    expect(loadConfig(pkg).config).toEqual({});
+  });
+
+  it("refuses a packs value that isn't a list with a config error, contracts or not", () => {
+    expect(() => validateConfig({ packs: 5, contracts: {} })).toThrow(/"packs" must be a list/);
+    expect(() => validateConfig({ packs: { supabase: true }, contracts: {} })).toThrow(/"packs" must be a list/);
+  });
+
+  it("refuses a rules-doc newOnly that isn't true or false", () => {
+    const doc = (v: string) => parseRulesMarkdown(`### no-todo\n- level: warn\n- files: src/**\n- forbid: TODO\n- newOnly: ${v}\n`);
+    expect(() => compilePatternRules(doc("tru"), "DESIGN_RULES.md")).toThrow(/newOnly "tru"/);
+    expect(compilePatternRules(doc("false"), "DESIGN_RULES.md")).toHaveLength(1);
   });
 
   it("requires a reason in packageRules", () => {
@@ -361,6 +382,19 @@ describe("the real package declarations", () => {
     ]);
   });
 
+  it("ui checks record pages named [id] and .jsx routes too, and a list inside a record page doesn't exempt it", async () => {
+    const root = makeApp(null, {
+      ...install("ui", "genesis-ui-rules"),
+      "src/routes/records/[id].tsx": "export const R = () => <><DetailPage title=\"x\" /><ResourceView view={v} /></>;\n",
+      "src/routes/items.$id.jsx": "export const I = () => <DetailPage title=\"x\" />;\n",
+      "src/routes/builder.$id.tsx": "export const B = () => <BuilderLayout><DetailPage title=\"x\" /></BuilderLayout>;\n",
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/record-pages")).toEqual([
+      "ui-rules/record-pages-use-resource-workspace warn src/routes/items.$id.jsx:1 DetailPage",
+      "ui-rules/record-pages-use-resource-workspace warn src/routes/records/[id].tsx:1 DetailPage",
+    ]);
+  });
+
   it("forms and studio-server flag their server modules in screens as warnings, never in a route module's loader, action or server function", async () => {
     const root = makeApp(null, {
       ...install("forms", "genesis-forms-rules"),
@@ -496,6 +530,23 @@ describe("ratchet", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("reports a removed entry that had raised a rule as rules-weakened", async () => {
+    const root = makeApp(null, {
+      ...widgets({ prefer: [LIST_RULE] }),
+      "src/Screen.tsx": SCREEN,
+      "genesis.config.json": JSON.stringify({ doctor: { packageRules: { "widgets/lists-use-widget-view": { level: "error", reason: "Strict." } } } }),
+    });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "genesis.config.json"), JSON.stringify({ doctor: {} }));
+    const result = await runDoctor({ root, base: "main" });
+    expect(brief(result.findings, "rules-weakened")).toEqual(["rules-weakened error genesis config:0 widgets/lists-use-widget-view"]);
+    expect(result.findings.find((f) => f.rule === "rules-weakened")!.message).toContain('is back to its own level "warn", lower than "error"');
+  });
+
   it("reports rules and packageRules that lower or narrow a rule since the base (rules-weakened); tightening is fine", async () => {
     const config = (doctor: Record<string, unknown>) => JSON.stringify({ doctor });
     const root = makeApp("raw-tag", {
@@ -585,7 +636,7 @@ describe("primitives catalog and agent guide", () => {
     const agents = readFileSync(path.join(root, "AGENTS.md"), "utf8");
     expect(agents).toContain("Our own rules.");
     expect(agents).toContain("<!-- genesis-primitives:start -->");
-    expect(agents).toContain("| a list screen | <WidgetView> | `@marktiderman/genesis-widgets` |");
+    expect(agents).toContain("| a list screen | `<WidgetView>` | `@marktiderman/genesis-widgets` |");
     expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
     expect(brief((await runDoctor({ root, config: {} })).findings, "agent-guide-stale")).toEqual([]);
 
@@ -612,6 +663,35 @@ describe("primitives catalog and agent guide", () => {
     expect(agents.replace(/\r\n/g, "")).not.toContain("\n");
     expect(agentGuideState(root, discoverPackages(root))).toEqual({ skill: "ok", agents: "ok" });
     expect(writeAgentGuide(root, discoverPackages(root))).toEqual([]);
+  });
+
+  it("calls a repeated marker broken, so a copied start marker never eats the text after it", () => {
+    const root = makeApp(null, {
+      ...widgets({ prefer: [LIST_RULE] }),
+      "AGENTS.md": `# Notes\n\nQuoted: <!-- genesis-primitives:start -->\n\nOur own rules.\n\n<!-- genesis-primitives:start -->\nold\n<!-- genesis-primitives:end -->\n`,
+    });
+    expect(agentGuideState(root, discoverPackages(root)).agents).toBe("broken");
+    expect(() => writeAgentGuide(root, discoverPackages(root))).toThrow(/broken/);
+    expect(readFileSync(path.join(root, "AGENTS.md"), "utf8")).toContain("Our own rules.");
+  });
+
+  it("writes JSX names in catalog cells as code, so Markdown doesn't read them as tags", () => {
+    const table = catalogTable([{ need: "a list", use: "a view rendered by <ResourceView> or `<Kept>`", from: "x" }]);
+    expect(table).toContain("| a list | a view rendered by `<ResourceView>` or `<Kept>` |");
+  });
+
+  const cli = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../dist/cli.js");
+  it.skipIf(!existsSync(cli))("fails genesis primitives and genesis agents when a package's declaration doesn't validate", () => {
+    const root = makeApp(null, widgets({}));
+    const json = spawnSync(process.execPath, [cli, "primitives", "--json", "--dir", root], { encoding: "utf8" });
+    expect(json.status).toBe(1);
+    expect(JSON.parse(json.stdout).errors[0]).toContain("@marktiderman/genesis-widgets");
+    for (const args of [["agents"], ["agents", "--check"]]) {
+      const run = spawnSync(process.execPath, [cli, ...args, "--dir", root], { encoding: "utf8" });
+      expect(run.status).toBe(1);
+      expect(run.stderr).toContain("@marktiderman/genesis-widgets");
+    }
+    expect(existsSync(path.join(root, SKILL_PATH))).toBe(false);
   });
 
   it("stays quiet for an app that hasn't adopted the guide", async () => {
@@ -670,13 +750,29 @@ describe("contracts-stale", () => {
         return { content: `${contract}// changed\n` };
       });
       expect(asked).toEqual([["public", "private"]]);
-      expect(stale.found[0]!.message).toContain("-s public,private");
+      expect(stale.found[0]!.message).toContain("-s public,private --database-env GENESIS_TEST_DB_URL");
       const named = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract }), { ...config, contracts: { ...config.contracts, schemas: ["app"] } });
       await checkContracts(named.c, async (_url, schemas) => {
         asked.push(schemas);
         return { content: contract };
       });
       expect(asked[1]).toEqual(["app"]);
+    } finally {
+      delete process.env.GENESIS_TEST_DB_URL;
+    }
+  });
+
+  it("fails a contract it can't generate, and only warns about a database it can't reach", async () => {
+    process.env.GENESIS_TEST_DB_URL = "postgres://example.invalid/db";
+    try {
+      const { EmitError } = await import("../src/introspect/emit.js");
+      const root = makeApp(null, { "src/lib/resources.genesis.ts": "// contract v1\n" });
+      const bad = ctx(root, config);
+      await checkContracts(bad.c, async () => {
+        throw new EmitError('public.t: @genesis labelField "nmae" isn\'t one of its columns.');
+      });
+      expect(bad.found.map((f) => `${f.rule} ${f.level}`)).toEqual(["contracts-stale error"]);
+      expect(bad.found[0]!.message).toContain("couldn't be generated");
     } finally {
       delete process.env.GENESIS_TEST_DB_URL;
     }

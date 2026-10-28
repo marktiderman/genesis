@@ -73,14 +73,19 @@ export async function checkContracts(ctx: DoctorContext, read: ContractReader = 
   try {
     expected = lf((await read(url, schemas)).content);
   } catch (err) {
-    ctx.report({ rule: "contracts-stale", level: "warn", file: out, message: `couldn't read the database through ${env}: ${(err as Error).message.split("\n")[0]}` });
+    // A database it can't reach is a warning; a contract it can't generate (an invalid labelField, two
+    // tables with one name) fails, as it fails `genesis introspect`.
+    const generation = (err as Error).name === "EmitError";
+    const message = (err as Error).message.split("\n")[0];
+    ctx.report({ rule: "contracts-stale", level: generation ? "error" : "warn", file: out, message: generation ? `couldn't be generated: ${message}` : `couldn't read the database through ${env}: ${message}` });
     return;
   }
+  const command = `genesis introspect -o ${out} -s ${schemas.join(",")}${env === DEFAULT_DATABASE_ENV ? "" : ` --database-env ${env}`}`;
   if (current !== expected) {
     ctx.report({
       rule: "contracts-stale",
       file: out,
-      message: current === null ? `doesn't exist; run genesis introspect -o ${out} -s ${schemas.join(",")} and commit it` : `is out of date with the database; run genesis introspect -o ${out} -s ${schemas.join(",")} and commit the result`,
+      message: current === null ? `doesn't exist; run ${command} and commit it` : `is out of date with the database; run ${command} and commit the result`,
     });
   }
 }

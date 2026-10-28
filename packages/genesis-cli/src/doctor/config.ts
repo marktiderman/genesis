@@ -215,9 +215,16 @@ export function doctorBlock(json: unknown, file: string, explicit: boolean): unk
   return explicit ? (j?.doctor ?? j) : j?.doctor;
 }
 
-/** A package's rule declaration (`prefer`, `primitives`, `plugin`, `enforce`), as opposed to an app's doctor settings. */
+/**
+ * A package's rule declaration (`prefer`, `primitives`, `plugin`, `enforce`), as opposed to an app's
+ * doctor settings. A block that also holds an app setting is the app's, so a typo such as `plugin`
+ * beside `rules` reaches validateConfig and fails instead of hiding the whole block.
+ */
 function isPackageDeclaration(block: unknown): boolean {
-  return typeof block === "string" || (isObject(block) && ["prefer", "primitives", "plugin", "enforce"].some((k) => k in block));
+  if (typeof block === "string") return true;
+  if (!isObject(block)) return false;
+  const keys = Object.keys(block).filter((k) => k !== "$comment");
+  return keys.some((k) => ["prefer", "primitives", "plugin", "enforce"].includes(k)) && !keys.some((k) => KNOWN.has(k));
 }
 
 function readJson(file: string) {
@@ -402,6 +409,12 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
     }
   }
   if (c.ratchet !== undefined && typeof c.ratchet !== "boolean" && !isStringList(c.ratchet)) fail(`"ratchet" must be true, false or a list of rule ids`);
+  if (c.packs !== undefined) {
+    if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);
+    for (const p of c.packs as string[]) if (!PACKS.has(p)) fail(`packs: unknown pack "${p}" (known: ${[...PACKS].join(", ")})`);
+    if (new Set(c.packs as string[]).size !== (c.packs as string[]).length) fail(`packs: lists a pack twice`);
+  }
+  // After `packs` is known to be a list of pack names.
   if (c.contracts !== undefined) {
     if (!isObject(c.contracts)) fail(`"contracts" must be an object: { out?, schemas?, databaseEnv? }`);
     const contracts = c.contracts as Record<string, unknown>;
@@ -415,11 +428,6 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
     if (contracts.databaseEnv !== undefined && (typeof contracts.databaseEnv !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(contracts.databaseEnv))) {
       fail(`contracts.databaseEnv must be an environment variable name`);
     }
-  }
-  if (c.packs !== undefined) {
-    if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);
-    for (const p of c.packs as string[]) if (!PACKS.has(p)) fail(`packs: unknown pack "${p}" (known: ${[...PACKS].join(", ")})`);
-    if (new Set(c.packs as string[]).size !== (c.packs as string[]).length) fail(`packs: lists a pack twice`);
   }
   for (const [pack, keys] of Object.entries(PACK_KEYS)) {
     const block = c[pack];

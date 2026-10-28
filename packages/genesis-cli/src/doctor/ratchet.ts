@@ -105,13 +105,14 @@ export function rulesWeakened(
 ): FindingInput[] {
   const out: FindingInput[] = [];
   const levelIn = (c: Pick<DoctorConfig, "rules" | "packageRules">, rule: string) => c.rules?.[rule] ?? c.packageRules?.[rule]?.level;
-  const ids = new Set([...Object.keys(config.rules ?? {}), ...Object.keys(config.packageRules ?? {})]);
+  // The base's ids too: removing an entry that raised a rule lowers it back to its default.
+  const ids = new Set([...Object.keys(config.rules ?? {}), ...Object.keys(config.packageRules ?? {}), ...Object.keys(before.rules), ...Object.keys(before.packageRules)]);
   for (const rule of ids) {
-    const set = levelIn(config, rule);
+    const set = levelIn(config, rule) ?? defaults(rule);
     if (set === undefined) continue;
     const was = levelIn(before, rule) ?? defaults(rule);
     if (was === undefined ? set === "off" || set === "info" : RANK[set] < RANK[was]) {
-      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `${rule} is set to "${set}"${was ? `, lower than "${was}"` : ""} since ${base}; rules only tighten, so fix what it finds instead` });
+      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `${rule} ${levelIn(config, rule) === undefined ? "is back to its own level" : "is set to"} "${set}"${was ? `, lower than "${was}"` : ""} since ${base}; rules only tighten, so fix what it finds instead` });
     }
   }
   for (const [rule, setting] of Object.entries(config.packageRules ?? {})) {
