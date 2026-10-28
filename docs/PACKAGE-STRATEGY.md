@@ -14,9 +14,11 @@ most of the next work **extensions of what exists** rather than new packages:
 - uploads promote the protocol forms already moved up from an app;
 - billing writes through the entitlement grants merged in migration 0017.
 
-The one new package is `genesis-ai`. It starts as a thin, server-only policy layer that replaces
-the AI code Growth90 already runs, plus a control plane to manage it ([AI.md](./AI.md)). Retrieval,
-an app MCP server and agents stay ideas until a second app asks for them (G4).
+The one new package is `genesis-ai`. It starts as a thin, server-only policy layer that takes over
+chat's AI code (wired into Growth90 but not live yet), plus a control plane to manage it
+([AI.md](./AI.md)). It is designed for where the apps are going (personalised guidance, client
+feedback, and goals, plans and tasks whose progress stacks week over week), but builds that in
+order, coach-side first.
 
 ## 1. What Genesis has today
 
@@ -49,12 +51,14 @@ Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, wit
 ### Consumers today
 
 Genesis promotes what apps prove (G4), so the strategy starts from what Growth90, the main app
-on Genesis, actually does (read at its commit `7c0fecd`, 2026-10-27):
+on Genesis, actually does (read at its commit `7c0fecd`, 2026-10-27). Sanctiv, an earlier app not
+built on these packages, is where AI ran in production; its lessons are in [AI.md](./AI.md).
 
 | What Growth90 does | Where | What it says about Genesis |
 |---|---|---|
-| "Catch me up" AI recap through `createChatAssistant`, on only when `ANTHROPIC_API_KEY` is set, coaches only, read as the caller under RLS, `observer` from `genesis_chat.i_observe` | `src/lib/chat/assistant.server.ts` | The correct server-side loading for AI already exists, in the app. `genesis-ai` should promote it, not redesign it. |
-| OpenAI moderation and Deepgram transcription wired into chat's runner | `src/lib/chat-runner.server.ts` | Two more AI processors, unmetered. |
+| "Catch me up" AI recap through `createChatAssistant`, wired but **not live** (on only when `ANTHROPIC_API_KEY` is set); coaches only, read as the caller under RLS, `observer` from `genesis_chat.i_observe` | `src/lib/chat/assistant.server.ts` | The correct server-side loading for AI is already written, in the app. `genesis-ai` should promote it, not redesign it. |
+| OpenAI moderation and Deepgram transcription wired into chat's runner, also off until keys are set | `src/lib/chat-runner.server.ts` | Two more AI processors, which would run unmetered. |
+| Goals and projects, tasks, metrics per period, status updates, coaching sessions and **drafts** | its local `work` package (moved out of Genesis) | The data that AI for "progress that stacks" reads and proposes changes to already exists. |
 | Anthropic, OpenAI and Deepgram named by hand as processors | `src/routes/privacy.tsx` | Privacy and consent for AI are app code today. |
 | Web Sentry set up by hand, with its own scrubbers for events, breadcrumbs, replays and **spans** | `src/instrument.client.ts`, `src/lib/sentry.ts` | Web needs what `native/observability` gives native, including tracing. |
 | Command palette built from its navigation (`flattenNav(nav)`) | `src/components/shell/AppCommandPalette.tsx` | Commands want to come from navigation, which is what PR #449 designs. |
@@ -214,7 +218,7 @@ replace or absorb existing code rather than adding surface.
 
 | Rank | Build | Size | Why |
 |---|---|---|---|
-| 1 | **`genesis-ai` core** (AI.md P0–P1), with **spans in `core`** (M1) built alongside as its prerequisite | M | The owner's priority. It replaces Growth90's hand-wired recap, moderation and transcription with metered, gated, consented calls, before Forms and Sites add more. |
+| 1 | **`genesis-ai` core** (AI.md P0–P1), with **spans in `core`** (M1) built alongside as its prerequisite | M | The owner's priority. Chat's recap, moderation and transcription become metered, gated, consented calls before Growth90 turns them on and before Forms and Sites add more. |
 | 2 | **AI control plane and consent** (AI.md P2) | M | The "centralised management" the owner asked for: usage and cost, budgets, switches, model rollouts, tenant guidance, consent records. It also starts the `consent` block every app needs. |
 | 3 | **Commands from navigation** (M3) | S | Cheap once #449 lands; Growth90 already builds its palette from navigation. |
 | 4 | **Billing writes grants** (M5) | L | The planned `entitlements` feature; migration 0017's comments (memberships, class packs, coaching packages) show the demand. |

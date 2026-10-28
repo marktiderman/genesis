@@ -13,8 +13,12 @@
   of what Genesis should build next.
 - [`AI.md`](./AI.md): proposal for `genesis-ai`, one server-side layer for every AI call an app
   makes (consent, gate, budgets, server-side loading, usage, tracing) and a control plane to manage
-  it, starting from the AI Growth90 already runs; with research on the alternatives and on
-  Anthropic's and OpenAI's guidance.
+  it, built first for chat and then, in a coaching track, for personalised guidance, client
+  feedback and goals whose progress stacks; with research on the alternatives and on Anthropic's
+  and OpenAI's guidance.
+- [`AI-COACHING-RESEARCH.md`](./AI-COACHING-RESEARCH.md): reference for `AI.md`: lessons from an
+  app that ran AI in production, and what the leading fitness, health, coaching and goal apps do
+  with AI, with sources.
 - [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the
   data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
   write safety, the roadmap, and the decisions still open.
