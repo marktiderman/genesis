@@ -1,0 +1,25 @@
+packages/ai/CHANGELOG.md
+  s_eb8f273c0695bf::t_c59e0806b9d43a 1-14
+packages/ai/package.json
+  s_eb8f273c0695bf::t_d81c32919f7612 3
+packages/chat/CHANGELOG.md
+  s_eb8f273c0695bf::t_3bf8416b65512c 3-10
+packages/chat/package.json
+  s_eb8f273c0695bf::t_ffbd300a4c4a88 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "69d8e6300ce528c2724cc9ffebbd006d1d599fee",
+  "prompts": {},
+  "sessions": {
+    "s_eb8f273c0695bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebe7fe83-aa8e-4bb2-aa43-5134866b623d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
