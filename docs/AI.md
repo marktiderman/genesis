@@ -12,7 +12,7 @@ Build `genesis-ai` in three steps, and stop there until a second app asks for mo
 
 1. **A thin, server-only policy layer.** Every AI call, generative or not, passes through one
    pipeline: consent, feature gate, budget, server-side loading, guardrails, the model call, a
-   usage record and a trace. Its first job is to take over chat's AI code, wired into Growth90 but not live yet (recap,
+   usage record and a trace. Its first job is to take over chat's AI code, wired into the main app but not live yet (recap,
    moderation, transcription) with no change in behaviour, proven by a parity test.
 2. **A control plane.** This is the "centralised management system": usage and cost per tenant,
    task and model; budgets; kill switches; model rollouts behind flags; tenant guidance; consent
@@ -36,18 +36,18 @@ client-facing guidance, then proactive check-ins.
 | Call | Where it lives | Notes |
 |---|---|---|
 | Recap ("catch me up") and reply drafts | `chat/src/server/assistant.ts`, `createChatAssistant` | Anthropic Messages API: `claude-sonnet-5-5`, `output_config.effort: "low"`, Anthropic's server-side refusal fallback (`fallbacks: "default"`), API version `2026-10-21`, transcript fenced as data |
-| The recap's gating and loading | Growth90 `src/lib/chat/assistant.server.ts` | Wired, **not live** (on only when the key is set); coaches only; messages read as the caller under RLS; `observer` from `genesis_chat.i_observe`, never from the request |
-| Moderation | `chat/src/server/moderation.ts`, wired in Growth90's chat runner | OpenAI moderation with per-category thresholds; off until a key is set |
-| Transcription | `chat/src/server/transcribers.ts`, wired in Growth90's chat runner | Deepgram or OpenAI, priced per audio minute; off until a key is set |
-| Goals, projects, tasks, metrics, status updates, sessions, drafts | Growth90's `work` package | Not AI, but the data that guidance, feedback and "progress that stacks" will read and propose changes to |
-| The processor list | Growth90 `src/routes/privacy.tsx` | Anthropic, OpenAI and Deepgram named by hand |
+| The recap's gating and loading | The main app's `src/lib/chat/assistant.server.ts` | Wired, **not live** (on only when the key is set); coaches only; messages read as the caller under RLS; `observer` from `genesis_chat.i_observe`, never from the request |
+| Moderation | `chat/src/server/moderation.ts`, wired in the main app's chat runner | OpenAI moderation with per-category thresholds; off until a key is set |
+| Transcription | `chat/src/server/transcribers.ts`, wired in the main app's chat runner | Deepgram or OpenAI, priced per audio minute; off until a key is set |
+| Goals, projects, tasks, metrics, status updates, sessions, drafts | The main app's `work` package | Not AI, but the data that guidance, feedback and "progress that stacks" will read and propose changes to |
+| The processor list | The main app's `src/routes/privacy.tsx` | Anthropic, OpenAI and Deepgram named by hand |
 | Planned | `FORMS.md` ("AI assist"), `SITES.md` (AI generation from section schemas) | Not built |
 
 There is one generative call site in Genesis today, not yet live in any app, and the correct way
 to call it (server-side loading, observer from the database, labelled output) lives half in chat
 and half in one app. Two more domains plan AI. That is the cheapest moment to give it one home.
 
-Sanctiv, an earlier app, ran AI in production: companion conversations, a per-person memory,
+An earlier app ran AI in production: companion conversations, a per-person memory,
 weekly reports, follow-up questions and a client-approved brief for the practitioner. Its lessons
 (what to keep, what to design out) are summarised in
 [AI-COACHING-RESEARCH.md](./AI-COACHING-RESEARCH.md) and are folded into this design.
@@ -82,9 +82,9 @@ The research behind this table, with sources, is in
 |---|---|---|
 | **Personalised guidance** | WHOOP, Oura and Fitbit's Gemini coach: a daily brief that reflects the person's state; an "ask" over the person's own data; an **explicit memory the person can see and edit**; onboarding by conversation. Google's coach computes every number in code through a data-science agent. | Person context in layers with a manifest (P1); a memory block (coaching track); a metrics tool layer so **the model never does arithmetic**; scope limits and safety routing. |
 | **Feedback for clients** | My PT Hub and Everfit draft check-in feedback and replies "in the coach's voice" for the coach to review and send. Omada's dietitians review AI output, and coaches get summaries of members' AI conversations. **No coaching platform closes the loop** from check-in to reviewed feedback to plan change. | Tasks triggered by events (a check-in submitted) and schedules (weekly); a **coach review queue** with per-type auto-apply rules; outputs as drafts the coach edits; audience-aware loading so only what a client shared reaches a coach. |
-| **Goals, projects and tasks whose progress stacks** | WHOOP, Fitbit, Peloton, MacroFactor and Sunsama all run a **weekly cycle**: plan, recap, adjust. Lattice's 1:1 agent carries open action items into the next agenda. Todoist and Motion break goals into tasks. | A weekly review task over Growth90's `work` model (pursuits, work items, metric values, status updates, sessions) that proposes changes as **drafts**; accepted changes become next week's plan, so progress is explicit and auditable. |
+| **Goals, projects and tasks whose progress stacks** | WHOOP, Fitbit, Peloton, MacroFactor and Sunsama all run a **weekly cycle**: plan, recap, adjust. Lattice's 1:1 agent carries open action items into the next agenda. Todoist and Motion break goals into tasks. | A weekly review task over the main app's `work` model (pursuits, work items, metric values, status updates, sessions) that proposes changes as **drafts**; accepted changes become next week's plan, so progress is explicit and auditable. |
 
-Four principles follow from the research and from Sanctiv:
+Four principles follow from the research and from the earlier app:
 
 1. **Human plus AI, not AI alone.** Future dropped its AI-only coaching beta in June 2026. In
    BetterUp's survey, 51% of clients want both a human and AI, 34% a human, 15% AI. The AI
@@ -97,7 +97,7 @@ Four principles follow from the research and from Sanctiv:
    saved preferences, because the features were not wired together. Memory, plan, check-ins and
    the coach read the same person context.
 4. **Measure it continuously.** Oura and Google re-run clinician-written scenario tests on every
-   model or prompt change and track edge-case recall on its own. Sanctiv's evaluations ran
+   model or prompt change and track edge-case recall on its own. The earlier app's evaluations ran
    against canned responses and never caught that personalisation scored 0.08.
 
 ## What the leaders and the vendors recommend
@@ -160,7 +160,7 @@ Four principles follow from the research and from Sanctiv:
 | Option | What it is | Fit for Genesis |
 |---|---|---|
 | **[Vercel AI SDK 7](https://vercel.com/blog/ai-sdk-7)** | Provider-neutral model calls, streaming, structured output, tools with approval (opt-in HMAC-signed in v7), a durable `WorkflowAgent`, OpenTelemetry through `@ai-sdk/otel`, an [Expo path](https://ai-sdk.dev/docs/getting-started/expo), and on-device providers | **Chosen for model calls.** It has the largest ecosystem and absorbs monthly provider churn. It sits behind the task API, so a swap is local. |
-| **TanStack AI** | 1.0 on 2026-10-23: 23 provider adapters, tools with approval, MCP, middleware, React Native via a server route | A close second, and it fits a TanStack stack (Growth90 runs TanStack Start). Five days past 1.0. Re-check at P1. |
+| **TanStack AI** | 1.0 on 2026-10-23: 23 provider adapters, tools with approval, MCP, middleware, React Native via a server route | A close second, and it fits a TanStack stack (the main app runs TanStack Start). Five days past 1.0. Re-check at P1. |
 | **Mastra** | Open-source TypeScript framework (license reported as Apache-2.0; 1.0 reported January 2026) bundling agents, workflows, memory, RAG, evals, tracing and a studio, on AI SDK providers | The nearest thing to a ready-made "central AI package". Too much for P1, where Genesis needs its own gate, consent and RLS loading. **A build-vs-adopt decision before any agent, memory or evals work.** |
 | **OpenAI Agents SDK** (TS) | Agents, handoffs, guardrails, sessions, tracing | Good ideas (guardrails as a stack); OpenAI-centred. Not chosen. |
 | **Claude Agent SDK / Managed Agents** | Anthropic's harness as a library / Anthropic-hosted agents with versioned configs and permission policies | For back-office or long-running agents. Their permission policies inform ours. Not the in-app layer. |
@@ -263,7 +263,7 @@ under RLS. Nothing the model reads, and no flag that widens what it reads, ever 
 request.
 
 ```ts
-// @marktiderman/genesis-chat/ai — chat's recap, promoted from Growth90 (G4)
+// @marktiderman/genesis-chat/ai — chat's recap, promoted from the main app (G4)
 export const chatRecap = (opts: { canUse: (ctx: AiContext) => Promise<boolean> }) =>
   defineTask({
     id: "chat.recap",
@@ -310,9 +310,9 @@ session. Each layer is typed code with a loader, a token budget and a priority:
   last.
 - Every layer is fenced as data, never instructions.
 - Every call records a **context manifest** on its usage row: which layers, their estimated
-  tokens and the ids of the items included, never the content. Sanctiv found this manifest is
+  tokens and the ids of the items included, never the content. The earlier app found this manifest is
   what makes a prompt change measurable.
-- Less is more: Sanctiv's evaluation preferred a short identity, a compact profile and a few
+- Less is more: the earlier app's evaluation preferred a short identity, a compact profile and a few
   retrieved items (about 1,000 tokens) to a 3,200-token prompt holding everything.
 - Methods a coach or programme follows (a coaching framework, a training philosophy) are
   versioned **method packs**, shipped as code or content packs and chosen per tenant. They are
@@ -320,7 +320,7 @@ session. Each layer is typed code with a loader, a token budget and a priority:
 
 **Loaders are tested against the schema.** Each loader is typed against the generated database
 types and covered by a contract test, so a schema change can't silently change what the model
-reads. Sanctiv lost two inputs that way without any test failing.
+reads. The earlier app lost two inputs that way without any test failing.
 
 ### The pipeline
 
@@ -443,7 +443,7 @@ expenditure model, a load-progression rule), the algorithm decides and the model
 ### The coach review queue (coaching track)
 
 Outputs meant for a client are **drafts** first. Each task declares its `audience` and its
-`review`: `none`, `owner` (the person approves, as with Sanctiv's brief, section by section) or
+`review`: `none`, `owner` (the person approves, as with the earlier app's brief, section by section) or
 `coach` (the coach approves before the client sees it). The queue is modelled on Linear's triage:
 
 - Each item shows the draft, the reasoning and the evidence, and can be accepted, edited and sent,
@@ -460,7 +460,7 @@ Outputs meant for a client are **drafts** first. Each task declares its `audienc
 ### Memory (coaching track)
 
 What the AI knows about a person is an explicit, editable record, as in WHOOP's My Memory and
-Sanctiv's memories:
+The earlier app's memories:
 
 - Items have a category (goals, preferences, constraints and injuries, life events, and so on),
   content, confidence, a source (client said, coach entered, AI suggested, derived), provenance
@@ -479,7 +479,7 @@ Sanctiv's memories:
 
 ### Progress that stacks (coaching track)
 
-Growth90's `work` model already holds goals and projects (pursuits), tasks and milestones (work
+The main app's `work` model already holds goals and projects (pursuits), tasks and milestones (work
 items), metric values per period, status updates, coaching sessions and **drafts**. The weekly
 cycle runs over it:
 
@@ -514,7 +514,7 @@ cycle runs over it:
   - consistency across repeated runs;
   - plan validity;
   - fit with the coach's voice.
-- **Evaluations run live.** Evaluations against canned responses gave Sanctiv false comfort; the
+- **Evaluations run live.** Evaluations against canned responses gave the earlier app false comfort; the
   CI gate runs against a seeded evaluation tenant.
 - **In production,** the north star is coach acceptance rate and edit distance, time saved per
   check-in, and goal attainment week over week.
@@ -597,8 +597,8 @@ ask.
 
 | Phase | Scope | Exit | Size |
 |---|---|---|---|
-| **P0 · Spike** | On Growth90's runtime first (TanStack Start on Vercel, Node), then Supabase Edge Functions (Deno), with `@ai-sdk/anthropic`, prove: (1) `output_config.effort` and `fallbacks: "default"` with its beta pass through; (2) no `temperature`, `top_p` or `top_k` is sent (400 on `2026-10-21`); (3) structured output uses `output_config.format`, not forced `tool_choice` (400 on Opus and Sonnet 5.5); (4) cache and usage tokens come back; (5) streaming works to Expo with `expo/fetch`. | A written yes or no. If no, the pipeline calls providers through a thin adapter (chat's `fetch` code) behind the same task API. | ≤ 1 week |
-| **P1 · Core** | `defineAi`, `defineTask`, `run`, `stream`, `wrap`, the task handler and `useAiTask`; context layers and the manifest; the safety-routing hook; model capability records; the P1 tables; the smallest `consent` block; spans in `core/observability`; `genesis-chat/ai` with `chat.recap` and `chat.draftReply`; doctor rules (no direct provider imports, no client import of tasks or config); one live recap eval in CI. | Chat's recap, moderation and transcription run through `genesis-ai` (in the sample app, and in Growth90 when it turns them on), the parity test passes, and every AI call has a usage row. | 2–3 weeks |
+| **P0 · Spike** | On the main app's runtime first (TanStack Start on Vercel, Node), then Supabase Edge Functions (Deno), with `@ai-sdk/anthropic`, prove: (1) `output_config.effort` and `fallbacks: "default"` with its beta pass through; (2) no `temperature`, `top_p` or `top_k` is sent (400 on `2026-10-21`); (3) structured output uses `output_config.format`, not forced `tool_choice` (400 on Opus and Sonnet 5.5); (4) cache and usage tokens come back; (5) streaming works to Expo with `expo/fetch`. | A written yes or no. If no, the pipeline calls providers through a thin adapter (chat's `fetch` code) behind the same task API. | ≤ 1 week |
+| **P1 · Core** | `defineAi`, `defineTask`, `run`, `stream`, `wrap`, the task handler and `useAiTask`; context layers and the manifest; the safety-routing hook; model capability records; the P1 tables; the smallest `consent` block; spans in `core/observability`; `genesis-chat/ai` with `chat.recap` and `chat.draftReply`; doctor rules (no direct provider imports, no client import of tasks or config); one live recap eval in CI. | Chat's recap, moderation and transcription run through `genesis-ai` (in the sample app, and in the main app when it turns them on), the parity test passes, and every AI call has a usage row. | 2–3 weeks |
 | **P2 · Control plane** | `/admin` screens; model rollouts by flag; tenant guidance; consent screens on web and native; the generated processor list. | The owner moves one tenant's recap to a new model from the admin, sees the cost and quality difference, and rolls back. | 2–3 weeks |
 | **Later (ideas)** | The assistant as a chat member; search and retrieval; agents with approvals; the app MCP server; BYOK at scale; on-device models; a build-vs-adopt decision on Mastra before any agent, memory or evals framework. | Each starts as its own `features.ts` entry when an app asks. | — |
 
@@ -609,7 +609,7 @@ on-device models and a hosted gateway.
 
 `scripts/spikes/ai-sdk-p0.mjs` sends real AI SDK calls through a mock `fetch` that records each
 request and answers like the Messages API. It ran with `ai` 7.0.155 and `@ai-sdk/anthropic` 4.0.90
-on Node 22 (Growth90's server runtime), and on Deno 2.9.6 both from `node_modules` and through
+on Node 22 (the main app's server runtime), and on Deno 2.9.6 both from `node_modules` and through
 `npm:` imports with `ai` 7.0.148 and `@ai-sdk/anthropic` 4.0.85, as Supabase Edge Functions import
 them. **16 of 16 checks passed on all three:**
 
@@ -754,7 +754,7 @@ Decided by the maintainer on 2026-10-28. Each is tracked in `features.ts`.
   guidance, client feedback, and progress that stacks) mapped to what the leading apps do and
   what Genesis needs, with four principles.
 - **New reference doc:** [AI-COACHING-RESEARCH.md](./AI-COACHING-RESEARCH.md), with lessons from
-  Sanctiv's production AI and research on the leading fitness, health, coaching and goal apps.
+  The earlier app's production AI and research on the leading fitness, health, coaching and goal apps.
 - **The design adds:**
   - event and scheduled triggers;
   - person context in layers with a manifest;
@@ -765,19 +765,19 @@ Decided by the maintainer on 2026-10-28. Each is tracked in `features.ts`.
   - model capability records;
   - the coach review queue;
   - memory;
-  - the weekly loop over Growth90's `work` model;
+  - the weekly loop over the main app's `work` model;
   - feedback and evaluations;
   - debug capture with retention;
   - server-built conversation history;
   - health and coaching claim rules.
 - **A coaching track (C1–C4) after P2**, coach-side first.
-- **Corrected:** Growth90's AI is wired but not live.
+- **Corrected:** the main app's AI is wired but not live.
 
 ## What changed in v0.2
 
 - **Scope cut to P0–P2:** a thin core plus a control plane. Retrieval, MCP, agents and on-device
   models are ideas.
-- **The first consumer is Growth90's real code**, with a parity test.
+- **The first consumer is the main app's real code**, with a parity test.
 - **Tasks load their own data on the server;** clients send ids only. v0.1's recap example would
   have let the client supply the transcript and dropped the observer check.
 - **Chat's code no longer moves.** `wrap` meters it in place, which removes the dependency cycle

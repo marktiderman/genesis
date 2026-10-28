@@ -15,7 +15,7 @@ most of the next work **extensions of what exists** rather than new packages:
 - billing writes through the entitlement grants merged in migration 0017.
 
 The one new package is `genesis-ai`. It starts as a thin, server-only policy layer that takes over
-chat's AI code (wired into Growth90 but not live yet), plus a control plane to manage it
+chat's AI code (wired into the main app but not live yet), plus a control plane to manage it
 ([AI.md](./AI.md)). It is designed for where the apps are going (personalised guidance, client
 feedback, and goals, plans and tasks whose progress stacks week over week), but builds that in
 order, coach-side first.
@@ -50,11 +50,11 @@ Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, wit
 
 ### Consumers today
 
-Genesis promotes what apps prove (G4), so the strategy starts from what Growth90, the main app
-on Genesis, actually does (read at its commit `7c0fecd`, 2026-10-27). Sanctiv, an earlier app not
+Genesis promotes what apps prove (G4), so the strategy starts from what the main app
+on Genesis actually does (read at its commit `7c0fecd`, 2026-10-27). An earlier app, not
 built on these packages, is where AI ran in production; its lessons are in [AI.md](./AI.md).
 
-| What Growth90 does | Where | What it says about Genesis |
+| What the main app does | Where | What it says about Genesis |
 |---|---|---|
 | "Catch me up" AI recap through `createChatAssistant`, wired but **not live** (on only when `ANTHROPIC_API_KEY` is set); coaches only, read as the caller under RLS, `observer` from `genesis_chat.i_observe` | `src/lib/chat/assistant.server.ts` | The correct server-side loading for AI is already written, in the app. `genesis-ai` should promote it, not redesign it. |
 | OpenAI moderation and Deepgram transcription wired into chat's runner, also off until keys are set | `src/lib/chat-runner.server.ts` | Two more AI processors, which would run unmetered. |
@@ -80,13 +80,13 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 
 1. **AI has no home.** Chat holds one generative call site (recap and drafts) plus moderation and
    transcription, each with its own key, timeout and defaults. Forms and Sites plan AI work
-   (`FORMS.md` "AI assist", `SITES.md` AI generation). Growth90 holds the gating, the
+   (`FORMS.md` "AI assist", `SITES.md` AI generation). The main app holds the gating, the
    server-side loading and the privacy list. This is not yet duplication. It is the point where
    a shared layer costs least: before the second and third copies exist. See [AI.md](./AI.md).
 2. **Observability is split.** `core/errors.ts` gives every platform `reportError` and
    `setErrorReporter`, already used by chat, forms-native and native. Typed events, scrubbing and
    the sink contract live only in `native/observability`, and nothing has spans or traces.
-   Growth90 hand-builds web Sentry, tracing included.
+   The main app hand-builds web Sentry, tracing included.
 3. **`genesis-supabase` does two jobs.** It is the Supabase client kit and the platform's schema
    (jobs, entitlements, feature mirror, push, support, release policy). That is acceptable while
    the tables serve the gate, but new platform tables should go to the package that owns the
@@ -101,7 +101,7 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 6. **Small platform pieces exist twice.** Rate limiting is in `forms/src/rate-limit.ts` and in
    chat. Key-value storage is `core/storage` (sync) and forms' `KeyValueStorage` (async).
 7. **The umbrella is a half-measure.** It pins Foundation, `native`, `switchboard` and forms, not
-   `chat`, `notifications`, `supabase` or `connect`, and Growth90 doesn't use it.
+   `chat`, `notifications`, `supabase` or `connect`, and the main app doesn't use it.
 
 ## 2. Proposed organisation
 
@@ -141,13 +141,13 @@ should be refreshed in the same change.
 
 | # | Move | Builds on | Size |
 |---|---|---|---|
-| M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; Growth90's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
-| M2 | **`genesis-ai`**, a new platform service, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | Growth90's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
-| M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; Growth90's nav-driven palette | S after #449 |
+| M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; The main app's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
+| M2 | **`genesis-ai`**, a new platform service, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
+| M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; The main app's nav-driven palette | S after #449 |
 | M4 | **One upload protocol.** Promote forms' signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) to a shared home (types in `core`, the Supabase Storage handler in `supabase`), then move chat, support and sites onto it through their own seams. A `genesis-files` package only if the shared code outgrows those homes. | forms' protocol, `FileUploadField` | M |
 | M5 | **Billing writes grants.** When `entitlements` (planned) starts, a billing block (Stripe on the web, store purchases on native, a paywall) writes through `grant_person_entitlement` / `revoke_person_entitlement` with `source` and `source_ref`, which 0017 already reserves for "a billing webhook". The entitlement tables stay with the gate. | Migration 0017; `featureOn` | L |
 | M6 | **Small platform pieces, one home each.** Rate limiting moves from forms into a shared module (AI budgets reuse it). The two key-value storage contracts merge. | `forms/src/rate-limit.ts`; `core/storage` | S |
-| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable platform service and Growth90 moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
+| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable platform service and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
 
 Deliberately **not** moved:
 
@@ -218,9 +218,9 @@ replace or absorb existing code rather than adding surface.
 
 | Rank | Build | Size | Why |
 |---|---|---|---|
-| 1 | **`genesis-ai` core** (AI.md P0–P1), with **spans in `core`** (M1) built alongside as its prerequisite | M | The owner's priority. Chat's recap, moderation and transcription become metered, gated, consented calls before Growth90 turns them on and before Forms and Sites add more. |
+| 1 | **`genesis-ai` core** (AI.md P0–P1), with **spans in `core`** (M1) built alongside as its prerequisite | M | The owner's priority. Chat's recap, moderation and transcription become metered, gated, consented calls before the main app turns them on and before Forms and Sites add more. |
 | 2 | **AI control plane and consent** (AI.md P2) | M | The "centralised management" the owner asked for: usage and cost, budgets, switches, model rollouts, tenant guidance, consent records. It also starts the `consent` block every app needs. |
-| 3 | **Commands from navigation** (M3) | S | Cheap once #449 lands; Growth90 already builds its palette from navigation. |
+| 3 | **Commands from navigation** (M3) | S | Cheap once #449 lands; the main app already builds its palette from navigation. |
 | 4 | **Billing writes grants** (M5) | L | The planned `entitlements` feature; migration 0017's comments (memberships, class packs, coaching packages) show the demand. |
 | 5 | **One upload protocol** (M4) and **one rate limiter** (M6) | M | Consolidation of code that already exists several times. |
 | 6 | **Search**: generalise chat's `search_messages` into permission-aware full-text search for any resource, then add semantic search through Supabase's automatic embeddings | M | Linear's lesson, built from the seed Genesis has. |
@@ -279,7 +279,7 @@ Decided by the maintainer on 2026-10-28:
   - the umbrella's contents;
   - where uploads and pickers live;
   - entitlements are partly shipped (0017).
-- **New: a "Consumers today" section** grounded in Growth90's code.
+- **New: a "Consumers today" section** grounded in the main app's code.
 - **Groups: five, checked against real dependencies,** with the two domain seams declared and
   Part 2 reconciled.
 - **Moves extend what exists:**

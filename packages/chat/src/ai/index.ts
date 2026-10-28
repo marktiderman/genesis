@@ -1,7 +1,7 @@
 // @feat:chat
 /**
  * Chat's AI tasks for `@marktiderman/genesis-ai`: the recap ("catch me up") and a reply draft,
- * promoted from Growth90's loader (G4). The only part of chat that imports genesis-ai, an
+ * promoted from the main app's loader (G4). The only part of chat that imports genesis-ai, an
  * optional peer: install it (and `zod`) to use this subpath. Server only: register the tasks with
  * `createAiHandler` and call them by id from the client (`useAiTask("chat.recap")`).
  *

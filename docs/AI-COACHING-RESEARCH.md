@@ -2,7 +2,7 @@
 
 Research notes for [AI.md](./AI.md), 2026-10-28. Two parts:
 
-1. **Lessons from a production app.** What Sanctiv, an earlier app with a large AI surface
+1. **Lessons from a production app.** What an earlier app with a large AI surface
    (companion conversations, per-person memory, briefs for practitioners), learned in production.
    Written as patterns; the app's own code and incidents stay in its repository.
 2. **What the leading fitness, health, coaching and goal apps do**, with sources, and what a
@@ -13,7 +13,7 @@ here come from secondary summaries and need a legal read before anything is buil
 
 ## Part 0. Lessons from a production app
 
-Sanctiv ran AI for journaling and pastoral care: a companion conversation, background synthesis
+The earlier app ran AI for journaling and pastoral care: a companion conversation, background synthesis
 into a per-person memory and profile, weekly reports, between-session follow-up questions, and a
 client-approved brief sent to the person's practitioner before a session. What carried over:
 
