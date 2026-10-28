@@ -1,0 +1,49 @@
+packages/ai/src/server/index.ts
+  s_e78d57e50dc818::t_0e07a7a7d0e0a6 2
+packages/ai/src/__tests__/run.test.ts
+  s_e78d57e50dc818::t_f09103ead40a8a 73-74
+  s_e78d57e50dc818::t_3868b9aeae96f1 163-164,182-212,243-265
+  s_e78d57e50dc818::t_a913fc3468f1a9 266
+packages/ai/src/index.ts
+  s_e78d57e50dc818::t_97be54d071b23e 3
+packages/ai/src/define.ts
+  s_e78d57e50dc818::t_c84753a1007214 85
+  s_e78d57e50dc818::t_e13ffce743e825 14-19
+  s_e78d57e50dc818::t_c79a80009a8fc4 1
+  s_e78d57e50dc818::t_d664be5b1881f5 54-55
+packages/ai/src/server/handler.ts
+  s_e78d57e50dc818::t_302427dc9d6037 16-23,47-51,59-63,78-84
+packages/ai/src/__tests__/handler-wrap-store.test.ts
+  s_e78d57e50dc818::t_f09103ead40a8a 29-34,49,63-91
+  s_e78d57e50dc818::t_67a58bc54dc6d6 92
+packages/ai/src/models.ts
+  s_e78d57e50dc818::t_a2dd9385fd6343 62
+  s_e78d57e50dc818::t_54e943172ead42 33-37,40
+  s_e78d57e50dc818::t_87ba26cdc1a3a1 49-53
+packages/ai/src/server/run.ts
+  s_e78d57e50dc818::t_3868b9aeae96f1 167-168,171-174,186,190-193
+  s_e78d57e50dc818::t_77c548ad767a10 3,34-41,126-129,136,160-166,169-170,175-185,187-189,194-199,211,215-216,220,228,235-243,254-257,268-269,273,276-277,280,289,291,293,300,307,314-315,318-324,331,336,340-349,356-357,364,367,372-384,391-392,394,396,399-405,408-410
+packages/ai/src/__tests__/mock-anthropic.ts
+  s_e78d57e50dc818::t_f09103ead40a8a 9-11,18-19,69-72
+docs/AI.md
+  s_e78d57e50dc818::t_cc6979ab1f7895 680-686
+packages/ai/README.md
+  s_e78d57e50dc818::t_cc6979ab1f7895 68-69,96-99,130-142
+  s_e78d57e50dc818::t_af7b5b0f6186c9 143
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d4b64b495cdaeb822fbe757cffc8b3db462339e5",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
