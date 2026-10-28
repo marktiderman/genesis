@@ -75,7 +75,7 @@
     "frimousse": "0.4.0"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-ai": "workspace:^",
+    "@marktiderman/genesis-ai": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@marktiderman/genesis-ui": "workspace:>=2.21.0 <3.0.0",
     "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
