@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-ai": minor
+"@marktiderman/genesis-ai": patch
 ---
 
 New package: `@marktiderman/genesis-ai`, one server-side pipeline for every AI call a Genesis app makes (docs/AI.md, P1).
