@@ -1,0 +1,108 @@
+packages/forms/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 17-29
+packages/collab/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-19
+packages/forms-react/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-18
+packages/extension/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-18
+packages/support/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-28
+.github/CODEOWNERS
+  s_e78d57e50dc818::t_72526a6817523d 1-2
+CONTRIBUTING.md
+  s_e78d57e50dc818::t_cf80850ff10e28 23,34-36,76-80
+packages/connect/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-19
+packages/genesis/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-19
+packages/data-switchboard/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-18
+packages/ui/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-21
+packages/ui-native/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-20
+.github/workflows/codeql.yml
+  s_e78d57e50dc818::t_5c1e0817a95997 1-37
+.github/workflows/ci.yml
+  s_e78d57e50dc818::t_34523bd57fb0c6 27-29
+docs/research/oss-devops-programs.md
+  s_6efe1ff79893b4::t_ca8c545df7f9e2 1-441
+packages/forms-builder/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 10-20
+packages/forms-devtools/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 10-20
+packages/forms-studio/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 10-20
+packages/studio/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 10-22
+.github/workflows/supabase-ci.yml
+  s_e78d57e50dc818::t_34523bd57fb0c6 65-68,73-78,230-233,263-276
+  s_e78d57e50dc818::t_1a473dc5d99793 277
+packages/chat/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-28
+CODE_OF_CONDUCT.md
+  s_e78d57e50dc818::t_72526a6817523d 1-16
+packages/forms-native/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 9-11,16,18-27
+SUPPORT.md
+  s_e78d57e50dc818::t_72526a6817523d 1-11
+packages/studio-server/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-19
+packages/native/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-28
+.github/ISSUE_TEMPLATE/config.yml
+  s_e78d57e50dc818::t_cf80850ff10e28 1-8
+.coderabbit.yaml
+  s_e78d57e50dc818::t_183fed0d4f0128 1-54
+packages/design-system/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 7-19
+packages/genesis-cli/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 7-19
+.github/workflows/scorecard.yml
+  s_e78d57e50dc818::t_5c1e0817a95997 1-40
+packages/supabase/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-28
+packages/notifications/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-22
+packages/core/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-20
+.github/dependabot.yml
+  s_e78d57e50dc818::t_5c1e0817a95997 1-39
+packages/product/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 7-17
+packages/features/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-19
+packages/forms-web/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 10-20
+packages/ai/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 8-25
+packages/sites/package.json
+  s_e78d57e50dc818::t_dcadecb59145af 12-27
+SECURITY.md
+  s_e78d57e50dc818::t_72526a6817523d 1-23
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ef55315766802a9b989c7f2d6e3a8b60c66b91a",
+  "prompts": {},
+  "sessions": {
+    "s_6efe1ff79893b4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "86202c35-c04f-4245-9e5a-cb665afa12ce",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
