@@ -1,0 +1,25 @@
+.changeset/native-resource-view-empty-lists.md
+  s_5beca2076873c9::t_a81607361d1fb7 1-5
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_5beca2076873c9::t_fed0ee15b65097 532-576
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_5beca2076873c9::t_883c7e2dbf34b0 199-202,266-267,304-313,318-319
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_5beca2076873c9::t_9ff77bbe1b8c4e 31,40-41,111-116,124-126,166-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f198a73178bc2a3754cdd63115eb7297acbe4a0",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
