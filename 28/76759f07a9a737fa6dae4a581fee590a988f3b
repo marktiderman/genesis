@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+  h_9ec0a1ab20d979 552,10237-10238,16021,21234,21236,22537,23067-23097
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2876759f07a9a737fa6dae4a581fee590a988f3b",
+  "prompts": {},
+  "humans": {
+    "h_9ec0a1ab20d979": {
+      "author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
