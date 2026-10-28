@@ -196,6 +196,10 @@ export interface NativeFormField {
   required: boolean;
   /** Shown as text, never as an input, and never sent. */
   readOnly: boolean;
+  /** From the contract: the column takes null. Unset when the contract doesn't say. */
+  nullable?: boolean;
+  /** From the contract: the column has a default (or is generated). */
+  hasDefault?: boolean;
   max?: number;
   options?: { value: string; label: string }[];
   /** For a link: what it points at and the linked row's naming field, so it shows the row's words. */
@@ -259,6 +263,8 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
         display: f.display,
         required: !readOnly && f.required,
         readOnly,
+        ...(typeof f.field.nullable === "boolean" ? { nullable: f.field.nullable } : {}),
+        ...(f.field.hasDefault || f.field.generated ? { hasDefault: true } : {}),
         ...(f.max !== undefined ? { max: f.max } : {}),
         ...(options ? { options } : {}),
         ...(f.field.references ? { references: f.field.references } : {}),
@@ -295,10 +301,21 @@ export function writableValues<T extends Row>(
     if (field.readOnly || !writable.has(field.key)) continue;
     if (dirty && !dirty.has(field.key)) continue;
     const value = values[field.key];
-    out[field.key] = (value === "" || value === undefined) && !field.required ? null : value;
+    if ((value !== "" && value !== undefined) || field.required) {
+      out[field.key] = value;
+      continue;
+    }
+    // Empty, as the web form treats it: a text column the contract says can't be null keeps ""
+    // (on a create, only without a default); otherwise a create leaves it out, so the column's
+    // default applies, and an edit clears it. Without the contract's word, null, as before.
+    if (field.nullable === undefined) out[field.key] = null;
+    else if (TEXT_KINDS.has(field.kind) && !field.nullable && !(mode === "create" && field.hasDefault)) out[field.key] = "";
+    else if (mode === "edit") out[field.key] = null;
   }
   return out;
 }
+
+const TEXT_KINDS: ReadonlySet<NativeFormFieldKind> = new Set(["text", "email", "url", "textarea"]);
 
 /** Field errors for a save: required fields with no value, and text over `max`. */
 export function validateValues(
