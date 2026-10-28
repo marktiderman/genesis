@@ -41,8 +41,14 @@ const json = (body: unknown, status: number) =>
 
 const error = (status: number, message: string) => json({ ok: false, outcome: "invalid_input", message }, status);
 
-/** A started stream as server-sent events: text as it arrives, then the result. */
-function sse(started: { textStream: AsyncIterable<string>; done: Promise<AiResult<{ text: string }>> }): ReadableStream<Uint8Array> {
+/**
+ * A started stream as server-sent events: text as it arrives, then the result. A reader that
+ * cancels aborts the model call (`abort`), and streamTask closes the row as aborted.
+ */
+function sse(
+  started: { textStream: AsyncIterable<string>; done: Promise<AiResult<{ text: string }>> },
+  abort: () => void,
+): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const event = (data: unknown) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
   return new ReadableStream({
@@ -52,8 +58,16 @@ function sse(started: { textStream: AsyncIterable<string>; done: Promise<AiResul
       } catch {
         // the row is closed by streamTask; `done` says how it ended
       }
-      controller.enqueue(event({ type: "done", result: await started.done }));
-      controller.close();
+      const result = await started.done;
+      try {
+        controller.enqueue(event({ type: "done", result }));
+        controller.close();
+      } catch {
+        // the reader went away
+      }
+    },
+    cancel() {
+      abort();
     },
   });
 }
@@ -99,9 +113,11 @@ export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Re
     if (stream === true) {
       if (task.output !== "text" || task.guardrails?.output?.length) return error(400, "This task doesn't stream.");
       try {
-        const started = await streamTask(options.ai, task, args ?? {}, ctx, { abortSignal: request.signal });
+        const cancelled = new AbortController();
+        const abortSignal = AbortSignal.any([request.signal, cancelled.signal]);
+        const started = await streamTask(options.ai, task, args ?? {}, ctx, { abortSignal });
         if (!started.ok) return json(started, STATUS[started.outcome]);
-        return new Response(sse(started), { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
+        return new Response(sse(started, () => cancelled.abort()), { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
       } catch (thrown) {
         options.onError?.(thrown, request);
         return json({ ok: false, outcome: "unavailable", message: "The AI service failed. Try again." }, 503);

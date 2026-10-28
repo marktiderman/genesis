@@ -55,11 +55,13 @@ export function costOf(record: ModelRecord, usage: AiUsage, cacheTtl: CacheTtl =
   const tiered = record.tier && totalInput > record.tier.aboveInputTokens;
   const input = tiered ? record.tier!.input : record.price.input;
   const output = tiered ? record.tier!.output : record.price.output;
+  // Cache prices are multiples of the input price, so the long-context tier scales them too.
+  const scale = input / record.price.input;
   const perToken = 1 / 1_000_000;
   return (
     usage.inputTokens * input * perToken +
-    usage.cacheReadTokens * record.price.cacheRead * perToken +
-    usage.cacheWriteTokens * (cacheTtl === "1h" ? input * 2 : record.price.cacheWrite) * perToken +
+    usage.cacheReadTokens * record.price.cacheRead * scale * perToken +
+    usage.cacheWriteTokens * (cacheTtl === "1h" ? input * 2 : record.price.cacheWrite * scale) * perToken +
     usage.outputTokens * output * perToken
   );
 }

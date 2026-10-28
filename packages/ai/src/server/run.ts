@@ -70,12 +70,28 @@ async function applyGuardrails(guards: Guardrail[] | undefined, text: string, ct
   return out;
 }
 
-/** Input guardrails over a prompt: the string, or each text turn of a conversation. */
+/**
+ * Input guardrails over a prompt: the string, or every text part of every turn. A part the
+ * guardrails can't read (an image, a file, a tool call) stops the call rather than passing unchecked.
+ */
 async function guardPrompt(guards: Guardrail[] | undefined, prompt: string | AiMessage[], ctx: AiContext): Promise<string | AiMessage[]> {
   if (!guards?.length) return prompt;
   if (typeof prompt === "string") return applyGuardrails(guards, prompt, ctx);
   const out: AiMessage[] = [];
-  for (const m of prompt) out.push(typeof m.content === "string" ? ({ ...m, content: await applyGuardrails(guards, m.content, ctx) } as AiMessage) : m);
+  for (const m of prompt) {
+    if (typeof m.content === "string") {
+      out.push({ ...m, content: await applyGuardrails(guards, m.content, ctx) } as AiMessage);
+      continue;
+    }
+    const parts: unknown[] = [];
+    for (const part of m.content as Array<{ type: string; text?: string }>) {
+      if (part.type !== "text" || typeof part.text !== "string") {
+        throw new GuardrailError(`Input guardrails can't read a "${part.type}" part.`, "invalid_input");
+      }
+      parts.push({ ...part, text: await applyGuardrails(guards, part.text, ctx) });
+    }
+    out.push({ ...m, content: parts } as AiMessage);
+  }
   return out;
 }
 
@@ -107,8 +123,20 @@ async function prepare<Args, L extends Loaded, Out, Db>(
   const args = parsed.value;
   const alias = ai.alias(task.model);
 
-  if (task.consent !== "terms" && !(await config.store.hasConsent(ctx.personId, alias.record.vendor, config.consentVersion))) {
-    return fail("no_consent", `This person hasn't agreed to sharing with ${alias.record.vendor}.`);
+  // Every vendor the call can reach needs consent: the primary (an alias's rollout may be another
+  // vendor's model) stops the call without it, and a fallback without it is dropped.
+  const resolved = await targetsFor(ai, alias, ctx as AiContext);
+  const { keySource } = resolved;
+  let { targets } = resolved;
+  if (task.consent !== "terms") {
+    const consented = new Map<string, boolean>();
+    for (const t of targets) {
+      const vendor = t.record.vendor;
+      if (!consented.has(vendor)) consented.set(vendor, await config.store.hasConsent(ctx.personId, vendor, config.consentVersion));
+    }
+    const primaryVendor = targets[0]!.record.vendor;
+    if (!consented.get(primaryVendor)) return fail("no_consent", `This person hasn't agreed to sharing with ${primaryVendor}.`);
+    targets = targets.filter((t) => consented.get(t.record.vendor));
   }
   if (!(await config.gate(ctx as AiContext, task.feature))) return fail("off", "This feature is off here.");
   if (task.can && !(await task.can(ctx, args))) return fail("forbidden", "Not allowed for this person.");
@@ -136,7 +164,6 @@ async function prepare<Args, L extends Loaded, Out, Db>(
   }
   const promptChars = task.system.length + (typeof prompt === "string" ? prompt.length : JSON.stringify(prompt).length);
 
-  const { targets, keySource } = await targetsFor(ai, alias, ctx as AiContext);
   const first = targets[0]!;
   const began = await config.store.begin({
     tenantId: ctx.tenantId,
@@ -332,9 +359,11 @@ export async function runTask<Args, L extends Loaded, Out, Db>(
   const { config } = ai;
   const structured = task.output !== "text";
   let lastError = "";
+  // A failed schema attempt is billed like any other: its tokens join whichever row ends the call,
+  // even when the retry then hits an outage and another target answers.
+  let carry: Bill | null = null;
   for (const target of p.targets) {
-    // A failed schema attempt is billed like any other: its tokens join the final row.
-    let carry: Bill | null = null;
+    let retried = false;
     while (true) {
       try {
         const result = await generateText({
@@ -374,11 +403,18 @@ export async function runTask<Args, L extends Loaded, Out, Db>(
       } catch (error) {
         if (NoObjectGeneratedError.isInstance(error)) {
           const attempt = error.usage ? bill(ai, target, usageFrom(error.usage), error.response?.modelId, undefined) : null;
-          if (!carry && attempt) {
-            carry = attempt; // one repair retry for output that didn't match the schema
+          const spent: Bill | null = attempt ? withCarry(attempt, carry) : carry;
+          // A refusal has no object to parse: it is `refused`, not a schema miss, and isn't retried.
+          if (error.finishReason === "content-filter") {
+            const usageId = await settle(ai, p, task, "refused", spent, "refusal");
+            return fail("refused", "The model declined this request.", { usageId }) as R;
+          }
+          if (!retried) {
+            retried = true; // one repair retry for output that didn't match the schema
+            carry = spent;
             continue;
           }
-          const usageId = await settle(ai, p, task, "invalid_output", attempt ? withCarry(attempt, carry) : carry, "schema");
+          const usageId = await settle(ai, p, task, "invalid_output", spent, "schema");
           return fail("invalid_output", "The model's output didn't match the schema.", { usageId }) as R;
         }
         if (keyRefused(error, target)) {
@@ -394,7 +430,7 @@ export async function runTask<Args, L extends Loaded, Out, Db>(
       }
     }
   }
-  const usageId = await settle(ai, p, task, "unavailable", null, lastError || "unavailable");
+  const usageId = await settle(ai, p, task, "unavailable", carry, lastError || "unavailable");
   return fail("unavailable", "The AI service is unavailable right now.", { usageId }) as R;
 }
 
@@ -438,7 +474,12 @@ export async function streamTask<Args, L extends Loaded, Db>(
   const close = async (outcome: AiOutcome, billed: Bill | null, detail: string | undefined, result: (usageId: string) => AiResult<{ text: string }>) => {
     if (closed) return;
     closed = true;
-    resolveDone(result(await settle(ai, p, task, outcome, billed, detail)));
+    try {
+      resolveDone(result(await settle(ai, p, task, outcome, billed, detail)));
+    } catch {
+      // The row couldn't be written (the store or the trace failed): still end the stream.
+      resolveDone(fail("unavailable", "The AI service failed. Try again."));
+    }
   };
   const timeout = AbortSignal.timeout(config.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const signal = options.abortSignal ? AbortSignal.any([timeout, options.abortSignal]) : timeout;

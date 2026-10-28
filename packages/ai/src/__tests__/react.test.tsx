@@ -60,4 +60,55 @@ describe("useAiStream", () => {
     await act(() => second.result.current.run({}));
     expect(second.result.current.result).toMatchObject({ outcome: "over_budget" });
   });
+
+  it("reassembles frames split across chunks, including inside a multi-byte character", async () => {
+    const done = { ok: true, output: { text: "Café olé" }, model: "m", taskVersion: 1, usageId: "u", labelled: true };
+    const payload = new TextEncoder().encode(
+      [{ type: "text", text: "Café " }, { type: "text", text: "olé" }, { type: "done", result: done }].map((e) => `data: ${JSON.stringify(e)}\n\n`).join(""),
+    );
+    const fetch = async () =>
+      new Response(
+        new ReadableStream({
+          start(c) {
+            for (let i = 0; i < payload.length; i += 5) c.enqueue(payload.slice(i, i + 5));
+            c.close();
+          },
+        }),
+        { headers: { "content-type": "text/event-stream" } },
+      );
+    const { result } = renderHook(() => useAiStream("notes.recap", { fetch: fetch as typeof globalThis.fetch }));
+    await act(() => result.current.run({}));
+    expect(result.current.text).toBe("Café olé");
+    expect(result.current.result).toMatchObject({ ok: true });
+  });
+
+  it("resolves (never rejects) a run that is stopped or replaced, and leaves the state to the newer run", async () => {
+    // A fetch that waits until it is aborted, like a slow server.
+    const slow = (_u: unknown, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        const abort = () => reject(new DOMException("aborted", "AbortError"));
+        if (init?.signal?.aborted) abort();
+        init?.signal?.addEventListener("abort", abort);
+      });
+    const { result } = renderHook(() => useAiStream("notes.recap", { fetch: slow as typeof globalThis.fetch }));
+    let first!: Promise<unknown>;
+    act(() => {
+      first = result.current.run({});
+    });
+    act(() => result.current.stop());
+    await expect(first).resolves.toMatchObject({ ok: false, outcome: "unavailable", message: "Cancelled." });
+    expect(result.current.result).toBeNull();
+    expect(result.current.pending).toBe(false);
+
+    const task = renderHook(() => useAiTask("notes.recap", { fetch: slow as typeof globalThis.fetch }));
+    let older!: Promise<unknown>;
+    act(() => {
+      older = task.result.current.run({});
+    });
+    act(() => {
+      void task.result.current.run({});
+    });
+    await expect(older).resolves.toMatchObject({ message: "Cancelled." });
+    task.unmount();
+  });
 });

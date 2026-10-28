@@ -122,7 +122,7 @@ The package ships `migrations/0001_genesis_ai.sql` with its pgTAP test.
 
 ```ts
 import { defineTask, GuardrailError } from "@marktiderman/genesis-ai";
-import { z } from "zod"; // or zod/v4, Valibot, ArkType, or the SDK's jsonSchema()
+import { z } from "zod/v4"; // Zod 4's API on Zod 3.25 or 4; or Valibot, ArkType, the SDK's jsonSchema()
 
 export const checkInSummary = defineTask({
   id: "checkins.summary",

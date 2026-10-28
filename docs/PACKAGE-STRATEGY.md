@@ -1,7 +1,9 @@
 # Package strategy: how Genesis is organised, and what to build next
 
-v0.2, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (section 5). Nothing here
-is built yet; each move ships as its own pull request, tracked in `features.ts`. v0.2 folds in three adversarial
+v0.2, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (section 5). The inventory
+is the baseline of 2026-10-28. Since then the AI core's first phase has been built (see "P1
+progress" in [AI.md](AI.md)); every other move is still to come, each as its own pull request,
+tracked in `features.ts`. v0.2 folds in three adversarial
 reviews; what changed from v0.1 is listed at the end.
 
 ## Recommendation

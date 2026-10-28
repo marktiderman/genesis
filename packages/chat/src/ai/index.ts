@@ -60,6 +60,7 @@ export interface LoadedConversation {
 export const CHAT_AI_REFUSALS = {
   notMember: "You can only use this on a conversation you're in.",
   empty: "Nothing to catch up on yet.",
+  draftEmpty: "Nothing to reply to yet.",
 } as const;
 
 type MessageRow = {
@@ -76,7 +77,15 @@ type MessageRow = {
 
 const args = z.object({ conversationId: z.uuid() });
 
-const hasText = (m: MessageRow) => m.kind === "text" && m.deleted_at === null && Boolean((m.body ?? "").trim());
+/**
+ * A message the prompt will show this reader. The same filter as `transcriptLines`: row level
+ * security still returns a sender their own hidden message, which the transcript leaves out.
+ */
+const hasText = (m: MessageRow, observer: boolean) =>
+  m.kind === "text" &&
+  m.deleted_at === null &&
+  Boolean((m.body ?? "").trim()) &&
+  (observer || (m.visibility !== "observers" && m.moderation !== "hidden"));
 
 /**
  * Reads a conversation as the caller. Stops with `forbidden` when they aren't a member and
@@ -111,14 +120,16 @@ async function loadConversation(
     .limit(MAX_MESSAGES);
   if (rows.error) throw new Error(`chat.${mode}: reading messages failed (${rows.error.code ?? "?"})`);
   const recent = [...((rows.data ?? []) as MessageRow[])].reverse();
-  if (!recent.some(hasText)) throw new GuardrailError(CHAT_AI_REFUSALS.empty, "invalid_input");
+  if (!recent.some((m) => hasText(m, observer))) {
+    throw new GuardrailError(mode === "draft" ? CHAT_AI_REFUSALS.draftEmpty : CHAT_AI_REFUSALS.empty, "invalid_input");
+  }
 
   let since: string | null = null;
   if (mode === "recap") {
     // The last-read message may be one this person can't see (an internal note, a hidden one):
     // the newest visible one at or before it marks where "new" starts.
     since = recent.filter((m) => m.seq <= lastRead).at(-1)?.created_at ?? null;
-    if (lastRead > 0 && !recent.some((m) => m.seq > lastRead && hasText(m))) throw new GuardrailError(CHAT_AI_REFUSALS.empty, "invalid_input");
+    if (lastRead > 0 && !recent.some((m) => m.seq > lastRead && hasText(m, observer))) throw new GuardrailError(CHAT_AI_REFUSALS.empty, "invalid_input");
   }
 
   const messages: AssistantMessage[] = recent.map((m) => ({

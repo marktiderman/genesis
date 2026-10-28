@@ -214,9 +214,13 @@ code moves, so there is no cycle and no chat install pulls in the AI SDK.
 
 ### One config file per app, server-only
 
+This is the design sketch. The API as built differs in places (vendors are adapters, `wrap`
+takes the processor function); [packages/ai/README.md](../packages/ai/README.md) has it.
+
 ```ts
 // ai.config.ts — imported by server code only (a doctor rule enforces it)
-import { defineAi, wrap } from "@marktiderman/genesis-ai";
+import { defineAi } from "@marktiderman/genesis-ai";
+import { wrap } from "@marktiderman/genesis-ai/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openAiModerator, deepgramTranscriber } from "@marktiderman/genesis-chat/server";
 
@@ -365,7 +369,9 @@ order. Each step can end the call with a **typed outcome** the UI can explain: `
 8. **Output guardrails.** Moderation where the task asks for it, and **grounded citations**:
    when output quotes something (a client's own words in a brief, a programme's text, a
    resource), the model cites an id and the verbatim text comes from the store. Anything that
-   can't be resolved is removed, fail-closed. A streamed reply gets a correction event.
+   can't be resolved is removed, fail-closed. In P1, a task with output guardrails doesn't
+   stream (`streamTask` and the handler refuse it; it runs whole through `runTask`). A
+   correction event for a streamed reply is future work.
 9. **Record.**
    - Write a `genesis_ai.usage` row holding metadata only: tenant, person, task id and version,
      alias and model, vendor, input, cache-read, cache-write and output tokens (or audio minutes),

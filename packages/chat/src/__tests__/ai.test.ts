@@ -126,6 +126,16 @@ describe("chat.recap", () => {
     expect(s.calls).toHaveLength(0);
   });
 
+  it("counts only messages the transcript will show: a sender's own hidden message is not something to recap", async () => {
+    // Row level security returns a hidden message to its sender; the transcript leaves it out.
+    const hidden = [{ id: "h1", seq: 1, sender_id: COACH, body: "Removed by moderation", created_at: "2026-10-20T09:00:00Z", kind: "text", visibility: "everyone", deleted_at: null, moderation: "hidden" }];
+    let s = setup(fakeDb({ member: { last_read_seq: 0 }, messages: hidden }));
+    expect(await runTask(s.ai, chatRecapTask(), { conversationId: CONV }, s.ctx)).toEqual({ ok: false, outcome: "invalid_input", message: CHAT_AI_REFUSALS.empty });
+    s = setup(fakeDb({ member: { last_read_seq: 0 }, messages: hidden }));
+    expect(await runTask(s.ai, chatDraftReplyTask(), { conversationId: CONV }, s.ctx)).toEqual({ ok: false, outcome: "invalid_input", message: CHAT_AI_REFUSALS.draftEmpty });
+    expect(s.calls).toHaveLength(0);
+  });
+
   it("takes only a conversation id from the client", async () => {
     const { ai, ctx, calls } = setup();
     expect(await runTask(ai, chatRecapTask(), { conversationId: "not-a-uuid" }, ctx)).toMatchObject({ ok: false, outcome: "invalid_input" });

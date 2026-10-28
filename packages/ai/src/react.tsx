@@ -20,6 +20,17 @@ export interface AiTaskState<Out> {
 }
 
 const networkFailure = { ok: false, outcome: "unavailable", message: "Couldn't reach the AI service." } as const;
+/** What a stopped or replaced run resolves with: it never rejects. */
+const cancelled = { ok: false, outcome: "unavailable", message: "Cancelled." } as const;
+
+/** Keeps the latest options for callbacks, written after commit (never during render). */
+function useLatest<T>(value: T) {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
 
 /**
  * Calls a server task by id through `createAiHandler`. The client sends ids, never content: the
@@ -29,10 +40,15 @@ export function useAiTask<Out = { text: string }>(task: string, options: UseAiTa
   const [result, setResult] = useState<AiResult<Out> | null>(null);
   const [pending, setPending] = useState(false);
   const latest = useRef<AbortController | null>(null);
-  const opts = useRef(options);
-  opts.current = options;
+  const opts = useLatest(options);
 
-  useEffect(() => () => latest.current?.abort(), []);
+  useEffect(
+    () => () => {
+      latest.current?.abort();
+      latest.current = null;
+    },
+    [],
+  );
 
   const run = useCallback(
     async (args: Record<string, unknown>): Promise<AiResult<Out>> => {
@@ -51,9 +67,8 @@ export function useAiTask<Out = { text: string }>(task: string, options: UseAiTa
         });
         const body = (await response.json().catch(() => null)) as AiResult<Out> | null;
         next = body && typeof body === "object" && "ok" in body ? body : networkFailure;
-      } catch (error) {
-        if (controller.signal.aborted) throw error;
-        next = networkFailure;
+      } catch {
+        next = controller.signal.aborted ? cancelled : networkFailure;
       }
       if (latest.current === controller) {
         setResult(next);
@@ -61,7 +76,7 @@ export function useAiTask<Out = { text: string }>(task: string, options: UseAiTa
       }
       return next;
     },
-    [task],
+    [task, opts],
   );
 
   const reset = useCallback(() => {
@@ -94,10 +109,15 @@ export function useAiStream(task: string, options: UseAiTaskOptions = {}): AiStr
   const [result, setResult] = useState<AiResult<{ text: string }> | null>(null);
   const [pending, setPending] = useState(false);
   const latest = useRef<AbortController | null>(null);
-  const opts = useRef(options);
-  opts.current = options;
+  const opts = useLatest(options);
 
-  useEffect(() => () => latest.current?.abort(), []);
+  useEffect(
+    () => () => {
+      latest.current?.abort();
+      latest.current = null;
+    },
+    [],
+  );
 
   const run = useCallback(
     async (args: Record<string, unknown>): Promise<AiResult<{ text: string }>> => {
@@ -140,8 +160,8 @@ export function useAiStream(task: string, options: UseAiTaskOptions = {}): AiStr
             }
           }
         }
-      } catch (error) {
-        if (controller.signal.aborted) throw error;
+      } catch {
+        final = controller.signal.aborted ? cancelled : networkFailure;
       }
       if (mine()) {
         if (!final.ok && final.outcome === "refused") setText("");
@@ -150,11 +170,12 @@ export function useAiStream(task: string, options: UseAiTaskOptions = {}): AiStr
       }
       return final;
     },
-    [task],
+    [task, opts],
   );
 
   const stop = useCallback(() => {
     latest.current?.abort();
+    latest.current = null;
     setPending(false);
   }, []);
 
