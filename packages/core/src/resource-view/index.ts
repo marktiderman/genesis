@@ -35,19 +35,23 @@ export type {
 } from "./types";
 export { NO_VIEWER } from "../viewer";
 export type { GenesisViewerRoles } from "../viewer";
-export { defineWorkspace, isWorkspace } from "./workspace";
+export { defineRecordView, isRecordView, defineWorkspace, isWorkspace } from "./record-view";
 export type {
   ResolvedReadinessItem,
-  ResolvedWorkspaceSection,
+  ResolvedRecordViewSection,
+  RecordView,
+  RecordViewDefinition,
+  RecordViewFilter,
+  RecordViewHeader,
+  RecordViewHeaderAction,
+  RecordViewHeaderOptions,
+  RecordViewListSection,
+  RecordViewReadinessItem,
+  RecordViewSection,
+  RecordViewSettingsSection,
+  RecordViewSlotSection,
   ResourceWorkspace,
   WorkspaceDefinition,
-  WorkspaceFilter,
-  WorkspaceHeader,
-  WorkspaceHeaderAction,
-  WorkspaceHeaderOptions,
-  WorkspaceListSection,
-  WorkspaceReadinessItem,
   WorkspaceSection,
-  WorkspaceSettingsSection,
-  WorkspaceSlotSection,
-} from "./workspace";
+  WorkspaceHeaderAction,
+} from "./record-view";

@@ -3949,13 +3949,13 @@
       "aliases": [],
       "surface": "native",
       "subpath": "@marktiderman/genesis-ui-native/data",
-      "filePath": "packages/ui-native/src/data/resource-view/NativeResourceWorkspace.tsx",
+      "filePath": "packages/ui-native/src/data/resource-view/NativeRecordView.tsx",
       "stability": "stable",
-      "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n<NativeResourceWorkspace workspace={brandWorkspace} row={brand} />\n```",
-      "primaryComponent": "NativeResourceWorkspace",
+      "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeRecordViewStackOptions({ workspace: brandRecordView, row: brand })} />\n<NativeRecordView workspace={brandRecordView} row={brand} />\n```",
+      "primaryComponent": "NativeRecordView",
       "components": [
         {
-          "name": "NativeResourceWorkspaceMenu",
+          "name": "NativeRecordViewMenu",
           "summary": "The header menu: a button that lists the workspace's actions. On iOS an action sheet\n(ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert\nshows at most three buttons. A refused action stays listed and explains why when pressed.",
           "props": [
             {
@@ -3967,7 +3967,7 @@
             },
             {
               "name": "workspace",
-              "type": "AnyWorkspace<T>",
+              "type": "AnyRecordView<T>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -3981,7 +3981,7 @@
             },
             {
               "name": "messages",
-              "type": "Partial<NativeResourceWorkspaceMessages>",
+              "type": "Partial<NativeRecordViewMessages>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -4003,8 +4003,8 @@
           ]
         },
         {
-          "name": "getNativeResourceWorkspaceStackOptions",
-          "summary": "`<Stack.Screen options>` for a workspace: the record's title in the navigation bar and the\nactions in the header menu.\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n```",
+          "name": "getNativeRecordViewStackOptions",
+          "summary": "`<Stack.Screen options>` for a workspace: the record's title in the navigation bar and the\nactions in the header menu.\n\n```tsx\n<Stack.Screen options={getNativeRecordViewStackOptions({ workspace: brandRecordView, row: brand })} />\n```",
           "props": [
             {
               "name": "row",
@@ -4015,7 +4015,7 @@
             },
             {
               "name": "workspace",
-              "type": "AnyWorkspace<T>",
+              "type": "AnyRecordView<T>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -4057,7 +4057,7 @@
             },
             {
               "name": "messages",
-              "type": "Partial<NativeResourceWorkspaceMessages>",
+              "type": "Partial<NativeRecordViewMessages>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -4079,8 +4079,8 @@
           ]
         },
         {
-          "name": "NativeResourceWorkspace",
-          "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeResourceWorkspaceStackOptions({ workspace: brandWorkspace, row: brand })} />\n<NativeResourceWorkspace workspace={brandWorkspace} row={brand} />\n```",
+          "name": "NativeRecordView",
+          "summary": "One record's screen from a workspace:\n\n```tsx\n<Stack.Screen options={getNativeRecordViewStackOptions({ workspace: brandRecordView, row: brand })} />\n<NativeRecordView workspace={brandRecordView} row={brand} />\n```",
           "props": [
             {
               "name": "row",
@@ -4091,7 +4091,7 @@
             },
             {
               "name": "workspace",
-              "type": "AnyWorkspace<T>",
+              "type": "AnyRecordView<T>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -4105,7 +4105,7 @@
             },
             {
               "name": "messages",
-              "type": "Partial<NativeResourceWorkspaceMessages>",
+              "type": "Partial<NativeRecordViewMessages>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -18652,14 +18652,14 @@
       "aliases": [],
       "surface": "web",
       "subpath": "@marktiderman/genesis-ui/data",
-      "filePath": "packages/ui/src/components/data/resource-view/ResourceWorkspace.tsx",
+      "filePath": "packages/ui/src/components/data/resource-view/RecordView.tsx",
       "stability": "stable",
-      "summary": "One record's screen from a workspace:\n\n```tsx\n<ResourceWorkspace workspace={brandWorkspace} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
-      "primaryComponent": "ResourceWorkspace",
+      "summary": "One record's screen from a workspace:\n\n```tsx\n<RecordView workspace={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+      "primaryComponent": "RecordView",
       "components": [
         {
-          "name": "ResourceWorkspace",
-          "summary": "One record's screen from a workspace:\n\n```tsx\n<ResourceWorkspace workspace={brandWorkspace} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
+          "name": "RecordView",
+          "summary": "One record's screen from a workspace:\n\n```tsx\n<RecordView workspace={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />\n```",
           "props": [
             {
               "name": "row",
@@ -18684,7 +18684,7 @@
             },
             {
               "name": "workspace",
-              "type": "ResourceWorkspace<ResourceContract<any>, T & DataRow>",
+              "type": "RecordView<ResourceContract<any>, T & DataRow>",
               "required": true,
               "defaultValue": null,
               "description": ""

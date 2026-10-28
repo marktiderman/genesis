@@ -82,7 +82,7 @@ export const ALLOW = [
 
   // Development set-up hints: a mistake in how the package is wired, not an error at run time.
   { path: 'packages/core/src/provider/context.tsx', max: 1, reason: 'development hint: both `provider` and `mock` passed' },
-  { path: 'packages/core/src/resource-view/workspace.ts', max: 1, reason: 'development hint: an unknown readiness tone' },
+  { path: 'packages/core/src/resource-view/record-view.ts', max: 1, reason: 'development hint: an unknown readiness tone' },
   { path: 'packages/design-system/src/theme/provider.native.tsx', max: 1, reason: 'development hint: theme set-up' },
   { path: 'packages/design-system/src/theme/provider.web.tsx', max: 1, reason: 'development hint: theme set-up' },
   { path: 'packages/design-system/src/presets/nativewind.ts', max: 1, reason: 'build-time hint: a listed package is not installed' },

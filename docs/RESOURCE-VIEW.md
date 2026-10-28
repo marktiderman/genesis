@@ -31,7 +31,7 @@ Non-goals:
 - Builders: one record edited in depth, like a form, course or lesson builder. Those keep
   `AppShellPageHeader`, `ResourceHeader` and `useAppShellSubNav` directly. ResourceView is for
   **collection screens**, lists of records; a plain record screen (header, child lists, a few
-  settings) is a `ResourceWorkspace` (see "ResourceWorkspace").
+  settings) is a `RecordView` (see "RecordView").
 
 ## Reuse map: what already exists and how it's used
 
@@ -64,7 +64,7 @@ build only what's missing.
 | Refusals | `readFailureMessage`, `DataWriteError`, `showWriteErrorToast` | Reuse for inline refusals |
 | Jobs | genesis-supabase `enqueueJob`, `runJobs` | Reuse. **A browser job-status read is new work** |
 | Feature gate | features `useFeature`, `FeatureGate` | Gates the sheet toggle. ResourceView gets a FeatureId |
-| Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. **Done:** the packages declare `ui/lists-use-resource-view`, `ui/record-pages-use-resource-workspace`, `ui-native/lists-use-native-resource-view` and `core/direct-data-access` (genesis-cli README, "Package rules") |
+| Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. **Done:** the packages declare `ui/lists-use-resource-view`, `ui/records-use-record-view`, `ui-native/lists-use-native-resource-view` and `core/direct-data-access` (genesis-cli README, "Package rules") |
 
 Naming follows what exists:
 - Modes are the existing `ViewMode` (`table`, `grid`, `list`) plus `sheet`. "Cards" means `grid`,
@@ -285,10 +285,10 @@ pieces, re-exported, not a new namespace. `header={{...}}` switches or fills par
 There is one owner of the page header per route:
 
 - **`layout="page"`:** the title, subtitle, count, create and actions go into
-  `AppShellPageHeader`, above the shell's tabs, as on workspace pages. Search, filters, views and
+  `AppShellPageHeader`, above the shell's tabs, as on record views. Search, filters, views and
   the view toggle stay in the content. Back navigation comes from the shell only. A custom header
   also goes into `AppShellPageHeader`.
-- **`layout="embedded"`:** a list inside a page or a workspace tab. It never portals into the page
+- **`layout="embedded"`:** a list inside a page or a record view tab. It never portals into the page
   header, never registers sub-navigation and never claims the title. It shows only its toolbar
   parts (the `variant="embedded"` rules already in genesis-ui).
 - **`layout="compact"`:** a narrow surface such as an extension side panel or popup. It's one
@@ -391,7 +391,7 @@ each app's word for it is its own. To read an app key typed, augment `ResourceSc
 Guards, action guards and `when` get the viewer as their last argument: `create(viewer)`,
 `update(row, viewer)`, `delete(row, viewer)`, an action's `can(row, viewer)` and a field's
 `when(row, viewer)`. The viewer is `{ id, scope, roles? }`, read by `useViewer()` from the nearest
-`ViewerScope`. ResourceView, NativeResourceView and both workspaces read it themselves and pass it
+`ViewerScope`. ResourceView, NativeResourceView and both record views read it themselves and pass it
 to every cell, the peek, swipe actions, the create button, header actions and the settings lock.
 Outside a renderer, pass it yourself: `view.can("update", row, viewer)`,
 `view.canAction("archive", row, viewer)`, `workspace.settingsLocked(row, viewer)`,
@@ -520,12 +520,12 @@ The defaults are chosen for large data:
 - **Identity:** views are module constants. Derived columns and options are memoised. The
   messages provider is given a stable object.
 
-## ResourceWorkspace
+## RecordView
 
 One record's screen from its view, defined once with no React and drawn on web and native:
 
 ```ts
-export const brandWorkspace = defineWorkspace(brandsView, {
+export const brandRecordView = defineRecordView(brandsView, {
   header: { actions: ["archive"] },          // view actions; default: all of them
   sections: [
     { id: "products", label: "Products", list: { view: productsView, filter: (b) => ({ brand_id: b.id }) } },
@@ -548,12 +548,12 @@ export const brandWorkspace = defineWorkspace(brandsView, {
   `readinessFor(row)` and `readinessSummary(row)`.
 - **List sections** pass `listFilter(id, row)` as the child list's `filter`, which also fills
   those fields, hidden, on create.
-- **Web** `<ResourceWorkspace workspace row section sectionHref can? onAction? />`: the header in
+- **Web** `<RecordView view row section sectionHref can? onAction? />`: the header in
   `AppShellPageHeader` through `ResourceHeader` (a `switcher` in its leading area), sections as
   the shell's tabs, list sections as embedded `ResourceView`, settings as `SettingsRow` and
   `ToggleRow`, readiness as the `ReadinessChip`.
-- **Native** `<NativeResourceWorkspace workspace row />` with
-  `getNativeResourceWorkspaceStackOptions` for the title and the header menu (an action sheet on
+- **Native** `<NativeRecordView view row />` with
+  `getNativeRecordViewStackOptions` for the title and the header menu (an action sheet on
   iOS, a sheet of rows elsewhere, destructive actions marked; one action runs at a time): up to
   four sections as a segmented control; more as rows that push through `onOpenSection`, or open
   in place with an "All sections" row back.
@@ -629,12 +629,12 @@ already a working screen.
 | 0 | Cursor-mode server search and sort in `useResourceTable`; lazy peek and form; virtualisation default |
 | 1 | `genesis-core/resource-view`: `defineView`, view types, derived validation, `summary`, guards |
 | 1 | `ResourceView`, `useResourceView`, header parts, page/embedded/compact layouts, renderer registry with web renderers, URL allow-list |
-| 1 | Three pilot screens: one plain admin list, one list embedded in a workspace tab, and one hard list (Tasks). Line counts measured before and after |
+| 1 | Three pilot screens: one plain admin list, one list embedded in a record view tab, and one hard list (Tasks). Line counts measured before and after |
 | 2 | `mode="sheet"` on `SheetGrid` |
 | 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) |
 | 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts |
 | 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView |
-| 2 | `ResourceWorkspace` and `NativeResourceWorkspace`: header, sections, settings, readiness from the same view |
+| 2 | `RecordView` and `NativeRecordView`: header, sections, settings, readiness from the same view |
 | 3 | Tree mode on the web: `tree={{ getParentId, defaultExpanded, cascadeSelect }}` on table and list ([Tree mode](#tree-mode)); logic in `genesis-core/resource-view` |
 | later | Tree mode in NativeResourceView (reusing core's `treeRows`), children loaded on expand, conditional form fields |
 
@@ -666,4 +666,4 @@ Web phase 1 is about 5 days. Each phase ships as its own release.
 - **Added:** `summary`, `compact` layout, `detail` slot, native row mapping and the native detail
   route, computed columns, row actions, derived validation.
 - **Cut:** codegen view stubs, the separate `ResourceScope` provider, and native in the first slice.
-- **Scoped to collection screens**, with workspaces named as a later, separate piece.
+- **Scoped to collection screens**, with record views named as a later, separate piece.
