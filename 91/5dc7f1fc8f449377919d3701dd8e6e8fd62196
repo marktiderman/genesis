@@ -1,0 +1,21 @@
+packages/core/src/provider/__tests__/supabase-provider.test.ts
+  s_5beca2076873c9::t_2390077d2e4aff 850-895
+packages/core/src/provider/supabase-provider.ts
+  s_5beca2076873c9::t_0291f51364dd18 249-250,253-257,286-287,455,457-479,486-494,752,760
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "915dc7f1fc8f449377919d3701dd8e6e8fd62196",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
