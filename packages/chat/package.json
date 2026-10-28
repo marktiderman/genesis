@@ -52,6 +52,10 @@
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
+    },
+    "./ai": {
+      "types": "./dist/ai.d.ts",
+      "import": "./dist/ai.js"
     }
   },
   "files": [
@@ -71,8 +75,9 @@
     "frimousse": "0.4.0"
   },
   "peerDependencies": {
+    "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
-    "@marktiderman/genesis-ui": "workspace:^",
+    "@marktiderman/genesis-ui": "workspace:>=2.21.0 <3.0.0",
     "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.0.0",
@@ -81,9 +86,13 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-native": ">=0.76.0",
-    "react-native-safe-area-context": ">=4.0.0"
+    "react-native-safe-area-context": ">=4.0.0",
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
+    "@marktiderman/genesis-ai": {
+      "optional": true
+    },
     "@marktiderman/genesis-core": {
       "optional": true
     },
@@ -143,9 +152,14 @@
     },
     "react-native-safe-area-context": {
       "optional": true
+    },
+    "zod": {
+      "optional": true
     }
   },
   "devDependencies": {
+    "@ai-sdk/anthropic": "4.0.85",
+    "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-notifications": "workspace:^",
     "@marktiderman/genesis-ui": "workspace:^",
@@ -156,6 +170,7 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "ai": "7.0.148",
     "happy-dom": "^20.9.0",
     "hls.js": "1.7.3",
     "lucide-react": "^1.28.0",
@@ -163,7 +178,8 @@
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "zod": "^4.4.3"
   },
   "genesis": {
     "blocks": {

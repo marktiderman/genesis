@@ -6,11 +6,15 @@ A shadcn-based, brand-agnostic design system and data-provider layer for buildin
 npm install @marktiderman/genesis-ui @marktiderman/genesis-core @marktiderman/genesis-design-system
 ```
 
-Or pull in the whole system as one pinned coordinate:
+Or pull in the core of the system as one pinned coordinate:
 
 ```bash
 npm install @marktiderman/genesis
 ```
+
+The umbrella covers the foundation (`core`, `ui`, `ui-native`, `design-system`, `features`), the
+native app shell, `switchboard` and forms. Platform services (`supabase`, `connect`,
+`notifications`) and domain blocks (`chat`, `sites`, `support`, …) are installed on their own.
 
 ```tsx
 import {

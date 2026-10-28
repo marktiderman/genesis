@@ -7,6 +7,18 @@
   Read this before building anything.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
   export across every package. Regenerate with `pnpm gen:component-reference`.
+- [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): proposal for how the packages are grouped
+  (foundation, app shells, platform services, domain blocks, tooling), what the apps on Genesis
+  use today, what Linear, Cursor and the leading starter kits build once, and a ranked, sized list
+  of what Genesis should build next.
+- [`AI.md`](./AI.md): proposal for `genesis-ai`, one server-side layer for every AI call an app
+  makes (consent, gate, budgets, server-side loading, usage, tracing) and a control plane to manage
+  it, built first for chat and then, in a coaching track, for personalised guidance, client
+  feedback and goals whose progress stacks; with research on the alternatives and on Anthropic's
+  and OpenAI's guidance.
+- [`AI-COACHING-RESEARCH.md`](./AI-COACHING-RESEARCH.md): reference for `AI.md`: lessons from an
+  app that ran AI in production, and what the leading fitness, health, coaching and goal apps do
+  with AI, with sources.
 - [`DATA-STUDIO.md`](./DATA-STUDIO.md): proposal for an Airtable-style data workspace built on the
   data-bound layer. It covers the server handler that acts as the user, the generated schema contract,
   write safety, the roadmap, and the decisions still open.
