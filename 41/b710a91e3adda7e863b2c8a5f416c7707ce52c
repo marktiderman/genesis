@@ -1,0 +1,73 @@
+.changeset/record-page-rename.md
+  s_8b8f6102383114::t_bb4408bd3c3396 1-8
+AGENTS.md
+  s_8b8f6102383114::t_4f620ef2edf035 29
+apps/sample/app/data/primitives.json
+  s_8b8f6102383114::t_e01c4c7b6b613d 3952,3954-3955,3958,3970,3984,4006-4007,4018,4060,4082-4083,4094,4108,18655,18657-18658,18661-18662,18687
+apps/sample/stories/RecordPage.stories.tsx
+  s_8b8f6102383114::t_45b1c2e3a988a6 17-18
+docs/FRAMEWORK.md
+  s_8b8f6102383114::t_9b4cba7408926c 96
+docs/RESOURCE-VIEW.md
+  s_1cc73fa3649187::t_edc1e211b2666d 34,67,288,291,394,523,528,551,555-556,632,637,669
+packages/core/src/__tests__/record-page.test.ts
+  s_8b8f6102383114::t_655948e3484bb3 2,7,68,83,85-86,109,111,139,151-152,156,165,170,185,190,201,219,232,245,255,262,268,283,285,302,317-318,323,330,346-353
+packages/core/src/resource-view/index.ts
+  s_8b8f6102383114::t_00ab0f87f1d08a 38,41-52,56-57
+packages/core/src/resource-view/record-page.ts
+  s_8b8f6102383114::t_ddbca3557d35da 1,18,21,27-28,33,39,44-47,50,60-61,64-65,69,75,86,90,94,115-116,118,122,131,143,172-173,190,202,204,206-207,219-220,227,234,248,251-252,318,321,407,409-424
+packages/genesis-cli/README.md
+  s_1cc73fa3649187::t_ae3222d592b723 641
+packages/genesis-cli/src/doctor/index.ts
+  s_8b8f6102383114::t_2ca9662daee1a9 33,224
+packages/genesis-cli/src/doctor/primitives.ts
+  s_8b8f6102383114::t_057af7154bf92b 138
+packages/genesis-cli/src/doctor/structure.ts
+  s_8b8f6102383114::t_39dad5b25811c5 27,153
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_1cc73fa3649187::t_7067e58e7d2d67 393-394
+packages/ui-native/package.json
+  s_8b8f6102383114::t_2685be1194d0ba 192,211,213
+packages/ui-native/src/data/resource-view/NativeRecordPage.tsx
+  s_8b8f6102383114::t_c60f4b1ee0656c 1,4,17,40,43,47,64,88-89,95,99-100,103,114,123,129,139,156,160,165,171,241,245,248-249,251-252,255-256,262-263,286,291,294-295,298-300,304,308-310,398,406-407,412,435,443,446,451,455-456,459,479,494,519-547,574
+packages/ui-native/src/data/resource-view/__tests__/native-record-page.test.tsx
+  s_8b8f6102383114::t_f21c66bf3035fd 3-4,16-17,59,98,100,103-104,111,124,143,158,171,173,184,187,193,205,213,217,225,234,245,252-253,262,269,279-280,297,299,321-322
+packages/ui-native/src/data/resource-view/index.ts
+  s_8b8f6102383114::t_3928d283dd26b3 53-61,67
+packages/ui/SKILL.md
+  s_1cc73fa3649187::t_3296f2e8dc0db9 136-137,212,215
+packages/ui/package.json
+  s_8b8f6102383114::t_f219ddb307eb57 519,529,553,558,560-561
+packages/ui/src/components/data/__tests__/record-page.test.tsx
+  s_8b8f6102383114::t_cab6737b1d8aa5 2,13,16,55,98,108-109,124,126,137,149,160,173,180,191,197,207-208,217,261,263,291
+packages/ui/src/components/data/resource-view/RecordPage.tsx
+  s_8b8f6102383114::t_e2d3dd7c13b386 1-2,13,43,45,78,81,84-85,90-91,102,108,110,112,115,122,128-129,183,189,228,236,245-246,249,266-267,407-414
+packages/ui/src/components/data/resource-view/index.ts
+  s_8b8f6102383114::t_f80813d08d7975 16
+scripts/check-error-reporting.mjs
+  s_8b8f6102383114::t_e67bd1c39da946 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41b710a91e3adda7e863b2c8a5f416c7707ce52c",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
