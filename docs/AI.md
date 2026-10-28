@@ -40,8 +40,9 @@ Non-goals:
 
 - **Our own provider abstraction or agent loop.** Those exist and are well maintained (see "Build
   on").
-- **A prompt console as the source of truth.** Prompts are reviewed code. OpenAI is retiring its
-  hosted prompts, Agent Builder and Evals on 2026-11-30 and now advises keeping prompts in
+- **A prompt console as the source of truth.** Prompts are reviewed code. As of 2026-10-28,
+  OpenAI's [deprecations page](https://developers.openai.com/api/docs/deprecations) retires its
+  hosted prompts, Agent Builder and Evals on 2026-11-30 and points users to keeping prompts in
   application code.
 - **Training or hosting models.**
 
@@ -64,16 +65,26 @@ guardrails at the edges, trace everything and make evals part of shipping.
 | Concern | Choice | Why |
 |---|---|---|
 | Model interface, streaming, tools, structured output, agents | **[Vercel AI SDK 7](https://vercel.com/blog/ai-sdk-7)** (`ai`, `@ai-sdk/*`) | The TypeScript default: every major provider, Zod schemas, `useChat` with an [official Expo path](https://ai-sdk.dev/docs/getting-started/expo), tool approvals, OpenTelemetry built in, a durable `WorkflowAgent`, on-device providers. |
-| Chat UI primitives | **[assistant-ui](https://www.assistant-ui.com/)**: `@assistant-ui/react` and `@assistant-ui/react-native`, themed with Genesis components | One runtime on web and native; unstyled, so Genesis supplies the look. AI Elements is web only. |
+| Chat UI primitives | **[assistant-ui](https://www.assistant-ui.com/)**: `@assistant-ui/react` and `@assistant-ui/react-native`, themed with Genesis components | One runtime on web and native; unstyled, so Genesis supplies the look. AI Elements is web-only. |
 | Traces, prompt experiments, datasets, scores | **[Langfuse](https://langfuse.com/)** (MIT, self-hostable; accepts OpenTelemetry), behind the observability sink contract | Open source; AI SDK telemetry plugs straight in. Optional: the console sink works without it. |
 | Evals in CI | **[evalite](https://v1.evalite.dev)** (Vitest-based `.eval.ts` files) or **[promptfoo](https://www.promptfoo.dev/)** | Runs under `pnpm test`, and score thresholds fail CI. |
 | Gateway | **Optional**, set in config: Vercel AI Gateway or Cloudflare AI Gateway. Calling providers directly must keep working. | Budgets and fallbacks at the gateway are a backstop; the real limits live in our database. |
 | External tools | **MCP** (spec 2026-07-28) | The standard; Linear, Supabase and Cursor all use it. |
 | Embeddings and retrieval | **pgvector** in the app's Supabase, with Postgres full-text search | No new service; RLS applies to retrieval. |
 
-Avoid: Helicone (in maintenance mode since the Mintlify acquisition), Humanloop (shut down),
-self-hosted LiteLLM without pinned versions and verified hashes (malicious PyPI releases in
-2026), and OpenAI's hosted prompts and Evals (retiring).
+Avoid (as of 2026-10-28):
+
+- **Helicone.** It has been in maintenance mode since Mintlify acquired it on 2026-03-03
+  ([announcement](https://www.mintlify.com/blog/mintlify-acquires-helicone)).
+- **Self-hosted LiteLLM** without pinned versions and verified hashes. Malicious PyPI releases
+  1.82.7 and 1.82.8 were published on 2026-03-24
+  ([NetSPI](https://www.netspi.com/blog/executive-blog/ai-ml-pentesting/litellm-supply-chain-compromise/)).
+  A second compromise in October 2026 is reported by
+  [Datadog Security Labs](https://securitylabs.datadoghq.com/articles/litellm-compromised-pypi-docker.md),
+  which we have not confirmed independently.
+- **OpenAI's hosted prompts and Evals**, which are retiring (see Non-goals).
+- **Humanloop.** It is reported to have shut down in September 2025 after its team joined
+  Anthropic. We found only secondary sources for this, but it is not a candidate either way.
 
 **Genesis owns:** model aliases, the task registry, tool policy, usage and budgets, guardrails,
 the gate, tracing attributes, the UI conventions and the `genesis_ai` schema. That is a thin,
@@ -113,8 +124,10 @@ export const ai = defineAi({
     smart:   { model: anthropic("claude-opus-5-5") },
     embed:   { model: openai.embedding("text-embedding-3-small"), dimensions: 1536 },
   },
-  moderation: openaiModerator(),          // from /providers, the code moved out of chat
-  transcription: deepgramTranscriber(),
+  // Server-only. Keys come from the server environment or, per tenant, from `connect` (BYOK);
+  // ai.config.ts is imported only by server code, never bundled for the client.
+  moderation: openAiModerator({ apiKey: env.OPENAI_API_KEY }),        // the same factory as chat's today
+  transcription: deepgramTranscriber({ apiKey: env.DEEPGRAM_API_KEY }),
   budgets: { tenant: { monthlyUsd: 50 }, person: { dailyCalls: 200 } },
   guardrails: [injectionFence(), piiRedaction(), outputModeration()],
   telemetry: { sinks: [langfuseSink()], captureContent: "preview-only" },
@@ -135,7 +148,7 @@ export const recap = defineTask({
   feature: "chat",            // featureOn decides whether it runs here, for this tenant and person
   model: "fast",
   input: z.object({ messages: z.array(AssistantMessage), since: z.string().nullable() }),
-  output: z.object({ bullets: z.array(z.string()).max(5) }),
+  output: z.object({ text: z.string().min(1) }),   // the same text createChatAssistant returns today
   system: RECAP_SYSTEM,       // the stable prefix first, so it caches
   prompt: (input) => fence("transcript", transcriptLines(input)),   // fenced data, not instructions
   label: "ai",                // results carry provenance; the UI must show it
@@ -144,22 +157,33 @@ export const recap = defineTask({
 
 On the server, `ai.run(recap, input, ctx)` does the same steps every time, in order:
 
-1. **Gate.** `requireFeature(registry, ctx, task.feature)`, plus a global AI switch and a
-   per-tenant AI switch. Every AI feature gets a kill switch for free.
-2. **Budget.** Check `genesis_ai.budgets` for the tenant and the person. If over budget, refuse
-   with a typed error the UI can explain.
+1. **Gate.** `requireFeature(registry, ctx, task.feature)` for the task. Under `ai.agent`, each
+   tool call also checks `requireFeature(registry, ctx, tool.feature)`, so an enabled task cannot
+   run a tool whose feature is off. A global AI switch and a per-tenant AI switch apply to both.
+   Every AI feature gets a kill switch for free.
+2. **Reserve budget.** In one transaction, reserve the call's worst-case cost (input estimate plus
+   `maxTokens` at the model's price) against the tenant's and the person's budgets in
+   `genesis_ai.budgets`, locking the budget rows. If either would go over, refuse with a typed
+   error the UI can explain. Concurrent runs therefore cannot both pass on the same remaining
+   budget. Step 6 settles the reservation to the actual cost, or releases it on failure; a
+   reservation left open by a crashed run expires after the call's timeout.
 3. **Input guardrails.** Run the configured stack: injection fencing, PII redaction, moderation.
 4. **Call.** Resolve the alias, including any tenant override or BYOK key from `connect`. Call the
    AI SDK with fallbacks, timeouts and provider caching, and validate the output against the
    schema with one repair retry.
 5. **Output guardrails.** Moderation and an allowlist of output formats.
-6. **Record.** Write a `genesis_ai.usage` row (tenant, person, task id and version, model,
-   input, cached and output tokens, cost, latency, outcome). Emit an OpenTelemetry span with GenAI
-   attributes through `genesis-observability`.
+6. **Record and settle.** Write a `genesis_ai.usage` row and settle the reservation in the same
+   transaction. The row holds metadata only: tenant, person, task id and version, model, input,
+   cached and output **token counts**, cost, latency and outcome. It never holds prompt text,
+   messages or output. Rows are readable under RLS by the tenant's admins and by the person for
+   their own rows, are written only by the server, and are kept for 13 months by default (an app
+   setting). Emit an OpenTelemetry span with GenAI attributes through `genesis-observability`.
+   Prompt and response content goes to traces only when `telemetry.captureContent` allows it,
+   scrubbed with the observability scrubber.
 7. **Return** `{ output, model, taskVersion, labelled: true }`.
 
 `ai.stream` does the same around a streaming chat. `ai.agent` wraps the AI SDK's `ToolLoopAgent`
-with the same steps on every tool call.
+with the same steps on every tool call, plus the approval check below.
 
 ### Tools carry policy
 
@@ -173,6 +197,15 @@ defineTool({
   run: (input, ctx) => ctx.data.create("tasks", input),   // through the DataProvider, as the person, under RLS
 });
 ```
+
+**Approval is enforced on the server, not in the UI.** When a tool's `approval` is `ask` (and
+always for `destructive` and `external` tools), the server executor pauses the agent and issues
+a one-use approval token. The token is bound to the authenticated person, the tool id, a hash
+of the exact input and the agent run, and it expires after a few minutes. `run` is only invoked
+when the executor receives that token back unused and every binding still matches. `ToolApproval`
+in the UI is only how a person grants the token; a caller that skips the UI has no token and
+cannot reach `run`. This is the approval mechanism the AI SDK provides (`needsApproval`, signed
+approvals in v7), with Genesis binding it to the person and the input.
 
 After the command registry lands ([PACKAGE-STRATEGY.md](./PACKAGE-STRATEGY.md), M3), a command
 can declare `tool: true` to become a tool. The palette, shortcuts, menus, the in-app assistant
@@ -202,9 +235,8 @@ The "upgrade in one place" promise only holds if nothing goes around the layer:
 
 | Today | After | Breaking? |
 |---|---|---|
-| `createChatAssistant` (recap, draft) | `chat.recap` and `chat.draftReply` tasks in `chat`, run through `ai.run`. `createChatAssistant` stays as a thin wrapper for a release, then is deprecated. | No |
-| `openAiModerator` in `chat` | Moved to `genesis-ai/providers`; `chat` re-exports it for a release. The `Moderator` seam stays in `chat` (G2). | No |
-| `deepgramTranscriber`, OpenAI transcriber | Same as the moderator. | No |
+| `createChatAssistant` (`recap`, `draftReply`), returning `{ text, model, labelled: true }` and throwing on HTTP errors, a refusal or an empty answer | **Unchanged, with its own code path, for one minor release.** New `chat.recap` and `chat.draftReply` tasks are added alongside it, opt-in. Both tasks declare `output: z.object({ text: z.string().min(1) })`, so `{ output: { text }, model }` maps to the old shape. `createChatAssistant` is marked deprecated, and removing it is a **major** change of `genesis-chat`, because the task path can also fail in new ways (feature off, over budget, guardrail refusal). | No while both exist; yes when it is removed |
+| `openAiModerator(options)`, `deepgramTranscriber(options)`, `openAiTranscriber(options)` in `chat` | The same functions, with the same signatures, options, thresholds, timeouts, size limits, language detection and errors, move verbatim to `genesis-ai/providers`. `chat` re-exports them, so existing imports keep the same functions. The `Moderator` and `Transcriber` interfaces stay in `chat` (G2). | No |
 | Forms "AI assist", Sites AI generation | Built as tasks from the start. Sites' Zod section schemas are already the output schemas. | — |
 
 ## Phases

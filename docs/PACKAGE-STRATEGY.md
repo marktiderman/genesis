@@ -142,13 +142,13 @@ of them. That is the Genesis way at company scale:
 
 ### The checklist starter kits ship
 
-Against the modules Supastarter, Makerkit and the RN templates include out of the box:
+This checklist compares Genesis with the out-of-the-box modules in Supastarter, Makerkit and the RN templates:
 
 | Capability | Genesis |
 |---|---|
 | Auth (password, magic link, OAuth, Apple, Google, account deletion) | ✅ `supabase`, `account` (beta) |
 | Passkeys, MFA | ❌ |
-| Organizations, invites, roles in UI and RLS | 🟡 tenants and people exist; `invites` is an idea |
+| Organisations, invites, roles in UI and RLS | 🟡 tenants and people exist; `invites` is an idea |
 | Billing, entitlements, paywall, usage metering | 🟡 gate supports entitlements; `entitlements` planned; no billing |
 | Onboarding flows | 🟡 forms can do it; no onboarding pattern |
 | Settings (profile, org, notifications, appearance) | ✅ native layouts, `SettingsPage` |
