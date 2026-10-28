@@ -1,7 +1,7 @@
 # Package strategy: how Genesis is organised, and what to build next
 
-Proposal v0.2, 2026-10-28. Status: **for review by the maintainer**. Nothing here is built yet,
-and no package moves until the maintainer signs off on the move. v0.2 folds in three adversarial
+v0.2, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (section 5). Nothing here
+is built yet; each move ships as its own pull request, tracked in `features.ts`. v0.2 folds in three adversarial
 reviews; what changed from v0.1 is listed at the end.
 
 ## Recommendation
@@ -230,16 +230,23 @@ replace or absorb existing code rather than adding surface.
 
 Not recommended as Genesis packages yet: multiplayer editing and A2A. No app is asking (G4).
 
-## 5. Decisions for the maintainer
+## 5. Decisions
 
-1. Adopt the five groups, the declared domain seams and a layering check in doctor?
-2. Approve M1 as "observability in `core`, with spans" rather than a new package?
-3. Approve `genesis-ai` P0–P2 ([AI.md](./AI.md)) as the next build, with retrieval, MCP and agents
-   kept as ideas?
-4. Approve M3 as an extension of #449, to be raised with its author?
-5. Umbrella (M7): grow it, or narrow its promise?
-6. Add the ranked list to `features.ts` as `idea` or `planned` entries with horizons, so the
-   product board shows it?
+Decided by the maintainer on 2026-10-28:
+
+1. **Accepted:** the five groups, the declared domain seams and a layering check in doctor
+   (`package-layering`).
+2. **Accepted:** M1 is observability in `core`, with spans, not a new package
+   (`core-observability`).
+3. **Accepted:** `genesis-ai` P0–P2 ([AI.md](./AI.md)) is the next build; retrieval, MCP and
+   agents stay ideas (`ai-providers`, `ai-control-plane`).
+4. **Accepted:** M3 extends #449's `defineNavigation`, and builds after #449 lands
+   (`command-registry`).
+5. **Narrowed:** the umbrella promises Foundation, the native shell, switchboard and forms; platform
+   services and domain blocks are installed on their own. The README says so. Revisit when the
+   platform services are stable.
+6. **Accepted:** the ranked list is in `features.ts` as `planned` and `idea` entries with
+   horizons.
 
 ## Sources
 

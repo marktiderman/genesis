@@ -1,6 +1,6 @@
 # Genesis AI: one place for every AI call an app makes
 
-Design v0.3, 2026-10-28. Status: **proposal, for review by the maintainer**. Feature:
+Design v0.3, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (see "Decisions"). Feature:
 `ai-providers` (`idea` in `features.ts`). Context: [PACKAGE-STRATEGY.md](./PACKAGE-STRATEGY.md);
 research and production lessons: [AI-COACHING-RESEARCH.md](./AI-COACHING-RESEARCH.md).
 v0.2 folded in three adversarial reviews; v0.3 adds where the apps are going with AI. What changed
@@ -617,17 +617,23 @@ starts as a `features.ts` entry when an app is ready to use it.
 | **C3 · Bounded client-facing guidance** | A daily or weekly brief and an "ask" over the client's own data, scoped to the programme; safety routing mandatory; summaries of client conversations to the coach; the health-claims rule packs, after a legal read. | Safety-routing recall and claims compliance hold on the regression suite before release, and after every change. |
 | **C4 · Proactive check-ins** | Event-triggered messages (missed sessions, a drop in adherence, a goal date approaching), capped per client, with quiet hours, through `notifications`. | Clients respond to them, and opt-outs stay low. |
 
-## Decisions for the maintainer
+## Decisions
 
-1. **Take the Vercel AI SDK as a dependency** of `genesis-ai/server`, subject to P0, with
-   TanStack AI re-checked at P1?
-2. **A new `genesis_ai` schema** in the app's Supabase, and the smallest `consent` block in P1?
-3. **Extend `genesis-features`** with percentage rollouts, for model rollouts and beyond?
-4. **Scope:** P0–P2 committed; the coaching track (C1–C4) adopted as the direction, each stage
-   starting when an app is ready for it; everything else stays an idea until a second app asks?
-5. **Langfuse** as an optional sink only, not a dependency?
-6. **Coach-side first:** no AI output reaches a client without review until C3, and C3 waits for
-   a legal read of the health and coaching rules?
+Decided by the maintainer on 2026-10-28. Each is tracked in `features.ts`.
+
+1. **Accepted:** the Vercel AI SDK is a dependency of `genesis-ai/server`, subject to P0, with
+   TanStack AI re-checked at P1.
+2. **Accepted:** a new `genesis_ai` schema in the app's Supabase, and the smallest `consent` block
+   in P1 (`consent` is planned now).
+3. **Accepted, later:** percentage rollouts in `genesis-features` (`flag-rollouts`). Until then,
+   model rollouts go tenant by tenant.
+4. **Accepted:** P0–P2 committed (`ai-providers` now, `ai-control-plane` next). The coaching track
+   is the direction (`ai-coach-drafts`, `ai-weekly-loop`, `ai-memory`, `ai-client-guidance`,
+   `ai-proactive-checkins`, all planned later), each stage starting when an app is ready.
+   Everything else stays an idea until a second app asks (`agent-operable-apps`).
+5. **Accepted:** Langfuse is an optional sink only.
+6. **Accepted:** coach-side first. No AI output reaches a client without review until C3, and C3
+   waits for a legal read of the health and coaching rules (still open).
 
 ## Open questions
 

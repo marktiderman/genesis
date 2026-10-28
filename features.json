@@ -4068,16 +4068,19 @@
     {
       "id": "consent",
       "name": "Consent",
-      "summary": "Cookie and tracking consent, terms acceptance and privacy choices, remembered per user.",
+      "summary": "Cookie and tracking consent, terms acceptance and privacy choices, remembered per user; starts small with consent per AI vendor, which the AI core checks first (App Store 5.1.2(i)).",
       "category": "Platform",
-      "status": "idea",
+      "status": "planned",
+      "horizon": "now",
       "layer": "block",
       "keywords": [
         "cookies",
         "gdpr",
         "privacy",
         "terms",
-        "tracking consent"
+        "tracking consent",
+        "ai consent",
+        "third-party ai"
       ],
       "owner": "mark",
       "apps": [
@@ -4814,6 +4817,248 @@
       "flags": []
     },
     {
+      "id": "core-observability",
+      "name": "Observability in core",
+      "summary": "core/errors.ts grows into a platform-neutral observability contract (errors, breadcrumbs, typed events, timings and spans, scrubbing) with web and server sinks; native keeps its React wiring (PACKAGE-STRATEGY M1).",
+      "category": "Observability",
+      "status": "planned",
+      "horizon": "now",
+      "layer": "service",
+      "keywords": [
+        "tracing",
+        "spans",
+        "opentelemetry",
+        "sentry web",
+        "server errors",
+        "analytics events"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/PACKAGE-STRATEGY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "package-layering",
+      "name": "Package groups and layering check",
+      "summary": "Five package groups (Foundation, App shells, Platform services, Domain blocks, Tooling) recorded in package.json, and a doctor check that dependencies only point down, with declared domain seams.",
+      "category": "Tooling",
+      "status": "planned",
+      "horizon": "next",
+      "layer": "tool",
+      "keywords": [
+        "layering",
+        "dependency direction",
+        "package groups",
+        "architecture check"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/PACKAGE-STRATEGY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "command-registry",
+      "name": "Commands from navigation",
+      "summary": "Actions declared once next to navigation destinations (ADR 0003's defineNavigation) and read by the command palette, shortcuts, menus and later AI tools.",
+      "category": "Platform",
+      "status": "planned",
+      "horizon": "next",
+      "layer": "provider",
+      "keywords": [
+        "command palette",
+        "shortcuts",
+        "hotkeys",
+        "actions",
+        "menus",
+        "cmd+k"
+      ],
+      "requires": [
+        "app-shell"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/PACKAGE-STRATEGY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "flag-rollouts",
+      "name": "Percentage rollouts for flags",
+      "summary": "Flags gain stable percentage bucketing per tenant and person, for gradual releases and AI model rollouts.",
+      "category": "Platform",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "service",
+      "keywords": [
+        "percentage rollout",
+        "gradual release",
+        "bucketing",
+        "canary"
+      ],
+      "requires": [
+        "feature-gate"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "upload-protocol",
+      "name": "One upload protocol",
+      "summary": "Forms' signed-upload protocol promoted to a shared home (types in core, the Storage handler in supabase) and adopted by chat, support and sites.",
+      "category": "Platform",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "service",
+      "keywords": [
+        "file upload",
+        "signed upload",
+        "storage",
+        "attachments",
+        "media"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/PACKAGE-STRATEGY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "rate-limits",
+      "name": "One rate limiter",
+      "summary": "Forms' rate limiter moved to a shared module that chat, AI budgets and any endpoint reuse.",
+      "category": "Platform",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "service",
+      "keywords": [
+        "rate limit",
+        "throttle",
+        "abuse protection"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "search",
+      "name": "Search",
+      "summary": "Chat's permission-aware full-text search generalised to any resource, then semantic search through Supabase automatic embeddings.",
+      "category": "Data",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "service",
+      "keywords": [
+        "full text search",
+        "semantic search",
+        "embeddings",
+        "pgvector",
+        "find similar"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "audit-log",
+      "name": "Audit log",
+      "summary": "A general, retention-aware audit log of who changed what, generalised from the Data Studio's audit trail.",
+      "category": "Admin",
+      "status": "idea",
+      "layer": "service",
+      "keywords": [
+        "audit trail",
+        "history",
+        "who changed what",
+        "compliance"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server",
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "invites",
       "name": "Invites",
       "summary": "Invite links, join codes and a waitlist or gated beta, checked on the server.",
@@ -4920,17 +5165,23 @@
     },
     {
       "id": "ai-providers",
-      "name": "AI providers",
-      "summary": "One chat interface over several model providers with fallback, versioned prompts with promote and rollback, and traces.",
+      "name": "AI core",
+      "summary": "genesis-ai: one server-side pipeline for every AI call (consent, feature gate, budget, server-side loading, safety routing, guardrails, model call, usage row, trace), with model aliases, versioned tasks and wrapped processors; design in docs/AI.md (P0 spike, P1 core).",
       "category": "AI",
-      "status": "idea",
+      "status": "planned",
+      "horizon": "now",
       "layer": "service",
       "keywords": [
         "llm",
         "ai",
         "prompts",
         "model fallback",
-        "chat completion"
+        "chat completion",
+        "genesis-ai",
+        "model alias",
+        "ai task",
+        "usage",
+        "ai budget"
       ],
       "owner": "mark",
       "apps": [
@@ -4940,6 +5191,265 @@
         "developer"
       ],
       "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-control-plane",
+      "name": "AI control plane",
+      "summary": "genesis-ai/admin: usage and cost by tenant, task and model, budgets, kill switches, model rollouts by flag with rollback, tenant guidance, BYOK keys and consent records (AI.md P2).",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "next",
+      "layer": "block",
+      "keywords": [
+        "ai admin",
+        "ai usage",
+        "ai cost",
+        "model rollout",
+        "tenant guidance",
+        "byok",
+        "kill switch"
+      ],
+      "requires": [
+        "ai-providers"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-coach-drafts",
+      "name": "AI drafts for coaches",
+      "summary": "Coaching track C1: check-in review, reply, pre-session brief and session-summary drafts in a coach review queue; nothing reaches a client unreviewed.",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "block",
+      "keywords": [
+        "check-in review",
+        "coach drafts",
+        "review queue",
+        "pre-session brief",
+        "session summary",
+        "action items",
+        "coach voice"
+      ],
+      "requires": [
+        "ai-control-plane"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md",
+          "docs/AI-COACHING-RESEARCH.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-weekly-loop",
+      "name": "Progress that stacks",
+      "summary": "Coaching track C2: a weekly review over goals, tasks, metrics and check-ins that proposes next week's changes as drafts, with next agendas carrying open items and weekly roll-ups.",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "block",
+      "keywords": [
+        "weekly review",
+        "weekly plan",
+        "goal progress",
+        "plan adjustment",
+        "roll-up",
+        "progress stacking"
+      ],
+      "requires": [
+        "ai-coach-drafts"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-memory",
+      "name": "Person memory",
+      "summary": "Coaching track C2: what the AI knows about a person as an explicit record they can see, edit, export and turn off, with review states, provenance, supersession and nightly consolidation.",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "block",
+      "keywords": [
+        "memory",
+        "personalisation",
+        "person context",
+        "what the ai knows",
+        "my memory"
+      ],
+      "requires": [
+        "ai-providers"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "end user"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-client-guidance",
+      "name": "AI guidance for clients",
+      "summary": "Coaching track C3: a bounded daily or weekly brief and an ask over the client's own data, with mandatory safety routing, health-claims rules and conversation summaries to the coach; waits for a legal read.",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "block",
+      "keywords": [
+        "daily brief",
+        "ask coach",
+        "personalised guidance",
+        "client ai"
+      ],
+      "requires": [
+        "ai-weekly-loop",
+        "ai-memory"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "end user"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "ai-proactive-checkins",
+      "name": "Proactive check-ins",
+      "summary": "Coaching track C4: event-triggered messages (missed sessions, an adherence drop, a goal date approaching), capped per client with quiet hours, through notifications.",
+      "category": "AI",
+      "status": "planned",
+      "horizon": "later",
+      "layer": "block",
+      "keywords": [
+        "nudge",
+        "proactive",
+        "check-in reminder",
+        "event trigger"
+      ],
+      "requires": [
+        "ai-client-guidance",
+        "notifications"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server",
+        "native"
+      ],
+      "audience": [
+        "end user"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "agent-operable-apps",
+      "name": "Agent-operable apps",
+      "summary": "Tools, commands, search and an MCP server generated from the resource descriptions, actions and navigation an app already declares, run as the person under RLS; the AI north star in docs/AI.md.",
+      "category": "AI",
+      "status": "idea",
+      "layer": "service",
+      "keywords": [
+        "mcp server",
+        "ai tools",
+        "agents",
+        "generated tools",
+        "app mcp"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/AI.md"
+        ]
+      },
       "access": "all",
       "flags": []
     },
