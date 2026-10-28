@@ -692,11 +692,13 @@ Where the build differs from this design, and why:
 - **The recap's output is text**, as `createChatAssistant` returns, so parity holds. A schema
   output can come with the recap's next version.
 
+The doctor rules are declared in the package (`genesis.doctor`, since package-declared rules
+landed): `ai-server-on-server` warns when browser code imports `/server`, `/anthropic`, `/openai`
+or `/supabase`, and `ai-calls-through-genesis-ai` warns on a direct `ai`, `@ai-sdk/*`,
+`@anthropic-ai/sdk` or `openai` import. `/server` also throws when it loads in a browser.
+
 Not built yet, and why:
 
-- **The doctor rules** (no client import of a task module or the AI config). They wait on
-  package-declared doctor rules (genesis #454). Until then `/server` throws when it loads in a
-  browser.
 - **Spans in `core/observability`.** That is a core change (PACKAGE-STRATEGY M1); spans go to the
   `telemetry` sink, and `otelSink` sends them to any OpenTelemetry tracer.
 - **A live call and a live recap eval.** They need `ANTHROPIC_API_KEY`, which the environment this

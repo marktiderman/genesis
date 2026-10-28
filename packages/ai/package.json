@@ -123,6 +123,64 @@
           }
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "ai-server-on-server",
+          "need": "running an AI task or reaching a model vendor",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-ai/server",
+              "@marktiderman/genesis-ai/anthropic",
+              "@marktiderman/genesis-ai/openai",
+              "@marktiderman/genesis-ai/supabase"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "useAiTask or useAiStream in the browser, calling tasks by id through createAiHandler",
+          "import": "@marktiderman/genesis-ai/react",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ai/README.md",
+          "why": "The pipeline holds keys, prompts and the budget: in a browser bundle it leaks the first two and enforces nothing."
+        },
+        {
+          "id": "ai-calls-through-genesis-ai",
+          "need": "calling a language model",
+          "level": "warn",
+          "forbid": {
+            "imports": [
+              "ai",
+              "@ai-sdk/*",
+              "@anthropic-ai/sdk",
+              "openai"
+            ]
+          },
+          "use": "a task (defineTask) run through the genesis-ai pipeline",
+          "import": "@marktiderman/genesis-ai",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ai/README.md",
+          "why": "A direct SDK call skips consent, the feature gate, the budget, safety routing and the usage record."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "an AI feature: a summary, a draft, structured extraction or a reply",
+          "use": "a task (defineTask) with a loader, a prompt and an output, served by createAiHandler and called with useAiTask",
+          "import": "@marktiderman/genesis-ai",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ai/README.md"
+        }
+      ]
     }
   }
 }

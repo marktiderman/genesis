@@ -9,3 +9,4 @@ New package: `@marktiderman/genesis-ai`, one server-side pipeline for every AI c
 - BYOK: a tenant or person brings their own vendor key (`genesis_ai.set_key`, kept in Supabase Vault). The person's key wins over the tenant's; own-key calls are recorded but don't spend the platform budget; a refused key is reported as such.
 - `/supabase`: `supabaseStore` over the `genesis_ai` schema (`migrations/0001_genesis_ai.sql`: an append-only consent log with policy versions, monthly budgets with per-person shares and open-call limits, BYOK keys and the calls record), with its pgTAP test.
 - `/react`: `useAiTask(id)` and `useAiStream(id)`, which send ids, never content.
+- Doctor rules in `genesis.doctor`: browser code never imports the server side (`ai-server-on-server`), and model calls go through a task, not a direct SDK import (`ai-calls-through-genesis-ai`).
