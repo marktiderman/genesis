@@ -5168,7 +5168,7 @@
       "name": "AI core",
       "summary": "genesis-ai: one server-side pipeline for every AI call (consent, feature gate, budget, server-side loading, safety routing, guardrails, model call, usage row, trace), with model aliases, versioned tasks and wrapped processors; design in docs/AI.md (P0 spike, P1 core).",
       "category": "AI",
-      "status": "planned",
+      "status": "building",
       "horizon": "now",
       "layer": "service",
       "keywords": [
@@ -5184,6 +5184,7 @@
         "ai budget"
       ],
       "owner": "mark",
+      "claimedBy": "mark",
       "apps": [
         "server"
       ],
@@ -5192,8 +5193,13 @@
       ],
       "visibility": "internal",
       "links": {
+        "code": [
+          "packages/ai",
+          "packages/chat/src/ai"
+        ],
         "docs": [
-          "docs/AI.md"
+          "docs/AI.md",
+          "packages/ai/README.md"
         ]
       },
       "access": "all",

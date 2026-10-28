@@ -646,6 +646,42 @@ Not yet verified:
 
 TanStack AI is still re-checked at the start of P1, as decided.
 
+### P1 progress (2026-10-28)
+
+Built, in `packages/ai` (`@marktiderman/genesis-ai`) and `packages/chat/src/ai`:
+
+- `defineAi`, `defineTask`, model records with prices (an unknown model fails `defineAi`), the
+  four P0 conditions (API version pinned by `createGenesisAnthropic`, `outputFormat` pinned,
+  aged versions, server-only SDK import).
+- `runTask` and `streamTask` with every step of the pipeline above and its typed outcomes; a
+  task's `load` can stop a call with `forbidden` or `invalid_input` before any model runs.
+- `wrap` for processors, `createAiHandler` (one endpoint, tasks by id), `useAiTask`,
+  `memoryStore`.
+- The `genesis_ai` schema (`consents`, `budgets`, `calls`) with `supabaseStore`, and a pgTAP test
+  of 44 assertions (privileges, RLS, consent, bounded budgets, no content in the manifest,
+  erasure, pruning), run on Postgres 16 with Supabase's roles stubbed.
+- `chat.recap` and `chat.draft-reply`, with the parity test passing: the same model, effort,
+  refusal fallback, API version, system prompt and transcript as `createChatAssistant`.
+
+Where the build differs from this design, and why:
+
+- **Functions, not a `createAi` object.** `runTask(ai, task, args, ctx)` and the rest take the
+  `defineAi` result. One config object, no second wrapper to keep in step.
+- **One `calls` table** holds open and finished calls, instead of `usage` plus `inflight`. A call
+  open for more than 15 minutes stops reserving budget. `tenant_settings` waits for P2, which is
+  the first thing that reads it.
+- **Consent is in `genesis_ai.consents`,** the smallest form, until the `consent` block exists.
+- **Parity is per field, not per byte.** The AI SDK sends the system prompt and the user turn as
+  content blocks where chat's `fetch` sends strings; the test compares the text, model, effort,
+  fallbacks, version and beta header.
+- **The recap's output is text**, as `createChatAssistant` returns, so parity holds. A schema
+  output can come with the recap's next version.
+
+Not done yet: a live call and a live recap eval (they need `ANTHROPIC_API_KEY`); spans in
+`core/observability` (spans go to the `telemetry` sink for now); the doctor rules; wiring
+moderation and transcription through `wrap` in the sample app; the consent screen; the TanStack
+AI re-check.
+
 ### The coaching track (after P2)
 
 In order of risk, so trust and evaluation data build before the AI speaks to clients. Each stage

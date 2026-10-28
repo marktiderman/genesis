@@ -1,0 +1,116 @@
+{
+  "name": "@marktiderman/genesis-ai",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "One server-side pipeline for every AI call a Genesis app makes: consent, the feature gate, a bounded budget, server-side loading with a context manifest, deterministic safety routing, guardrails, the model call with refusal and outage fallbacks, a usage row with no content and a trace. Tasks are versioned prompts with typed arguments and outputs, called by id; processors such as moderation and transcription are wrapped in place. Model aliases carry effort and capability records, and a price table that fails loudly on an unknown model. The genesis_ai schema holds usage, budgets and consent. On the Vercel AI SDK, server only. Part of the Genesis framework.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/ai"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./anthropic": {
+      "types": "./dist/anthropic.d.ts",
+      "import": "./dist/anthropic.js"
+    },
+    "./supabase": {
+      "types": "./dist/supabase.d.ts",
+      "import": "./dist/supabase.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@ai-sdk/anthropic": "^4.0.0",
+    "ai": "^7.0.0",
+    "react": "^19.0.0",
+    "zod": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@ai-sdk/anthropic": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@ai-sdk/anthropic": "4.0.85",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^22",
+    "@types/react": "^19.2.14",
+    "ai": "7.0.148",
+    "happy-dom": "^20.9.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^4.1.12",
+    "zod": "^4.4.3"
+  },
+  "genesis": {
+    "blocks": {
+      "ai-providers": {
+        "feature": {
+          "name": "AI core",
+          "summary": "One server-side pipeline for every AI call: consent, the feature gate, a bounded budget, server-side loading, safety routing, guardrails, the model call, a usage row and a trace.",
+          "keywords": [
+            "ai",
+            "llm",
+            "genesis-ai",
+            "usage",
+            "ai budget",
+            "consent"
+          ],
+          "audience": [
+            "developer"
+          ]
+        },
+        "platforms": [
+          "server"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0001_genesis_ai.sql",
+            "test": "migrations/tests/0001_genesis_ai.test.sql"
+          }
+        ]
+      }
+    }
+  }
+}
