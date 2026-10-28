@@ -39,6 +39,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Genesis is public: no app or customer built on it is named here (hashes in the script).
+      - name: No private names
+        run: node scripts/check-private-names.mjs
+
       - uses: pnpm/action-setup@v4
         with:
           version: 11.26.0

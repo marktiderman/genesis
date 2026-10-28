@@ -329,7 +329,7 @@ describe("DraftController: review follow-ups", () => {
   });
 });
 
-describe("DraftController: Gate's review", () => {
+describe("DraftController: the reviewer's cases", () => {
   it("never writes one row's edits into a row a revision brought in during a retry's wait", async () => {
     const s = store();
     const a: Row = { id: "A", answers: {}, status: "draft" };

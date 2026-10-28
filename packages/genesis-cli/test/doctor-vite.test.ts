@@ -2,8 +2,12 @@ import { writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { build } from "vite";
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { checkContracts } from "../src/doctor/contracts.js";
 import { genesisDoctor } from "../src/vite.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
+
+// The contract check reads a database; here it only records that it ran.
+vi.mock("../src/doctor/contracts.js", async (original) => ({ ...(await original<typeof import("../src/doctor/contracts.js")>()), checkContracts: vi.fn(async () => {}) }));
 
 afterAll(cleanupApps);
 
@@ -21,6 +25,18 @@ async function viteBuild(root: string) {
 describe("genesisDoctor() for Vite", () => {
   it("passes a production build of a clean app", async () => {
     await expect(viteBuild(makeApp("clean"))).resolves.toBeDefined();
+  });
+
+  it("never runs the contract check, which reads a live database, in a build", async () => {
+    const root = makeApp("clean", {
+      "genesis.config.json": JSON.stringify({ doctor: { packs: ["supabase"], contracts: { databaseEnv: "GENESIS_TEST_VITE_DB" } } }),
+      "supabase/migrations/.keep": "",
+    });
+    await viteBuild(root);
+    expect(checkContracts).not.toHaveBeenCalled();
+    const { runDoctor } = await import("../src/doctor/index.js");
+    await runDoctor({ root });
+    expect(checkContracts).toHaveBeenCalledTimes(1);
   });
 
   it("fails a production build that breaks a rule, naming the file and rule", async () => {

@@ -214,6 +214,30 @@
           "Run the outbox: call createChatRunner from @marktiderman/genesis-chat/server on a schedule (every minute) or from a database webhook on genesis_chat.effects, with your push sender."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "chat-uses-genesis-chat",
+          "need": "chat and messages",
+          "level": "warn",
+          "forbid": {
+            "imports": [
+              "stream-chat",
+              "stream-chat-react",
+              "stream-chat-expo",
+              "@sendbird/*",
+              "@twilio/conversations",
+              "@chatscope/*",
+              "react-native-gifted-chat"
+            ]
+          },
+          "use": "ChatPanel / ChatInbox on the web, the native chat screens on the phone, through the chat client",
+          "import": "@marktiderman/genesis-chat/web",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/chat/README.md",
+          "why": "Conversations, members, read state, media and notifications live in one schema and client; a second chat stack splits them."
+        }
+      ]
     }
   }
 }

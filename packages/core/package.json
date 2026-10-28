@@ -111,5 +111,56 @@
     "typescript": "~6.0.3",
     "vitest": "^4.1.12",
     "zod": "^3.25.67"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "direct-data-access",
+          "need": "data access",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "src/lib/**",
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "pattern": "(?:\\b[\\w$]*(?:supabase|Supabase|client|Client|db)[\\w$]*(?:\\(\\))?\\s*\\.\\s*(?:from|rpc)\\s*\\(|\\.schema\\s*\\([^)]*\\)\\s*\\.\\s*(?:from|rpc)\\s*\\(|\\.rpc\\s*\\()"
+          },
+          "use": "a view (defineView + ResourceView) for reads, the resource's provider writes (useWrite, ResourceForm) for writes, or a named data function in src/lib",
+          "import": "@marktiderman/genesis-core",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
+          "why": "A screen that queries the database hand-writes the data layer the provider and views already are, and its rules drift from the resource's. Server files and src/lib aren't checked; doctor.packageRules can widen or narrow that."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "dates and days",
+          "use": "personDay(person), dayIn(zone), never toISOString().slice(0, 10)",
+          "import": "@marktiderman/genesis-core/dates"
+        },
+        {
+          "need": "a record's create or edit form",
+          "use": "the view's form (ResourceForm), or useResourceForm",
+          "import": "@marktiderman/genesis-core/hooks",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md"
+        },
+        {
+          "need": "CSV export and import",
+          "use": "the CSV helpers (paged through the provider, formula-safe)",
+          "import": "@marktiderman/genesis-core/csv"
+        },
+        {
+          "need": "write errors and refusals",
+          "use": "DataWriteError and readFailureMessage",
+          "import": "@marktiderman/genesis-core/errors"
+        }
+      ]
+    }
   }
 }

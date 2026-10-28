@@ -11,7 +11,9 @@ step down the ladder one rung — never off it.
 
 ## The ladder
 
-Every pattern offers four rungs. Take the highest that fits.
+Every pattern offers four rungs. Take the highest that fits. For a list over a resource, the
+top rung is a view rendered by `ResourceView` ([below](#data-views-without-hand-rolling)); the
+rungs here show `ResourcePage`, which ResourceView draws.
 
 **1 · The pattern** — the whole page, wired.
 
@@ -130,8 +132,12 @@ and use it the same way.
 | App skeleton: nav, header, content                            | `AppShell`                                                                         | `@marktiderman/genesis-ui/layout`                                 |
 | Sidebar, contextual nav, tab bar and back link from one tree | `AppShell navigation={tree}` (`NavigationNode`; `parentNavigation` to override)    | `/layout`                                                         |
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
+| A list screen over a resource                                 | a view (`defineView`) rendered by `ResourceView`; never a hand-built table        | `@marktiderman/genesis-core/resource-view` + `/data`              |
+| A record page: header, actions, sections, child lists         | a workspace (`defineWorkspace`) rendered by `ResourceWorkspace`                    | `@marktiderman/genesis-core/resource-view` + `/data`              |
+| The same list or record on the phone                          | `NativeResourceView`, `NativeResourceWorkspace` from the same view                 | `@marktiderman/genesis-ui-native/data`                            |
+| Reading and writing data                                      | the view and the resource's provider (`useWrite`, the view's form); never `supabase.from` in a screen | `@marktiderman/genesis-core`                     |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
-| A whole CRUD list page over a resource                        | `ResourcePage`                                                                     | `/data`                                                           |
+| A list a view can't describe yet (escape hatch)               | `ResourcePage`, inside a component that renders `ResourceView`                     | `/data`                                                           |
 | Record detail side panel                                      | `DetailPanel`                                                                      | `/data`                                                           |
 | Dashboard / settings / form / detail page shape               | `DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`                          | `/dashboard-page`, `/settings-page`, `/form-page`, `/detail-page` |
 | A builder's outline, editor and live preview columns          | `BuilderLayout` (no tabs, rail or header: those are the shell's)                   | `/builder-layout`                                                 |
@@ -201,8 +207,19 @@ wins over `@layer theme`. `tailwindFromBrand(brand).css` adds brand ramps
 
 ## Data views without hand-rolling
 
-Reach for `ResourcePage` (with `data` for rows you already have) before composing DataTable,
-DataGrid and DetailPanel yourself. The parts apps used to hand-roll are props:
+A list screen is a view: describe the resource once with `defineView`
+(`@marktiderman/genesis-core/resource-view`) and render it with `<ResourceView view={…} />`;
+a record's page is `<ResourceWorkspace>`, and the phone renders the same view with
+`NativeResourceView` ([docs/RESOURCE-VIEW.md](https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md)).
+Never copy an older screen as a template. `genesis doctor` enforces this
+(`ui/lists-use-resource-view`, `ui/record-pages-use-resource-workspace`,
+`core/direct-data-access`), and `genesis primitives` lists every primitive the installed
+packages declare.
+
+`ResourcePage` is the escape hatch: ResourceView maps a view onto it, so use it (with `data`
+for rows you already have) only for what a view can't describe yet, inside a component that
+renders ResourceView, and say why. Never compose DataTable, DataGrid and DetailPanel yourself.
+The parts apps used to hand-roll are props on both:
 
 - **Column widths:** `width: 180` is px, through a `<colgroup>`; the other columns share the rest.
   Long headers truncate and keep the full text as a tooltip.

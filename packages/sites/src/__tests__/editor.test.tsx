@@ -95,6 +95,14 @@ describe("createEditorConfig", () => {
     }
   });
 
+  it("hides a deprecated prop from the editor: a schedule session shows Host, not the old coach", () => {
+    const sessions = config.components.schedule!.fields?.sessions as { arrayFields: Record<string, unknown> };
+    expect(sessions.arrayFields.host).toBeDefined();
+    expect(sessions.arrayFields.coach).toBeUndefined();
+    // The schema still accepts it.
+    expect(getSection("schedule")!.schema.safeParse({ heading: "H", sessions: [{ day: "mon", start: "06:00", title: "A", coach: "Grace" }] }).success).toBe(true);
+  });
+
   it("gives a record keyed by an enum one optional text field per key", () => {
     const fields = config.components.schedule!.fields?.dayNames as { type: string; objectFields: Record<string, { type: string }> };
     expect(fields.type).toBe("object");
@@ -252,6 +260,28 @@ describe("toEditorData / fromEditorData", () => {
   const t = landingPage({ brand, message: { headline: "Train with people who know your name", subhead: "Small classes." } });
   const page = t.pages[0]!.doc;
   const site = { header: t.site.header ?? [], footer: t.site.footer ?? [] };
+
+  it("opens an old schedule in the editor with its coach carried into host, so an edit saves host", () => {
+    const old: SectionNode = {
+      id: "s1",
+      type: "schedule",
+      v: 1,
+      props: {
+        heading: "H",
+        sessions: [
+          { day: "mon", start: "06:00", title: "A", coach: "Grace" },
+          { day: "tue", start: "06:00", title: "B", host: "Ada", coach: "Mina" },
+        ],
+      },
+    };
+    const item = toEditorData({ ...page, content: [old] }, { header: [], footer: [] }).content[0]!;
+    const sessions = (item.props as unknown as { sessions: Record<string, unknown>[] }).sessions;
+    expect(sessions.map((x) => [x.host, x.coach])).toEqual([["Grace", undefined], ["Ada", undefined]]);
+    const back = fromEditorData({ content: [item] } as never).page.content[0]!;
+    expect(back.v).toBe(getSection("schedule")!.version);
+    expect((back.props as unknown as { sessions: Record<string, unknown>[] }).sessions[0]).toMatchObject({ host: "Grace" });
+    expect(migrateNode(old).node?.props).toMatchObject({ sessions: [{ host: "Grace" }, { host: "Ada" }] });
+  });
 
   it("round-trips a page and the site's header and footer", () => {
     const placeholders = placeholderSnapshot([...page.content, ...site.header, ...site.footer]);

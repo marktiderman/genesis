@@ -9,6 +9,7 @@
  */
 import { cycleProblems, dependencyOrder, requirementProblem } from "./graph";
 import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
+import type { ContentPackSectionValidator } from "./content-packs";
 
 /**
  * A navigation entry a block offers. The app's nav tree places it (by the
@@ -127,6 +128,12 @@ export interface BlockContributions<S = unknown> {
   /** Agent skills that come with it: repo or package paths to a `SKILL.md`. */
   skills?: readonly string[];
   privacy?: BlockPrivacy;
+  /**
+   * Checks this block's section of a content pack (`sections[<block id>]`):
+   * returns every problem with its items. `defineContentPack` and
+   * `contentPackProblems` run it when given the block.
+   */
+  contentSection?: ContentPackSectionValidator;
 }
 
 /**
@@ -160,7 +167,7 @@ export class BlockError extends Error {
 // The feature registry's id rule (model.ts), repeated so this file stays free of zod.
 const ID = /^[a-z][a-z0-9]*(?:[-_.][a-z0-9]+)*$/;
 
-const CONTRIBUTION_KEYS = ["nav", "settings", "routes", "slots", "migrations", "skills", "privacy"] as const;
+const CONTRIBUTION_KEYS = ["nav", "settings", "routes", "slots", "migrations", "skills", "privacy", "contentSection"] as const;
 
 function duplicates(values: readonly string[]): string[] {
   const seen = new Set<string>();

@@ -149,5 +149,11 @@
   "devDependencies": {
     "tsup": "^8.3.0",
     "typescript": "~6.0.3"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "An umbrella that re-exports other Genesis packages, whose own declarations carry the rules."
+    }
   }
 }

@@ -13,7 +13,7 @@ const form = (): FormDefinition => ({
   title: "Saturday check-in",
   layout: { mode: "focus" },
   blocks: [
-    { kind: "field", id: "q_wod", key: "wod", type: "rating", label: "How was today's WOD?", props: { max: 5 } },
+    { kind: "field", id: "q_score", key: "score", type: "rating", label: "How was today's class?", props: { max: 5 } },
     { kind: "field", id: "q_wrong", key: "wrong", type: "short-text", label: "What went wrong?" },
     { kind: "field", id: "q_photo", key: "photo", type: "consent", label: "Photo consent", required: true },
   ],
@@ -25,7 +25,7 @@ const form = (): FormDefinition => ({
 
 const withJump = (): FormDefinition => ({
   ...form(),
-  logic: [{ id: "r_five", effect: "jump", from: "q_wod", to: { ending: "loved" }, when: { op: "eq", left: { field: "q_wod" }, right: { value: 5 } } }],
+  logic: [{ id: "r_five", effect: "jump", from: "q_score", to: { ending: "loved" }, when: { op: "eq", left: { field: "q_score" }, right: { value: 5 } } }],
 });
 
 const tab = (name: RegExp) => fireEvent.mouseDown(screen.getByRole("tab", { name }), { button: 0 });
@@ -37,12 +37,12 @@ describe("the Questions panel", () => {
     const outline = screen.getByTestId("builder-outline");
     expect(within(outline).getAllByRole("listitem").length).toBeGreaterThanOrEqual(3);
     expect(within(screen.getByTestId("builder-block-q_photo")).getByText(/^3 · .+ · Required$/)).toBeTruthy();
-    expect(screen.getByTestId("builder-block-toggle-q_wod").getAttribute("aria-current")).toBe("true");
+    expect(screen.getByTestId("builder-block-toggle-q_score").getAttribute("aria-current")).toBe("true");
     // One editor: the selected question's.
     expect(screen.getAllByTestId("builder-field-label")).toHaveLength(1);
     const editor = screen.getByTestId("builder-editor");
     expect(within(editor).getByRole("heading", { name: "Question 1" })).toBeTruthy();
-    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's WOD?");
+    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's class?");
     // The endings are listed under the outline.
     expect(within(outline).getByText("Glad you loved it!")).toBeTruthy();
   });
@@ -60,20 +60,20 @@ describe("the Questions panel", () => {
     const handle = screen.getByRole("button", { name: "Reorder Photo consent" });
     // Alt+Up moves one step without picking up.
     fireEvent.keyDown(handle, { key: "ArrowUp", altKey: true });
-    expect(lastBlocks(onChange)).toEqual(["q_wod", "q_photo", "q_wrong"]);
+    expect(lastBlocks(onChange)).toEqual(["q_score", "q_photo", "q_wrong"]);
   });
 
   it("moves, duplicates and deletes from the editor's header", () => {
     const onChange = vi.fn();
     render(<FormBuilder defaultValue={form()} onChange={onChange} />);
     const editor = () => screen.getByTestId("builder-editor");
-    fireEvent.click(within(editor()).getByRole("button", { name: 'Move "How was today\'s WOD?" down' }));
-    expect(lastBlocks(onChange)).toEqual(["q_wrong", "q_wod", "q_photo"]);
-    fireEvent.click(within(editor()).getByRole("button", { name: 'Duplicate "How was today\'s WOD?"' }));
+    fireEvent.click(within(editor()).getByRole("button", { name: 'Move "How was today\'s class?" down' }));
+    expect(lastBlocks(onChange)).toEqual(["q_wrong", "q_score", "q_photo"]);
+    fireEvent.click(within(editor()).getByRole("button", { name: 'Duplicate "How was today\'s class?"' }));
     // The copy is selected.
-    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's WOD? (copy)");
-    fireEvent.click(within(editor()).getByRole("button", { name: 'Delete "How was today\'s WOD? (copy)"' }));
-    expect(lastBlocks(onChange)).toEqual(["q_wrong", "q_wod", "q_photo"]);
+    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's class? (copy)");
+    fireEvent.click(within(editor()).getByRole("button", { name: 'Delete "How was today\'s class? (copy)"' }));
+    expect(lastBlocks(onChange)).toEqual(["q_wrong", "q_score", "q_photo"]);
     // The next question takes the editor.
     expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("Photo consent");
   });
@@ -136,17 +136,17 @@ describe("the Questions panel", () => {
     fireEvent.pointerDown(screen.getByTestId("builder-add-block"), { button: 0, ctrlKey: false, pointerType: "mouse" });
     fireEvent.click(screen.getAllByRole("menuitem").find((i) => i.textContent === "Short text")!);
     const ids = lastBlocks(onChange);
-    expect(ids.slice(0, 3)).toEqual(["q_wod", "q_wrong", "q_photo"]);
+    expect(ids.slice(0, 3)).toEqual(["q_score", "q_wrong", "q_photo"]);
     expect(ids).toHaveLength(4);
     expect(screen.getByTestId(`builder-block-toggle-${ids[3]}`).getAttribute("aria-current")).toBe("true");
   });
 
   it("keeps focus in the editor after Duplicate and Delete", () => {
     render(<FormBuilder defaultValue={form()} />);
-    fireEvent.click(screen.getByRole("button", { name: 'Duplicate "How was today\'s WOD?"' }));
+    fireEvent.click(screen.getByRole("button", { name: 'Duplicate "How was today\'s class?"' }));
     // The copy's editor replaced the original's: focus is on its Duplicate, not on <body>.
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: 'Duplicate "How was today\'s WOD? (copy)"' }));
-    fireEvent.click(screen.getByRole("button", { name: 'Delete "How was today\'s WOD? (copy)"' }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: 'Duplicate "How was today\'s class? (copy)"' }));
+    fireEvent.click(screen.getByRole("button", { name: 'Delete "How was today\'s class? (copy)"' }));
     expect(document.activeElement).toBe(screen.getByTestId("builder-editor"));
   });
 
@@ -164,9 +164,9 @@ describe("the Questions panel", () => {
     tab(/Logic and endings/);
     expect(screen.getByTestId("builder-logic-endings")).toBeTruthy();
     fireEvent.click(screen.getByTestId("builder-undo"));
-    expect((onChange.mock.lastCall![0] as FormDefinition).blocks[0]).toMatchObject({ label: "How was today's WOD?" });
+    expect((onChange.mock.lastCall![0] as FormDefinition).blocks[0]).toMatchObject({ label: "How was today's class?" });
     tab(/Questions/);
-    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's WOD?");
+    expect((screen.getByTestId("builder-field-label") as HTMLInputElement).value).toBe("How was today's class?");
   });
 });
 
@@ -203,7 +203,7 @@ describe("the Logic and endings panel", () => {
     fireEvent.click(screen.getByTestId("builder-add-rule-show"));
     const logic = (onChange.mock.lastCall![0] as FormDefinition).logic!;
     expect(logic.map((r) => r.effect)).toEqual(["jump", "show"]);
-    expect(logic[0]).toMatchObject({ from: "q_wod", to: "q_wrong" });
+    expect(logic[0]).toMatchObject({ from: "q_score", to: "q_wrong" });
   });
 
   it("marks only an unreachable ending Unreachable, not one with another warning", () => {
@@ -230,7 +230,7 @@ describe("the Logic and endings panel", () => {
   it("maps the flow: steps, the jump's branch, the endings and the check", () => {
     render(<FormBuilder defaultValue={withJump()} defaultTab="logic" />);
     const flow = screen.getByTestId("builder-flow");
-    expect(within(flow).getByText("1 · How was today's WOD?")).toBeTruthy();
+    expect(within(flow).getByText("1 · How was today's class?")).toBeTruthy();
     expect(within(flow).getByTestId("builder-flow-branch-r_five").textContent).toBe("is 5: finish at “Glad you loved it!”");
     expect(within(flow).getByTestId("builder-flow-ending-loved")).toBeTruthy();
     expect(within(flow).getByTestId("builder-flow-check").textContent).toBe("Every path ends");
@@ -296,7 +296,7 @@ describe("host hooks", () => {
     fireEvent.click(screen.getByTestId("builder-field-advanced"));
     fireEvent.change(screen.getByTestId("builder-field-key"), { target: { value: "workout" } });
     act(() => ref.current!.undo!());
-    expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("wod");
+    expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("score");
     expect(ref.current!.canRedo!()).toBe(true);
     act(() => ref.current!.redo!());
     expect((ref.current!.getValue().blocks[0] as FieldBlock).key).toBe("workout");

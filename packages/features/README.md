@@ -221,32 +221,50 @@ Blocks shipped so far: `createUpdates(…)` (`app-updates`, in `@marktiderman/ge
 
 ## Content packs
 
-A content pack is versioned data that fills installed blocks: session types and their agendas, metric
-templates, custom field definitions (genesis-forms fields on a work table), forms, roadmap templates and
-labels. Packs are code: the publishing package exports them, and an installer copies them into a tenant's
-editable rows, keeping each row's source (pack, version, key) so an update can tell what someone changed.
+A content pack is versioned data that fills installed blocks: whatever those blocks hold (meeting types,
+templates, checklists, forms) plus labels. Packs are code: the publishing package exports them, and an
+installer copies them into a tenant's editable rows, keeping each row's source (pack, version, key) so an
+update can tell what someone changed.
+
+A pack's `sections` are keyed by the block that owns them. Genesis checks what every pack shares; what an
+item holds is the block's business, checked by the validator it registers as `contributes.contentSection`:
 
 ```ts
-import { contentPackProblems, defineContentPack } from "@marktiderman/genesis-features/blocks";
+import { contentPackProblems, defineBlock, defineContentPack } from "@marktiderman/genesis-features/blocks";
 
-export const weeklyTeamRhythm = defineContentPack({
-  id: "weekly-team-rhythm",
-  name: "Weekly team rhythm",
-  version: "1.0.0",
-  publisher: "@marktiderman/genesis-content",
-  requires: ["sessions", "metrics"],
-  labels: { "pursuit.quarter": "Rocks" },
-  sessionTypes: [{ key: "weekly", kind: "team", name: "Weekly meeting", agenda: [{ key: "check-in", title: "Check in", minutes: 5 }] }],
-  metricTemplates: [{ key: "revenue", name: "Revenue", unitType: "currency", cadence: "weekly", goalDirection: "up" }],
+export const meetingsBlock = defineBlock({
+  id: "meetings",
+  contributes: {
+    // Returns every problem with this block's items in a pack.
+    contentSection: (items) =>
+      (items as { key: string; minutes?: number }[]).filter((m) => !((m.minutes ?? 0) > 0)).map((m) => `${m.key}: minutes must be more than 0`),
+  },
 });
 
-contentPackProblems(weeklyTeamRhythm, installedBlockIds); // [] when it can be installed
+export const weeklyTeamRhythm = defineContentPack(
+  {
+    id: "weekly-team-rhythm",
+    name: "Weekly team rhythm",
+    version: "1.0.0",
+    publisher: "@acme/content",
+    requires: ["meetings"],
+    labels: { "project.phase": "Stage" },
+    sections: { meetings: [{ key: "weekly", name: "Weekly meeting", minutes: 60 }] },
+  },
+  { blocks: [meetingsBlock] },
+);
+
+contentPackProblems(weeklyTeamRhythm, { installed: installedBlockIds, blocks: [meetingsBlock] }); // [] when it can be installed
 ```
 
-`defineContentPack` lists every problem at once: ids, semver versions, keys (unique per section, stable
-across versions), references between roadmap items, field targets, and any section whose block
-`requires` doesn't list (`sessionTypes` → sessions, `metricTemplates` → metrics, `fieldDefinitions` →
-its target's block, `forms` → forms, `roadmapTemplates` → roadmap).
+`defineContentPack` lists every problem at once: ids, semver versions, publisher, label keys, item keys
+(unique per section, stable across versions), every block validator's problems, and any section whose
+block `requires` doesn't list. `contentPackProblems(pack, installedBlockIds)` still takes the installed
+blocks alone; `{ validators: { meetings: fn } }` gives validators by block id instead of blocks.
+
+The typed sections packs had before (`sessionTypes`, `metricTemplates`, `fieldDefinitions`, `forms`,
+`roadmapTemplates`) still work and are checked as before, but are deprecated: put that data in `sections`
+under the block that owns it.
 
 ## The page
 

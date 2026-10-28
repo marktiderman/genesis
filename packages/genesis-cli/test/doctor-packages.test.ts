@@ -18,16 +18,16 @@ const PKG = {
   name: "@acme/os",
   version: "0.1.0",
   peerDependencies: { react: "^19" },
-  genesis: { blocks: { "team-scorecard": { migrations: [{ file: "migrations/0001_acme_scorecard.sql", test: "migrations/tests/0001_acme_scorecard.test.sql" }] } } },
+  genesis: { blocks: { "team-stats": { migrations: [{ file: "migrations/0001_acme_stats.sql", test: "migrations/tests/0001_acme_stats.test.sql" }] } } },
 };
 const CLEAN = {
   "genesis.config.json": JSON.stringify({ localPackages: ["packages/*"] }),
-  "features.json": JSON.stringify({ features: [{ id: "team-scorecard", links: { code: ["packages/os"] } }] }),
+  "features.json": JSON.stringify({ features: [{ id: "team-stats", links: { code: ["packages/os"] } }] }),
   "packages/os/package.json": JSON.stringify(PKG),
   "packages/os/src/index.ts": 'import { useState } from "react";\nimport { read } from "./read";\nimport { join } from "node:path";\nexport { useState, read, join };\n',
   "packages/os/src/read.ts": "export const read = () => 1;\n",
-  "packages/os/migrations/0001_acme_scorecard.sql": "create table x (id int);\n",
-  "packages/os/migrations/tests/0001_acme_scorecard.test.sql": "select 1;\n",
+  "packages/os/migrations/0001_acme_stats.sql": "create table x (id int);\n",
+  "packages/os/migrations/tests/0001_acme_stats.test.sql": "select 1;\n",
 };
 
 describe("packages pack", () => {
@@ -42,7 +42,7 @@ describe("packages pack", () => {
   });
 
   it("finds app imports, undeclared dependencies, missing tests, duplicate numbers and unregistered packages", async () => {
-    const pkg = { ...PKG, genesis: { blocks: { "team-scorecard": { migrations: [{ file: "migrations/0001_acme_scorecard.sql" }] } } } };
+    const pkg = { ...PKG, genesis: { blocks: { "team-stats": { migrations: [{ file: "migrations/0001_acme_stats.sql" }] } } } };
     const result = await runDoctor({
       root: makeApp(null, {
         ...CLEAN,
@@ -59,9 +59,9 @@ describe("packages pack", () => {
         "package-app-import packages/os/src/index.ts ../../../src/x",
         "package-undeclared-dependency packages/os/src/index.ts dayjs",
         "package-undeclared-dependency packages/os/src/index.ts zod",
-        "package-migration-test packages/os/package.json migrations/0001_acme_scorecard.sql",
+        "package-migration-test packages/os/package.json migrations/0001_acme_stats.sql",
         "package-migration-test packages/os/migrations/0001_acme_other.sql 0001_acme_other.sql",
-        "package-migration-number packages/os/migrations/0001_acme_scorecard.sql 0001",
+        "package-migration-number packages/os/migrations/0001_acme_stats.sql 0001",
         "package-unregistered packages/os",
       ].sort(),
     );
@@ -76,21 +76,21 @@ describe("packages pack", () => {
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "base");
     git("checkout", "-qb", "work");
     writeFileSync(path.join(root, "packages/os/src/read.ts"), "export const read = () => 2;\n");
-    writeFileSync(path.join(root, "packages/os/migrations/0001_acme_scorecard.sql"), "create table x (id int, y int);\n");
+    writeFileSync(path.join(root, "packages/os/migrations/0001_acme_stats.sql"), "create table x (id int, y int);\n");
     const config: DoctorConfig = { packs: ["packages"] };
     let result = await runDoctor({ root, config, base: "main" });
     expect(brief(result.findings)).toEqual([
-      "package-migration-edited packages/os/migrations/0001_acme_scorecard.sql",
+      "package-migration-edited packages/os/migrations/0001_acme_stats.sql",
       "package-unversioned-change packages/os/package.json",
     ]);
     // A changeset naming the package satisfies the gate.
     execFileSync("mkdir", ["-p", path.join(root, ".changeset")]);
-    writeFileSync(path.join(root, ".changeset/scorecard.md"), '---\n"@acme/os": patch\n---\n\nScorecard reads twice as fast.\n\nFeatures: team-scorecard\n');
+    writeFileSync(path.join(root, ".changeset/stats.md"), '---\n"@acme/os": patch\n---\n\nStats reads twice as fast.\n\nFeatures: team-stats\n');
     clearLocalPackagesCache();
     result = await runDoctor({ root, config, base: "main" });
-    expect(brief(result.findings)).toEqual(["package-migration-edited packages/os/migrations/0001_acme_scorecard.sql"]);
+    expect(brief(result.findings)).toEqual(["package-migration-edited packages/os/migrations/0001_acme_stats.sql"]);
     // So does a version bump.
-    writeFileSync(path.join(root, ".changeset/scorecard.md"), "");
+    writeFileSync(path.join(root, ".changeset/stats.md"), "");
     writeFileSync(path.join(root, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.1.1" }));
     result = await runDoctor({ root, config, base: "main" });
     // A bump passes the gate, but asks for a changeset to record the features.
@@ -187,7 +187,7 @@ describe("change gate edge cases", () => {
     let result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual(["package-unversioned-change packages/os/package.json"]);
     execFileSync("mkdir", ["-p", path.join(repo, ".changeset")]);
-    writeFileSync(path.join(repo, ".changeset/os.md"), "---\n'@acme/os': patch\n---\n\nFaster reads.\n\nFeatures: team-scorecard\n");
+    writeFileSync(path.join(repo, ".changeset/os.md"), "---\n'@acme/os': patch\n---\n\nFaster reads.\n\nFeatures: team-stats\n");
     result = await runDoctor({ root: app, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual([]);
   });
@@ -271,7 +271,7 @@ describe("Flare's review: false positives and spec", () => {
     writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n');
     result = await runDoctor({ root, config: PACKAGES, base: "main" });
     expect(result.findings.filter((f) => f.rule === "package-unversioned-change").map((f) => f.message)).toEqual([expect.stringMatching(/no "Features:" line/)]);
-    writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n\nFeatures: team-scorecard\n');
+    writeFileSync(path.join(root, ".changeset/os.md"), '---\n"@acme/os": patch\n---\n\nFaster.\n\nFeatures: team-stats\n');
     result = await runDoctor({ root, config: PACKAGES, base: "main" });
     expect(brief(result.findings)).toEqual([]);
   });
@@ -341,7 +341,7 @@ describe("registry changes from a nested app", () => {
     g("checkout", "-qb", "work");
     writeFileSync(path.join(repo, "packages/os/package.json"), JSON.stringify({ ...PKG, version: "0.2.0", exports: { ".": "./src/index.ts" } }));
     mkdirSync(path.join(repo, ".changeset"), { recursive: true });
-    writeFileSync(path.join(repo, ".changeset/os.md"), '---\n"@acme/os": minor\n---\n\nExports.\n\nFeatures: team-scorecard\n');
+    writeFileSync(path.join(repo, ".changeset/os.md"), '---\n"@acme/os": minor\n---\n\nExports.\n\nFeatures: team-stats\n');
     writeFileSync(path.join(repo, "src/features.ts"), "export const features = { changed: true };\n");
     clearLocalPackagesCache();
     const result = await runDoctor({ root: path.join(repo, "apps/mobile"), config: PACKAGES, base: "main" });

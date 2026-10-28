@@ -14,6 +14,9 @@
  *   `z.partialRecord(Day, …)`, gets one optional field per key); an array of
  *   objects → a list of them; an array of strings → one per line.
  *
+ * A prop marked `.meta({ deprecated: true })` gets no field: the schema still
+ * accepts it, and a migration moves it.
+ *
  * Anything else gets a field that says it can't be edited here, and a
  * warning in the console, so a gap is visible rather than silent.
  */
@@ -45,6 +48,7 @@ type JsonSchema = Record<string, unknown> & {
   format?: string;
   "x-genesis-kind"?: string;
   "x-genesis-allow"?: string[];
+  deprecated?: boolean;
 };
 
 /** Building-block titles that say what a value is, not what it's for: the key names it better. */
@@ -209,7 +213,11 @@ function enumKeyedProperties(schema: JsonSchema): Record<string, JsonSchema> | n
 function objectFields(schema: JsonSchema, ctx: FieldContext): Record<string, Field> {
   const required = new Set(schema.required ?? []);
   const out: Record<string, Field> = {};
-  for (const [key, prop] of Object.entries(schema.properties ?? {})) out[key] = fieldFor(key, prop, required.has(key), ctx);
+  for (const [key, prop] of Object.entries(schema.properties ?? {})) {
+    // A deprecated prop (`.meta({ deprecated: true })`) is still accepted, but nobody should type into it.
+    if (prop.deprecated === true) continue;
+    out[key] = fieldFor(key, prop, required.has(key), ctx);
+  }
   return out;
 }
 

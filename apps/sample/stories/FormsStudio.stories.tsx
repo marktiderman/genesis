@@ -122,7 +122,7 @@ function Responses() {
             ratingMax={highestRating(definitions)}
             lowLabel={lowRatingLabel(definitions)}
             choices={[
-              { key: "class", label: "Class", allLabel: "Any class", options: ["5:30 WOD", "6:00 WOD", "Noon WOD"] },
+              { key: "class", label: "Class", allLabel: "Any class", options: ["5:30 class", "6:00 class", "Noon class"] },
               { key: "coach", label: "Coach", allLabel: "Any coach", options: ["Casey", "Leo"], icon: <User /> },
             ]}
           />
@@ -225,7 +225,7 @@ export const Share: Story = {
       onOpenChange={() => {}}
       url="https://feedback.example.com/f/e2e-saturday-check-in"
       name="E2E Saturday check-in"
-      prefill={[{ key: "class", label: "Class", anyLabel: "Any class", options: [{ value: "6:00 WOD", label: "6:00 WOD" }] }]}
+      prefill={[{ key: "class", label: "Class", anyLabel: "Any class", options: [{ value: "6:00 class", label: "6:00 class" }] }]}
       prefillNote="Responses through it are marked with that class."
     />
   ),
