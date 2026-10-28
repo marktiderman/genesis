@@ -650,44 +650,59 @@ TanStack AI is still re-checked at the start of P1, as decided.
 
 Built, in `packages/ai` (`@marktiderman/genesis-ai`) and `packages/chat/src/ai`:
 
-- `defineAi`, `defineTask`, model records with prices (an unknown model fails `defineAi`), the
-  four P0 conditions (API version pinned by `createGenesisAnthropic`, `outputFormat` pinned,
-  aged versions, server-only SDK import).
+- `defineAi`, `defineTask` and `checkTasks`. Model records carry prices and capabilities; an
+  unknown model fails `defineAi`, and a task whose models lack what it needs fails `checkTasks`
+  (run by `createAiHandler` at startup). Prices are data through `modelRecords`.
+- Vendors are adapters: `anthropic()` (the four P0 conditions: API version pinned, `outputFormat`
+  pinned, aged versions, server-only SDK import) and `openai()` (Responses API,
+  `reasoningEffort`). Aliases name model ids, with effort, opt-in prompt caching (`cache`),
+  fallbacks and a flag-driven `rollout`.
 - `runTask` and `streamTask` with every step of the pipeline above and its typed outcomes; a
   task's `load` can stop a call with `forbidden` or `invalid_input` before any model runs.
-- `wrap` for processors, `createAiHandler` (one endpoint, tasks by id), `useAiTask`,
-  `memoryStore`.
-- The `genesis_ai` schema (`consents`, `budgets`, `calls`) with `supabaseStore`, and a pgTAP test
-  of 44 assertions (privileges, RLS, consent, bounded budgets, no content in the manifest,
-  erasure, pruning), run on Postgres 16 with Supabase's roles stubbed.
+  Arguments and outputs take any schema the AI SDK takes (Zod 3 or 4, Standard Schema,
+  `jsonSchema`); a prompt can be a conversation.
+- BYOK: `genesis_ai.keys` in Supabase Vault, the person's key over the tenant's, own-key calls
+  recorded with `key_source` and kept off the platform budget, a refused key reported as such.
+- `wrap` for processors; `createAiHandler` (one endpoint, tasks by id, JSON only, same-origin,
+  server-sent events for text tasks); `useAiTask` and `useAiStream`; `memoryStore`; `otelSink`
+  for OpenTelemetry tracers; `evaluate` for task evals with a live key.
+- The `genesis_ai` schema (an append-only `consents` log with policy versions, `budgets` with a
+  per-person share, `keys`, `calls`) with `supabaseStore`, and its pgTAP test.
 - `chat.recap` and `chat.draft-reply`, with the parity test passing: the same model, effort,
-  refusal fallback, API version, system prompt and transcript as `createChatAssistant`.
+  refusal fallback, API version, system prompt and transcript as `createChatAssistant`. They
+  import `zod/v4`, so apps on Zod 3.25 or 4 can install them.
+- Review fixes: calls are priced by the model that answered, across every hop of a server-side
+  fallback (`usage.iterations`); a failed schema attempt is billed; `streamTask` takes the
+  caller's abort and closes the row on abort; Sonnet 5.5's cache-read price is $0.10 per million.
 
 Where the build differs from this design, and why:
 
 - **Functions, not a `createAi` object.** `runTask(ai, task, args, ctx)` and the rest take the
   `defineAi` result. One config object, no second wrapper to keep in step.
+- **Keys are part of the store** (`keyFor`), not a second config knob: one service-role client
+  already reads consent and budgets.
 - **One `calls` table** holds open and finished calls, instead of `usage` plus `inflight`. A call
   open for more than 15 minutes stops reserving budget. `tenant_settings` waits for P2, which is
   the first thing that reads it.
-- **Consent is in `genesis_ai.consents`,** the smallest form, until the `consent` block exists.
+- **Consent is an append-only log in `genesis_ai.consents`:** the latest row per person and
+  vendor is the answer, the rest is the record. It moves to the `consent` block when that exists.
 - **Parity is per field, not per byte.** The AI SDK sends the system prompt and the user turn as
   content blocks where chat's `fetch` sends strings; the test compares the text, model, effort,
   fallbacks, version and beta header.
 - **The recap's output is text**, as `createChatAssistant` returns, so parity holds. A schema
   output can come with the recap's next version.
 
-Review fixes (2026-10-28): calls are priced by the model that answered, across every hop of a
-server-side fallback (`usage.iterations`); prompt caching is an alias option (`cache`), since
-Anthropic's is opt-in; a failed schema attempt is billed; `streamTask` takes the caller's abort,
-closes the row on abort and refuses tasks with output guardrails; `createAiHandler` takes JSON
-only, refuses other origins and answers a thrown error with `503`. Sonnet 5.5's cache-read price
-is $0.10 per million.
+Not built yet, and why:
 
-Not done yet: a live call and a live recap eval (they need `ANTHROPIC_API_KEY`); spans in
-`core/observability` (spans go to the `telemetry` sink for now); the doctor rules; wiring
-moderation and transcription through `wrap` in the sample app; the consent screen; the TanStack
-AI re-check.
+- **The doctor rules** (no client import of a task module or the AI config). They wait on
+  package-declared doctor rules (genesis #454). Until then `/server` throws when it loads in a
+  browser.
+- **Spans in `core/observability`.** That is a core change (PACKAGE-STRATEGY M1); spans go to the
+  `telemetry` sink, and `otelSink` sends them to any OpenTelemetry tracer.
+- **A live call and a live recap eval.** They need `ANTHROPIC_API_KEY`, which the environment this
+  was built in doesn't have; `evaluate` is the harness for them.
+- **The TanStack AI re-check.** Not redone; the AI SDK stays behind the task API, so a later
+  switch stays inside this package.
 
 ### The coaching track (after P2)
 
