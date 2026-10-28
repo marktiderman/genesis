@@ -528,6 +528,17 @@ export interface ResourcePageProps<
   canEditItem?: (item: T) => boolean;
   createLabel?: string;
   /**
+   * What one record is called ("goal"), for the count and the form's title. Default: the title,
+   * lower-cased, for the count, and the resource name for the form (as before).
+   */
+  noun?: string;
+  /** Several records ("people"), when not `noun` + "s". */
+  nounPlural?: string;
+  /** The count's words; see PageHeader `countFormat`. */
+  countFormat?: { one?: string; other?: string; filtered?: string };
+  /** The form's titles, over "New {noun}" / "Edit {noun}". A `slotProps.form.title` still wins. */
+  formTitles?: { create?: string; edit?: string };
+  /**
    * @deprecated Use `can` — `can={(action, item) => action !== "edit" || !item || mayEdit(item)}`.
    * Still honoured: a row it refuses gets no Edit.
    */
@@ -804,6 +815,10 @@ export function ResourcePage<
     columnVisibility,
     columnVisibilityKey,
     createLabel: createLabelProp,
+    noun,
+    nounPlural,
+    countFormat,
+    formTitles,
     detail = "panel",
     detailFields,
     detailWidth = "md",
@@ -1124,6 +1139,9 @@ export function ResourcePage<
       icon={icon}
       count={page.data.length}
       totalCount={displayTotal}
+      {...(noun ? { entityName: noun } : {})}
+      {...(nounPlural ? { entityNamePlural: nounPlural } : {})}
+      {...(countFormat ? { countFormat } : {})}
       isLoading={isLoading}
       hasError={hasError}
       isEmpty={isEmpty}
@@ -1470,6 +1488,10 @@ export function ResourcePage<
           {
             resource: resourceName,
             action: formAction,
+            ...(noun ? { noun } : {}),
+            ...((formAction === "create" ? formTitles?.create : formTitles?.edit)
+              ? { title: formAction === "create" ? formTitles!.create : formTitles!.edit }
+              : {}),
             layout:
               formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
             mode: formMode,

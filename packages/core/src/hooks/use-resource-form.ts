@@ -251,9 +251,11 @@ function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" =
         let schema = z.coerce.number({ message: "Must be a number" });
         if (field.min != null) schema = schema.min(field.min);
         if (field.max != null) schema = schema.max(field.max);
+        // An optional field may start at null (a screen's `filter` of null): accept it as is,
+        // before coercion would turn it into 0.
         shape[field.key] = field.required !== false
           ? schema
-          : schema.optional();
+          : z.null().or(schema).optional();
         break;
       }
       case "array": {
@@ -314,8 +316,9 @@ function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" =
             `${field.label ?? titleCase(field.key)} must be ${field.maxLength} characters or fewer`,
           );
         }
+        // An optional field may start at null (a screen's `filter` of null); "" is an empty input.
         shape[field.key] = field.required === false
-          ? schema.optional().or(z.literal(""))
+          ? schema.optional().nullable().or(z.literal(""))
           : schema;
         break;
       }
@@ -337,6 +340,40 @@ export function buildArrayItemDefaults(
     else defaults[sub.key] = sub.defaultValue ?? "";
   }
   return defaults;
+}
+
+// Input types whose empty value ("") can be a real value of the column.
+const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "url", "hidden"]);
+
+/**
+ * What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows
+ * about (`nullable` set, as ResourceView sets it from a generated contract) is changed:
+ * a create leaves it out, so the column's default (or null) applies, and an edit the person
+ * made clears it to null. Everything else goes as before, `""` included: a field without
+ * `nullable`, an edit of a field nobody touched (`changed` doesn't list it), a value the
+ * screen started the field at (its `defaultValue`), and a text column that can't be null
+ * (on a create, only when it has no default to fall back on).
+ */
+export function blankValues(
+  values: Record<string, unknown>,
+  fields: readonly ResourceFormFieldDef[],
+  action: "create" | "edit",
+  changed?: ReadonlySet<string>,
+): Record<string, unknown> {
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    const field = byKey.get(key);
+    const asBefore =
+      (value !== "" && value !== undefined) ||
+      field?.nullable === undefined ||
+      field.defaultValue === "" ||
+      (action === "edit" && changed !== undefined && !changed.has(key)) ||
+      (TEXT_TYPES.has(field.type ?? "text") && !field.nullable && !(action === "create" && field.hasDefault));
+    if (asBefore) out[key] = value;
+    else if (action === "edit") out[key] = null;
+  }
+  return out;
 }
 
 /** Build default values from fields and existing data */
@@ -655,7 +692,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       const writable = lockedOnEdit.size
         ? Object.fromEntries(Object.entries(submitted).filter(([k]) => !lockedOnEdit.has(k)))
         : submitted;
-      const formData =
+      const changed =
         action === "edit" && updates === "loaded" && opened
           ? Object.fromEntries(
               Object.entries(writable).filter(
@@ -667,6 +704,13 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
               ),
             )
           : writable;
+      // An empty input the person left or made empty is no value (see `blankValues`).
+      const touched = new Set(
+        Object.entries(changed)
+          .filter(([k, v]) => !sameValue(k in (shown as object) ? (shown as Record<string, unknown>)[k] : v, defaultValues[k]))
+          .map(([k]) => k),
+      );
+      const formData = blankValues(changed, resolvedFields, action, touched);
       // An edit with nothing left to write (only read-only fields) has nothing to send.
       if (action === "edit" && Object.keys(formData).length === 0) {
         markSaved();

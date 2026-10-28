@@ -1,5 +1,46 @@
 # @marktiderman/genesis-ui
 
+## 2.22.1
+
+### Patch Changes
+
+- 2bd8b0d: DataTable tree mode: when `openColumn` names a column the viewer has hidden, no row renders an open button, so the expand arrow now stays a tab stop (before, it dropped out of the tab order and the tree couldn't be opened from the keyboard).
+
+## 2.22.0
+
+### Minor Changes
+
+- 1bfdf53: Tree mode for lists. `<ResourceView tree={{ getParentId, defaultExpanded, cascadeSelect }} />` (and ResourcePage's `tree`) nests rows under their parent, built from the flat list: depth is computed, the table and list views draw an indent and an expand arrow in the first cell, a sort applies within siblings, search and the status filter keep each match's ancestors (muted), open state is uncontrolled (`defaultExpanded`) or controlled (`expanded`, `onExpandedChange`), and `cascadeSelect` opts in to selecting a row's descendants with it. The table is a WAI-ARIA treegrid (`aria-level`, `aria-expanded`, `aria-posinset`, `aria-setsize`; → opens, ← closes). Client data only: `pagination="server"` or `"cursor"` with `tree` throws. Grid, sheet and NativeResourceView don't draw trees yet.
+
+  genesis-core/resource-view holds the logic, with no React: `treeRows`, `initialExpanded`, `setExpanded`, `cascadeSelection` and the `ResourceTree` type. `useResourceView` / `useResourceTable` surface it: `rows` are the visible rows in order and `tree` holds each row's node, the open set and `setExpanded`. genesis-ui exports `TreeIndent` (the indent and arrow) and the `DataTableTree` and `ResourcePageTreeState` types. See docs/RESOURCE-VIEW.md, "Tree mode".
+
+  Features: resource-tree
+
+- 4c5a9f4: Scope-neutral names. Genesis named one app's tenant ("practice") in its scope and clock APIs; it now names whatever the screen is scoped to.
+
+  Breaking:
+
+  - `ResourceScope.practiceId` is gone as a named key. Pass the app's own key in the open slot, as before: `scope={{ practiceId }}`, `scope={{ orgId }}`, `scope={{ leagueId }}`. Views read it as before (`scope: ["practice_id"]` reads `practice_id`, then `practiceId`). To read it typed, augment once: `declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }`.
+  - A view field's `timeZone: "practice"` is now `timeZone: "scope"`. `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`, the new `TimeZoneName` being `"UTC"`, `"GMT"` or `Area/Location`), so `"practice"` is a type error, and `defineView` throws `ViewDefinitionError` on it (naming the codemod) and on any zone the runtime doesn't know, instead of drawing the column on the viewer's clock.
+  - NativeResourceView's `practiceTimeZone` prop is now `scopeTimeZone`; `DisplayTimeZones.practice` is `DisplayTimeZones.scope`, and `resolveZone("practice", …)` is `resolveZone("scope", …)`; `resolveZone` throws on a zone it doesn't know.
+
+  New: `ViewerScope` takes an optional `scopeTimeZone`, the IANA zone of whatever the viewer is scoped to, exposed as `useViewerScope().scopeTimeZone`. When it is absent or empty, the viewer's zone is used. An unknown zone throws in development; in production it is reported once with `reportError` and the viewer's zone is used (the exported `scopeClock` is the check). Web columns with `timeZone: "scope"` read on it (before, the web drew a practice-clock column on the viewer's clock), and NativeResourceView reads its own `scopeTimeZone` prop when given, else the `ViewerScope` value.
+
+  Migrate in one step: `genesis upgrade` runs the `genesis-core-2-scope-names` codemod when genesis-core crosses 2.0.0, or run it by hand with `genesis codemod genesis-core-2-scope-names` (`--dry-run` lists the files). It rewrites `timeZone: "practice"`, `practiceTimeZone` (attribute or object key), `resolveZone("practice", …)` and DisplayTimeZones' `practice` in files that import a Genesis package, and prints the `ResourceScope` augmentation when a file reads `scope.practiceId` and nothing declares it. `genesis doctor`'s `removed-scope-name` rule fails until none are left.
+
+  Migration notes: docs/MIGRATION.md, "Scope-neutral names".
+
+- 314b7a1: Slot class props for parts a component draws for itself, merged after the defaults:
+
+  - `DialogContent`, `AlertDialogContent` and `SheetContent` take `overlayClassName` for their backdrop, e.g. `<DialogContent overlayClassName="z-[60]" className="z-[60]">` to open a dialog above a side panel at `z-50`. Raise the content's `className` to the same layer, or the backdrop sits above the content and takes its clicks.
+  - `Table` takes `containerClassName` for its scroll box (now `data-slot="table-container"`), so a sticky header can scroll inside it: `<Table containerClassName="max-h-96">`. `TableProps` is exported.
+
+### Patch Changes
+
+- Updated dependencies [1bfdf53]
+- Updated dependencies [4c5a9f4]
+  - @marktiderman/genesis-core@2.0.0
+
 ## 2.21.0
 
 ### Minor Changes

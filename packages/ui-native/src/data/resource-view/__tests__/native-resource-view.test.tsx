@@ -529,6 +529,51 @@ describe("form sheet", () => {
     });
   });
 
+  it("treats an empty input as the web form does, from the contract's facts", () => {
+    type Known = { id: string; name: string; code: string; made_by: string; notes: string | null; due_on: string | null };
+    const known = defineResource<Known>()({
+      name: "known",
+      key: "id",
+      labelField: "name",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "name", type: "string", nullable: false },
+        { name: "code", type: "string", nullable: false, optional: true },
+        { name: "made_by", type: "string", nullable: false, hasDefault: true },
+        { name: "notes", type: "string", nullable: true },
+        { name: "due_on", type: "datetime", dbType: "date", nullable: true },
+      ],
+    });
+    const knownView = defineView(known, { form: ["name", "code", "made_by", "notes", "due_on"] });
+    const blank = { name: "a", code: "", made_by: "", notes: "", due_on: "" };
+    const create = formFieldsFor(knownView, "create");
+    expect(create.find((f) => f.key === "notes")).toMatchObject({ nullable: true });
+    expect(create.find((f) => f.key === "made_by")).toMatchObject({ nullable: false, hasDefault: true });
+    // A create leaves blanks out (defaults apply); a not-null text without a default keeps "".
+    expect(writableValues(knownView, "create", create, blank)).toEqual({ name: "a", code: "" });
+    expect(writableValues(knownView, "edit", formFieldsFor(knownView, "edit"), blank)).toEqual({
+      name: "a", code: "", made_by: "", notes: null, due_on: null,
+    });
+  });
+
+  it("sends a list filter as `in`, and a create never takes it", async () => {
+    const p = provider();
+    const getList = vi.spyOn(p, "getList");
+    const { result } = renderHook(() => useNativeResourceView(plainView, { filter: { status: ["active", "archived"], practice_id: "p1" } }), {
+      wrapper: wrap(p),
+    });
+    await waitFor(() => expect(getList).toHaveBeenCalled());
+    expect(getList.mock.calls.at(-1)![1].filters).toEqual(
+      expect.arrayContaining([
+        { field: "status", operator: "in", value: ["active", "archived"] },
+        { field: "practice_id", operator: "eq", value: "p1" },
+      ]),
+    );
+    expect(result.current.formFields("create").some((f) => f.key === "practice_id")).toBe(false);
+    expect(result.current.formFields("create").some((f) => f.key === "status")).toBe(true);
+    expect(screenValues({ status: ["a"], practice_id: "p1" })).toEqual({ practice_id: "p1" });
+  });
+
   it("shows an empty date as a button to add one, and a set date can be cleared", async () => {
     render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
     fireEvent.click(await screen.findByTestId("native-resource-view-create"));

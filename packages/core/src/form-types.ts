@@ -34,6 +34,15 @@ export interface ResourceFormFieldDef {
   hidden?: boolean;
   /** Shown read-only when editing, and never sent by an edit (a create still sends it). */
   readOnlyOnEdit?: boolean;
+  /**
+   * The column takes null. A left-empty input is then sent as null on an edit and left out of
+   * a create (so the column's default applies), text included. Unset, an empty text input
+   * keeps sending "" and an empty input of any other type (date, number, select, relation)
+   * is treated as nullable, since "" is never a valid value for those.
+   */
+  nullable?: boolean;
+  /** The column has a default: a create leaves an empty input out, text included, so the default applies. */
+  hasDefault?: boolean;
   description?: string;
   min?: number;
   max?: number;

@@ -9,6 +9,12 @@ export interface IntrospectedColumn {
   type: StorageType;
   array: boolean;
   nullable: boolean;
+  /**
+   * The catalog can't say whether the column holds null: a view's or materialized view's own
+   * column, which Postgres always reports as nullable. `nullable` is then true for the row type,
+   * and the contract leaves `nullable` out, so a form doesn't act on a guess.
+   */
+  nullableUnknown?: boolean;
   hasDefault: boolean;
   generated: boolean;
   enumValues?: string[];
@@ -61,4 +67,13 @@ export function storageTypeOf(dbType: string): StorageType {
   if (/^(date|timestamp|timestamptz|time|timetz|interval)\b/.test(t)) return "datetime";
   if (t === "json" || t === "jsonb") return "json";
   return "string";
+}
+
+/**
+ * A resource's name, `schema.table`. A part holding a dot or a double quote is quoted the way
+ * Postgres quotes it (`"my.s"."we.ird"`), so a provider can split the name back exactly.
+ */
+export function qualifiedName(schema: string, table: string): string {
+  const part = (p: string) => (/[."]/.test(p) ? `"${p.replace(/"/g, '""')}"` : p);
+  return `${part(schema)}.${part(table)}`;
 }

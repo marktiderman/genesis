@@ -377,6 +377,22 @@ describe("defineView review fixes", () => {
     ]);
   });
 
+  it("makes plurals that invert the singulars", () => {
+    const many = (noun: string) =>
+      defineView({ name: "t", key: "id", noun, fields: [{ name: "id", type: "string" }] } as ResourceContract).nounPlural;
+    expect(["entry", "box", "status", "match", "wish", "person", "movie", "key", "task", "work item"].map(many)).toEqual([
+      "entries", "boxes", "statuses", "matches", "wishes", "people", "movies", "keys", "tasks", "work items",
+    ]);
+  });
+
+  it("takes a plural label for several when the noun is only derived", () => {
+    const view = (label: string) =>
+      defineView({ name: "public.team_members", key: "id", label, fields: [{ name: "id", type: "string" }] } as ResourceContract);
+    expect(view("People").nounPlural).toBe("people");
+    expect(view("Team").nounPlural).toBe("team members");
+    expect(view("People").noun).toBe("team member");
+  });
+
   it("is deeply frozen: changing what was passed in changes nothing", () => {
     const def = { columns: { default: ["name"] as string[] } };
     const v = defineView<typeof brands, BrandRow>(brands, def as never);

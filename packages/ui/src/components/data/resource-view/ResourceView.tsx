@@ -5,7 +5,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -13,7 +13,9 @@ import { useDisplayCell } from "./display";
 import { RowAvatar } from "./RowAvatar";
 
 type Row = Record<string, unknown>;
-type Filter = Readonly<Record<string, string | number | boolean | null>>;
+type Scalar = string | number | boolean | null;
+type Filter = Readonly<Record<string, Scalar | readonly (string | number)[]>>;
+type Defaults = Readonly<Record<string, Scalar>>;
 
 /** What a screen sets. Anything else ResourcePage takes passes straight through. */
 export interface ResourceViewOptions {
@@ -23,13 +25,16 @@ export interface ResourceViewOptions {
   columns?: string;
   /** A tab the view defines: its columns and its filter. */
   preset?: string;
-  /** Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". A new row gets them too. */
+  /**
+   * Filters sent to the server (`{ client_id: id }`); `null` means "is empty" and a list means
+   * "any of" (`{ status: ["open", "blocked"] }`). A new row gets the single values too, never a list.
+   */
   filter?: Filter;
   /**
    * Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike
    * `filter`, they don't narrow the list. A field the form shows starts at the value instead.
    */
-  defaults?: Filter;
+  defaults?: Defaults;
   /** How rows show first. The user's own pick is remembered. */
   mode?: "table" | "grid" | "list";
   title?: string;
@@ -68,6 +73,9 @@ function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDe
     label: f.label,
     type: options ? "select" : (FORM_TYPE[f.display] ?? "text"),
     required: f.required,
+    // What an input left empty sends: nothing on a create (the column's default applies), null on an edit.
+    ...(f.field.nullable !== undefined ? { nullable: f.field.nullable } : {}),
+    ...(f.field.hasDefault || f.field.generated ? { hasDefault: true } : {}),
     ...(options ? { options } : {}),
     ...(f.max !== undefined ? { maxLength: f.max } : {}),
     ...(f.sectionTitle ? { group: f.sectionTitle } : {}),
@@ -77,9 +85,18 @@ function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDe
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
-  return Object.entries(filter ?? {}).map(([field, value]) =>
-    value === null ? { field, operator: "is_null" as const } : { field, operator: "eq" as const, value },
+  return Object.entries(filter ?? {}).map(([field, value]): FilterParam =>
+    value === null
+      ? { field, operator: "is_null" }
+      : Array.isArray(value)
+        ? { field, operator: "in", value: [...(value as readonly (string | number)[])] }
+        : { field, operator: "eq", value: value as string | number | boolean },
   );
+}
+
+/** The single values of a filter: what a new row made from the list starts with. */
+function singleValues(filter: Filter): Defaults {
+  return Object.fromEntries(Object.entries(filter).filter(([, value]) => !Array.isArray(value))) as Defaults;
 }
 
 /**
@@ -87,7 +104,11 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
  * `<ResourceView>` both use it; call it yourself to hand the props to your own layout.
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
-  const { view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree, ...rest } = props;
+  const {
+    view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
+    ...rest
+  } = props;
   const cell = useDisplayCell();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
@@ -147,7 +168,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     const writable = new Set(view.writable("create"));
     // What a new row starts with: the defaults, then the filter over them, so a new row stays in
     // the list it was made from.
-    const starts = { ...(JSON.parse(defaultsKey) as Filter), ...(JSON.parse(filterKey) as Filter) };
+    const starts: Defaults = { ...(JSON.parse(defaultsKey) as Defaults), ...singleValues(JSON.parse(filterKey) as Filter) };
     const shown = view
       .form("create")
       // JSON and lists need editors of their own; the plain form would send them back as text.
@@ -166,8 +187,9 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   }, [view, filterKey, defaultsKey]);
 
   const defaultFilters = useMemo(
-    () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(filter), ...(resourceOptions?.defaultFilters ?? [])],
-    [tab, filter, resourceOptions?.defaultFilters],
+    // By value too: an inline `filter={{ status: ["open", "done"] }}` is one list, not a new one per render.
+    () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(JSON.parse(filterKey) as Filter), ...(resourceOptions?.defaultFilters ?? [])],
+    [tab, filterKey, resourceOptions?.defaultFilters],
   );
 
   // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
@@ -185,6 +207,10 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   const orderBy = view.definition.orderBy;
   const copy = view.definition.copy;
+  const createTitle = screenFormTitles?.create ?? copy?.form?.createTitle;
+  const editTitle = screenFormTitles?.edit ?? copy?.form?.editTitle;
+  const formTitles =
+    createTitle || editTitle ? { ...(createTitle ? { create: createTitle } : {}), ...(editTitle ? { edit: editTitle } : {}) } : undefined;
   // Tree mode (`tree`) needs every row: a page of a tree would cut parents from their children,
   // and a server-side search would drop the ancestors that give a match its place.
   if (screenTree && rest.pagination !== undefined && rest.pagination !== "client") {
@@ -215,6 +241,13 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     allowEdit: formFields.some((f) => !f.hidden),
     allowDelete: true,
     can: allows,
+    // The record's name for the count and the form: the screen's, else the view's (its copy, then
+    // the contract's). A screen noun without a plural gets that noun's plural, never the view's.
+    noun: screenNoun ?? view.noun,
+    nounPlural: screenNounPlural ?? (screenNoun ? plural(screenNoun) : view.nounPlural),
+    // Per entry: a screen's title or count words replace only the ones it names.
+    ...(copy?.count || screenCountFormat ? { countFormat: { ...copy?.count, ...screenCountFormat } } : {}),
+    ...(formTitles ? { formTitles } : {}),
     ...(copy?.create ? { createLabel: copy.create } : {}),
     ...(copy?.empty?.title ? { emptyMessage: copy.empty.title } : {}),
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),

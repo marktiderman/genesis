@@ -51,7 +51,9 @@ DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 
 Writes `resources.genesis.ts`, a checked-in contract for the Data Studio: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
-and a row type per table. Review it like code, and pass `contracts` to `createStudioHandler`. It
+and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
+list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
+table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). Review it like code, and pass `contracts` to `createStudioHandler`. It
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 

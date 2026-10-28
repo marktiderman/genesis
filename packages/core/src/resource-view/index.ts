@@ -2,7 +2,7 @@
 // See docs/RESOURCE-VIEW.md. genesis-ui's ResourceView and genesis-ui-native's
 // NativeResourceView draw it.
 
-export { defineView, deriveDisplay, valueText, ViewDefinitionError } from "./define-view";
+export { defineView, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
 export { scopeValues } from "./scope";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
