@@ -1,0 +1,41 @@
+.changeset/doctor-package-rules-cli.md
+  s_5beca2076873c9::t_974f61264b30a8 7,9-10
+.changeset/doctor-package-rules-packages.md
+  s_5beca2076873c9::t_96d34df07b9951 29
+packages/forms/package.json
+  s_5beca2076873c9::t_dfcec5a6a05c99 102,117-119
+packages/genesis-cli/README.md
+  s_5beca2076873c9::t_8820516070b284 409-410,413,415,516,666-674
+packages/genesis-cli/src/doctor/config.ts
+  s_5beca2076873c9::t_1f64dbc8143fe0 159-163,362,372
+packages/genesis-cli/src/doctor/contracts.ts
+  s_5beca2076873c9::t_424db5ed9f719b 39-45,65-66
+packages/genesis-cli/src/doctor/index.ts
+  s_5beca2076873c9::t_efd884fa6dd10e 12,36-37,41,129,148-152,161-176,178-183,241-253,261-262,286
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_5beca2076873c9::t_a8821802153023 45,61,170-174,177-178,197,377-378,395,515-533
+packages/genesis-cli/src/doctor/ratchet.ts
+  s_5beca2076873c9::t_2d80feaadbf9e2 9,13-14,36-44,46-48,50,55,59-64,85-131,140-156,161,168
+packages/genesis-cli/src/doctor/rules.ts
+  s_5beca2076873c9::t_85f882d4492e5f 69
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_5beca2076873c9::t_f77daacfa6b242 9,216-222,228,234-249,280-310,363-378,440,444-526,562,662-684
+packages/studio-server/package.json
+  s_5beca2076873c9::t_89d9f96338b605 87,103-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4e852b0aedbfd8ccd5ae99bc61343ec40a47a1f",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
