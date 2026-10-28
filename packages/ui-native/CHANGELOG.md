@@ -1,5 +1,19 @@
 # @marktiderman/genesis-ui-native
 
+## 3.1.0
+
+### Minor Changes
+
+- 4f198a7: NativeResourceView writes like the web ResourceView: form fields carry the contract's `nullable` and `hasDefault`, a create leaves an empty input of a known column out (so its default applies) and an edit clears it to null, while a text column that can't be null keeps `""`. Fields the contract says nothing about still send null. A `filter` value may be a list, sent as `in` and never saved by a create.
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- 298f8cd: Upgrading: ResourceView and NativeResourceView turn on the form's empty-input handling by themselves, from each field's `nullable` and `hasDefault` in the contract. Before upgrading, (a) regenerate contracts with this release's `genesis introspect`: contracts from an older CLI mark every view column `nullable: true`, so an edit that empties a view's NOT NULL text column would send null; and (b) give defaults to the parameters of any function a `create` rule calls with the whole row as named arguments, since a create now leaves out the keys of inputs left empty.
+
 ## 3.0.0
 
 ### Major Changes

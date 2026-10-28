@@ -1,5 +1,21 @@
 # @marktiderman/genesis-features
 
+## 0.7.0
+
+### Minor Changes
+
+- 9a254df: Content packs are generic. A pack's data goes in `sections`, keyed by the block that owns it (`sections: { meetings: [...] }`). Genesis checks what every pack shares (id, version, publisher, requires, labels, and a unique `key` on every item) and that each section's block is in `requires`; what an item holds is checked by the validator its block registers, the new `contributes.contentSection` on `defineBlock`. `contentPackProblems(pack, options)` takes `{ installed, blocks, validators }` (validators by block id win over a block's own), and still takes the installed blocks alone (a list, a set or a predicate; anything else throws a TypeError). A validator gets the section's items and returns messages relative to the section; one that throws is reported as a problem; `defineContentPack(pack, { blocks })` checks with them too. New types: `ContentPackSections`, `ContentPackSectionValidator`, `ContentPackCheckOptions`.
+
+  Nothing breaks: the typed sections (`sessionTypes`, `metricTemplates`, `fieldDefinitions`, `forms`, `roadmapTemplates`), their types and `CONTENT_PACK_FIELD_TARGETS` still work and are checked as before, and are deprecated. Move that data into `sections` under the block that owns it, with that block's validator.
+
+  Features: content-packs
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
 ## 0.6.1
 
 ### Patch Changes

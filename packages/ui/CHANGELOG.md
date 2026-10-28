@@ -1,5 +1,26 @@
 # @marktiderman/genesis-ui
 
+## 2.23.0
+
+### Minor Changes
+
+- 2be81f2: ResourceView names records with the view's noun, so the count reads "1 goal" / "3 goals" and the form "New goal" / "Edit goal". Words override in steps: the resource name, the contract's `noun`, the view's `copy` (now with `form.createTitle`, `form.editTitle` and `count`), then the screen's props. New props: ResourcePage `noun`, `nounPlural`, `countFormat`, `formTitles`; ResourceForm `noun`; DataPageShell and PageHeader `entityNamePlural`, `countFormat`. New catalogue entries `page.countOne`, `page.countOther`, `page.countFiltered` and `form.*`. ResourceView passes each field's `nullable` and `hasDefault` to the form, and a `filter` value may be a list, sent as `in` and never used to start a new row.
+
+  A screen `noun` without `nounPlural` gets that noun's plural, and a screen's `formTitles` and `countFormat` replace only the entries they name, keeping the view's others.
+
+### Patch Changes
+
+- 9a254df: Declares its doctor rules (`ui/lists-use-resource-view`: lists are a view rendered by ResourceView, with ResourcePage only inside a component that renders it; `ui/record-pages-use-resource-workspace`: route files with a `$param` or `[param]` segment or name, `.tsx` or `.jsx`, that build their own record header instead of rendering ResourceWorkspace; a list rendered on the page doesn't exempt it) and its primitives. SKILL.md's "Reach for this first" and "Data views without hand-rolling" now lead with `defineView` + `ResourceView`, `ResourceWorkspace` and `NativeResourceView`; ResourcePage is the escape hatch.
+
+  Features: doctor-package-rules
+
+- 298f8cd: Upgrading: ResourceView and NativeResourceView turn on the form's empty-input handling by themselves, from each field's `nullable` and `hasDefault` in the contract. Before upgrading, (a) regenerate contracts with this release's `genesis introspect`: contracts from an older CLI mark every view column `nullable: true`, so an edit that empties a view's NOT NULL text column would send null; and (b) give defaults to the parameters of any function a `create` rule calls with the whole row as named arguments, since a create now leaves out the keys of inputs left empty.
+- Updated dependencies [9a254df]
+- Updated dependencies [298f8cd]
+- Updated dependencies [6e58627]
+- Updated dependencies [5c80a38]
+  - @marktiderman/genesis-core@2.1.0
+
 ## 2.22.1
 
 ### Patch Changes
