@@ -54,7 +54,7 @@ export interface Workspace {
    * segment boundaries, so `/o/acme` never matches `/o/acme-west`.
    */
   path: string;
-  /** What views read inside it: `{ orgId }`, `{ orgIds }`, `{ personId }`. */
+  /** What views read inside it: `{ orgId }`, `{ orgId: [...] }`, `{ personId }`. */
   scope: ResourceScope;
   /** The viewer's roles here, for view guards (see `GenesisViewerRoles`). */
   roles?: GenesisViewerRoles;

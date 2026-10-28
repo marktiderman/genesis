@@ -111,6 +111,7 @@ export const features = defineFeatures({
     tagline: "Pick an organization once; every list, form and search follows it.",
     category: "Design system",
     status: "building",
+    claimedBy: "mark",
     layer: "pattern",
     keywords: ["workspace", "tenant", "organization", "org switcher", "workspace picker", "scope", "multi-tenant"],
     entry: { web: "@marktiderman/genesis-ui/layout" },

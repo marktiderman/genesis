@@ -18,7 +18,7 @@ import { useViewerScope } from "../hooks/viewer-scope";
 
 const acme: Workspace = { id: "acme", kind: "tenant", label: "Acme Fitness", path: "/o/acme", scope: { orgId: "org-1" }, timeZone: "America/New_York" };
 const acmeWest: Workspace = { id: "acme-west", kind: "tenant", label: "Acme West", path: "/o/acme-west", scope: { orgId: "org-2" } };
-const all: Workspace = { id: "all", kind: "rollup", label: "All organizations", path: "/all", scope: { orgIds: ["org-1", "org-2"] } };
+const all: Workspace = { id: "all", kind: "rollup", label: "All organizations", path: "/all", scope: { orgId: ["org-1", "org-2"] } };
 const me: Workspace = { id: "me", kind: "personal", label: "Personal", path: "/me", scope: { personId: "p-1" } };
 const workspaces = [acme, acmeWest, all, me];
 

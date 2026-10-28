@@ -47,7 +47,7 @@ interface Workspace {
   label: string;
   description?: string;                   // a second line: the viewer's role there
   path: string;                           // "/o/acme", "/all", "/me": the prefix of every URL inside it
-  scope: ResourceScope;                   // what every view reads: { orgId }, { orgIds }, { personId }
+  scope: ResourceScope;                   // what every view reads: { orgId }, { orgId: [...] }, { personId }
   roles?: GenesisViewerRoles;             // the viewer's roles there, for view guards
   timeZone?: string | null;               // the scope's clock
   image?: string;                         // a logo; else initials, or the kind's icon
@@ -112,8 +112,10 @@ the personal zones show in the personal workspace. The switcher sits above the z
   `WorkspaceScope`. Its views keep `scope: ["org_id"]` and need no change.
 - Staff URLs move under a workspace path (`/o/$org/…`). An app moving to workspaces redirects its
   old URLs to the same page in the default workspace.
-- A roll-up workspace's views read a list of tenants (`{ orgIds }`). A view that only knows one
-  tenant shows nothing there until it declares how to read several.
+- `ResourceView` applies the scope itself (`scopeFilter`): each of the view's `scope` keys filters
+  the list, a screen's own `filter` wins over it, and `scoped={false}` opts a list out. A roll-up's
+  scope is a list of tenants (`{ orgId: [...] }`), so its lists show any of them, and a new record
+  there asks which tenant it belongs to instead of starting in one.
 - Native shells reuse `workspaceAt`, `workspaceHref` and `defaultWorkspace`, which have no DOM; the
   native switcher comes with ADR 0003's native shells.
 

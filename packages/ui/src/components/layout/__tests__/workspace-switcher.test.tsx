@@ -16,7 +16,7 @@ import { WorkspaceSwitcher } from "../workspace-switcher";
 const workspaces: Workspace[] = [
   { id: "acme", kind: "tenant", label: "Acme Fitness", description: "Owner", path: "/o/acme", scope: { orgId: "org-1" } },
   { id: "globex", kind: "tenant", label: "Globex", path: "/o/globex", scope: { orgId: "org-2" } },
-  { id: "all", kind: "rollup", label: "All organizations", path: "/all", scope: { orgIds: ["org-1", "org-2"] } },
+  { id: "all", kind: "rollup", label: "All organizations", path: "/all", scope: { orgId: ["org-1", "org-2"] } },
   { id: "me", kind: "personal", label: "Personal", path: "/me", scope: { personId: "p-1" } },
 ];
 
