@@ -82,16 +82,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -114,16 +114,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -159,16 +159,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -191,16 +191,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -213,7 +213,7 @@ jobs:
 
       - name: Upload testID coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: testid-coverage
           path: coverage/testid-coverage.json
@@ -231,12 +231,12 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
@@ -248,7 +248,7 @@ jobs:
       # for caching do(es) not exist", which marked the whole job red even
       # though the gate itself printed "F4 gate PASS". That spurious failure
       # blocked every PR in the repo, since these checks are required.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
 
@@ -278,7 +278,7 @@ jobs:
       pull-requests: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Need history so design-system-coverage.mjs can diff against base
           # (`git merge-base origin/$base HEAD`, then `git diff --name-only`).
@@ -303,11 +303,11 @@ jobs:
       # Version from package.json `packageManager` (SSOT) when present; falls
       # back to the pnpm-version input for consumers without it. Empty input
       # defers to packageManager. See the pnpm-version input above.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
@@ -324,7 +324,7 @@ jobs:
 
       - name: Upload design-system coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: design-system-coverage
           path: |
@@ -337,7 +337,7 @@ jobs:
       # asks for a reviewer ack. It does NOT auto-fail the workflow.
       - name: Comment design-system coverage on PR
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
@@ -382,7 +382,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Detect generator
         id: detect
@@ -395,12 +395,12 @@ jobs:
 
       # Version from packageManager (SSOT) when present; falls back to the
       # pnpm-version input otherwise. Empty input defers. See pnpm-version input.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.detect.outputs.present == 'true'
         with:
           version: ${{ inputs.pnpm-version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.detect.outputs.present == 'true'
         with:
           node-version: ${{ inputs.node-version }}
