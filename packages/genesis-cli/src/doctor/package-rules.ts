@@ -42,7 +42,7 @@ import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
 import { localImportedNames } from "./source.js";
 import { importSpecifiers } from "./rules.js";
-import type { DeclaringPackage, DoctorContext, DoctorPlugin, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
+import type { DeclaringPackage, DoctorContext, DoctorPlugin, FindingInput, Level, PackageDeclaration, PackageRuleSetting, PreferRule, PrimitiveEntry, SourceFile } from "./types.js";
 
 export type { DeclaringPackage, PackageDeclaration, PreferRule, PrimitiveEntry } from "./types.js";
 
@@ -58,7 +58,7 @@ const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
 const UNLESS_KEYS = new Set(["renders", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
 const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "primitives", "plugin", "$comment"]);
-const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
+export const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
 
 /** `ui` for `@marktiderman/genesis-ui`, `genesis` for the umbrella, the full name for anything else. */
 export function ruleNamespace(packageName: string): string {
@@ -167,9 +167,15 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
   };
 }
 
+/**
+ * An unknown key at the rule's level or in `unless` may narrow where the rule applies (`onlyIn`, an
+ * exemption), so a rule that has one is skipped whole rather than run wider than its package meant.
+ * An unknown key in `forbid` is only dropped: running without it forbids less, never more.
+ */
 function validatePrefer(raw: unknown, where: string, fail: (msg: string) => never, unknownKey: (where: string, key: string) => void): PreferRule {
   if (!isObject(raw)) return fail(`${where} must be an object`);
-  for (const key of Object.keys(raw)) if (!PREFER_KEYS.has(key)) unknownKey(where, key);
+  const narrowing = (at: string, key: string, known: Set<string>) => fail(`${at} has an unknown key "${key}" (known: ${[...known].join(", ")})`);
+  for (const key of Object.keys(raw)) if (!PREFER_KEYS.has(key)) narrowing(where, key, PREFER_KEYS);
   if (typeof raw.id !== "string" || !ID.test(raw.id)) fail(`${where} needs an "id" of lower-case words and dashes`);
   const at = `${where} (${raw.id as string})`;
   for (const key of ["use", "why"]) if (typeof raw[key] !== "string" || !(raw[key] as string).trim()) fail(`${at} needs "${key}"`);
@@ -188,7 +194,7 @@ function validatePrefer(raw: unknown, where: string, fail: (msg: string) => neve
   if (raw.unless !== undefined) {
     if (!isObject(raw.unless)) fail(`${at}.unless must be an object`);
     const unless = raw.unless as Record<string, unknown>;
-    for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) unknownKey(`${at}.unless`, key);
+    for (const key of Object.keys(unless)) if (!UNLESS_KEYS.has(key)) narrowing(`${at}.unless`, key, UNLESS_KEYS);
     if (unless.renders !== undefined && !isStringList(unless.renders)) fail(`${at}.unless.renders must be a list of component names`);
     if (unless.pattern !== undefined) checkPattern(unless.pattern, `${at}.unless.pattern`, fail);
   }
@@ -368,6 +374,8 @@ function messageFor(rule: ResolvedPreferRule, found: string): string {
 const TOP_LEVEL = /^(export\s+(default\s+)?)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([\w$]+)/gm;
 /** `export { A, B as C }` without `from`: names exported after their declaration. */
 const EXPORT_LIST = /\bexport\s*\{([^}]*)\}(?!\s*from)/g;
+/** `export default A;`: a component declared first and default-exported by name. */
+const EXPORT_DEFAULT_NAME = /^export\s+default\s+([A-Z][\w$]*)\s*;?\s*$/gm;
 
 /**
  * The components a file exports whose own declaration renders a forbidden element, keyed by the
@@ -384,6 +392,7 @@ function wrappersIn(file: SourceFile, elements: RegExpMatchArray[], c: CompiledP
       if (local) listed.set(local, [...(listed.get(local) ?? []), exported ?? local]);
     }
   }
+  for (const m of file.code.matchAll(EXPORT_DEFAULT_NAME)) listed.set(m[1]!, [...(listed.get(m[1]!) ?? []), "default"]);
   decls.forEach((d, i) => {
     const name = d[3]!;
     if (!/^[A-Z]/.test(name) || c.jsx.has(name)) return;
@@ -501,6 +510,25 @@ export async function packageRulesPlugins(packages: readonly DeclaringPackage[])
     }
   }
   return out;
+}
+
+/**
+ * `packageRules` entries that name no rule: not a prefer rule of any package, not reported this run,
+ * and not in the namespace of a package with a plugin (whose ids aren't known until it reports).
+ * A typo there would otherwise change nothing, silently.
+ */
+export function unknownPackageRuleSettings(config: DoctorContext["config"], packages: readonly DeclaringPackage[], reported: readonly { rule: string }[]): FindingInput[] {
+  const known = new Set([...packageRuleIds(packages), ...reported.map((f) => f.rule)]);
+  const plugins = packages.filter((p) => p.declaration?.plugin).map((p) => `${p.namespace}/`);
+  return Object.keys(config.packageRules ?? {})
+    .filter((id) => !known.has(id) && !plugins.some((ns) => id.startsWith(ns)))
+    .map((id) => ({
+      rule: "stale-exception",
+      level: "warn",
+      file: "genesis config",
+      subject: id,
+      message: `packageRules names ${id}, which no installed package declares; check the id (genesis primitives lists them) or remove it`,
+    }));
 }
 
 /** The ids of every rule a set of packages declares (prefer rules; plugin rules aren't known until they run). */

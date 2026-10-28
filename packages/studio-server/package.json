@@ -84,7 +84,7 @@
         {
           "id": "handler-on-server",
           "need": "the Data Studio's server side",
-          "level": "error",
+          "level": "warn",
           "files": [
             "**/*.tsx",
             "**/*.jsx"
@@ -99,6 +99,9 @@
               "@marktiderman/genesis-studio-server",
               "@marktiderman/genesis-studio-server/auth"
             ]
+          },
+          "unless": {
+            "pattern": "\\bexport\\s+(?:async\\s+)?(?:function|const)\\s+(?:loader|action)\\b|\\bcreateServerFn\\b"
           },
           "use": "the browser client in screens, the handler in a server route",
           "import": "@marktiderman/genesis-studio-server/client",

@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { clearLocalPackagesCache } from "../src/blocks/local.js";
 import { checkContracts } from "../src/doctor/contracts.js";
+import { applyRatchet } from "../src/doctor/ratchet.js";
 import {
   agentGuideState,
   changedSince,
@@ -212,16 +213,38 @@ describe("package rules in the doctor", () => {
   });
 
   it("reads a newer package's declaration forward-compatibly: unknown keys and rules it can't read are skipped with a warning", async () => {
-    const declaration = { future: true, prefer: [{ ...LIST_RULE, severity: "high" }, { ...LIST_RULE, id: "no-calls", forbid: { calls: ["fetchRows"] } }] };
+    const declaration = {
+      future: true,
+      prefer: [
+        { ...LIST_RULE, forbid: { ...LIST_RULE.forbid, calls: ["fetchRows"] } },
+        { ...LIST_RULE, id: "no-calls", forbid: { calls: ["fetchRows"] } },
+      ],
+    };
     const root = makeApp(null, { ...widgets(declaration), "src/Screen.tsx": SCREEN });
     const result = await runDoctor({ root, config: {} });
     expect(brief(result.findings, "widgets/")).toHaveLength(4);
     const notes = result.findings.filter((f) => f.rule === "package-rules-invalid");
     expect(notes.map((f) => f.level)).toEqual(["warn", "warn", "warn", "warn"]);
-    expect(notes.map((f) => f.message).join("\n")).toMatch(/unknown key "future"[\s\S]*unknown key "severity"[\s\S]*unknown key "calls"[\s\S]*no-calls\)\.forbid needs jsx, imports or pattern; that entry is skipped/);
+    expect(notes.map((f) => f.message).join("\n")).toMatch(/unknown key "future"[\s\S]*unknown key "calls"[\s\S]*unknown key "calls"[\s\S]*no-calls\)\.forbid needs jsx, imports or pattern; that entry is skipped/);
     expect(result.ok).toBe(true);
     // Authoring (the packages pack, validateDeclaration without a collector) stays strict.
     expect(() => validateDeclaration(declaration, "@marktiderman/genesis-widgets")).toThrow(/unknown key "future"/);
+  });
+
+  it("skips a newer rule whole when an unknown key could narrow it (rule level or unless), instead of running it wider", async () => {
+    const declaration = {
+      prefer: [
+        { ...LIST_RULE, id: "only-in", onlyIn: "server" },
+        { ...LIST_RULE, id: "unless-more", unless: { renders: ["WidgetView"], importsFrom: ["./server"] } },
+      ],
+    };
+    const root = makeApp(null, { ...widgets(declaration), "src/Screen.tsx": SCREEN });
+    const result = await runDoctor({ root, config: {} });
+    expect(brief(result.findings, "widgets/")).toEqual([]);
+    const notes = result.findings.filter((f) => f.rule === "package-rules-invalid").map((f) => f.message);
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toMatch(/prefer\[0\] has an unknown key "onlyIn".*that entry is skipped/);
+    expect(notes[1]).toMatch(/unless-more\)\.unless has an unknown key "importsFrom".*that entry is skipped/);
   });
 
   it("lists packages in code-point order, the same on every machine", () => {
@@ -252,6 +275,37 @@ describe("package rules in the doctor", () => {
       "widgets/lists-use-widget-view warn src/routes/people.tsx:2 Table",
       "widgets/lists-use-widget-view warn src/routes/teams.tsx:2 RecordTable",
     ]);
+  });
+
+  it("counts a component declared first and default-exported by name as a wrapper", async () => {
+    const root = makeApp(null, {
+      ...widgets({ prefer: [LIST_RULE] }),
+      "src/components/RecordTable.tsx": "function RecordTable() {\n  return <DataTable rows={[]} />;\n}\nexport default RecordTable;\n",
+      "src/routes/people.tsx": 'import Table from "../components/RecordTable";\nexport const P = () => <Table />;\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "widgets/")).toEqual([
+      "widgets/lists-use-widget-view warn src/components/RecordTable.tsx:2 DataTable",
+      "widgets/lists-use-widget-view warn src/routes/people.tsx:2 Table",
+    ]);
+  });
+
+  it("warns about a packageRules entry that names no rule, but not one in a plugin package's namespace", async () => {
+    const root = makeApp(null, { ...widgets({ prefer: [LIST_RULE] }), "src/Screen.tsx": SCREEN });
+    const config: DoctorConfig = {
+      packageRules: {
+        "widgets/lists-use-widget-veiw": { level: "off", reason: "Typo." },
+        "widgets/lists-use-widget-view": { level: "error", reason: "Real." },
+      },
+    };
+    const result = await runDoctor({ root, config });
+    expect(brief(result.findings, "stale-exception")).toEqual(["stale-exception warn genesis config:0 widgets/lists-use-widget-veiw"]);
+    expect(result.findings.find((f) => f.rule === "stale-exception")!.message).toContain("no installed package declares");
+
+    const plugin = makeApp(null, {
+      ...widgets({ plugin: "./doctor-plugin.mjs" }),
+      "node_modules/@marktiderman/genesis-widgets/doctor-plugin.mjs": "export default { name: 'quiet', check() {} };\n",
+    });
+    expect(brief((await runDoctor({ root: plugin, config: { packageRules: { "widgets/from-plugin": { level: "off", reason: "x" } } } })).findings, "stale-exception")).toEqual([]);
   });
 
   it("loads a package's plugin module and namespaces its findings", async () => {
@@ -304,6 +358,22 @@ describe("the real package declarations", () => {
       "core-rules/direct-data-access warn src/components/Rpc.tsx:1 .schema(\"app\").from(",
       "core-rules/direct-data-access warn src/components/Rpc.tsx:1 client.rpc(",
       "core-rules/direct-data-access warn src/routes/goals.tsx:2 supabase.from(",
+    ]);
+  });
+
+  it("forms and studio-server flag their server modules in screens as warnings, never in a route module's loader, action or server function", async () => {
+    const root = makeApp(null, {
+      ...install("forms", "genesis-forms-rules"),
+      ...install("studio-server", "genesis-studio-server-rules"),
+      "src/routes/survey.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport async function action() { return validateSubmission(); }\nexport default function S() { return null; }\n',
+      "src/routes/studio.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const handle = createServerFn().handler(() => createStudioHandler());\n',
+      "src/components/Preview.tsx": 'import { validateSubmission } from "@marktiderman/genesis-forms/server";\nexport const P = () => { validateSubmission(); return null; };\n',
+      "src/components/Admin.tsx": 'import { createStudioHandler } from "@marktiderman/genesis-studio-server";\nexport const A = () => null;\n',
+    });
+    const result = await runDoctor({ root, config: {} });
+    expect(brief(result.findings, "forms-rules/").concat(brief(result.findings, "studio-server-rules/"))).toEqual([
+      "forms-rules/server-check-on-server warn src/components/Preview.tsx:1 @marktiderman/genesis-forms/server",
+      "studio-server-rules/handler-on-server warn src/components/Admin.tsx:1 @marktiderman/genesis-studio-server",
     ]);
   });
 });
@@ -367,12 +437,93 @@ describe("ratchet", () => {
     expect(changedSince(root, "no-such-ref")).toBeNull();
   });
 
-  it("warns that it ran at full levels when git can't compare, and rules can configure that notice", async () => {
+  it("warns that it ran at full levels when git can't compare, and fails when the config went uncompared", async () => {
     const root = makeApp(null, files);
     const result = await runDoctor({ root, config: {}, base: "no-such-ref" });
     expect(brief(result.findings, "ratchet-skipped")).toEqual(["ratchet-skipped warn genesis config:0"]);
-    expect(brief((await runDoctor({ root, config: { rules: { "ratchet-skipped": "off" } }, base: "no-such-ref" })).findings, "ratchet-skipped")).toEqual([]);
-    expect(brief((await runDoctor({ root, config: { rules: { "ratchet-skipped": "error" } }, base: "no-such-ref" })).findings, "ratchet-skipped")).toEqual(["ratchet-skipped error genesis config:0"]);
+    const guarded = makeApp(null, { ...files, "genesis.config.json": JSON.stringify({ doctor: { rules: { "raw-tag": "error" } } }) });
+    const failed = await runDoctor({ root: guarded, base: "no-such-ref" });
+    expect(brief(failed.findings, "ratchet-skipped")).toEqual(["ratchet-skipped error genesis config:0"]);
+    expect(failed.findings.find((f) => f.rule === "ratchet-skipped")!.message).toContain("fetch-depth: 0");
+    expect(failed.ok).toBe(false);
+  });
+
+  it("never lets allow or rules switch off the rules that guard them", async () => {
+    expect(() => validateConfig({ allow: [{ rule: "allow-grew", reason: "x" }] })).toThrow(/can't allow allow-grew/);
+    expect(() => validateConfig({ rules: { "ratchet-skipped": "off" } })).toThrow(/can't set ratchet-skipped/);
+    expect(() => validateConfig({ rules: { "rules-weakened": "warn" } })).toThrow(/can't set rules-weakened/);
+    // A config passed in directly (not validated) is ignored for them too.
+    const root = makeApp(null, files);
+    const config: DoctorConfig = { rules: { "ratchet-skipped": "off" }, allow: [{ rule: "ratchet-skipped", reason: "x" }] };
+    expect(brief((await runDoctor({ root, config, base: "no-such-ref" })).findings, "ratchet-skipped")).toEqual(["ratchet-skipped warn genesis config:0"]);
+  });
+
+  it("never ratchets the rules about the config, packages and generated files, even with ratchet: true", () => {
+    const at = (rule: string, file: string): Finding => ({ rule, level: "error", file, line: 0, message: "m" });
+    const findings = [
+      at("allow-grew", "src/a.tsx"),
+      at("rules-weakened", "src/a.tsx"),
+      at("stale-exception", "src/a.tsx"),
+      at("agent-guide-stale", "AGENTS.md"),
+      at("package-doctor-declaration", "packages/x/package.json"),
+      at("contracts-stale", "src/lib/resources.genesis.ts"),
+      at("raw-tag", "src/a.tsx"),
+    ];
+    const out = applyRatchet(findings, { config: { ratchet: true }, newOnly: new Set(), changed: new Set(), base: "main", isAppPath: () => true });
+    expect(out.map((f) => `${f.rule} ${f.level}`)).toEqual([
+      "allow-grew error",
+      "rules-weakened error",
+      "stale-exception error",
+      "agent-guide-stale error",
+      "package-doctor-declaration error",
+      "contracts-stale error",
+      "raw-tag info",
+    ]);
+  });
+
+  it("keeps allow-grew an error under ratchet: true when the allowed file didn't change", async () => {
+    const config = (allow: unknown[]) => JSON.stringify({ doctor: { ratchet: true, allow } });
+    const root = makeApp(null, { "genesis.config.json": config([]), "src/a.tsx": "export const A = () => <button>x</button>;\n" });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(path.join(root, "genesis.config.json"), config([{ rule: "raw-tag", file: "src/a.tsx", reason: "Hide it." }]));
+    git("commit", "-q", "-am", "grow");
+    const result = await runDoctor({ root, base: "main" });
+    expect(brief(result.findings, "allow-grew")).toEqual(["allow-grew error src/a.tsx:0 raw-tag"]);
+    expect(result.ok).toBe(false);
+  });
+
+  it("reports rules and packageRules that lower or narrow a rule since the base (rules-weakened); tightening is fine", async () => {
+    const config = (doctor: Record<string, unknown>) => JSON.stringify({ doctor });
+    const root = makeApp("raw-tag", {
+      ...widgets({ prefer: [LIST_RULE] }),
+      "src/Screen.tsx": SCREEN,
+      "genesis.config.json": config({ rules: { "raw-tag": "warn" }, packageRules: { "widgets/lists-use-widget-view": { level: "error", reason: "Strict." } } }),
+    });
+    const git = gitIn(root);
+    git("init", "-q", "-b", "main");
+    git("add", "-A");
+    git("commit", "-q", "-m", "base");
+    git("checkout", "-q", "-b", "work");
+    writeFileSync(
+      path.join(root, "genesis.config.json"),
+      config({
+        rules: { "raw-tag": "error", "stale-exception": "off" },
+        packageRules: { "widgets/lists-use-widget-view": { level: "warn", exclude: ["src/Screen.tsx"], reason: "Later." } },
+      }),
+    );
+    const result = await runDoctor({ root, base: "main" });
+    expect(brief(result.findings, "rules-weakened")).toEqual([
+      "rules-weakened error genesis config:0 stale-exception",
+      "rules-weakened error genesis config:0 widgets/lists-use-widget-view",
+      "rules-weakened error genesis config:0 widgets/lists-use-widget-view",
+    ]);
+    const messages = result.findings.filter((f) => f.rule === "rules-weakened").map((f) => f.message);
+    expect(messages.join("\n")).toMatch(/"warn", lower than "error" since main[\s\S]*narrows the files/);
+    expect(brief((await runDoctor({ root })).findings, "rules-weakened")).toEqual([]);
   });
 
   it("reads paths with non-ASCII characters as themselves", () => {
@@ -408,7 +559,7 @@ describe("ratchet", () => {
     expect(brief((await runDoctor({ root })).findings, "allow-grew")).toEqual([]);
     const unreadable = await runDoctor({ root, base: "no-such-ref" });
     expect(brief(unreadable.findings, "allow-grew")).toEqual([]);
-    expect(brief(unreadable.findings, "ratchet-skipped")).toEqual(["ratchet-skipped warn genesis config:0"]);
+    expect(brief(unreadable.findings, "ratchet-skipped")).toEqual(["ratchet-skipped error genesis config:0"]);
   });
 });
 
@@ -503,6 +654,29 @@ describe("contracts-stale", () => {
         throw new Error("connection refused");
       });
       expect(broken.found.map((f) => `${f.rule} ${f.level}`)).toEqual(["contracts-stale warn"]);
+    } finally {
+      delete process.env.GENESIS_TEST_DB_URL;
+    }
+  });
+
+  it("compares with the schemas the contract was generated from when config names none, and advises with them", async () => {
+    process.env.GENESIS_TEST_DB_URL = "postgres://example.invalid/db";
+    try {
+      const contract = "// Generated by `genesis introspect` — do not edit by hand.\n// Source: Postgres (public, private)\nexport {};\n";
+      const asked: string[][] = [];
+      const stale = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract }), config);
+      await checkContracts(stale.c, async (_url, schemas) => {
+        asked.push(schemas);
+        return { content: `${contract}// changed\n` };
+      });
+      expect(asked).toEqual([["public", "private"]]);
+      expect(stale.found[0]!.message).toContain("-s public,private");
+      const named = ctx(makeApp(null, { "src/lib/resources.genesis.ts": contract }), { ...config, contracts: { ...config.contracts, schemas: ["app"] } });
+      await checkContracts(named.c, async (_url, schemas) => {
+        asked.push(schemas);
+        return { content: contract };
+      });
+      expect(asked[1]).toEqual(["app"]);
     } finally {
       delete process.env.GENESIS_TEST_DB_URL;
     }

@@ -6,12 +6,12 @@
  * `doctor.ratchet` (`true`, or a list of rule ids). Without `--base` nothing
  * changes. Explicit `allow` entries stay the recorded ratchet: they still
  * remove findings, ratcheted or not, and under `--base` the list only shrinks
- * (`allow-grew`).
+ * (`allow-grew`); `rules` and `packageRules` only tighten (`rules-weakened`).
  */
 import { spawnSync } from "node:child_process";
 import * as path from "node:path";
-import { doctorBlock } from "./config.js";
-import type { AllowEntry, DoctorConfig, FindingInput, Finding } from "./types.js";
+import { doctorBlock, META_RULES } from "./config.js";
+import type { AllowEntry, DoctorConfig, FindingInput, Finding, Level, PackageRuleSetting, RuleSetting } from "./types.js";
 
 function git(root: string, args: string[]): string | null {
   const r = spawnSync("git", args, { cwd: root, encoding: "utf8" });
@@ -33,22 +33,35 @@ export function changedSince(root: string, base: string): Set<string> | null {
   return new Set([...committed.split("\0"), ...untracked.split("\0")].filter(Boolean));
 }
 
+/** What the ratchet compares of a config file at the merge base. */
+export interface BaseConfig {
+  allow: AllowEntry[];
+  rules: Record<string, RuleSetting>;
+  packageRules: Record<string, PackageRuleSetting>;
+}
+
+const objectOr = <T>(v: unknown): T => (typeof v === "object" && v !== null && !Array.isArray(v) ? v : {}) as T;
+
 /**
- * The `allow` entries of a config file as it was at the merge base with `base`. Empty when the file
- * didn't exist there (adopting the doctor records the first list); null when git can't tell, or the
- * file there isn't JSON.
+ * The `allow`, `rules` and `packageRules` of a config file as it was at the merge base with `base`.
+ * Empty when the file didn't exist there (adopting the doctor records the first list); null when git
+ * can't tell, or the file there isn't JSON.
  */
-export function allowAtBase(file: string, base: string, explicit: boolean): AllowEntry[] | null {
+export function configAtBase(file: string, base: string, explicit: boolean): BaseConfig | null {
   const dir = path.dirname(file);
   const mergeBase = git(dir, ["merge-base", base, "HEAD"])?.trim();
   if (!mergeBase) return null;
   const at = `${mergeBase}:./${path.basename(file)}`;
-  if (git(dir, ["cat-file", "-e", at]) === null) return [];
+  if (git(dir, ["cat-file", "-e", at]) === null) return { allow: [], rules: {}, packageRules: {} };
   const text = git(dir, ["show", at]);
   if (text === null) return null;
   try {
-    const allow = (doctorBlock(JSON.parse(text), file, explicit) as { allow?: unknown } | undefined)?.allow;
-    return Array.isArray(allow) ? (allow as AllowEntry[]) : [];
+    const block = objectOr<{ allow?: unknown; rules?: unknown; packageRules?: unknown }>(doctorBlock(JSON.parse(text), file, explicit));
+    return {
+      allow: Array.isArray(block.allow) ? (block.allow as AllowEntry[]) : [],
+      rules: objectOr(block.rules),
+      packageRules: objectOr(block.packageRules),
+    };
   } catch {
     return null;
   }
@@ -69,6 +82,53 @@ export function allowGrew(allow: readonly AllowEntry[], before: readonly AllowEn
     }));
 }
 
+const RANK: Record<RuleSetting, number> = { off: 0, info: 1, warn: 2, error: 3 };
+
+/** A package rule's own globs, which a `packageRules` setting replaces. */
+export interface RuleScope {
+  files: readonly string[];
+  exclude: readonly string[];
+}
+
+/**
+ * `rules-weakened`: a rule `rules` or `packageRules` sets lower than it ran at the merge base, or a
+ * package rule whose files the config narrowed since (a new `exclude` glob, or `files` that don't
+ * cover the base's). `defaults` gives a rule's level when nothing sets it; when that's unknown, only
+ * a new "off" or "info" counts.
+ */
+export function rulesWeakened(
+  config: DoctorConfig,
+  before: BaseConfig,
+  base: string,
+  defaults: (rule: string) => Level | undefined,
+  scope: (rule: string) => RuleScope | undefined,
+): FindingInput[] {
+  const out: FindingInput[] = [];
+  const levelIn = (c: Pick<DoctorConfig, "rules" | "packageRules">, rule: string) => c.rules?.[rule] ?? c.packageRules?.[rule]?.level;
+  const ids = new Set([...Object.keys(config.rules ?? {}), ...Object.keys(config.packageRules ?? {})]);
+  for (const rule of ids) {
+    const set = levelIn(config, rule);
+    if (set === undefined) continue;
+    const was = levelIn(before, rule) ?? defaults(rule);
+    if (was === undefined ? set === "off" || set === "info" : RANK[set] < RANK[was]) {
+      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `${rule} is set to "${set}"${was ? `, lower than "${was}"` : ""} since ${base}; rules only tighten, so fix what it finds instead` });
+    }
+  }
+  for (const [rule, setting] of Object.entries(config.packageRules ?? {})) {
+    const own = scope(rule);
+    if (!own) continue;
+    const was = before.packageRules[rule];
+    const files = setting.files ?? own.files;
+    const wasFiles = new Set(was?.files ?? own.files);
+    const wasExclude = new Set(was?.exclude ?? own.exclude);
+    const narrowed = [...wasFiles].some((g) => !files.includes(g)) || (setting.exclude ?? own.exclude).some((g) => !wasExclude.has(g));
+    if (narrowed) {
+      out.push({ rule: "rules-weakened", file: "genesis config", subject: rule, message: `packageRules narrows the files ${rule} checks since ${base}; rules only tighten, so fix what it finds instead` });
+    }
+  }
+  return out;
+}
+
 /** Whether a finding's file (or folder) changed: the path itself, or anything under it. */
 function touched(file: string, changed: ReadonlySet<string>): boolean {
   if (changed.has(file)) return true;
@@ -78,17 +138,34 @@ function touched(file: string, changed: ReadonlySet<string>): boolean {
 }
 
 /**
+ * Rules about the config, the packages or generated files rather than the app's code: never
+ * lowered, whatever `ratchet` says. Their findings name a file (an `allow` entry's, a contract,
+ * AGENTS.md) that an unchanged branch hasn't touched, so ratcheting them would hide them.
+ */
+const NEVER_RATCHETED = new Set([
+  ...META_RULES,
+  "stale-exception",
+  "package-rule-override",
+  "package-rules-invalid",
+  "package-doctor-declaration",
+  "plugin-error",
+  "build",
+  "agent-guide-stale",
+  "contracts-stale",
+]);
+
+/**
  * Drop ratcheted findings in unchanged files to `info`. `newOnly` holds the
  * ids declared newOnly; `config.ratchet` adds more. Findings about something
  * other than a file in the app (a package, the config) are left alone, since
- * `scanned` says which paths are files.
+ * `isAppPath` says which paths are files, and so are the rules in NEVER_RATCHETED.
  */
 export function applyRatchet(
   findings: Finding[],
   options: { config: DoctorConfig; newOnly: ReadonlySet<string>; changed: ReadonlySet<string>; base: string; isAppPath: (file: string) => boolean },
 ): Finding[] {
   const { config, newOnly, changed, base, isAppPath } = options;
-  const ratcheted = (rule: string) => config.ratchet === true || newOnly.has(rule) || (Array.isArray(config.ratchet) && config.ratchet.includes(rule));
+  const ratcheted = (rule: string) => !NEVER_RATCHETED.has(rule) && (config.ratchet === true || newOnly.has(rule) || (Array.isArray(config.ratchet) && config.ratchet.includes(rule)));
   return findings.map((f) => {
     if (f.level === "info" || !ratcheted(f.rule) || !isAppPath(f.file) || touched(f.file, changed)) return f;
     return { ...f, level: "info", message: `${f.message} (ratcheted: unchanged since ${base})` };

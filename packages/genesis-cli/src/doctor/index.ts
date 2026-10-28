@@ -9,7 +9,7 @@
  */
 import * as path from "node:path";
 import { buildCommands, runBuild } from "./build.js";
-import { DoctorConfigError, loadConfig } from "./config.js";
+import { DoctorConfigError, loadConfig, META_RULES } from "./config.js";
 import { globToRegExp } from "./glob.js";
 import { loadGenesis } from "./genesis.js";
 import { loadPatternRules } from "./patterns.js";
@@ -33,12 +33,12 @@ import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
-import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules } from "./package-rules.js";
-import { allowAtBase, allowGrew, applyRatchet, changedSince } from "./ratchet.js";
+import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, SCRIPT_GLOBS, unknownPackageRuleSettings } from "./package-rules.js";
+import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { existsSync } from "node:fs";
-import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
+import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts, Level } from "./types.js";
 
 export type * from "./types.js";
 export {
@@ -126,7 +126,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const packagePlugins = await packageRulesPlugins(packages);
   const builtinIds = new Set<string>(BUILTIN_RULES);
   for (const p of config.patterns ?? []) {
-    if (builtinIds.has(p.id)) throw new DoctorConfigError(`doctor.patterns: "${p.id}" is a built-in rule id; pick another`);
+    if (builtinIds.has(p.id) || META_RULES.has(p.id)) throw new DoctorConfigError(`doctor.patterns: "${p.id}" is a built-in rule id; pick another`);
   }
 
   const raw: FindingInput[] = [];
@@ -145,8 +145,11 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     if (failure) raw.push(failure);
   }
 
-  // Under --base: the ratchet's changed files, and the allow list against the base's. When git can't
-  // compare, one ratchet-skipped notice; it and allow-grew go through rules and allow like any finding.
+  raw.push(...unknownPackageRuleSettings(config, packages, raw));
+
+  // Under --base: the ratchet's changed files, and the config's allow, rules and packageRules against
+  // the base's. When git can't compare, one ratchet-skipped notice: a warning when only the ratchet
+  // was skipped (every rule ran at its full level), an error when the config went uncompared.
   const newOnly = new Set([...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
   let changed: Set<string> | null = null;
   let skipped = false;
@@ -155,13 +158,29 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     skipped ||= !changed;
   }
   const configFile = "file" in loaded ? loaded.file : null;
-  if (options.base && configFile && config.allow?.length) {
-    const before = allowAtBase(configFile, options.base, options.configPath !== undefined);
-    if (before) raw.push(...allowGrew(config.allow ?? [], before, options.base));
-    skipped ||= !before;
+  const guarded = (config.allow?.length ?? 0) + Object.keys(config.rules ?? {}).length + Object.keys(config.packageRules ?? {}).length > 0;
+  let configSkipped = false;
+  if (options.base && configFile && guarded) {
+    const before = configAtBase(configFile, options.base, options.configPath !== undefined);
+    if (before) {
+      const prefer = new Map(preferRules(packages).map((r) => [r.ruleId, r]));
+      const defaults = defaultLevels(raw, prefer.values());
+      raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
+      raw.push(
+        ...rulesWeakened(config, before, options.base, (rule) => defaults.get(rule), (rule) => {
+          const r = prefer.get(rule);
+          return r && { files: r.files ?? SCRIPT_GLOBS, exclude: r.exclude ?? [] };
+        }),
+      );
+    }
+    configSkipped = !before;
   }
-  if (skipped) {
-    raw.push({ rule: "ratchet-skipped", level: "warn", file: "genesis config", message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level and allow wasn't compared` });
+  if (skipped || configSkipped) {
+    raw.push(
+      configSkipped
+        ? { rule: "ratchet-skipped", level: "error", file: "genesis config", message: `couldn't compare allow, rules and packageRules against ${options.base} (not a git repository, or the ref isn't fetched; in CI check out with fetch-depth: 0)` }
+        : { rule: "ratchet-skipped", level: "warn", file: "genesis config", message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level` },
+    );
   }
   let findings = applyConfig(raw, config, packageRuleIds(packages));
   if (options.base && changed) {
@@ -219,6 +238,19 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
   ];
 }
 
+/** Each rule's level when config doesn't set it: a package rule's declared level, else the highest it was reported at. */
+function defaultLevels(raw: readonly FindingInput[], prefer: Iterable<{ ruleId: string; level?: Level }>): Map<string, Level> {
+  const rank = { info: 1, warn: 2, error: 3 };
+  const out = new Map<string, Level>();
+  for (const f of raw) {
+    const level = f.level ?? "error";
+    const had = out.get(f.rule);
+    if (!had || rank[level] > rank[had]) out.set(f.rule, level);
+  }
+  for (const r of prefer) out.set(r.ruleId, r.level ?? "warn");
+  return out;
+}
+
 /**
  * Apply `rules` and `packageRules` level overrides and `allow` exceptions; flag exceptions that no
  * longer match anything, and package rules changed in `rules` without a reason.
@@ -226,7 +258,8 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
 function applyConfig(raw: FindingInput[], config: DoctorConfig, packageIds: ReadonlySet<string>): Finding[] {
   const allow = (config.allow ?? []).map((entry) => ({ entry, file: entry.file ? globToRegExp(entry.file) : null, used: false }));
   const out: Finding[] = [];
-  const levelOf = (rule: string) => config.rules?.[rule] ?? config.packageRules?.[rule]?.level;
+  // The meta rules guard the config itself, so the config can't lower or allow them.
+  const levelOf = (rule: string) => (META_RULES.has(rule) ? undefined : (config.rules?.[rule] ?? config.packageRules?.[rule]?.level));
   for (const [rule, level] of Object.entries(config.rules ?? {})) {
     if (!packageIds.has(rule) || config.packageRules?.[rule]?.reason) continue;
     out.push({
@@ -250,7 +283,7 @@ function applyConfig(raw: FindingInput[], config: DoctorConfig, packageIds: Read
       ...(input.subject !== undefined ? { subject: input.subject } : {}),
     };
     const exception = allow.find(
-      (a) => a.entry.rule === finding.rule && (!a.file || a.file.test(finding.file)) && (a.entry.match === undefined || a.entry.match === finding.subject),
+      (a) => !META_RULES.has(finding.rule) && a.entry.rule === finding.rule && (!a.file || a.file.test(finding.file)) && (a.entry.match === undefined || a.entry.match === finding.subject),
     );
     if (exception) {
       exception.used = true;

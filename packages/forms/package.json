@@ -99,7 +99,7 @@
         {
           "id": "server-check-on-server",
           "need": "checking a form submission",
-          "level": "error",
+          "level": "warn",
           "files": [
             "**/*.tsx",
             "**/*.jsx"
@@ -113,6 +113,9 @@
             "imports": [
               "@marktiderman/genesis-forms/server"
             ]
+          },
+          "unless": {
+            "pattern": "\\bexport\\s+(?:async\\s+)?(?:function|const)\\s+(?:loader|action)\\b|\\bcreateServerFn\\b"
           },
           "use": "the server check in a server function or API route",
           "import": "@marktiderman/genesis-forms/server",

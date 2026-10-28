@@ -156,6 +156,11 @@ const KNOWN = new Set<string>([
   "$comment",
 ]);
 const LEVELS = new Set(["error", "warn", "info", "off"]);
+/**
+ * The rules that guard `allow`, `rules` and `packageRules` themselves under `--base`. Config can't
+ * lower or allow them (an entry for one would switch its own check off), and the ratchet never lowers them.
+ */
+export const META_RULES: ReadonlySet<string> = new Set(["allow-grew", "rules-weakened", "ratchet-skipped"]);
 const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message", "newOnly"]);
 const PACKAGE_RULE_KEYS = new Set(["level", "files", "exclude", "reason"]);
 const CONTRACT_KEYS = new Set(["out", "schemas", "databaseEnv"]);
@@ -354,6 +359,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
     if (!isObject(c.rules)) fail(`"rules" must be an object of rule → level`);
     for (const [rule, level] of Object.entries(c.rules as object)) {
       if (!LEVELS.has(level as string)) fail(`rules.${rule} must be "error", "warn", "info" or "off"`);
+      if (META_RULES.has(rule)) fail(`rules can't set ${rule}: it guards the config itself`);
     }
   }
   if (c.allow !== undefined) {
@@ -363,6 +369,7 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       const entry = e as Record<string, unknown>;
       if (typeof entry.rule !== "string" || !entry.rule) fail(`allow[${i}] needs a "rule"`);
       if (typeof entry.reason !== "string" || !entry.reason.trim()) fail(`allow[${i}] (${entry.rule}) needs a "reason"`);
+      if (META_RULES.has(entry.rule as string)) fail(`allow[${i}] can't allow ${entry.rule}: it guards the allow list itself`);
       for (const k of ["file", "match"]) {
         if (entry[k] !== undefined && typeof entry[k] !== "string") fail(`allow[${i}].${k} must be a string`);
       }
