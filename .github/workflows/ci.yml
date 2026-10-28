@@ -24,11 +24,7 @@ jobs:
     # below those tests skip, so every other package's tests are unaffected.
     services:
       postgres:
-        # Docker's official image through AWS's public mirror. Docker Hub caps anonymous pulls
-        # by count per runner IP; ECR Public caps data per IP, which one ~100 MB image stays well
-        # under (the Supabase CLI's multi-GB image set is what reaches it, and the CLI falls back
-        # to GHCR then Docker Hub when it does).
-        image: public.ecr.aws/docker/library/postgres:17-alpine
+        image: postgres:17-alpine
         env:
           POSTGRES_PASSWORD: postgres
         ports:
