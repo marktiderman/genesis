@@ -46,7 +46,7 @@ importers:
         version: 58.0.23(@babel/core@7.29.7(supports-color@8.1.1))(expo@58.0.19)(react-dom@19.3.0(react@19.3.0))(react-native-worklets@0.13.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1))(react-native@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1))(react@19.3.0)
       '@hookform/resolvers':
         specifier: ^5.0.1
-        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3)
+        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.6)
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
@@ -234,8 +234,8 @@ importers:
         specifier: ^3.5.0
         version: 3.6.0
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@marktiderman/genesis-cli':
         specifier: workspace:^
@@ -287,7 +287,7 @@ importers:
     dependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3)
+        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.6)
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
@@ -478,8 +478,8 @@ importers:
         specifier: ^1.0.0
         version: 1.1.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@marktiderman/genesis-cli':
         specifier: workspace:^
@@ -557,10 +557,10 @@ importers:
     devDependencies:
       '@ai-sdk/anthropic':
         specifier: 4.0.85
-        version: 4.0.85(zod@4.4.3)
+        version: 4.0.85(zod@4.6.6)
       '@ai-sdk/openai':
         specifier: 4.0.99
-        version: 4.0.99(zod@4.4.3)
+        version: 4.0.99(zod@4.6.6)
       '@testing-library/react':
         specifier: ^16.3.2
         version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -572,7 +572,7 @@ importers:
         version: 19.3.0
       ai:
         specifier: 7.0.148
-        version: 7.0.148(zod@4.4.3)
+        version: 7.0.148(zod@4.6.6)
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
@@ -592,8 +592,8 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.27.7)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/chat:
     dependencies:
@@ -612,7 +612,7 @@ importers:
     devDependencies:
       '@ai-sdk/anthropic':
         specifier: 4.0.85
-        version: 4.0.85(zod@4.4.3)
+        version: 4.0.85(zod@4.6.6)
       '@marktiderman/genesis-ai':
         specifier: workspace:^
         version: link:../ai
@@ -648,7 +648,7 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       ai:
         specifier: 7.0.148
-        version: 7.0.148(zod@4.4.3)
+        version: 7.0.148(zod@4.6.6)
       happy-dom:
         specifier: ^21.0.4
         version: 21.0.4
@@ -674,8 +674,8 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/collab:
     devDependencies:
@@ -824,8 +824,8 @@ importers:
   packages/features:
     dependencies:
       zod:
-        specifier: ^3.25.0 || ^4.0.0
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
     devDependencies:
       '@marktiderman/genesis-core':
         specifier: workspace:^
@@ -1524,14 +1524,14 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/studio:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3)
+        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.6)
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
@@ -1587,8 +1587,8 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/studio-server:
     dependencies:
@@ -1727,7 +1727,7 @@ importers:
     devDependencies:
       '@hookform/resolvers':
         specifier: ^5.2.2
-        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.4.3)
+        version: 5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.6)
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../design-system
@@ -1858,8 +1858,8 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12(@types/node@22.20.1)(@vitest/browser-playwright@4.1.12)(@vitest/coverage-v8@4.1.12)(happy-dom@21.0.4)(jsdom@26.1.0(supports-color@8.1.1))(vite@8.2.0(@types/node@22.20.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.5)(yaml@2.9.0))
       zod:
-        specifier: ^4.3.6
-        version: 4.4.3
+        specifier: ^4.6.6
+        version: 4.6.6
 
   packages/ui-native:
     dependencies:
@@ -11943,6 +11943,9 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zod@4.6.6:
+    resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -11989,33 +11992,33 @@ snapshots:
 
   '@adobe/css-tools@4.5.0': {}
 
-  '@ai-sdk/anthropic@4.0.85(zod@4.4.3)':
+  '@ai-sdk/anthropic@4.0.85(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.31
-      '@ai-sdk/provider-utils': 5.0.65(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 5.0.65(zod@4.6.6)
+      zod: 4.6.6
 
-  '@ai-sdk/gateway@4.0.121(zod@4.4.3)':
+  '@ai-sdk/gateway@4.0.121(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.31
-      '@ai-sdk/provider-utils': 5.0.65(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.65(zod@4.6.6)
       '@vercel/oidc': 3.2.0
-      zod: 4.4.3
+      zod: 4.6.6
 
-  '@ai-sdk/openai@4.0.99(zod@4.4.3)':
+  '@ai-sdk/openai@4.0.99(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.31
-      '@ai-sdk/provider-utils': 5.0.65(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 5.0.65(zod@4.6.6)
+      zod: 4.6.6
 
-  '@ai-sdk/provider-utils@5.0.65(zod@4.4.3)':
+  '@ai-sdk/provider-utils@5.0.65(zod@4.6.6)':
     dependencies:
       '@ai-sdk/provider': 4.0.31
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.1
       undici: 7.30.1
-      zod: 4.4.3
+      zod: 4.6.6
 
   '@ai-sdk/provider@4.0.31':
     dependencies:
@@ -13623,6 +13626,17 @@ snapshots:
       ajv: 8.20.0
       valibot: 1.4.2(typescript@6.0.3)
       zod: 4.4.3
+
+  '@hookform/resolvers@5.7.1(@sinclair/typebox@0.27.12)(@standard-schema/spec@1.1.0)(ajv@8.20.0)(react-hook-form@7.84.0(react@19.3.0))(valibot@1.4.2(typescript@6.0.3))(zod@4.6.6)':
+    dependencies:
+      '@standard-schema/utils': 0.3.0
+      react-hook-form: 7.84.0(react@19.3.0)
+    optionalDependencies:
+      '@sinclair/typebox': 0.27.12
+      '@standard-schema/spec': 1.1.0
+      ajv: 8.20.0
+      valibot: 1.4.2(typescript@6.0.3)
+      zod: 4.6.6
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -17050,12 +17064,12 @@ snapshots:
 
   agent-cli-detector@0.1.7: {}
 
-  ai@7.0.148(zod@4.4.3):
+  ai@7.0.148(zod@4.6.6):
     dependencies:
-      '@ai-sdk/gateway': 4.0.121(zod@4.4.3)
+      '@ai-sdk/gateway': 4.0.121(zod@4.6.6)
       '@ai-sdk/provider': 4.0.31
-      '@ai-sdk/provider-utils': 5.0.65(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 5.0.65(zod@4.6.6)
+      zod: 4.6.6
 
   ajv@6.15.0:
     dependencies:
@@ -18352,8 +18366,8 @@ snapshots:
       '@babel/parser': 7.29.8
       eslint: 9.39.5(jiti@1.21.7)(supports-color@8.1.1)
       hermes-parser: 0.25.1
-      zod: 4.4.3
-      zod-validation-error: 4.0.2(zod@4.4.3)
+      zod: 4.6.6
+      zod-validation-error: 4.0.2(zod@4.6.6)
     transitivePeerDependencies:
       - supports-color
 
@@ -23289,13 +23303,15 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-validation-error@4.0.2(zod@4.4.3):
+  zod-validation-error@4.0.2(zod@4.6.6):
     dependencies:
-      zod: 4.4.3
+      zod: 4.6.6
 
   zod@3.25.76: {}
 
   zod@4.4.3: {}
+
+  zod@4.6.6: {}
 
   zustand@4.5.7(@types/react@19.3.0)(immer@11.1.15)(react@19.3.0):
     dependencies:

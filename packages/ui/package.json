@@ -453,7 +453,7 @@
     "typescript": "~6.0.3",
     "vaul": "^1.0.0",
     "vitest": "^4.1.12",
-    "zod": "^4.3.6"
+    "zod": "^4.6.6"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-router": {
