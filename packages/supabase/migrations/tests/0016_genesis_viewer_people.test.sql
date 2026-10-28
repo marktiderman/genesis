@@ -1,4 +1,4 @@
--- @feat:owner-access
+-- @feat:feature-mirror
 -- pgTAP test for 0016_genesis_viewer_people.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users and hook and rolls everything back. If your app already has the

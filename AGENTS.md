@@ -34,10 +34,9 @@ time. Before writing code for a new build or phase:
 Why: work has been duplicated, and plans have been written against components that were about to
 be replaced, when this check was skipped.
 
-<!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 111 features (9 idea, 5 planned, 46 building, 17 beta, 27 live, 1 deprecated, 6 retired).
+Every feature is in `features.ts`: 110 features (9 idea, 5 planned, 45 building, 16 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.
