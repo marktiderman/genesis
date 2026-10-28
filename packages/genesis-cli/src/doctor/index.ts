@@ -33,6 +33,11 @@ import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkResourceWorkspaces } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
+import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules } from "./package-rules.js";
+import { applyRatchet, changedSince } from "./ratchet.js";
+import { checkContracts } from "./contracts.js";
+import { checkAgentGuide, primitivesSummary } from "./primitives.js";
+import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
 export type * from "./types.js";
@@ -57,6 +62,33 @@ export { readReleaseManifest, type ReleaseManifest } from "./versions.js";
 export { genesisInstalls, type GenesisInstall } from "./installs.js";
 export { satisfies } from "./semver.js";
 export { webRoutes, routesDir, type RouteFile } from "./routes.js";
+export {
+  discoverPackages,
+  preferRules,
+  ruleNamespace,
+  validateDeclaration,
+  clearPackageRulesCache,
+  PackageDeclarationError,
+  type DeclaringPackage,
+  type PackageDeclaration,
+  type PreferRule,
+  type PrimitiveEntry,
+  type ResolvedPreferRule,
+} from "./package-rules.js";
+export {
+  primitivesCatalog,
+  primitivesSummary,
+  formatPrimitives,
+  catalogTable,
+  renderSkill,
+  renderAgentsBlock,
+  writeAgentGuide,
+  agentGuideState,
+  SKILL_PATH,
+  type PrimitiveRow,
+} from "./primitives.js";
+export { changedSince } from "./ratchet.js";
+export { postgresContract, postgresSource } from "./contracts.js";
 
 export interface RunDoctorOptions {
   /** The app root. Default `process.cwd()`. */
@@ -73,8 +105,12 @@ export interface RunDoctorOptions {
   quietBuild?: boolean;
   /** Reuse facts read earlier (the Vite dev server caches them). */
   genesis?: GenesisFacts;
-  /** The git ref change checks compare against (`--base`): the packages pack's change gate. */
+  /** The git ref change checks compare against (`--base`): the packages pack's change gate and the ratchet. */
   base?: string;
+  /** Files changed since `base`, app-relative, instead of asking git (tests, or a CI that already knows). */
+  changedFiles?: string[];
+  /** Run the supabase pack's contract check (it reads the database). Default true; the Vite dev server passes false. */
+  contracts?: boolean;
 }
 
 export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorResult> {
@@ -86,14 +122,16 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
 
   const patterns = loadPatternRules(root, config.patterns, config.rulesDoc);
   const plugins = await loadPlugins(config.plugins, loaded.dir);
+  const packages = discoverPackages(root);
+  const packagePlugins = await packageRulesPlugins(packages);
   const builtinIds = new Set<string>(BUILTIN_RULES);
   for (const p of config.patterns ?? []) {
     if (builtinIds.has(p.id)) throw new DoctorConfigError(`doctor.patterns: "${p.id}" is a built-in rule id; pick another`);
   }
 
   const raw: FindingInput[] = [];
-  const ctx: DoctorContext = { root, files, genesis, config, ...(options.base ? { base: options.base } : {}), report: (f) => raw.push(f) };
-  for (const plugin of [...builtinChecks(config), ...(patterns ? [patterns.plugin] : []), ...plugins]) {
+  const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), report: (f) => raw.push(f) };
+  for (const plugin of [...builtinChecks(config, { contracts: options.contracts ?? true }), ...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {
       await plugin.check(ctx);
     } catch (err) {
@@ -107,7 +145,16 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     if (failure) raw.push(failure);
   }
 
-  const findings = applyConfig(raw, config);
+  let findings = applyConfig(raw, config, packageRuleIds(packages));
+  const newOnly = new Set([...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
+  if (options.base && (newOnly.size > 0 || config.ratchet)) {
+    const changed = options.changedFiles ? new Set(options.changedFiles) : changedSince(root, options.base);
+    if (changed) {
+      findings = applyRatchet(findings, { config, newOnly, changed, base: options.base, isAppPath: (f) => existsSync(path.join(root, f)) });
+    } else {
+      findings.push({ rule: "ratchet-skipped", level: "warn", file: "genesis config", line: 0, message: `couldn't compare against ${options.base} (not a git repository, or the ref isn't fetched); every rule ran at its full level` });
+    }
+  }
   const errors = findings.filter((f) => f.level === "error").length;
   const warnings = findings.filter((f) => f.level === "warn").length;
   const infos = findings.length - errors - warnings;
@@ -118,6 +165,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
     findings,
     unused: unusedComponents(ctx),
     ruleCount: (patterns?.count ?? 0) + plugins.length,
+    primitives: primitivesSummary(packages),
     errors,
     warnings,
     infos,
@@ -129,7 +177,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
  * here plus its ids in BUILTIN_RULES (rules.ts); a pack's checks run only when
  * `packs` lists it.
  */
-export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
+export function builtinChecks(config: DoctorConfig, options: { contracts?: boolean } = {}): DoctorPlugin[] {
   const packs: Record<DoctorPack, DoctorPlugin> = {
     native: { name: "native", check: checkNativePack },
     supabase: { name: "supabase", check: checkSupabasePack },
@@ -153,16 +201,33 @@ export function builtinChecks(config: DoctorConfig): DoctorPlugin[] {
     { name: "resource-view-trees", check: checkTreeViews },
     { name: "studio-server-imports", check: checkStudioServerImports },
     { name: "removed-scope-names", check: checkRemovedScopeNames },
+    { name: "agent-guide", check: checkAgentGuide },
     ...(config.packs ?? []).map((p) => packs[p]),
+    ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];
 }
 
-/** Apply `rules` level overrides and `allow` exceptions; flag exceptions that no longer match anything. */
-function applyConfig(raw: FindingInput[], config: DoctorConfig): Finding[] {
+/**
+ * Apply `rules` and `packageRules` level overrides and `allow` exceptions; flag exceptions that no
+ * longer match anything, and package rules changed in `rules` without a reason.
+ */
+function applyConfig(raw: FindingInput[], config: DoctorConfig, packageIds: ReadonlySet<string>): Finding[] {
   const allow = (config.allow ?? []).map((entry) => ({ entry, file: entry.file ? globToRegExp(entry.file) : null, used: false }));
   const out: Finding[] = [];
+  const levelOf = (rule: string) => config.rules?.[rule] ?? config.packageRules?.[rule]?.level;
+  for (const [rule, level] of Object.entries(config.rules ?? {})) {
+    if (!packageIds.has(rule) || config.packageRules?.[rule]?.reason) continue;
+    out.push({
+      rule: "package-rule-override",
+      level: "warn",
+      file: "genesis config",
+      line: 0,
+      subject: rule,
+      message: `rules sets the package rule ${rule} to "${level}" without a reason; move it to doctor.packageRules["${rule}"] with { "level": "${level}", "reason": "…" }`,
+    });
+  }
   for (const input of raw) {
-    const setting = config.rules?.[input.rule];
+    const setting = levelOf(input.rule);
     if (setting === "off") continue;
     const finding: Finding = {
       rule: input.rule,
@@ -184,7 +249,7 @@ function applyConfig(raw: FindingInput[], config: DoctorConfig): Finding[] {
   // stale-exception is a rule like any other: `rules` can turn it off or change its level.
   const staleLevel = config.rules?.["stale-exception"];
   for (const a of allow) {
-    if (staleLevel === "off" || a.used || config.rules?.[a.entry.rule] === "off") continue;
+    if (staleLevel === "off" || a.used || levelOf(a.entry.rule) === "off") continue;
     out.push({
       rule: "stale-exception",
       level: staleLevel ?? "warn",
@@ -208,6 +273,7 @@ export function formatReport(result: DoctorResult): string {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
   lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
+  lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis primitives`);
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);
   return lines.join("\n");
@@ -223,6 +289,7 @@ export function toJson(result: DoctorResult) {
     infos: result.infos,
     findings: result.findings,
     unused: result.unused,
+    primitives: result.primitives,
   };
 }
 

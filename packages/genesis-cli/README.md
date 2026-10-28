@@ -376,6 +376,7 @@ Upgrading Genesis upgrades the checks.
 | `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
+| `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules report files unchanged since the merge base as `info`). |
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
 
@@ -404,9 +405,14 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything. |
+| `package-rules-invalid` | error | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate. Its rules don't run; the rest of the doctor does. See [Package rules](#package-rules). |
+| `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
+| `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, or one of the two is missing. An app with neither isn't checked. |
+| `ratchet-skipped` | warn | `--base` was given and something ratchets, but git couldn't compare (not a repository, or the ref isn't fetched): every rule ran at its full level. |
 
-It also prints **Available but unused**: the Genesis components no file imports. Check it
-before building something.
+It also prints **Available but unused**: the Genesis components no file imports, and a
+**Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
+them). Check both before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
 folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`).
@@ -503,6 +509,7 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
 | `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
 | `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
+| `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, `["public"]`, `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning. The Vite dev server skips it. |
 | `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
@@ -542,6 +549,7 @@ as dependencies.
 | `package-migration-test` | error | A migration without a pgTAP test: a block migration with no `test` (or a missing one), or any `migrations/NNNN_name.sql` without `migrations/tests/NNNN_name.test.sql`. |
 | `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
 | `package-untagged-tests` | warn | A package whose tests name no feature (`@feat:<id>`). |
+| `package-doctor-declaration` | error | A published (not `private`) `@marktiderman/genesis-*` package with no `genesis.doctor` declaration, or one that doesn't validate. Declare the rules it enforces, or `{ "enforce": false, "reason": "…" }`. |
 | `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
 | `package-migration-edited` | warn | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. |
 | `package-unversioned-change` | warn | With a base ref: files in the package changed but neither a higher `version` nor a new changeset naming it in its front matter did; a changeset without a `Features:` line; or blocks or exports changed without a change to `features.ts`. Run CI with `--strict` so these fail. |
@@ -549,6 +557,116 @@ as dependencies.
 Symlinks inside a package aren't followed, and a `packages/*` folder without a usable package.json (or a name) is skipped. `localPackages` entries may climb out of the app (`../../packages/*`) as long as they stay in its repository.
 
 Every other rule also scans local packages' source, as it does the app's.
+
+### Package rules
+
+Every Genesis package declares what it enforces in its own package.json, under
+`genesis.doctor`, and the doctor finds every installed `@marktiderman/genesis-*` package (and
+every [local package](#local-packages)) and runs their rules. An app needs no config for them:
+installing or upgrading a package brings its rules. Rule ids are namespaced by package
+(`ui/lists-use-resource-view` for genesis-ui, `@acme/kit/<id>` for a local package), and `rules`,
+`allow`, `ratchet` and `stale-exception` treat them like built-ins.
+
+A declaration has **`prefer` rules** ("use X instead of Y") and optional **`primitives`**
+(catalog rows with no rule), and may name a **`plugin`** module for checks that need code:
+
+```json
+{
+  "name": "@marktiderman/genesis-widgets",
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "lists-use-widget-view",
+          "need": "a list screen",
+          "level": "warn",
+          "platform": "web",
+          "files": ["**/*.tsx"],
+          "exclude": ["**/*.server.*"],
+          "forbid": { "jsx": ["DataTable"], "imports": ["legacy-grid", "@legacy/*"], "pattern": "\\bfetchRows\\(" },
+          "unless": { "renders": ["WidgetView"] },
+          "use": "<WidgetView>",
+          "import": "@marktiderman/genesis-widgets",
+          "docs": "https://…/WIDGETS.md",
+          "why": "One description per list.",
+          "newOnly": false
+        }
+      ],
+      "primitives": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
+      "plugin": "./dist/doctor-rules.js"
+    }
+  }
+}
+```
+
+| Key | |
+| --- | --- |
+| `id` | Lower-case words and dashes; namespaced by the doctor. |
+| `need` | The need it answers, for `genesis primitives` and the agent guide. |
+| `level` | `error`, `warn` (default) or `info`. |
+| `platform` | `web` (off with the `native` pack) or `native` (only with it). Default both. |
+| `files`, `exclude` | App-relative globs. `{routes}` is the routes folder (`routesDir`). Default: every scanned script file. |
+| `forbid` | `jsx` element names (type arguments too: `<ResourcePage<T>`), `imports` (exact, or `prefix*`), and/or a `pattern` regular expression (every match is reported; `(?i)` for case-insensitive). Comments never count. |
+| `unless` | A file is left alone when it `renders` one of these elements (it builds on the primitive) or matches `pattern`. |
+| `use`, `import`, `docs`, `why` | The message: what to use, where from, why, and the link. `use` and `why` are required. |
+| `newOnly` | Ratchet: under `--base`, findings in unchanged files drop to `info`. |
+
+A forbidden element counts one level up too: an app component that renders it (`RecordTable`
+around `DataTable`) is flagged in its own file, and so is every screen that renders the
+wrapper. A package's rules never run on the package's own files.
+
+A package with nothing to enforce says so, with a reason, and may still list primitives:
+`"doctor": { "enforce": false, "reason": "Development tooling, not app screens." }`. In the
+`packages` pack, `package-doctor-declaration` fails a published Genesis package that declares
+neither, so a new package can't skip this step. `"doctor": "./doctor.json"` points at a file in
+the package (list it in `files`) holding the same object. A `plugin` module is loaded like an
+app plugin; its findings are namespaced like the package's other rules.
+
+**Adding rules to a new package:** add `genesis.doctor` to its package.json, run its tests (the
+genesis-cli suite validates every package's declaration), and add a changeset. Apps get the
+rules when they install the release.
+
+**In the app**, switch a package rule off, change its level or its files with a reason, never
+silently. `rules` works too, but warns (`package-rule-override`) until the reason is recorded:
+
+```json
+{
+  "doctor": {
+    "packageRules": {
+      "core/direct-data-access": { "files": ["src/**/*.tsx", "src/lib/**/*.ts"], "exclude": ["src/lib/server/**"], "reason": "Our data functions live in src/lib; check them too." },
+      "ui/record-pages-use-resource-workspace": { "level": "off", "reason": "Every record page is a builder." }
+    },
+    "allow": [{ "rule": "ui/lists-use-resource-view", "file": "src/components/data/RecordTable.tsx", "reason": "The legacy wrapper; it goes when the last screen moves." }]
+  }
+}
+```
+
+**The catalog.** `genesis primitives` (`--json` for data) prints, for each need, what to use,
+its import, the rule that enforces it and the docs: a short static core plus every installed
+package's declarations. `genesis agents` writes the same catalog as
+`.claude/skills/genesis/SKILL.md` and a `<!-- genesis-primitives:start -->` block in the app's
+AGENTS.md (the rest of the file is the app's), telling agents to use the primitives first, never
+copy an older screen, and write a gap up for Genesis before inventing. `genesis agents --check`
+fails when either is out of date, and the doctor's `agent-guide-stale` warns. Run
+`genesis agents` after each Genesis upgrade.
+
+### The ratchet
+
+`newOnly` rules (package rules and app patterns can declare it), and any rule the app lists in
+`doctor.ratchet` (`true` for all), apply in full only to new and changed code: with
+`--base <ref>`, a finding in a file unchanged since the merge base is reported as `info`, with
+"ratcheted" in its message. Changed means committed on the branch, staged, edited or
+untracked. Without `--base` every rule runs at its level, as before; when git can't compare,
+`ratchet-skipped` says so and nothing is lowered. `allow` entries still remove findings,
+ratcheted or not: they are the recorded ratchet, file by file.
+
+```json
+{ "doctor": { "ratchet": ["ui/lists-use-resource-view", "core/direct-data-access"] } }
+```
+
+```bash
+genesis doctor --strict --base origin/main
+```
 
 ### Config
 
@@ -591,7 +709,10 @@ Every other rule also scans local packages' source, as it does the app's.
 | `localPrimitiveDirs` | `["src/components/ui"]` | |
 | `routesDir` | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` | The web routes folder the route rules read. |
 | `componentPackages` | `["@marktiderman/genesis-forms-studio"]` | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
-| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. |
+| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. A package rule changed here warns until `packageRules` gives a reason. |
+| `packageRules` | | `{ "<package>/<rule>": { level?, files?, exclude?, reason } }` for the rules packages declare. `reason` is required. See [Package rules](#package-rules). |
+| `ratchet` | | `true`, or a list of rule ids, ratcheted under `--base`. See [The ratchet](#the-ratchet). |
+| `contracts` | | `{ out?, schemas?, databaseEnv? }`: the supabase pack's `contracts-stale` check. Needs the supabase pack. |
 | `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. |
 | `patterns` | | Declarative rules, below. |
 | `rulesDoc` | | A markdown file of declarative rules, below. |
@@ -604,7 +725,7 @@ Unknown keys are an error, so a typo can't quietly turn a check off.
 
 Keep app-specific conventions in the app. Three ways, from least to most code:
 
-**Patterns** (`patterns` in config): `{ id, level?, files, exclude?, forbid?, require?, path?, message? }`.
+**Patterns** (`patterns` in config): `{ id, level?, files, exclude?, forbid?, require?, path?, message?, newOnly? }`.
 `forbid` must not match a file (the finding points at the line), `require` must match it, `path`
 must match its path. All are regular expressions; prefix `(?i)` for case-insensitive. `level` is
 `error` (default), `warn`, or `guide` (documentation only, never checked).

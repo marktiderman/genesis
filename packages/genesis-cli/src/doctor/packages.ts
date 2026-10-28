@@ -11,6 +11,8 @@
  * - package-migration-number: two migrations in one package share a number.
  * - package-migration-edited: a package migration that exists on the base ref changed.
  * - package-unregistered: no feature in features.json lists the package in `links.code`.
+ * - package-doctor-declaration: a published Genesis package without a `genesis.doctor`
+ *   declaration (or `{ "enforce": false, "reason": "…" }`), or with one that doesn't validate.
  * - package-unversioned-change: files in the package changed since the base ref, but
  *   neither its version nor a new changeset naming it did.
  *
@@ -28,6 +30,7 @@ import { localPackages, type LocalPackage } from "../blocks/local.js";
 import { MIGRATION_FILE, ManifestError, parseManifest, rawBlocksOf } from "../blocks/manifest.js";
 import { compareVersions, parseVersion } from "./semver.js";
 import { stripForImports } from "./trail.js";
+import { validateDeclaration } from "./package-rules.js";
 import type { DoctorContext } from "./types.js";
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
@@ -354,6 +357,33 @@ function checkChanges(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, 
   }
 }
 
+const GENESIS_NAME = /^@marktiderman\/genesis(?:-[a-z0-9-]+)?$/;
+
+/**
+ * `package-doctor-declaration`: a published Genesis package says what the doctor enforces for it
+ * (`genesis.doctor`), or why it enforces nothing (`{ "enforce": false, "reason": "…" }`), so a new
+ * package can't skip enforcement. A declaration that doesn't validate is reported the same way.
+ */
+export function checkDoctorDeclaration(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson & { private?: unknown; genesis?: { doctor?: unknown } }): void {
+  if (json.private === true || !GENESIS_NAME.test(json.name)) return;
+  const file = `${pkg.rel}/package.json`;
+  const raw = json.genesis?.doctor;
+  if (raw === undefined) {
+    ctx.report({
+      rule: "package-doctor-declaration",
+      file,
+      subject: json.name,
+      message: `${json.name} declares no doctor rules; add genesis.doctor with the primitives it enforces ("prefer" rules), or { "enforce": false, "reason": "…" }`,
+    });
+    return;
+  }
+  try {
+    validateDeclaration(raw, json.name, pkg.dir);
+  } catch (err) {
+    ctx.report({ rule: "package-doctor-declaration", file, subject: json.name, message: (err as Error).message });
+  }
+}
+
 export function checkPackagesPack(ctx: DoctorContext): void {
   let packages: LocalPackage[];
   try {
@@ -378,6 +408,7 @@ export function checkPackagesPack(ctx: DoctorContext): void {
     checkMigrations(ctx, pkg, json);
     checkTaggedTests(ctx, pkg);
     checkRegistered(ctx, pkg);
+    checkDoctorDeclaration(ctx, pkg, json);
     if (base && "sha" in merge) checkChanges(ctx, pkg, json, base, merge.sha);
   }
 }

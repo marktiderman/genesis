@@ -149,11 +149,16 @@ const KNOWN = new Set<string>([
   "supabase",
   "packages",
   "routesDir",
+  "packageRules",
+  "ratchet",
+  "contracts",
   "$schema",
   "$comment",
 ]);
 const LEVELS = new Set(["error", "warn", "info", "off"]);
-const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message"]);
+const PATTERN_KEYS = new Set(["id", "level", "files", "exclude", "forbid", "require", "path", "message", "newOnly"]);
+const PACKAGE_RULE_KEYS = new Set(["level", "files", "exclude", "reason"]);
+const CONTRACT_KEYS = new Set(["out", "schemas", "databaseEnv"]);
 const PACKS = new Set(["native", "supabase", "packages"]);
 /** Each pack's settings: key → "string", "path" (app-relative folder, normalized) or "list". */
 const PACK_KEYS: Record<string, Record<string, "string" | "path" | "list">> = {
@@ -189,9 +194,15 @@ export function loadConfig(root: string, configPath?: string): LoadedConfig {
   const pkg = path.join(root, "package.json");
   if (existsSync(pkg)) {
     const block = readJson(pkg)?.genesis?.doctor;
-    if (block !== undefined) return { config: validateConfig(block, pkg), file: pkg, dir: root };
+    // A Genesis package's own `genesis.doctor` is what it enforces in apps (package-rules.ts), not settings.
+    if (block !== undefined && !isPackageDeclaration(block)) return { config: validateConfig(block, pkg), file: pkg, dir: root };
   }
   return { config: {}, file: null, dir: root };
+}
+
+/** A package's rule declaration (`prefer`, `primitives`, `plugin`, `enforce`), as opposed to an app's doctor settings. */
+function isPackageDeclaration(block: unknown): boolean {
+  return typeof block === "string" || (isObject(block) && ["prefer", "primitives", "plugin", "enforce"].some((k) => k in block));
 }
 
 function readJson(file: string) {
@@ -357,7 +368,36 @@ export function validateConfig(raw: unknown, source = "config"): DoctorConfig {
       for (const k of ["files", "exclude"]) {
         if (rule[k] !== undefined && !isStringList(rule[k])) fail(`patterns[${i}].${k} must be a list of globs`);
       }
+      if (rule.newOnly !== undefined && typeof rule.newOnly !== "boolean") fail(`patterns[${i}].newOnly must be true or false`);
     });
+  }
+  if (c.packageRules !== undefined) {
+    if (!isObject(c.packageRules)) fail(`"packageRules" must be an object of package rule id → { level?, files?, exclude?, reason }`);
+    for (const [id, v] of Object.entries(c.packageRules as object)) {
+      const where = `packageRules["${id}"]`;
+      if (!id.includes("/")) fail(`${where}: package rule ids are namespaced by package, e.g. "ui/lists-use-resource-view"`);
+      if (!isObject(v)) fail(`${where} must be an object`);
+      const setting = v as Record<string, unknown>;
+      for (const k of Object.keys(setting)) if (!PACKAGE_RULE_KEYS.has(k)) fail(`${where}: unknown key "${k}" (known: level, files, exclude, reason)`);
+      if (typeof setting.reason !== "string" || !setting.reason.trim()) fail(`${where} needs a "reason": a package rule is never changed silently`);
+      if (setting.level !== undefined && !LEVELS.has(setting.level as string)) fail(`${where}.level must be "error", "warn", "info" or "off"`);
+      for (const k of ["files", "exclude"]) if (setting[k] !== undefined && !isStringList(setting[k])) fail(`${where}.${k} must be a list of globs`);
+    }
+  }
+  if (c.ratchet !== undefined && typeof c.ratchet !== "boolean" && !isStringList(c.ratchet)) fail(`"ratchet" must be true, false or a list of rule ids`);
+  if (c.contracts !== undefined) {
+    if (!isObject(c.contracts)) fail(`"contracts" must be an object: { out?, schemas?, databaseEnv? }`);
+    const contracts = c.contracts as Record<string, unknown>;
+    for (const k of Object.keys(contracts)) if (!CONTRACT_KEYS.has(k)) fail(`contracts: unknown setting "${k}" (known: out, schemas, databaseEnv)`);
+    if (!((c.packs as string[] | undefined) ?? []).includes("supabase")) fail(`"contracts" is set but the supabase pack is not in "packs"`);
+    if (contracts.out !== undefined) {
+      if (typeof contracts.out !== "string" || !contracts.out.trim()) fail(`contracts.out must be a file path`);
+      if (path.isAbsolute(contracts.out as string) || (contracts.out as string).replace(/\\/g, "/").split("/").includes("..")) fail(`contracts.out must be a file inside the app`);
+    }
+    if (contracts.schemas !== undefined && !isStringList(contracts.schemas)) fail(`contracts.schemas must be a list of schema names`);
+    if (contracts.databaseEnv !== undefined && (typeof contracts.databaseEnv !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(contracts.databaseEnv))) {
+      fail(`contracts.databaseEnv must be an environment variable name`);
+    }
   }
   if (c.packs !== undefined) {
     if (!isStringList(c.packs)) fail(`"packs" must be a list, e.g. ["native", "supabase"]`);

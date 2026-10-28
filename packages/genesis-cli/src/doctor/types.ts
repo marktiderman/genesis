@@ -60,6 +60,31 @@ export interface PatternRule {
   /** Regular expression every matching file's path must fit. */
   path?: string;
   message?: string;
+  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  newOnly?: boolean;
+}
+
+/**
+ * An app's setting for one package rule (`doctor.packageRules["ui/lists-use-resource-view"]`).
+ * `reason` is required: a package rule is never changed silently.
+ */
+export interface PackageRuleSetting {
+  level?: RuleSetting;
+  /** Replace the rule's own file globs (`{routes}` is the routes folder). */
+  files?: string[];
+  /** Replace the rule's own exclusions. */
+  exclude?: string[];
+  reason: string;
+}
+
+/** `doctor.contracts`: the generated contract the supabase pack keeps current (as `genesis introspect --check`). */
+export interface ContractsConfig {
+  /** The contract file, app-relative. Default `resources.genesis.ts`. */
+  out?: string;
+  /** Schemas to read. Default `["public"]`. */
+  schemas?: string[];
+  /** The environment variable holding the Postgres URL. Default `DATABASE_URL`. Without it the check is skipped (info). */
+  databaseEnv?: string;
 }
 
 /** A plugin entry in config: a module path, or `[path, options]`. */
@@ -132,6 +157,19 @@ export interface DoctorConfig {
   forbiddenImports?: Record<string, string>;
   /** Folders that must not exist (local design-system primitives). Default `["src/components/ui"]`. */
   localPrimitiveDirs?: string[];
+  /**
+   * Settings for package rules (the rules Genesis packages declare, ids like `ui/lists-use-resource-view`):
+   * level, files and exclusions, each with a reason.
+   */
+  packageRules?: Record<string, PackageRuleSetting>;
+  /**
+   * With `--base`, findings in files unchanged since the merge base drop to `info`, so new
+   * code meets the rule and old code is ratcheted. `true` for every rule, or a list of rule ids.
+   * Rules declared `newOnly` (package rules, app patterns) ratchet without this.
+   */
+  ratchet?: boolean | string[];
+  /** The generated contract the supabase pack checks is current. */
+  contracts?: ContractsConfig;
   /** Per-rule level overrides, e.g. `{ "raw-color": "warn", "palette-color": "off" }`. `info` never fails a run. */
   rules?: Record<string, RuleSetting>;
   /** Justified exceptions. */
@@ -207,6 +245,8 @@ export interface DoctorContext {
   config: DoctorConfig;
   /** The git ref change checks compare against (`--base`), when given. */
   base?: string;
+  /** The Genesis and local packages whose declared rules run, with their declarations. */
+  packages: readonly DeclaringPackage[];
   /** Record a finding. Config `rules` levels and `allow` entries apply afterwards. */
   report(finding: FindingInput): void;
 }
@@ -226,8 +266,89 @@ export interface DoctorResult {
   unused: string[];
   /** Pattern rules plus plugins that ran. */
   ruleCount: number;
+  /** Rules the installed packages declare, and how many packages declare them. */
+  primitives: { rules: number; packages: number };
   errors: number;
   warnings: number;
   /** Findings at `info`: shown, never failing. */
   infos: number;
+}
+
+/* Package rules (package-rules.ts): what a Genesis package declares in package.json `genesis.doctor`. */
+
+/** One "use X instead of Y" rule, as a package declares it. */
+export interface PreferRule {
+  /** Local id; the doctor namespaces it by package (`ui/<id>`). Lower-case words and dashes. */
+  id: string;
+  /** The need it answers, for the primitives catalog ("a list screen"). */
+  need?: string;
+  /** Default `warn`. */
+  level?: Level;
+  /** Web apps only, native (Expo, the `native` pack) only, or both (default). */
+  platform?: "web" | "native";
+  /** App-relative globs. `{routes}` stands for the app's routes folder. Default: every scanned script file. */
+  files?: string[];
+  exclude?: string[];
+  /** What the rule flags. At least one. Comments never count. */
+  forbid: {
+    /** JSX element names (`<DataTable`). */
+    jsx?: string[];
+    /** Import specifiers: exact, or ending in `*` for a prefix (`@supabase/*`). */
+    imports?: string[];
+    /** A regular expression (every match is reported). Prefix `(?i)` for case-insensitive. */
+    pattern?: string;
+  };
+  /** A file that matches any of these is left alone (it is the primitive, or builds on it). */
+  unless?: {
+    /** The file renders one of these elements. */
+    renders?: string[];
+    /** The file contains this regular expression. */
+    pattern?: string;
+  };
+  /** What to use instead. */
+  use: string;
+  /** Where it comes from. */
+  import?: string;
+  /** A link to the docs. */
+  docs?: string;
+  /** Why, in a sentence. */
+  why: string;
+  /** Under `--base`, findings in files unchanged since the merge base drop to `info`. */
+  newOnly?: boolean;
+}
+
+/** A catalog entry with no rule behind it. */
+export interface PrimitiveEntry {
+  need: string;
+  use: string;
+  import?: string;
+  docs?: string;
+}
+
+/** A package's validated `genesis.doctor` declaration. */
+export interface PackageDeclaration {
+  enforce: boolean;
+  /** Why a package enforces nothing (required when `enforce` is false). */
+  reason?: string;
+  prefer: PreferRule[];
+  primitives: PrimitiveEntry[];
+  /** A rule module in the package (absolute path), loaded like an app plugin. */
+  plugin?: string;
+}
+
+/** A package the doctor read declarations from. */
+export interface DeclaringPackage {
+  name: string;
+  version: string;
+  /** Absolute folder (as found, not resolved through links). */
+  dir: string;
+  /** The prefix of its rule ids (`ui` for genesis-ui). */
+  namespace: string;
+  local: boolean;
+  /** Not published (`private: true`). */
+  private: boolean;
+  /** Null when the package declares nothing. */
+  declaration: PackageDeclaration | null;
+  /** Why its declaration was refused, when it was. */
+  error?: string;
 }

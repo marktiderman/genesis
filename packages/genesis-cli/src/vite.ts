@@ -74,7 +74,8 @@ export function genesisDoctor(options: GenesisDoctorOptions = {}): Plugin[] {
           try {
             // Genesis facts only change on reinstall; read them once per server.
             genesis ??= loadGenesis(root, loadConfig(root, options.configPath).config);
-            const result = await runDoctor({ root, configPath: options.configPath, genesis });
+            // The contract check reads the database: CI and builds run it, not every keystroke.
+            const result = await runDoctor({ root, configPath: options.configPath, genesis, contracts: false });
             if (result.errors > 0) {
               showError(`Genesis doctor found problems:\n${formatProblems(result)}`);
             } else if (failing) {
