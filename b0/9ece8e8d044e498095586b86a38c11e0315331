@@ -1,0 +1,86 @@
+packages/ai/src/define.ts
+  s_e78d57e50dc818::t_5d0173c07ef9d7 2,10-23,25-28,32,35,38-43,47-48,56,67-68,74,82,86-88,92-98,101,117-121,136-158
+packages/ai/src/server/run.ts
+  s_e78d57e50dc818::t_c67ed11edde6d5 319-320,329-331,333,335,341,343,349,376,381,384-387,389-390,392,429-431,433,446,448,453,461-463,467-469
+  s_e78d57e50dc818::t_d3ca30eaf32c6e 1,7,10,14,19,28-35,38,40-41,43-44,73-89,105-107,110,130,132,137,139-140,146-148,150,153,157-159,161-176,178,181-194,234-237,257-262,286,291-292,305
+packages/ai/package.json
+  s_e78d57e50dc818::t_e7a6c06f13a64f 7,35-38,64,67,73-75,78-79
+  s_e78d57e50dc818::t_1024c543f6f047 85
+  s_e78d57e50dc818::t_e1b239dad3bcaa 80
+packages/ai/src/__tests__/run.test.ts
+  s_e78d57e50dc818::t_41193fffd488e6 39,41-43,46,201
+packages/ai/src/server/wrap.ts
+  s_e78d57e50dc818::t_a0f409a9b31014 18-19,51,64,86
+packages/ai/src/__tests__/supabase.test.ts
+  s_e78d57e50dc818::t_02364f68b7f1a2 33-35,37-39,48-51,56-57
+packages/ai/src/models.ts
+  s_e78d57e50dc818::t_01ee060c261535 1,4-7,18-19,30,40
+packages/ai/src/server/telemetry.ts
+  s_e78d57e50dc818::t_163ec6019e7128 1-12
+packages/ai/src/openai.ts
+  s_e78d57e50dc818::t_f65785708503ad 1-36
+packages/ai/src/server/handler.ts
+  s_e78d57e50dc818::t_163ec6019e7128 1,3,44-60,64-66,76,96,99-109
+packages/ai/src/server/index.ts
+  s_e78d57e50dc818::t_163ec6019e7128 2-5,10-11
+packages/ai/src/react.tsx
+  s_e78d57e50dc818::t_e7a6c06f13a64f 76-162
+packages/ai/src/__tests__/react.test.tsx
+  s_e78d57e50dc818::t_371227cbb04f13 5,37-62
+  s_e78d57e50dc818::t_520c1031b31b76 63
+packages/chat/src/__tests__/ai.test.ts
+  s_e78d57e50dc818::t_1a7515fa2cc224 2,62
+packages/ai/tsup.config.ts
+  s_e78d57e50dc818::t_e7a6c06f13a64f 4,11
+packages/ai/src/types.ts
+  s_e78d57e50dc818::t_cead6852b9dfbf 1-2,23-37,74-78,116,121,123-124,127,129,133-139,176-177,192-197,199-201,205-206,209
+packages/ai/src/server/evaluate.ts
+  s_e78d57e50dc818::t_163ec6019e7128 1-37
+packages/ai/src/supabase.ts
+  s_e78d57e50dc818::t_40fa19b9c317e0 30-32,41-47,58
+packages/ai/src/index.ts
+  s_e78d57e50dc818::t_3e08bb2c7f7ab1 2,7-11
+packages/ai/migrations/0001_genesis_ai.sql
+  s_e78d57e50dc818::t_e184703ef7b8b5 6-9,11-15,21-23,29-37,49-50,67,71-74,77-78,85,97-99,122-123,157-175,210-218,230-231,243,246-312,314-315,317,319-320,322-341,347-353,355-371,373-374,381,385-387,389-390,393-394,403-404,415,418,437-441,443,451-454,460-461,465-466
+packages/ai/src/__tests__/mock-anthropic.ts
+  s_e78d57e50dc818::t_41193fffd488e6 1,75-76,79
+packages/ai/src/__tests__/byok-rollout.test.ts
+  s_e78d57e50dc818::t_97a40b5725bb83 1-162
+packages/ai/src/anthropic.ts
+  s_e78d57e50dc818::t_a64de1daf4ecdb 2,17-49
+  s_5beca2076873c9::t_f1a83b5b317419 50-51
+packages/ai/src/server/memory-store.ts
+  s_e78d57e50dc818::t_6f78000384c107 1,6-7,19,21-22,27-29,32,34-35,41,45,47,49-58,62,65-71,82-85
+packages/ai/migrations/tests/0001_genesis_ai.test.sql
+  s_e78d57e50dc818::t_2954abf273acd2 9,39-40,45,60,65-66,70,83-86,108-113,134-140,155,166-193,209-210
+packages/ai/src/__tests__/handler-wrap-store.test.ts
+  s_e78d57e50dc818::t_41193fffd488e6 25,140,150
+  s_e78d57e50dc818::t_3e08bb2c7f7ab1 4,158,160-163,165,169-178
+  s_e78d57e50dc818::t_ae9c4a4a401167 179-180
+pnpm-lock.yaml
+  s_e78d57e50dc818::t_c95e2366e61544 34,552,561-563,675,699,738,762,789,822,874,898,953,1008,1053,1086,1138,1186,1281,1342,1403,1452,1525,1588,1619,1641,1699,1859,1965,1993-1998,12001-12006,16827,16879,16899,16901,23066-23096
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b09ece8e8d044e498095586b86a38c11e0315331",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
