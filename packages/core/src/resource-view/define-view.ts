@@ -97,6 +97,23 @@ export function singular(word: string): string {
   return one(last.slice(0, -1));
 }
 
+// Singulars whose plural the rules below would get wrong: the irregulars above, inverted.
+const PLURAL_OF: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(SAME_OR_IRREGULAR).map(([many, one]) => [one, many]),
+);
+
+/** A noun's plural, the inverse of `singular`: entry → entries, box → boxes, person → people. */
+export function plural(word: string): string {
+  const last = word.split(" ").pop()!;
+  const head = word.slice(0, word.length - last.length);
+  const lower = last.toLowerCase();
+  const many = (s: string) => head + s;
+  if (PLURAL_OF[lower]) return many(PLURAL_OF[lower]!);
+  if (/[^aeiou]y$/.test(lower)) return many(`${last.slice(0, -1)}ies`);
+  if (/(?:s|x|z|ch|sh)$/.test(lower)) return many(`${last}es`);
+  return many(`${last}s`);
+}
+
 // The view's own operations (`view.can`): an action can't take their names.
 const RESERVED_ACTIONS: ReadonlySet<string> = new Set(["create", "update", "delete"]);
 
@@ -270,7 +287,13 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const copy = definition.copy ?? {};
   const base = contract.name.split(".").pop() ?? contract.name;
   const noun = copy.noun ?? facts.noun ?? singular(base.replace(/_/g, " "));
-  const nounPlural = copy.nounPlural ?? facts.nounPlural ?? (copy.noun || facts.noun ? `${noun}s` : base.replace(/_/g, " "));
+  // Several: the view's, the contract's, the noun's plural; with only a derived noun, the
+  // contract's label when it reads as a plural ("People"), else the table name.
+  const labelWords = facts.label?.toLowerCase();
+  const nounPlural =
+    copy.nounPlural ??
+    facts.nounPlural ??
+    (copy.noun || facts.noun ? plural(noun) : labelWords && singular(labelWords) !== labelWords ? labelWords : base.replace(/_/g, " "));
   const title = copy.title ?? facts.label ?? titleCase(nounPlural);
   const labelField = facts.labelField ?? fields.find((f) => /^(name|title|label|full_name|display_name)$/.test(f.name))?.name;
 
