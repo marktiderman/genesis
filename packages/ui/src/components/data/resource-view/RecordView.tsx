@@ -1,5 +1,5 @@
-// RecordPage: one record's screen from a genesis-core record page (defineRecordPage). It is
-// the record page's existing parts, put together from the view:
+// RecordView: one record's screen from a genesis-core record view (defineRecordView). It is
+// the record view's existing parts, put together from the view:
 //   - the header (summary, actions with their guards, a switcher) → ResourceHeader in AppShellPageHeader;
 //   - sections → the shell's tabs through useAppShellSubNav, the active one drawn below;
 //   - a list section → an embedded ResourceView of the child view, filtered by this record;
@@ -10,7 +10,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type { Allowed, ResolvedFormField, RecordPage as RecordPageDef, RecordPageHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import type { Allowed, ResolvedFormField, RecordView as RecordViewDef, RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
 import { SettingsRow } from "../../patterns/settings-row";
@@ -40,9 +40,9 @@ import { ResourceView, type ResourceViewProps } from "./ResourceView";
 type Row = Record<string, unknown>;
 type Values = Record<string, unknown>;
 
-export interface RecordPageProps<T extends Row = Row> {
+export interface RecordViewProps<T extends Row = Row> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
-  page: RecordPageDef<ResourceContract<any>, T & DataRow>;
+  view: RecordViewDef<ResourceContract<any>, T & DataRow>;
   /** The record, as the screen loaded it (`useOne`). A save refreshes it through the cache. */
   row: T;
   /** The section showing now: the route's segment. */
@@ -75,20 +75,20 @@ export interface RecordPageProps<T extends Row = Row> {
 }
 
 /**
- * One record's screen, from its record page (defineRecordPage):
+ * One record's screen, from its record view (defineRecordView):
  *
  * ```tsx
- * <RecordPage page={brandRecordPage} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
+ * <RecordView view={brandRecordView} row={brand} section={tab} sectionHref={(id) => `/brands/${brand.id}/${id}`} />
  * ```
  */
-export function RecordPage<T extends Row = Row>(props: RecordPageProps<T>) {
-  const { page, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, testID = "resource-workspace" } = props;
+export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
+  const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
   const m = useUiMessages();
   const provider = useDataProvider();
   const queryClient = useQueryClient();
-  const view = page.view;
-  const id = page.recordId(record);
+  const view = recordView.view;
+  const id = recordView.recordId(record);
   // Actions show only where something can run them, and only those the provider serves when it says.
   const capabilities = useCapabilities(view.resource, { enabled: !onAction && !!provider.capabilities });
   const described = useQuery({
@@ -99,34 +99,34 @@ export function RecordPage<T extends Row = Row>(props: RecordPageProps<T>) {
   });
   // The view's action guards read the viewer (ViewerScope's id, scope and roles).
   const viewer = useViewer();
-  const header = page.headerFor(record, {
+  const header = recordView.headerFor(record, {
     viewer,
     runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
     ...(can ? { can: (name: string) => can(name, row) } : {}),
   });
-  const readiness = page.readinessFor(record);
+  const readiness = recordView.readinessFor(record);
   const [showChecks, setShowChecks] = useState(false);
-  const [confirming, setConfirming] = useState<RecordPageHeaderAction | null>(null);
+  const [confirming, setConfirming] = useState<RecordViewHeaderAction | null>(null);
 
-  useAppShellSubNav(page.sections.map((s) => ({ to: sectionHref(s.id), label: s.label })));
+  useAppShellSubNav(recordView.sections.map((s) => ({ to: sectionHref(s.id), label: s.label })));
 
   const action = useWrite(
-    async (a: RecordPageHeaderAction) => {
+    async (a: RecordViewHeaderAction) => {
       if (onAction) return onAction(a.name, row);
       if (!provider.runAction) throw new DataWriteError("error", fillMessage(m.workspace.noRunner, { name: a.label }));
       return provider.runAction(view.resource, { id, action: a.name });
     },
     { invalidates: [resourceKeys(view.resource).all] },
   );
-  const start = (a: RecordPageHeaderAction) => {
+  const start = (a: RecordViewHeaderAction) => {
     if (a.allowed !== true) return;
     if (a.confirm) setConfirming(a);
     else void action.fire(a);
   };
 
-  const summary = page.readinessSummary(record);
-  const active = page.section(section);
+  const summary = recordView.readinessSummary(record);
+  const active = recordView.section(section);
 
   return (
     <div data-testid={testID} className="space-y-4">
@@ -180,13 +180,13 @@ export function RecordPage<T extends Row = Row>(props: RecordPageProps<T>) {
           view={active.view}
           {...lists?.[active.id]}
           layout="embedded"
-          filter={page.listFilter(active.id, record)}
+          filter={recordView.listFilter(active.id, record)}
         />
       ) : active?.kind === "settings" ? (
         <SettingsForm
           // A fresh draft per record and section (react.dev, "Resetting state with a key").
           key={`${String(id)}:${active.id}`}
-          page={page}
+          recordView={recordView}
           sectionId={active.id}
           title={active.label}
           row={record}
@@ -225,7 +225,7 @@ export function RecordPage<T extends Row = Row>(props: RecordPageProps<T>) {
 }
 
 function SettingsForm({
-  page,
+  recordView,
   sectionId,
   title,
   row,
@@ -233,7 +233,7 @@ function SettingsForm({
   testID,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
-  page: RecordPageDef<ResourceContract<any>, any>;
+  recordView: RecordViewDef<ResourceContract<any>, any>;
   sectionId: string;
   title: string;
   row: DataRow;
@@ -242,11 +242,11 @@ function SettingsForm({
 }) {
   const m = useUiMessages();
   const provider = useDataProvider();
-  const view = page.view;
-  const fields = page.settingsFields(sectionId);
+  const view = recordView.view;
+  const fields = recordView.settingsFields(sectionId);
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
-  const locked = page.settingsLocked(row, viewer);
+  const locked = recordView.settingsLocked(row, viewer);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])));
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const changed = useMemo(() => {
@@ -263,8 +263,8 @@ function SettingsForm({
   const save = useWrite(
     async (values: Values) => {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const data = page.settingsPatch(sectionId, values);
-      const result = await provider.update(view.resource, { id: page.recordId(row), data });
+      const data = recordView.settingsPatch(sectionId, values);
+      const result = await provider.update(view.resource, { id: recordView.recordId(row), data });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) {
         throw new DataWriteError("forbidden", fillMessage(m.workspace.notChanged, { noun: view.noun }));
@@ -405,10 +405,10 @@ function SettingField({
   );
 }
 
-/** @deprecated Renamed `RecordPageProps`; its `workspace` prop is now `page`. */
-export type ResourceWorkspaceProps<T extends Row = Row> = Omit<RecordPageProps<T>, "page"> & { workspace: RecordPageProps<T>["page"] };
+/** @deprecated Renamed `RecordViewProps`; its `workspace` prop is now `recordView`. */
+export type ResourceWorkspaceProps<T extends Row = Row> = Omit<RecordViewProps<T>, "view"> & { workspace: RecordViewProps<T>["view"] };
 
-/** @deprecated Renamed `RecordPage`, with `page` in place of `workspace`. */
+/** @deprecated Renamed `RecordView`, with `recordView` in place of `workspace`. */
 export function ResourceWorkspace<T extends Row = Row>({ workspace, ...props }: ResourceWorkspaceProps<T>) {
-  return <RecordPage<T> {...props} page={workspace} />;
+  return <RecordView<T> {...props} view={workspace} />;
 }

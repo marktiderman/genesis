@@ -382,16 +382,16 @@ describe("the real package declarations", () => {
     ]);
   });
 
-  it("ui checks record pages named [id] and .jsx routes too, and a list inside a record page doesn't exempt it", async () => {
+  it("ui checks record screens named [id] and .jsx routes too, and a list inside a record view doesn't exempt it", async () => {
     const root = makeApp(null, {
       ...install("ui", "genesis-ui-rules"),
       "src/routes/records/[id].tsx": "export const R = () => <><DetailPage title=\"x\" /><ResourceView view={v} /></>;\n",
       "src/routes/items.$id.jsx": "export const I = () => <DetailPage title=\"x\" />;\n",
       "src/routes/builder.$id.tsx": "export const B = () => <BuilderLayout><DetailPage title=\"x\" /></BuilderLayout>;\n",
     });
-    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/record-pages")).toEqual([
-      "ui-rules/record-pages-use-record-page warn src/routes/items.$id.jsx:1 DetailPage",
-      "ui-rules/record-pages-use-record-page warn src/routes/records/[id].tsx:1 DetailPage",
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/records-use")).toEqual([
+      "ui-rules/records-use-record-view warn src/routes/items.$id.jsx:1 DetailPage",
+      "ui-rules/records-use-record-view warn src/routes/records/[id].tsx:1 DetailPage",
     ]);
   });
 

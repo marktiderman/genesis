@@ -1,5 +1,5 @@
 /**
- * RecordPage: one record's screen from a genesis-core page, inside the AppShell.
+ * RecordView: one record's screen from a genesis-core page, inside the AppShell.
  * - the header (title, actions with guards, a switcher) goes into the page header;
  * - sections become the shell's tabs; a list section is an embedded ResourceView filtered by the row;
  * - a settings section saves only its listed keys, and a zero-row save is a refusal shown inline;
@@ -10,10 +10,10 @@ import { QueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
-import { defineView, defineRecordPage } from "@marktiderman/genesis-core/resource-view";
+import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
 import { AppShell, type NavItem } from "../../layout/AppShell";
 import type { NavigationNode } from "../../../navigation";
-import { RecordPage } from "../resource-view";
+import { RecordView } from "../resource-view";
 
 type Brand = { id: string; name: string; website: string | null; public: boolean; is_default: boolean; notes: string | null; score?: number | null };
 type Product = { id: string; brand_id: string; title: string };
@@ -52,7 +52,7 @@ const brandsView = defineView(brands, {
 });
 const productsView = defineView(products, { columns: { default: ["title"] } });
 
-const page = defineRecordPage(brandsView, {
+const page = defineRecordView(brandsView, {
   sections: [
     { id: "products", label: "Products", list: { view: productsView, filter: (b) => ({ brand_id: b.id }) } },
     { id: "settings", label: "Settings", settings: ["website", "public"] },
@@ -95,7 +95,7 @@ function provider(over: Partial<DataProvider> = {}): DataProvider {
   };
 }
 
-function renderRecordPage(section: string, p: DataProvider, extra: Partial<Parameters<typeof RecordPage>[0]> = {}) {
+function renderRecordView(section: string, p: DataProvider, extra: Partial<Parameters<typeof RecordView>[0]> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   return render(
     <GenesisProvider provider={p} queryClient={queryClient}>
@@ -105,8 +105,8 @@ function renderRecordPage(section: string, p: DataProvider, extra: Partial<Param
         options={{ showThemeToggle: false, configurable: false, subNav: "tabs" }}
         activePath={`/brands/b1/${section}`}
       >
-        <RecordPage
-          page={page as never}
+        <RecordView
+          view={page as never}
           row={brand}
           section={section}
           sectionHref={(id) => `/brands/b1/${id}`}
@@ -121,9 +121,9 @@ function renderRecordPage(section: string, p: DataProvider, extra: Partial<Param
 
 beforeEach(() => localStorage.clear());
 
-describe("RecordPage", () => {
+describe("RecordView", () => {
   it("puts the header in the page header: title, switcher, guarded actions", () => {
-    renderRecordPage("activity", provider());
+    renderRecordView("activity", provider());
     const header = within(screen.getByTestId("app-shell-page-header"));
     expect(header.getByRole("heading", { name: "Northwind" })).toBeTruthy();
     expect(header.getByRole("button", { name: "Switch brand" })).toBeTruthy();
@@ -134,7 +134,7 @@ describe("RecordPage", () => {
   });
 
   it("registers the sections as the shell's tabs, and fills a slot section", () => {
-    renderRecordPage("activity", provider());
+    renderRecordView("activity", provider());
     const tabs = within(screen.getByTestId("app-shell-sub-nav"));
     expect(tabs.getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
       ["Products", "/brands/b1/products"],
@@ -146,7 +146,7 @@ describe("RecordPage", () => {
 
   it("draws a list section as an embedded ResourceView filtered by the row", async () => {
     const p = provider();
-    renderRecordPage("products", p);
+    renderRecordView("products", p);
     expect(await screen.findByText("Kettle")).toBeTruthy();
     const params = (p.getList as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ListParams;
     expect(params.filters).toContainEqual({ field: "brand_id", operator: "eq", value: "b1" });
@@ -157,7 +157,7 @@ describe("RecordPage", () => {
   it("saves only the settings section's changed keys", async () => {
     const p = provider();
     const onSaved = vi.fn();
-    renderRecordPage("settings", p, { onSaved });
+    renderRecordView("settings", p, { onSaved });
     const save = screen.getByTestId("resource-workspace-settings-save") as HTMLButtonElement;
     expect(save.disabled).toBe(true);
     fireEvent.change(screen.getByTestId("resource-workspace-settings-website-input"), { target: { value: "https://northwind.example" } });
@@ -170,14 +170,14 @@ describe("RecordPage", () => {
 
   it("shows a zero-row save as a refusal, inline", async () => {
     const p = provider({ update: vi.fn(async () => ({ data: null })) as unknown as DataProvider["update"] });
-    renderRecordPage("settings", p);
+    renderRecordView("settings", p);
     fireEvent.click(screen.getByTestId("resource-workspace-settings-public-input"));
     fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
     expect((await screen.findByTestId("resource-workspace-settings-error")).textContent).toBe("This brand was not changed.");
   });
 
   it("shows readiness as the chip, and the checks on click", () => {
-    renderRecordPage("activity", provider());
+    renderRecordView("activity", provider());
     const chip = screen.getByTestId("readiness");
     expect(chip.textContent).toBe("1 problem to fix");
     fireEvent.click(chip);
@@ -188,13 +188,13 @@ describe("RecordPage", () => {
 
   it("runs an allowed action through the provider; a confirm asks first", async () => {
     const p = provider();
-    renderRecordPage("activity", p);
+    renderRecordView("activity", p);
     fireEvent.click(screen.getByTestId("resource-workspace-action-publish"));
     await waitFor(() => expect(p.runAction).toHaveBeenCalledWith("brands", { id: "b1", action: "publish" }));
 
     const onAction = vi.fn();
     const q = provider();
-    renderRecordPage("activity", q, { row: { ...brand, is_default: false }, onAction });
+    renderRecordView("activity", q, { row: { ...brand, is_default: false }, onAction });
     const archive = screen.getAllByTestId("resource-workspace-action-archive").at(-1)!;
     fireEvent.click(archive);
     expect(onAction).not.toHaveBeenCalled();
@@ -204,8 +204,8 @@ describe("RecordPage", () => {
   });
 });
 
-describe("RecordPage review fixes", () => {
-  const second = defineRecordPage(
+describe("RecordView review fixes", () => {
+  const second = defineRecordView(
     defineView(brands, {
       fields: { website: { visible: (v) => v["public"] === true } },
       can: { update: (b) => (b.is_default ? "Locked." : true) },
@@ -214,7 +214,7 @@ describe("RecordPage review fixes", () => {
     { sections: [{ id: "settings", label: "Settings", settings: ["public", "website", "notes", "score"] }] },
   );
   const render2 = (r: Brand, p: DataProvider, extra: Record<string, unknown> = {}) =>
-    renderRecordPage("settings", p, { page: second as never, row: r, ...extra });
+    renderRecordView("settings", p, { view: second as never, row: r, ...extra });
 
   it("shows settings read-only with the reason when the view refuses update", () => {
     const p = provider();
@@ -258,9 +258,9 @@ describe("RecordPage review fixes", () => {
   });
 });
 
-describe("RecordPage when only the viewer's roles change", () => {
+describe("RecordView when only the viewer's roles change", () => {
   const isEditor = (v?: Viewer) => ((v?.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
-  const guarded = defineRecordPage(
+  const guarded = defineRecordView(
     defineView(brands, {
       can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change brands.") },
       actions: [{ name: "publish", label: "Publish", can: (_b, v) => (isEditor(v) ? true : "Only editors publish.") }],
@@ -288,7 +288,7 @@ describe("RecordPage when only the viewer's roles change", () => {
             options={{ showThemeToggle: false, configurable: false, subNav: "tabs" }}
             activePath="/brands/b1/settings"
           >
-            <RecordPage page={guarded as never} row={brand} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+            <RecordView view={guarded as never} row={brand} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
           </AppShell>
         </ViewerScope>
       </GenesisProvider>

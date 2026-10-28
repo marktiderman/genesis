@@ -189,7 +189,7 @@
           "unless": {
             "renders": [
               "NativeResourceView",
-              "NativeRecordPage",
+              "NativeRecordView",
               "NativeResourceWorkspace"
             ]
           },
@@ -207,10 +207,10 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui-native/README.md"
         },
         {
-          "need": "a record page on the phone",
-          "use": "NativeRecordPage",
+          "need": "a record view on the phone",
+          "use": "NativeRecordView",
           "import": "@marktiderman/genesis-ui-native/data",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordpage"
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview"
         }
       ]
     }

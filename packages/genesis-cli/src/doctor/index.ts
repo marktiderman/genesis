@@ -30,7 +30,7 @@ import { checkPackagesPack } from "./packages.js";
 import { checkSupabasePack } from "./supabase.js";
 import { checkVersionSkew } from "./versions.js";
 import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
-import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkRecordPages } from "./structure.js";
+import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkRecordViews } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
@@ -221,7 +221,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "peer-ranges", check: checkPeerRanges },
     { name: "hand-rolled-sub-nav", check: checkHandRolledSubNav },
     { name: "local-genesis-copies", check: checkLocalGenesisCopies },
-    { name: "resource-workspaces", check: checkRecordPages },
+    { name: "resource-workspaces", check: checkRecordViews },
     { name: "page-layouts", check: checkPageLayouts },
     { name: "iso-date-slices", check: checkIsoDateSlices },
     { name: "resource-view-trees", check: checkTreeViews },

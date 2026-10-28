@@ -1,7 +1,7 @@
-// NativeRecordPage: one record's screen from a genesis-core record page (defineRecordPage),
+// NativeRecordView: one record's screen from a genesis-core record view (defineRecordView),
 // in native patterns:
 //   - the title in the navigation bar and the actions in the header menu, through
-//     `getNativeRecordPageStackOptions` (the host's <Stack.Screen options>), as SettingsPage does;
+//     `getNativeRecordViewStackOptions` (the host's <Stack.Screen options>), as SettingsPage does;
 //   - up to four sections as a segmented control; more as pushed rows (`onOpenSection`);
 //   - a list section → an embedded NativeResourceView of the child view, filtered by the row;
 //   - a settings section → inset grouped settings rows, saving only its listed keys, a zero-row
@@ -14,7 +14,7 @@ import { ActionSheetIOS, Alert, Platform, Pressable, ScrollView, View } from "re
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
 import { readinessChip, type ReadinessLabels } from "@marktiderman/genesis-core/resource";
-import type { Allowed, RecordPage as RecordPageDef, RecordPageHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import type { Allowed, RecordView as RecordViewDef, RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { NativeBadge } from "../../components/badge";
 import { NativeButton } from "../../components/button";
 import { NativeIcon } from "../../components/icon";
@@ -37,14 +37,14 @@ import { NativeResourceView, type NativeResourceViewProps } from "./NativeResour
 type Row = Record<string, unknown>;
 type Values = Record<string, unknown>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; the row is what matters here
-type AnyRecordPage<T extends Row> = RecordPageDef<ResourceContract<any>, T & DataRow>;
+type AnyRecordView<T extends Row> = RecordViewDef<ResourceContract<any>, T & DataRow>;
 
 /**
- * The words NativeRecordPage shows. Override any of them with `messages`. The readiness
+ * The words NativeRecordView shows. Override any of them with `messages`. The readiness
  * chip's keys (`ready`, `empty`, `pending`, `problems`, `warnings`) are genesis-core/resource's
  * `readinessChip` labels: unset, they use its defaults.
  */
-export interface NativeRecordPageMessages extends ReadinessLabels {
+export interface NativeRecordViewMessages extends ReadinessLabels {
   actions: string;
   cancel: string;
   save: string;
@@ -61,7 +61,7 @@ export interface NativeRecordPageMessages extends ReadinessLabels {
   notANumber: string;
 }
 
-export const defaultNativeRecordPageMessages: NativeRecordPageMessages = {
+export const defaultNativeRecordViewMessages: NativeRecordViewMessages = {
   actions: "Actions",
   cancel: "Cancel",
   save: "Save",
@@ -85,22 +85,22 @@ export const SEGMENTED_SECTIONS_MAX = 4;
 
 // ── Header: title and menu ────────────────────────────────────────────
 
-export interface NativeRecordPageHeaderProps<T extends Row = Row> {
-  page: AnyRecordPage<T>;
+export interface NativeRecordViewHeaderProps<T extends Row = Row> {
+  view: AnyRecordView<T>;
   row: T;
   /** Runs an allowed (and confirmed) action. Default: the provider's `runAction`. */
   onAction?: (name: string, row: T) => unknown;
   /** The screen's own rule: `false` hides an action, a sentence refuses it. Only narrows. */
   can?: (action: string, row: T) => Allowed | boolean;
-  messages?: Partial<NativeRecordPageMessages>;
+  messages?: Partial<NativeRecordViewMessages>;
 }
 
 /** Runs header actions: guards explain, confirms ask, one at a time, failures in an alert. */
-function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }: NativeRecordPageHeaderProps<T>) {
-  const words = { ...defaultNativeRecordPageMessages, ...messages };
+function useHeaderActions<T extends Row>({ view: recordView, row, onAction, can, messages }: NativeRecordViewHeaderProps<T>) {
+  const words = { ...defaultNativeRecordViewMessages, ...messages };
   const provider = useDataProvider();
   const queryClient = useQueryClient();
-  const view = page.view;
+  const view = recordView.view;
   // Actions show only where something can run them, and only those the provider serves when it says.
   const capabilities = useCapabilities(view.resource, { enabled: !onAction && !!provider.capabilities });
   const described = useQuery({
@@ -111,7 +111,7 @@ function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }:
   });
   // The view's action guards read the viewer (ViewerScope's id, scope and roles).
   const viewer = useViewer();
-  const actions = page.headerFor(row as T & DataRow, {
+  const actions = recordView.headerFor(row as T & DataRow, {
     viewer,
     runnable: Boolean(onAction) || (Boolean(provider.runAction) && capabilities.data?.actions !== false),
     ...(!onAction && described.data?.actions ? { served: described.data.actions.map((a) => a.name) } : {}),
@@ -120,13 +120,13 @@ function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }:
   // One action at a time: a second press while one runs does nothing.
   const running = useRef(false);
   const [pending, setPending] = useState(false);
-  const run = async (a: RecordPageHeaderAction) => {
+  const run = async (a: RecordViewHeaderAction) => {
     if (running.current) return;
     running.current = true;
     setPending(true);
     try {
       if (onAction) await onAction(a.name, row);
-      else if (provider.runAction) await provider.runAction(view.resource, { id: page.recordId(row as T & DataRow), action: a.name });
+      else if (provider.runAction) await provider.runAction(view.resource, { id: recordView.recordId(row as T & DataRow), action: a.name });
       else throw new DataWriteError("error", fill(words.noRunner, { name: a.label }));
       await queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
     } catch (error) {
@@ -136,7 +136,7 @@ function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }:
       setPending(false);
     }
   };
-  const press = (a: RecordPageHeaderAction) => {
+  const press = (a: RecordViewHeaderAction) => {
     if (running.current) return;
     if (a.allowed !== true) return Alert.alert(a.label, a.allowed);
     if (!a.confirm) return void run(a);
@@ -153,22 +153,22 @@ function useHeaderActions<T extends Row>({ page, row, onAction, can, messages }:
 const A11Y_PREFIX = "action:";
 
 /**
- * The header menu: a button that lists the record page's actions. On iOS an action sheet
+ * The header menu: a button that lists the record view's actions. On iOS an action sheet
  * (ActionSheetIOS, destructive ones in red); elsewhere a sheet of rows, since Android's alert
  * shows at most three buttons. A refused action stays listed and explains why when pressed.
  */
-export function NativeRecordPageMenu<T extends Row = Row>(props: NativeRecordPageHeaderProps<T> & { testID?: string }) {
+export function NativeRecordViewMenu<T extends Row = Row>(props: NativeRecordViewHeaderProps<T> & { testID?: string }) {
   const { testID = "native-resource-workspace-menu" } = props;
   const { actions, press, pending, words } = useHeaderActions(props);
   const [open, setOpen] = useState(false);
   if (actions.length === 0) return null;
-  const labelOf = (a: RecordPageHeaderAction) => (a.allowed === true ? a.label : `${a.label} (${a.allowed})`);
+  const labelOf = (a: RecordViewHeaderAction) => (a.allowed === true ? a.label : `${a.label} (${a.allowed})`);
   const show = () => {
     if (Platform.OS === "ios") {
       const destructive = actions.flatMap((a, i) => (a.destructive ? [i] : []));
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          title: props.page.headerFor(props.row as T & DataRow).title,
+          title: props.view.headerFor(props.row as T & DataRow).title,
           options: [...actions.map(labelOf), words.cancel],
           cancelButtonIndex: actions.length,
           ...(destructive.length ? { destructiveButtonIndex: destructive } : {}),
@@ -238,29 +238,29 @@ export function NativeRecordPageMenu<T extends Row = Row>(props: NativeRecordPag
 }
 
 /**
- * `<Stack.Screen options>` for a record page: the record's title in the navigation bar and the
+ * `<Stack.Screen options>` for a record view: the record's title in the navigation bar and the
  * actions in the header menu.
  *
  * ```tsx
- * <Stack.Screen options={getNativeRecordPageStackOptions({ page: brandRecordPage, row: brand })} />
+ * <Stack.Screen options={getNativeRecordViewStackOptions({ view: brandRecordView, row: brand })} />
  * ```
  */
-export function getNativeRecordPageStackOptions<T extends Row>(
-  props: NativeRecordPageHeaderProps<T> & Omit<ScreenHeaderProps, "headerTitle">,
+export function getNativeRecordViewStackOptions<T extends Row>(
+  props: NativeRecordViewHeaderProps<T> & Omit<ScreenHeaderProps, "headerTitle">,
 ): Record<string, unknown> {
-  const { page, row, onAction, can, messages, ...header } = props;
-  const menu = { page, row, ...(onAction ? { onAction } : {}), ...(can ? { can } : {}), ...(messages ? { messages } : {}) };
+  const { view: recordView, row, onAction, can, messages, ...header } = props;
+  const menu = { view: recordView, row, ...(onAction ? { onAction } : {}), ...(can ? { can } : {}), ...(messages ? { messages } : {}) };
   return composeHeaderOptions({
     ...header,
-    headerTitle: page.headerFor(row as T & DataRow).title,
-    headerRight: header.headerRight ?? (page.headerActions.length ? () => <NativeRecordPageMenu {...menu} /> : undefined),
+    headerTitle: recordView.headerFor(row as T & DataRow).title,
+    headerRight: header.headerRight ?? (recordView.headerActions.length ? () => <NativeRecordViewMenu {...menu} /> : undefined),
   });
 }
 
 // ── Screen ────────────────────────────────────────────────────────────
 
-export interface NativeRecordPageProps<T extends Row = Row> {
-  page: AnyRecordPage<T>;
+export interface NativeRecordViewProps<T extends Row = Row> {
+  view: AnyRecordView<T>;
   /** The record, as the screen loaded it. A save refreshes it through the cache. */
   row: T;
   /**
@@ -283,31 +283,31 @@ export interface NativeRecordPageProps<T extends Row = Row> {
   slots?: Partial<Record<string, ReactNode>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
-  messages?: Partial<NativeRecordPageMessages>;
+  messages?: Partial<NativeRecordViewMessages>;
   testID?: string;
 }
 
 /**
- * One record's screen, from its record page (defineRecordPage):
+ * One record's screen, from its record view (defineRecordView):
  *
  * ```tsx
- * <Stack.Screen options={getNativeRecordPageStackOptions({ page: brandRecordPage, row: brand })} />
- * <NativeRecordPage page={brandRecordPage} row={brand} />
+ * <Stack.Screen options={getNativeRecordViewStackOptions({ view: brandRecordView, row: brand })} />
+ * <NativeRecordView view={brandRecordView} row={brand} />
  * ```
  */
-export function NativeRecordPage<T extends Row = Row>(props: NativeRecordPageProps<T>) {
-  const { page, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
-  const words = { ...defaultNativeRecordPageMessages, ...messages };
+export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewProps<T>) {
+  const { view: recordView, row, section, onSectionChange, onOpenSection, onSaved, switcher, slots, lists, messages, testID = "native-resource-workspace" } = props;
+  const words = { ...defaultNativeRecordViewMessages, ...messages };
   const colors = useThemeRoles();
   const queryClient = useQueryClient();
   const record = row as T & DataRow;
-  const sections = page.sections;
+  const sections = recordView.sections;
   const many = sections.length > SEGMENTED_SECTIONS_MAX;
   const [local, setLocal] = useState<string | undefined>(undefined);
   const activeId = section ?? local ?? (many ? undefined : sections[0]?.id);
-  const active = activeId ? page.section(activeId) : undefined;
-  const readiness = page.readinessFor(record);
-  const summary = page.readinessSummary(record);
+  const active = activeId ? recordView.section(activeId) : undefined;
+  const readiness = recordView.readinessFor(record);
+  const summary = recordView.readinessSummary(record);
   const chip = summary ? readinessChip(summary, words) : null;
 
   const choose = (id: string) => {
@@ -395,7 +395,7 @@ export function NativeRecordPage<T extends Row = Row>(props: NativeRecordPagePro
         testID={`${testID}-list`}
         {...lists?.[active.id]}
         title={false}
-        filter={page.listFilter(active.id, record)}
+        filter={recordView.listFilter(active.id, record)}
       />
     );
   } else if (active?.kind === "settings") {
@@ -403,13 +403,13 @@ export function NativeRecordPage<T extends Row = Row>(props: NativeRecordPagePro
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         <SettingsGroup
           // A fresh draft per record and section.
-          key={`${String(page.recordId(record))}:${active.id}`}
-          page={page}
+          key={`${String(recordView.recordId(record))}:${active.id}`}
+          recordView={recordView}
           sectionId={active.id}
           row={record}
           words={words}
           onSaved={(saved) => {
-            void queryClient.invalidateQueries({ queryKey: [...resourceKeys(page.view.resource).all] });
+            void queryClient.invalidateQueries({ queryKey: [...resourceKeys(recordView.view.resource).all] });
             onSaved?.(saved as T);
           }}
           testID={`${testID}-settings`}
@@ -432,7 +432,7 @@ export function NativeRecordPage<T extends Row = Row>(props: NativeRecordPagePro
 // ── Settings ──────────────────────────────────────────────────────────
 
 function SettingsGroup({
-  page,
+  recordView,
   sectionId,
   row,
   words,
@@ -440,23 +440,23 @@ function SettingsGroup({
   testID,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
-  page: RecordPageDef<ResourceContract<any>, any>;
+  recordView: RecordViewDef<ResourceContract<any>, any>;
   sectionId: string;
   row: DataRow;
-  words: NativeRecordPageMessages;
+  words: NativeRecordViewMessages;
   onSaved: (row: DataRow) => void;
   testID: string;
 }) {
   const provider = useDataProvider();
-  const view = page.view;
+  const view = recordView.view;
   // The view's edit-form mapping (the form sheet's), narrowed to this section's keys in their order.
   const fields = useMemo(() => {
     const byKey = new Map(formFieldsFor(view, "edit").map((f) => [f.key, f]));
-    return page.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
-  }, [page, view, sectionId]);
+    return recordView.settingsFields(sectionId).map((f) => byKey.get(f.field.name)).filter((f): f is NativeFormField => !!f && !f.readOnly);
+  }, [recordView, view, sectionId]);
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
-  const locked = page.settingsLocked(row, viewer);
+  const locked = recordView.settingsLocked(row, viewer);
   const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.key, row[f.key]])));
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -476,7 +476,7 @@ function SettingsGroup({
     setRefusal(null);
     try {
       // Only the section's listed keys, never anything else the row or draft holds.
-      const result = await provider.update(view.resource, { id: page.recordId(row), data: page.settingsPatch(sectionId, changed) });
+      const result = await provider.update(view.resource, { id: recordView.recordId(row), data: recordView.settingsPatch(sectionId, changed) });
       // A write that matched no rows is a refusal, never a silent success.
       if (!result || result.data === null || result.data === undefined) setRefusal(fill(words.notChanged, { noun: view.noun }));
       else onSaved(result.data as DataRow);
@@ -491,7 +491,7 @@ function SettingsGroup({
     <View style={{ gap: 12 }}>
       {refusal ? <NativeInlineAlert testID={`${testID}-refusal`} variant="destructive" description={refusal} /> : null}
       {locked !== null ? <NativeInlineAlert testID={`${testID}-locked`} variant="info" description={locked} /> : null}
-      <Group testID={`${testID}-group`} title={page.section(sectionId)?.label}>
+      <Group testID={`${testID}-group`} title={recordView.section(sectionId)?.label}>
         {shown.map((f, i) => (
           <Cell key={f.key} last={i === shown.length - 1}>
             <SettingRow
@@ -516,34 +516,34 @@ function SettingsGroup({
   );
 }
 
-// The names before record pages were called record pages ("workspace" now means where the viewer
-// is working: docs/adr/0004-workspaces.md). Kept for one minor release; `workspace` is now `page`.
+// The names before record views were called record views ("workspace" now means where the viewer
+// is working: docs/adr/0004-workspaces.md). Kept for one minor release; `workspace` is now `view`.
 
-type OldPage<P extends { page: unknown }> = Omit<P, "page"> & { workspace: P["page"] };
+type OldPage<P extends { view: unknown }> = Omit<P, "view"> & { workspace: P["view"] };
 
-/** @deprecated Renamed `NativeRecordPageProps`; its `workspace` prop is now `page`. */
-export type NativeResourceWorkspaceProps<T extends Row = Row> = OldPage<NativeRecordPageProps<T>>;
+/** @deprecated Renamed `NativeRecordViewProps`; its `workspace` prop is now `view`. */
+export type NativeResourceWorkspaceProps<T extends Row = Row> = OldPage<NativeRecordViewProps<T>>;
 
-/** @deprecated Renamed `NativeRecordPage`, with `page` in place of `workspace`. */
+/** @deprecated Renamed `NativeRecordView`, with `view` in place of `workspace`. */
 export function NativeResourceWorkspace<T extends Row = Row>({ workspace, ...props }: NativeResourceWorkspaceProps<T>) {
-  return <NativeRecordPage<T> {...props} page={workspace} />;
+  return <NativeRecordView<T> {...props} view={workspace} />;
 }
 
-/** @deprecated Renamed `NativeRecordPageMenu`, with `page` in place of `workspace`. */
-export function NativeResourceWorkspaceMenu<T extends Row = Row>({ workspace, ...props }: OldPage<NativeRecordPageHeaderProps<T>> & { testID?: string }) {
-  return <NativeRecordPageMenu<T> {...props} page={workspace} />;
+/** @deprecated Renamed `NativeRecordViewMenu`, with `view` in place of `workspace`. */
+export function NativeResourceWorkspaceMenu<T extends Row = Row>({ workspace, ...props }: OldPage<NativeRecordViewHeaderProps<T>> & { testID?: string }) {
+  return <NativeRecordViewMenu<T> {...props} view={workspace} />;
 }
 
-/** @deprecated Renamed `getNativeRecordPageStackOptions`, with `page` in place of `workspace`. */
+/** @deprecated Renamed `getNativeRecordViewStackOptions`, with `view` in place of `workspace`. */
 export function getNativeResourceWorkspaceStackOptions<T extends Row>({
   workspace,
   ...props
-}: OldPage<NativeRecordPageHeaderProps<T>> & Omit<ScreenHeaderProps, "headerTitle">): Record<string, unknown> {
-  return getNativeRecordPageStackOptions<T>({ ...props, page: workspace });
+}: OldPage<NativeRecordViewHeaderProps<T>> & Omit<ScreenHeaderProps, "headerTitle">): Record<string, unknown> {
+  return getNativeRecordViewStackOptions<T>({ ...props, view: workspace });
 }
 
-/** @deprecated Renamed `defaultNativeRecordPageMessages`. */
-export const defaultNativeResourceWorkspaceMessages = defaultNativeRecordPageMessages;
+/** @deprecated Renamed `defaultNativeRecordViewMessages`. */
+export const defaultNativeResourceWorkspaceMessages = defaultNativeRecordViewMessages;
 
 /**
  * A number as typed: "1.5" or, with a comma as the decimal mark, "1,5". Anything else (an empty
@@ -571,7 +571,7 @@ function SettingRow({
   value: unknown;
   error?: string | undefined;
   disabled: boolean;
-  words: NativeRecordPageMessages;
+  words: NativeRecordViewMessages;
   onChange: (v: unknown, error?: string) => void;
   testID: string;
 }) {

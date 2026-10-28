@@ -93,7 +93,7 @@ components, exports that shadow Genesis's, hard-coded colors), and the native ru
 screens that don't use a Genesis screen layout. Each Genesis package also declares the
 primitives it owns and the doctor enforces them in every app that installs it: data screens
 that hand-build a list instead of a view rendered by `ResourceView` (and the app wrappers around
-those tables), record pages that assemble their own header instead of `RecordPage`, and
+those tables), record views that assemble their own header instead of `RecordView`, and
 direct data access (`supabase.from`, `.rpc`) in screens instead of the view and the resource's
 provider. `genesis primitives` lists every such rule. To hold new code to them while old code
 moves screen by screen, list them in `doctor.ratchet` and run the doctor with `--base` (a rule

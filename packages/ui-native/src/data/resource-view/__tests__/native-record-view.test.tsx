@@ -1,7 +1,7 @@
 // @feat:native-components
 /**
- * NativeRecordPage: one record's screen from a genesis-core page, natively.
- * - the title and the header menu come from getNativeRecordPageStackOptions;
+ * NativeRecordView: one record's screen from a genesis-core page, natively.
+ * - the title and the header menu come from getNativeRecordViewStackOptions;
  * - up to four sections are a segmented control, more are pushed rows;
  * - a list section is an embedded NativeResourceView filtered by the row;
  * - a settings section saves only its changed listed keys; a zero-row save is a refusal, inline;
@@ -13,8 +13,8 @@ import { useState, type ReactNode } from "react";
 import { ActionSheetIOS, Alert, Platform } from "react-native";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type ListParams, type Viewer } from "@marktiderman/genesis-core";
-import { defineView, defineRecordPage } from "@marktiderman/genesis-core/resource-view";
-import { getNativeRecordPageStackOptions, NativeRecordPage, NativeRecordPageMenu, parseSettingNumber } from "..";
+import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
+import { getNativeRecordViewStackOptions, NativeRecordView, NativeRecordViewMenu, parseSettingNumber } from "..";
 
 type Brand = { id: string; name: string; website: string | null; public: boolean; is_default: boolean };
 type Product = { id: string; brand_id: string; title: string };
@@ -56,7 +56,7 @@ const sections = [
   { id: "settings", label: "Settings", settings: ["website", "public"] as const },
   { id: "activity", label: "Activity" },
 ];
-const page = defineRecordPage(brandsView, {
+const page = defineRecordView(brandsView, {
   sections,
   readiness: (b) => [
     { title: "Has a website", ok: !!b.website, reason: "Add the website.", tone: "danger" },
@@ -95,20 +95,20 @@ beforeEach(() => {
   (ActionSheetIOS.showActionSheetWithOptions as unknown as { mockClear: () => void }).mockClear();
 });
 
-describe("NativeRecordPage", () => {
+describe("NativeRecordView", () => {
   it("puts the title in the navigation bar and the actions in the header menu", () => {
-    const options = getNativeRecordPageStackOptions({ page, row: brand });
+    const options = getNativeRecordViewStackOptions({ view: page, row: brand });
     expect(options.title).toBe("Northwind");
     expect(typeof options.headerRight).toBe("function");
-    const none = defineRecordPage(brandsView, { header: { actions: [] }, sections: [{ id: "a", label: "A" }] });
-    expect(getNativeRecordPageStackOptions({ page: none, row: brand }).headerRight).toBeUndefined();
+    const none = defineRecordView(brandsView, { header: { actions: [] }, sections: [{ id: "a", label: "A" }] });
+    expect(getNativeRecordViewStackOptions({ view: none, row: brand }).headerRight).toBeUndefined();
   });
 
   it("iOS: the menu is an action sheet; a refused action explains, a confirm asks, then the provider runs it", async () => {
     const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
     const sheet = vi.spyOn(ActionSheetIOS, "showActionSheetWithOptions").mockImplementation(() => {});
     const p = provider();
-    render(<NativeRecordPageMenu page={page} row={brand} />, { wrapper: wrap(p) });
+    render(<NativeRecordViewMenu view={page} row={brand} />, { wrapper: wrap(p) });
     fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
     const [options, pick] = sheet.mock.calls[0]!;
     expect(options.options).toEqual(["Archive (The default brand stays.)", "Publish", "Purge", "Cancel"]);
@@ -121,7 +121,7 @@ describe("NativeRecordPage", () => {
 
     alert.mockClear();
     const onAction = vi.fn();
-    render(<NativeRecordPageMenu page={page} row={{ ...brand, is_default: false }} onAction={onAction} testID="menu2" />, {
+    render(<NativeRecordViewMenu view={page} row={{ ...brand, is_default: false }} onAction={onAction} testID="menu2" />, {
       wrapper: wrap(provider()),
     });
     fireEvent.click(screen.getByTestId("menu2"));
@@ -140,7 +140,7 @@ describe("NativeRecordPage", () => {
     const alert = vi.spyOn(Alert, "alert").mockImplementation(() => {});
     try {
       const p = provider();
-      render(<NativeRecordPageMenu page={page} row={{ ...brand, is_default: false }} />, { wrapper: wrap(p) });
+      render(<NativeRecordViewMenu view={page} row={{ ...brand, is_default: false }} />, { wrapper: wrap(p) });
       fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
       expect(alert).not.toHaveBeenCalled();
       expect((await screen.findByTestId("native-resource-workspace-menu-purge")).textContent).toContain("Purge");
@@ -155,7 +155,7 @@ describe("NativeRecordPage", () => {
     let finish!: () => void;
     const runAction = vi.fn(() => new Promise<{ data: null }>((resolve) => (finish = () => resolve({ data: null }))));
     const sheet = vi.spyOn(ActionSheetIOS, "showActionSheetWithOptions").mockImplementation(() => {});
-    render(<NativeRecordPageMenu page={page} row={brand} />, { wrapper: wrap(provider({ runAction: runAction as never })) });
+    render(<NativeRecordViewMenu view={page} row={brand} />, { wrapper: wrap(provider({ runAction: runAction as never })) });
     fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
     const pick = sheet.mock.calls[0]![1];
     pick(1);
@@ -168,9 +168,9 @@ describe("NativeRecordPage", () => {
 
   it("names accessibility actions with a prefix, so 'activate' can't take over the button", async () => {
     const view = defineView(brands, { actions: [{ name: "activate", label: "Activate" }] });
-    const ws = defineRecordPage(view, { sections: [{ id: "a", label: "A" }] });
+    const ws = defineRecordView(view, { sections: [{ id: "a", label: "A" }] });
     const p = provider();
-    render(<NativeRecordPageMenu page={ws} row={brand} />, { wrapper: wrap(p) });
+    render(<NativeRecordViewMenu view={ws} row={brand} />, { wrapper: wrap(p) });
     const button = screen.getByTestId("native-resource-workspace-menu");
     expect(button.getAttribute("data-a11y-actions")).toBe("action:activate");
     // The platform's own "activate" does nothing here; the prefixed one runs the action.
@@ -181,16 +181,16 @@ describe("NativeRecordPage", () => {
   });
 
   it("hides actions when nothing can run them, or the screen turns them off", () => {
-    render(<NativeRecordPageMenu page={page} row={brand} testID="none" />, { wrapper: wrap(provider({ runAction: undefined })) });
+    render(<NativeRecordViewMenu view={page} row={brand} testID="none" />, { wrapper: wrap(provider({ runAction: undefined })) });
     expect(screen.queryByTestId("none")).toBeNull();
     const sheet = vi.spyOn(ActionSheetIOS, "showActionSheetWithOptions").mockImplementation(() => {});
-    render(<NativeRecordPageMenu page={page} row={brand} can={(name) => name !== "publish"} />, { wrapper: wrap(provider()) });
+    render(<NativeRecordViewMenu view={page} row={brand} can={(name) => name !== "publish"} />, { wrapper: wrap(provider()) });
     fireEvent.click(screen.getByTestId("native-resource-workspace-menu"));
     expect(sheet.mock.calls.at(-1)![0].options).not.toContain("Publish");
   });
 
   it("shows up to four sections as a segmented control, and the readiness checks", () => {
-    render(<NativeRecordPage page={page} row={brand} section="activity" slots={{ activity: <></> }} switcher={<></>} />, {
+    render(<NativeRecordView view={page} row={brand} section="activity" slots={{ activity: <></> }} switcher={<></>} />, {
       wrapper: wrap(provider()),
     });
     const control = screen.getByTestId("native-resource-workspace-sections");
@@ -202,7 +202,7 @@ describe("NativeRecordPage", () => {
   });
 
   it("shows the summary chip alone once every check is met", () => {
-    render(<NativeRecordPage page={page} row={{ ...brand, website: "https://x.example" }} section="activity" messages={{ ready: "Ready to go" }} />, {
+    render(<NativeRecordView view={page} row={{ ...brand, website: "https://x.example" }} section="activity" messages={{ ready: "Ready to go" }} />, {
       wrapper: wrap(provider()),
     });
     expect(screen.getByTestId("native-resource-workspace-readiness").textContent).toBe("Ready to go");
@@ -210,11 +210,11 @@ describe("NativeRecordPage", () => {
   });
 
   it("pushes sections when there are more than four", () => {
-    const wide = defineRecordPage(brandsView, {
+    const wide = defineRecordView(brandsView, {
       sections: ["a", "b", "c", "d", "e"].map((id) => ({ id, label: id.toUpperCase() })),
     });
     const onOpenSection = vi.fn();
-    render(<NativeRecordPage page={wide} row={brand} onOpenSection={onOpenSection} />, { wrapper: wrap(provider()) });
+    render(<NativeRecordView view={wide} row={brand} onOpenSection={onOpenSection} />, { wrapper: wrap(provider()) });
     expect(screen.queryByTestId("native-resource-workspace-sections-option-a")).toBeNull();
     fireEvent.click(screen.getByTestId("native-resource-workspace-section-e"));
     expect(onOpenSection).toHaveBeenCalledWith("e");
@@ -222,7 +222,7 @@ describe("NativeRecordPage", () => {
 
   it("draws a list section as an embedded NativeResourceView filtered by the row", async () => {
     const p = provider();
-    render(<NativeRecordPage page={page} row={brand} />, { wrapper: wrap(p) });
+    render(<NativeRecordView view={page} row={brand} />, { wrapper: wrap(p) });
     expect(await screen.findByText("Kettle")).toBeTruthy();
     const params = (p.getList as ReturnType<typeof vi.fn>).mock.calls[0]![1] as ListParams;
     expect(params.filters).toContainEqual({ field: "brand_id", operator: "eq", value: "b1" });
@@ -231,7 +231,7 @@ describe("NativeRecordPage", () => {
   it("switches sections and saves only the changed listed keys", async () => {
     const p = provider();
     const onSaved = vi.fn();
-    render(<NativeRecordPage page={page} row={brand} onSaved={onSaved} />, { wrapper: wrap(p) });
+    render(<NativeRecordView view={page} row={brand} onSaved={onSaved} />, { wrapper: wrap(p) });
     fireEvent.click(screen.getByTestId("native-resource-workspace-sections-option-settings"));
     const input = screen.getByTestId("native-resource-workspace-settings-website-input");
     fireEvent.change(input, { target: { value: "https://northwind.example" } });
@@ -242,15 +242,15 @@ describe("NativeRecordPage", () => {
 
   it("shows a zero-row save as a refusal, inline", async () => {
     const p = provider({ update: vi.fn(async () => ({ data: null })) as unknown as DataProvider["update"] });
-    render(<NativeRecordPage page={page} row={brand} section="settings" />, { wrapper: wrap(p) });
+    render(<NativeRecordView view={page} row={brand} section="settings" />, { wrapper: wrap(p) });
     fireEvent.change(screen.getByTestId("native-resource-workspace-settings-website-input"), { target: { value: "https://x.example" } });
     fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
     expect((await screen.findByTestId("native-resource-workspace-settings-refusal")).textContent).toContain("This brand was not changed.");
   });
 });
 
-describe("NativeRecordPage review fixes", () => {
-  const locking = defineRecordPage(
+describe("NativeRecordView review fixes", () => {
+  const locking = defineRecordView(
     defineView(brands, {
       fields: { website: { visible: (v) => v["public"] === true } },
       can: { update: (b) => (b.is_default ? "Locked." : true) },
@@ -259,14 +259,14 @@ describe("NativeRecordPage review fixes", () => {
   );
 
   it("shows settings read-only with the reason when the view refuses update", () => {
-    render(<NativeRecordPage page={locking} row={brand} />, { wrapper: wrap(provider()) });
+    render(<NativeRecordView view={locking} row={brand} />, { wrapper: wrap(provider()) });
     expect(screen.getByTestId("native-resource-workspace-settings-locked").textContent).toContain("Locked.");
     expect(screen.queryByTestId("native-resource-workspace-settings-save")).toBeNull();
   });
 
   it("leaves a field hidden by `visible` out of the save", async () => {
     const p = provider();
-    render(<NativeRecordPage page={locking} row={{ ...brand, is_default: false, public: true }} />, { wrapper: wrap(p) });
+    render(<NativeRecordView view={locking} row={{ ...brand, is_default: false, public: true }} />, { wrapper: wrap(p) });
     fireEvent.change(screen.getByTestId("native-resource-workspace-settings-website-input"), { target: { value: "https://x.example" } });
     fireEvent.change(screen.getByTestId("native-resource-workspace-settings-name-input"), { target: { value: "Southwind" } });
     fireEvent.click(screen.getByTestId("native-resource-workspace-settings-public-input"));
@@ -276,8 +276,8 @@ describe("NativeRecordPage review fixes", () => {
   });
 
   it("opens a section in place with a way back when there are more than four and no onOpenSection", () => {
-    const wide = defineRecordPage(brandsView, { sections: ["a", "b", "c", "d", "e"].map((id) => ({ id, label: id.toUpperCase() })) });
-    render(<NativeRecordPage page={wide} row={brand} slots={{ e: <p>Section E</p> }} />, { wrapper: wrap(provider()) });
+    const wide = defineRecordView(brandsView, { sections: ["a", "b", "c", "d", "e"].map((id) => ({ id, label: id.toUpperCase() })) });
+    render(<NativeRecordView view={wide} row={brand} slots={{ e: <p>Section E</p> }} />, { wrapper: wrap(provider()) });
     fireEvent.click(screen.getByTestId("native-resource-workspace-section-e"));
     expect(screen.getByText("Section E")).toBeTruthy();
     fireEvent.click(screen.getByTestId("native-resource-workspace-all-sections"));
@@ -294,9 +294,9 @@ describe("NativeRecordPage review fixes", () => {
   });
 });
 
-describe("NativeRecordPage when only the viewer's roles change", () => {
+describe("NativeRecordView when only the viewer's roles change", () => {
   const isEditor = (v?: Viewer) => ((v?.roles as { teamRoles?: readonly string[] } | undefined)?.teamRoles ?? []).includes("editor");
-  const guarded = defineRecordPage(
+  const guarded = defineRecordView(
     defineView(brands, {
       can: { update: (_b, v) => (isEditor(v) ? true : "Only editors change brands.") },
       actions: [{ name: "publish", label: "Publish", can: (_b, v) => (isEditor(v) ? true : "Only editors publish.") }],
@@ -318,8 +318,8 @@ describe("NativeRecordPage when only the viewer's roles change", () => {
       <Base>
         <ViewerScope viewer="ann" roles={roles as never}>
           <Mounts />
-          <NativeRecordPageMenu page={guarded} row={brand} />
-          <NativeRecordPage page={guarded} row={brand} />
+          <NativeRecordViewMenu view={guarded} row={brand} />
+          <NativeRecordView view={guarded} row={brand} />
         </ViewerScope>
       </Base>
     );
