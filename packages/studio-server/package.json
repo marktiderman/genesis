@@ -77,5 +77,38 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "handler-on-server",
+          "need": "the Data Studio's server side",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-studio-server",
+              "@marktiderman/genesis-studio-server/auth"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "the browser client in screens, the handler in a server route",
+          "import": "@marktiderman/genesis-studio-server/client",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA-STUDIO.md",
+          "why": "The handler talks to Postgres as the signed-in user and must never ship to a browser."
+        }
+      ]
+    }
   }
 }

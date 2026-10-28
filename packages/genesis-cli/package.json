@@ -89,5 +89,11 @@
     "vite": {
       "optional": true
     }
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "The doctor itself: its rules are the built-ins."
+    }
   }
 }

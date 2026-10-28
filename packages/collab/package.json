@@ -42,5 +42,19 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "A headless core and schema that features build on; no app pattern it replaces is reliably detectable yet.",
+      "primitives": [
+        {
+          "need": "sharing something with roles, an audience and visibility rules",
+          "use": "a collab space",
+          "import": "@marktiderman/genesis-collab",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/COLLABORATION.md"
+        }
+      ]
+    }
   }
 }

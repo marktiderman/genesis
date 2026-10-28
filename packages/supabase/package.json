@@ -250,6 +250,35 @@
           "In the native app, call openOnWeb from @marktiderman/genesis-native/web-handoff with the mint route, the session's access token and expo-web-browser."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "client-from-genesis",
+          "need": "a Supabase client in the app or on the phone",
+          "level": "warn",
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "pattern": "import\\s*\\{[^}]*\\bcreateClient\\b[^}]*\\}\\s*from\\s*[\"']@supabase/supabase-js[\"']"
+          },
+          "use": "createGenesisSupabase()",
+          "import": "@marktiderman/genesis-supabase",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/supabase/README.md",
+          "why": "Genesis's client sets PKCE, session storage that survives interrupted writes and refresh only while the app is in front. Server files (a service-key client) aren't checked."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "background jobs",
+          "use": "enqueueJob and runJobs",
+          "import": "@marktiderman/genesis-supabase/jobs",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/supabase/README.md"
+        }
+      ]
     }
   },
   "peerDependenciesMeta": {

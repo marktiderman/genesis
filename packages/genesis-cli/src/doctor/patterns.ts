@@ -27,12 +27,14 @@ export function parseRulesMarkdown(markdown: string): PatternRule[] {
       current = null;
       continue;
     }
-    const kv = current && line.match(/^-\s+(level|files|exclude|forbid|require|path|message):\s*(.*)$/);
+    const kv = current && line.match(/^-\s+(level|files|exclude|forbid|require|path|message|newOnly):\s*(.*)$/);
     if (!current || !kv) continue;
     const [, key, raw] = kv;
     const value = raw.trim();
     if (key === "files" || key === "exclude") current[key] = value.split(",").map((s) => s.trim()).filter(Boolean);
     else if (key === "level") current.level = value as PatternRule["level"];
+    // Anything but true or false is kept as written, for compilePatternRules to refuse.
+    else if (key === "newOnly") current.newOnly = (value === "true" ? true : value === "false" ? false : value) as boolean;
     else current[key as "forbid" | "require" | "path" | "message"] = value;
   }
   return rules;
@@ -65,6 +67,9 @@ export function compilePatternRules(rules: PatternRule[], source: string): Compi
     if (!["error", "warn", "info", "guide"].includes(level)) {
       throw new DoctorConfigError(`${source}: rule "${rule.id}" has level "${level}" (use error, warn, info or guide)`);
     }
+    if (rule.newOnly !== undefined && typeof rule.newOnly !== "boolean") {
+      throw new DoctorConfigError(`${source}: rule "${rule.id}" has newOnly "${String(rule.newOnly)}" (use true or false)`);
+    }
     if (level === "guide") continue;
     if (!rule.files?.length) throw new DoctorConfigError(`${source}: rule "${rule.id}" needs "files" (or level: guide)`);
     if (!rule.forbid && !rule.require && !rule.path) {
@@ -88,7 +93,11 @@ export function compilePatternRules(rules: PatternRule[], source: string): Compi
 }
 
 /** Pattern rules from config and the rules doc, as one plugin. Returns null when there are none. */
-export function loadPatternRules(root: string, patterns: PatternRule[] | undefined, rulesDoc: string | undefined): { plugin: DoctorPlugin; count: number } | null {
+export function loadPatternRules(
+  root: string,
+  patterns: PatternRule[] | undefined,
+  rulesDoc: string | undefined,
+): { plugin: DoctorPlugin; count: number; ids: string[]; newOnly: string[] } | null {
   const compiled = compilePatternRules(patterns ?? [], "doctor.patterns");
   let all = compiled;
   if (rulesDoc) {
@@ -102,6 +111,8 @@ export function loadPatternRules(root: string, patterns: PatternRule[] | undefin
   if (all.length === 0) return null;
   return {
     count: all.length,
+    ids: all.map((r) => r.rule.id),
+    newOnly: all.filter((r) => r.rule.newOnly).map((r) => r.rule.id),
     plugin: {
       name: "patterns",
       check(ctx: DoctorContext) {
