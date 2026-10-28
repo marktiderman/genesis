@@ -824,7 +824,7 @@ importers:
   packages/features:
     dependencies:
       zod:
-        specifier: ^4.6.6
+        specifier: ^3.25.0 || ^4.0.0
         version: 4.6.6
     devDependencies:
       '@marktiderman/genesis-core':

@@ -56,7 +56,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "zod": "^4.6.6"
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependencies": {
     "@marktiderman/genesis-ui": "workspace:>=2.7.0 <3.0.0",
