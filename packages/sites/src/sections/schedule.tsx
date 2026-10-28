@@ -1,6 +1,6 @@
 /**
- * The weekly timetable: classes by time and day, with their coach and
- * where they meet.
+ * The weekly timetable: classes or sessions by time and day, with who
+ * hosts them and where they meet.
  *
  * - `grid`: on wider screens an accessible table (a caption, a header cell
  *   per day and per time, an empty slot said as "No class"); on a phone a
@@ -43,6 +43,9 @@ const Session = z.object({
   title: Line(60),
   /** A class type's id, for its chip colour and the legend. */
   type: TypeId.optional(),
+  /** Who leads it: shown as "with …". */
+  host: Line(60).optional(),
+  /** @deprecated Use `host`; read when `host` is left out. */
   coach: Line(60).optional(),
   location: Line(60).optional(),
   note: Line(80).optional(),
@@ -63,7 +66,7 @@ const schema = z.object({
   types: z.array(ClassType).max(16).default([]),
   sessions: z.array(Session).max(200),
   /** What an empty slot or day says. */
-  emptyText: Line(60).default("No classes"),
+  emptyText: Line(60).default("Nothing scheduled"),
   footnote: Copy(300).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
@@ -119,9 +122,10 @@ function Chip({ session, types }: { session: ScheduleSession; types: Map<string,
   );
 }
 
-/** Coach, place and note, as one quiet line. */
+/** Host, place and note, as one quiet line. */
 function Details({ session, muted }: { session: ScheduleSession; muted: boolean }) {
-  const parts = [session.coach ? `with ${session.coach}` : null, session.location, session.note].filter(Boolean);
+  const host = session.host ?? session.coach;
+  const parts = [host ? `with ${host}` : null, session.location, session.note].filter(Boolean);
   if (!parts.length) return null;
   return <span className={cn("block text-xs", muted && "text-muted-foreground")}>{parts.join(" · ")}</span>;
 }
@@ -200,7 +204,7 @@ export const scheduleSection = defineSection({
   type: "schedule",
   version: 1,
   label: "Timetable",
-  description: "The week's classes by time and day, with coach and place: a table on wider screens and a day picker on a phone.",
+  description: "The week's classes by time and day, with host and place: a table on wider screens and a day picker on a phone.",
   category: "content",
   schema,
   variants: [
@@ -219,8 +223,8 @@ export const scheduleSection = defineSection({
           { id: "open", name: "Open gym", description: "Train on your own; a coach is on the floor.", tone: "soft" },
         ],
         sessions: [
-          { day: "mon", start: "06:00", title: "Strength", type: "strength", coach: "Coach name" },
-          { day: "wed", start: "06:00", title: "Strength", type: "strength", coach: "Coach name" },
+          { day: "mon", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
+          { day: "wed", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
           { day: "sat", start: "09:00", title: "Open gym", type: "open" },
         ],
       },

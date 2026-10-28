@@ -180,11 +180,11 @@ a button and a note per step) and `numbered`; `pricing` takes plan `groups`
 `tiers`; `logos` has a `trust-bar` variant (a short claim and badges), and an
 item without an image is a text badge.
 
-- **`schedule`**: the week's classes by time and day, with coach, place,
-  a note and a booking link per class, and chips per class type in the
-  brand's colours (`types`, with a legend). On wider screens it is a table
-  (a caption, a header cell per day and per time, an empty slot said as "No
-  classes"); on a phone a day picker: radio buttons and the stylesheet's
+- **`schedule`**: the week's classes by time and day, with a host ("with …";
+  `coach` is a deprecated alias), place, a note and a booking link per class,
+  and chips per class type in the brand's colours (`types`, with a legend). On
+  wider screens it is a table (a caption, a header cell per day and per time,
+  an empty slot said as `emptyText`, default "Nothing scheduled"); on a phone a day picker: radio buttons and the stylesheet's
   `:has()` show one day's classes, with no script (every day shows where
   `:has()` isn't supported).
 - **`team`**: photo, role, credentials, a long bio, a quote, a button and a
