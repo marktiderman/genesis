@@ -1,0 +1,31 @@
+.changeset/introspect-view-rules-enums.md
+  s_5beca2076873c9::t_ebb655dfaa563a 1-5
+packages/genesis-cli/src/introspect/postgres.ts
+  s_1cf5ee0aa53946::t_db56391c26bb93 112-113,121,202-206,210-211
+packages/genesis-cli/test/introspect.test.ts
+  s_1cf5ee0aa53946::t_759c93f837591d 103-123,290-300,318,320,323-324,326,391-404
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "87a2c31d42086779bc3869918845cb47ee385328",
+  "prompts": {},
+  "sessions": {
+    "s_1cf5ee0aa53946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a8475e93-be25-4ca2-9a8b-70db0c39d04b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
