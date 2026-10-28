@@ -1,0 +1,24 @@
+packages/ui/src/components/data/__tests__/data-table-tree.test.tsx
+  s_9c9d63a1d6af72::t_71779079a7b36f 47,109-114
+  s_9c9d63a1d6af72::t_4c929a346f7a50 115-116
+packages/ui/src/components/data/DataTable.tsx
+  s_9c9d63a1d6af72::t_71779079a7b36f 915,919-921,1124-1126
+.changeset/tree-arrow-hidden-open-column.md
+  s_9c9d63a1d6af72::t_898710294e9b26 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2bd8b0d50f25fd90834628ae916e2bf0431e6853",
+  "prompts": {},
+  "sessions": {
+    "s_9c9d63a1d6af72": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b47699f7-e1c4-4ffa-a974-e0b0fc583c18",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
