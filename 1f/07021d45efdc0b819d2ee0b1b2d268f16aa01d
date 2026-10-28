@@ -1,0 +1,21 @@
+packages/genesis-cli/src/doctor/contracts.ts
+  s_5beca2076873c9::t_ec24ba4e04024c 15-17,88
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_5beca2076873c9::t_07aaa6e5b57420 819-823
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1f07021d45efdc0b819d2ee0b1b2d268f16aa01d",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
