@@ -1,0 +1,19 @@
+AGENTS.md
+  s_19985fff67ceca::t_1db6462eecbc65 37,40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "346a7cfb00133a8edaefeaa90140339646cdb577",
+  "prompts": {},
+  "sessions": {
+    "s_19985fff67ceca": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f495fcba-3fc0-4093-b228-35543b0561d5",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
