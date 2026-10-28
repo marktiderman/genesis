@@ -65,8 +65,8 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
           dbType,
           type: storageTypeOf(format),
           array: isArray,
-          // PostgREST lists NOT NULL columns without a default as required;
-          // the rest may be null or are filled by the database.
+          // PostgREST (v9 on) lists every NOT NULL column as required, with or
+          // without a default (`filter (not . colNullable)` in its OpenAPI.hs).
           nullable: !required.has(column),
           hasDefault: prop.default !== undefined,
           generated: false,

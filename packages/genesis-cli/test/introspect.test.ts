@@ -100,6 +100,27 @@ describe("introspect from OpenAPI (PostgREST / Supabase)", () => {
     expect(col("starts_at").type).toBe("datetime");
   });
 
+  it("reads a NOT NULL column with a default as not nullable, since PostgREST lists it as required", () => {
+    const [notes] = introspectOpenApi({
+      swagger: "2.0",
+      definitions: {
+        notes: {
+          required: ["id", "title"],
+          properties: {
+            id: { format: "integer", type: "integer", description: "Note:\nThis is a Primary Key.<pk/>" },
+            title: { format: "text", type: "string", default: "" },
+            memo: { format: "text", type: "string" },
+          },
+        },
+      },
+    });
+    const col = (n: string) => notes!.columns.find((c) => c.name === n)!;
+    expect(col("title")).toMatchObject({ nullable: false, hasDefault: true });
+    expect(col("memo")).toMatchObject({ nullable: true, hasDefault: false });
+    const out = emitContracts([notes!], { source: "x" });
+    expect(out).toContain('name: "title", type: "string", dbType: "text", nullable: false, optional: true, hasDefault: true');
+  });
+
   it("explains a document that isn't PostgREST's", () => {
     expect(() => introspectOpenApi({ openapi: "3.0.0" })).toThrow(/PostgREST/);
   });
@@ -266,6 +287,17 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       create schema "my.s";
       create table "my.s"."we.ird" (id int primary key, pair_id int references public.pairs (id));
       create table public."a.b" (id int primary key, w int references "my.s"."we.ird" (id));
+      create table public.owners (id int primary key, name text not null);
+      create table public.pets (id int primary key, owner_id int not null references public.owners (id), name text not null);
+      create view public.owner_pets as
+        select p.id, p.name from public.owners o left join public.pets p on p.owner_id = o.id;
+      create rule owner_pets_update as on update to public.owner_pets
+        do instead update public.pets set name = new.name where id = old.id;
+      create rule owner_pets_delete as on delete to public.owner_pets
+        do instead delete from public.pets where id = old.id;
+      create type public.mood as enum ('calm', 'busy', 'away');
+      create table public.moods (id int primary key, mood public.mood not null check (mood in ('calm', 'busy')));
+      create view public.my_moods as select * from public.moods;
     `);
   });
   afterAll(async () => {
@@ -283,10 +315,15 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       "public.goal_titles",
       "public.goals",
       "public.hidden_view",
+      "public.moods",
       "public.my_goals",
+      "public.my_moods",
       "public.odd_checks",
       "public.owner_customers",
+      "public.owner_pets",
+      "public.owners",
       "public.pairs",
+      "public.pets",
       "public.programs",
       "public.swapped",
     ]);
@@ -349,6 +386,20 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     const hidden = tables.find((t) => t.name === "public.hidden_view")!;
     expect(hidden.key).toEqual(["id"]);
     expect(hidden.columns.map((c) => c.nullable)).toEqual([false, false]);
+  });
+
+  it("leaves a view updatable only through its rules as read, since its rows need not be the table's", async () => {
+    const pets = (await introspectPostgres(sql, ["public"])).find((t) => t.name === "public.owner_pets")!;
+    // An outer join: an owner without pets gives a row whose id and name are null.
+    expect(pets.key).toEqual([]);
+    expect(pets.columns.every((c) => c.nullable && c.nullableUnknown && !c.references)).toBe(true);
+  });
+
+  it("keeps a CHECK's narrowing of an enum type on a view of the table", async () => {
+    const tables = await introspectPostgres(sql, ["public"]);
+    const mood = (t: string) => tables.find((x) => x.name === t)!.columns.find((c) => c.name === "mood")!.enumValues;
+    expect(mood("public.moods")).toEqual(["calm", "busy"]);
+    expect(mood("public.my_moods")).toEqual(["calm", "busy"]);
   });
 
   it("follows a renamed view column by position, not the name it was created with", async () => {

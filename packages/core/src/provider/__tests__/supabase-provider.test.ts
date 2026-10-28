@@ -870,17 +870,30 @@ describe("resource names: quoting, spellings and precedence", () => {
     expect(fromArgs()).toEqual(["schema:my.s", "from:we.ird"]);
   });
 
-  it("asks a binTables or realtime test with the bare name, then the qualified one", async () => {
+  it("asks a binTables or realtime test once, with the name as the caller gave it", async () => {
     const seen: string[] = [];
     queue.push(ok([{ id: "c1" }]), ok([]), ok([]));
-    await createSupabaseProvider(schemaClient, { binTables: (r) => (seen.push(r), r === "public.commitments") }).deleteOne("commitments", { id: "c1" });
-    expect(seen).toEqual(["commitments", "public.commitments"]);
+    await createSupabaseProvider(schemaClient, { binTables: (r) => (seen.push(r), r === "commitments") }).deleteOne("commitments", { id: "c1" });
+    expect(seen).toEqual(["commitments"]);
     // The bin path ran: visible, delete, gone.
     expect(queue).toEqual([]);
     const asked: string[] = [];
     const p = createSupabaseProvider({ ...schemaClient, channel: () => ({}) }, { realtime: (r) => (asked.push(r), false) });
     await p.capabilities?.("public.tasks");
-    expect(asked).toEqual(["tasks", "public.tasks"]);
+    expect(asked).toEqual(["public.tasks"]);
+  });
+
+  it("never lets the other spelling turn on a resource a binTables or realtime test excludes", async () => {
+    const p = createSupabaseProvider(
+      { ...schemaClient, channel: () => ({}) },
+      { binTables: (r) => r !== "goals", realtime: (r) => r !== "audit_log" },
+    );
+    expect((await p.capabilities?.("goals"))?.softDelete).toBe(false);
+    expect((await p.capabilities?.("audit_log"))?.realtime).toBe(false);
+    expect((await p.capabilities?.("notes"))?.softDelete).toBe(true);
+    // A list still matches either spelling.
+    const listed = createSupabaseProvider(schemaClient, { binTables: ["public.goals"] });
+    expect((await listed.capabilities?.("goals"))?.softDelete).toBe(true);
   });
 
   it("takes the rules keyed exactly as the caller names the resource, the other spelling only when absent", async () => {
