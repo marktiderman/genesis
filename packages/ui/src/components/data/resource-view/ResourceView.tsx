@@ -5,7 +5,7 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -30,6 +30,13 @@ export interface ResourceViewOptions {
    * "any of" (`{ status: ["open", "blocked"] }`). A new row gets the single values too, never a list.
    */
   filter?: Filter;
+  /**
+   * Whether the list follows the viewer's scope (default true): inside a `ViewerScope` or
+   * `WorkspaceScope`, the view's `scope` keys filter the list and start new rows, with no screen
+   * code. The screen's own `filter` wins over a scope key it also sets. `false` for a list that
+   * deliberately looks past the scope.
+   */
+  scoped?: boolean;
   /**
    * Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike
    * `filter`, they don't narrow the list. A field the form shows starts at the value instead.
@@ -105,11 +112,14 @@ function singleValues(filter: Filter): Defaults {
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
   const {
-    view, layout = "page", columns: columnPreset, preset, filter, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    view, layout = "page", columns: columnPreset, preset, filter: screenFilter, scoped = true, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
   } = props;
   const cell = useDisplayCell();
+  const viewer = useViewer();
+  // The viewer's scope first (the workspace they're in), then the screen's own filter over it.
+  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   if (preset && !tab) {
     throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
@@ -194,7 +204,6 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
   // new viewer or new roles asks them again.
-  const viewer = useViewer();
   const allows = useMemo(
     () => (action: ResourceAction, item?: T) => {
       if (can && !can(action, item)) return false;

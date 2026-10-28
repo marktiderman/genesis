@@ -15,6 +15,7 @@ export default defineConfig({
     "src/utils.ts",
     "src/slots.tsx",
     "src/navigation.ts",
+    "src/workspaces.ts",
     "src/testing/index.ts",
     "src/dates.ts",
     "src/resource/index.ts",

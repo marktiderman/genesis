@@ -339,6 +339,13 @@ export interface AppShellProps {
    * region entirely while collapsed.
    */
   collapsedHeaderSlot?: ReactNode;
+  /**
+   * Replaces the app name in the phone's top bar: a workspace switcher (`WorkspaceSwitcher
+   * variant="bar"`), so the viewer always sees where they are working.
+   *
+   * @stability Beta
+   */
+  mobileHeaderSlot?: ReactNode;
   /** Footer region above the user slot (version, links) */
   footer?: ReactNode;
   /**
@@ -1121,6 +1128,7 @@ export function AppShell({
   mobileNavItems,
   headerSlot,
   collapsedHeaderSlot,
+  mobileHeaderSlot,
   footer,
   userSlot,
   children,
@@ -1762,7 +1770,11 @@ export function AppShell({
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="flex-1 truncate font-semibold">{appName}</span>
+          {mobileHeaderSlot ? (
+            <div className="flex min-w-0 flex-1 items-center">{mobileHeaderSlot}</div>
+          ) : (
+            <span className="flex-1 truncate font-semibold">{appName}</span>
+          )}
           {showTheme ? (
             <ThemeToggle testId="app-shell-theme-toggle-mobile-header" />
           ) : null}
