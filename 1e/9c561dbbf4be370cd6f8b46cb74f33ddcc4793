@@ -1,0 +1,51 @@
+packages/features/CHANGELOG.md
+  s_e78d57e50dc818::t_e855ab6b2016cb 67
+features.json
+  s_e78d57e50dc818::t_34e45d2f602c2c 4568
+package.json
+  s_e78d57e50dc818::t_40a867149a1834 17
+.github/workflows/ci.yml
+  s_e78d57e50dc818::t_40a867149a1834 42-45
+packages/ui/CHANGELOG.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 339,1180,1535,1617,1649
+packages/design-system/CHANGELOG.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 142,240,247,249,253,259
+docs/FRAMEWORK.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 51,54
+packages/genesis-cli/test/codemod-scope-names.test.ts
+  s_e78d57e50dc818::t_615e4fa2d90a29 137
+packages/genesis/CHANGELOG.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 1080-1081,1099,1102-1103,1105-1106,1133-1134,1152,1155-1156,1162-1163
+packages/studio-server/test/unit.test.ts
+  s_e78d57e50dc818::t_615e4fa2d90a29 543,552
+AGENTS.md
+  s_e78d57e50dc818::t_6fa89b4b2aa885 12-14
+features.ts
+  s_e78d57e50dc818::t_615e4fa2d90a29 1994
+packages/supabase/CHANGELOG.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 7
+scripts/check-private-names.mjs
+  s_e78d57e50dc818::t_98d7059ba59063 1-65
+packages/genesis-cli/CHANGELOG.md
+  s_e78d57e50dc818::t_615e4fa2d90a29 83
+packages/ui/src/components/layout/__tests__/public-layouts.test.tsx
+  s_e78d57e50dc818::t_615e4fa2d90a29 130,137,158
+packages/studio-server/test/switch.integration.test.ts
+  s_e78d57e50dc818::t_615e4fa2d90a29 173,177,204
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1e9c561dbbf4be370cd6f8b46cb74f33ddcc4793",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
