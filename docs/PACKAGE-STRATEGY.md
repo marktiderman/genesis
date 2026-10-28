@@ -1,208 +1,241 @@
 # Package strategy: how Genesis is organised, and what to build next
 
-Proposal v0.1, 2026-10-28. Status: **for review by the maintainer**. Nothing here is built yet,
-and no package moves until the maintainer signs off on the move.
+Proposal v0.2, 2026-10-28. Status: **for review by the maintainer**. Nothing here is built yet,
+and no package moves until the maintainer signs off on the move. v0.2 folds in three adversarial
+reviews; what changed from v0.1 is listed at the end.
 
-Genesis exists so a new app starts with what every modern app needs and writes only what is truly
-its own ([FRAMEWORK.md](./FRAMEWORK.md), G1–G6). This document:
+## Recommendation
 
-1. looks at the 27 packages as they stand;
-2. proposes a clearer organisation;
-3. compares Genesis with what Linear, Cursor and the leading starter kits build once and reuse;
-4. ranks what to build next.
+Keep the package list nearly as it is, name the five groups it already falls into, and make
+most of the next work **extensions of what exists** rather than new packages:
 
-The first item on that list, a central AI package, has its own design: [AI.md](./AI.md).
+- error reporting grows into observability inside `core`;
+- commands grow out of the navigation config in PR #449;
+- uploads promote the protocol forms already moved up from an app;
+- billing writes through the entitlement grants merged in migration 0017.
+
+The one new package is `genesis-ai`. It starts as a thin, server-only policy layer that replaces
+the AI code Growth90 already runs, plus a control plane to manage it ([AI.md](./AI.md)). Retrieval,
+an app MCP server and agents stay ideas until a second app asks for them (G4).
 
 ## 1. What Genesis has today
 
-Measured on `main` at 2026-10-28. Line counts are source lines, without tests.
+Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests.
 
 | Group | Package | Lines | What it is |
 |---|---|---:|---|
 | **Foundation** | `design-system` | 3.8k | Tokens, brands, themes |
-| | `core` | 10.8k | DataProvider, hooks, query keys, dates, slots, navigation |
-| | `ui` | 28.3k | Web components, patterns, layouts, data views (86 subpaths) |
+| | `core` | 10.8k | DataProvider, hooks (including optimistic and **undoable** writes), query keys, dates, slots, navigation, `reportError` |
+| | `ui` | 28.3k | Web components, patterns, layouts, data views, `CommandPalette` with `useCommandPaletteHotkey` |
 | | `ui-native` | 14.4k | The same vocabulary on React Native |
 | | `features` | 3.1k | Feature registry, flags, gate, blocks |
-| **App shells** | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, **observability**, devtools |
+| **App shells** | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, observability sinks, devtools |
 | | `extension` | 2.1k | Chrome MV3 kit |
-| **Platform services** | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, **jobs**, feature mirror, web handoff, people, **entitlements** |
+| **Platform services** | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, jobs, feature mirror, web handoff, people, **person entitlements** (0017, with `grant_person_entitlement`) |
 | | `connect` | 1.9k | Encrypted secrets, OAuth connector kit |
 | | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
 | | `data-switchboard` | 4.1k | Move a resource between backends |
-| **Domain blocks** | `chat` | 21.6k | Conversations, media, moderation, **AI recap and drafts**, transcription |
-| | `forms` (+ `-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, workspace, devtools |
+| **Domain blocks** | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
+| | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, workspace, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
 | | `sites` | 12.2k | Sites, landing pages, blog, editor |
 | | `support` | 3.5k | Feedback, reports, idea board |
-| | `collab` | 0.2k | Spaces and visibility (early) |
-| | `studio`, `studio-server` | 9.0k | Data Studio |
+| | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
+| | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
 | | `product` | 2.1k | Product board, triage, release notes |
 | **Tooling** | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
 | | `agents` | docs | Rules of engagement for agent sessions |
-| | `genesis` | — | Umbrella: re-exports Foundation, `native` and the forms packages |
+| | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
+
+### Consumers today
+
+Genesis promotes what apps prove (G4), so the strategy starts from what Growth90, the main app
+on Genesis, actually does (read at its commit `7c0fecd`, 2026-10-27):
+
+| What Growth90 does | Where | What it says about Genesis |
+|---|---|---|
+| "Catch me up" AI recap through `createChatAssistant`, on only when `ANTHROPIC_API_KEY` is set, coaches only, read as the caller under RLS, `observer` from `genesis_chat.i_observe` | `src/lib/chat/assistant.server.ts` | The correct server-side loading for AI already exists, in the app. `genesis-ai` should promote it, not redesign it. |
+| OpenAI moderation and Deepgram transcription wired into chat's runner | `src/lib/chat-runner.server.ts` | Two more AI processors, unmetered. |
+| Anthropic, OpenAI and Deepgram named by hand as processors | `src/routes/privacy.tsx` | Privacy and consent for AI are app code today. |
+| Web Sentry set up by hand, with its own scrubbers for events, breadcrumbs, replays and **spans** | `src/instrument.client.ts`, `src/lib/sentry.ts` | Web needs what `native/observability` gives native, including tracing. |
+| Command palette built from its navigation (`flattenNav(nav)`) | `src/components/shell/AppCommandPalette.tsx` | Commands want to come from navigation, which is what PR #449 designs. |
+| Every Genesis package pinned one by one, no umbrella | `package.json` | The umbrella isn't serving the app that uses Genesis most. |
+| Runs on TanStack Start on Vercel (Node) | `package.json` | Server code in Genesis must run on Node first, Edge Functions (Deno) second. |
 
 ### What's working
 
-- **The forms family is the template.** It has a zero-dependency engine, React bindings, web and
-  native renderers, a builder, a workspace and devtools. Each layer is a separate package, the
-  same definition runs everywhere, and nothing above the engine knows about storage. New
-  domains should copy that shape (`chat` already does, through subpaths).
-- **Domains own their schema.** `chat`, `support`, `sites` and `notifications` each ship
-  migrations into their own Postgres schema and install as blocks through `genesis add`.
-- **The feature registry is the spine.** Status, flags, tenant switches and entitlements all
-  pass through one `featureOn`. New platform services should gate through it rather than add
-  their own switches.
+- **The forms family is the template.** A zero-dependency engine, React bindings, web and native
+  renderers, a builder, a workspace and devtools, each its own package. New domains should copy
+  that shape (`chat` already does, through subpaths).
+- **Domains own their schema.** `chat`, `support`, `sites` and `notifications` ship migrations
+  into their own Postgres schema and install as blocks through `genesis add`.
+- **The feature registry is the spine.** Status, flags, tenant switches and entitlements all pass
+  through one `featureOn`. New platform services gate through it rather than add their own
+  switches.
 
 ### What isn't
 
-1. **AI is spreading through the domains.** `chat` contains its own Anthropic Messages client
-   (`packages/chat/src/server/assistant.ts`), an OpenAI moderator (`moderation.ts`) and
-   Deepgram and OpenAI transcribers (`transcribers.ts`). Each has its own key, timeout, model
-   default and fallback setting. `FORMS.md` plans "AI assist" and `SITES.md` plans AI page
-   generation. Without a shared home, each domain will build its own client, its own prompt
-   style and its own cost blind spot. This is the G5 problem in its earliest form. See [AI.md](./AI.md).
-2. **Observability exists only on native.** `native/observability` has typed events
-   (`defineEvents`), PII scrubbing, vendor-neutral sinks and a Sentry sink. Web apps and server
-   code (Edge Functions, runners) get none of it, and AI tracing has nowhere to report.
-3. **`genesis-supabase` does two jobs.** It is the Supabase client kit and also the platform's
-   schema: jobs, entitlements, feature mirror, push, support, release policy. Every new platform
-   table ends up there by default.
-4. **Uploads are solved four times.** `chat` (attachments, Mux and Cloudflare video), `forms`
-   (upload fields), `sites` (asset import) and `native` (pickers) each handle files their own way.
-5. **No command registry.** `ui` has `CommandPalette`, `Command` and menus. Nothing lets an app
-   declare an action once so that the palette, keyboard shortcuts, menus and (soon) AI tools all
-   read the same definition.
-6. **The umbrella covers half the system.** `@marktiderman/genesis` pins Foundation, `native` and
-   forms, but not `notifications`, `chat`, `supabase` or `connect`. An app installing the umbrella
-   still assembles its platform by hand.
+1. **AI has no home.** Chat holds one generative call site (recap and drafts) plus moderation and
+   transcription, each with its own key, timeout and defaults. Forms and Sites plan AI work
+   (`FORMS.md` "AI assist", `SITES.md` AI generation). Growth90 holds the gating, the
+   server-side loading and the privacy list. This is not yet duplication. It is the point where
+   a shared layer costs least: before the second and third copies exist. See [AI.md](./AI.md).
+2. **Observability is split.** `core/errors.ts` gives every platform `reportError` and
+   `setErrorReporter`, already used by chat, forms-native and native. Typed events, scrubbing and
+   the sink contract live only in `native/observability`, and nothing has spans or traces.
+   Growth90 hand-builds web Sentry, tracing included.
+3. **`genesis-supabase` does two jobs.** It is the Supabase client kit and the platform's schema
+   (jobs, entitlements, feature mirror, push, support, release policy). That is acceptable while
+   the tables serve the gate, but new platform tables should go to the package that owns the
+   concept.
+4. **Uploads are solved several times.** `chat` (attachments, Mux and Cloudflare video, its own
+   `server/upload.ts`), `forms` (a signed-upload protocol moved up from an app), `sites` (asset
+   import), `support` (screenshots), and `ui`'s `FileUploadField`. The pickers are in
+   `chat/native` and `forms-native`.
+5. **Commands are scattered.** `core` has `RowAction` and `ViewAction` (with `confirm`,
+   `destructive` and `can`) and `NavigationNode`; `ui` has the palette and its hotkey. Nothing
+   declares an action once for the palette, shortcuts, menus and, later, AI tools.
+6. **Small platform pieces exist twice.** Rate limiting is in `forms/src/rate-limit.ts` and in
+   chat. Key-value storage is `core/storage` (sync) and forms' `KeyValueStorage` (async).
+7. **The umbrella is a half-measure.** It pins Foundation, `native`, `switchboard` and forms, not
+   `chat`, `notifications`, `supabase` or `connect`, and Growth90 doesn't use it.
 
 ## 2. Proposed organisation
 
-Make the four groups in the table above official: name them in `FRAMEWORK.md` Part 2, use them
-in the README's package index, and record a package's group in its `package.json`
-(`genesis.group`). Then a layering check can enforce the direction:
+### Five groups, matching the dependencies that exist
+
+Name the five groups in the table above in `FRAMEWORK.md` Part 2 and the README, and record each
+package's group in its `package.json` (`genesis.group`). The groups sit *above* Part 2's layers:
+tokens, primitives, patterns, layouts and data-bound describe what is inside the Foundation
+packages; the groups describe how packages depend on each other.
 
 ```
 Tooling           genesis-cli · agents
-                  ─────────────────────────────────────────────────────────────
 Domain blocks     chat · forms* · sites · support · collab · studio · product
-                  (may use anything below; never each other except through a seam)
-                  ─────────────────────────────────────────────────────────────
-Platform services ai · observability · files · notifications · connect
-                  · jobs · billing · supabase (client kit)
-                  (headless, server-first, gated through features)
-                  ─────────────────────────────────────────────────────────────
-App shells        native · extension · (web shell: AppShell, today in ui)
-                  ─────────────────────────────────────────────────────────────
+Platform services supabase · connect · notifications · switchboard · (ai)
+App shells        native · extension
 Foundation        design-system · core · ui · ui-native · features
 ```
 
-Domain blocks already reach each other in places: `support` uses `chat` for support threads.
-That is fine through a declared seam (a block that requires another block), and the layering
-check should allow exactly those seams.
+A package may depend on its own group or any group below it. I checked every `package.json`
+dependency on `main`:
 
-### Moves, smallest first
+- today's graph already follows this order;
+- `notifications → native` is a platform service depending on an app shell, which is below it,
+  so it is allowed;
+- `features → ui` stays inside Foundation;
+- `cli → studio-server` is Tooling depending downward;
+- two dependencies run between domain blocks: `support → chat` (support threads) and
+  `sites → forms`. They must be declared as block requirements (`requires` in the block), and
+  the check allows only declared ones.
 
-| # | Move | Why | Cost |
+A layering check in `genesis doctor`'s repo rules then turns rule 2 of Part 2 ("Downward
+dependencies only") from an opinion into a gate. The new packages and moves below are placed so
+the check keeps passing. `FRAMEWORK.md`'s "Current state, measured" still says "Packages (7)" and
+should be refreshed in the same change.
+
+### Moves, extending before inventing
+
+| # | Move | Builds on | Size |
 |---|---|---|---|
-| M1 | **New `genesis-observability`**, with typed events, scrubbing and the sink contract moved out of `native/observability`. `native` keeps the React Native wiring and re-exports, so no app breaks. Add web and server sinks. | Web and server need it; AI tracing and the jobs runner report through it. | Small: an extraction with re-exports. |
-| M2 | **New `genesis-ai`**, absorbing chat's AI code. `chat` keeps its `Moderator` and `Transcriber` seams (G2), and their implementations move to `genesis-ai`. | One place to upgrade models, prompts, safety, cost and tracing. | Medium. See [AI.md](./AI.md). |
-| M3 | **Commands in `core` and `ui`.** `defineCommands` (headless, in `core`) is read by `CommandPalette`, a shortcut layer and menus (in `ui` and `ui-native`). | The pattern Linear, Superhuman, Raycast and Cursor all share. The same definitions become AI tools and MCP tools. | Small to medium. |
-| M4 | **New `genesis-files`**: upload contract (presigned or Supabase Storage), image transforms, a media record, virus and size policy, web dropzone and native pickers. `chat`, `forms` and `sites` move onto it through their existing seams. | Four implementations of one concept. | Medium. |
-| M5 | **New `genesis-billing`** when the planned `entitlements` feature starts: Stripe on the web, store purchases (RevenueCat or StoreKit) on native, a paywall, and usage metering. The entitlements tables move from `supabase` to this package, with the migration history kept. | Billing and entitlements are one concept. AI usage is the first metered thing. | Medium to large; already `planned`. |
-| M6 | **Umbrella policy.** Either the umbrella covers every stable platform service, or the README says plainly that it covers Foundation only. | Today it is somewhere in between. | Trivial; a decision. |
+| M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; Growth90's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
+| M2 | **`genesis-ai`**, a new platform service, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | Growth90's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
+| M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; Growth90's nav-driven palette | S after #449 |
+| M4 | **One upload protocol.** Promote forms' signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) to a shared home (types in `core`, the Supabase Storage handler in `supabase`), then move chat, support and sites onto it through their own seams. A `genesis-files` package only if the shared code outgrows those homes. | forms' protocol, `FileUploadField` | M |
+| M5 | **Billing writes grants.** When `entitlements` (planned) starts, a billing block (Stripe on the web, store purchases on native, a paywall) writes through `grant_person_entitlement` / `revoke_person_entitlement` with `source` and `source_ref`, which 0017 already reserves for "a billing webhook". The entitlement tables stay with the gate. | Migration 0017; `featureOn` | L |
+| M6 | **Small platform pieces, one home each.** Rate limiting moves from forms into a shared module (AI budgets reuse it). The two key-value storage contracts merge. | `forms/src/rate-limit.ts`; `core/storage` | S |
+| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable platform service and Growth90 moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
 
-Things this proposal deliberately does **not** move:
+Deliberately **not** moved:
 
-- **The forms family stays seven packages.** The split follows real boundaries: an
-  engine with no dependencies, renderers per platform, and tools. Merging them would make every
-  forms consumer install the builder.
-- **The jobs runner stays in `supabase` for now.** `notifications` and `forms` already share it
-  through `/runner`, so it is not duplicated. Revisit if a second backend appears.
-- **`collab` stays a small, early package.** It is too new to judge.
+- **The forms family stays seven packages.** The split follows real boundaries.
+- **Jobs stay in `supabase`.** `notifications` and `forms` already share the runner.
+- **`collab` stays as designed** in COLLABORATION.md; it is building, not judged here.
 
 ## 3. What the leaders build once
 
-Research: Linear's engineering posts and developer docs, Cursor's docs and blog, the Notion,
-Figma, Vercel, Raycast and Supabase posts, and the 2025–26 starter kits (Supastarter, Makerkit,
-Better-T-Stack, Ignite, Obytes). Sources are listed at the end.
+The leaders below build a handful of shared layers once and make each feature configuration on
+top of them. That is the Genesis way at company scale. What each actually does:
 
-Every leader builds a handful of shared layers once and makes each feature configuration on top
-of them. That is the Genesis way at company scale:
-
-| Shared layer | Who | What it gives them | Genesis today |
+| Shared layer | Who, and what they do | Lesson for Genesis | Genesis today |
 |---|---|---|---|
-| **Sync / live data** | Linear (local-first object graph over IndexedDB; ordered server deltas), Figma (LiveGraph: live queries filtered by permission) | Instant reads, offline, realtime with no extra work per feature | Query cache, Realtime in chat and notifications, offline outbox for forms. `offline-sync` is an idea. |
-| **Command registry** | Linear, Superhuman, Raycast, Cursor | One definition feeds palette, shortcuts, menus and AI tools | Palette UI only (gap, M3) |
-| **One AI gateway, routed by task** | Linear (OpenAI and Google per task), Cursor (small in-house models for Tab and apply, frontier models for the agent), Vercel | Upgrade models in one place, with cost per task | None (gap, [AI.md](./AI.md)) |
-| **One retrieval layer** | Linear (one semantic search backend under similar issues, triage and search), Cursor (content-hashed incremental index, permission-aware) | Every feature gets "find related" for free | None (part of [AI.md](./AI.md)) |
-| **One agent protocol** | Linear (agents as app users, typed Agent Activities, sessions), Raycast (tools need approval), Vercel AI SDK (tool approval) | Third-party and in-house agents behave alike; humans approve risky actions | Agent rules for *developer* agents (`agents`), none in-app |
-| **Layered configuration** | Cursor (team → project → user rules), Linear (workspace and team AI guidance) | Admins steer behaviour without code | Tenant switches and flags in `features` |
-| **Consistent AI UI** | Linear (suggestions visually distinct from human data, reasoning on hover, trace panel) | Users learn once what AI touched | chat's `labelled: true` convention only |
+| **Sync and live data** | Linear: local-first object graph in IndexedDB with ordered server deltas. Figma: LiveGraph, live queries filtered by the viewer's permissions. | Live data with permissions applied, once. | Query cache, Realtime in chat and notifications, forms' offline outbox. `offline-sync` is an idea. |
+| **Commands** | Linear, Superhuman, Raycast: one action definition behind the palette, shortcuts and menus. Raycast's extension commands double as AI tools. | Declare actions once; derive the palette, shortcuts, menus and tools. | Pieces in `core` and `ui` (M3). |
+| **One AI layer** | Linear started similar-issue and triage features on small models (GPT-4o mini, Gemini 2.0 Flash), found quality fell short, and moved to larger models (GPT-5, Gemini 2.5 Pro) with an agentic step. Cursor trains its own models for high-volume work (Tab, apply) and, since Cursor 2.0, its own Composer agent model, alongside frontier models. | **Measure quality, then pay for it where it matters**, and keep the model choice in one place so that move is cheap. | None ([AI.md](./AI.md)). |
+| **One retrieval layer** | Linear rebuilt search as one semantic backend under similar issues, triage and search. Cursor indexes code by content hash, incrementally, and only returns what the client can prove it holds. | One permission-aware search serves search, "similar", AI context and triage. | Chat's `search_messages` (full text, permission-aware) is the seed. |
+| **One agent protocol** | Linear: agents are app users (OAuth, `actor=app`), with typed activities (thought, action, elicitation, response, error) in agent sessions. Raycast and Anthropic's Managed Agents: tool permission policies, including an **auto** mode that only asks when a call is risky. | Agents act as people under the same permissions; approvals are risk-based, not "ask every time". | Developer-agent rules only (`agents`). |
+| **Layered configuration** | Cursor: team, project and user rules. Linear: natural-language AI guidance per workspace and team. | Tenants steer behaviour without code. | Tenant switches and flags in `features`. |
+| **Consistent AI UI** | Linear: suggestions visually separate from human-set data, reasoning on hover, a trace panel. | Users learn once what AI touched. | Chat's `labelled: true`. |
 
 ### The checklist starter kits ship
 
-This checklist compares Genesis with the out-of-the-box modules in Supastarter, Makerkit and the RN templates:
+Compared with what Supastarter, Makerkit and the leading React Native templates include out of
+the box:
 
 | Capability | Genesis |
 |---|---|
 | Auth (password, magic link, OAuth, Apple, Google, account deletion) | ✅ `supabase`, `account` (beta) |
 | Passkeys, MFA | ❌ |
-| Organisations, invites, roles in UI and RLS | 🟡 tenants and people exist; `invites` is an idea |
-| Billing, entitlements, paywall, usage metering | 🟡 gate supports entitlements; `entitlements` planned; no billing |
+| Organisations, invites, roles in UI and RLS | 🟡 tenants and people; `invites` is an idea |
+| Billing, entitlements, paywall, usage metering | 🟡 person entitlements and the gate shipped (0017); no billing (M5) |
 | Onboarding flows | 🟡 forms can do it; no onboarding pattern |
 | Settings (profile, org, notifications, appearance) | ✅ native layouts, `SettingsPage` |
 | Notifications: in-app, email, push, preferences | ✅ `notifications` |
-| Transactional email | ✅ `notifications-email` |
-| Files and media | 🟡 four implementations (M4) |
+| Files and media | 🟡 several implementations (M4) |
 | i18n, RTL | ❌ `i18n` is an idea |
-| Analytics, errors, tracing | 🟡 native only (M1) |
-| Feature flags and experiments | ✅ `features` (experiments ❌) |
+| Errors, analytics, tracing | 🟡 `reportError` everywhere; events and scrubbing on native; no tracing (M1) |
+| Feature flags and experiments | ✅ `features`; no percentage rollouts or experiments |
+| Consent and privacy choices | ❌ `consent` is an idea |
+| Data export (access requests) | ❌ |
+| Rate limiting and abuse protection | 🟡 forms and chat each have one (M6) |
 | Super admin, impersonation | ❌ `impersonation` is an idea |
-| Audit log | 🟡 Data Studio writes audit entries; no general audit log |
+| Audit log | 🟡 Data Studio audits its edits; no general audit log |
 | Jobs, cron, queues | ✅ `genesis_jobs` |
-| Webhooks in and out, integrations | 🟡 `connect` (OAuth, secrets), form webhooks; no general webhooks |
-| Search (keyword and semantic) | ❌ |
-| Command palette and shortcuts | 🟡 palette UI only (M3) |
-| Undo/redo, optimistic updates | 🟡 optimistic sends in chat; no app-wide undo |
-| Offline and realtime presence | 🟡 forms outbox, chat typing; `offline-sync` is an idea |
-| Activity feed and comments | 🟡 notification feed; `collab` is early |
-| **AI: gateway, chat UI, tools, embeddings** | ❌ (chat has a private client) |
-| Agent readiness: MCP server, AGENTS.md, skills | 🟡 AGENTS.md, skills in tarballs; no app MCP server |
-| Marketing, SEO, blog, changelog | ✅ `sites`, `product` release notes |
+| Webhooks and integrations | 🟡 `connect` (OAuth, secrets), form webhooks |
+| Search | 🟡 chat's permission-aware full-text search; nothing general, nothing semantic |
+| Command palette and shortcuts | 🟡 palette, hotkey and nav tree; no shared actions (M3) |
+| Undo, optimistic updates | ✅ `core` mutation modes: optimistic and undoable |
+| Offline and presence | 🟡 forms outbox, chat typing; `offline-sync` is an idea |
+| **AI: model layer, usage, admin, consent** | ❌ ([AI.md](./AI.md)) |
+| Agent readiness: MCP server, AGENTS.md, skills | 🟡 AGENTS.md and skills ship; no app MCP server |
+| Marketing, SEO, blog, changelog | ✅ `sites`, `product` |
 | CI/CD, OTA updates | ✅ CI templates, EAS workflows |
 
-Genesis is already ahead of the commercial kits in places they skip: native parity, forms,
-the feature registry, notifications and doctor. Its gaps are the ones Makerkit and Supastarter
-also call their own: **AI, billing, audit, search and the command registry**.
+Genesis is ahead of the commercial kits where they are thin: native parity, forms, the feature
+registry, notifications and doctor. Its real gaps are **AI, billing, consent and privacy,
+tracing, and a general search**.
 
 ## 4. What to build next
 
-Ranked by leverage: how many apps and domains benefit, and how much later work it unblocks.
+Ranked by demand from the apps first, then by what each unblocks. Sizes are for one maintainer
+working with agents: S is under a week, M two to four weeks, L longer.
 
-| Rank | Build | Kind | Why now |
+There are 45 features in `building` today. So the list is short on purpose, and the top items
+replace or absorb existing code rather than adding surface.
+
+| Rank | Build | Size | Why |
 |---|---|---|---|
-| 1 | **`genesis-ai`**: model aliases, tasks (versioned prompts with schemas), usage and budgets, guardrails, tracing; then the chat UI, tools and RAG | New platform service | AI is already duplicating (chat), two domains have planned AI work (forms, sites), and every app will want it. The longer we wait, the more copies we remove later. [AI.md](./AI.md). |
-| 2 | **`genesis-observability`** (M1) | Extraction | Small, and a prerequisite for AI tracing and for web apps. |
-| 3 | **Command registry** (M3) | Extension of `core` and `ui` | Cheap, high leverage. It also becomes the AI tool and MCP surface, so it should land before AI tools do. |
-| 4 | **`genesis-billing` + entitlements** (M5) | New platform service | Already planned; AI usage needs metering to bill. |
-| 5 | **Search**: Postgres full-text plus pgvector hybrid, permission-aware through RLS, with `ResourceView` and the command palette as first consumers | Part of `genesis-ai/rag` plus a `ui` pattern | Linear's lesson: one retrieval layer serves search, "similar items", AI context and triage. |
-| 6 | **`genesis-files`** (M4) | Consolidation | Four copies today. |
-| 7 | **Teams and access**: invites (idea), roles, impersonation (idea), a general audit log | Extension of `supabase` and `features` | Table stakes for B2B; most parts are already ideas in `features.ts`. |
-| 8 | **App MCP server**: an app's resources (ResourceView descriptions) and commands, exposed to outside agents under the person's own RLS | Tooling on top of 3 and AI | Linear, Supabase, Granola and Notion all ship one. `FORMS.md` already plans one for forms. |
-| 9 | **i18n** (idea) and **offline sync** (idea) | Larger bets | i18n matters for consumer apps. For offline, evaluate PowerSync (works with Supabase and RN) behind a DataProvider seam before inventing a sync engine. |
+| 1 | **`genesis-ai` core** (AI.md P0–P1), with **spans in `core`** (M1) built alongside as its prerequisite | M | The owner's priority. It replaces Growth90's hand-wired recap, moderation and transcription with metered, gated, consented calls, before Forms and Sites add more. |
+| 2 | **AI control plane and consent** (AI.md P2) | M | The "centralised management" the owner asked for: usage and cost, budgets, switches, model rollouts, tenant guidance, consent records. It also starts the `consent` block every app needs. |
+| 3 | **Commands from navigation** (M3) | S | Cheap once #449 lands; Growth90 already builds its palette from navigation. |
+| 4 | **Billing writes grants** (M5) | L | The planned `entitlements` feature; migration 0017's comments (memberships, class packs, coaching packages) show the demand. |
+| 5 | **One upload protocol** (M4) and **one rate limiter** (M6) | M | Consolidation of code that already exists several times. |
+| 6 | **Search**: generalise chat's `search_messages` into permission-aware full-text search for any resource, then add semantic search through Supabase's automatic embeddings | M | Linear's lesson, built from the seed Genesis has. |
+| 7 | **Teams and access**: invites, impersonation, a general audit log | M | Mostly ideas already in `features.ts`. |
+| 8 | **Agent-operable apps**: tools, commands, search and an MCP server generated from the resource descriptions apps already write ([AI.md](./AI.md), "North star") | L | The long-term direction. It waits for 1 to 6 to prove out and a second app to ask. |
+| 9 | **i18n** and **offline sync** | L | For offline, evaluate PowerSync (Supabase and React Native) behind a DataProvider seam before inventing a sync engine. |
 
-Not recommended as Genesis packages yet: realtime multiplayer editing and A2A. Neither has a
-second app asking for it (G4: promote when it pays).
+Not recommended as Genesis packages yet: multiplayer editing and A2A. No app is asking (G4).
 
 ## 5. Decisions for the maintainer
 
-1. Adopt the four groups (Foundation, Platform services, Domain blocks, Tooling) and the
-   layering check?
-2. Approve M1 (observability extraction) and M2 (`genesis-ai`) as the next two builds?
-3. Should the umbrella grow to cover platform services (M6)?
-4. Should the ranked list above become `features.ts` entries (status `idea` or `planned`, with
-   horizons), so the product board shows it?
+1. Adopt the five groups, the declared domain seams and a layering check in doctor?
+2. Approve M1 as "observability in `core`, with spans" rather than a new package?
+3. Approve `genesis-ai` P0–P2 ([AI.md](./AI.md)) as the next build, with retrieval, MCP and agents
+   kept as ideas?
+4. Approve M3 as an extension of #449, to be raised with its author?
+5. Umbrella (M7): grow it, or narrow its promise?
+6. Add the ranked list to `features.ts` as `idea` or `planned` entries with horizons, so the
+   product board shows it?
 
 ## Sources
 
@@ -213,14 +246,41 @@ second app asking for it (G4: promote when it pays).
   [Linear Agent](https://linear.app/changelog/2026-03-24-introducing-linear-agent),
   [sync engine, reverse-engineered](https://github.com/Aslam97/reverse-linear-sync-engine)
 - Cursor: [secure codebase indexing](https://cursor.com/blog/secure-codebase-indexing),
-  [rules](https://cursor.com/docs/context/rules), [hooks](https://cursor.com/docs/agent/hooks)
+  [rules](https://cursor.com/docs/context/rules), [hooks](https://cursor.com/docs/agent/hooks),
+  [Composer, Cursor 2.0](https://simonwillison.net/2025/Oct/29/cursor-composer/)
 - Figma: [LiveGraph](https://www.figma.com/blog/livegraph-real-time-data-at-scale/);
-  Notion: [data model](https://www.notion.com/blog/data-model-behind-notion);
   Raycast: [AI extensions](https://manual.raycast.com/ai/ai-extensions);
   Superhuman: [command palette](https://blog.superhuman.com/how-to-build-a-remarkable-command-palette/)
-- Supabase: [AI assistant v2](https://supabase.com/blog/supabase-ai-assistant-v2),
-  [AI tools and MCP](https://supabase.com/docs/guides/ai-tools)
+- Supabase: [AI tools and MCP](https://supabase.com/docs/guides/ai-tools),
+  [automatic embeddings](https://supabase.com/docs/guides/ai/automatic-embeddings)
 - Starter kits: [Supastarter](https://supastarter.dev/), [Makerkit](https://makerkit.dev/),
   [Better-T-Stack](https://better-t-stack.dev/docs/cli-commands),
   [Ignite](https://github.com/infinitered/ignite), [Obytes](https://starter.obytes.com)
 - Sync: [PowerSync with Supabase](https://www.powersync.com/blog/offline-first-apps-made-simple-supabase-powersync)
+
+## What changed from v0.1
+
+- **Facts corrected:**
+  - 28 packages, not 27;
+  - undo exists (`core` mutation modes);
+  - search exists (chat's `search_messages`);
+  - `core/errors.ts` is a cross-platform error-reporting seam;
+  - the umbrella's contents;
+  - where uploads and pickers live;
+  - entitlements are partly shipped (0017).
+- **New: a "Consumers today" section** grounded in Growth90's code.
+- **Groups: five, checked against real dependencies,** with the two domain seams declared and
+  Part 2 reconciled.
+- **Moves extend what exists:**
+  - M1 grows `core` and is re-sized for spans;
+  - M3 extends #449;
+  - M4 promotes forms' protocol;
+  - M5 writes grants instead of moving tables;
+  - M6 is new;
+  - M2 no longer moves chat's code and so creates no dependency cycle.
+- **Leaders' lessons corrected:**
+  - Linear's model history;
+  - Cursor's own Composer agent model;
+  - Raycast's and Managed Agents' risk-based auto approval.
+- **Ranking re-based on demand and sized,** with a focus note on the 45 features in `building`.
+- **The v0.1 PR description said #449 did not overlap.** It does, with M3, and M3 now builds on it.
