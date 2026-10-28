@@ -5,21 +5,26 @@
   "type": "module",
   "sideEffects": false,
   "description": "The React Native renderer for Genesis Forms: <FormFocus>, one question or content step per screen, with keyboard-aware scrolling, accessibility focus and announcements, Dynamic Type, reduced motion, a theme seam for system or Genesis colors, and seams for drafts, an offline outbox and photo uploads. The same definitions run on web, native and the server. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "react-native",
+    "expo",
+    "survey",
+    "check-in",
+    "onboarding"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-native#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
     "directory": "packages/forms-native"
   },
   "license": "MIT",
-  "keywords": [
-    "react-native",
-    "expo",
-    "forms",
-    "survey",
-    "check-in",
-    "onboarding",
-    "genesis"
-  ],
   "publishConfig": {
     "access": "public",
     "provenance": false

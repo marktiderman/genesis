@@ -5,6 +5,18 @@
   "type": "module",
   "sideEffects": false,
   "description": "A typed feature registry: defineFeatures and defineFlags in one code file that running code imports, defineBlock and resolveBlocks for blocks (/blocks, free of zod), the feature gate (featureOn, /gate, zod-free, with React hooks at /gate/react), generators for AGENTS.md and JSON, a stale-output check, and a FeatureList page. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "feature-flags",
+    "feature-registry",
+    "openfeature",
+    "typescript"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/features#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

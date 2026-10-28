@@ -7,6 +7,17 @@
     "*.css"
   ],
   "description": "Developer tools for Genesis Forms: an inspector with live state, a time-travel event timeline and a server-check panel with tamper mode, a flow map, a logic trace and path coverage. Mount it in a playground or in an app during development. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "devtools",
+    "react"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-devtools#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

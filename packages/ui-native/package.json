@@ -5,6 +5,19 @@
   "type": "module",
   "sideEffects": false,
   "description": "Genesis React Native components (NativeWind v4-5). Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "react-native",
+    "ui",
+    "components",
+    "nativewind",
+    "expo"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ui-native#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

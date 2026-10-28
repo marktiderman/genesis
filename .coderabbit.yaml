@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit reviews every pull request against the repository's own rules (AGENTS.md and
+# docs/FRAMEWORK.md, principles G1–G6). Comment `@coderabbitai review` to ask for a review again.
+language: en-US
+reviews:
+  profile: assertive
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # Staging batches and pre-release branches get reviews too, not only main.
+    base_branches:
+      - "^staging/.*"
+      - "^prestage/.*"
+  path_filters:
+    - "!**/dist/**"
+    - "!pnpm-lock.yaml"
+    - "!features.json"
+    - "!docs/component-reference.md"
+    - "!**/CHANGELOG.md"
+  path_instructions:
+    - path: "**"
+      instructions: |
+        Review against AGENTS.md and docs/FRAMEWORK.md. Cite the principle ID (G1–G6) when code
+        recreates something Genesis already has (G5), invents where reuse or extension would do
+        (G1, G2), or belongs in an app first (G3).
+        Genesis is public: flag any name of an app or customer built on it, in code, tests,
+        docs, comments or changesets (scripts/check-private-names.mjs enforces it in CI).
+    - path: "packages/**"
+      instructions: |
+        A change to a package's source needs a changeset (.changeset/*.md) with the right bump:
+        breaking changes are minor on 0.x and major on 1.x and later. Exports must resolve from
+        dist (check-exports-resolve). No hand-written values that a design token covers.
+    - path: "packages/**/migrations/**/*.sql"
+      instructions: |
+        Grants and revokes name each function; never grant on all functions in a schema and never
+        grant a private.* function to anon or public. Security-definer functions set
+        search_path = ''. Every table has row level security. Never edit a migration a release
+        already shipped; add a new one.
+    - path: ".github/workflows/**"
+      instructions: |
+        Pin third-party actions by commit SHA with the version in a comment, set the least
+        permissions each job needs, and pass inputs to shells through env, never inline.
+chat:
+  auto_reply: true
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - AGENTS.md
+      - CONTRIBUTING.md
+      - docs/FRAMEWORK.md

@@ -7,6 +7,17 @@
     "*.css"
   ],
   "description": "The web renderer for Genesis Forms: <Form> with one-question-at-a-time and classic layouts, built on Genesis UI components and tokens, accessible by default. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "react",
+    "web"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-web#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

@@ -5,6 +5,17 @@
   "type": "module",
   "sideEffects": false,
   "description": "Build Chrome extensions (Manifest V3) with Genesis: checked messaging, settings storage, the UI as a floating panel, a top bar or Chrome's side panel, an in-page bar, native-helper jobs, React pieces built on Genesis UI, and a Chrome fake for tests. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "chrome-extension",
+    "manifest-v3",
+    "browser-extension"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/extension#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
