@@ -1,14 +1,14 @@
 # ADR 0003: Navigation zones
 
-- Status: accepted in part (Mark, 2026-10-27: zones are top-level items; Home rolls up; first zones). The Genesis API and the native shell remain proposed.
+- Status: proposed
 - Date: 2026-10-27
 - Features: `feature-gate`, `entitlements`, `tenant-features`
 
 ## Context
 
-Mark wants the apps to have zones: you enter a kind of work (the gym, coaching, your team) and the
-navigation shows only that zone's destinations. A gym-only member should see the gym and nothing
-else; a coach who also runs a gym switches between the two.
+Apps need zones: you enter a kind of work (classes, coaching, your team, admin) and the navigation
+shows only that zone's destinations. A member who only books classes sees classes and nothing else;
+a coach who also runs classes switches between the two.
 
 Genesis has part of this:
 
@@ -20,63 +20,88 @@ Genesis has part of this:
   (`id`, `label`, `path`, `icon`, `order`), which nothing consumes.
 - Native has no navigation shell.
 
-So each app writes its own. Growth90's web navigation (`src/lib/navigation.ts`) holds the
-destinations, their `feature` and role checks, the order and the phone-tab priority. Its mobile app
-hard-codes two tab sets (`apps/mobile/src/lib/tabs.ts`), the everyday tabs and admin mode, behind a
-`useNavigation()` seam that waits for "Genesis's dynamic navigation config". Growth90's EOS plan asks
-for the same thing: "navigation config that expresses sides, modules and per-organization
-entitlements, so web and mobile derive both tab bars from it".
-
-Admin mode on Growth90 mobile is already a zone in all but name: you enter it, it has its own tab
-bar and a practice switcher, it remembers your choice, and Done leaves it.
+So each app writes its own. A consumer app's web navigation holds its destinations, their feature
+and role checks, the order and the phone-tab priority by hand. Its mobile app hard-codes two tab
+sets, the everyday tabs and an admin mode, behind a seam that waits for a Genesis navigation config
+from which web and mobile derive both tab bars. Its admin mode is already a zone in all but name:
+you enter it, it has its own tab bar and a tenant picker, it remembers your choice, and Done leaves
+it.
 
 ## Decision (proposed)
 
-### 1. A zone is a module: a top-level navigation item
+### 1. One config: zones and destinations
 
-Mark: "zones should be defined by the module or top level navigation item." There is no separate
-list of zones. Every top-level item in the navigation tree is a zone, and the destinations under it
-are that zone's navigation. Gym, Coaching, Team (EOS) and Admin are top-level items, so they are
-zones. Entering one, whether by tapping it, following a link into it or switching to it, scopes the
-navigation to its children. A module that turns on (`feature`, ADR 0001) brings its zone with it.
-
-`defineNavigation(items)` in `genesis-core/navigation`, pure and platform-neutral, extends today's
-`NavigationNode` tree:
+`defineNavigation({ zones, destinations })` in `genesis-core/navigation`, pure and
+platform-neutral. The zones are an explicit list, and each destination lists the zones it shows in,
+so one destination (an inbox, a roll-up of what needs you today) can sit in several zones.
 
 ```ts
-interface NavItem {
+type Audience = "self" | "member" | "staff" | "admin" | "platform";
+
+interface AccessRule {
+  feature: FeatureId;   // checked with featureOn (ADR 0001)
+  audience: Audience;   // who it is for, checked in each scope the viewer has
+}
+
+interface Zone {
+  id: string;
+  label: string;
+  path: string;                        // the zone's landing page
+  icon: { lucide: string; sf?: string; md?: string };
+  rule?: AccessRule;                   // default: the viewer has the zone when they have one of its destinations
+  order?: number;                      // among the zones; lower first
+  scope?: "login" | "tenant";          // "tenant": the zone is per tenant, with a picker
+}
+
+interface Destination {
   id: string;
   label: string;
   path: string;                        // a route, as resolveNavigation matches it
   icon: { lucide: string; sf?: string; md?: string };
-  feature?: FeatureId;                 // checked with featureOn (ADR 0001); off hides the item and everything under it
-  visible?: (viewer: Viewer) => boolean;    // roles and anything else app-specific
-  order?: number;                      // among its siblings; lower first
+  zones: string[];                     // the zone ids it shows in
+  rule: AccessRule;
+  parent?: string;                     // a destination id, for the trail and nesting
+  order?: number;                      // within each zone; lower first
   phone?: "tab" | "hidden";            // on a phone; default "tab", at most five per zone
-  children?: NavItem[];                // on a top-level item: the zone's navigation
-  scope?: "login" | "tenant";          // top level only; "tenant": the zone is per practice, with a picker
 }
 ```
 
-- **Top level = zones.** `navigationFor` lists the top-level items a viewer has; these are the
-  zones the switcher offers. The zone's landing page is its `path`.
-- **Children = the zone's tabs.** Inside a zone, the phone tab bar and the sidebar show its
-  children, gated and ordered.
-- **A module declares its own zone.** A package's block contributes a top-level `NavItem` with its
-  children (`BlockNavItem` becomes `NavItem`), so turning a module on adds its zone with no app
-  wiring. The app's config orders the zones and can add destinations to a module's zone.
+- **A rule is data, not a function.** `{ feature, audience }` is plain JSON, so the server checks the
+  same rule a menu shows, a route guard reads it, and an agent or a settings screen can list who
+  sees what. Anything a rule can't say belongs in the route's guard or in row-level security.
+- **Audiences:** `self` is any signed-in viewer, for their own things; `member` anyone in the
+  tenant; `staff` the tenant's staff; `admin` its admins and owners; `platform` platform admins.
+  Within a tenant each includes the ones after it: a `member` rule also holds for staff and admins.
+- **A rule holds** when the viewer has a scope where they hold the audience and `featureOn` says the
+  feature is on there (shipped, its required modules on, not switched off by the tenant, paid for
+  when it has `access: { plan }`). `self` and `platform` use the viewer's own scope.
+- **A module declares its own zone.** A package's block contributes zones and destinations
+  (`BlockNavItem` becomes `Destination`), so turning a module on adds its zone with no app wiring.
+  The app's config orders the zones and can add destinations to a module's zone.
 
-### 2. One resolver, gated by one snapshot
+### 2. One resolver, gated by one snapshot per scope
 
-`navigationFor(config, gate: GateSnapshot, viewer, pathname)` returns:
+`navigationFor(config, viewer, pathname)`, where the viewer carries their scopes and a
+`GateSnapshot` for each:
 
-- `zones`: the top-level items this viewer has, in order, after `featureOn` and `visible`;
-- `zone`: the current one, decided by the path (the top-level item the path sits under);
-- `tabs`: the current zone's children for a phone, after gating and ordering, at most five;
+```ts
+interface Viewer {
+  self: GateSnapshot;                  // the viewer's own scope
+  platform: boolean;                   // platform admin
+  scopes: { tenant: string; role: "member" | "staff" | "admin"; gate: GateSnapshot }[];
+}
+```
+
+It returns:
+
+- `zones`: the zones this viewer has, in order;
+- `zone`: the current one, from the path (a destination in several zones keeps the zone the viewer
+  is in);
+- `tabs`: the current zone's destinations for a phone, after rules and ordering, at most five;
 - `items`: the same for a sidebar;
 - the `resolveNavigation` trail, parent and params, as today.
 
-Web and native call the same function with the same snapshot, so a menu item and its route can't
+Web and native call the same function with the same snapshots, so a menu item and its route can't
 disagree, and the phone tab bar on the web matches the native one.
 
 ### 3. Shells
@@ -85,12 +110,12 @@ disagree, and the phone tab bar on the web matches the native one.
   `headerSlot`.
 - **Native** (`genesis-ui-native`, `genesis-native`), on Expo SDK 58 and expo-router 58 (checked
   against the installed source and the SDK 58 docs):
-  - **Every zone is a root Stack screen with a real URL segment** (`/gym/…`, `/coaching/…`), holding
-    its own `NativeTabs` and a Stack per tab. Admin mode already works this way. It can't be a
-    route group shared between zones, because a cold deep link into a shared group picks the first
-    group alphabetically, and Expo's docs advise against shared routes for showing different roles
-    different screens. `NativeTabs` can't nest, so a zone can't live inside the Home tabs.
-  - **`Stack.Protected guard={zones.gym} redirectTo="/"`** guards each zone in the root layout.
+  - **Every zone is a root Stack screen with a real URL segment** (`/classes/…`, `/coaching/…`),
+    holding its own `NativeTabs` and a Stack per tab. It can't be a route group shared between
+    zones, because a cold deep link into a shared group picks the first group alphabetically, and
+    Expo's docs advise against shared routes for showing different roles different screens.
+    `NativeTabs` can't nest, so a zone can't live inside another zone's tabs.
+  - **`Stack.Protected guard={zones.classes} redirectTo="/"`** guards each zone in the root layout.
     `NativeTabs` has no `.Protected`.
   - **`ZoneTabs`** renders the zone. It resolves the tab set *before* mounting and doesn't change
     which tabs show, or their order, while the zone is on screen. `NativeTabs` keys itself on the
@@ -100,17 +125,15 @@ disagree, and the phone tab bar on the web matches the native one.
       screen explains why. `hidden` applies the next time they enter.
     - The switcher prefetches the zone's gate before navigating, so the loading state rarely shows.
   - **Switching zones** is `router.replace` to the zone's last tab, with a fade. `useZone()` keeps
-    the last zone and tab per login, generalising Growth90's `src/lib/admin.ts`. Server data
-    survives in the query cache. Keeping every zone mounted underneath is avoided, because
-    `NativeTabs` renders every tab at once.
+    the last zone and tab per login. Server data survives in the query cache. Keeping every zone
+    mounted underneath is avoided, because `NativeTabs` renders every tab at once.
   - **Switcher UI.** SDK 58 has no native title menu: nothing exposes UIKit's `titleMenuProvider`.
     - The switcher is a labelled `Stack.Toolbar.Menu` (native UIMenu, stable since expo-router
       58.0.16) at the top left, showing the current zone's name, with a checkmark on the current
       zone.
-    - On Android the same menu needs `@expo/ui`. Until Growth90 adds that, Android uses an action
+    - On Android the same menu needs `@expo/ui`. Until an app adds it, Android uses an action
       sheet.
-    - The `NavBarTitleMenu` ask in Growth90's `docs/genesis-upstream.md` stays open for when the
-      platform has it.
+    - A native title menu stays a request for when the platform has one.
   - **iPad:** `sidebarAdaptable` (iOS 18+); `preferredPlacement` (iOS 27, expo-router 58.0.26+).
 
 ### 4. Rules
@@ -130,34 +153,21 @@ Wodify, Mindbody and PushPress handle modules and roles:
   known failure of modes (NN/g).
 - **Each zone keeps its place.** Coming back lands on its last tab. Trainerize, which makes
   coaches log out to switch roles, is the cautionary tale.
-- **A practice is a picker inside a zone, not another zone**, like Shopify's store name or
+- **A tenant is a picker inside a zone, not another zone**, like Shopify's store name or
   Mindbody's location toggle. That's `scope: "tenant"`.
 - **Deep links open in the zone their path belongs to.**
-- **Zones gate navigation only.** Routes still guard themselves with the same `featureOn`, and data
-  stays guarded by row-level security.
+- **Zones gate navigation only.** Routes still guard themselves with the same rule, and data stays
+  guarded by row-level security.
 
 ## Consequences
 
-- Growth90 replaces `src/lib/navigation.ts`'s gating and priority lists, and `apps/mobile`'s static
-  tabs, with one config. Admin mode becomes the `admin` zone. Its local `resolveNavigation` goes,
-  which also clears Genesis's reimplementation check.
-- Gamify and other Genesis apps get zones for free, or a single implicit zone if they don't
-  declare any.
-- `BlockNavItem` becomes `NavItem` with `children`. It has no consumers, so it can be changed now.
-
-## Decided (Mark, 2026-10-27)
-
-- **Zones are the modules, the top-level navigation items.**
-- **Home and Today stay the roll-up across every zone.** Today is the first tab in every zone and
-  is the same screen everywhere: what needs you now, across every practice and kind of work. The
-  Inbox is the same in every zone too. A zone's own tabs fill the slots between them, so a zone
-  has five tabs: Today, up to three of its own, and Me (with the Inbox).
-- **The first zones are Home, Gym, Coaching, Team (EOS) and Admin.** Someone with only Home sees
-  no switcher.
-- **Growth90 builds the Gym zone on mobile now,** in the shape in section 3, and moves it onto the
-  Genesis config when that lands.
+- An app replaces its hand-written gating and priority lists, and its static mobile tabs, with one
+  config. An admin mode becomes an `admin` zone, and a local `resolveNavigation` copy goes, which
+  also clears Genesis's reimplementation check.
+- Apps that declare no zones get a single implicit one.
+- `BlockNavItem` becomes `Destination`. It has no consumers, so it can be changed now.
 
 ## Open questions
 
-1. Is a zone per login or per practice? Proposed: a zone can say `scope: "tenant"` (Admin, Gym for
-   staff) and get a practice picker; members' zones are per login.
+1. Is a zone per login or per tenant? Proposed: a zone can say `scope: "tenant"` (admin, or staff
+   work in one tenant) and get a tenant picker; members' zones are per login.
