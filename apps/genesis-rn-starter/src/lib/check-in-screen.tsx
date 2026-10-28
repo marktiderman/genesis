@@ -11,18 +11,18 @@ import { checkInDrafts, checkInForm, checkInHaptics, checkInHostOptions, checkIn
 /**
  * The check-in example (`features.checkIn`): one question per screen, the title in the native
  * header, a draft per signed-in user and the offline outbox. Open it with a link to fill in the
- * gym: `genesis-starter://check-in?gym=hilltop`. The Home tab shows it at `/check-in`; a check-in
+ * location: `genesis-starter://check-in?location=hilltop`. The Home tab shows it at `/check-in`; a check-in
  * card in a conversation opens it in the Messages stack (`/messages/check-in`), so Back returns
  * to the conversation. `backTitle` names the screen under it (left out, iOS uses that screen's title).
  */
 export function CheckInScreen({ backTitle }: { backTitle?: string }) {
-  const params = useLocalSearchParams<{ gym?: string }>();
+  const params = useLocalSearchParams<{ location?: string }>();
   const { session } = useSession<Session>();
   const draft = useFormDraft(checkInForm, {
     store: checkInDrafts,
     respondent: session?.user.id ?? "signed-out",
     hostOptions: checkInHostOptions,
-    linkParams: params.gym ? { gym: params.gym } : undefined,
+    linkParams: params.location ? { location: params.location } : undefined,
   });
   if (!starter.features.checkIn) return <Redirect href="/" />;
   return (

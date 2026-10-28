@@ -37,7 +37,7 @@ describe("the timetable", () => {
     const rows = [...table.querySelectorAll('tbody th[scope="row"]')].map((th) => th.textContent);
     expect(rows).toEqual(["6:00 am", "9:00 am", "6:00 pm"]);
     expect(table.querySelectorAll("tbody td").length).toBe(3 * 6);
-    expect([...table.querySelectorAll("td .sr-only")].filter((s) => s.textContent === "No classes").length).toBe(18 - 5);
+    expect([...table.querySelectorAll("td .sr-only")].filter((s) => s.textContent === "Nothing scheduled").length).toBe(18 - 5);
     expect(table.textContent).toContain("with Sam Lee · Main floor");
     expect(table.closest('[role="region"]')?.getAttribute("tabindex")).toBe("0");
   });
@@ -52,8 +52,21 @@ describe("the timetable", () => {
     // Each radio names the panel it shows.
     for (const r of radios) expect(body.querySelector(`#${r.getAttribute("aria-controls")}`)?.hasAttribute("data-panel")).toBe(true);
     expect(body.querySelectorAll("[data-gs-schedule] [data-panel]")).toHaveLength(6);
-    expect(body.querySelector('[data-panel="2"]')?.textContent).toContain("No classes");
+    expect(body.querySelector('[data-panel="2"]')?.textContent).toContain("Nothing scheduled");
     expect(html).not.toContain("<script");
+  });
+
+  it("says who hosts a class, reading the deprecated coach when host is left out", () => {
+    const sessions = [
+      { day: "mon", start: "06:00", title: "Hosted", host: "Ada" },
+      { day: "mon", start: "07:00", title: "Old", coach: "Grace" },
+      { day: "mon", start: "08:00", title: "Both", host: "Alan", coach: "Mina" },
+    ];
+    const text = dom(render("schedule", "agenda", { ...sectionProps.schedule, days: ["mon"], sessions })).textContent;
+    expect(text).toContain("with Ada");
+    expect(text).toContain("with Grace");
+    expect(text).toContain("with Alan");
+    expect(text).not.toContain("Mina");
   });
 
   it("lists every day in the agenda, and says the times as the site's clock does", () => {

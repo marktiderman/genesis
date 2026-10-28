@@ -181,7 +181,7 @@ A consumer can stop at any rung. That is the product.
 ### The test that does the most work
 
 **Domain vocabulary.** A primitive that knows the words `onTrack`, `atRisk`, `engagement` or
-`rock` is not a primitive — it is a pattern. This is the test that most often catches a
+`quarterlyGoal` is not a primitive — it is a pattern. This is the test that most often catches a
 component filed one layer too low, and a component filed too low is how a second
 implementation gets born: the next person needing that shape doesn't find it where they
 look, so they write another.
@@ -324,7 +324,7 @@ Two notes from executing this section against the actual source:
   implementation is the failure mode this document exists to prevent. The argument for keeping
   it consulted only the **Leans on** column and skipped **Banned from it**, which bans domain
   words from primitives — and the emphasized test below the layers table settles it: *"A
-  primitive that knows the words `onTrack`, `atRisk`, `engagement` or `rock` is not a
+  primitive that knows the words `onTrack`, `atRisk`, `engagement` or `quarterlyGoal` is not a
   primitive — it is a pattern."* `status-badge.tsx` is typed as `"onTrack" | "atRisk" |
   "offTrack" | ...`, the only domain-carrying file among the 51 left in `ui/`. Failing the
   Patterns admission test does not make a component a primitive when the Primitives row bans

@@ -2173,7 +2173,7 @@
     {
       "id": "content-packs",
       "name": "Content packs",
-      "summary": "defineContentPack declares versioned data that fills installed blocks (session types and agendas, metric templates, custom field definitions, forms, roadmap templates, labels), checked for its shape, stable keys, references and the blocks it needs; contentPackProblems also refuses a pack whose blocks aren't installed. Zod-free, in /blocks. An app's installer copies a pack into a tenant's editable rows with its source.",
+      "summary": "defineContentPack declares versioned data that fills installed blocks: sections keyed by block id, each checked by the validator its block registers (contributes.contentSection), plus labels; Genesis checks the shape, stable keys and the blocks it needs, and contentPackProblems also refuses a pack whose blocks aren't installed. The older typed sections still work, deprecated. Zod-free, in /blocks. An app's installer copies a pack into a tenant's editable rows with its source.",
       "category": "Platform",
       "status": "building",
       "horizon": "now",
@@ -2217,7 +2217,8 @@
       ],
       "visibility": "internal",
       "acceptance": [
-        "defineContentPack throws one ContentPackError listing every problem: id, semver version, publisher, label keys, duplicate or malformed keys per section and per agenda or roadmap item, field targets and visibility, roadmap refs, and a section whose block requires doesn't list.",
+        "defineContentPack throws one ContentPackError listing every problem: id, semver version, publisher, label keys, duplicate or malformed keys per section, each block validator's problems, and a section whose block requires doesn't list.",
+        "A block's contributes.contentSection (or a validators map by block id) checks its section's items; without one, only keys are checked.",
         "contentPackProblems with the installed blocks refuses a pack that needs a block the tenant doesn't have."
       ],
       "reviewedAt": "2026-10-22",
@@ -4465,7 +4466,6 @@
       "keywords": [
         "metrics",
         "kpi",
-        "scorecard",
         "measurables",
         "habits",
         "trend",

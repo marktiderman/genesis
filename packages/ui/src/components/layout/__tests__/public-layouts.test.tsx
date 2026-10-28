@@ -314,7 +314,7 @@ describe("contrast fallback", () => {
   it("the emitted, rounded triplet reaches 4.5:1 across hues and lightness levels", () => {
     // Property-style sweep: every hue in 11-degree steps, several saturations,
     // lightness 0-100 in 1.3% steps (offsets chosen to hit awkward roundings),
-    // plus every 8-bit colour on a coarse RGB grid, including Gate's
+    // plus every 8-bit colour on a coarse RGB grid, including the reviewer's
     // counter-example rgb(4, 195, 202) and the cyan band around it, where
     // rounding to 0.1 used to land at 4.48:1.
     const inputs: string[] = ["rgb(4, 195, 202)"];

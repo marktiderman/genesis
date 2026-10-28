@@ -1512,7 +1512,7 @@
 
   **`@marktiderman/genesis-design-system`** — extended the `status` color
   tokens (`tokens/dtcg/colors.json` source, mirrored in `src/tokens/colors.ts`
-  and regenerated into `src/tokens/native.ts`) with five new EOS/OKR-style
+  and regenerated into `src/tokens/native.ts`) with five new OKR-style
   progress tokens, each resolving to an existing `semantic` color (no new
   hues): `onTrack` / `done` → `semantic.success`, `atRisk` → `semantic.warning`,
   `offTrack` → `semantic.error` (joining the existing `blocked`, same color),

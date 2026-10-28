@@ -1012,7 +1012,7 @@ describe("submission work limits", () => {
     });
   });
 
-  it("never throws near the replay-work limit, with or without a submit event (Gate's case)", () => {
+  it("never throws near the replay-work limit, with or without a submit event (the reviewer's case)", () => {
     const blocks: FieldBlock[] = [
       { kind: "field", id: "n", key: "n", type: "number", label: "N" },
       { kind: "field", id: "a", key: "a", type: "short-text", label: "A" },
@@ -1036,7 +1036,7 @@ describe("submission work limits", () => {
     }
   }, 60_000);
 
-  it("refuses an event log that would make every step work out every formula (Gate's worst case)", () => {
+  it("refuses an event log that would make every step work out every formula (the reviewer's worst case)", () => {
     const blocks: FieldBlock[] = [...(table.blocks.slice(0, 2) as FieldBlock[])];
     for (let k = 0; k < 1_800; k++) blocks.push({ kind: "field", id: `c${k}`, key: `c${k}`, type: "calculated", label: "C", props: { formula: "sum(t.c)+n" } });
     blocks.push({ kind: "field", id: "why", key: "why", type: "short-text", label: "Why" });

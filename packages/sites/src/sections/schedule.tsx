@@ -1,9 +1,10 @@
 /**
- * The weekly timetable: classes by time and day, with their coach and
- * where they meet.
+ * The weekly timetable: classes or sessions by time and day, with who
+ * hosts them and where they meet.
  *
  * - `grid`: on wider screens an accessible table (a caption, a header cell
- *   per day and per time, an empty slot said as "No class"); on a phone a
+ *   per day and per time, an empty slot said as `emptyText`, "Nothing
+ *   scheduled" by default); on a phone a
  *   day picker (radio buttons, one day's classes at a time) that needs no
  *   script: the stylesheet shows the day whose radio is checked, and shows
  *   every day where the browser can't.
@@ -43,7 +44,10 @@ const Session = z.object({
   title: Line(60),
   /** A class type's id, for its chip colour and the legend. */
   type: TypeId.optional(),
-  coach: Line(60).optional(),
+  /** Who leads it: shown as "with …". */
+  host: Line(60).optional(),
+  /** @deprecated Use `host`. Still accepted; version 2 moves it into `host`, and the editor hides it. */
+  coach: Line(60).optional().meta({ deprecated: true }),
   location: Line(60).optional(),
   note: Line(80).optional(),
   /** Book this class (an outbound link, say). */
@@ -63,7 +67,7 @@ const schema = z.object({
   types: z.array(ClassType).max(16).default([]),
   sessions: z.array(Session).max(200),
   /** What an empty slot or day says. */
-  emptyText: Line(60).default("No classes"),
+  emptyText: Line(60).default("Nothing scheduled"),
   footnote: Copy(300).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
@@ -119,9 +123,10 @@ function Chip({ session, types }: { session: ScheduleSession; types: Map<string,
   );
 }
 
-/** Coach, place and note, as one quiet line. */
+/** Host, place and note, as one quiet line. */
 function Details({ session, muted }: { session: ScheduleSession; muted: boolean }) {
-  const parts = [session.coach ? `with ${session.coach}` : null, session.location, session.note].filter(Boolean);
+  const host = session.host ?? session.coach;
+  const parts = [host ? `with ${host}` : null, session.location, session.note].filter(Boolean);
   if (!parts.length) return null;
   return <span className={cn("block text-xs", muted && "text-muted-foreground")}>{parts.join(" · ")}</span>;
 }
@@ -196,11 +201,23 @@ function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
   );
 }
 
+/** Version 2: a session's `coach` moves into `host` (kept when `host` is set) and is dropped. */
+function coachToHost(props: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(props.sessions)) return props;
+  const sessions = props.sessions.map((s: unknown) => {
+    if (!s || typeof s !== "object" || !("coach" in s)) return s;
+    const { coach, ...rest } = s as Record<string, unknown>;
+    return rest.host === undefined || rest.host === "" ? (coach === undefined ? rest : { ...rest, host: coach }) : rest;
+  });
+  return { ...props, sessions };
+}
+
 export const scheduleSection = defineSection({
   type: "schedule",
-  version: 1,
+  version: 2,
+  migrations: { 2: coachToHost },
   label: "Timetable",
-  description: "The week's classes by time and day, with coach and place: a table on wider screens and a day picker on a phone.",
+  description: "The week's classes by time and day, with host and place: a table on wider screens and a day picker on a phone.",
   category: "content",
   schema,
   variants: [
@@ -219,8 +236,8 @@ export const scheduleSection = defineSection({
           { id: "open", name: "Open gym", description: "Train on your own; a coach is on the floor.", tone: "soft" },
         ],
         sessions: [
-          { day: "mon", start: "06:00", title: "Strength", type: "strength", coach: "Coach name" },
-          { day: "wed", start: "06:00", title: "Strength", type: "strength", coach: "Coach name" },
+          { day: "mon", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
+          { day: "wed", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
           { day: "sat", start: "09:00", title: "Open gym", type: "open" },
         ],
       },

@@ -83,7 +83,7 @@ export interface StatusBadgeProps
 }
 
 /**
- * Status-specific badge for progress/health states — the EOS/OKR-style
+ * Status-specific badge for progress/health states — the OKR-style
  * "on track / at risk / off track" goal vocabulary plus common
  * task-lifecycle states ("done", "blocked", "in progress").
  *

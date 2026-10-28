@@ -412,7 +412,7 @@ export interface ResponseFilter {
   /** First and last day, YYYY-MM-DD, both included; open-ended when absent. */
   from?: string | null;
   to?: string | null;
-  /** Extra values that must match exactly, such as { class: "6am WOD" }. */
+  /** Extra values that must match exactly, such as { class: "6am class" }. */
   match?: Record<string, string | null | undefined>;
   /** Only items with a rating at or below this (any rating question). */
   ratingAtMost?: number | null;
@@ -497,7 +497,7 @@ export interface FiltersValue {
   /** Custom range, YYYY-MM-DD; empty for open-ended. */
   from: string;
   to: string;
-  /** By choice filter key, e.g. { class: "6am WOD" }; missing or empty for any. */
+  /** By choice filter key, e.g. { class: "6am class" }; missing or empty for any. */
   match: Record<string, string>;
   ratingAtMost: number | null;
   /** Low ratings, each on its own question's scale (lowRatingAtMost). */

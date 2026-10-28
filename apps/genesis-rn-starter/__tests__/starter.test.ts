@@ -463,3 +463,16 @@ describe("metro", () => {
     for (const name of genesis) expect(names, name).toContain(name);
   });
 });
+
+describe("the sample check-in", () => {
+  // Answers are stored by field id and carried between versions by key: a renamed
+  // question gets a new id and key, so old answers never read as the new question.
+  it("names each question's id and key after what it asks", () => {
+    const form = JSON.parse(read("src/forms/check-in.json")) as { definition: { blocks: { kind: string; id: string; key?: string; label?: string }[] } };
+    const fields = form.definition.blocks.filter((b) => b.kind === "field");
+    for (const f of fields) expect(f.key, f.id).toBe(f.id);
+    const ids = fields.map((f) => f.id);
+    expect(ids).toEqual(expect.arrayContaining(["location", "member", "mood", "daysOnPlan", "tookBreaks"]));
+    for (const old of ["gym", "coach", "sessions", "slept", "energy", "class"]) expect(ids).not.toContain(old);
+  });
+});

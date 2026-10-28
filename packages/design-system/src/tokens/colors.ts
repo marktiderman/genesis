@@ -30,7 +30,7 @@ export const status = {
   blocked: semantic.error.DEFAULT,
   draft: neutral[500],
   archived: neutral[300],
-  // Progress/health statuses — the EOS/OKR-style "RAG" (red/amber/green)
+  // Progress/health statuses — the OKR-style "RAG" (red/amber/green)
   // goal-tracking vocabulary plus common task-lifecycle states. Consumed
   // 1:1 by genesis-ui's `StatusBadge` CVA variants (see components/ui/
   // status-badge.tsx) so a consumer's status string maps straight to a
