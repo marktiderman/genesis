@@ -1,0 +1,21 @@
+packages/forms-builder/README.md
+  s_e78d57e50dc818::t_6299b689bd4a68 304
+scripts/check-private-names.mjs
+  s_e78d57e50dc818::t_81cb79b226daba 26-28,53-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "15f12ec51df127ace5c3b5669589b9224b3e0063",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
