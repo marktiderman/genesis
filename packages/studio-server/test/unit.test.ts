@@ -540,7 +540,7 @@ describe("switchToUser", () => {
 
   it("sets every setting as a parameter, then checks current_user", async () => {
     const { calls, query } = recorder();
-    await switchToUser(query, identity, { headers: { "x-app": "gamify" }, statementTimeoutMs: 5000 });
+    await switchToUser(query, identity, { headers: { "x-app": "sample-app" }, statementTimeoutMs: 5000 });
     expect(calls[0]!.text).toContain("set_config('role', $1::text, true)");
     expect(calls[0]!.text).toContain("set_config('request.headers', $6::text, true)");
     expect(calls[0]!.values).toEqual([
@@ -549,7 +549,7 @@ describe("switchToUser", () => {
       "u-1",
       "authenticated",
       "a@b.test",
-      JSON.stringify({ "x-app": "gamify" }),
+      JSON.stringify({ "x-app": "sample-app" }),
       "",
       "",
       "{}",

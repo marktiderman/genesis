@@ -1991,7 +1991,7 @@ export const features = defineFeatures({
   },
   "owner-access": {
     name: "Owner access",
-    summary: "Moved into an app as its own local package, with genesis-work (its only user). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
+    summary: "Moved into the one app that uses genesis-work (its packages/work). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
     category: "Platform",
     status: "retired",
     layer: "service",

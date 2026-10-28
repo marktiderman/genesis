@@ -336,7 +336,7 @@
 
 - 664a25f: AppShell: collapsible desktop sidebar and opt-in shell sub-navigation. No type in the public API narrows or widens: `NavItem.icon` stays required.
 
-  **Collapsed rail.** Collapsed, the desktop sidebar is an icon rail: the logo mark (the app name's first letter when there's no logo), one icon per item, the active item highlighted, and the expand button at the bottom. Each item shows its name in a tooltip on hover and on keyboard focus, and a nested group opens its items in a popover. The rail stays 56px wide; `options.collapsedRailWidth: 64` gives a 64px rail. Collapsing or expanding keeps keyboard focus on the moved toggle or on the focused sidebar link, including when a route's `defaultCollapsed` collapses the sidebar.
+  **Collapsed rail.** Collapsed, the desktop sidebar is an icon rail: the logo mark (the app name's first letter when there's no logo), one icon per item, the active item highlighted, and the expand button at the bottom. Each item shows its name in a tooltip on hover and on keyboard focus, and a nested group opens its items in a popover. The rail stays 56px wide; `options.collapsedRailWidth: 64` gives the 64px rail of a consumer app's design. Collapsing or expanding keeps keyboard focus on the moved toggle or on the focused sidebar link, including when a route's `defaultCollapsed` collapses the sidebar.
 
   **Opt-in shortcut.** `options.collapseShortcut` (off by default; e.g. `"["`) toggles the sidebar. It is skipped while typing, while a listbox, combobox or menu has focus (Select typeahead), while a dialog is open, and with Ctrl/Cmd/Alt held.
 
@@ -1177,7 +1177,7 @@
 
 ### Minor Changes
 
-- 4d02f31: Add three primitives closing common gaps in consumer apps:
+- 4d02f31: Add three primitives closing common gaps in consumer apps (a consumer app's master-plan item 26, U10-U12):
   - `UserAvatar` — canonical user-identity avatar. Wraps `Avatar`/`AvatarImage`/`AvatarFallback` and computes initials from a `name` prop (falls back to initials automatically on a missing or failed image load). `size` is `"sm" | "default" | "lg"`, matching the scale already used by `Button`/`Toggle`/`Spinner`. The root carries `role="img"` + `aria-label={name}` so the person's full name is the accessible name on both the image and the initials path, and initials are read as Unicode graphemes so non-BMP names (`𐐀 Smith`, `😊 Jones`) and combining marks survive intact.
   - `SettingsRow` and `ToggleRow` — row layout for settings/preferences lists: label + description on one side, a control on the other. `SettingsRow` takes arbitrary trailing `children` plus a `descriptionId` so a consumer-supplied control can reference the description through `aria-describedby`; its label text renders as a real `<label for>` only when `htmlFor` is supplied, and as a plain `<span>` otherwise, so rows whose control names itself (a Button) or has none (a Badge) never emit a `<label>` associated with nothing. `ToggleRow` is `SettingsRow` pre-wired with `Switch`, generating both the `id`/`htmlFor` and the `aria-describedby` pairing (via `useId`) so the label _and_ the description are announced when the control is focused; its `testID` lands on the Switch — the node automation has to click — with `rowTestID` for the row wrapper. Each ships at its own subpath (`@marktiderman/genesis-ui/settings-row`, `@marktiderman/genesis-ui/toggle-row`).
   - `PageLoading` — full-page or in-section loading state: a centered `Spinner` with an optional message, as the loading-state counterpart to `EmptyState`. `variant` is `"page" | "section"`.
@@ -1532,7 +1532,8 @@
   already uses) — no raw hex in the component. `@marktiderman/genesis-design-system`
   is now a peer dependency of `@marktiderman/genesis-ui`.
 
-  Motivating consumer: a consumer app replaces its local, raw-Tailwind-class `status-colors.ts` with this
+  Motivating consumer: a consumer app's master-plan item 25 (U9)
+  replaces its local, raw-Tailwind-class `status-colors.ts` with this
   token-backed `StatusBadge`.
 
 - bb33975: Widen `Tooltip`'s `content` to `ReactNode`, add `asChild` to `Button`, and converge the two `EmptyState` implementations onto one canonical component. Every prop and type in this release stays source-compatible; **`EmptyState` changes what it renders** — see its entry below before upgrading.
@@ -1613,7 +1614,7 @@
   - `Input` + `Textarea` add `aria-invalid:` error styling (`border-destructive` + `ring-destructive/50`), so validation state is reflected visually — inert until `aria-invalid` is set, so no change to existing usage.
   - `Textarea` adds `field-sizing-content` (auto-grow with content) while keeping its `min-h-[80px]` floor.
 
-  Additive only — no prop/type changes; unblocks tenants (e.g. gamify dashboard) collapsing their local shadcn copies onto genesis-ui. Full base-class modernization (h-9/ring-[3px]) + the RHF `Form`/`FormField` API remain a follow-up.
+  Additive only — no prop/type changes; unblocks tenants (e.g. a consumer app's dashboard) collapsing their local shadcn copies onto genesis-ui. Full base-class modernization (h-9/ring-[3px]) + the RHF `Form`/`FormField` API remain a follow-up.
 
 ### Patch Changes
 
@@ -1645,7 +1646,7 @@
 
 ### Minor Changes
 
-- 90446ff: Add `loading`, `startIcon`, and `endIcon` slots plus a `type="button"` default to `Button` (promoted from the Gamify `genesis-web` mirror so the dashboard can consume `genesis-ui` directly). Additive — the existing `ButtonProps` (variant/size/ref) is unchanged.
+- 90446ff: Add `loading`, `startIcon`, and `endIcon` slots plus a `type="button"` default to `Button` (promoted from a consumer app's `genesis-web` mirror so the dashboard can consume `genesis-ui` directly). Additive — the existing `ButtonProps` (variant/size/ref) is unchanged.
 
 ## 1.0.0
 
