@@ -166,9 +166,9 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
       raw.push(...allowGrew(config.allow ?? [], before.allow, options.base));
       raw.push(...rulesWeakened(config, before, options.base));
     }
-    // Uncompared: an error when the config holds something to compare, else just the warning.
+    // Uncompared: an error when the config holds something to compare; nothing to say when it holds
+    // none (no allow, rules or packageRules can have weakened).
     configSkipped = !before && guarded;
-    skipped ||= !before;
   }
   if (skipped || configSkipped) {
     raw.push(

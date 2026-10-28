@@ -80,7 +80,9 @@ export async function checkContracts(ctx: DoctorContext, read: ContractReader = 
     ctx.report({ rule: "contracts-stale", level: generation ? "error" : "warn", file: out, message: generation ? `couldn't be generated: ${message}` : `couldn't read the database through ${env}: ${message}` });
     return;
   }
-  const command = `genesis introspect -o ${out} -s ${schemas.join(",")}${env === DEFAULT_DATABASE_ENV ? "" : ` --database-env ${env}`}`;
+  // The command runs from wherever the doctor ran, so its -o names the checked app's file from there.
+  const target = path.relative(process.cwd(), path.join(ctx.root, out)) || out;
+  const command = `genesis introspect -o ${target} -s ${schemas.join(",")}${env === DEFAULT_DATABASE_ENV ? "" : ` --database-env ${env}`}`;
   if (current !== expected) {
     ctx.report({
       rule: "contracts-stale",

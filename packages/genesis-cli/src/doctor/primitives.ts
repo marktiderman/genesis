@@ -101,13 +101,16 @@ const cell = (s: string | undefined) =>
     .replace(/\n/g, " ")
     .replace(/(`[^`]*`)|<([A-Za-z][\w.]*)>/g, (m, code: string | undefined, name: string | undefined) => code ?? `\`<${name}>\``);
 
+/** An import as one Markdown code span: pipes escaped, one line, no backticks of its own. */
+const importCell = (s: string) => `\`${s.replace(/`/g, "").replace(/\|/g, "\\|").replace(/\n/g, " ")}\``;
+
 /** The catalog as a Markdown table. */
 export function catalogTable(rows: readonly PrimitiveRow[], options: { docs?: boolean } = {}): string {
   const head = options.docs ? "| Need | Use | Import | Enforced by | Docs |\n| --- | --- | --- | --- | --- |" : "| Need | Use | Import |\n| --- | --- | --- |";
   const body = rows.map((r) =>
     options.docs
-      ? `| ${cell(r.need)} | ${cell(r.use)} | ${r.import ? `\`${cell(r.import)}\`` : ""} | ${r.rule ? `\`${r.rule}\`` : ""} | ${r.docs ? `[docs](${r.docs})` : ""} |`
-      : `| ${cell(r.need)} | ${cell(r.use)} | ${r.import ? `\`${cell(r.import)}\`` : ""} |`,
+      ? `| ${cell(r.need)} | ${cell(r.use)} | ${r.import ? importCell(r.import) : ""} | ${r.rule ? `\`${r.rule}\`` : ""} | ${r.docs ? `[docs](${r.docs})` : ""} |`
+      : `| ${cell(r.need)} | ${cell(r.use)} | ${r.import ? importCell(r.import) : ""} |`,
   );
   return [head, ...body].join("\n");
 }
