@@ -134,7 +134,7 @@ describe("genesis-core-2-scope-names", () => {
     expect(rewriteScopeNames(text).split("\n").slice(2)).toEqual(["export const a = $zones.scope;", "export const b = x$zones.practice;"]);
   });
 
-  it("reports nothing left after it runs, on a Growth90-shaped view", async () => {
+  it("reports nothing left after it runs, on an app-shaped view", async () => {
     const view = [
       'import { defineView } from "@marktiderman/genesis-core/resource-view";',
       "export const formsView = defineView(contracts.forms, {",

@@ -139,7 +139,7 @@
   already uses) — no raw hex in the component. `@marktiderman/genesis-design-system`
   is now a peer dependency of `@marktiderman/genesis-ui`.
 
-  Motivating consumer: `marktiderman/breakthrough`'s master-plan item 25 (U9)
+  Motivating consumer: a consumer app's master-plan item 25 (U9)
   replaces its local, raw-Tailwind-class `status-colors.ts` with this
   token-backed `StatusBadge`.
 
@@ -237,27 +237,26 @@
 
 ### Minor Changes
 
-- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 (`@gamify/brand`) and A4.1 (`@acme/brand`).
+- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 and A4.1 (each consumer app's own `@<consumer>/brand`).
 - 210aa8f: BREAKING (allowed pre-1.0): brand presets removed from design-system; canonical schema gained `extensions` slot for consumer-specific scales; `rank` moved to extensions.
 
   PRD-07 Phase A2 / A2.7 / A2.9 / A2.10 — G-PR-2.
 
   **Removed (4 brand presets and their DTCG token JSONs):**
   - `src/presets/brand-acme.ts` + `tokens/dtcg/brands/acme.json`
-  - `src/presets/brand-breakthrough.ts` + `tokens/dtcg/brands/breakthrough.json`
+  - two consumer-app presets: `src/presets/brand-<app>.ts` + `tokens/dtcg/brands/<app>.json`
   - `src/presets/brand-team-tiderman.ts` + `tokens/dtcg/brands/team-tiderman.json`
-  - `src/presets/brand-gamify.ts` + `tokens/dtcg/brands/gamify.json`
-  - Re-exports of `acmeTheme/Colors`, `breakthroughTheme/Colors`, `teamTidermanTheme/Colors` from `src/index.ts`
+  - Re-exports of `acmeTheme/Colors`, `teamTidermanTheme/Colors` from `src/index.ts`
   - The 4 corresponding `dist/themes/<brand>.css` outputs (only `genesis.css` ships now)
 
   **Removed (provider surface):**
-  - `Brand` union narrowed from `"genesis" | "acme" | "breakthrough" | "team-tiderman" | "gamify"` → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
+  - `Brand` union narrowed from five brand names → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
 
   **Added (canonical schema — A2.9):**
   - `src/schema/brand.ts` exports `ColorScale`, `CanonicalBrand`, `BrandExtensions` (open-ended interface for consumer declaration merging), `isColorScale`, and `validateBrand`.
   - `extensions?: BrandExtensions & Record<string, ColorScale>` slot on `CanonicalBrand` — consumer-domain color scales (rank, gameMode, flowTemplate) live here.
   - TypeScript declaration-merging pattern documented in the module doc-comment + standards/design-opinions.md.
-  - Naming convention: camelCase keys, prefixed only on collision (`gamifyPriority` etc), brand-genesis declares zero extensions.
+  - Naming convention: camelCase keys, prefixed only on collision (`appPriority` etc), brand-genesis declares zero extensions.
 
   **Added (validation tooling — A2.9):**
   - `schema/brand.schema.json` — JSON-Schema 2020-12 entry for `CanonicalBrand`.

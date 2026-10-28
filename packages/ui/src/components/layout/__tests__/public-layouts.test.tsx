@@ -127,14 +127,14 @@ describe("PublicPage", () => {
 
   it("renders the brand header, a main landmark and the powered-by footer", () => {
     const { container } = render(
-      <PublicPage brand={brand} poweredBy="Growth90" footer={<a href="/privacy">Privacy</a>} title="Book a call">
+      <PublicPage brand={brand} poweredBy="Acme" footer={<a href="/privacy">Privacy</a>} title="Book a call">
         <p>Form here</p>
       </PublicPage>,
     );
     expect(screen.getByRole("banner").textContent).toContain("Riverside Physio");
     expect(screen.getByRole("main").textContent).toContain("Form here");
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Book a call");
-    expect(screen.getByRole("contentinfo").textContent).toContain("Powered by Growth90");
+    expect(screen.getByRole("contentinfo").textContent).toContain("Powered by Acme");
     expect(screen.getByRole("contentinfo").textContent).toContain("Privacy");
     // Logo and cover are decorative: the name is right beside them.
     const imgs = container.querySelectorAll("img");
@@ -155,7 +155,7 @@ describe("PublicPage", () => {
 
   it("embedded: no header or footer, transparent, no full-viewport height", () => {
     const { container } = render(
-      <PublicPage brand={brand} poweredBy="Growth90" embedded>
+      <PublicPage brand={brand} poweredBy="Acme" embedded>
         <p>Form here</p>
       </PublicPage>,
     );

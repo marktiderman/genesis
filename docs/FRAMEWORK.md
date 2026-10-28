@@ -48,10 +48,10 @@ The rule below comes from this, as Mark put it:
 > clean as possible. At some point, we're going to say, "Oh, this actually would benefit us multiple
 > times inside of our current client app." Then we would make it a component inside the client app.
 >
-> Let's just say there's something that Growth90 needs that really doesn't need to ship to Genesis
+> Let's just say there's something that one app needs that really doesn't need to ship to Genesis
 > yet. It's a custom component for coaching your growth. The worksheet component really is: as we
 > start dialing into that next, there's going to be some real power there that we might really
-> customize for Growth90 that never needs to go to Genesis.
+> customize for that app that never needs to go to Genesis.
 >
 > For instance, as we're building out the course builder and the lessons, as we decide, "Hey, we
 > actually want a whole learning package inside of Genesis," then it makes sense to move that
