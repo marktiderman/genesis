@@ -1,0 +1,19 @@
+.github/workflows/supabase-ci.yml
+  s_eb8f273c0695bf::t_1cf2a6459c78a2 265-272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99fe38eb6f591412b753f92814bd49f68b870594",
+  "prompts": {},
+  "sessions": {
+    "s_eb8f273c0695bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebe7fe83-aa8e-4bb2-aa43-5134866b623d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
