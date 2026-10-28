@@ -109,6 +109,8 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
 
   // Views Postgres can update and delete through on its own (one relation in
   // FROM, no joins, grouping or DISTINCT): their plain columns trace to it.
+  // A view with a rule of its own may be updatable only through that rule,
+  // whatever its query (an outer join, say), so it is left as read.
   const views = await sql<{ oid: string; ev_action: string }[]>`
     select c.oid::text as oid, r.ev_action::text as ev_action
       from pg_class c
@@ -116,6 +118,7 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
       join pg_rewrite r on r.ev_class = c.oid and r.rulename = '_RETURN'
      where c.relkind = 'v'
        and (pg_relation_is_updatable(c.oid, false) & 20) = 20
+       and not exists (select 1 from pg_rewrite o where o.ev_class = c.oid and o.rulename <> '_RETURN')
        and ${where(sql, scope)}`;
 
   const added: string[] = [];
@@ -196,11 +199,16 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
   return added;
 }
 
-/** A view column takes what its source column knows; the view's own comment and enum still win. */
+/**
+ * A view column takes what its source column knows; the view's own comment still wins. Its enum
+ * values are those both allow: the view's column has the enum type's full list, while the table's
+ * may be narrowed by a CHECK.
+ */
 function inherit(own: IntrospectedColumn, source: IntrospectedColumn): IntrospectedColumn {
   const settings = source.settings || own.settings ? { ...source.settings, ...own.settings } : undefined;
   const description = own.description ?? source.description;
-  const enumValues = own.enumValues ?? source.enumValues;
+  const both = own.enumValues && source.enumValues ? own.enumValues.filter((v) => source.enumValues!.includes(v)) : undefined;
+  const enumValues = both?.length ? both : (own.enumValues ?? source.enumValues);
   return {
     name: own.name,
     dbType: own.dbType,
