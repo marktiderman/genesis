@@ -246,10 +246,15 @@ export interface SupabaseProviderOptions {
    * filter). The database reports such a delete as zero rows, so for these
    * the provider checks the row is visible, deletes it, and reads it back:
    * gone from view is success, still visible is `forbidden`. A row that was
-   * not visible beforehand is `gone`.
+   * not visible beforehand is `gone`. A `public` table matches either
+   * spelling; a test is asked with the bare name, then `public.name`.
    */
   binTables?: readonly string[] | ((resource: string) => boolean);
-  /** Per-resource rules, keyed by resource (table) name. */
+  /**
+   * Per-resource rules, keyed by resource name. A `public` resource may be keyed either way
+   * (`goals` or `public.goals`). The key spelled exactly as the caller names the resource wins;
+   * the other spelling is used only when that key is absent. Rules are never merged.
+   */
   resources?: Record<string, SupabaseResourceConfig>;
   /**
    * Called after every committed create, update and delete, e.g. to
@@ -278,7 +283,8 @@ export interface SupabaseProviderOptions {
    * Which resources `subscribe` serves through Supabase Realtime: `true` for
    * all, a list of names, or a test. Off by default; a resource's own
    * `resources[name].realtime` wins. Needs a client with `channel()` (any
-   * `@supabase/supabase-js` client).
+   * `@supabase/supabase-js` client). A `public` resource matches either
+   * spelling; a test is asked with the bare name, then `public.name`.
    */
   realtime?: boolean | readonly string[] | ((resource: string) => boolean);
 }
@@ -446,18 +452,46 @@ export function keysetClauses(state: CursorState): string {
  * contract gives a resource, split the way PostgREST and Realtime name it.
  */
 export function splitRelation(resource: string): { schema: string; table: string } {
-  const dot = resource.indexOf(".");
-  const strip = (name: string) => name.replace(/"/g, "");
+  const dot = schemaDot(resource);
   return dot < 0
-    ? { schema: "public", table: strip(resource) }
-    : { schema: strip(resource.slice(0, dot)), table: strip(resource.slice(dot + 1)) };
+    ? { schema: "public", table: unquote(resource) }
+    : { schema: unquote(resource.slice(0, dot)), table: unquote(resource.slice(dot + 1)) };
+}
+
+/** Where the schema ends: the first dot outside double quotes (`"my.s"."we.ird"`), or -1. */
+function schemaDot(resource: string): number {
+  let quoted = false;
+  for (let i = 0; i < resource.length; i++) {
+    const c = resource[i];
+    if (c === '"') quoted = !quoted;
+    else if (c === "." && !quoted) return i;
+  }
+  return -1;
+}
+
+/** A name part without its quotes: `"we.ird"` → `we.ird`, `"a""b"` → `a"b`. */
+function unquote(part: string): string {
+  return part.length >= 2 && part.startsWith('"') && part.endsWith('"') ? part.slice(1, -1).replace(/""/g, '"') : part.replace(/"/g, "");
+}
+
+/** A name part as a resource name spells it: quoted when it holds a dot or a quote. */
+function quotePart(part: string): string {
+  return /[."]/.test(part) ? `"${part.replace(/"/g, '""')}"` : part;
 }
 
 /** The same `public` resource named the other way: `public.goals` ↔ `goals`; other schemas have one spelling. */
 function otherSpelling(resource: string): string {
   const { schema, table } = splitRelation(resource);
   if (schema !== "public") return resource;
-  return resource.includes(".") ? table : `public.${table}`;
+  return schemaDot(resource) < 0 ? `public.${quotePart(table)}` : quotePart(table);
+}
+
+/** Every spelling of a resource, for a list or test given either: a `public` one bare first, then qualified. */
+function spellings(resource: string): string[] {
+  const { schema } = splitRelation(resource);
+  if (schema !== "public") return [resource];
+  const other = otherSpelling(resource);
+  return schemaDot(resource) < 0 ? [resource, other] : [other, resource];
 }
 
 let realtimeChannelSeq = 0;
@@ -715,7 +749,7 @@ export function createSupabaseProvider(
     const all = options.realtime;
     if (!all) return false;
     if (all === true) return true;
-    return typeof all === "function" ? all(resource) : all.includes(resource) || all.includes(otherSpelling(resource));
+    return spellings(resource).some((name) => (typeof all === "function" ? all(name) : all.includes(name)));
   }
 
   function isBinTable(resource: string): boolean {
@@ -723,7 +757,7 @@ export function createSupabaseProvider(
     if (mode) return mode === "bin";
     const bin = options.binTables;
     if (!bin) return false;
-    return typeof bin === "function" ? bin(resource) : bin.includes(resource) || bin.includes(otherSpelling(resource));
+    return spellings(resource).some((name) => (typeof bin === "function" ? bin(name) : bin.includes(name)));
   }
 
   /** Awaits a write-path query: its rows, or a `DataWriteError`. */
