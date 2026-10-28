@@ -5,7 +5,7 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
-import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, valueText, ViewDefinitionError } from "../resource-view";
+import { defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, valueText, ViewDefinitionError, type ViewField } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
 
@@ -52,6 +52,25 @@ const row: BrandRow = {
   updated_at: "2026-01-02T00:00:00Z",
   score: 4,
 };
+
+describe("a field's clock", () => {
+  it("is closed: a bare word (the removed \"practice\") is a type error", () => {
+    // @ts-expect-error "practice" was renamed "scope" in genesis-core 2
+    const removed: ViewField["timeZone"] = "practice";
+    const kept: ViewField["timeZone"][] = ["viewer", "scope", "UTC", "Europe/Berlin"];
+    expect([removed, ...kept]).toHaveLength(5);
+  });
+
+  it("refuses \"practice\" and a zone the runtime doesn't know when the view loads, never falling back", () => {
+    const renamed = () => defineView(brands, { fields: { name: { timeZone: "practice" as never } } });
+    expect(renamed).toThrow(ViewDefinitionError);
+    expect(renamed).toThrow(/timeZone "practice" was renamed "scope".*genesis codemod genesis-core-2-scope-names/);
+    expect(() => defineView(brands, { fields: { name: { timeZone: "Mars/Olympus" } } })).toThrow(/timeZone "Mars\/Olympus" isn't "viewer", "scope" or a time zone/);
+    for (const zone of ["viewer", "scope", "UTC", "Europe/Berlin"] as const) {
+      expect(() => defineView(brands, { fields: { name: { timeZone: zone } } })).not.toThrow();
+    }
+  });
+});
 
 describe("defineView defaults", () => {
   const view = defineView<typeof brands, BrandRow>(brands);
@@ -356,6 +375,22 @@ describe("defineView review fixes", () => {
     expect(["statuses", "series", "addresses", "boxes", "movies", "categories", "classes", "tasks", "people", "work_items"].map(guess)).toEqual([
       "status", "series", "address", "box", "movie", "category", "class", "task", "person", "work item",
     ]);
+  });
+
+  it("makes plurals that invert the singulars", () => {
+    const many = (noun: string) =>
+      defineView({ name: "t", key: "id", noun, fields: [{ name: "id", type: "string" }] } as ResourceContract).nounPlural;
+    expect(["entry", "box", "status", "match", "wish", "person", "movie", "key", "task", "work item"].map(many)).toEqual([
+      "entries", "boxes", "statuses", "matches", "wishes", "people", "movies", "keys", "tasks", "work items",
+    ]);
+  });
+
+  it("takes a plural label for several when the noun is only derived", () => {
+    const view = (label: string) =>
+      defineView({ name: "public.team_members", key: "id", label, fields: [{ name: "id", type: "string" }] } as ResourceContract);
+    expect(view("People").nounPlural).toBe("people");
+    expect(view("Team").nounPlural).toBe("team members");
+    expect(view("People").noun).toBe("team member");
   });
 
   it("is deeply frozen: changing what was passed in changes nothing", () => {

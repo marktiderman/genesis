@@ -65,7 +65,7 @@ describe("defineBlock", () => {
       "Bad.requires: a block can't require itself",
       'Bad.requires: "Nope!" is not a feature id',
       'Bad.platforms: "watch" is not one of web, native, server, cli',
-      "Bad.contributes.menus: not a contribution (nav, settings, routes, slots, migrations, skills, privacy)",
+      "Bad.contributes.menus: not a contribution (nav, settings, routes, slots, migrations, skills, privacy, contentSection)",
       'Bad.contributes.nav: "a" appears twice',
     ]);
   });

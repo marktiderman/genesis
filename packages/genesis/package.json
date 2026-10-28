@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis",
-  "version": "0.9.20",
+  "version": "0.10.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -149,5 +149,11 @@
   "devDependencies": {
     "tsup": "^8.3.0",
     "typescript": "~6.0.3"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "An umbrella that re-exports other Genesis packages, whose own declarations carry the rules."
+    }
   }
 }

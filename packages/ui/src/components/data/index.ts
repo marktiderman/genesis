@@ -14,7 +14,9 @@ export {
   type DataTableColumn,
   type DataTableProps,
   type DataTableSort,
+  type DataTableTree,
 } from "./DataTable";
+export { TreeIndent, type TreeIndentProps } from "./TreeIndent";
 export { DataBulkBar, type BulkAction } from "./DataBulkBar";
 export { FilterCombobox, type FilterOption } from "./FilterCombobox";
 export { DateCell, NumberCell, CurrencyCell, BadgeCell } from "./cell-formatters";

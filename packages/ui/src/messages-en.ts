@@ -29,6 +29,11 @@ export const uiMessages = {
     errorBody: "Failed to load {entity}s. Please try again.",
     retry: "Retry",
     create: "New",
+    /** The count beside the title. `{count}`: rows; `{noun}`, `{nouns}`: the record's name, one and several. */
+    countOne: "{count} {noun}",
+    countOther: "{count} {nouns}",
+    /** When a filter or search is on. `{count}`: rows that match; `{total}`: all rows. */
+    countFiltered: "{count} of {total}",
     loadMore: "Load more",
     /** `{loaded}`: rows loaded so far. */
     allLoaded: "All {loaded} loaded",
@@ -48,10 +53,20 @@ export const uiMessages = {
     notFoundBody: "This record doesn't exist, or you don't have access to it.",
     deleteFailed: "The delete failed.",
   },
+  form: {
+    /** `{noun}`: the record's name, e.g. "goal". */
+    createTitle: "New {noun}",
+    editTitle: "Edit {noun}",
+    createDescription: "Fill in the details to create a new {noun}.",
+    editDescription: "Update the {noun}.",
+  },
   table: {
     noRecords: "No records found",
     /** `{name}`: the row's label. */
     selectRow: "Select {name}",
+    /** Tree mode's toggle. `{name}`: the row's label. */
+    expandRow: "Expand {name}",
+    collapseRow: "Collapse {name}",
     selectAll: "Select all rows",
     columns: "Columns",
     resetColumns: "Reset to defaults",

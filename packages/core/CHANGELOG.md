@@ -1,5 +1,51 @@
 # @marktiderman/genesis-core
 
+## 2.1.0
+
+### Minor Changes
+
+- 6e58627: Behaviour change in `useResourceForm`: an input left empty (`""`) is no value, for fields whose column the form knows about. `ResourceFormFieldDef` gains `nullable` and `hasDefault` (ResourceView fills them from the contract). For such a field, a create leaves an empty input out, so the column's default applies (for example `created_by default auth.uid()`), and an edit sends null when the person emptied it. A text field that isn't nullable keeps `""` (on a create, only without a default), and a value the screen started the field at (a `filter` or `defaults` value) is kept. A field without `nullable`, and an edit of a field nobody touched, send exactly what they did before. A `create` rule that forwards every value as named function arguments no longer receives the left-out keys. `blankValues` is exported for custom forms.
+
+  A cleared number input (`undefined`) counts as empty too, so an edit that clears an optional number sends null. An optional field's schema accepts null, so a field a screen started at null (`filter={{ due_on: null }}`) no longer blocks the submit.
+
+- 5c80a38: The Supabase provider reads and writes resources named `schema.table` (as generated contracts name them): `public` through `client.from(table)`, any other schema through `client.schema(name).from(table)`. The name splits on the first dot outside double quotes (`"my.s"."we.ird"`); a bare name still means `public`. A client without `schema()` gets the name as given for other schemas, but a `public.x` resource now reaches it as `from("x")` (it used to get `from("public.x")`). A `public` resource's config and a `binTables` or `realtime` list match either spelling: the key spelled as the caller names the resource wins, the other is used only when it's absent. A `binTables` or `realtime` test is asked once, with the name as the caller gives it, as before.
+
+  `defineView` makes plurals that invert its singulars (entry → entries, person → people) instead of adding "s", and with only a derived noun takes the contract's label as the plural when it reads as one ("People"). `ViewCopy` gains `form` (create and edit titles) and `count` (the count's words). `plural` and `singular` are exported from `genesis-core/resource-view`.
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- 298f8cd: Upgrading: ResourceView and NativeResourceView turn on the form's empty-input handling by themselves, from each field's `nullable` and `hasDefault` in the contract. Before upgrading, (a) regenerate contracts with this release's `genesis introspect`: contracts from an older CLI mark every view column `nullable: true`, so an edit that empties a view's NOT NULL text column would send null; and (b) give defaults to the parameters of any function a `create` rule calls with the whole row as named arguments, since a create now leaves out the keys of inputs left empty.
+
+## 2.0.0
+
+### Major Changes
+
+- 4c5a9f4: Scope-neutral names. Genesis named one app's tenant ("practice") in its scope and clock APIs; it now names whatever the screen is scoped to.
+
+  Breaking:
+
+  - `ResourceScope.practiceId` is gone as a named key. Pass the app's own key in the open slot, as before: `scope={{ practiceId }}`, `scope={{ orgId }}`, `scope={{ leagueId }}`. Views read it as before (`scope: ["practice_id"]` reads `practice_id`, then `practiceId`). To read it typed, augment once: `declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }`.
+  - A view field's `timeZone: "practice"` is now `timeZone: "scope"`. `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`, the new `TimeZoneName` being `"UTC"`, `"GMT"` or `Area/Location`), so `"practice"` is a type error, and `defineView` throws `ViewDefinitionError` on it (naming the codemod) and on any zone the runtime doesn't know, instead of drawing the column on the viewer's clock.
+  - NativeResourceView's `practiceTimeZone` prop is now `scopeTimeZone`; `DisplayTimeZones.practice` is `DisplayTimeZones.scope`, and `resolveZone("practice", …)` is `resolveZone("scope", …)`; `resolveZone` throws on a zone it doesn't know.
+
+  New: `ViewerScope` takes an optional `scopeTimeZone`, the IANA zone of whatever the viewer is scoped to, exposed as `useViewerScope().scopeTimeZone`. When it is absent or empty, the viewer's zone is used. An unknown zone throws in development; in production it is reported once with `reportError` and the viewer's zone is used (the exported `scopeClock` is the check). Web columns with `timeZone: "scope"` read on it (before, the web drew a practice-clock column on the viewer's clock), and NativeResourceView reads its own `scopeTimeZone` prop when given, else the `ViewerScope` value.
+
+  Migrate in one step: `genesis upgrade` runs the `genesis-core-2-scope-names` codemod when genesis-core crosses 2.0.0, or run it by hand with `genesis codemod genesis-core-2-scope-names` (`--dry-run` lists the files). It rewrites `timeZone: "practice"`, `practiceTimeZone` (attribute or object key), `resolveZone("practice", …)` and DisplayTimeZones' `practice` in files that import a Genesis package, and prints the `ResourceScope` augmentation when a file reads `scope.practiceId` and nothing declares it. `genesis doctor`'s `removed-scope-name` rule fails until none are left.
+
+  Migration notes: docs/MIGRATION.md, "Scope-neutral names".
+
+### Minor Changes
+
+- 1bfdf53: Tree mode for lists. `<ResourceView tree={{ getParentId, defaultExpanded, cascadeSelect }} />` (and ResourcePage's `tree`) nests rows under their parent, built from the flat list: depth is computed, the table and list views draw an indent and an expand arrow in the first cell, a sort applies within siblings, search and the status filter keep each match's ancestors (muted), open state is uncontrolled (`defaultExpanded`) or controlled (`expanded`, `onExpandedChange`), and `cascadeSelect` opts in to selecting a row's descendants with it. The table is a WAI-ARIA treegrid (`aria-level`, `aria-expanded`, `aria-posinset`, `aria-setsize`; → opens, ← closes). Client data only: `pagination="server"` or `"cursor"` with `tree` throws. Grid, sheet and NativeResourceView don't draw trees yet.
+
+  genesis-core/resource-view holds the logic, with no React: `treeRows`, `initialExpanded`, `setExpanded`, `cascadeSelection` and the `ResourceTree` type. `useResourceView` / `useResourceTable` surface it: `rows` are the visible rows in order and `tree` holds each row's node, the open set and `setExpanded`. genesis-ui exports `TreeIndent` (the indent and arrow) and the `DataTableTree` and `ResourcePageTreeState` types. See docs/RESOURCE-VIEW.md, "Tree mode".
+
+  Features: resource-tree
+
 ## 1.17.0
 
 ### Minor Changes

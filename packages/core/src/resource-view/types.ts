@@ -68,9 +68,23 @@ export interface ViewField<Row extends DataRow = DataRow> {
   when?: (row: Row, viewer: Viewer) => boolean;
   /** In a form: show the field only while this holds for the form's values. A hidden field isn't saved. */
   visible?: (values: Readonly<Record<string, unknown>>) => boolean;
-  /** A timestamp's clock: the viewer's (default), the practice's, or a fixed IANA zone. */
-  timeZone?: "viewer" | "practice" | (string & {});
+  /**
+   * A timestamp's clock: the viewer's (default), the scope's (the zone of whatever the screen is
+   * scoped to: ViewerScope's `scopeTimeZone`, or NativeResourceView's prop), or a fixed IANA zone.
+   * Closed: any other word (the removed `"practice"`) is a type error, and `defineView` refuses a
+   * zone the runtime doesn't know.
+   */
+  timeZone?: ViewTimeZone;
 }
+
+/**
+ * An IANA zone name as written: `"UTC"`, `"GMT"` or `Area/Location` (`"Europe/Berlin"`). The
+ * type keeps a bare word out; `defineView` checks the runtime knows the zone.
+ */
+export type TimeZoneName = "UTC" | "GMT" | `${string}/${string}`;
+
+/** A view field's clock: the viewer's, the scope's, or a fixed zone. */
+export type ViewTimeZone = "viewer" | "scope" | TimeZoneName;
 
 /** A column computed from the row, never stored or sent. */
 export interface ComputedColumn<Row extends DataRow = DataRow> {
@@ -157,17 +171,34 @@ export type RowPicture =
   | { readonly kind: "image"; readonly src: string; readonly alt: string; readonly fallback: string }
   | { readonly kind: "initials"; readonly text: string };
 
-/** The words a view shows. Each defaults from the contract (`noun`, labels). */
+/**
+ * The words a view shows. Each one is a step in a chain, and each step overrides the one before:
+ * words derived from the resource's name, then the contract's (`noun`, `nounPlural`, `label`, which
+ * `genesis introspect` reads from the table comment's `@genesis {...}`), then these, then the
+ * screen's own props. Templates take `{noun}`, `{nouns}`, `{count}` and `{total}`.
+ */
 export interface ViewCopy {
-  /** One row, in a sentence: "brand". */
+  /** One row, in a sentence: "brand". Default: the contract's `noun`, then the table name's singular. */
   noun?: string;
-  /** Several: "brands". Default `noun` + "s". */
+  /**
+   * Several: "brands". Default: the contract's `nounPlural`, then the plural of a `noun` the view or
+   * contract gives ("entry" → "entries"); with only a noun derived from the name, the contract's
+   * label when it reads as a plural ("People"), else the table name.
+   */
   nounPlural?: string;
   /** The page title. Default: the contract's label, then the plural noun in title case. */
   title?: string;
   subtitle?: string;
   empty?: { title?: string; body?: string };
+  /** The create button. Default "New". */
   create?: string;
+  /** The form's title. Default "New {noun}" and "Edit {noun}" (the UI catalogue's `form`). */
+  form?: { createTitle?: string; editTitle?: string };
+  /**
+   * The count beside the title. Default "{count} {noun}" for one, "{count} {nouns}" for more, and
+   * "{count} of {total}" when filtered (the UI catalogue's `page.count*`).
+   */
+  count?: { one?: string; other?: string; filtered?: string };
 }
 
 /** What `defineView` accepts. */
@@ -189,7 +220,7 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   /** Named operations on one row, in the order a menu shows them. Names are unique. */
   actions?: readonly ViewAction<Row>[];
   summary?: (row: Row) => RowSummary;
-  /** The scope keys this view needs above it (`["practice_id"]`). They stay out of forms. */
+  /** The scope keys this view needs above it (`["org_id"]`). They stay out of forms. */
   scope?: readonly FieldNameOf<C>[];
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;

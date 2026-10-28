@@ -3,7 +3,7 @@ import postgres from "postgres";
 import { sql as drizzleSql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { adminSql, COACH_A, COACH_B, describeDb, loginUrl, resetDatabase } from "./fixtures";
-import { IdentitySwitchError, switchToUser } from "../src/index";
+import { createPostgresDatabase, IdentitySwitchError, switchToUser } from "../src/index";
 
 const asCoach = (sub: string) => ({ role: "authenticated", claims: { sub, role: "authenticated", aud: "authenticated" } });
 
@@ -86,6 +86,43 @@ describeDb("switchToUser", () => {
     ).rejects.toBeInstanceOf(IdentitySwitchError);
   });
 
+  it("reports a login that wasn't granted the role as a refused switch, not a bare 42501", async () => {
+    await admin.unsafe(`
+      do $$ begin
+        if not exists (select 1 from pg_roles where rolname = 'ungranted_login') then
+          create role ungranted_login login noinherit password 'ungranted_login';
+        end if;
+      end $$;
+      revoke authenticated from ungranted_login;
+    `);
+    const url = new URL(loginUrl());
+    url.username = "ungranted_login";
+    url.password = "ungranted_login";
+    const ungranted = postgres(url.toString(), { max: 1, onnotice: () => {} });
+    try {
+      const error = await ungranted
+        .begin(async (tx) => {
+          await switchToUser(tx, asCoach(COACH_A));
+        })
+        .then(
+          () => null,
+          (caught: unknown) => caught,
+        );
+      expect(error).toBeInstanceOf(IdentitySwitchError);
+      expect((error as Error).message).toContain("the database login can't switch to it");
+      expect((error as Error).message).toContain("grant authenticated to <login>");
+      expect((error as Error).cause).toMatchObject({ code: "42501" });
+
+      // The studio handler's own path (createPostgresDatabase) says the same.
+      const db = createPostgresDatabase(ungranted);
+      await expect(
+        db.asUser(asCoach(COACH_A), { readOnly: true, statementTimeoutMs: 5_000 }, async () => "ran"),
+      ).rejects.toBeInstanceOf(IdentitySwitchError);
+    } finally {
+      await ungranted.end();
+    }
+  });
+
   it("aborts the transaction on a failed check, so catching it doesn't help", async () => {
     let ranAfter = false;
     await expect(
@@ -133,11 +170,11 @@ describeDb("switchToUser", () => {
 
   it("exposes only the headers given as request.headers, and clears a stale value", async () => {
     const seen = await login.begin(async (tx) => {
-      await switchToUser(tx, asCoach(COACH_A), { headers: { "x-app": "gamify" } });
+      await switchToUser(tx, asCoach(COACH_A), { headers: { "x-app": "sample-app" } });
       const [row] = await tx`select current_setting('request.headers', true)::json as headers`;
       return row!.headers;
     });
-    expect(seen).toEqual({ "x-app": "gamify" });
+    expect(seen).toEqual({ "x-app": "sample-app" });
 
     // One connection, so the session-level value someone left on it is there for the next transaction.
     const single = postgres(loginUrl(), { max: 1, onnotice: () => {} });
@@ -164,7 +201,7 @@ describeDb("switchToUser", () => {
     const db = drizzle({ client: login });
     const names = await db.transaction(async (tx) => {
       await switchToUser((strings, ...values) => tx.execute(drizzleSql(strings, ...values)), asCoach(COACH_A), {
-        headers: { "x-app": "gamify" },
+        headers: { "x-app": "sample-app" },
       });
       const rows = await tx.execute(drizzleSql`select name, current_setting('request.jwt.claim.sub', true) as sub from public.clients`);
       return [...rows] as { name: string; sub: string }[];

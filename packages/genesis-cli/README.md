@@ -51,7 +51,9 @@ DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 
 Writes `resources.genesis.ts`, a checked-in contract for the Data Studio: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
-and a row type per table. Review it like code, and pass `contracts` to `createStudioHandler`. It
+and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
+list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
+table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). Review it like code, and pass `contracts` to `createStudioHandler`. It
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 
@@ -215,9 +217,14 @@ runs count that copy as handled. It exits 1 when something still needs you.
    keeping its range prefix; `workspace:`, `file:` and other ranges are left alone, nothing is
    downgraded.
 2. Runs a codemod only when a release declares a breaking change it fixes: the registry in
-   `src/upgrade/codemods.ts` (empty today) names the package and the first version that breaks, and
-   a codemod runs when a package moves across it. A major move (or a 0.x minor) without one is
-   listed so you read its changelog.
+   `src/upgrade/codemods.ts` names the package and the first version that breaks, and a codemod
+   runs when a package moves across it. A major move (or a 0.x minor) without one is listed so you
+   read its changelog. `genesis codemod` lists them and `genesis codemod <id> [--dry-run]` runs
+   one by hand, for an app that moved its versions some other way:
+
+   | Codemod | Runs when | Changes |
+   | --- | --- | --- |
+   | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
 3. Reinstalls, then refreshes every file in `genesis.lock.json` from the newly installed package:
    unchanged in the app, it takes the new version; changed by both, it is merged with `git
    merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
@@ -371,6 +378,7 @@ Upgrading Genesis upgrades the checks.
 | `-c, --config <path>` | Config file. Default: `genesis.config.json`, then the `genesis` key of package.json. |
 | `-d, --dir <dir>` | The app's folder (default: cwd). |
 | `--print-genesis` | Print the components, tokens, raw tags, palette and companion packages' components read from Genesis, and exit. |
+| `--base <ref>` | The git ref change checks compare against: the packages pack's change gate and the [ratchet](#the-ratchet) (`newOnly` rules report files unchanged since the merge base as `info`). |
 
 Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Genesis not installed or not built).
 
@@ -394,10 +402,21 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
 | `page-layout` | warn | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
 | `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
-| `stale-exception` | warn | An `allow` entry that no longer matches anything. |
+| `resource-view-tree` | error | A `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"` (bare or in braces). A tree is built from every row on the client, so the screen throws when it renders. Leave `pagination` unset. Only the tag's own attributes count, not a `tree` inside an expression. ([Tree mode](../../docs/RESOURCE-VIEW.md#tree-mode)) |
+| `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-studio-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-studio-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-studio-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
+| `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
+| `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
+| `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
+| `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
+| `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
+| `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
+| `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
+| `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
+| `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
 
-It also prints **Available but unused**: the Genesis components no file imports. Check it
-before building something.
+It also prints **Available but unused**: the Genesis components no file imports, and a
+**Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
+them). Check both before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
 folder (`routesDir`, default the first of `src/routes`, `src/app`, `app`, `src/pages`, `pages`).
@@ -494,6 +513,7 @@ bodies blanked, so text inside a function body never matches; the one exception 
 | `migration-definer-search-path` | error | A `security definer` function or procedure without `set search_path`. Functions are keyed by name and argument types, so overloads are separate; `alter function … security definer` makes one definer, `alter function … set search_path` fixes it, and renames, replaces and drops are followed. |
 | `migration-edited` | error | A `.sql` migration that already exists at the merge base with `supabase.base` (default `origin/main`) was modified, deleted or renamed. Applied migrations are never edited; add a new one. Skipped outside a git repo; a **warn** when the base ref isn't available. |
 | `migration-testing-kit` | error | A migration that uses `genesis_testing`, genesis-supabase's pgTAP kit for test databases only (it signs in as anyone and resets roles). Keep it in `supabase/tests/database/000_genesis_testing.test.sql`. |
+| `contracts-stale` | error | With `doctor.contracts` (`{ out, schemas, databaseEnv }`, defaults `resources.genesis.ts`, the schemas the contract's own `// Source: Postgres (…)` line names (else `["public"]`), `DATABASE_URL`): the contract on disk isn't what `genesis introspect` would write from the database now (the same comparison as `introspect --check`). Without the environment variable it reports one `info` ("not checked") and never fails; a database it can't read is a warning, and a contract it can't generate (an invalid `labelField`, two tables with one name) is an error. The advice names the schemas and, when it isn't `DATABASE_URL`, `--database-env`. A contract whose `// Source:` line isn't Postgres (one written with `--openapi`) is reported as `info` ("not checked"); check it with `genesis introspect --openapi … --check`. Line endings don't count. The Vite plugin skips it in builds and the dev server, so a build never reads a live database: run it with `genesis doctor` in CI. |
 | `migration-view-rls` | error | A view in an exposed schema that runs as its owner once every migration has run: created without `with (security_invoker = true)`, replaced without it, or reset by `alter view … reset (security_invoker)`. A plain view reads past row level security on every table it selects from. `alter view … set (security_invoker = true)`, renames and drops are followed. A view that runs as its owner on purpose (it filters rows itself) takes an `allow` entry: `{ "rule": "migration-view-rls", "match": "public.profile_cards", "reason": "…" }`. |
 
 **Which migrations are new.** In a git repo with the base ref, a migration is new when it was
@@ -533,6 +553,7 @@ as dependencies.
 | `package-migration-test` | error | A migration without a pgTAP test: a block migration with no `test` (or a missing one), or any `migrations/NNNN_name.sql` without `migrations/tests/NNNN_name.test.sql`. |
 | `package-migration-number` | error | Two migrations in one package with the same `NNNN_` number. |
 | `package-untagged-tests` | warn | A package whose tests name no feature (`@feat:<id>`). |
+| `package-doctor-declaration` | error | A published (not `private`) `@marktiderman/genesis-*` package with no `genesis.doctor` declaration, or one that doesn't validate. Declare the rules it enforces, or `{ "enforce": false, "reason": "…" }`. |
 | `package-unregistered` | warn | No feature in `features.json` lists the package's folder in `links.code`. |
 | `package-migration-edited` | warn | With a base ref: a package migration that existed at the merge base and was changed, deleted or renamed. |
 | `package-unversioned-change` | warn | With a base ref: files in the package changed but neither a higher `version` nor a new changeset naming it in its front matter did; a changeset without a `Features:` line; or blocks or exports changed without a change to `features.ts`. Run CI with `--strict` so these fail. |
@@ -540,6 +561,128 @@ as dependencies.
 Symlinks inside a package aren't followed, and a `packages/*` folder without a usable package.json (or a name) is skipped. `localPackages` entries may climb out of the app (`../../packages/*`) as long as they stay in its repository.
 
 Every other rule also scans local packages' source, as it does the app's.
+
+### Package rules
+
+Every Genesis package declares what it enforces in its own package.json, under
+`genesis.doctor`, and the doctor finds every installed `@marktiderman/genesis-*` package (and
+every [local package](#local-packages)) and runs their rules. An app needs no config for them:
+installing or upgrading a package brings its rules. Rule ids are namespaced by package
+(`ui/lists-use-resource-view` for genesis-ui, `@acme/kit/<id>` for a local package), and `rules`,
+`allow`, `ratchet` and `stale-exception` treat them like built-ins.
+
+A declaration has **`prefer` rules** ("use X instead of Y") and optional **`primitives`**
+(catalog rows with no rule), and may name a **`plugin`** module for checks that need code:
+
+```json
+{
+  "name": "@marktiderman/genesis-widgets",
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "lists-use-widget-view",
+          "need": "a list screen",
+          "level": "warn",
+          "platform": "web",
+          "files": ["**/*.tsx"],
+          "exclude": ["**/*.server.*"],
+          "forbid": { "jsx": ["DataTable"], "imports": ["legacy-grid", "@legacy/*"], "pattern": "\\bfetchRows\\(" },
+          "unless": { "renders": ["WidgetView"] },
+          "use": "<WidgetView>",
+          "import": "@marktiderman/genesis-widgets",
+          "docs": "https://…/WIDGETS.md",
+          "why": "One description per list.",
+          "newOnly": false
+        }
+      ],
+      "primitives": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
+      "plugin": "./dist/doctor-rules.js"
+    }
+  }
+}
+```
+
+| Key | |
+| --- | --- |
+| `id` | Lower-case words and dashes; namespaced by the doctor. |
+| `need` | The need it answers, for `genesis primitives` and the agent guide. |
+| `level` | `error`, `warn` (default) or `info`. |
+| `platform` | `web` (off with the `native` pack) or `native` (only with it). Default both. |
+| `files`, `exclude` | App-relative globs. `{routes}` is the routes folder (`routesDir`). Default: every scanned script file. |
+| `forbid` | `jsx` element names (type arguments too: `<ResourcePage<T>`), `imports` (exact, or `prefix*`), and/or a `pattern` regular expression (every match is reported; `(?i)` for case-insensitive). Comments never count. |
+| `unless` | A file is left alone when it `renders` one of these elements (it builds on the primitive) or matches `pattern`. |
+| `use`, `import`, `docs`, `why` | The message: what to use, where from, why, and the link. `use` and `why` are required. |
+| `newOnly` | Ratchet: under `--base`, findings in unchanged files drop to `info`. |
+
+A forbidden element counts one level up too: an app component that renders it (`RecordTable`
+around `DataTable`) is flagged in its own file, and so is every screen that renders the
+wrapper. A package's rules never run on the package's own files.
+
+A package with nothing to enforce says so, with a reason, and may still list primitives:
+`"doctor": { "enforce": false, "reason": "Development tooling, not app screens." }`. In the
+`packages` pack, `package-doctor-declaration` fails a published Genesis package that declares
+neither, so a new package can't skip this step. `"doctor": "./doctor.json"` points at a file in
+the package (list it in `files`) holding the same object. A `plugin` module is loaded like an
+app plugin; its findings are namespaced like the package's other rules.
+
+**Adding rules to a new package:** add `genesis.doctor` to its package.json, run its tests (the
+genesis-cli suite validates every package's declaration), and add a changeset. Apps get the
+rules when they install the release.
+
+**In the app**, switch a package rule off, change its level or its files with a reason, never
+silently. `rules` works too, but warns (`package-rule-override`) until the reason is recorded:
+
+```json
+{
+  "doctor": {
+    "packageRules": {
+      "core/direct-data-access": { "files": ["src/**/*.tsx", "src/lib/**/*.ts"], "exclude": ["src/lib/server/**"], "reason": "Our data functions live in src/lib; check them too." },
+      "ui/record-pages-use-resource-workspace": { "level": "off", "reason": "Every record page is a builder." }
+    },
+    "allow": [{ "rule": "ui/lists-use-resource-view", "file": "src/components/data/RecordTable.tsx", "reason": "The legacy wrapper; it goes when the last screen moves." }]
+  }
+}
+```
+
+**The catalog.** `genesis primitives` (`--json` for data) prints, for each need, what to use,
+its import, the rule that enforces it and the docs: a short static core plus every installed
+package's declarations. `genesis agents` writes the same catalog as
+`.claude/skills/genesis/SKILL.md` and a `<!-- genesis-primitives:start -->` block in the app's
+AGENTS.md (the rest of the file is the app's), telling agents to use the primitives first, never
+copy an older screen, and write a gap up for Genesis before inventing. `genesis agents --check`
+writes nothing and fails when either is out of date, and the doctor's `agent-guide-stale` warns.
+Both commands, and `genesis primitives`, exit 1 when a package's declaration doesn't validate,
+since the catalog would leave it out. Run `genesis agents` after each Genesis upgrade.
+
+### The ratchet
+
+`newOnly` rules (package rules and app patterns can declare it), and any rule the app lists in
+`doctor.ratchet` (`true` for all), apply in full only to new and changed code: with
+`--base <ref>`, a finding in a file unchanged since the merge base is reported as `info`, with
+"ratcheted" in its message. Changed means committed on the branch, staged, edited or
+untracked. Without `--base` every rule runs at its level, as before; when git can't compare,
+`ratchet-skipped` says so and nothing is lowered. `allow` entries still remove findings,
+ratcheted or not: they are the recorded ratchet, file by file, and under `--base` the list only
+shrinks: `allow-grew` fails an entry the doctor settings at the merge base didn't have, and
+`rules-weakened` fails a rule the base's settings set that this branch lowers, turns off or
+excludes files from (compared with the base's settings only). Neither runs when the base had no
+doctor settings. These two and
+`ratchet-skipped` guard the config itself, so `rules` and `allow` can't name them (the config is
+refused), and the ratchet never lowers them, nor the other rules about the config, packages or
+generated files (`stale-exception`, `package-rule-override`, `package-rules-invalid`,
+`package-doctor-declaration`, `plugin-error`, `build`, `agent-guide-stale`, `contracts-stale`). A
+shallow CI clone has no merge base, so `ratchet-skipped` fails a config with `allow`, `rules` or
+`packageRules`: check out with `fetch-depth: 0` and fetch the base ref (see
+[Which migrations are new](#rule-packs)).
+
+```json
+{ "doctor": { "ratchet": ["ui/lists-use-resource-view", "core/direct-data-access"] } }
+```
+
+```bash
+genesis doctor --strict --base origin/main
+```
 
 ### Config
 
@@ -582,7 +725,10 @@ Every other rule also scans local packages' source, as it does the app's.
 | `localPrimitiveDirs` | `["src/components/ui"]` | |
 | `routesDir` | first of `src/routes`, `src/app`, `app`, `src/pages`, `pages` | The web routes folder the route rules read. |
 | `componentPackages` | `["@marktiderman/genesis-forms-studio"]` | Genesis packages besides `uiPackage` whose components `local-genesis-copy` and `page-layout` read (skipped when not installed). `--print-genesis` lists them under `companions`. |
-| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. |
+| `rules` | | `{ "<rule>": "error" \| "warn" \| "info" \| "off" }` for any rule, built-in or yours. `info` is reported and never fails, `--strict` included. A package rule changed here warns until `packageRules` gives a reason. |
+| `packageRules` | | `{ "<package>/<rule>": { level?, files?, exclude?, reason } }` for the rules packages declare. `reason` is required. `files` and `exclude` apply to `prefer` rules; a package plugin decides its own files, so only `level` applies to its rules. See [Package rules](#package-rules). |
+| `ratchet` | | `true`, or a list of rule ids, ratcheted under `--base`. See [The ratchet](#the-ratchet). |
+| `contracts` | | `{ out?, schemas?, databaseEnv? }`: the supabase pack's `contracts-stale` check. Needs the supabase pack. |
 | `allow` | | Exceptions: `{ rule, file?, match?, reason }`. `match` is the exact tag, token, export name or import specifier. `reason` is required. |
 | `patterns` | | Declarative rules, below. |
 | `rulesDoc` | | A markdown file of declarative rules, below. |
@@ -595,7 +741,7 @@ Unknown keys are an error, so a typo can't quietly turn a check off.
 
 Keep app-specific conventions in the app. Three ways, from least to most code:
 
-**Patterns** (`patterns` in config): `{ id, level?, files, exclude?, forbid?, require?, path?, message? }`.
+**Patterns** (`patterns` in config): `{ id, level?, files, exclude?, forbid?, require?, path?, message?, newOnly? }`.
 `forbid` must not match a file (the finding points at the line), `require` must match it, `path`
 must match its path. All are regular expressions; prefix `(?i)` for case-insensitive. `level` is
 `error` (default), `warn`, or `guide` (documentation only, never checked).
@@ -652,7 +798,8 @@ export default defineConfig({ plugins: [genesisDoctor()] });
 `vite build` fails when the doctor finds errors (`genesisDoctor({ strict: true })` fails on
 warnings too). `vite dev` logs problems and shows Vite's error overlay, re-checks on every
 change under the app (plus `genesis.config.json` and the rules doc), shows the overlay to
-browsers that connect later, and reloads once everything passes. Options: `root`, `configPath`,
+browsers that connect later, and reloads once everything passes. Neither runs `contracts-stale`,
+which reads the database; run `genesis doctor` in CI for it. Options: `root`, `configPath`,
 `strict`, `debounceMs`. `vite` is an optional peer dependency.
 
 ### Programmatic use

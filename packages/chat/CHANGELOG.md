@@ -1,5 +1,31 @@
 # @marktiderman/genesis-chat
 
+## 0.4.0
+
+### Minor Changes
+
+- 9a254df: The AI recap and reply-draft prompts are neutral: they speak of "a conversation" and draft for the person labelled You, in their voice, where they assumed coaching before. `createChatAssistant({ context })` (optional, a noun phrase such as "a coaching conversation" or "a support ticket") tells the model what kind of conversation it is. `recapSystem(context?)` and `draftSystem(context?)` return the system prompts.
+
+  Behaviour change: the prompt text changed, and `context` does not restore the old wording. `draftPrompt` now ends with "Their voice: …" and "Draft the next message from You." (it said "The coach's voice: …" and "Draft the coach's next message."), so code or tests that match the old prompt strings need updating, and drafts may read slightly differently. The README notes that migration 0002 is the chat extras and its file name is historical.
+
+  Features: chat
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+  - @marktiderman/genesis-features@0.7.0
+
+## 0.3.4
+
+### Patch Changes
+
+- 4c5a9f4: Accept genesis-core 2 and genesis-ui-native 3 as peers, beside the versions accepted before. None of these packages used the renamed scope names (`ResourceScope.practiceId`, `timeZone: "practice"`, `practiceTimeZone`), so they work with either. Without the wider ranges, the core and ui-native majors would have forced a major release of every one of them.
+
 ## 0.3.3
 
 ### Patch Changes

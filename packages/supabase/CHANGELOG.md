@@ -1,5 +1,25 @@
 # @marktiderman/genesis-supabase
 
+## 0.10.1
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+  - @marktiderman/genesis-features@0.7.0
+
+## 0.10.0
+
+### Minor Changes
+
+- c81f220: Remove the owner-access block and its migration, `0009_genesis_owner_access.sql`. Its only user, genesis-work, moved into the app that uses it (its `packages/work`), which keeps its own applied copy. Breaking for anyone importing `ownerAccessBlock`; nothing in Genesis does. `0016_genesis_viewer_people.sql` stays: per-person entitlements (`feature-mirror`) use it.
+
+  Features: owner-access
+
 ## 0.9.0
 
 ### Minor Changes

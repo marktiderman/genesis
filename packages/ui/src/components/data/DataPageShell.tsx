@@ -20,6 +20,10 @@ export interface DataPageShellProps {
   icon?: LucideIcon;
   /** Singular entity name for generated text, e.g. "session" */
   entityName?: string;
+  /** Several of `entityName` ("people"), when not `entityName` + "s". */
+  entityNamePlural?: string;
+  /** The count's words; see PageHeader `countFormat`. */
+  countFormat?: { one?: string; other?: string; filtered?: string };
   /** Subtitle text */
   subtitle?: string;
   createAction?: ReactNode;
@@ -103,6 +107,8 @@ export function DataPageShell({
   title,
   icon,
   entityName,
+  entityNamePlural,
+  countFormat,
   subtitle,
   createAction,
   secondaryActions,
@@ -171,6 +177,8 @@ export function DataPageShell({
     subtitle,
     icon,
     entityName: entity,
+    ...(entityNamePlural ? { entityNamePlural } : {}),
+    ...(countFormat ? { countFormat } : {}),
     count,
     totalCount,
     countActive: hasActiveFilters,

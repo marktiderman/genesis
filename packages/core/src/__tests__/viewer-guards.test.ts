@@ -42,8 +42,8 @@ const view = defineView<typeof notes, NoteRow>(notes, {
   actions: [{ name: "share", label: "Share", can: (r, v) => (r.owner_id === v.id ? true : "Only its owner shares a note.") }],
 });
 
-const ann: Viewer = { id: "ann", scope: { practiceId: "p1" }, roles: { teamRoles: ["editor"] } };
-const bob: Viewer = { id: "bob", scope: { practiceId: "p1" }, roles: { teamRoles: ["reader"] } };
+const ann: Viewer = { id: "ann", scope: { orgId: "p1" }, roles: { teamRoles: ["editor"] } };
+const bob: Viewer = { id: "bob", scope: { orgId: "p1" }, roles: { teamRoles: ["reader"] } };
 
 describe("viewer-aware guards", () => {
   it("refuse one viewer and allow another", () => {

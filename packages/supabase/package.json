@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-supabase",
-  "version": "0.9.0",
+  "version": "0.10.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -216,45 +216,6 @@
           "Sync the registry on every deploy with the service key: syncFeatureRegistry(admin, features.json, { version: BUILD_TIME } (the build time, from a production deployment only)). Grant paid features by writing feature_entitlements from your billing webhook (a tenant's) or calling grant_person_entitlement (one person's). For person grants, define private.genesis_viewer_people(viewer) as 0016 shows."
         ]
       },
-      "owner-access": {
-        "feature": {
-          "name": "Owner access",
-          "summary": "The owner-access contract: fail-closed wrappers (genesis_owner_readable, genesis_owner_allows) over the app's two hooks, for every Genesis block whose rows belong to a person, a team or the tenant.",
-          "keywords": [
-            "access",
-            "owners",
-            "row level security",
-            "tenants",
-            "teams"
-          ],
-          "audience": [
-            "developer"
-          ]
-        },
-        "platforms": [
-          "web",
-          "native"
-        ],
-        "requires": [
-          "tenant-features"
-        ],
-        "migrations": [
-          {
-            "file": "migrations/0009_genesis_owner_access.sql",
-            "test": "migrations/tests/0009_genesis_owner_access.test.sql"
-          },
-          {
-            "file": "migrations/0016_genesis_viewer_people.sql",
-            "test": "migrations/tests/0016_genesis_viewer_people.test.sql"
-          }
-        ],
-        "install": [
-          "@supabase/supabase-js@^2.118.0"
-        ],
-        "steps": [
-          "Define private.genesis_owner_can(tenant, viewer, person_id, team_id, organization_id, action) and private.genesis_readable_owners(viewer) in your own migration, as the header of 0009 shows, and private.genesis_viewer_people(viewer) as 0016 shows. Without them the wrappers answer no."
-        ]
-      },
       "web-handoff": {
         "feature": {
           "name": "Continue on the web",
@@ -289,6 +250,35 @@
           "In the native app, call openOnWeb from @marktiderman/genesis-native/web-handoff with the mint route, the session's access token and expo-web-browser."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "client-from-genesis",
+          "need": "a Supabase client in the app or on the phone",
+          "level": "warn",
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "pattern": "import\\s*\\{[^}]*\\bcreateClient\\b[^}]*\\}\\s*from\\s*[\"']@supabase/supabase-js[\"']"
+          },
+          "use": "createGenesisSupabase()",
+          "import": "@marktiderman/genesis-supabase",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/supabase/README.md",
+          "why": "Genesis's client sets PKCE, session storage that survives interrupted writes and refresh only while the app is in front. Server files (a service-key client) aren't checked."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "background jobs",
+          "use": "enqueueJob and runJobs",
+          "import": "@marktiderman/genesis-supabase/jobs",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/supabase/README.md"
+        }
+      ]
     }
   },
   "peerDependenciesMeta": {

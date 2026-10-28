@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-notifications",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -87,11 +87,11 @@
     "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@marktiderman/genesis-native": "workspace:>=0.2.0 <1.0.0",
     "@marktiderman/genesis-supabase": "workspace:>=0.7.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
-    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
     "@react-email/components": "^1.0.0",
     "@tanstack/react-query": "^5.0.0",
     "lucide-react": "^1.0.0",
@@ -196,6 +196,30 @@
           "Coming from genesis-supabase's push migration (0005): stop calling genesis-push-send, and remove its pgTAP test (tests/database/*genesis_push.test.sql): two of its assertions describe the token takeover this migration closes."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "notify-through-notifier",
+          "need": "sending an email or push",
+          "level": "warn",
+          "forbid": {
+            "imports": [
+              "resend",
+              "@sendgrid/mail",
+              "nodemailer",
+              "postmark",
+              "web-push",
+              "firebase-admin/messaging",
+              "expo-server-sdk"
+            ]
+          },
+          "use": "notify() with the type registered in defineNotifications",
+          "import": "@marktiderman/genesis-notifications/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/NOTIFICATIONS.md",
+          "why": "One notifier decides channels, preferences, quiet hours and delivery; a direct email or push call skips all of them."
+        }
+      ]
     }
   }
 }

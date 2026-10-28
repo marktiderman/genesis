@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-sites",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "private": false,
   "type": "module",
   "sideEffects": [
@@ -160,6 +160,18 @@
           "Mount handleSiteRequest from @marktiderman/genesis-sites/web on your server, before your app's routes: it answers the site's paths and returns null for everything else."
         ]
       }
+    },
+    "doctor": {
+      "enforce": false,
+      "reason": "Sections and the blog are features an app adds whole; no hand-rolled equivalent is reliably detectable yet.",
+      "primitives": [
+        {
+          "need": "a landing page or site",
+          "use": "the section registry and its server-rendered sections",
+          "import": "@marktiderman/genesis-sites",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/SITES.md"
+        }
+      ]
     }
   }
 }

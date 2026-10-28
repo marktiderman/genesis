@@ -46,7 +46,8 @@ function tsType(column: IntrospectedColumn): string {
 function field(column: IntrospectedColumn, indent: string): string {
   const parts: string[] = [`name: ${quote(column.name)}`, `type: ${quote(column.type)}`, `dbType: ${quote(column.dbType)}`];
   if (column.array) parts.push("array: true");
-  if (column.nullable) parts.push("nullable: true");
+  // Known either way, so a form can tell "may be null" from "can't" (a view's guess is left out).
+  if (!column.nullableUnknown) parts.push(column.nullable ? "nullable: true" : "nullable: false");
   if (column.nullable || column.hasDefault || column.generated) parts.push("optional: true");
   if (column.hasDefault) parts.push("hasDefault: true");
   if (column.generated) parts.push("generated: true");
@@ -70,7 +71,9 @@ export interface EmitOptions {
 }
 
 /** Thrown when the contract can't be emitted as asked (a name clash, a labelField that isn't a column). */
-export class EmitError extends Error {}
+export class EmitError extends Error {
+  override name = "EmitError";
+}
 
 export function emitContracts(tables: readonly IntrospectedTable[], options: EmitOptions): string {
   // Code-point order, not the locale's, so every machine emits the same bytes.

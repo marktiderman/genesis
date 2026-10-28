@@ -510,7 +510,7 @@ describe("large submissions", () => {
     expect(result.ok && result.submission.answers.c).toBe(60_000);
   });
 
-  it("leaves a total blank, not partial, when six 10k-row tables pass the allowance (Gate's case)", () => {
+  it("leaves a total blank, not partial, when six 10k-row tables pass the allowance (the reviewer's case)", () => {
     const blocks: FieldBlock[] = Array.from({ length: 6 }, (_, k): FieldBlock => ({
       kind: "field", id: `t${k}`, key: `t${k}`, type: "table", label: "T", props: { maxRows: 10_000, columns: [{ key: "c", label: "C" }] },
     }));
@@ -527,7 +527,7 @@ describe("large submissions", () => {
     expect(five.ok && five.submission.answers.c).toBe(50_001);
   });
 
-  it("never returns stale totals for a caller's array changed between calls (Gate's case)", () => {
+  it("never returns stale totals for a caller's array changed between calls (the reviewer's case)", () => {
     const form: FormDefinition = {
       schemaVersion: 1,
       id: "mut",

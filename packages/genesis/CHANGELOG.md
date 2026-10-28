@@ -1,5 +1,71 @@
 # @marktiderman/genesis
 
+## 0.10.2
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+- Updated dependencies [298f8cd]
+- Updated dependencies [6e58627]
+- Updated dependencies [4f198a7]
+- Updated dependencies [5c80a38]
+- Updated dependencies [2be81f2]
+  - @marktiderman/genesis-features@0.7.0
+  - @marktiderman/genesis-core@2.1.0
+  - @marktiderman/genesis-switchboard@2.1.2
+  - @marktiderman/genesis-design-system@1.5.1
+  - @marktiderman/genesis-forms-react@0.3.2
+  - @marktiderman/genesis-forms-web@0.6.4
+  - @marktiderman/genesis-forms@0.10.1
+  - @marktiderman/genesis-native@0.5.2
+  - @marktiderman/genesis-ui-native@3.1.0
+  - @marktiderman/genesis-ui@2.23.0
+
+## 0.10.1
+
+### Patch Changes
+
+- Updated dependencies [2bd8b0d]
+  - @marktiderman/genesis-ui@2.22.1
+
+## 0.10.0
+
+### Minor Changes
+
+- 4c5a9f4: Scope-neutral names. Genesis named one app's tenant ("practice") in its scope and clock APIs; it now names whatever the screen is scoped to.
+
+  Breaking:
+
+  - `ResourceScope.practiceId` is gone as a named key. Pass the app's own key in the open slot, as before: `scope={{ practiceId }}`, `scope={{ orgId }}`, `scope={{ leagueId }}`. Views read it as before (`scope: ["practice_id"]` reads `practice_id`, then `practiceId`). To read it typed, augment once: `declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }`.
+  - A view field's `timeZone: "practice"` is now `timeZone: "scope"`. `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`, the new `TimeZoneName` being `"UTC"`, `"GMT"` or `Area/Location`), so `"practice"` is a type error, and `defineView` throws `ViewDefinitionError` on it (naming the codemod) and on any zone the runtime doesn't know, instead of drawing the column on the viewer's clock.
+  - NativeResourceView's `practiceTimeZone` prop is now `scopeTimeZone`; `DisplayTimeZones.practice` is `DisplayTimeZones.scope`, and `resolveZone("practice", …)` is `resolveZone("scope", …)`; `resolveZone` throws on a zone it doesn't know.
+
+  New: `ViewerScope` takes an optional `scopeTimeZone`, the IANA zone of whatever the viewer is scoped to, exposed as `useViewerScope().scopeTimeZone`. When it is absent or empty, the viewer's zone is used. An unknown zone throws in development; in production it is reported once with `reportError` and the viewer's zone is used (the exported `scopeClock` is the check). Web columns with `timeZone: "scope"` read on it (before, the web drew a practice-clock column on the viewer's clock), and NativeResourceView reads its own `scopeTimeZone` prop when given, else the `ViewerScope` value.
+
+  Migrate in one step: `genesis upgrade` runs the `genesis-core-2-scope-names` codemod when genesis-core crosses 2.0.0, or run it by hand with `genesis codemod genesis-core-2-scope-names` (`--dry-run` lists the files). It rewrites `timeZone: "practice"`, `practiceTimeZone` (attribute or object key), `resolveZone("practice", …)` and DisplayTimeZones' `practice` in files that import a Genesis package, and prints the `ResourceScope` augmentation when a file reads `scope.practiceId` and nothing declares it. `genesis doctor`'s `removed-scope-name` rule fails until none are left.
+
+  Migration notes: docs/MIGRATION.md, "Scope-neutral names".
+
+### Patch Changes
+
+- Updated dependencies [4c5a9f4]
+- Updated dependencies [1bfdf53]
+- Updated dependencies [4c5a9f4]
+- Updated dependencies [314b7a1]
+  - @marktiderman/genesis-switchboard@2.1.1
+  - @marktiderman/genesis-core@2.0.0
+  - @marktiderman/genesis-ui@2.22.0
+  - @marktiderman/genesis-ui-native@3.0.0
+  - @marktiderman/genesis-forms@0.10.0
+  - @marktiderman/genesis-features@0.6.1
+  - @marktiderman/genesis-native@0.5.1
+
 ## 0.9.20
 
 ### Patch Changes
@@ -1038,8 +1104,8 @@
 
 ### Patch Changes
 
-- 209ca2d: Five more findings surfaced by CodeRabbit reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 3), confirmed present in this repo's own current main:
+- 209ca2d: Five more findings surfaced by CodeRabbit reviewing a consumer app's genesis-harness re-vendor
+  (round 3), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `parse_pr_arg()`: `/pull/(\d+)` had no boundary after the digits,
     so trailing garbage (`/pull/881oops`) still resolved to PR 881. Now requires a `/`, `?`, `#`, or
     end-of-string right after the number.
@@ -1057,14 +1123,14 @@ slugs`) by extracting the shared `TERM_HEADING` regex into a new dependency-neut
   Two more findings from the same round were investigated and rejected as stale/false-positive on
   the actual current code (not applied):
   - `data/_schema/tables/library.yml`'s `sprint` FK `pending: true` is intentional, not leftover —
-    Gamify (the real consumer this targets) has zero real `library`/`sprint` rows today, so
+    the consumer app this targets has zero real `library`/`sprint` rows today, so
     un-pending now would repeat the `conversations.yml` mistake in reverse (see PR discussion).
   - `skills/alignment/references/frame-dimensions.md`'s "Stack — pnpm" line accurately describes
-    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — Gamify's
-    bun mandate is a Gamify-repo convention, not Genesis's own.
+    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — that app's
+    bun mandate is its own repo's convention, not Genesis's own.
 
-- 209ca2d: Four more findings surfaced by Codex reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 4), confirmed present in this repo's own current main:
+- 209ca2d: Four more findings surfaced by Codex reviewing a consumer app's genesis-harness re-vendor
+  (round 4), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `run()`: a WARN (GitHub still computing mergeability, or
     re-review ordering can't be confirmed because the head commit date didn't load) was silently
     counted as a PASS in both the printed verdict and the `--ci` exit code — an operator could read
@@ -1091,8 +1157,8 @@ cm-9999` backlink to a nonexistent canon anchor (typo, or an anchor removed/rena
 
 ### Patch Changes
 
-- acaecd8: Five more findings surfaced by CodeRabbit reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 3), confirmed present in this repo's own current main:
+- acaecd8: Five more findings surfaced by CodeRabbit reviewing a consumer app's genesis-harness re-vendor
+  (round 3), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `parse_pr_arg()`: `/pull/(\d+)` had no boundary after the digits,
     so trailing garbage (`/pull/881oops`) still resolved to PR 881. Now requires a `/`, `?`, `#`, or
     end-of-string right after the number.
@@ -1110,18 +1176,18 @@ slugs`) by extracting the shared `TERM_HEADING` regex into a new dependency-neut
   Two more findings from the same round were investigated and rejected as stale/false-positive on
   the actual current code (not applied):
   - `data/_schema/tables/library.yml`'s `sprint` FK `pending: true` is intentional, not leftover —
-    Gamify (the real consumer this targets) has zero real `library`/`sprint` rows today, so
+    the consumer app this targets has zero real `library`/`sprint` rows today, so
     un-pending now would repeat the `conversations.yml` mistake in reverse (see PR discussion).
   - `skills/alignment/references/frame-dimensions.md`'s "Stack — pnpm" line accurately describes
-    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — Gamify's
-    bun mandate is a Gamify-repo convention, not Genesis's own.
+    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — that app's
+    bun mandate is its own repo's convention, not Genesis's own.
 
 ## 0.4.2
 
 ### Patch Changes
 
-- ec452ac: Five findings surfaced by CodeRabbit + Codex reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881), all confirmed present in this repo's own current main:
+- ec452ac: Five findings surfaced by CodeRabbit + Codex reviewing a consumer app's genesis-harness re-vendor
+  (one PR review), all confirmed present in this repo's own current main:
   - `data/_schema/tables/sprints.yml`: the `master_sprint`/`master` `anyOf` let a row set BOTH to
     different valid ids — the resolver prefers `master_sprint`, so the row validated while the
     deprecated `master` alias silently pointed elsewhere. Added a mutual-exclusion `not: {allOf:

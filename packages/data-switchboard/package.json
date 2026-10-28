@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-switchboard",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -50,7 +50,7 @@
     "test:watch": "vitest"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@supabase/supabase-js": ">=2.81.0"
   },
   "peerDependenciesMeta": {
@@ -68,5 +68,11 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Data-layer configuration an app composes once; no hand-rolled equivalent is reliably detectable yet."
+    }
   }
 }

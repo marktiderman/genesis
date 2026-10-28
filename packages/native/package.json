@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-native",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -320,6 +320,32 @@
           "Create the block with createDevtools (@marktiderman/genesis-native/devtools), enabled only outside production builds, and pass it to <GenesisNativeApp blocks> (genesis-native README)."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "app-root",
+          "need": "the phone app's root: splash, boot, cache, session",
+          "level": "warn",
+          "platform": "native",
+          "forbid": {
+            "imports": [
+              "expo-splash-screen",
+              "@tanstack/query-async-storage-persister",
+              "@tanstack/react-query-persist-client"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "GenesisNativeApp"
+            ]
+          },
+          "use": "<GenesisNativeApp> (boot steps behind the splash, the persisted query cache, the session gate)",
+          "import": "@marktiderman/genesis-native",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/native/README.md",
+          "why": "The boot, the fatal screen with retry, the cache and the session gate are one root; rebuilding them by hand loses the error handling."
+        }
+      ]
     }
   }
 }

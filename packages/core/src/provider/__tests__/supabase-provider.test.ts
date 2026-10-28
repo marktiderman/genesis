@@ -785,3 +785,124 @@ describe("searchFields config: the query", () => {
     expect(calls.find((c) => c.method === "or")?.args).toEqual(['title.ilike."%x%"']);
   });
 });
+
+describe("schema-qualified resource names", () => {
+  // A generated contract names its resources `schema.table`; PostgREST wants the table, in its schema.
+  const schemaClient = {
+    ...client,
+    schema: (name: string) => {
+      calls.push({ method: "schema", args: [name] });
+      return client;
+    },
+  };
+  const fromArgs = () => calls.filter((c) => c.method === "from" || c.method === "schema").map((c) => `${c.method}:${c.args[0]}`);
+
+  it("reads and writes a public resource by its table name", async () => {
+    const p = createSupabaseProvider(schemaClient);
+    queue.push({ data: [{ id: "g1" }], error: null, count: 1 });
+    await p.getList("public.goals", {});
+    queue.push(ok({ id: "g2" }));
+    await p.create("public.goals", { data: { title: "T" } });
+    queue.push(ok([{ id: "g2" }]));
+    await p.update("public.goals", { id: "g2", data: { title: "U" } });
+    queue.push(ok([{ id: "g2" }]));
+    await p.deleteOne("public.goals", { id: "g2" });
+    expect(fromArgs()).toEqual(["from:goals", "from:goals", "from:goals", "from:goals"]);
+  });
+
+  it("reads another schema's table through schema()", async () => {
+    queue.push({ data: [], error: null, count: 0 });
+    await createSupabaseProvider(schemaClient).getList("work.tasks", {});
+    expect(fromArgs()).toEqual(["schema:work", "from:tasks"]);
+  });
+
+  it("gives a client without schema() the name as it was given", async () => {
+    queue.push({ data: [], error: null, count: 0 });
+    await createSupabaseProvider(client).getList("work.tasks", {});
+    expect(fromArgs()).toEqual(["from:work.tasks"]);
+  });
+
+  it("keeps bare names working, and finds a resource's rules under either spelling", async () => {
+    const create = vi.fn(async () => "p1");
+    await createSupabaseProvider(schemaClient, { resources: { practices: { create } } }).create("public.practices", { data: {} });
+    expect(create).toHaveBeenCalledTimes(1);
+    const create2 = vi.fn(async () => "p2");
+    await createSupabaseProvider(schemaClient, { resources: { "public.practices": { create: create2 } } }).create("practices", {
+      data: {},
+    });
+    expect(create2).toHaveBeenCalledTimes(1);
+    calls = [];
+    queue.push(ok([{ id: "g1" }]));
+    await createSupabaseProvider(schemaClient, { resources: { goals: { source: "public.my_goals" } } }).getOne("public.goals", {
+      id: "g1",
+    });
+    expect(fromArgs()).toEqual(["from:my_goals"]);
+  });
+
+  it("matches binTables under either spelling", async () => {
+    queue.push(ok([{ id: "c1" }]), ok([]), ok([]));
+    const res = await createSupabaseProvider(schemaClient, { binTables: ["commitments"] }).deleteOne("public.commitments", { id: "c1" });
+    expect(res.data).toEqual({ id: "c1" });
+    // The bin path: visible, delete, then not visible (a plain delete would take one response).
+    expect(queue).toEqual([]);
+  });
+});
+
+describe("resource names: quoting, spellings and precedence", () => {
+  const schemaClient = {
+    ...client,
+    schema: (name: string) => {
+      calls.push({ method: "schema", args: [name] });
+      return client;
+    },
+  };
+  const fromArgs = () => calls.filter((c) => c.method === "from" || c.method === "schema").map((c) => `${c.method}:${c.args[0]}`);
+
+  it("splits on a dot outside quotes", async () => {
+    const { splitRelation } = await import("../supabase-provider");
+    expect(splitRelation('"my.s"."we.ird"')).toEqual({ schema: "my.s", table: "we.ird" });
+    expect(splitRelation('"we.ird"')).toEqual({ schema: "public", table: "we.ird" });
+    expect(splitRelation('public."a""b"')).toEqual({ schema: "public", table: 'a"b' });
+    expect(splitRelation("work.tasks")).toEqual({ schema: "work", table: "tasks" });
+    expect(splitRelation("tasks")).toEqual({ schema: "public", table: "tasks" });
+    queue.push({ data: [], error: null, count: 0 });
+    await createSupabaseProvider(schemaClient).getList('"my.s"."we.ird"', {});
+    expect(fromArgs()).toEqual(["schema:my.s", "from:we.ird"]);
+  });
+
+  it("asks a binTables or realtime test once, with the name as the caller gave it", async () => {
+    const seen: string[] = [];
+    queue.push(ok([{ id: "c1" }]), ok([]), ok([]));
+    await createSupabaseProvider(schemaClient, { binTables: (r) => (seen.push(r), r === "commitments") }).deleteOne("commitments", { id: "c1" });
+    expect(seen).toEqual(["commitments"]);
+    // The bin path ran: visible, delete, gone.
+    expect(queue).toEqual([]);
+    const asked: string[] = [];
+    const p = createSupabaseProvider({ ...schemaClient, channel: () => ({}) }, { realtime: (r) => (asked.push(r), false) });
+    await p.capabilities?.("public.tasks");
+    expect(asked).toEqual(["public.tasks"]);
+  });
+
+  it("never lets the other spelling turn on a resource a binTables or realtime test excludes", async () => {
+    const p = createSupabaseProvider(
+      { ...schemaClient, channel: () => ({}) },
+      { binTables: (r) => r !== "goals", realtime: (r) => r !== "audit_log" },
+    );
+    expect((await p.capabilities?.("goals"))?.softDelete).toBe(false);
+    expect((await p.capabilities?.("audit_log"))?.realtime).toBe(false);
+    expect((await p.capabilities?.("notes"))?.softDelete).toBe(true);
+    // A list still matches either spelling.
+    const listed = createSupabaseProvider(schemaClient, { binTables: ["public.goals"] });
+    expect((await listed.capabilities?.("goals"))?.softDelete).toBe(true);
+  });
+
+  it("takes the rules keyed exactly as the caller names the resource, the other spelling only when absent", async () => {
+    const bare = vi.fn(async () => "bare");
+    const qualified = vi.fn(async () => "qualified");
+    const both = { resources: { practices: { create: bare }, "public.practices": { create: qualified } } };
+    await createSupabaseProvider(schemaClient, both).create("practices", { data: {} });
+    await createSupabaseProvider(schemaClient, both).create("public.practices", { data: {} });
+    expect(bare).toHaveBeenCalledTimes(1);
+    expect(qualified).toHaveBeenCalledTimes(1);
+  });
+});

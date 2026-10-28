@@ -5,7 +5,7 @@ import { copy } from "@/copy";
 import { attachmentKinds, kindAllowsTopics } from "@/lib/chat";
 import { expectPathname, renderApp } from "./render-app";
 
-const checkIn = { id: "a1", kind: "check_in", ref: { title: "Hilltop Gym" } } as unknown as ChatAttachment;
+const checkIn = { id: "a1", kind: "check_in", ref: { title: "Hilltop office" } } as unknown as ChatAttachment;
 
 describe("Messages", () => {
   it("opens a check-in from a conversation inside the Messages stack, so Back returns to it", async () => {
@@ -19,8 +19,8 @@ describe("Messages", () => {
     const call = <R,>(fn: unknown, mine: boolean) => (fn as (a: ChatAttachment, ctx: { mine: boolean }) => R)(checkIn, { mine });
     expect(call<{ label: string } | null>(kind.action, false)?.label).toBe(copy.messages.checkInAnswer);
     expect(call(kind.action, true)).toBeNull();
-    expect(call(kind.subtitle, true)).toBe(`${copy.messages.checkInSent} · Hilltop Gym`);
-    expect(call(kind.subtitle, false)).toBe("Hilltop Gym");
+    expect(call(kind.subtitle, true)).toBe(`${copy.messages.checkInSent} · Hilltop office`);
+    expect(call(kind.subtitle, false)).toBe("Hilltop office");
     expect(kind.title(checkIn)).toBe(copy.messages.checkInCard);
   });
 

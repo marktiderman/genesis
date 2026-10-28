@@ -11,6 +11,60 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Scope-neutral names — `@marktiderman/genesis-core` 2.0, `@marktiderman/genesis-ui-native` 3.0 (breaking; **major**)
+
+🔴 **Action required** for apps that use a practice clock or `practiceTimeZone`. Run the codemod:
+`genesis upgrade` runs it when genesis-core crosses 2.0.0, or run it by hand:
+
+```bash
+genesis codemod genesis-core-2-scope-names --dry-run   # lists the files
+genesis codemod genesis-core-2-scope-names
+```
+
+Genesis's scope and clock APIs used one app's word for its tenant ("practice"). They now name
+whatever the screen is scoped to, so an organization, a location, a league or a team reads the same.
+The umbrella `@marktiderman/genesis` takes a **minor** for the same break (it is on 0.x).
+
+| Before | After | Codemod |
+| --- | --- | --- |
+| `ResourceScope.practiceId` (a named key) | the app's own key in the open slot: `scope={{ practiceId }}` still passes it; `scope={{ orgId }}`, `scope={{ leagueId }}` are as good | Nothing to rewrite. When a file reads `practiceId`, it prints the augmentation below |
+| view field `timeZone: "practice"` | `timeZone: "scope"` | Rewritten |
+| NativeResourceView `practiceTimeZone="…"` | `scopeTimeZone="…"` (or set `scopeTimeZone` on `ViewerScope` once) | Rewritten |
+| `resolveZone("practice", zones)`, `DisplayTimeZones.practice` | `resolveZone("scope", zones)`, `DisplayTimeZones.scope` | Rewritten: `resolveZone`, a `{ viewer, practice }` object's key, and `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones` |
+
+- **Typing an app key.** `ResourceScope` keeps its open slot, so `scope.practiceId` is `unknown`
+  without a declaration. Declare the app's keys once (module augmentation, as for
+  `GenesisViewerRoles`):
+
+  ```ts
+  declare module "@marktiderman/genesis-core" {
+    interface ResourceScope {
+      practiceId?: string;
+    }
+  }
+  ```
+
+- **A missed rename fails loudly, never on the wrong clock.** The old names are gone, with no
+  aliases (Mark: "old names don't have to keep working … lets ensure its clean and accurate"):
+  - `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`), so `timeZone: "practice"` is
+    a type error, and `defineView` throws `ViewDefinitionError` on it when the view loads
+    (naming the codemod), as it does for any zone the runtime doesn't know.
+  - `practiceTimeZone` on NativeResourceView and `DisplayTimeZones.practice` are type errors;
+    `resolveZone("practice", …)` throws.
+  - A `scopeTimeZone` the runtime doesn't know throws in development and is reported
+    (`reportError`) in production, before the viewer's clock is used.
+  - `genesis doctor`'s `removed-scope-name` rule (error) lists every one left, so `doctor
+    --strict` fails in CI until the codemod has run; `scope-practice-id` (info) notes an untyped
+    `scope.practiceId` read.
+- **New:** `ViewerScope`'s `scopeTimeZone` (`useViewerScope().scopeTimeZone`) is the scope's clock.
+  `timeZone: "scope"` columns read on it on the web as well; before, the web drew a practice-clock
+  column on the viewer's clock.
+- **No other package needed changing.** chat, switchboard, forms-native, forms-studio,
+  notifications, studio, product and support now accept genesis-core 2 and genesis-ui-native 3 as
+  peers beside the versions they accepted before (a patch each).
+
+---
+
 ## `@marktiderman/genesis-ui` — `Tooltip`, `Tabs` and `ScrollArea` move to Radix (breaking behavior; **major** semver bump)
 
 🔴 **Action required** — nothing needs editing to *compile*, but working code can stop working. Read the three checks below before upgrading.

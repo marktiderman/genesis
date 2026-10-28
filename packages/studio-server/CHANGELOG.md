@@ -1,5 +1,23 @@
 # @marktiderman/genesis-studio-server
 
+## 0.5.1
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+## 0.5.0
+
+### Minor Changes
+
+- 5f44692: New `@marktiderman/genesis-studio-server/auth` entry: the token checks (`jwtAuth`, `jwtVerifier`, `supabaseAuth`, `supabaseVerifier`, `bearerToken`) and the identity switch (`switchToUser`, `IdentitySwitchError`, `DEFAULT_SWITCH_ROLES`), with no database connection, handler or browser client. It ships as ESM and CommonJS (`import` and `require` conditions, `.d.cts` types, `typesVersions` for TypeScript's `node` resolution), so a server that builds to CommonJS, such as NestJS, can use it instead of copying the code. The CommonJS build loads `jose` (ESM-only) with Node's `require(esm)`, unflagged from Node 20.19 and 22.12, so the package's `engines` is now `^20.19.0 || >=22.12.0` (was `>=20`; Node 20 reached end of life in April 2026). The package root is unchanged and still exports the same names.
+
+### Patch Changes
+
+- 7d27855: A database login that wasn't granted the role it switches to now fails with `IdentitySwitchError` ("the database login can't switch to it … grant authenticated to <login>"), with the database's 42501 as its `cause`, in both `switchToUser` and the studio handler. Before, `set_config('role', …)` ran outside the switch's error handling, so it surfaced as a bare 42501 that read as the caller lacking a permission. Other database errors during the switch (a missing role, a lost connection) still pass through unchanged.
+
 ## 0.4.0
 
 ### Minor Changes

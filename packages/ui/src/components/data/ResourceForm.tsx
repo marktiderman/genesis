@@ -32,6 +32,7 @@ import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./Resource
 import { WizardForm } from "./WizardForm";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
 import { titleCase } from "../../hooks/use-resource-page";
+import { fillMessage, useUiMessages } from "../../messages";
 import { AlertTriangle } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -44,7 +45,13 @@ export interface ResourceFormProps {
   item?: Record<string, unknown>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The title, over everything else. */
   title?: string;
+  /**
+   * What one record is called ("goal"): the title reads "New goal" / "Edit goal" (the UI
+   * catalogue's `form`). Without it the title is built from `resource`, as before.
+   */
+  noun?: string;
   fields?: ResourceFormFieldDef[];
   /** Full dataset used to auto-detect select fields from unique values. */
   listData?: Record<string, unknown>[];
@@ -304,6 +311,7 @@ export function ResourceForm(props: ResourceFormProps) {
     open,
     onOpenChange,
     title: titleProp,
+    noun,
     fields: fieldsProp,
     listData,
     renderForm,
@@ -325,11 +333,20 @@ export function ResourceForm(props: ResourceFormProps) {
   const isMobile = useIsMobile();
   const effectiveLayout = isMobile ? "sheet" : layoutProp;
 
+  const m = useUiMessages();
+  // Words, each step over the one before: from the resource name, then the noun (the contract's
+  // or the view's), then the caller's title.
   const resourceLabel = titleCase(resource.replace(/s$/, ""));
   const formTitle =
-    titleProp ?? (action === "create" ? `Create ${resourceLabel}` : `Edit ${resourceLabel}`);
-  const formDescription =
-    `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`;
+    (titleProp !== undefined ? fillMessage(titleProp, { noun: noun ?? resourceLabel.toLowerCase() }) : undefined) ??
+    (noun
+      ? fillMessage(action === "create" ? m.form.createTitle : m.form.editTitle, { noun })
+      : action === "create"
+        ? `Create ${resourceLabel}`
+        : `Edit ${resourceLabel}`);
+  const formDescription = noun
+    ? fillMessage(action === "create" ? m.form.createDescription : m.form.editDescription, { noun })
+    : `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`;
 
   const hookOptions: UseResourceFormOptions = {
     resource,

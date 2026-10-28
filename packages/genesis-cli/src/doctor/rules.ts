@@ -30,6 +30,11 @@ export const BUILTIN_RULES = [
   "page-layout",
   // dates
   "iso-date-slice",
+  // Genesis API usage (api-usage.ts)
+  "resource-view-tree",
+  "studio-server-auth-import",
+  "removed-scope-name",
+  "scope-practice-id",
   // native pack
   "native-raw-primitive",
   "native-literal-color",
@@ -54,6 +59,18 @@ export const BUILTIN_RULES = [
   "package-export-missing",
   "package-block-invalid",
   "package-untagged-tests",
+  "package-doctor-declaration",
+  // package rules (package-rules.ts): the rules themselves are namespaced, e.g. ui/lists-use-resource-view
+  "package-rules-invalid",
+  "package-rule-override",
+  // ratchet (ratchet.ts)
+  "ratchet-skipped",
+  "allow-grew",
+  "rules-weakened",
+  // agent guide (primitives.ts)
+  "agent-guide-stale",
+  // supabase pack: contracts (contracts.ts)
+  "contracts-stale",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

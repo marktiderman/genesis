@@ -1,5 +1,27 @@
 # @marktiderman/genesis-sites
 
+## 0.4.0
+
+### Minor Changes
+
+- 9a254df: The `schedule` section's sessions take `host` (shown as "with …"). `coach` is still accepted and still rendered when `host` is left out, but it is deprecated: the editor no longer shows it, and the section is now version 2, whose migration moves a session's `coach` into `host` (when `host` is empty) on read, in the editor and on publish. A node saved at version 2 can't be read by an older genesis-sites, which reports it as newer.
+
+  The editor hides any prop marked `.meta({ deprecated: true })`, and opens a node at its section's current version (the section's migrations run first), so an edit saves today's fields.
+
+  Behaviour change: the default `emptyText` is "Nothing scheduled" (was "No classes"); a site that set its own keeps it.
+
+  Features: sites-sections
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+  - @marktiderman/genesis-features@0.7.0
+
 ## 0.3.3
 
 ### Patch Changes

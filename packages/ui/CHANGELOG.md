@@ -1,5 +1,67 @@
 # @marktiderman/genesis-ui
 
+## 2.23.0
+
+### Minor Changes
+
+- 2be81f2: ResourceView names records with the view's noun, so the count reads "1 goal" / "3 goals" and the form "New goal" / "Edit goal". Words override in steps: the resource name, the contract's `noun`, the view's `copy` (now with `form.createTitle`, `form.editTitle` and `count`), then the screen's props. New props: ResourcePage `noun`, `nounPlural`, `countFormat`, `formTitles`; ResourceForm `noun`; DataPageShell and PageHeader `entityNamePlural`, `countFormat`. New catalogue entries `page.countOne`, `page.countOther`, `page.countFiltered` and `form.*`. ResourceView passes each field's `nullable` and `hasDefault` to the form, and a `filter` value may be a list, sent as `in` and never used to start a new row.
+
+  A screen `noun` without `nounPlural` gets that noun's plural, and a screen's `formTitles` and `countFormat` replace only the entries they name, keeping the view's others.
+
+### Patch Changes
+
+- 9a254df: Declares its doctor rules (`ui/lists-use-resource-view`: lists are a view rendered by ResourceView, with ResourcePage only inside a component that renders it; `ui/record-pages-use-resource-workspace`: route files with a `$param` or `[param]` segment or name, `.tsx` or `.jsx`, that build their own record header instead of rendering ResourceWorkspace; a list rendered on the page doesn't exempt it) and its primitives. SKILL.md's "Reach for this first" and "Data views without hand-rolling" now lead with `defineView` + `ResourceView`, `ResourceWorkspace` and `NativeResourceView`; ResourcePage is the escape hatch.
+
+  Features: doctor-package-rules
+
+- 298f8cd: Upgrading: ResourceView and NativeResourceView turn on the form's empty-input handling by themselves, from each field's `nullable` and `hasDefault` in the contract. Before upgrading, (a) regenerate contracts with this release's `genesis introspect`: contracts from an older CLI mark every view column `nullable: true`, so an edit that empties a view's NOT NULL text column would send null; and (b) give defaults to the parameters of any function a `create` rule calls with the whole row as named arguments, since a create now leaves out the keys of inputs left empty.
+- Updated dependencies [9a254df]
+- Updated dependencies [298f8cd]
+- Updated dependencies [6e58627]
+- Updated dependencies [5c80a38]
+  - @marktiderman/genesis-core@2.1.0
+
+## 2.22.1
+
+### Patch Changes
+
+- 2bd8b0d: DataTable tree mode: when `openColumn` names a column the viewer has hidden, no row renders an open button, so the expand arrow now stays a tab stop (before, it dropped out of the tab order and the tree couldn't be opened from the keyboard).
+
+## 2.22.0
+
+### Minor Changes
+
+- 1bfdf53: Tree mode for lists. `<ResourceView tree={{ getParentId, defaultExpanded, cascadeSelect }} />` (and ResourcePage's `tree`) nests rows under their parent, built from the flat list: depth is computed, the table and list views draw an indent and an expand arrow in the first cell, a sort applies within siblings, search and the status filter keep each match's ancestors (muted), open state is uncontrolled (`defaultExpanded`) or controlled (`expanded`, `onExpandedChange`), and `cascadeSelect` opts in to selecting a row's descendants with it. The table is a WAI-ARIA treegrid (`aria-level`, `aria-expanded`, `aria-posinset`, `aria-setsize`; → opens, ← closes). Client data only: `pagination="server"` or `"cursor"` with `tree` throws. Grid, sheet and NativeResourceView don't draw trees yet.
+
+  genesis-core/resource-view holds the logic, with no React: `treeRows`, `initialExpanded`, `setExpanded`, `cascadeSelection` and the `ResourceTree` type. `useResourceView` / `useResourceTable` surface it: `rows` are the visible rows in order and `tree` holds each row's node, the open set and `setExpanded`. genesis-ui exports `TreeIndent` (the indent and arrow) and the `DataTableTree` and `ResourcePageTreeState` types. See docs/RESOURCE-VIEW.md, "Tree mode".
+
+  Features: resource-tree
+
+- 4c5a9f4: Scope-neutral names. Genesis named one app's tenant ("practice") in its scope and clock APIs; it now names whatever the screen is scoped to.
+
+  Breaking:
+
+  - `ResourceScope.practiceId` is gone as a named key. Pass the app's own key in the open slot, as before: `scope={{ practiceId }}`, `scope={{ orgId }}`, `scope={{ leagueId }}`. Views read it as before (`scope: ["practice_id"]` reads `practice_id`, then `practiceId`). To read it typed, augment once: `declare module "@marktiderman/genesis-core" { interface ResourceScope { practiceId?: string } }`.
+  - A view field's `timeZone: "practice"` is now `timeZone: "scope"`. `timeZone` is a closed type (`"viewer" | "scope" | TimeZoneName`, the new `TimeZoneName` being `"UTC"`, `"GMT"` or `Area/Location`), so `"practice"` is a type error, and `defineView` throws `ViewDefinitionError` on it (naming the codemod) and on any zone the runtime doesn't know, instead of drawing the column on the viewer's clock.
+  - NativeResourceView's `practiceTimeZone` prop is now `scopeTimeZone`; `DisplayTimeZones.practice` is `DisplayTimeZones.scope`, and `resolveZone("practice", …)` is `resolveZone("scope", …)`; `resolveZone` throws on a zone it doesn't know.
+
+  New: `ViewerScope` takes an optional `scopeTimeZone`, the IANA zone of whatever the viewer is scoped to, exposed as `useViewerScope().scopeTimeZone`. When it is absent or empty, the viewer's zone is used. An unknown zone throws in development; in production it is reported once with `reportError` and the viewer's zone is used (the exported `scopeClock` is the check). Web columns with `timeZone: "scope"` read on it (before, the web drew a practice-clock column on the viewer's clock), and NativeResourceView reads its own `scopeTimeZone` prop when given, else the `ViewerScope` value.
+
+  Migrate in one step: `genesis upgrade` runs the `genesis-core-2-scope-names` codemod when genesis-core crosses 2.0.0, or run it by hand with `genesis codemod genesis-core-2-scope-names` (`--dry-run` lists the files). It rewrites `timeZone: "practice"`, `practiceTimeZone` (attribute or object key), `resolveZone("practice", …)` and DisplayTimeZones' `practice` in files that import a Genesis package, and prints the `ResourceScope` augmentation when a file reads `scope.practiceId` and nothing declares it. `genesis doctor`'s `removed-scope-name` rule fails until none are left.
+
+  Migration notes: docs/MIGRATION.md, "Scope-neutral names".
+
+- 314b7a1: Slot class props for parts a component draws for itself, merged after the defaults:
+
+  - `DialogContent`, `AlertDialogContent` and `SheetContent` take `overlayClassName` for their backdrop, e.g. `<DialogContent overlayClassName="z-[60]" className="z-[60]">` to open a dialog above a side panel at `z-50`. Raise the content's `className` to the same layer, or the backdrop sits above the content and takes its clicks.
+  - `Table` takes `containerClassName` for its scroll box (now `data-slot="table-container"`), so a sticky header can scroll inside it: `<Table containerClassName="max-h-96">`. `TableProps` is exported.
+
+### Patch Changes
+
+- Updated dependencies [1bfdf53]
+- Updated dependencies [4c5a9f4]
+  - @marktiderman/genesis-core@2.0.0
+
 ## 2.21.0
 
 ### Minor Changes
@@ -295,7 +357,7 @@
 
 - 664a25f: AppShell: collapsible desktop sidebar and opt-in shell sub-navigation. No type in the public API narrows or widens: `NavItem.icon` stays required.
 
-  **Collapsed rail.** Collapsed, the desktop sidebar is an icon rail: the logo mark (the app name's first letter when there's no logo), one icon per item, the active item highlighted, and the expand button at the bottom. Each item shows its name in a tooltip on hover and on keyboard focus, and a nested group opens its items in a popover. The rail stays 56px wide; `options.collapsedRailWidth: 64` gives the 64px rail of the Breakthrough design. Collapsing or expanding keeps keyboard focus on the moved toggle or on the focused sidebar link, including when a route's `defaultCollapsed` collapses the sidebar.
+  **Collapsed rail.** Collapsed, the desktop sidebar is an icon rail: the logo mark (the app name's first letter when there's no logo), one icon per item, the active item highlighted, and the expand button at the bottom. Each item shows its name in a tooltip on hover and on keyboard focus, and a nested group opens its items in a popover. The rail stays 56px wide; `options.collapsedRailWidth: 64` gives the 64px rail of a consumer app's design. Collapsing or expanding keeps keyboard focus on the moved toggle or on the focused sidebar link, including when a route's `defaultCollapsed` collapses the sidebar.
 
   **Opt-in shortcut.** `options.collapseShortcut` (off by default; e.g. `"["`) toggles the sidebar. It is skipped while typing, while a listbox, combobox or menu has focus (Select typeahead), while a dialog is open, and with Ctrl/Cmd/Alt held.
 
@@ -1136,7 +1198,7 @@
 
 ### Minor Changes
 
-- 4d02f31: Add three primitives closing common gaps in consumer apps (Breakthrough master-plan item 26, U10-U12):
+- 4d02f31: Add three primitives closing common gaps in consumer apps (a consumer app's master-plan item 26, U10-U12):
   - `UserAvatar` — canonical user-identity avatar. Wraps `Avatar`/`AvatarImage`/`AvatarFallback` and computes initials from a `name` prop (falls back to initials automatically on a missing or failed image load). `size` is `"sm" | "default" | "lg"`, matching the scale already used by `Button`/`Toggle`/`Spinner`. The root carries `role="img"` + `aria-label={name}` so the person's full name is the accessible name on both the image and the initials path, and initials are read as Unicode graphemes so non-BMP names (`𐐀 Smith`, `😊 Jones`) and combining marks survive intact.
   - `SettingsRow` and `ToggleRow` — row layout for settings/preferences lists: label + description on one side, a control on the other. `SettingsRow` takes arbitrary trailing `children` plus a `descriptionId` so a consumer-supplied control can reference the description through `aria-describedby`; its label text renders as a real `<label for>` only when `htmlFor` is supplied, and as a plain `<span>` otherwise, so rows whose control names itself (a Button) or has none (a Badge) never emit a `<label>` associated with nothing. `ToggleRow` is `SettingsRow` pre-wired with `Switch`, generating both the `id`/`htmlFor` and the `aria-describedby` pairing (via `useId`) so the label _and_ the description are announced when the control is focused; its `testID` lands on the Switch — the node automation has to click — with `rowTestID` for the row wrapper. Each ships at its own subpath (`@marktiderman/genesis-ui/settings-row`, `@marktiderman/genesis-ui/toggle-row`).
   - `PageLoading` — full-page or in-section loading state: a centered `Spinner` with an optional message, as the loading-state counterpart to `EmptyState`. `variant` is `"page" | "section"`.
@@ -1471,7 +1533,7 @@
 
   **`@marktiderman/genesis-design-system`** — extended the `status` color
   tokens (`tokens/dtcg/colors.json` source, mirrored in `src/tokens/colors.ts`
-  and regenerated into `src/tokens/native.ts`) with five new EOS/OKR-style
+  and regenerated into `src/tokens/native.ts`) with five new OKR-style
   progress tokens, each resolving to an existing `semantic` color (no new
   hues): `onTrack` / `done` → `semantic.success`, `atRisk` → `semantic.warning`,
   `offTrack` → `semantic.error` (joining the existing `blocked`, same color),
@@ -1491,7 +1553,7 @@
   already uses) — no raw hex in the component. `@marktiderman/genesis-design-system`
   is now a peer dependency of `@marktiderman/genesis-ui`.
 
-  Motivating consumer: `marktiderman/breakthrough`'s master-plan item 25 (U9)
+  Motivating consumer: a consumer app's master-plan item 25 (U9)
   replaces its local, raw-Tailwind-class `status-colors.ts` with this
   token-backed `StatusBadge`.
 
@@ -1573,7 +1635,7 @@
   - `Input` + `Textarea` add `aria-invalid:` error styling (`border-destructive` + `ring-destructive/50`), so validation state is reflected visually — inert until `aria-invalid` is set, so no change to existing usage.
   - `Textarea` adds `field-sizing-content` (auto-grow with content) while keeping its `min-h-[80px]` floor.
 
-  Additive only — no prop/type changes; unblocks tenants (e.g. gamify dashboard) collapsing their local shadcn copies onto genesis-ui. Full base-class modernization (h-9/ring-[3px]) + the RHF `Form`/`FormField` API remain a follow-up.
+  Additive only — no prop/type changes; unblocks tenants (e.g. a consumer app's dashboard) collapsing their local shadcn copies onto genesis-ui. Full base-class modernization (h-9/ring-[3px]) + the RHF `Form`/`FormField` API remain a follow-up.
 
 ### Patch Changes
 
@@ -1605,7 +1667,7 @@
 
 ### Minor Changes
 
-- 90446ff: Add `loading`, `startIcon`, and `endIcon` slots plus a `type="button"` default to `Button` (promoted from the Gamify `genesis-web` mirror so the dashboard can consume `genesis-ui` directly). Additive — the existing `ButtonProps` (variant/size/ref) is unchanged.
+- 90446ff: Add `loading`, `startIcon`, and `endIcon` slots plus a `type="button"` default to `Button` (promoted from a consumer app's `genesis-web` mirror so the dashboard can consume `genesis-ui` directly). Additive — the existing `ButtonProps` (variant/size/ref) is unchanged.
 
 ## 1.0.0
 

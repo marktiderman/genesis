@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-studio-server",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -18,6 +18,13 @@
   "main": "./dist/index.js",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "typesVersions": {
+    "*": {
+      "auth": [
+        "./dist/auth.d.cts"
+      ]
+    }
+  },
   "bin": {
     "genesis-studio-server": "./dist/cli.js"
   },
@@ -30,6 +37,16 @@
     "./client": {
       "types": "./dist/client.d.ts",
       "import": "./dist/client.js"
+    },
+    "./auth": {
+      "import": {
+        "types": "./dist/auth.d.ts",
+        "default": "./dist/auth.js"
+      },
+      "require": {
+        "types": "./dist/auth.d.cts",
+        "default": "./dist/auth.cjs"
+      }
     }
   },
   "files": [
@@ -37,10 +54,10 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": "^20.19.0 || >=22.12.0"
   },
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -51,7 +68,7 @@
     "postgres": "^3.4.9"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "^1.11.0"
+    "@marktiderman/genesis-core": "^1.11.0 || ^2.0.0"
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
@@ -60,5 +77,38 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "handler-on-server",
+          "need": "the Data Studio's server side",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-studio-server",
+              "@marktiderman/genesis-studio-server/auth"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "the browser client in screens, the handler in a server route",
+          "import": "@marktiderman/genesis-studio-server/client",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/DATA-STUDIO.md",
+          "why": "The handler talks to Postgres as the signed-in user and must never ship to a browser."
+        }
+      ]
+    }
   }
 }

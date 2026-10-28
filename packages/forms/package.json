@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-forms",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": false,
   "type": "module",
   "sideEffects": [
@@ -92,5 +92,45 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "server-check-on-server",
+          "need": "checking a form submission",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "imports": [
+              "@marktiderman/genesis-forms/server"
+            ]
+          },
+          "unless": {
+            "pattern": "\\bcreateServerFn\\s*\\(|\\bexport\\s+(?:let|const|async\\s+function|function)\\s+(?:loader|action)\\b|\\bexport\\s*\\{[^}]*\\b(?:loader|action)\\b|^\\s*[\"']use server[\"']"
+          },
+          "use": "the server check in a server function or API route",
+          "import": "@marktiderman/genesis-forms/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FORMS.md",
+          "why": "The server check is the trust boundary: in a browser bundle it protects nothing."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "a questionnaire, survey or multi-step form",
+          "use": "a Genesis Forms definition (defineForm) with its logic and validation",
+          "import": "@marktiderman/genesis-forms",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FORMS.md"
+        }
+      ]
+    }
   }
 }

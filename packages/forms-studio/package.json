@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-forms-studio",
-  "version": "0.6.0",
+  "version": "0.6.2",
   "private": false,
   "type": "module",
   "sideEffects": [
@@ -46,7 +46,7 @@
     "lucide-react": "^1.0.0"
   },
   "peerDependencies": {
-    "@marktiderman/genesis-core": "workspace:>=1.12.0 <2.0.0",
+    "@marktiderman/genesis-core": "workspace:>=1.12.0 <3.0.0",
     "@marktiderman/genesis-forms": "workspace:>=0.6.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:>=2.14.0 <3.0.0",
     "react": "^19.0.0",
@@ -79,5 +79,19 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Its components are already checked by the built-in local-genesis-copy and page-layout rules (componentPackages).",
+      "primitives": [
+        {
+          "need": "a form's workspace: responses, settings, share",
+          "use": "ResponsesFilters, QuestionSummaryCards and the settings and share parts",
+          "import": "@marktiderman/genesis-forms-studio",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/forms-studio/README.md"
+        }
+      ]
+    }
   }
 }

@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-cli",
-  "version": "1.13.2",
+  "version": "1.15.0",
   "private": false,
   "type": "module",
   "description": "Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",
@@ -76,7 +76,7 @@
   "peerDependencies": {
     "@expo/config-plugins": ">=54",
     "@expo/config-types": ">=54",
-    "@marktiderman/genesis-core": "^1.6.0",
+    "@marktiderman/genesis-core": "^1.6.0 || ^2.0.0",
     "vite": ">=5"
   },
   "peerDependenciesMeta": {
@@ -88,6 +88,12 @@
     },
     "vite": {
       "optional": true
+    }
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "The doctor itself: its rules are the built-ins."
     }
   }
 }

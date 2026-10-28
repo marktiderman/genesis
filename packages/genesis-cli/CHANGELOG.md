@@ -1,5 +1,45 @@
 # @marktiderman/genesis-cli
 
+## 1.15.0
+
+### Minor Changes
+
+- 9a254df: Package rules, the primitives catalog and the ratchet.
+
+  - **Package rules.** The doctor finds every installed `@marktiderman/genesis-*` package (and every local package) and runs the rules it declares in its package.json under `genesis.doctor`: declarative `prefer` rules ("use X instead of Y": forbidden JSX elements, imports or a pattern, with `unless` exemptions, `platform`, `{routes}` globs) and an optional `plugin` module. Ids are namespaced by package (`ui/lists-use-resource-view`) and work with `rules`, `allow`, `stale-exception` and the new `packageRules`: for a `prefer` rule it takes `level`, `files`, `exclude` and a required reason; for a package plugin's rules, `level` and the reason only (a plugin decides its own files). A forbidden element is also flagged where an app wrapper around it is rendered. Declarations are read forward-compatibly: an unknown key, or a rule this CLI can't read, is skipped with a warning, so a newer package never breaks an older app's build; a rule with an unknown key of its own or in `unless` (one that could narrow it) is skipped whole rather than run wider, while an unknown key in `forbid` is only dropped. A wrapper counts only where its own component renders the element (exported where it is declared, in an `export { … }` list, or by `export default Name;`), and its use only where it is imported from that file. New rules: `package-rules-invalid` (warn), `package-rule-override` (a package rule changed in `rules` without a reason); `stale-exception` also warns about a `packageRules` id no installed package declares.
+  - **`package-doctor-declaration`** (packages pack): a published Genesis package must declare its rules, or `{ "enforce": false, "reason": "…" }`.
+  - **Ratchet.** `newOnly` on package rules and app patterns, or `doctor.ratchet` (`true` or rule ids): with `--base`, findings in files unchanged since the merge base drop to `info`. `allow-grew` fails an `allow` entry the base ref's config didn't have, so the list only shrinks, and `rules-weakened` fails, comparing with the base's settings only, a rule they set that the branch lowers, a rule newly set to `off`, or a new `exclude` glob in `packageRules` (a new entry at another level, such as pinning a rule a package raised, is fine). Both compare with the doctor settings wherever they lived at the base, and neither runs when the base had none. `ratchet-skipped` says when git can't compare: a warning when only the ratchet was skipped, an error when the config's `allow`, `rules` or `packageRules` went uncompared (check out with `fetch-depth: 0`). These three guard the config, so `rules` and `allow` can't name them, and the ratchet never lowers them or the other rules about the config, packages and generated files (`stale-exception`, `agent-guide-stale`, `package-doctor-declaration`, `contracts-stale` and the like). Without `--base` nothing changes.
+  - **`contracts-stale`** (supabase pack, with `doctor.contracts`): the generated contract matches what `genesis introspect` would write now; compared for the schemas `doctor.contracts.schemas` names, else those in the contract's own `// Source: Postgres (…)` line; skipped (info) without the database variable or for a contract generated from OpenAPI, and never run by the Vite plugin (build or dev). Line endings don't count, here and in `genesis introspect --check`.
+  - **`genesis primitives [--json]`** prints the catalog (need, what to use, import, rule, docs) from every installed package's declarations plus a short static core; **`genesis agents`** writes it as `.claude/skills/genesis/SKILL.md` and a marked block in AGENTS.md, while **`genesis agents --check`** writes nothing and only reports a missing, stale or broken guide; both exit 1 without writing when a package's declaration doesn't validate (so does `genesis primitives`, which then lists the errors). **`agent-guide-stale`** warns when they drift or the AGENTS.md markers are broken (then `genesis agents` writes nothing). The report prints `Primitives: N rules from M packages; see genesis primitives`.
+
+  Features: doctor-package-rules
+
+- 995644a: `genesis introspect` (Postgres) gives a view Postgres can update on its own its table's facts: each plain column's nullability, default, link, enum values and comment, the table's primary key when every key column is in the view, and the table's `noun`, `nounPlural` and `labelField`. Columns are traced by position, so a column renamed with `alter view … rename column` keeps the right facts and key. The view's own comments win; computed columns and other views stay as read. A source table in a schema that wasn't asked for is read, not emitted. Single-column `CHECK`s that list values (`status in ('a', 'b')`, alone or `or status is null`) become the field's `enumValues` (checks that share no value give none).
+
+  Contracts now state nullability both ways: `nullable: false` for a NOT NULL column, `nullable: true` for a nullable one, and nothing when the catalog can't tell (a view's own column). A schema or table name holding a dot or a quote is quoted (`"my.s"."we.ird"`). **Regenerate your contracts** (`genesis introspect`): older contracts mark every view column `nullable: true`, which the form's empty-input handling would believe.
+
+### Patch Changes
+
+- 87a2c31: `genesis introspect` (Postgres) leaves a view that has rules of its own (beyond its `_RETURN` rule) as read: such a view may be updatable only through a `DO INSTEAD` rule over a query whose rows aren't its table's (an outer join), so it no longer takes that table's key or nullability. A view column of an enum type that its table's `CHECK` narrows keeps the narrowed list, as the table's own column does.
+- Updated dependencies [9a254df]
+- Updated dependencies [9a254df]
+  - @marktiderman/genesis-features@0.7.0
+  - @marktiderman/genesis-studio-server@0.5.1
+
+## 1.14.0
+
+### Minor Changes
+
+- 7bfbff2: - The first registered codemod, `genesis-core-2-scope-names` (genesis-core 2.0.0's scope-neutral names), and `genesis codemod [id] [--dir] [--dry-run]` to list codemods or run one by hand.
+  - Doctor rules for the scope rename: `removed-scope-name` (error) lists every removed "practice" name left in a file that imports Genesis (`timeZone: "practice"`, `practiceTimeZone`, `resolveZone("practice")`, DisplayTimeZones' `practice`), so `doctor --strict` fails until the codemod has run; `scope-practice-id` (info, never failing) notes a `scope.practiceId` read with no `ResourceScope` augmentation.
+  - Two more doctor rules: `resource-view-tree` (error) flags a `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"`, which throws when it renders; `studio-server-auth-import` (warn) flags deep imports of studio-server files and a CommonJS `require` of its ESM-only root, pointing at `@marktiderman/genesis-studio-server/auth`. A correct project passes `genesis doctor --strict`.
+
+### Patch Changes
+
+- Updated dependencies [5f44692]
+- Updated dependencies [7d27855]
+  - @marktiderman/genesis-studio-server@0.5.0
+
 ## 1.13.2
 
 ### Patch Changes
@@ -66,7 +106,7 @@
   - The route trail's tokenizer reads regex literals and JSX text (`Rock 'n roll`, backticks, `{done}/{total}`) without losing its place, and treats a file it can't read for sure as unknown instead of guessing.
   - Answers cut short by an import cycle are cached by the modules they skipped, so cyclic import graphs no longer run several times slower.
 
-- 2eae42f: `genesis doctor`: in an app with its own install inside another app's folder (growth90's `apps/mobile`), `duplicate-genesis-package` and `peer-range-mismatch` count only copies the app's own dependency graph resolves to. An undeclared, uninstalled peer dependency is unmet rather than met by the parent's `node_modules`, and the Genesis CLI's tree is followed only when the app declares the CLI. A regular dependency that resolves up to the parent still counts. Workspace members (no lockfile of their own) are unchanged.
+- 2eae42f: `genesis doctor`: in an app with its own install inside another app's folder (a consumer app's `apps/mobile`), `duplicate-genesis-package` and `peer-range-mismatch` count only copies the app's own dependency graph resolves to. An undeclared, uninstalled peer dependency is unmet rather than met by the parent's `node_modules`, and the Genesis CLI's tree is followed only when the app declares the CLI. A regular dependency that resolves up to the parent still counts. Workspace members (no lockfile of their own) are unchanged.
 - Updated dependencies [773e809]
   - @marktiderman/genesis-features@0.4.1
 

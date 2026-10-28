@@ -10,22 +10,42 @@ export const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"
 export const JSX_EXTS = new Set([".tsx", ".jsx"]);
 const RESOLVE_EXTS = [".tsx", ".ts", ".jsx", ".js"];
 
+/** A relative or `@/` / `~/` specifier resolved to the absolute path of a script file that exists, or null. */
+export function resolveLocal(root: string, fromFile: string, spec: string): string | null {
+  const bases = spec.startsWith(".") ? [path.resolve(path.dirname(fromFile), spec)] : [path.join(root, spec.slice(2)), path.join(root, "src", spec.slice(2))];
+  for (const base of bases) {
+    const hit = [base, ...RESOLVE_EXTS.map((e) => base + e), ...RESOLVE_EXTS.map((e) => path.join(base, `index${e}`))].find(
+      (p) => SCRIPT_EXTS.has(path.extname(p)) && existsSync(p),
+    );
+    if (hit) return hit;
+  }
+  return null;
+}
+
 /** Files a source imports by relative path or the `@/` / `~/` root aliases, resolved to absolute paths that exist. */
 export function localImports(root: string, file: Pick<SourceFile, "absolutePath" | "code">): string[] {
   const out: string[] = [];
   for (const m of file.code.matchAll(/\bfrom\s*["']((?:\.{1,2}|[@~])\/[^"']+)["']/g)) {
-    const spec = m[1];
-    const bases = spec.startsWith(".")
-      ? [path.resolve(path.dirname(file.absolutePath), spec)]
-      : [path.join(root, spec.slice(2)), path.join(root, "src", spec.slice(2))];
-    for (const base of bases) {
-      const hit = [base, ...RESOLVE_EXTS.map((e) => base + e), ...RESOLVE_EXTS.map((e) => path.join(base, `index${e}`))].find(
-        (p) => SCRIPT_EXTS.has(path.extname(p)) && existsSync(p),
-      );
-      if (hit) {
-        out.push(hit);
-        break;
-      }
+    const hit = resolveLocal(root, file.absolutePath, m[1]);
+    if (hit) out.push(hit);
+  }
+  return out;
+}
+
+/**
+ * The names a file imports from its local modules: local name → the resolved file and the name it
+ * has there (`default` for a default import). `import { A as B } from "./x"` maps B to x's A.
+ */
+export function localImportedNames(root: string, file: Pick<SourceFile, "absolutePath" | "code">): Map<string, { file: string; name: string }> {
+  const out = new Map<string, { file: string; name: string }>();
+  const re = /\bimport\s+(?:type\s+)?([\w$]+)?\s*,?\s*(?:\{([^}]*)\})?\s*from\s*["']((?:\.{1,2}|[@~])\/[^"']+)["']/g;
+  for (const m of file.code.matchAll(re)) {
+    const target = resolveLocal(root, file.absolutePath, m[3]!);
+    if (!target) continue;
+    if (m[1]) out.set(m[1], { file: target, name: "default" });
+    for (const part of (m[2] ?? "").split(",")) {
+      const [imported, local] = part.trim().replace(/^type\s+/, "").split(/\s+as\s+/);
+      if (imported) out.set(local ?? imported, { file: target, name: imported });
     }
   }
   return out;

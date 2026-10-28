@@ -1,5 +1,13 @@
 # @marktiderman/genesis-design-system
 
+## 1.5.1
+
+### Patch Changes
+
+- 9a254df: Each package declares what `genesis doctor` enforces for it in its package.json (`genesis.doctor`): "use X instead" rules such as `core/direct-data-access` (no `supabase.from` / `.rpc` in screens), `ui-native/lists-use-native-resource-view`, `forms-react/forms-use-genesis-forms`, `notifications/notify-through-notifier`, `chat/chat-uses-genesis-chat`, `studio/raw-tables-use-studio`, `studio-server/handler-on-server`, `supabase/client-from-genesis`, `native/app-root`, `connect/secrets-use-connect`, `extension/checked-messaging`, `features/no-env-feature-switches`, `support/feedback-uses-support` and `forms/server-check-on-server`, plus primitives for the catalog; packages with nothing to enforce say why. Apps get the rules on install, with no config. Every rule ships as a warning. `forms/server-check-on-server` and `studio-server/handler-on-server` (a server-only import in a `.tsx`/`.jsx` screen) skip route modules whose server code never reaches the browser: ones that export a `loader` or `action` (declared or in an `export { … }` list), call `createServerFn(`, or start with a `"use server"` directive (`clientLoader` and `loaderData` don't count); they become errors in a later minor release.
+
+  Features: doctor-package-rules
+
 ## 1.5.0
 
 ### Minor Changes
@@ -119,7 +127,7 @@
 
   **`@marktiderman/genesis-design-system`** — extended the `status` color
   tokens (`tokens/dtcg/colors.json` source, mirrored in `src/tokens/colors.ts`
-  and regenerated into `src/tokens/native.ts`) with five new EOS/OKR-style
+  and regenerated into `src/tokens/native.ts`) with five new OKR-style
   progress tokens, each resolving to an existing `semantic` color (no new
   hues): `onTrack` / `done` → `semantic.success`, `atRisk` → `semantic.warning`,
   `offTrack` → `semantic.error` (joining the existing `blocked`, same color),
@@ -139,7 +147,7 @@
   already uses) — no raw hex in the component. `@marktiderman/genesis-design-system`
   is now a peer dependency of `@marktiderman/genesis-ui`.
 
-  Motivating consumer: `marktiderman/breakthrough`'s master-plan item 25 (U9)
+  Motivating consumer: a consumer app's master-plan item 25 (U9)
   replaces its local, raw-Tailwind-class `status-colors.ts` with this
   token-backed `StatusBadge`.
 
@@ -237,27 +245,26 @@
 
 ### Minor Changes
 
-- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 (`@gamify/brand`) and A4.1 (`@acme/brand`).
+- 5020d70: feat(design-system): A4.0 cross-platform factory spike — `tailwindFromBrand()`, `themeFromBrand()`, `debugBrandPreset()` ship in `@marktiderman/genesis-design-system` and the canonical schema gains optional cross-platform fields (typography, spacing, radius, shadow, gradient, platformOverrides). Color-only brands keep working — every new field is optional. Verdict: GO single-config WITH ESCAPE HATCH per `docs/prds/PRD-07-genesis-consumption-architecture/research/a4-0-cross-platform-factory-spike.md` Section 7. Unblocks A7.1 and A4.1 (each consumer app's own `@<consumer>/brand`).
 - 210aa8f: BREAKING (allowed pre-1.0): brand presets removed from design-system; canonical schema gained `extensions` slot for consumer-specific scales; `rank` moved to extensions.
 
   PRD-07 Phase A2 / A2.7 / A2.9 / A2.10 — G-PR-2.
 
   **Removed (4 brand presets and their DTCG token JSONs):**
   - `src/presets/brand-acme.ts` + `tokens/dtcg/brands/acme.json`
-  - `src/presets/brand-breakthrough.ts` + `tokens/dtcg/brands/breakthrough.json`
+  - two consumer-app presets: `src/presets/brand-<app>.ts` + `tokens/dtcg/brands/<app>.json`
   - `src/presets/brand-team-tiderman.ts` + `tokens/dtcg/brands/team-tiderman.json`
-  - `src/presets/brand-gamify.ts` + `tokens/dtcg/brands/gamify.json`
-  - Re-exports of `acmeTheme/Colors`, `breakthroughTheme/Colors`, `teamTidermanTheme/Colors` from `src/index.ts`
+  - Re-exports of `acmeTheme/Colors`, `teamTidermanTheme/Colors` from `src/index.ts`
   - The 4 corresponding `dist/themes/<brand>.css` outputs (only `genesis.css` ships now)
 
   **Removed (provider surface):**
-  - `Brand` union narrowed from `"genesis" | "acme" | "breakthrough" | "team-tiderman" | "gamify"` → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
+  - `Brand` union narrowed from five brand names → `"genesis"`. Consumer apps that need a non-genesis primary now pass an explicit `primary` prop to `<GenesisThemeProvider>` sourced from their own `@<consumer>/brand` package.
 
   **Added (canonical schema — A2.9):**
   - `src/schema/brand.ts` exports `ColorScale`, `CanonicalBrand`, `BrandExtensions` (open-ended interface for consumer declaration merging), `isColorScale`, and `validateBrand`.
   - `extensions?: BrandExtensions & Record<string, ColorScale>` slot on `CanonicalBrand` — consumer-domain color scales (rank, gameMode, flowTemplate) live here.
   - TypeScript declaration-merging pattern documented in the module doc-comment + standards/design-opinions.md.
-  - Naming convention: camelCase keys, prefixed only on collision (`gamifyPriority` etc), brand-genesis declares zero extensions.
+  - Naming convention: camelCase keys, prefixed only on collision (`appPriority` etc), brand-genesis declares zero extensions.
 
   **Added (validation tooling — A2.9):**
   - `schema/brand.schema.json` — JSON-Schema 2020-12 entry for `CanonicalBrand`.

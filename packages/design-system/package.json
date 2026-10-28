@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-design-system",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "private": false,
   "type": "module",
   "description": "Genesis brand-agnostic design tokens, canonical brand schema (with extensions slot), brand-genesis OOTB fallback, and theme generation. Part of the Genesis framework.",
@@ -77,5 +77,19 @@
     "tsx": "^4.21.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Its rules are built in to the doctor: raw-color, palette-color, arbitrary-color and undefined-token read its tokens.",
+      "primitives": [
+        {
+          "need": "a brand's colors and fonts",
+          "use": "a brand file (the brand schema) and tailwindFromBrand",
+          "import": "@marktiderman/genesis-design-system",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/design-system/README.md"
+        }
+      ]
+    }
   }
 }

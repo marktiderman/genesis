@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27",
+  "generatedAt": "2026-10-28",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 131
+      "count": 132
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -1576,7 +1576,7 @@
         },
         {
           "name": "resolveZone",
-          "summary": "A column's clock: \"viewer\" (the default) and \"practice\" from `zones`, else a valid IANA name.",
+          "summary": "A column's clock: \"viewer\" (the default) and \"scope\" from `zones`, else a valid IANA name.\nAnything else throws (`defineView` refuses it first): drawing it on the viewer's clock instead\nwould show the wrong times with nothing to say so.",
           "props": []
         },
         {
@@ -3844,10 +3844,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, string | number | boolean | readonly (string | number)[] | null>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`, sent as `in`; a create never takes a list). A create\nalso saves every non-null value here (a tab's filter too), even for read-only fields such as\na required link: they come from the screen, never from an input. An edit never sends them."
             },
             {
               "name": "header",
@@ -3885,18 +3885,18 @@
               "description": "Rows per page. Default 25."
             },
             {
-              "name": "practiceTimeZone",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "The practice's IANA zone, for columns with `timeZone: \"practice\"`. Timestamps otherwise read\non the viewer's clock (ViewerScope's zone, else the device's)."
-            },
-            {
               "name": "preset",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A tab the view defines: its server filter."
+            },
+            {
+              "name": "scopeTimeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The IANA zone of whatever this screen is scoped to (a location, a league, a team), for columns\nwith `timeZone: \"scope\"`. Default: ViewerScope's `scopeTimeZone`, else the viewer's clock.\nTimestamps on other columns read on the viewer's clock (ViewerScope's zone, else the device's)."
             },
             {
               "name": "searchable",
@@ -7388,6 +7388,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the content, merged after the defaults, e.g.\n`z-[60]` to lift it above a side panel that sits at `z-50`. Raise the content's own\n`className` to match."
             }
           ]
         },
@@ -11442,6 +11449,13 @@
               "description": "Number of filtered/visible items"
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createAction",
               "type": "ReactNode",
               "required": false,
@@ -11496,6 +11510,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Singular entity name for generated text, e.g. \"session\""
+            },
+            {
+              "name": "entityNamePlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several of `entityName` (\"people\"), when not `entityName` + \"s\"."
             },
             {
               "name": "errorMessage",
@@ -11887,6 +11908,13 @@
               "description": "Sticky header on scroll"
             },
             {
+              "name": "tree",
+              "type": "DataTableTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode, drawn: `items` are already the tree's visible rows in order (genesis-core's\n`treeRows`, which `useResourceView` / ResourcePage's `tree` run), so the table doesn't sort\nthem again: a header click reports through `onSortChange`, and the caller sorts within\nsiblings. The table becomes a WAI-ARIA treegrid (`aria-level`, `aria-expanded`,\n`aria-posinset`, `aria-setsize`), the first column gets the indent and the expand arrow, and on\na row's open button → opens a row (then moves to its first child) and ← closes it (then moves\nto its parent)."
+            },
+            {
               "name": "virtualize",
               "type": "boolean | { height?: number; estimateRowHeight?: number; } | undefined",
               "required": false,
@@ -12221,6 +12249,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the content, merged after the defaults, e.g.\n`z-[60]` to lift it above a side panel that sits at `z-50`. Raise the content's own\n`className` to match."
             },
             {
               "name": "showCloseButton",
@@ -13975,6 +14010,13 @@
               "description": ""
             },
             {
+              "name": "form",
+              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "kanban",
               "type": "DeepPartial<{ noItems: string; card: string; cardInLabel: string; pickUp: string; move: string; moveTo: string; moved: string; moveFailed: string; pickedUp: string; pickedUpTouch: string; over: string; droppedBack: string; cancelled: string; instructions: string; }>",
               "required": false,
@@ -13983,7 +14025,7 @@
             },
             {
               "name": "page",
-              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; loadMore: string; allLoaded: string; loadedMore: string; truncated: string; pagination: string; noRecords: string; range: string; ... 5 more ...; deleteFailed: string; }>",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 9 more ...; deleteFailed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -13997,7 +14039,7 @@
             },
             {
               "name": "table",
-              "type": "DeepPartial<{ noRecords: string; selectRow: string; selectAll: string; columns: string; resetColumns: string; ascending: string; descending: string; sortedBy: string; rows: string; noRows: string; range: string; pageOf: string; }>",
+              "type": "DeepPartial<{ noRecords: string; selectRow: string; expandRow: string; collapseRow: string; selectAll: string; columns: string; resetColumns: string; ascending: string; descending: string; sortedBy: string; rows: string; noRows: string; range: string; pageOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14029,7 +14071,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 9 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 10 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -14298,6 +14340,13 @@
               "description": ""
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words, overriding the UI catalogue's `page.countOne`, `countOther` and\n`countFiltered`. Templates take `{count}`, `{total}`, `{noun}` and `{nouns}`."
+            },
+            {
               "name": "createAction",
               "type": "ReactNode",
               "required": false,
@@ -14345,6 +14394,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Singular entity for “N rows” copy when unfiltered"
+            },
+            {
+              "name": "entityNamePlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several of `entityName`, when not `entityName` + \"s\"."
             },
             {
               "name": "icon",
@@ -15442,6 +15498,13 @@
               "description": "When a save reaches the list. Default `\"pessimistic\"`: the form waits\nfor the provider. `\"optimistic\"` closes at once and updates the cached\nlist, putting it back (and toasting the error) if the save fails.\n`\"undoable\"` does the same and shows an Undo toast; the save is sent\nafter `undoDelayMs` unless undone (or at once, undone by the provider,\nwhen it serves `undo`). Needs a mounted `<Toaster />`."
             },
             {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"): the title reads \"New goal\" / \"Edit goal\" (the UI\ncatalogue's `form`). Without it the title is built from `resource`, as before."
+            },
+            {
               "name": "onDirtyChange",
               "type": "((isDirty: boolean, confirmLeave: () => boolean) => void)",
               "required": false,
@@ -15495,7 +15558,7 @@
               "type": "string",
               "required": false,
               "defaultValue": null,
-              "description": ""
+              "description": "The title, over everything else."
             },
             {
               "name": "undoDelayMs",
@@ -15825,6 +15888,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -15944,6 +16014,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -16019,6 +16096,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -16315,6 +16406,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
               "name": "urlState",
               "type": "SearchParamsAdapter | ResourceUrlStateOptions",
               "required": false,
@@ -16426,7 +16524,7 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/ResourceView.tsx",
       "stability": "stable",
-      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+      "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
       "primaryComponent": "ResourceView",
       "components": [
         {
@@ -16560,6 +16658,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -16575,7 +16680,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -16652,10 +16757,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -16691,6 +16796,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -16782,6 +16894,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -17085,6 +17211,13 @@
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
             },
             {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
+            },
+            {
               "name": "urlState",
               "type": "SearchParamsAdapter | ResourceUrlStateOptions",
               "required": false,
@@ -17102,7 +17235,7 @@
         },
         {
           "name": "ResourceView",
-          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
+          "summary": "A list screen from a view, in one line:\n\n```tsx\n<ResourceView view={brandsView} />\n<ResourceView view={sessionsView} layout=\"embedded\" filter={{ client_id: id }} columns=\"compact\" />\n<ResourceView view={leaguesView} tree={{ getParentId: (l) => l.parent_id, defaultExpanded: 1 }} />\n```\n\nCustomise in steps: a screen setting, then the view (every screen gets it), then a slot\n(`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.",
           "props": [
             {
               "name": "view",
@@ -17231,6 +17364,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -17246,7 +17386,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -17323,10 +17463,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -17362,6 +17502,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -17453,6 +17600,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -17754,6 +17915,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
@@ -17902,6 +18070,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -17917,7 +18092,7 @@
             },
             {
               "name": "defaults",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar>>",
               "required": false,
               "defaultValue": null,
               "description": "Values a new row starts with (`{ author_scope: viewer.scope }`), sent on create only. Unlike\n`filter`, they don't narrow the list. A field the form shows starts at the value instead."
@@ -17994,10 +18169,10 @@
             },
             {
               "name": "filter",
-              "type": "Readonly<Record<string, string | number | boolean | null>>",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
               "required": false,
               "defaultValue": null,
-              "description": "Equality filters sent to the server (`{ client_id: id }`); `null` means \"is empty\". A new row gets them too."
+              "description": "Filters sent to the server (`{ client_id: id }`); `null` means \"is empty\" and a list means\n\"any of\" (`{ status: [\"open\", \"blocked\"] }`). A new row gets the single values too, never a list."
             },
             {
               "name": "filters",
@@ -18033,6 +18208,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
+            },
+            {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -18124,6 +18306,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -18425,6 +18621,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
@@ -19717,6 +19920,13 @@
               "description": ""
             },
             {
+              "name": "overlayClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the backdrop rendered behind the sheet, merged after the defaults, e.g. a\nlighter scrim or a different `z-index`. Mirrors `DialogContent`'s `overlayClassName`."
+            },
+            {
               "name": "showCloseButton",
               "type": "boolean",
               "required": false,
@@ -20323,12 +20533,12 @@
       "subpath": "@marktiderman/genesis-ui/patterns",
       "filePath": "packages/ui/src/components/patterns/status-badge.tsx",
       "stability": "beta",
-      "summary": "Status-specific badge for progress/health states — the EOS/OKR-style\n\"on track / at risk / off track\" goal vocabulary plus common\ntask-lifecycle states (\"done\", \"blocked\", \"in progress\").\n\n`Badge` answers \"what color is this badge\"; `StatusBadge` answers \"what\ndoes this business status look like as a badge\" — it owns the\nstatus → semantic-token mapping so consumers pass a status name instead\nof hand-rolling their own `status-to-color` lookup (the pattern this\ncomponent exists to retire). Colors are token-driven — the same\n`bg-success` / `bg-warning` / `bg-destructive` / `bg-info` semantic\nTailwind families `Badge` already uses, backed by\n`@marktiderman/genesis-design-system`'s `status` tokens — no raw hex here.",
+      "summary": "Status-specific badge for progress/health states — the OKR-style\n\"on track / at risk / off track\" goal vocabulary plus common\ntask-lifecycle states (\"done\", \"blocked\", \"in progress\").\n\n`Badge` answers \"what color is this badge\"; `StatusBadge` answers \"what\ndoes this business status look like as a badge\" — it owns the\nstatus → semantic-token mapping so consumers pass a status name instead\nof hand-rolling their own `status-to-color` lookup (the pattern this\ncomponent exists to retire). Colors are token-driven — the same\n`bg-success` / `bg-warning` / `bg-destructive` / `bg-info` semantic\nTailwind families `Badge` already uses, backed by\n`@marktiderman/genesis-design-system`'s `status` tokens — no raw hex here.",
       "primaryComponent": "StatusBadge",
       "components": [
         {
           "name": "StatusBadge",
-          "summary": "Status-specific badge for progress/health states — the EOS/OKR-style\n\"on track / at risk / off track\" goal vocabulary plus common\ntask-lifecycle states (\"done\", \"blocked\", \"in progress\").\n\n`Badge` answers \"what color is this badge\"; `StatusBadge` answers \"what\ndoes this business status look like as a badge\" — it owns the\nstatus → semantic-token mapping so consumers pass a status name instead\nof hand-rolling their own `status-to-color` lookup (the pattern this\ncomponent exists to retire). Colors are token-driven — the same\n`bg-success` / `bg-warning` / `bg-destructive` / `bg-info` semantic\nTailwind families `Badge` already uses, backed by\n`@marktiderman/genesis-design-system`'s `status` tokens — no raw hex here.",
+          "summary": "Status-specific badge for progress/health states — the OKR-style\n\"on track / at risk / off track\" goal vocabulary plus common\ntask-lifecycle states (\"done\", \"blocked\", \"in progress\").\n\n`Badge` answers \"what color is this badge\"; `StatusBadge` answers \"what\ndoes this business status look like as a badge\" — it owns the\nstatus → semantic-token mapping so consumers pass a status name instead\nof hand-rolling their own `status-to-color` lookup (the pattern this\ncomponent exists to retire). Colors are token-driven — the same\n`bg-success` / `bg-warning` / `bg-destructive` / `bg-info` semantic\nTailwind families `Badge` already uses, backed by\n`@marktiderman/genesis-design-system`'s `status` tokens — no raw hex here.",
           "props": [
             {
               "name": "status",
@@ -20556,7 +20766,15 @@
         {
           "name": "Table",
           "summary": "",
-          "props": []
+          "props": [
+            {
+              "name": "containerClassName",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Classes for the scroll container that wraps the `<table>`, merged after its defaults\n(`relative w-full overflow-auto`). A sticky header needs the container to be the scroll\nbox: give it a height, e.g. `containerClassName=\"max-h-96\"`, and the header\n`className=\"sticky top-0 bg-background\"`. `className` still styles the `<table>` itself."
+            }
+          ]
         },
         {
           "name": "TableHeader",
@@ -21121,6 +21339,59 @@
       ]
     },
     {
+      "slug": "tree-indent",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/TreeIndent.tsx",
+      "stability": "stable",
+      "summary": "The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content.",
+      "primaryComponent": "TreeIndent",
+      "components": [
+        {
+          "name": "TreeIndent",
+          "summary": "The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content.",
+          "props": [
+            {
+              "name": "name",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": "The row's name, for the arrow's label (\"Expand North\")."
+            },
+            {
+              "name": "node",
+              "type": "Pick<TreeNode<unknown>, \"depth\" | \"hasChildren\" | \"expanded\">",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onToggle",
+              "type": "(open: boolean) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "focusable",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "Whether the arrow is a tab stop. A table whose rows take ← and → leaves it out of the tab\norder (the row's keys do its job); a list without row keys keeps it in."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "typography",
       "aliases": [],
       "surface": "web",
@@ -21405,6 +21676,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -21524,6 +21802,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -21599,6 +21884,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -21893,6 +22192,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",
@@ -22041,6 +22347,13 @@
               "description": "Confirm before deleting. Defaults to `true` for `allowDelete` and\n`false` for `onDelete` (which keeps its old, unconfirmed behaviour).\nPass an object to set the dialog's copy."
             },
             {
+              "name": "countFormat",
+              "type": "{ one?: string; other?: string; filtered?: string | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The count's words; see PageHeader `countFormat`."
+            },
+            {
               "name": "createLabel",
               "type": "string",
               "required": false,
@@ -22160,6 +22473,13 @@
               "description": "Wizard step definitions. Required when formMode is \"wizard\"."
             },
             {
+              "name": "formTitles",
+              "type": "{ create?: string; edit?: string; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
+            },
+            {
               "name": "getKey",
               "type": "((item: T) => string)",
               "required": false,
@@ -22235,6 +22555,20 @@
               "required": false,
               "defaultValue": null,
               "description": "When the built-in form's saves and deletes reach the list: `\"pessimistic\"`\n(default, wait for the provider), `\"optimistic\"` or `\"undoable\"` (an Undo\ntoast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`\nwins for deletes."
+            },
+            {
+              "name": "noun",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "What one record is called (\"goal\"), for the count and the form's title. Default: the title,\nlower-cased, for the count, and the resource name for the form (as before)."
+            },
+            {
+              "name": "nounPlural",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Several records (\"people\"), when not `noun` + \"s\"."
             },
             {
               "name": "onCreate",
@@ -22529,6 +22863,13 @@
               "required": false,
               "defaultValue": null,
               "description": "Server-data mode: total record count (before client-side filtering).\n\nRequired whenever `onPageChange` is supplied. It cannot be derived from\n`data`, which holds only the current page. Omitted, `displayTotal` falls\nback to `0`, so the range span reads \"No records\" and `Next` stays\ndisabled while the rows render directly below it. Rather than show a\npager that contradicts the list, the component refuses to render the\npager and shows an error instead. See {@link perPage} and\n{@link onPageChange}."
+            },
+            {
+              "name": "tree",
+              "type": "ResourceTree<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tree mode: rows nest under the row `getParentId` names, built from the flat rows by\ngenesis-core's `treeRows` (docs/RESOURCE-VIEW.md, \"Tree mode\"). Sort applies within siblings,\nsearch and the status filter keep each match's ancestors, open state is controlled\n(`expanded`, `onExpandedChange`) or not (`defaultExpanded`), and `cascadeSelect` makes\nselecting a row select its descendants. Table and list views draw the indent and the expand\narrow; grid and custom cards stay flat. Client data only: `pagination=\"client\"` (the\ndefault) or `data`; server and cursor paging throw."
             },
             {
               "name": "urlState",

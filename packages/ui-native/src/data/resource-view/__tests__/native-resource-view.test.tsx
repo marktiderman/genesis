@@ -529,6 +529,51 @@ describe("form sheet", () => {
     });
   });
 
+  it("treats an empty input as the web form does, from the contract's facts", () => {
+    type Known = { id: string; name: string; code: string; made_by: string; notes: string | null; due_on: string | null };
+    const known = defineResource<Known>()({
+      name: "known",
+      key: "id",
+      labelField: "name",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "name", type: "string", nullable: false },
+        { name: "code", type: "string", nullable: false, optional: true },
+        { name: "made_by", type: "string", nullable: false, hasDefault: true },
+        { name: "notes", type: "string", nullable: true },
+        { name: "due_on", type: "datetime", dbType: "date", nullable: true },
+      ],
+    });
+    const knownView = defineView(known, { form: ["name", "code", "made_by", "notes", "due_on"] });
+    const blank = { name: "a", code: "", made_by: "", notes: "", due_on: "" };
+    const create = formFieldsFor(knownView, "create");
+    expect(create.find((f) => f.key === "notes")).toMatchObject({ nullable: true });
+    expect(create.find((f) => f.key === "made_by")).toMatchObject({ nullable: false, hasDefault: true });
+    // A create leaves blanks out (defaults apply); a not-null text without a default keeps "".
+    expect(writableValues(knownView, "create", create, blank)).toEqual({ name: "a", code: "" });
+    expect(writableValues(knownView, "edit", formFieldsFor(knownView, "edit"), blank)).toEqual({
+      name: "a", code: "", made_by: "", notes: null, due_on: null,
+    });
+  });
+
+  it("sends a list filter as `in`, and a create never takes it", async () => {
+    const p = provider();
+    const getList = vi.spyOn(p, "getList");
+    const { result } = renderHook(() => useNativeResourceView(plainView, { filter: { status: ["active", "archived"], practice_id: "p1" } }), {
+      wrapper: wrap(p),
+    });
+    await waitFor(() => expect(getList).toHaveBeenCalled());
+    expect(getList.mock.calls.at(-1)![1].filters).toEqual(
+      expect.arrayContaining([
+        { field: "status", operator: "in", value: ["active", "archived"] },
+        { field: "practice_id", operator: "eq", value: "p1" },
+      ]),
+    );
+    expect(result.current.formFields("create").some((f) => f.key === "practice_id")).toBe(false);
+    expect(result.current.formFields("create").some((f) => f.key === "status")).toBe(true);
+    expect(screenValues({ status: ["a"], practice_id: "p1" })).toEqual({ practice_id: "p1" });
+  });
+
   it("shows an empty date as a button to add one, and a set date can be cleared", async () => {
     render(<NativeResourceView view={plainView} />, { wrapper: wrap(provider()) });
     fireEvent.click(await screen.findByTestId("native-resource-view-create"));
@@ -695,16 +740,32 @@ describe("peek", () => {
     expect(alert).toHaveBeenLastCalledWith("Move to Bin", "The default brand stays.");
   });
 
-  it("reads a practice-clock column on the practice's zone", async () => {
+  it("reads a scope-clock column on the scope's zone: the prop, else ViewerScope's", async () => {
     const clocked = defineView(brands, {
-      fields: { updated_at: { timeZone: "practice" } },
+      fields: { updated_at: { timeZone: "scope" } },
       columns: { default: ["name", "updated_at"] },
     });
-    render(<NativeResourceView view={clocked} practiceTimeZone="Asia/Tokyo" />, { wrapper: wrap(provider()) });
+    const at = "2026-01-02T10:00:00Z";
+    expect(formatInstant(at, "Asia/Tokyo")).not.toBe(formatInstant(at, "Europe/Berlin"));
+
+    const first = render(<NativeResourceView view={clocked} scopeTimeZone="Asia/Tokyo" />, { wrapper: wrap(provider()) });
     fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
-    const peek = await screen.findByTestId("native-resource-view-peek");
-    expect(peek.textContent).toContain(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo"));
-    expect(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo")).not.toBe(formatInstant("2026-01-02T10:00:00Z", "America/Los_Angeles"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain(formatInstant(at, "Asia/Tokyo"));
+    first.unmount();
+
+    // No prop: ViewerScope's scopeTimeZone.
+    const Base = wrap(provider());
+    render(<NativeResourceView view={clocked} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <Base>
+          <ViewerScope viewer="ann" timeZone="America/Los_Angeles" scopeTimeZone="Europe/Berlin">
+            {children}
+          </ViewerScope>
+        </Base>
+      ),
+    });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain(formatInstant(at, "Europe/Berlin"));
   });
 
   it("shows view.columns() drawn like the cells: a when-false value and a sensitive field never appear", async () => {
@@ -742,13 +803,15 @@ describe("calendar days", () => {
 });
 
 describe("clocks", () => {
-  it("resolves viewer and practice to the given zones, and an unknown name to the viewer's", () => {
-    const zones = { viewer: "America/Los_Angeles", practice: "Europe/Berlin" };
+  it("resolves viewer and scope to the given zones, and refuses anything else", () => {
+    const zones = { viewer: "America/Los_Angeles", scope: "Europe/Berlin" };
     expect(resolveZone(undefined, zones)).toBe("America/Los_Angeles");
     expect(resolveZone("viewer", zones)).toBe("America/Los_Angeles");
-    expect(resolveZone("practice", zones)).toBe("Europe/Berlin");
+    expect(resolveZone("scope", zones)).toBe("Europe/Berlin");
     expect(resolveZone("Asia/Tokyo", zones)).toBe("Asia/Tokyo");
-    expect(resolveZone("Not/AZone", zones)).toBe("America/Los_Angeles");
+    // Never a quiet fall back to the viewer's clock: the removed name and an unknown zone throw.
+    expect(() => resolveZone("practice", zones)).toThrow(/"practice" was renamed "scope"/);
+    expect(() => resolveZone("Not/AZone", zones)).toThrow(RangeError);
   });
 });
 

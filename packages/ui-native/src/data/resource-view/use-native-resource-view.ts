@@ -28,7 +28,7 @@ import {
 import { fill } from "./messages";
 
 type Row = Record<string, unknown>;
-type Filter = Readonly<Record<string, string | number | boolean | null>>;
+type Filter = Readonly<Record<string, string | number | boolean | null | readonly (string | number)[]>>;
 
 /** How long typing waits before the search goes to the server. */
 export const SEARCH_DEBOUNCE_MS = 300;
@@ -37,7 +37,8 @@ export interface NativeResourceViewOptions<T extends Row = Row> {
   /** A tab the view defines: its server filter. */
   preset?: string;
   /**
-   * Equality filters sent to the server (`{ client_id: id }`); `null` means "is empty". A create
+   * Filters sent to the server (`{ client_id: id }`); `null` means "is empty" and a list means
+   * "any of" (`{ status: ["open", "blocked"] }`, sent as `in`; a create never takes a list). A create
    * also saves every non-null value here (a tab's filter too), even for read-only fields such as
    * a required link: they come from the screen, never from an input. An edit never sends them.
    */
@@ -107,8 +108,12 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
-  return Object.entries(filter ?? {}).map(([field, value]) =>
-    value === null ? { field, operator: "is_null" as const } : { field, operator: "eq" as const, value },
+  return Object.entries(filter ?? {}).map(([field, value]): FilterParam =>
+    value === null
+      ? { field, operator: "is_null" }
+      : Array.isArray(value)
+        ? { field, operator: "in", value: [...(value as readonly (string | number)[])] }
+        : { field, operator: "eq", value: value as string | number | boolean },
   );
 }
 
@@ -116,7 +121,9 @@ function filterParams(filter: Filter | undefined): FilterParam[] {
 export function screenValues(...filters: (Filter | undefined)[]): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const filter of filters) {
-    for (const [field, value] of Object.entries(filter ?? {})) if (value !== null) out[field] = value;
+    for (const [field, value] of Object.entries(filter ?? {})) {
+      if (value !== null && !Array.isArray(value)) out[field] = value as string | number | boolean;
+    }
   }
   return out;
 }
@@ -156,7 +163,12 @@ export function useNativeResourceView<T extends Row = Row>(
 
   // ── Reads: cursor pages, server filters, server search ──────────────────
   const tabFilter = tab?.filter as Filter | undefined;
-  const defaultFilters = useMemo(() => [...filterParams(tabFilter), ...filterParams(filter)], [tabFilter, filter]);
+  // By value: an inline `filter={{ status: ["open", "done"] }}` is one list, not a new one per render.
+  const filterKey = JSON.stringify(filter ?? {});
+  const defaultFilters = useMemo(
+    () => [...filterParams(tabFilter), ...filterParams(JSON.parse(filterKey) as Filter)],
+    [tabFilter, filterKey],
+  );
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const createKey = JSON.stringify(screenValues(tabFilter, filter));
   const createDefaults = useMemo(() => JSON.parse(createKey) as Record<string, string | number | boolean>, [createKey]);

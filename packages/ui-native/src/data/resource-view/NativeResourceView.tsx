@@ -17,8 +17,8 @@ import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type 
 import { Alert, Platform, Pressable, SectionList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { encodeRecordKey, type BaseRecord, type DataRow } from "@marktiderman/genesis-core";
-import { isTimeZone, personTimeZone } from "@marktiderman/genesis-core/dates";
-import { useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { personTimeZone } from "@marktiderman/genesis-core/dates";
+import { scopeClock, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import type { RowPicture } from "@marktiderman/genesis-core/resource-view";
 import { NativeAvatar } from "../../components/avatar";
 import { NativeBadge } from "../../components/badge";
@@ -78,10 +78,11 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   /** Hide the search box. Shown by default when the view has something to search. */
   searchable?: boolean;
   /**
-   * The practice's IANA zone, for columns with `timeZone: "practice"`. Timestamps otherwise read
-   * on the viewer's clock (ViewerScope's zone, else the device's).
+   * The IANA zone of whatever this screen is scoped to (a location, a league, a team), for columns
+   * with `timeZone: "scope"`. Default: ViewerScope's `scopeTimeZone`, else the viewer's clock.
+   * Timestamps on other columns read on the viewer's clock (ViewerScope's zone, else the device's).
    */
-  practiceTimeZone?: string;
+  scopeTimeZone?: string;
   testID?: string;
 }
 
@@ -110,11 +111,12 @@ const recordKey = (view: AnyResourceView<Row>, row: Row) => {
 export function NativeResourceView<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const scope = useOptionalViewerScope();
   const viewer = scope?.timeZone;
-  const { practiceTimeZone } = props;
+  const scopeZone = props.scopeTimeZone ?? scope?.scopeTimeZone;
   const zones = useMemo<DisplayTimeZones>(() => {
     const own = personTimeZone({ timeZone: viewer });
-    return { viewer: own, practice: practiceTimeZone && isTimeZone(practiceTimeZone) ? practiceTimeZone : own };
-  }, [viewer, practiceTimeZone]);
+    // An unknown zone is loud (core's scopeClock), never a quiet fall back to the viewer's clock.
+    return { viewer: own, scope: scopeClock(scopeZone, own) };
+  }, [viewer, scopeZone]);
   return (
     <DisplayTimeZonesProvider value={zones}>
       <Screen {...props} />
@@ -256,7 +258,7 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     header,
     emptyState,
     searchable,
-    practiceTimeZone: _zone,
+    scopeTimeZone: _zone,
     testID = "native-resource-view",
     ...options
   } = props;

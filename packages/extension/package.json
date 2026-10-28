@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-extension",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -66,5 +66,23 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "checked-messaging",
+          "need": "messages and settings in a Chrome extension",
+          "level": "warn",
+          "forbid": {
+            "pattern": "\\bchrome\\s*\\.\\s*(?:runtime\\s*\\.\\s*(?:sendMessage|onMessage)|storage\\s*\\.\\s*(?:local|sync|session))\\b"
+          },
+          "use": "request / createRouter for messages and createPrefs for settings",
+          "import": "@marktiderman/genesis-extension",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/extension/README.md",
+          "why": "Checked messages and settings are typed and testable with the Chrome fake; raw chrome.* calls are neither."
+        }
+      ]
+    }
   }
 }
