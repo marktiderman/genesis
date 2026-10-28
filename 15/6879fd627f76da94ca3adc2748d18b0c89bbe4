@@ -1,0 +1,21 @@
+packages/core/src/form-types.ts
+  s_1cf5ee0aa53946::t_54b329b370ced4 39-42,45-48
+packages/core/src/resource-view/types.ts
+  s_1cf5ee0aa53946::t_423d933771252c 183-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "156879fd627f76da94ca3adc2748d18b0c89bbe4",
+  "prompts": {},
+  "sessions": {
+    "s_1cf5ee0aa53946": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a8475e93-be25-4ca2-9a8b-70db0c39d04b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
