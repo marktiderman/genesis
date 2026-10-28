@@ -695,16 +695,32 @@ describe("peek", () => {
     expect(alert).toHaveBeenLastCalledWith("Move to Bin", "The default brand stays.");
   });
 
-  it("reads a practice-clock column on the practice's zone", async () => {
+  it("reads a scope-clock column on the scope's zone: the prop, else ViewerScope's", async () => {
     const clocked = defineView(brands, {
-      fields: { updated_at: { timeZone: "practice" } },
+      fields: { updated_at: { timeZone: "scope" } },
       columns: { default: ["name", "updated_at"] },
     });
-    render(<NativeResourceView view={clocked} practiceTimeZone="Asia/Tokyo" />, { wrapper: wrap(provider()) });
+    const at = "2026-01-02T10:00:00Z";
+    expect(formatInstant(at, "Asia/Tokyo")).not.toBe(formatInstant(at, "Europe/Berlin"));
+
+    const first = render(<NativeResourceView view={clocked} scopeTimeZone="Asia/Tokyo" />, { wrapper: wrap(provider()) });
     fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
-    const peek = await screen.findByTestId("native-resource-view-peek");
-    expect(peek.textContent).toContain(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo"));
-    expect(formatInstant("2026-01-02T10:00:00Z", "Asia/Tokyo")).not.toBe(formatInstant("2026-01-02T10:00:00Z", "America/Los_Angeles"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain(formatInstant(at, "Asia/Tokyo"));
+    first.unmount();
+
+    // No prop: ViewerScope's scopeTimeZone.
+    const Base = wrap(provider());
+    render(<NativeResourceView view={clocked} />, {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <Base>
+          <ViewerScope viewer="ann" timeZone="America/Los_Angeles" scopeTimeZone="Europe/Berlin">
+            {children}
+          </ViewerScope>
+        </Base>
+      ),
+    });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain(formatInstant(at, "Europe/Berlin"));
   });
 
   it("shows view.columns() drawn like the cells: a when-false value and a sensitive field never appear", async () => {
@@ -742,13 +758,15 @@ describe("calendar days", () => {
 });
 
 describe("clocks", () => {
-  it("resolves viewer and practice to the given zones, and an unknown name to the viewer's", () => {
-    const zones = { viewer: "America/Los_Angeles", practice: "Europe/Berlin" };
+  it("resolves viewer and scope to the given zones, and refuses anything else", () => {
+    const zones = { viewer: "America/Los_Angeles", scope: "Europe/Berlin" };
     expect(resolveZone(undefined, zones)).toBe("America/Los_Angeles");
     expect(resolveZone("viewer", zones)).toBe("America/Los_Angeles");
-    expect(resolveZone("practice", zones)).toBe("Europe/Berlin");
+    expect(resolveZone("scope", zones)).toBe("Europe/Berlin");
     expect(resolveZone("Asia/Tokyo", zones)).toBe("Asia/Tokyo");
-    expect(resolveZone("Not/AZone", zones)).toBe("America/Los_Angeles");
+    // Never a quiet fall back to the viewer's clock: the removed name and an unknown zone throw.
+    expect(() => resolveZone("practice", zones)).toThrow(/"practice" was renamed "scope"/);
+    expect(() => resolveZone("Not/AZone", zones)).toThrow(RangeError);
   });
 });
 

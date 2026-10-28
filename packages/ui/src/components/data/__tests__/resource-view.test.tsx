@@ -501,6 +501,33 @@ describe("ResourceView review fixes", () => {
     expect(within(row).getByText(/Jan 3, 2026/)).toBeTruthy();
   });
 
+  it.each([
+    ["scope", "Asia/Tokyo", /Jan 3, 2026/],
+    ["viewer", "Asia/Tokyo", /Jan 2, 2026/],
+  ] as const)('reads a `timeZone: "%s"` column on ViewerScope\'s matching clock', async (clock, scopeZone, day) => {
+    localStorage.clear();
+    const dated = defineView(brands, {
+      fields: { updated_at: { display: "date", timeZone: clock } },
+      columns: { default: ["name", "updated_at"] },
+    });
+    const p = provider();
+    // 03:00 UTC on Jan 3: still Jan 2 in Los Angeles (the viewer), already Jan 3 in Tokyo (the scope).
+    const at = "2026-01-03T03:00:00Z";
+    p.getList = vi.fn(async () => ({ data: [{ ...ROWS[0]!, updated_at: at }], total: 1 })) as DataProvider["getList"];
+    const Base = wrap(p);
+    render(<ResourceView view={dated} mode="table" detail="none" />, {
+      wrapper: ({ children }) => (
+        <Base>
+          <ViewerScope viewer="u1" timeZone="America/Los_Angeles" scopeTimeZone={scopeZone}>
+            {children}
+          </ViewerScope>
+        </Base>
+      ),
+    });
+    const row = (await screen.findByText("Northwind")).closest("tr")!;
+    expect(within(row).getByText(day)).toBeTruthy();
+  });
+
   it("keeps a URL sort on a field column in cursor mode", async () => {
     localStorage.clear();
     const p = provider();

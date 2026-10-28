@@ -10,7 +10,7 @@ const camel = (key: string) => key.replace(/_([a-z0-9])/g, (_, c: string) => c.t
 
 /**
  * The view's declared scope keys with their values from the viewer's scope, ready to pass as a
- * screen's `filter`: `scope: ["practice_id"]` reads `scope.practice_id`, then `scope.practiceId`.
+ * screen's `filter`: `scope: ["league_id"]` reads `scope.league_id`, then `scope.leagueId`.
  *
  * ```tsx
  * <ResourceView view={brandsView} filter={scopeValues(brandsView, useViewerScope().scope)} />

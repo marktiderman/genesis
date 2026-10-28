@@ -29,10 +29,16 @@ const DialogContent = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
     showCloseButton?: boolean;
+    /**
+     * Classes for the backdrop rendered behind the content, merged after the defaults, e.g.
+     * `z-[60]` to lift it above a side panel that sits at `z-50`. Raise the content's own
+     * `className` to match.
+     */
+    overlayClassName?: string;
   }
->(({ className, children, showCloseButton = true, ...props }, ref) => (
+>(({ className, overlayClassName, children, showCloseButton = true, ...props }, ref) => (
   <DialogPortal>
-    <DialogOverlay />
+    <DialogOverlay className={overlayClassName} />
     <DialogPrimitive.Content
       ref={ref}
       className={cn(

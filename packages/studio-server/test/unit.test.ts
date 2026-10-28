@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SignJWT } from "jose";
 import { isDataWriteError } from "@marktiderman/genesis-core/schema";
-import { byResource, createStudioHandler, databaseDecides, jwtAuth, jwtVerifier, switchToUser, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
+import { byResource, createStudioHandler, databaseDecides, IdentitySwitchError, jwtAuth, jwtVerifier, switchToUser, studioSetupSql, supabaseAuth, supabaseStudio, type StudioDatabase } from "../src/index";
 import { triggerAdvances, withoutSettings, type CatalogTrigger } from "../src/catalog";
 import { createStudioProvider, createSupabaseStudioProvider } from "../src/client";
 
@@ -587,5 +587,27 @@ describe("switchToUser", () => {
     await expect(switchToUser(query, identity, { headers: { "X-App": "x" } })).rejects.toThrow(/lower-case/);
     await expect(switchToUser(query, { role: "", claims: {} })).rejects.toThrow(/role/);
     expect(calls).toHaveLength(0);
+  });
+
+  it("turns a 42501 from setting the role into IdentitySwitchError, keeping the cause", async () => {
+    const denied = Object.assign(new Error('permission denied to set role "authenticated"'), { code: "42501" });
+    const query = async () => {
+      throw denied;
+    };
+    const error = await switchToUser(query, identity).then(
+      () => null,
+      (caught: unknown) => caught,
+    );
+    expect(error).toBeInstanceOf(IdentitySwitchError);
+    expect((error as Error).message).toContain("grant authenticated to <login>");
+    expect((error as Error).cause).toBe(denied);
+  });
+
+  it("passes any other database error during the switch through unchanged", async () => {
+    const missing = Object.assign(new Error('role "nobody" does not exist'), { code: "22023" });
+    const query = async () => {
+      throw missing;
+    };
+    await expect(switchToUser(query, identity)).rejects.toBe(missing);
   });
 });

@@ -5,6 +5,8 @@
 export { defineView, deriveDisplay, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
 export { scopeValues } from "./scope";
+export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
+export type { ResourceTree, TreeNode, TreeOptions, TreeResult } from "./tree";
 export type {
   Allowed,
   ComputedColumn,
@@ -27,6 +29,8 @@ export type {
   ViewGuards,
   ViewPreset,
   ViewTone,
+  TimeZoneName,
+  ViewTimeZone,
   Viewer,
 } from "./types";
 export { NO_VIEWER } from "../viewer";

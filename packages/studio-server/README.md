@@ -318,8 +318,15 @@ The studio's identity switch is exported on its own, for an app's API that shoul
 queries under row-level security the way PostgREST does: in one transaction per unit of work (an
 HTTP request or a socket event), first switch to the user, then query.
 
+Import it from `@marktiderman/genesis-studio-server/auth`: the token checks (`jwtAuth`,
+`jwtVerifier`, `supabaseAuth`, `supabaseVerifier`, `bearerToken`) and the switch (`switchToUser`,
+`IdentitySwitchError`, `DEFAULT_SWITCH_ROLES`), with no database connection, no handler and no
+browser client. It ships as ESM and CommonJS, so a server that builds to CommonJS (NestJS's
+default) can `require` it; the package root is ESM-only. The root still exports the same names.
+
 ```ts
-import { supabaseVerifier, switchToUser } from "@marktiderman/genesis-studio-server";
+import { supabaseVerifier, switchToUser } from "@marktiderman/genesis-studio-server/auth";
+// CommonJS: const { supabaseVerifier, switchToUser } = require("@marktiderman/genesis-studio-server/auth");
 
 const verify = supabaseVerifier({ url: process.env.SUPABASE_URL! }); // a raw token: a bearer, or a socket handshake's
 
@@ -348,6 +355,10 @@ await pool.begin(async (tx) => {
   credential headers are refused.
 - **The role:** `authenticated` or `anon` unless `allowRoles` lists others, and `claims.role`, when
   set, must be the same role.
+- **A login without the grant:** a login that wasn't granted the role (`grant authenticated to
+  <login>`) can't switch to it. That throws `IdentitySwitchError` ("the database login can't switch
+  to it"), with the database's 42501 as its `cause`, not a bare 42501 that reads as the caller
+  lacking a permission. The studio handler reports it the same way.
 - **The check:** after the switch, a check in SQL makes sure `current_user` is the role and can't
   bypass RLS, and that the login is neither a superuser nor BYPASSRLS. A failure raises inside the
   transaction, so Postgres aborts it and it throws `IdentitySwitchError`. Catching that error
@@ -359,6 +370,13 @@ await pool.begin(async (tx) => {
   on a separate privileged pool that never runs user work.
 - **Role checks in SQL:** read `current_setting('role')` or `current_user`, never a claim, since a
   claim is only what the token said.
+- **CommonJS:** `require("@marktiderman/genesis-studio-server/auth")` loads `dist/auth.cjs`, with its
+  own `.d.cts` types (and `typesVersions` for TypeScript's older `node` resolution). Its one
+  dependency, `jose`, is ESM-only and is loaded with Node's `require(esm)`, so the CommonJS entry
+  needs Node 20.19+ or 22.12+, which the package's `engines` declares. Everything in `./auth` is stateless apart from the
+  `IdentitySwitchError` class: in ESM, `.` and `./auth` share one copy of it, but a CommonJS
+  `require` gets its own, so across formats test `error.name === "IdentitySwitchError"` rather than
+  `instanceof`.
 
 ## Operational notes
 

@@ -22,7 +22,7 @@ export {
   type ResourceUrlState,
   type ResourceUrlStateOptions,
 } from "./use-resource-url-state";
-export { useResourcePage, type UseResourcePageProps, type UseResourcePageReturn, type ResourceColumnDef, type ResourceActions } from "./use-resource-page";
+export { useResourcePage, type UseResourcePageProps, type UseResourcePageReturn, type ResourcePageTreeState, type ResourceColumnDef, type ResourceActions } from "./use-resource-page";
 export {
   useCommandPaletteHotkey,
   type CommandPaletteItem,

@@ -20,13 +20,13 @@ import type { Identifier, ListParams } from "./provider/types";
 /** Who and when a key is for. `viewer` is required; null means signed out. */
 export interface KeyScope {
   viewer: string | null;
-  /** The group, practice or space the screen is filtered to. */
+  /** The group, organization or space the screen is filtered to. */
   group?: string | null;
   /** The person-day (YYYY-MM-DD) a "today" read is for. */
   day?: string | null;
   /**
-   * Where the viewer is working (ViewerScope's `scope`: practice, person, space…). Part of every
-   * key, so the same query for two practices never shares a cache entry.
+   * Where the viewer is working (ViewerScope's `scope`: an org, a league, a person…). Part of
+   * every key, so the same query for two scopes never shares a cache entry.
    */
   scope?: Readonly<Record<string, unknown>>;
 }

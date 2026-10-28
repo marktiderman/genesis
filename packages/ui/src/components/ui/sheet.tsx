@@ -50,14 +50,19 @@ interface SheetContentProps
     VariantProps<typeof sheetVariants> {
   /** Show the built-in top-right close affordance. Default true. Mirrors `DialogContent`'s `showCloseButton` — set false when a composing consumer (e.g. `DetailPanel`) renders its own close control. */
   showCloseButton?: boolean;
+  /**
+   * Classes for the backdrop rendered behind the sheet, merged after the defaults, e.g. a
+   * lighter scrim or a different `z-index`. Mirrors `DialogContent`'s `overlayClassName`.
+   */
+  overlayClassName?: string;
 }
 
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, showCloseButton = true, ...props }, ref) => (
+>(({ side = "right", className, overlayClassName, children, showCloseButton = true, ...props }, ref) => (
   <SheetPortal>
-    <SheetOverlay />
+    <SheetOverlay className={overlayClassName} />
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), className)}

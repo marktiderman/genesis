@@ -12,14 +12,49 @@ import type { Identity } from "./db";
 
 /** Thrown when the transaction did not end up as the requested role. */
 export class IdentitySwitchError extends Error {
-  constructor(expected: string, actual: unknown, detail?: string) {
+  /**
+   * @param expected The role the switch was asked for.
+   * @param actual The role the session ended up as, when known.
+   * @param detail Why the switch was refused, when it is known more precisely.
+   * @param options `cause`: the database error behind the refusal, when there is one.
+   */
+  constructor(expected: string, actual: unknown, detail?: string, options?: ErrorOptions) {
     super(
       detail
         ? `Refusing to act as "${expected}": ${detail}.`
         : `Expected to act as "${expected}" but the session is "${String(actual)}". Refusing to run.`,
+      options,
     );
     this.name = "IdentitySwitchError";
   }
+}
+
+/** Postgres `insufficient_privilege`. */
+const INSUFFICIENT_PRIVILEGE = "42501";
+
+/**
+ * The {@link IdentitySwitchError} a database error raised during the switch stands for, or
+ * `null` when it is some other failure (a missing role, a lost connection) to pass through as is.
+ *
+ * - The check's own refusal (`genesis switch: ...`).
+ * - 42501 from `set_config('role', ...)`: the login wasn't granted the role. Left as a bare
+ *   42501, it reads as the caller lacking a permission, not as the switch being refused.
+ */
+export function switchRefusal(role: string, error: unknown): IdentitySwitchError | null {
+  const { message, code } = (error ?? {}) as { message?: unknown; code?: unknown };
+  if (typeof message === "string" && message.startsWith("genesis switch:")) {
+    return new IdentitySwitchError(role, undefined, message.slice("genesis switch: ".length), { cause: error });
+  }
+  if (code === INSUFFICIENT_PRIVILEGE) {
+    const reason = typeof message === "string" ? message : "insufficient privilege";
+    return new IdentitySwitchError(
+      role,
+      undefined,
+      `the database login can't switch to it (${reason}); grant the role to the login: grant ${role} to <login>`,
+      { cause: error },
+    );
+  }
+  return null;
 }
 
 /**
@@ -188,14 +223,13 @@ export async function switchToUser(query: TaggedQuery, identity: Identity, optio
   ];
   const parts = settings.map(([name], i) => `${i === 0 ? "select " : "::text, true), "}set_config('${name}', `);
   parts.push("::text, true)");
-  await query(template(parts), ...(settings.map(([, value]) => value) as never[]));
   try {
+    // `set_config('role', ...)` is the switch itself. A login that wasn't granted the role fails
+    // here with 42501 ("permission denied to set role"), which would otherwise read as the
+    // caller lacking a permission rather than as the switch being refused.
+    await query(template(parts), ...(settings.map(([, value]) => value) as never[]));
     await query(template([CHECK_SQL]));
   } catch (error) {
-    const message = (error as { message?: unknown } | null)?.message;
-    if (typeof message === "string" && message.startsWith("genesis switch:")) {
-      throw new IdentitySwitchError(identity.role, undefined, message.slice("genesis switch: ".length));
-    }
-    throw error;
+    throw switchRefusal(identity.role, error) ?? error;
   }
 }

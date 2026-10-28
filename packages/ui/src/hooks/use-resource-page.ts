@@ -6,6 +6,7 @@ import type { DataTableColumn } from "../components/data/DataTable";
 import type { DataFilterConfig } from "../components/data/DataFilters";
 import type { ViewMode } from "../components/patterns/view-toggle";
 import type { Identifier, FilterParam, SortParam } from "@marktiderman/genesis-core/provider";
+import { initialExpanded, setExpanded, treeRows, type ResourceTree, type TreeNode } from "@marktiderman/genesis-core/resource-view";
 import { useViewPreference, type ViewModeDefault } from "./use-view-preference";
 
 // ---------------------------------------------------------------------------
@@ -92,11 +93,35 @@ export interface UseResourcePageProps<T> {
    * caller keeps its current client-side behavior.
    */
   controlled?: boolean;
+  /**
+   * Tree mode (genesis-core's `treeRows`): `data` becomes the visible rows of the tree built from
+   * every row, in order: siblings sorted, ancestors of search and status matches kept. Client data
+   * only; ignored when `controlled`.
+   */
+  tree?: ResourceTree<T>;
+  /** A row's key, for the tree's ids. Default `String(row.id)`. */
+  getKey?: (item: T) => string;
+}
+
+/** Tree mode's state (`UseResourcePageProps.tree`). */
+export interface ResourcePageTreeState<T> {
+  /** Every kept row's node (depth, open state, position) by key. */
+  nodes: ReadonlyMap<string, TreeNode<T>>;
+  /** The open rows. */
+  expanded: ReadonlySet<string>;
+  /** Open or close one row. */
+  setExpanded: (id: string, open: boolean) => void;
+  /** A row's descendants among the kept rows, collapsed ones included. */
+  descendants: (id: string) => string[];
+  /** Whether `cascadeSelect` is on. */
+  cascadeSelect: boolean;
 }
 
 export interface UseResourcePageReturn<T> {
-  /** Filtered and sorted data for display. */
+  /** Filtered and sorted data for display. In tree mode, the tree's visible rows, in order. */
   data: T[];
+  /** Tree mode's state; undefined for a flat list. */
+  tree?: ResourcePageTreeState<T>;
   /** Total count (of the filtered set; the server's `total` when `controlled`). */
   total: number;
   /** Resolved column definitions. */
@@ -270,6 +295,8 @@ export function useResourcePage<T = Record<string, unknown>>(
     onFiltersChange,
     controlled = false,
     viewKey,
+    tree: treeProp,
+    getKey: getKeyProp,
   } = props;
 
   // -- View mode --
@@ -360,8 +387,57 @@ export function useResourcePage<T = Record<string, unknown>>(
   // search, the sort and the page window, so re-running them here would
   // filter the current page against a query the server has already honoured
   // (and re-sort a slice of rows that is not the full result set).
+  // -- Tree mode: expanded state, controlled or not --
+  const treeOn = !!treeProp && !controlled;
+  const getParentId = treeProp?.getParentId;
+  const keyRef = useRef(getKeyProp);
+  keyRef.current = getKeyProp;
+  const treeKey = useCallback((item: T) => (keyRef.current ? keyRef.current(item) : String((item as Record<string, unknown>).id)), []);
+  const [ownExpanded, setOwnExpanded] = useState<ReadonlySet<string> | null>(null);
+  const defaultExpanded = treeProp?.defaultExpanded;
+  const controlledExpanded = treeProp?.expanded;
+  // Until a row is toggled, the default follows the rows (they may arrive after the first render).
+  const expanded = useMemo<ReadonlySet<string>>(
+    () =>
+      controlledExpanded ??
+      ownExpanded ??
+      (treeOn && getParentId ? initialExpanded(rawData, { getId: treeKey, getParentId }, defaultExpanded) : new Set<string>()),
+    [controlledExpanded, ownExpanded, treeOn, getParentId, rawData, treeKey, defaultExpanded],
+  );
+  const onExpandedChange = treeProp?.onExpandedChange;
+  const setRowExpanded = useCallback(
+    (id: string, open: boolean) => {
+      const next = setExpanded(expanded, id, open);
+      if (next === expanded) return;
+      if (controlledExpanded === undefined) setOwnExpanded(next);
+      onExpandedChange?.(new Set(next));
+    },
+    [expanded, controlledExpanded, onExpandedChange],
+  );
+
+  const treeResult = useMemo(() => {
+    if (!treeOn || !getParentId) return null;
+    const filtering = !!search || (!!statusFieldName && statusValue.length > 0);
+    const matches = (item: T) => {
+      if (search && !matchesSearch(item, search, searchFields)) return false;
+      if (statusFieldName && statusValue.length > 0) {
+        const val = (item as Record<string, unknown>)[statusFieldName];
+        return val != null && statusValue.includes(String(val));
+      }
+      return true;
+    };
+    return treeRows(rawData, {
+      getId: treeKey,
+      getParentId,
+      expanded,
+      ...(filtering ? { match: matches } : {}),
+      ...(sort ? { compare: (a: T, b: T) => compareItems(a, b, sort) } : {}),
+    });
+  }, [treeOn, getParentId, rawData, treeKey, expanded, search, searchFields, statusFieldName, statusValue, sort]);
+
   const filteredData = useMemo(() => {
     if (controlled) return rawData;
+    if (treeResult) return treeResult.visible.map((node) => node.row);
 
     let result = rawData;
 
@@ -386,7 +462,16 @@ export function useResourcePage<T = Record<string, unknown>>(
     }
 
     return result;
-  }, [controlled, rawData, search, searchFields, statusFieldName, statusValue, sort]);
+  }, [controlled, rawData, search, searchFields, statusFieldName, statusValue, sort, treeResult]);
+
+  const cascadeSelect = !!treeProp?.cascadeSelect;
+  const treeState = useMemo<ResourcePageTreeState<T> | undefined>(
+    () =>
+      treeResult
+        ? { nodes: treeResult.nodes, expanded, setExpanded: setRowExpanded, descendants: treeResult.descendants, cascadeSelect }
+        : undefined,
+    [treeResult, expanded, setRowExpanded, cascadeSelect],
+  );
 
   // -- Sort options (built from resolved columns) --
   const sortOptions = useMemo(() => {
@@ -523,6 +608,7 @@ export function useResourcePage<T = Record<string, unknown>>(
 
   return {
     data: filteredData,
+    ...(treeState ? { tree: treeState } : {}),
     // Controlled mode: `filteredData` is one server page, so its length is
     // not the record count — the server's total is.
     total: controlled ? rawTotal : filteredData.length,

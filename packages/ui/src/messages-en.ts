@@ -52,6 +52,9 @@ export const uiMessages = {
     noRecords: "No records found",
     /** `{name}`: the row's label. */
     selectRow: "Select {name}",
+    /** Tree mode's toggle. `{name}`: the row's label. */
+    expandRow: "Expand {name}",
+    collapseRow: "Collapse {name}",
     selectAll: "Select all rows",
     columns: "Columns",
     resetColumns: "Reset to defaults",

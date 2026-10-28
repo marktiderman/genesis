@@ -55,7 +55,7 @@
     "@marktiderman/genesis-chat": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-native": "workspace:>=0.1.0 <1.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
-    "@marktiderman/genesis-ui-native": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:>=2.9.0 <4.0.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/react-query": "^5.0.0",
     "react": "^19.0.0",
