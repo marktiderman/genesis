@@ -1,0 +1,21 @@
+packages/chat/src/ai/index.ts
+  s_e78d57e50dc818::t_e763ad178f8dd0 15-16
+packages/chat/package.json
+  s_e78d57e50dc818::t_e763ad178f8dd0 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7dd805e4f0a78600535f61be50410481600e9392",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
