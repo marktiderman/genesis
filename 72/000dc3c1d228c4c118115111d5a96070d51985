@@ -1,0 +1,23 @@
+.changeset/provider-schema-names.md
+  s_5beca2076873c9::t_c409484e9e4dac 5-7
+packages/core/src/__tests__/resource-view.test.ts
+  s_5beca2076873c9::t_8c8b0829cd6469 380-395
+packages/core/src/resource-view/define-view.ts
+  s_5beca2076873c9::t_940560188f1573 100-116,290-296
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "72000dc3c1d228c4c118115111d5a96070d51985",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
