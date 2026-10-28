@@ -1,5 +1,5 @@
 import { MODEL_RECORDS, type CacheTtl, type ModelRecord } from "./models";
-import type { AiContext, AiStore, AliasFallbacks, Loaded, SafetyProtocol, TaskDefinition, TelemetrySink } from "./types";
+import type { AiContext, AiStore, AiVendor, AliasFallbacks, Capability, Loaded, SafetyProtocol, TaskDefinition, TelemetrySink } from "./types";
 
 /** An AI SDK language model, structurally (so `.` doesn't import the SDK). */
 export interface ModelLike {
@@ -7,22 +7,45 @@ export interface ModelLike {
   readonly provider: string;
 }
 
+/**
+ * A model vendor: how to build its models (on the platform's key, or a tenant's or person's own)
+ * and the provider options a call on an alias sends. `anthropic()` from
+ * `@marktiderman/genesis-ai/anthropic` and `openai()` from `/openai` are the two Genesis ships; a
+ * vendor of your own is these two functions.
+ */
+export interface VendorAdapter {
+  readonly id: AiVendor;
+  /** The model for an id. `apiKey` is a BYOK key; without one, the platform's. */
+  model(modelId: string, apiKey?: string): ModelLike;
+  /** Provider options for one call on this alias, merged under the alias's own `providerOptions`. */
+  options?(alias: ResolvedAlias, record: ModelRecord, call: { structured: boolean }): Record<string, Record<string, unknown>> | undefined;
+}
+
 export interface AliasConfig {
-  model: ModelLike;
-  /** Effort for every call on this alias (`output_config.effort` on Anthropic). */
-  effort?: "low" | "medium" | "high" | "xhigh" | "max" | undefined;
+  /** A model id with a record (`claude-sonnet-5-5`). Code names the alias, never this. */
+  model: string;
+  /** Effort for every call on this alias (`output_config.effort` on Anthropic, `reasoningEffort` on OpenAI). */
+  effort?: "none" | "low" | "medium" | "high" | "xhigh" | "max" | undefined;
   /**
    * Prompt caching, which is opt-in on Anthropic: the API caches up to the last cacheable block
    * and reuses it while it lives. Worth it when the system prompt and stable context run past
-   * the model's minimum (512 tokens on the 5.x models). Default: off.
+   * the model's minimum (512 tokens on the 5.x models). OpenAI caches on its own. Default: off.
    */
   cache?: CacheTtl | undefined;
-  /** Extra provider options, merged under Genesis's own (effort, fallbacks, structured output). */
+  /** Extra provider options, merged over the vendor's (effort, fallbacks, structured output). */
   providerOptions?: Record<string, Record<string, unknown>> | undefined;
   fallbacks?: AliasFallbacks | undefined;
+  /**
+   * Moves some calls to another model, such as a new release behind a flag: `when` decides per
+   * call (`(ctx) => flag("ai-sonnet-6", ctx)`). The usage row records the model that ran, so a
+   * rollout's cost and outcomes compare with the alias's own.
+   */
+  rollout?: { model: string; when: (ctx: AiContext) => boolean | Promise<boolean> } | undefined;
 }
 
 export interface AiConfig {
+  /** The vendors whose models the aliases use. */
+  vendors: readonly VendorAdapter[];
   models: Record<string, AliasConfig>;
   store: AiStore;
   /**
@@ -30,7 +53,7 @@ export interface AiConfig {
    * genesis-features through it, with the global and per-tenant AI switches folded in.
    */
   gate: (ctx: AiContext, feature: string) => boolean | Promise<boolean>;
-  /** The app's deterministic safety protocol, run before the model on tasks with `safetyText`. */
+  /** The app's safety protocol, run before the model on tasks with `safetyText`. */
   safety?: SafetyProtocol | undefined;
   telemetry?: TelemetrySink | undefined;
   /** Whether this tenant allows falling back to another vendor on an outage. Default: never. */
@@ -41,11 +64,14 @@ export interface AiConfig {
   timeoutMs?: number | undefined;
   /** Records for models not in Genesis's table, or to override a price. */
   modelRecords?: Record<string, ModelRecord> | undefined;
+  /** The version of the consent text people agree to. When set, older consent doesn't count. */
+  consentVersion?: string | undefined;
 }
 
 export interface ResolvedAlias extends AliasConfig {
   name: string;
   record: ModelRecord;
+  rolloutRecord: ModelRecord | null;
 }
 
 export interface Ai {
@@ -53,21 +79,26 @@ export interface Ai {
   alias(name: string): ResolvedAlias;
   /** The record for a model id, such as the one a server-side fallback answered with. */
   record(modelId: string): ModelRecord | undefined;
+  vendor(id: AiVendor): VendorAdapter;
 }
 
 /**
- * Checks and freezes an app's AI configuration. Every alias must resolve to a model record
- * (no billing at a guess), and every fallback must name an alias that exists.
+ * Checks and freezes an app's AI configuration. Every alias and rollout must resolve to a model
+ * record (no billing at a guess) whose vendor is configured, and every fallback must name an alias
+ * that exists.
  */
 export function defineAi(config: AiConfig): Ai {
   const records = { ...MODEL_RECORDS, ...config.modelRecords };
+  const vendors = new Map(config.vendors.map((v) => [v.id, v]));
+  const recordOf = (alias: string, model: string): ModelRecord => {
+    const record = records[model];
+    if (!record) throw new Error(`defineAi: alias "${alias}" uses model "${model}", which has no model record. Add it to modelRecords.`);
+    if (!vendors.has(record.vendor)) throw new Error(`defineAi: alias "${alias}" uses ${record.vendor}, which isn't in vendors.`);
+    return record;
+  };
   const aliases = new Map<string, ResolvedAlias>();
   for (const [name, alias] of Object.entries(config.models)) {
-    const record = records[alias.model.modelId];
-    if (!record) {
-      throw new Error(`defineAi: alias "${name}" uses model "${alias.model.modelId}", which has no model record. Add it to modelRecords.`);
-    }
-    aliases.set(name, { ...alias, name, record });
+    aliases.set(name, { ...alias, name, record: recordOf(name, alias.model), rolloutRecord: alias.rollout ? recordOf(name, alias.rollout.model) : null });
   }
   for (const alias of aliases.values()) {
     for (const next of alias.fallbacks?.unavailable ?? []) {
@@ -83,6 +114,11 @@ export function defineAi(config: AiConfig): Ai {
       return found;
     },
     record: (modelId: string) => records[modelId],
+    vendor(id: AiVendor): VendorAdapter {
+      const found = vendors.get(id);
+      if (!found) throw new Error(`genesis-ai: no vendor "${id}".`);
+      return found;
+    },
   });
 }
 
@@ -96,4 +132,27 @@ export function defineTask<Args, L extends Loaded, Out = { text: string }, Db = 
   if (!Number.isInteger(task.version) || task.version < 1) throw new Error(`defineTask ${task.id}: version must be a positive integer.`);
   if (!Number.isInteger(task.maxTokens) || task.maxTokens < 1) throw new Error(`defineTask ${task.id}: maxTokens must be a positive integer.`);
   return Object.freeze(task);
+}
+
+/**
+ * Checks tasks against the models they can land on (the alias, its rollout and its fallbacks):
+ * each must have every capability the task needs. Run at startup, so a model change that drops
+ * one fails the deploy, not a call. `createAiHandler` runs it on the tasks it serves.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- tasks of every shape
+export function checkTasks(ai: Ai, tasks: readonly TaskDefinition<any, any, any, any>[]): void {
+  for (const task of tasks) {
+    const needs = new Set<Capability>(task.needs ?? []);
+    if (task.output !== "text") needs.add("structuredOutput");
+    const alias = ai.alias(task.model);
+    const reachable = [alias, ...(alias.fallbacks?.unavailable ?? []).map((n) => ai.alias(n))];
+    for (const a of reachable) {
+      for (const record of [a.record, a.rolloutRecord]) {
+        if (!record) continue;
+        for (const need of needs) {
+          if (!record.capabilities.includes(need)) throw new Error(`checkTasks: ${task.id} needs ${need}, which ${record.id} (alias "${a.name}") lacks.`);
+        }
+      }
+    }
+  }
 }

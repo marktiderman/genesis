@@ -15,6 +15,8 @@ export interface WrapOptions<A extends unknown[], R> {
   /** Recorded as the usage row's task id, e.g. `chat.moderate`. */
   id: string;
   version?: number | undefined;
+  /** The span's `gen_ai.operation.name`: moderation and transcription aren't chat. Default `execute_tool`. */
+  operation?: string | undefined;
   /** Who sees the data: `openai`, `deepgram`. */
   vendor: AiVendor;
   /** The FeatureId the gate checks. */
@@ -46,7 +48,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
   return async (...args: A): Promise<R> => {
     const startedAt = Date.now();
     const ctx = await options.context(...args);
-    if (options.consent === "person" && !(await config.store.hasConsent(ctx.personId, options.vendor))) {
+    if (options.consent === "person" && !(await config.store.hasConsent(ctx.personId, options.vendor, config.consentVersion))) {
       throw new AiCallError("no_consent", `This person hasn't agreed to sharing with ${options.vendor}.`);
     }
     if (!(await config.gate(ctx, options.feature))) throw new AiCallError("off", "This feature is off here.");
@@ -59,6 +61,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
       model: options.vendor,
       estimateUsd: options.estimateUsd?.(...args) ?? 0,
       budgetExempt: options.budget === "exempt",
+      keySource: "platform",
     });
     if (!began) throw new AiCallError("over_budget", "The AI budget for this period is used up.");
 
@@ -80,6 +83,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
         startTime: startedAt,
         endTime: endedAt,
         attributes: {
+          "gen_ai.operation.name": options.operation ?? "execute_tool",
           "gen_ai.provider.name": options.vendor,
           "genesis.ai.task": options.id,
           "genesis.ai.outcome": outcome,

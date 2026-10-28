@@ -1,9 +1,10 @@
-import type { AiUsage, AiVendor } from "./types";
+import type { AiUsage, AiVendor, Capability } from "./types";
 
 /**
- * What Genesis knows about a model: its vendor, prices and API quirks. Aliases resolve to these,
- * so code never sniffs model names. A model with no record fails `defineAi` instead of being billed
- * at a guess; add it here (or pass `models` to `defineAi`) when a new one ships.
+ * What Genesis knows about a model: its vendor, prices, capabilities and API quirks. Aliases
+ * resolve to these, so code never sniffs model names. A model with no record fails `defineAi`
+ * instead of being billed at a guess. Prices are data: pass `modelRecords` to `defineAi` (from
+ * your own config or a table read at startup) to add a model or change a price without a release.
  */
 export interface ModelRecord {
   id: string;
@@ -14,8 +15,8 @@ export interface ModelRecord {
   tier?: { aboveInputTokens: number; input: number; output: number } | undefined;
   /** Anthropic's server-side refusal fallback (`fallbacks: "default"`) exists for this model. */
   refusalFallback: boolean;
-  /** Effort's default when none is set; Genesis always sets one. */
-  defaultEffort: "low" | "medium" | "high";
+  /** What it can do besides text. Tasks that need more are refused at startup, not in production. */
+  capabilities: readonly Capability[];
 }
 
 /** Anthropic API version Genesis pins (sampling parameters are refused on it). */
@@ -26,7 +27,7 @@ const anthropic = (id: string, input: number, output: number, cacheRead: number,
   vendor: "anthropic",
   price: { input, output, cacheRead, cacheWrite: input * 1.25 },
   refusalFallback: true,
-  defaultEffort: "high",
+  capabilities: ["structuredOutput", "images", "tools"],
   ...rest,
 });
 
@@ -36,12 +37,11 @@ const anthropic = (id: string, input: number, output: number, cacheRead: number,
  * checked 2026-10-28).
  */
 export const MODEL_RECORDS: Record<string, ModelRecord> = {
-  "claude-opus-5-5": anthropic("claude-opus-5-5", 4, 20, 0.2, { defaultEffort: "medium" }),
+  "claude-opus-5-5": anthropic("claude-opus-5-5", 4, 20, 0.2),
   "claude-sonnet-5-5": anthropic("claude-sonnet-5-5", 2, 10, 0.1),
   "claude-haiku-5-5": anthropic("claude-haiku-5-5", 0.1, 0.5, 0.01, {
     tier: { aboveInputTokens: 100_000, input: 0.5, output: 2.5 },
     refusalFallback: false,
-    defaultEffort: "medium",
   }),
   "claude-fable-5-1": anthropic("claude-fable-5-1", 10, 50, 0.25),
 };

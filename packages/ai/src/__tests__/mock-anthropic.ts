@@ -1,4 +1,4 @@
-import { createGenesisAnthropic } from "../anthropic";
+import { anthropic, createGenesisAnthropic } from "../anthropic";
 
 export interface Recorded {
   url: string;
@@ -72,8 +72,11 @@ export function mockAnthropic() {
     return new Response(body, { status: response.status, headers: response.headers });
   };
   const provider = createGenesisAnthropic({ apiKey: "test", fetch: fetch as typeof globalThis.fetch });
+  // The vendor adapter on the same fetch: "test" is the platform's key.
+  const vendor = anthropic({ apiKey: "test", fetch: fetch as typeof globalThis.fetch });
   return {
     provider,
+    vendor,
     calls,
     reply: (...responses: Array<Response | (() => Response)>) => {
       for (const r of responses) queue.push(typeof r === "function" ? r : () => r);

@@ -1,4 +1,5 @@
-import type { ZodType } from "zod";
+// Types only: `ai` is a peer, and nothing here runs its code.
+import type { FlexibleSchema, ModelMessage } from "ai";
 
 /**
  * Why a call ended. `ok` is the only success; every other value ends the call before or after
@@ -18,6 +19,21 @@ export type AiOutcome =
 
 /** A vendor that sees a person's data: a model provider, or a processor such as moderation. */
 export type AiVendor = string;
+
+/**
+ * Any schema the AI SDK takes: Zod 3 or 4, Valibot, ArkType or anything with Standard Schema, or
+ * the SDK's `jsonSchema()`. Arguments are validated with it; structured output is sent with it.
+ */
+export type AiSchema<T> = FlexibleSchema<T>;
+
+/** A turn of a conversation the prompt can be, for tasks that read more than one message. */
+export type AiMessage = ModelMessage;
+
+/** Whose key paid for a call: the platform's, the tenant's own or the person's own (BYOK). */
+export type KeySource = "platform" | "tenant" | "person";
+
+/** What a model can do. A task's alias, rollout and fallbacks must all have what it needs. */
+export type Capability = "structuredOutput" | "images" | "tools";
 
 /**
  * Who a call runs as, built by the app on the server from a verified session (never from the
@@ -55,7 +71,11 @@ export interface SafetyRoute {
   response?: string | undefined;
 }
 
-/** The app's deterministic safety protocol. No model decides; patterns or a classifier do. */
+/**
+ * The app's safety protocol, run on what the person wrote before any model sees it. Patterns, a
+ * classifier, or a moderation model: whatever decides, it decides before the task's model, and a
+ * model call it makes is its own processor (put it through `wrap` so it is consented and metered).
+ */
 export type SafetyProtocol = (text: string, ctx: AiContext) => SafetyRoute | null | Promise<SafetyRoute | null>;
 
 /** A guardrail over text. Return the text (possibly changed) or throw `GuardrailError`. */
@@ -93,23 +113,30 @@ export interface TaskDefinition<Args = unknown, L extends Loaded = Loaded, Out =
   /** The output cap for one call; also bounds the budget estimate. */
   maxTokens: number;
   /** What a client may send. Ids, never content the model will read. */
-  args: ZodType<Args>;
+  args: AiSchema<Args>;
   /** The app's rule for who may run it (e.g. "coaches only"). Default: anyone the gate allows. */
   can?: ((ctx: AiContext<Db>, args: Args) => boolean | Promise<boolean>) | undefined;
   /** Reads what the prompt needs, as the person. Record layers with `ctx.layer`. */
   load: (ctx: LoadContext<Db>, args: Args) => Promise<L>;
-  /** The stable system prompt (first, so it caches). */
+  /** The stable system prompt (first, so it caches when the alias caches). */
   system: string;
-  /** The user turn, built from what `load` returned. */
-  prompt: (loaded: L) => string | Promise<string>;
+  /** The user turn, or a conversation, built from what `load` returned. */
+  prompt: (loaded: L) => string | AiMessage[] | Promise<string | AiMessage[]>;
   /**
    * The output: `"text"` returns `{ text }` from plain text, or a schema for structured output
-   * (sent as `output_config.format`, never a forced tool call).
+   * (sent as `output_config.format` on Anthropic, never a forced tool call).
    */
-  output: "text" | ZodType<Out>;
+  output: "text" | AiSchema<Out>;
   /** The text the safety protocol reads (what the person wrote). Omit for tasks that read none. */
   safetyText?: ((loaded: L) => string) | undefined;
   guardrails?: { input?: Guardrail[] | undefined; output?: Guardrail[] | undefined } | undefined;
+  /**
+   * `person` (default): the person must have agreed to the vendor. `terms`: the app's terms or
+   * the tenant's contract cover it (a school that consents for its students, say).
+   */
+  consent?: "person" | "terms" | undefined;
+  /** What the model must be able to do besides text. Structured output is implied by a schema. */
+  needs?: readonly Capability[] | undefined;
 }
 
 /** Fallback policy for an alias. */
@@ -146,6 +173,8 @@ export interface BeginInput {
   estimateUsd: number;
   /** Safety checks (moderation) are never stopped by a budget. */
   budgetExempt: boolean;
+  /** A call on the tenant's or the person's own key is recorded but doesn't spend the platform budget. */
+  keySource: KeySource;
 }
 
 export interface FinishInput {
@@ -160,15 +189,24 @@ export interface FinishInput {
   detail?: string | undefined;
 }
 
+/** A key a tenant or person brought (BYOK), as the store hands it to the server. */
+export interface VendorKey {
+  apiKey: string;
+  source: Exclude<KeySource, "platform">;
+}
+
 /**
- * Where calls are admitted and recorded. `begin` checks consent's partner (budget and
- * concurrency) and returns null when over budget; `finish` writes the usage row and returns its id.
+ * Where calls are admitted and recorded. `begin` checks the budget and the open-call limit and
+ * returns null when over; `finish` writes the usage row and returns its id. `keyFor` returns the
+ * person's own key for a vendor, else their tenant's, else null (the platform's key is used).
  * `memoryStore()` is for tests and local work; `supabaseStore()` uses the genesis_ai schema.
  */
 export interface AiStore {
-  hasConsent(personId: string, vendor: AiVendor): Promise<boolean>;
+  /** `policyVersion`: when set, consent counts only if it was given to that version of the text. */
+  hasConsent(personId: string, vendor: AiVendor, policyVersion?: string): Promise<boolean>;
   begin(input: BeginInput): Promise<BeganCall | null>;
   finish(input: FinishInput): Promise<string>;
+  keyFor?(input: { tenantId: string | null; personId: string; vendor: AiVendor }): Promise<VendorKey | null>;
 }
 
 /** One span for the trace, with OpenTelemetry GenAI attribute names. Never content. */

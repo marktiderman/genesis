@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "One server-side pipeline for every AI call a Genesis app makes: consent, the feature gate, a bounded budget, server-side loading with a context manifest, deterministic safety routing, guardrails, the model call with refusal and outage fallbacks, a usage row with no content and a trace. Tasks are versioned prompts with typed arguments and outputs, called by id; processors such as moderation and transcription are wrapped in place. Model aliases carry effort and capability records, and a price table that fails loudly on an unknown model. The genesis_ai schema holds usage, budgets and consent. On the Vercel AI SDK, server only. Part of the Genesis framework.",
+  "description": "One server-side pipeline for every AI call a Genesis app makes: consent, the feature gate, a bounded budget, server-side loading with a context manifest, safety routing, guardrails, the model call with rollouts, refusal and outage fallbacks, a usage row with no content and a trace. Tasks are versioned prompts with typed arguments and outputs, called by id; processors such as moderation and transcription are wrapped in place. Vendors are adapters (Anthropic and OpenAI ship), keys can be the platform's or a tenant's or person's own (BYOK, in Supabase Vault), and model records carry prices and capabilities that fail loudly on an unknown model. On the Vercel AI SDK, server only except /react. Part of the Genesis framework.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -32,6 +32,10 @@
       "types": "./dist/anthropic.d.ts",
       "import": "./dist/anthropic.js"
     },
+    "./openai": {
+      "types": "./dist/openai.d.ts",
+      "import": "./dist/openai.js"
+    },
     "./supabase": {
       "types": "./dist/supabase.d.ts",
       "import": "./dist/supabase.js"
@@ -57,20 +61,28 @@
   },
   "peerDependencies": {
     "@ai-sdk/anthropic": "^4.0.0",
+    "@ai-sdk/openai": "^4.0.0",
     "ai": "^7.0.0",
     "react": "^19.0.0",
-    "zod": "^4.0.0"
+    "zod": "^3.25.0 || ^4.0.0"
   },
   "peerDependenciesMeta": {
     "@ai-sdk/anthropic": {
       "optional": true
     },
+    "@ai-sdk/openai": {
+      "optional": true
+    },
     "react": {
+      "optional": true
+    },
+    "zod": {
       "optional": true
     }
   },
   "devDependencies": {
     "@ai-sdk/anthropic": "4.0.85",
+    "@ai-sdk/openai": "4.0.99",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.14",

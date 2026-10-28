@@ -1,5 +1,5 @@
 // @feat:chat
-import { createGenesisAnthropic } from "@marktiderman/genesis-ai/anthropic";
+import { anthropic } from "@marktiderman/genesis-ai/anthropic";
 import { defineAi, type AiContext } from "@marktiderman/genesis-ai";
 import { memoryStore, runTask } from "@marktiderman/genesis-ai/server";
 import { describe, expect, it } from "vitest";
@@ -58,9 +58,8 @@ function recordingFetch() {
 
 function setup(db = fakeDb()) {
   const wire = recordingFetch();
-  const anthropic = createGenesisAnthropic({ apiKey: "test", fetch: wire.fetch });
   const store = memoryStore({ consents: "all" });
-  const ai = defineAi({ models: { default: { model: anthropic("claude-sonnet-5-5"), effort: "low" } }, store, gate: () => true, maxRetries: 0 });
+  const ai = defineAi({ vendors: [anthropic({ apiKey: "test", fetch: wire.fetch })], models: { default: { model: "claude-sonnet-5-5", effort: "low" } }, store, gate: () => true, maxRetries: 0 });
   const ctx: AiContext<ChatAiDb> = { tenantId: null, personId: COACH, db };
   return { ai, ctx, store, calls: wire.calls };
 }

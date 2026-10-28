@@ -27,8 +27,9 @@ export class AiStoreError extends Error {
 
 /**
  * The {@link AiStore} over migration 0001's functions (`genesis_ai.begin_call`, `finish_call`,
- * `has_consent`). People are logins: `AiContext.personId` is the `auth.users` id, and
- * `tenantId` a uuid or null.
+ * `has_consent`, `key_for`). People are logins: `AiContext.personId` is the `auth.users` id, and
+ * `tenantId` a uuid or null. Keys people and tenants bring are read from Vault per call and never
+ * leave the server.
  */
 export function supabaseStore(client: AiRpcClient): AiStore {
   const call = async <T>(fn: string, args: Record<string, unknown>): Promise<T> => {
@@ -37,7 +38,13 @@ export function supabaseStore(client: AiRpcClient): AiStore {
     return data as T;
   };
   return {
-    hasConsent: (personId, vendor) => call<boolean>("has_consent", { p_person: personId, p_vendor: vendor }).then(Boolean),
+    hasConsent: (personId, vendor, policyVersion) =>
+      call<boolean>("has_consent", { p_person: personId, p_vendor: vendor, p_policy_version: policyVersion ?? null }).then(Boolean),
+    async keyFor({ tenantId, personId, vendor }) {
+      const rows = await call<Array<{ api_key: string; source: "tenant" | "person" }> | null>("key_for", { p_tenant: tenantId, p_person: personId, p_vendor: vendor });
+      const row = rows?.[0];
+      return row?.api_key ? { apiKey: row.api_key, source: row.source } : null;
+    },
     async begin(input) {
       const id = await call<string | null>("begin_call", {
         p_tenant: input.tenantId,
@@ -48,6 +55,7 @@ export function supabaseStore(client: AiRpcClient): AiStore {
         p_model: input.model,
         p_estimate_usd: input.estimateUsd,
         p_budget_exempt: input.budgetExempt,
+        p_key_source: input.keySource,
       });
       return id ? { callId: id } : null;
     },

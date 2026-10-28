@@ -1,7 +1,7 @@
 // @feat:ai-providers
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { defineAi, defineTask, costOf, MODEL_RECORDS, type AiContext } from "../index";
+import { checkTasks, defineAi, defineTask, costOf, MODEL_RECORDS, type AiContext } from "../index";
 import { AiCallError, createAiHandler, memoryStore, wrap } from "../server/index";
 import { mockAnthropic, text } from "./mock-anthropic";
 
@@ -22,7 +22,7 @@ const echo = defineTask({
 
 function ai(store = memoryStore({ consents: "all" })) {
   const mock = mockAnthropic();
-  return { ...mock, store, ai: defineAi({ models: { default: { model: mock.provider("claude-haiku-5-5") } }, store, gate: () => true, maxRetries: 0 }) };
+  return { ...mock, store, ai: defineAi({ vendors: [mock.vendor], models: { default: { model: "claude-haiku-5-5" } }, store, gate: () => true, maxRetries: 0 }) };
 }
 
 describe("createAiHandler", () => {
@@ -137,7 +137,7 @@ describe("wrap", () => {
 describe("memoryStore", () => {
   it("admits while spend plus open estimates stays within the budget", async () => {
     const store = memoryStore({ budgetUsd: 1 });
-    const base = { tenantId: "t", personId: "p", taskId: "x", taskVersion: 1, vendor: "anthropic", model: "m", budgetExempt: false };
+    const base = { tenantId: "t", personId: "p", taskId: "x", taskVersion: 1, vendor: "anthropic", model: "m", budgetExempt: false, keySource: "platform" as const };
     const a = await store.begin({ ...base, estimateUsd: 0.6 });
     expect(await store.begin({ ...base, estimateUsd: 0.6 })).toBeNull(); // a is still open
     await store.finish({ callId: a!.callId, outcome: "ok", model: "m", usage: null, costUsd: 0.1, latencyMs: 1, manifest: [] });
@@ -147,7 +147,7 @@ describe("memoryStore", () => {
 
   it("limits open calls per tenant", async () => {
     const store = memoryStore({ concurrencyPerTenant: 1 });
-    const base = { tenantId: "t", personId: "p", taskId: "x", taskVersion: 1, vendor: "anthropic", model: "m", budgetExempt: false, estimateUsd: 0 };
+    const base = { tenantId: "t", personId: "p", taskId: "x", taskVersion: 1, vendor: "anthropic", model: "m", budgetExempt: false, estimateUsd: 0, keySource: "platform" as const };
     expect(await store.begin(base)).not.toBeNull();
     expect(await store.begin(base)).toBeNull();
     expect(await store.begin({ ...base, tenantId: "u" })).not.toBeNull();
@@ -155,13 +155,27 @@ describe("memoryStore", () => {
 });
 
 describe("definitions", () => {
-  it("defineAi refuses a model with no record and a fallback to nowhere", () => {
+  it("defineAi refuses a model with no record, a vendor it wasn't given and a fallback to nowhere", () => {
     const store = memoryStore();
-    const model = (id: string) => ({ modelId: id, provider: "anthropic.messages" });
-    expect(() => defineAi({ models: { a: { model: model("claude-x") } }, store, gate: () => true })).toThrow(/no model record/);
+    const vendors = [{ id: "anthropic", model: (id: string) => ({ modelId: id, provider: "anthropic.messages" }) }];
+    expect(() => defineAi({ vendors, models: { a: { model: "claude-x" } }, store, gate: () => true })).toThrow(/no model record/);
+    expect(() => defineAi({ vendors: [], models: { a: { model: "claude-opus-5-5" } }, store, gate: () => true })).toThrow(/isn't in vendors/);
+    expect(() => defineAi({ vendors, models: { a: { model: "claude-opus-5-5", rollout: { model: "claude-x", when: () => true } } }, store, gate: () => true })).toThrow(/no model record/);
     expect(() =>
-      defineAi({ models: { a: { model: model("claude-opus-5-5"), fallbacks: { unavailable: ["b"] } } }, store, gate: () => true }),
+      defineAi({ vendors, models: { a: { model: "claude-opus-5-5", fallbacks: { unavailable: ["b"] } } }, store, gate: () => true }),
     ).toThrow(/not an alias/);
+  });
+
+  it("checkTasks refuses a task whose model lacks what it needs, at startup", () => {
+    const store = memoryStore();
+    const vendors = [{ id: "anthropic", model: (id: string) => ({ modelId: id, provider: "anthropic.messages" }) }];
+    const plain = { "text-only": { id: "text-only", vendor: "anthropic", price: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, refusalFallback: false, capabilities: [] } };
+    const ai = defineAi({ vendors, modelRecords: plain, models: { default: { model: "claude-haiku-5-5", fallbacks: { unavailable: ["old"] } }, old: { model: "text-only" } }, store, gate: () => true });
+    const structured = defineTask({ ...echo, output: z.object({ a: z.string() }) });
+    expect(() => checkTasks(ai, [echo])).not.toThrow();
+    expect(() => checkTasks(ai, [structured])).toThrow(/needs structuredOutput, which text-only/);
+    expect(() => createAiHandler({ ai, tasks: [structured], context: () => ctx })).toThrow(/needs structuredOutput/);
+    expect(() => checkTasks(ai, [defineTask({ ...echo, needs: ["images"] })])).toThrow(/needs images/);
   });
 
   it("defineTask checks the id, version and output cap", () => {

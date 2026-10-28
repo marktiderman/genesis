@@ -1,18 +1,22 @@
-import { APICallError, generateText, NoObjectGeneratedError, Output, streamText, type LanguageModel } from "ai";
+import { APICallError, asSchema, generateText, NoObjectGeneratedError, Output, streamText, type LanguageModel } from "ai";
 import type { Ai, ResolvedAlias } from "../define";
 import { costOf, estimateCost, type ModelRecord } from "../models";
 import {
   GuardrailError,
   type AiContext,
+  type AiMessage,
   type AiOutcome,
   type AiResult,
+  type AiSchema,
   type AiUsage,
   type ContextLayerRecord,
   type Guardrail,
+  type KeySource,
   type Loaded,
   type LoadContext,
   type SafetyRoute,
   type TaskDefinition,
+  type VendorKey,
 } from "../types";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -21,11 +25,23 @@ type Failure = Extract<AiResult<never>, { ok: false }>;
 
 const fail = (outcome: Failure["outcome"], message: string, extra: Partial<Failure> = {}): Failure => ({ ok: false, outcome, message, ...extra });
 
+/** A model the call may run on: the alias's (or its rollout's), then its outage fallbacks. */
+interface Target {
+  alias: ResolvedAlias;
+  record: ModelRecord;
+  /** A tenant's or person's own key; null for the platform's. */
+  key: VendorKey | null;
+}
+
 /** What the steps before the model produce. */
 interface Prepared<L extends Loaded> {
+  /** The first target's alias: what the task asked for. */
   alias: ResolvedAlias;
+  targets: Target[];
+  keySource: KeySource;
   loaded: L;
-  prompt: string;
+  prompt: string | AiMessage[];
+  promptChars: number;
   manifest: ContextLayerRecord[];
   callId: string;
   startedAt: number;
@@ -54,6 +70,23 @@ async function applyGuardrails(guards: Guardrail[] | undefined, text: string, ct
   return out;
 }
 
+/** Input guardrails over a prompt: the string, or each text turn of a conversation. */
+async function guardPrompt(guards: Guardrail[] | undefined, prompt: string | AiMessage[], ctx: AiContext): Promise<string | AiMessage[]> {
+  if (!guards?.length) return prompt;
+  if (typeof prompt === "string") return applyGuardrails(guards, prompt, ctx);
+  const out: AiMessage[] = [];
+  for (const m of prompt) out.push(typeof m.content === "string" ? ({ ...m, content: await applyGuardrails(guards, m.content, ctx) } as AiMessage) : m);
+  return out;
+}
+
+/** Validates with any schema the AI SDK takes (Zod 3 or 4, Standard Schema, `jsonSchema`). */
+async function validate<T>(schema: AiSchema<T>, value: unknown): Promise<{ ok: true; value: T } | { ok: false }> {
+  const s = asSchema(schema);
+  if (!s.validate) return { ok: true, value: value as T };
+  const result = await s.validate(value);
+  return result.success ? { ok: true, value: result.value } : { ok: false };
+}
+
 /** A stop before the model: nothing was generated, so there is no invalid output yet. */
 const stopped = (error: GuardrailError): Failure => fail(error.outcome === "invalid_output" ? "invalid_input" : error.outcome, error.message);
 
@@ -69,12 +102,12 @@ async function prepare<Args, L extends Loaded, Out, Db>(
 ): Promise<Failure | Prepared<L>> {
   const startedAt = Date.now();
   const { config } = ai;
-  const parsed = task.args.safeParse(rawArgs);
-  if (!parsed.success) return fail("invalid_input", "The request's arguments don't match the task.");
-  const args = parsed.data;
+  const parsed = await validate(task.args, rawArgs);
+  if (!parsed.ok) return fail("invalid_input", "The request's arguments don't match the task.");
+  const args = parsed.value;
   const alias = ai.alias(task.model);
 
-  if (!(await config.store.hasConsent(ctx.personId, alias.record.vendor))) {
+  if (task.consent !== "terms" && !(await config.store.hasConsent(ctx.personId, alias.record.vendor, config.consentVersion))) {
     return fail("no_consent", `This person hasn't agreed to sharing with ${alias.record.vendor}.`);
   }
   if (!(await config.gate(ctx as AiContext, task.feature))) return fail("off", "This feature is off here.");
@@ -94,52 +127,70 @@ async function prepare<Args, L extends Loaded, Out, Db>(
     if (route) return fail("safety_routed", "Routed by the safety protocol.", { safety: route });
   }
 
-  let prompt: string;
+  let prompt: string | AiMessage[];
   try {
-    prompt = await applyGuardrails(task.guardrails?.input, await task.prompt(loaded), ctx as AiContext);
+    prompt = await guardPrompt(task.guardrails?.input, await task.prompt(loaded), ctx as AiContext);
   } catch (error) {
     if (error instanceof GuardrailError) return stopped(error);
     throw error;
   }
+  const promptChars = task.system.length + (typeof prompt === "string" ? prompt.length : JSON.stringify(prompt).length);
 
+  const { targets, keySource } = await targetsFor(ai, alias, ctx as AiContext);
+  const first = targets[0]!;
   const began = await config.store.begin({
     tenantId: ctx.tenantId,
     personId: ctx.personId,
     taskId: task.id,
     taskVersion: task.version,
-    vendor: alias.record.vendor,
-    model: alias.record.id,
-    estimateUsd: estimateCost(alias.record, task.system.length + prompt.length, task.maxTokens),
+    vendor: first.record.vendor,
+    model: first.record.id,
+    estimateUsd: estimateCost(first.record, promptChars, task.maxTokens),
     budgetExempt: false,
+    keySource,
   });
   if (!began) return fail("over_budget", "The AI budget for this period is used up.");
-  return { alias, loaded, prompt, manifest, callId: began.callId, startedAt };
-}
-
-/** The aliases to try, in order: the task's, then outage fallbacks this tenant allows. */
-function chain(ai: Ai, alias: ResolvedAlias, ctx: AiContext): ResolvedAlias[] {
-  const crossVendor = ai.config.crossVendorFallback?.(ctx) ?? false;
-  const next = (alias.fallbacks?.unavailable ?? []).map((name) => ai.alias(name));
-  return [alias, ...next.filter((a) => crossVendor || a.record.vendor === alias.record.vendor)];
+  return { alias, targets, keySource, loaded, prompt, promptChars, manifest, callId: began.callId, startedAt };
 }
 
 /**
- * Provider options Genesis sets: effort, the refusal fallback, structured output as
- * `output_config.format`, and prompt caching (a top-level `cache_control`) when the alias asks.
+ * The models to try, in order: the alias's (or its rollout's, when `when` says so), then outage
+ * fallbacks this tenant allows. A call keeps one kind of key: on a tenant's or person's own key,
+ * a fallback whose vendor has no key of theirs is skipped rather than billed to the platform.
  */
-function providerOptions(alias: ResolvedAlias): Record<string, Record<string, unknown>> | undefined {
-  const own = { ...alias.providerOptions };
-  if (alias.record.vendor === "anthropic") {
-    own.anthropic = {
-      ...(alias.effort ? { effort: alias.effort } : {}),
-      ...(alias.record.refusalFallback && alias.fallbacks?.refusal !== "fail" ? { fallbacks: "default" } : {}),
-      ...(alias.cache ? { cacheControl: { type: "ephemeral", ttl: alias.cache } } : {}),
-      structuredOutputMode: "outputFormat",
-      ...own.anthropic,
-    };
+async function targetsFor(ai: Ai, alias: ResolvedAlias, ctx: AiContext): Promise<{ targets: Target[]; keySource: KeySource }> {
+  const crossVendor = ai.config.crossVendorFallback?.(ctx) ?? false;
+  const keys = new Map<string, VendorKey | null>();
+  const keyOf = async (vendor: string) => {
+    if (!keys.has(vendor)) keys.set(vendor, (await ai.config.store.keyFor?.({ tenantId: ctx.tenantId, personId: ctx.personId, vendor })) ?? null);
+    return keys.get(vendor)!;
+  };
+  const primary = alias.rollout && alias.rolloutRecord && (await alias.rollout.when(ctx)) ? alias.rolloutRecord : alias.record;
+  const key = await keyOf(primary.vendor);
+  const targets: Target[] = [{ alias, record: primary, key }];
+  for (const name of alias.fallbacks?.unavailable ?? []) {
+    const next = ai.alias(name);
+    if (!crossVendor && next.record.vendor !== primary.vendor) continue;
+    const nextKey = key ? await keyOf(next.record.vendor) : null;
+    if (key && !nextKey) continue;
+    targets.push({ alias: next, record: next.record, key: nextKey });
   }
-  return Object.keys(own).length ? (own as Record<string, Record<string, unknown>>) : undefined;
+  return { targets, keySource: key?.source ?? "platform" };
 }
+
+/** The model and provider options for one call on a target: the vendor's, then the alias's own over them. */
+function modelFor(ai: Ai, target: Target, structured: boolean) {
+  const vendor = ai.vendor(target.record.vendor);
+  const options: Record<string, Record<string, unknown>> = { ...vendor.options?.(target.alias, target.record, { structured }) };
+  for (const [provider, extra] of Object.entries(target.alias.providerOptions ?? {})) options[provider] = { ...options[provider], ...extra };
+  return {
+    model: vendor.model(target.record.id, target.key?.apiKey) as LanguageModel,
+    ...(Object.keys(options).length ? { providerOptions: options as never } : {}),
+  };
+}
+
+/** The prompt as the AI SDK takes it: a user turn, or a conversation. */
+const promptOf = (prompt: string | AiMessage[]) => (typeof prompt === "string" ? { prompt } : { messages: prompt });
 
 function usageFrom(raw: {
   inputTokenDetails?: { noCacheTokens?: number | undefined; cacheReadTokens?: number | undefined; cacheWriteTokens?: number | undefined };
@@ -180,9 +231,10 @@ interface Iteration {
  * its own model's rate (a hop with no record, at the alias's). That counts the declined hop too,
  * an upper bound: Anthropic bills it only for some refusal categories.
  */
-function bill(ai: Ai, alias: ResolvedAlias, usage: AiUsage, responseModelId: string | undefined, metadata: unknown): Bill {
-  const modelId = responseModelId || alias.record.id;
-  const record: ModelRecord = ai.record(modelId) ?? alias.record;
+function bill(ai: Ai, target: Target, usage: AiUsage, responseModelId: string | undefined, metadata: unknown): Bill {
+  const alias = target.alias;
+  const modelId = responseModelId || target.record.id;
+  const record: ModelRecord = ai.record(modelId) ?? target.record;
   const hops = (metadata as { anthropic?: { iterations?: Iteration[] | null } } | undefined)?.anthropic?.iterations ?? [];
   if (hops.length === 0) return { modelId, usage, costUsd: costOf(record, usage, alias.cache) };
   const costUsd = hops.reduce((sum, hop) => {
@@ -201,6 +253,12 @@ function isOutage(error: unknown): boolean {
   if (APICallError.isInstance(error)) return error.isRetryable || (error.statusCode ?? 0) >= 500 || error.statusCode === 429;
   return error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
 }
+
+/** A tenant's or person's own key the vendor refused: theirs to fix, not an outage. */
+const keyRefused = (error: unknown, target: Target) =>
+  target.key !== null && APICallError.isInstance(error) && (error.statusCode === 401 || error.statusCode === 403);
+
+const httpDetail = (error: unknown) => (APICallError.isInstance(error) ? `HTTP ${error.statusCode ?? "?"}` : "error");
 
 /** Records the call and emits its span. Returns the usage row's id. */
 async function settle(
@@ -225,13 +283,13 @@ async function settle(
     ...(detail ? { detail } : {}),
   });
   ai.config.telemetry?.({
-    name: `chat ${billed?.modelId ?? prep.alias.record.id}`,
+    name: `chat ${billed?.modelId ?? prep.targets[0]!.record.id}`,
     startTime: prep.startedAt,
     endTime: endedAt,
     attributes: {
       "gen_ai.operation.name": "chat",
-      "gen_ai.provider.name": prep.alias.record.vendor,
-      "gen_ai.request.model": prep.alias.record.id,
+      "gen_ai.provider.name": prep.targets[0]!.record.vendor,
+      "gen_ai.request.model": prep.targets[0]!.record.id,
       ...(billed ? { "gen_ai.response.model": billed.modelId } : {}),
       ...(usage
         ? {
@@ -244,6 +302,7 @@ async function settle(
       "genesis.ai.task": task.id,
       "genesis.ai.task_version": task.version,
       "genesis.ai.outcome": outcome,
+      "genesis.ai.key_source": prep.keySource,
       "genesis.ai.cost_usd": costUsd,
       "genesis.ai.usage_id": usageId,
     },
@@ -257,8 +316,8 @@ const withCarry = (billed: Bill, carry: Bill | null): Bill =>
 
 /**
  * Runs a task for a person: consent → gate → load (with a manifest) → safety routing →
- * guardrails → budget → the model (outage fallbacks, refusals) → output guardrails → a usage row
- * and a span. Content never reaches the usage row or the span.
+ * guardrails → budget → the model (rollout, outage fallbacks, refusals) → output guardrails → a
+ * usage row and a span. Content never reaches the usage row or the span.
  */
 export async function runTask<Args, L extends Loaded, Out, Db>(
   ai: Ai,
@@ -267,28 +326,27 @@ export async function runTask<Args, L extends Loaded, Out, Db>(
   ctx: AiContext<Db>,
 ): Promise<AiResult<Out>> {
   type R = AiResult<Out>;
-  const prep = await prepare(ai, task, rawArgs, ctx);
-  if ("ok" in prep) return prep as R;
+  const prepared = await prepare(ai, task, rawArgs, ctx);
+  if ("ok" in prepared) return prepared as R;
+  const p = prepared as Prepared<Loaded>;
   const { config } = ai;
-  const p = prep as Prepared<Loaded>;
+  const structured = task.output !== "text";
   let lastError = "";
-  for (const alias of chain(ai, prep.alias, ctx as AiContext)) {
+  for (const target of p.targets) {
     // A failed schema attempt is billed like any other: its tokens join the final row.
     let carry: Bill | null = null;
     while (true) {
       try {
-        const options = providerOptions(alias);
         const result = await generateText({
-          model: alias.model as LanguageModel,
+          ...modelFor(ai, target, structured),
           system: task.system,
-          prompt: prep.prompt,
+          ...promptOf(p.prompt),
           maxOutputTokens: task.maxTokens,
           maxRetries: config.maxRetries ?? 2,
           abortSignal: AbortSignal.timeout(config.timeoutMs ?? DEFAULT_TIMEOUT_MS),
           ...(task.output === "text" ? {} : { output: Output.object({ schema: task.output }) }),
-          ...(options ? { providerOptions: options as never } : {}),
         });
-        const billed = withCarry(bill(ai, alias, usageFrom(result.usage), result.response.modelId, result.providerMetadata), carry);
+        const billed = withCarry(bill(ai, target, usageFrom(result.usage), result.response.modelId, result.providerMetadata), carry);
         if (result.finishReason === "content-filter") {
           const usageId = await settle(ai, p, task, "refused", billed, result.rawFinishReason ?? "refusal");
           return fail("refused", "The model declined this request.", { usageId }) as R;
@@ -315,20 +373,23 @@ export async function runTask<Args, L extends Loaded, Out, Db>(
         return { ok: true, output, model: billed.modelId, taskVersion: task.version, usageId, labelled: true } as R;
       } catch (error) {
         if (NoObjectGeneratedError.isInstance(error)) {
-          const attempt = error.usage ? bill(ai, alias, usageFrom(error.usage), error.response?.modelId, undefined) : null;
-          const total = attempt ? withCarry(attempt, carry) : carry;
+          const attempt = error.usage ? bill(ai, target, usageFrom(error.usage), error.response?.modelId, undefined) : null;
           if (!carry && attempt) {
             carry = attempt; // one repair retry for output that didn't match the schema
             continue;
           }
-          const usageId = await settle(ai, p, task, "invalid_output", total, "schema");
+          const usageId = await settle(ai, p, task, "invalid_output", attempt ? withCarry(attempt, carry) : carry, "schema");
           return fail("invalid_output", "The model's output didn't match the schema.", { usageId }) as R;
         }
-        if (isOutage(error)) {
-          lastError = APICallError.isInstance(error) ? `HTTP ${error.statusCode ?? "?"}` : (error as Error).name;
-          break; // next alias in the chain
+        if (keyRefused(error, target)) {
+          const usageId = await settle(ai, p, task, "unavailable", carry, `key refused (${httpDetail(error)})`);
+          return fail("unavailable", `The ${target.record.vendor} key for this account was refused. Check it in settings.`, { usageId }) as R;
         }
-        await settle(ai, p, task, "unavailable", carry, APICallError.isInstance(error) ? `HTTP ${error.statusCode ?? "?"}` : "error");
+        if (isOutage(error)) {
+          lastError = APICallError.isInstance(error) ? httpDetail(error) : (error as Error).name;
+          break; // next target
+        }
+        await settle(ai, p, task, "unavailable", carry, httpDetail(error));
         throw error;
       }
     }
@@ -365,11 +426,11 @@ export async function streamTask<Args, L extends Loaded, Db>(
 ): Promise<StreamResult> {
   if (task.output !== "text") throw new Error(`streamTask ${task.id}: only text tasks stream.`);
   if (task.guardrails?.output?.length) throw new Error(`streamTask ${task.id}: a task with output guardrails can't stream; use runTask.`);
-  const prep = await prepare(ai, task, rawArgs, ctx);
-  if ("ok" in prep) return prep;
+  const prepared = await prepare(ai, task, rawArgs, ctx);
+  if ("ok" in prepared) return prepared;
+  const p = prepared as Prepared<Loaded>;
   const { config } = ai;
-  const alias = prep.alias;
-  const p = prep as Prepared<Loaded>;
+  const target = p.targets[0]!;
   let resolveDone: (r: AiResult<{ text: string }>) => void = () => {};
   const done = new Promise<AiResult<{ text: string }>>((resolve) => (resolveDone = resolve));
   // onFinish, onAbort and onError can't all close the row: the first one wins.
@@ -381,17 +442,15 @@ export async function streamTask<Args, L extends Loaded, Db>(
   };
   const timeout = AbortSignal.timeout(config.timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const signal = options.abortSignal ? AbortSignal.any([timeout, options.abortSignal]) : timeout;
-  const providerOpts = providerOptions(alias);
   const result = streamText({
-    model: alias.model as LanguageModel,
+    ...modelFor(ai, target, false),
     system: task.system,
-    prompt: prep.prompt,
+    ...promptOf(p.prompt),
     maxOutputTokens: task.maxTokens,
     maxRetries: config.maxRetries ?? 2,
     abortSignal: signal,
-    ...(providerOpts ? { providerOptions: providerOpts as never } : {}),
     onFinish: async (event) => {
-      const billed = bill(ai, alias, usageFrom(event.totalUsage ?? event.usage), event.response.modelId, event.providerMetadata);
+      const billed = bill(ai, target, usageFrom(event.totalUsage ?? event.usage), event.response.modelId, event.providerMetadata);
       if (event.finishReason === "content-filter") {
         await close("refused", billed, event.rawFinishReason ?? "refusal", (usageId) => fail("refused", "The model declined this request.", { usageId }));
         return;
@@ -399,14 +458,15 @@ export async function streamTask<Args, L extends Loaded, Db>(
       await close("ok", billed, undefined, (usageId) => ({ ok: true, output: { text: event.text }, model: billed.modelId, taskVersion: task.version, usageId, labelled: true }));
     },
     onAbort: async () => {
-      // Tokens of an aborted stream aren't reported; the prompt was sent, so its input is billed.
-      const input = estimateCost(alias.record, task.system.length + prep.prompt.length, 0);
-      const billed: Bill = { modelId: alias.record.id, usage: { inputTokens: Math.ceil((task.system.length + prep.prompt.length) / 4), cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 }, costUsd: input };
+      // An aborted stream reports no tokens. The prompt was sent, so its input is billed.
+      const inputTokens = Math.ceil(p.promptChars / 4);
+      const billed: Bill = { modelId: target.record.id, usage: { inputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 }, costUsd: estimateCost(target.record, p.promptChars, 0) };
       await close("unavailable", billed, "aborted", (usageId) => fail("unavailable", "The request was cancelled.", { usageId }));
     },
     onError: async ({ error }) => {
-      await close("unavailable", null, APICallError.isInstance(error) ? `HTTP ${error.statusCode ?? "?"}` : "error", (usageId) =>
-        fail("unavailable", "The AI service failed mid-stream.", { usageId }),
+      const refused = keyRefused(error, target);
+      await close("unavailable", null, refused ? `key refused (${httpDetail(error)})` : httpDetail(error), (usageId) =>
+        fail("unavailable", refused ? `The ${target.record.vendor} key for this account was refused. Check it in settings.` : "The AI service failed mid-stream.", { usageId }),
       );
     },
   });

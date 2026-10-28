@@ -6,7 +6,7 @@
 -- again inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(45);
+select plan(68);
 
 -- People: a1 and b2 are clients of tenant e1; c3 administers it; d4 has no tenant.
 insert into auth.users (id, aud, role, email, instance_id)
@@ -36,13 +36,13 @@ end $$;
 grant execute on function pg_temp.u(text), pg_temp.t(text), pg_temp.sign_in(text), pg_temp.as_anon(), pg_temp.as_server() to anon, authenticated, service_role;
 
 -- A call with the arguments the tests don't care about filled in.
-create function pg_temp.begin(p_tenant uuid, p_person uuid, p_estimate numeric, p_exempt boolean default false) returns uuid language sql as $$
-  select genesis_ai.begin_call(p_tenant, p_person, 'gaitest.recap', 1, 'anthropic', 'claude-sonnet-5-5', p_estimate, p_exempt)
+create function pg_temp.begin(p_tenant uuid, p_person uuid, p_estimate numeric, p_exempt boolean default false, p_key text default 'platform') returns uuid language sql as $$
+  select genesis_ai.begin_call(p_tenant, p_person, 'gaitest.recap', 1, 'anthropic', 'claude-sonnet-5-5', p_estimate, p_exempt, p_key)
 $$;
 create function pg_temp.finish(p_call uuid, p_cost numeric) returns uuid language sql as $$
   select genesis_ai.finish_call(p_call, 'ok', 'claude-sonnet-5-5', 100, 0, 0, 20, null, p_cost, 900, '[{"name":"note","tokens":12,"ids":["n1"]}]'::jsonb)
 $$;
-grant execute on function pg_temp.begin(uuid, uuid, numeric, boolean), pg_temp.finish(uuid, numeric) to service_role;
+grant execute on function pg_temp.begin(uuid, uuid, numeric, boolean, text), pg_temp.finish(uuid, numeric) to service_role;
 
 create temp table k (name text primary key, id uuid);
 grant select, insert on k to service_role, authenticated;
@@ -57,17 +57,17 @@ $$;
 
 -- Shape and privileges ---------------------------------------------------------------
 select ok((select bool_and(relrowsecurity) from pg_class where oid in (
-  'genesis_ai.consents'::regclass, 'genesis_ai.budgets'::regclass, 'genesis_ai.calls'::regclass)),
+  'genesis_ai.consents'::regclass, 'genesis_ai.budgets'::regclass, 'genesis_ai.calls'::regclass, 'genesis_ai.keys'::regclass)),
   'row level security is on for every table');
 select ok(
   (select bool_and(not has_function_privilege('authenticated', p.oid, 'execute') and not has_function_privilege('anon', p.oid, 'execute'))
    from pg_proc p join pg_namespace s on s.oid = p.pronamespace
-   where s.nspname = 'genesis_ai' and p.proname in ('begin_call', 'finish_call', 'has_consent', 'set_budget', 'prune')),
-  'only the server admits, records, reads consent, sets budgets and prunes');
+   where s.nspname = 'genesis_ai' and p.proname in ('begin_call', 'finish_call', 'has_consent', 'key_for', 'set_budget', 'prune')),
+  'only the server admits, records, reads consent and keys, sets budgets and prunes');
 select ok(
   (select bool_and(has_function_privilege('service_role', p.oid, 'execute'))
    from pg_proc p join pg_namespace s on s.oid = p.pronamespace
-   where s.nspname = 'genesis_ai' and p.proname in ('begin_call', 'finish_call', 'has_consent', 'set_budget', 'prune')),
+   where s.nspname = 'genesis_ai' and p.proname in ('begin_call', 'finish_call', 'has_consent', 'key_for', 'set_budget', 'prune')),
   'the service role may do all of it');
 select ok(
   (select bool_and(not has_function_privilege('anon', p.oid, 'execute') and not has_function_privilege('public', p.oid, 'execute'))
@@ -80,8 +80,10 @@ select ok(
   and not has_table_privilege('authenticated', 'genesis_ai.calls', 'insert')
   and not has_table_privilege('authenticated', 'genesis_ai.calls', 'update')
   and not has_table_privilege('authenticated', 'genesis_ai.consents', 'insert')
-  and not has_table_privilege('authenticated', 'genesis_ai.budgets', 'select'),
-  'people read, never write; anon reads nothing; budgets are the server''s');
+  and not has_table_privilege('authenticated', 'genesis_ai.budgets', 'select')
+  and not has_table_privilege('authenticated', 'genesis_ai.keys', 'insert')
+  and not has_column_privilege('authenticated', 'genesis_ai.keys', 'secret_id', 'select'),
+  'people read, never write; anon reads nothing; budgets are the server''s; nobody signed in sees a key''s secret id');
 
 -- Consent ------------------------------------------------------------------------------
 select pg_temp.as_anon();
@@ -103,6 +105,12 @@ select pg_temp.sign_in('a1');
 select genesis_ai.set_consent('anthropic', true);
 select pg_temp.as_server();
 select ok(genesis_ai.has_consent(pg_temp.u('a1'), 'anthropic'), 'consent can be given again');
+select pg_temp.sign_in('a1');
+select genesis_ai.set_consent('anthropic', true, '2026-10');
+select pg_temp.as_server();
+select ok(genesis_ai.has_consent(pg_temp.u('a1'), 'anthropic', '2026-10'), 'consent to this version of the text counts');
+select ok(not genesis_ai.has_consent(pg_temp.u('a1'), 'anthropic', '2027-01'), 'consent to an older version doesn''t');
+select is((select count(*)::int from genesis_ai.consents where person_id = pg_temp.u('a1')), 4, 'every consent and withdrawal is kept');
 
 -- Budgets ------------------------------------------------------------------------------
 select ok(pg_temp.begin(pg_temp.t('e1'), pg_temp.u('a1'), 50) is not null, 'no budget means no limit');
@@ -123,6 +131,13 @@ update genesis_ai.calls set started_at = now() - interval '20 minutes' where id 
 select pg_temp.as_server();
 select ok(pg_temp.begin(pg_temp.t('e1'), pg_temp.u('a1'), 0.6) is not null, 'a call open for over 15 minutes stops reserving');
 
+select ok(pg_temp.begin(pg_temp.t('e1'), pg_temp.u('a1'), 50, false, 'tenant') is not null, 'a call on the tenant''s own key doesn''t spend the platform budget');
+select genesis_ai.set_budget('tenant:' || pg_temp.t('e3'), 10, null, 0.5);
+insert into k values ('share', pg_temp.begin(pg_temp.t('e3'), pg_temp.u('b2'), 0.4));
+select ok(pg_temp.k('share') is not null, 'a person''s call within their share is admitted');
+select ok(pg_temp.begin(pg_temp.t('e3'), pg_temp.u('b2'), 0.2) is null, 'one person can''t spend more than their share of the tenant''s budget');
+select ok(pg_temp.begin(pg_temp.t('e3'), pg_temp.u('d4'), 0.2) is not null, 'another person still can');
+
 select genesis_ai.set_budget('default', 0.5, 1);
 insert into k values ('d4', pg_temp.begin(null, pg_temp.u('d4'), 0.1));
 select ok(pg_temp.k('d4') is not null, 'the default budget covers a person with no tenant');
@@ -137,6 +152,7 @@ select throws_ok($$ select pg_temp.begin(null, pg_temp.u('a1'), -1) $$, '22023',
 
 -- Recording ----------------------------------------------------------------------------
 select is((select outcome from genesis_ai.calls where id = pg_temp.k('first')), 'ok', 'finish_call records the outcome');
+select is((select key_source from genesis_ai.calls where id = pg_temp.k('first')), 'platform', 'a call records whose key paid');
 select is((select manifest from genesis_ai.calls where id = pg_temp.k('first')), '[{"name":"note","tokens":12,"ids":["n1"]}]'::jsonb,
   'the manifest keeps names, counts and ids');
 select throws_ok($$ select pg_temp.finish(pg_temp.k('first'), 0.1) $$, 'P0002', null, 'a call is finished once');
@@ -146,6 +162,34 @@ select throws_ok($$ select genesis_ai.finish_call(pg_temp.k('d4'), 'great', 'm',
   '23514', null, 'an outcome is one of the pipeline''s');
 select throws_ok($$ select genesis_ai.finish_call(pg_temp.k('d4'), 'ok', 'm', 1, 0, 0, 1, null, 0, 1, '[]', repeat('x', 201)) $$,
   '23514', null, 'detail stays short');
+
+-- Keys (BYOK) --------------------------------------------------------------------------
+select pg_temp.sign_in('a1');
+select is(genesis_ai.set_key('person:' || pg_temp.u('a1'), 'anthropic', 'sk-ant-person-a1-key-7a7a'), '7a7a', 'a person stores their own key and gets its hint');
+select throws_ok($$ select genesis_ai.set_key('person:' || pg_temp.u('b2'), 'anthropic', 'sk-ant-not-yours-key-0000') $$, '42501', null, 'nobody stores a key for someone else');
+select throws_ok($$ select genesis_ai.set_key('tenant:' || pg_temp.t('e1'), 'anthropic', 'sk-ant-tenant-e1-key-0000') $$, '42501', null, 'a client doesn''t set the tenant''s key');
+select throws_ok($$ select genesis_ai.set_key('person:' || pg_temp.u('a1'), 'anthropic', 'short') $$, '22023', null, 'a key looks like a key');
+select pg_temp.sign_in('c3');
+select is(genesis_ai.set_key('tenant:' || pg_temp.t('e1'), 'anthropic', 'sk-ant-tenant-e1-key-e1e1'), 'e1e1', 'the tenant''s admin sets its key');
+select ok(exists (select 1 from genesis_ai.keys where scope = 'tenant:' || pg_temp.t('e1')) and not exists (select 1 from genesis_ai.keys where scope like 'person:%'),
+  'the admin sees the tenant''s key, not people''s');
+select pg_temp.sign_in('a1');
+select is((select hint from genesis_ai.keys), '7a7a', 'a person sees only their own key''s hint');
+select throws_ok($$ select secret_id from genesis_ai.keys $$, '42501', null, 'and never its secret id');
+select throws_ok($$ select * from genesis_ai.key_for(pg_temp.t('e1'), pg_temp.u('a1'), 'anthropic') $$, '42501', null, 'only the server reads keys');
+select pg_temp.as_server();
+select is((select api_key || ' ' || source from genesis_ai.key_for(pg_temp.t('e1'), pg_temp.u('a1'), 'anthropic')), 'sk-ant-person-a1-key-7a7a person', 'a person''s own key comes first');
+select is((select api_key || ' ' || source from genesis_ai.key_for(pg_temp.t('e1'), pg_temp.u('b2'), 'anthropic')), 'sk-ant-tenant-e1-key-e1e1 tenant', 'then the tenant''s');
+select ok(not exists (select 1 from genesis_ai.key_for(null, pg_temp.u('d4'), 'anthropic')), 'else none: the platform''s key is used');
+select pg_temp.sign_in('a1');
+select genesis_ai.set_key('person:' || pg_temp.u('a1'), 'anthropic', 'sk-ant-person-a1-key-8b8b');
+select pg_temp.as_server();
+select is((select api_key from genesis_ai.key_for(null, pg_temp.u('a1'), 'anthropic')), 'sk-ant-person-a1-key-8b8b', 'setting a key again replaces it');
+reset role;
+insert into k select 'a1-secret', secret_id from genesis_ai.keys where scope = 'person:' || pg_temp.u('a1');
+select pg_temp.sign_in('c3');
+select genesis_ai.remove_key('tenant:' || pg_temp.t('e1'), 'anthropic');
+select ok(not exists (select 1 from genesis_ai.keys where scope = 'tenant:' || pg_temp.t('e1')), 'the admin removes the tenant''s key');
 
 -- Who reads calls ----------------------------------------------------------------------
 select pg_temp.sign_in('a1');
@@ -162,6 +206,8 @@ select throws_ok($$ select count(*) from genesis_ai.calls $$, '42501', null, 'an
 reset role;
 delete from auth.users where id = pg_temp.u('a1');
 select ok(not exists (select 1 from genesis_ai.consents where person_id = pg_temp.u('a1')), 'deleting a login deletes its consents');
+select ok(not exists (select 1 from genesis_ai.keys where scope = 'person:' || pg_temp.u('a1'))
+  and not exists (select 1 from vault.secrets where id = pg_temp.k('a1-secret')), 'and its own key, out of Vault too');
 select ok(exists (select 1 from genesis_ai.calls where id = pg_temp.k('first') and person_id is null), 'and keeps its calls without the person');
 update genesis_ai.calls set started_at = now() - interval '500 days' where id = pg_temp.k('first');
 select pg_temp.as_server();

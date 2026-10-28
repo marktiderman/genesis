@@ -36,13 +36,14 @@ function setup(over: { gate?: boolean; budgetUsd?: number; consent?: boolean; cr
   const store = memoryStore({ consents: over.consent === false ? [] : "all", budgetUsd: over.budgetUsd });
   const spans: AiSpan[] = [];
   const ai = defineAi({
+    vendors: [mock.vendor, { id: "openai", model: (id) => ({ modelId: id, provider: "openai.responses" }) }],
     models: {
-      default: { model: mock.provider("claude-sonnet-5-5"), effort: "low", fallbacks: { unavailable: ["backup", "elsewhere"] } },
-      backup: { model: mock.provider("claude-haiku-5-5") },
-      elsewhere: { model: { modelId: "gpt-x", provider: "openai.responses" } },
+      default: { model: "claude-sonnet-5-5", effort: "low", fallbacks: { unavailable: ["backup", "elsewhere"] } },
+      backup: { model: "claude-haiku-5-5" },
+      elsewhere: { model: "gpt-x" },
     },
     modelRecords: {
-      "gpt-x": { id: "gpt-x", vendor: "openai", price: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, refusalFallback: false, defaultEffort: "medium" },
+      "gpt-x": { id: "gpt-x", vendor: "openai", price: { input: 1, output: 1, cacheRead: 1, cacheWrite: 1 }, refusalFallback: false, capabilities: [] },
     },
     store,
     gate: () => over.gate ?? true,
@@ -197,7 +198,7 @@ describe("runTask", () => {
   it("sends cache_control when the alias caches, and prices 1-hour writes at 2× input", async () => {
     const mock = mockAnthropic();
     const store = memoryStore({ consents: "all" });
-    const cached = defineAi({ models: { default: { model: mock.provider("claude-sonnet-5-5"), cache: "1h" } }, store, gate: () => true, maxRetries: 0 });
+    const cached = defineAi({ vendors: [mock.vendor], models: { default: { model: "claude-sonnet-5-5", cache: "1h" } }, store, gate: () => true, maxRetries: 0 });
     mock.reply(text("Cached."));
     await runTask(cached, recap, { noteId: "n1" }, ctx);
     expect(mock.calls[0]!.body.cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
