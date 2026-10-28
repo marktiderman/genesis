@@ -1,0 +1,31 @@
+docs/component-reference.md
+  s_d874818afffa9e::t_e8df373b736807 7,40,42,44,49,69,77,246,248-252,258,260,262-264,266,268,334,354,411,482,493,505,556,558,562,564-565,578-579,597,625,654-656,728-729,940-941,1050,1062,1070,1072,1153,1170,1295,1305,1393-1394,1400,1417
+scripts/__tests__/gen-component-reference.test.mjs
+  s_5beca2076873c9::t_0ff8e34d052ebe 1-43
+scripts/gen-component-reference.mjs
+  s_5beca2076873c9::t_1b28faa196b96a 36,169,216-229,231-237,269-303,340-344,349,564-565
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99cfa4fc47eb6272777bd687331393dbe8c85390",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_d874818afffa9e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9299f7c4-7c7a-4668-9b18-bc2fc5436928",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
