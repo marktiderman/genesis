@@ -1,0 +1,37 @@
+.changeset/resource-view-words.md
+  s_5beca2076873c9::t_d4b615d097c122 1-5
+docs/RESOURCE-VIEW.md
+  s_5beca2076873c9::t_a0125b35cf4b55 101-113,210-213,215-216,227-251
+docs/component-reference.md
+  s_5beca2076873c9::t_a618112806c6e4 7,34,40,43,56,60,62,67,70,74,76-78,82,85-86,95-96,101-102,108,119-121,123,138-141,148,180,184,207,218-219,306,343,354,724-725,1026,1035,1037,1043,1046,1052,1057-1058,1060,1063,1065-1069,1077,1085,1093-1094,1096-1097,1113,1116-1118,1273,1289,1291,1293,1300-1301,1303,1349,1352-1353,1366,1376-1379,1382,1421,1434-1440
+packages/ui/src/components/data/DataPageShell.tsx
+  s_5beca2076873c9::t_b6189f1d04046f 23-26,110-111,180-181
+packages/ui/src/components/data/ResourceForm.tsx
+  s_5beca2076873c9::t_a809f9ebb5e25f 35,48,50-54,314,336-338,341-349
+packages/ui/src/components/data/ResourcePage.tsx
+  s_5beca2076873c9::t_63405cd10d6804 530-540,818-821,1142-1144,1491-1494
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_5beca2076873c9::t_52a67622a38983 554-637
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_5beca2076873c9::t_88aea5294606ec 16-18,28-31,37,76-78,88-93,97-101,167,186-188,236-242
+packages/ui/src/components/layout/PageHeader.tsx
+  s_5beca2076873c9::t_d43bd591e380aa 20,76,186-192,239-240,337-342,393
+packages/ui/src/messages-en.ts
+  s_5beca2076873c9::t_45d4f8c3c117bf 32-36,56-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2be81f2b278a3fdd91096c99d18d9eb23ae08a0f",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
