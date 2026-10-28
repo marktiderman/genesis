@@ -912,10 +912,13 @@ export function DataTable<T>({
   };
 
   // The column whose cell opens the row, and the row that holds the tab stop.
+  // A named `openColumn` the viewer has hidden renders no button, so it counts as none.
   const openKey = !rowKeys
     ? null
     : openColumn !== undefined
-      ? openColumn
+      ? openColumn !== null && activeColumns.some((c) => c.key === openColumn)
+        ? openColumn
+        : null
       : (activeColumns.find((c) => !c.editable)?.key ?? null);
   // The tab stop is a rendered row: a virtualized row scrolled out of view
   // has no button, and Tab would then skip the table.
@@ -1118,8 +1121,9 @@ export function DataTable<T>({
                             name={rowLabel(item, id)}
                             // Where the row has an open button, it is the row's one tab stop and its ←
                             // and → open and close (the treegrid's roving tabindex), so the arrow is
-                            // for the pointer. Without one (no row keys, `openColumn={null}`, every
-                            // column editable) the arrow is the only way in, so it takes the tab.
+                            // for the pointer. Without one (no row keys, `openColumn={null}`, an
+                            // `openColumn` the viewer hid, every column editable) the arrow is the
+                            // only way in, so it takes the tab.
                             focusable={openKey === null}
                             onToggle={(open) => setRowExpanded(id, open)}
                           >

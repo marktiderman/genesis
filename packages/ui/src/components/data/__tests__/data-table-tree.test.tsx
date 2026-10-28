@@ -44,7 +44,7 @@ describe("DataTable draws a tree", () => {
     { key: "name", header: "Name", sortable: true },
     { key: "rank", header: "Rank", sortable: true },
   ];
-  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void; pagination?: boolean; pageSize?: number; openColumn?: string | null }) {
+  function Drawn(props: { onRowClick?: (r: League) => void; onSortChange?: () => void; pagination?: boolean; pageSize?: number; openColumn?: string | null; columns?: DataTableColumn<League>[] }) {
     const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set(["north"]));
     const tree = treeRows(ROWS, { getId: (r) => r.id, getParentId, expanded });
     return (
@@ -104,6 +104,14 @@ describe("DataTable draws a tree", () => {
     expect(arrow.tabIndex).toBe(0);
     fireEvent.click(arrow);
     expect(names()).toEqual(["North", "South"]);
+  });
+
+  it("keeps the arrow reachable by Tab when the open column is hidden", () => {
+    // `openColumn` names a column the viewer has hidden: no cell renders the row's open button.
+    const hidden: DataTableColumn<League>[] = [columns[0]!, { ...columns[1]!, defaultVisible: false }];
+    render(<Drawn onRowClick={() => {}} openColumn="rank" columns={hidden} />);
+    expect(within(row("North")).queryAllByRole("button").some((b) => b.hasAttribute("data-row-open"))).toBe(false);
+    expect(screen.getByRole("button", { name: "Collapse North" }).tabIndex).toBe(0);
   });
 
   it("doesn't re-sort the tree's rows: a header click only reports the sort", () => {
