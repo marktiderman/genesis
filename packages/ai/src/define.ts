@@ -1,4 +1,4 @@
-import { MODEL_RECORDS, type ModelRecord } from "./models";
+import { MODEL_RECORDS, type CacheTtl, type ModelRecord } from "./models";
 import type { AiContext, AiStore, AliasFallbacks, Loaded, SafetyProtocol, TaskDefinition, TelemetrySink } from "./types";
 
 /** An AI SDK language model, structurally (so `.` doesn't import the SDK). */
@@ -11,6 +11,12 @@ export interface AliasConfig {
   model: ModelLike;
   /** Effort for every call on this alias (`output_config.effort` on Anthropic). */
   effort?: "low" | "medium" | "high" | "xhigh" | "max" | undefined;
+  /**
+   * Prompt caching, which is opt-in on Anthropic: the API caches up to the last cacheable block
+   * and reuses it while it lives. Worth it when the system prompt and stable context run past
+   * the model's minimum (512 tokens on the 5.x models). Default: off.
+   */
+  cache?: CacheTtl | undefined;
   /** Extra provider options, merged under Genesis's own (effort, fallbacks, structured output). */
   providerOptions?: Record<string, Record<string, unknown>> | undefined;
   fallbacks?: AliasFallbacks | undefined;
@@ -45,6 +51,8 @@ export interface ResolvedAlias extends AliasConfig {
 export interface Ai {
   readonly config: AiConfig;
   alias(name: string): ResolvedAlias;
+  /** The record for a model id, such as the one a server-side fallback answered with. */
+  record(modelId: string): ModelRecord | undefined;
 }
 
 /**
@@ -74,6 +82,7 @@ export function defineAi(config: AiConfig): Ai {
       if (!found) throw new Error(`genesis-ai: no model alias "${name}".`);
       return found;
     },
+    record: (modelId: string) => records[modelId],
   });
 }
 

@@ -1,6 +1,6 @@
 // @feat:ai-providers
 export { defineAi, defineTask, type Ai, type AiConfig, type AliasConfig, type ModelLike, type ResolvedAlias } from "./define";
-export { ANTHROPIC_API_VERSION, MODEL_RECORDS, costOf, estimateCost, type ModelRecord } from "./models";
+export { ANTHROPIC_API_VERSION, MODEL_RECORDS, costOf, estimateCost, type CacheTtl, type ModelRecord } from "./models";
 export {
   GuardrailError,
   type AiContext,

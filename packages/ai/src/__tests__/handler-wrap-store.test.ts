@@ -26,7 +26,12 @@ function ai(store = memoryStore({ consents: "all" })) {
 }
 
 describe("createAiHandler", () => {
-  const post = (body: unknown) => new Request("https://app.test/api/ai", { method: "POST", body: typeof body === "string" ? body : JSON.stringify(body) });
+  const post = (body: unknown, headers: Record<string, string> = {}) =>
+    new Request("https://app.test/api/ai", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: typeof body === "string" ? body : JSON.stringify(body),
+    });
 
   it("runs a listed task for a signed-in caller", async () => {
     const s = ai();
@@ -41,7 +46,7 @@ describe("createAiHandler", () => {
     const s = ai();
     const handle = createAiHandler({ ai: s.ai, tasks: [echo], context: (r) => (r.headers.get("x-anon") ? null : ctx), maxBodyBytes: 100 });
     expect((await handle(new Request("https://app.test/api/ai"))).status).toBe(405);
-    expect((await handle(new Request("https://app.test/api/ai", { method: "POST", headers: { "x-anon": "1" }, body: "{}" }))).status).toBe(401);
+    expect((await handle(new Request("https://app.test/api/ai", { method: "POST", headers: { "x-anon": "1", "content-type": "application/json" }, body: "{}" }))).status).toBe(401);
     expect((await handle(post("{nope"))).status).toBe(400);
     expect((await handle(post({ task: "other" }))).status).toBe(404);
     expect((await handle(post({ task: "echo", args: { id: "x".repeat(200) } }))).status).toBe(413);
@@ -53,6 +58,36 @@ describe("createAiHandler", () => {
     const handle = createAiHandler({ ai: s.ai, tasks: [echo], context: () => ctx });
     expect((await handle(post({ task: "echo", args: { id: "x" } }))).status).toBe(403);
     expect((await handle(post({ task: "echo", args: { id: 1 } }))).status).toBe(400);
+  });
+
+  it("refuses cross-site requests before reading the session", async () => {
+    const s = ai();
+    let asked = 0;
+    const handle = createAiHandler({ ai: s.ai, tasks: [echo], context: () => (asked++, ctx), allowedOrigins: ["https://web.app.test"] });
+    const plain = new Request("https://app.test/api/ai", { method: "POST", headers: { "content-type": "text/plain" }, body: JSON.stringify({ task: "echo", args: { id: "x" } }) });
+    expect((await handle(plain)).status).toBe(415);
+    expect((await handle(post({ task: "echo", args: { id: "x" } }, { origin: "https://evil.test" }))).status).toBe(403);
+    expect(asked).toBe(0);
+    expect(s.calls).toHaveLength(0);
+
+    s.reply(text("a"), text("b"), text("c"));
+    expect((await handle(post({ task: "echo", args: { id: "x" } }, { origin: "https://app.test" }))).status).toBe(200);
+    expect((await handle(post({ task: "echo", args: { id: "x" } }, { origin: "https://web.app.test" }))).status).toBe(200);
+    // A native app sends a bearer token and no Origin.
+    expect((await handle(post({ task: "echo", args: { id: "x" } }))).status).toBe(200);
+  });
+
+  it("answers 503 and reports a thrown error instead of leaking it", async () => {
+    const s = ai();
+    const broken = defineTask({ ...echo, id: "broken", load: async () => { throw new Error("db down: secret detail"); } });
+    const seen: unknown[] = [];
+    const handle = createAiHandler({ ai: s.ai, tasks: [broken], context: () => ctx, onError: (e) => seen.push(e) });
+    const res = await handle(post({ task: "broken", args: { id: "x" } }));
+    expect(res.status).toBe(503);
+    const body = await res.text();
+    expect(body).toContain("unavailable");
+    expect(body).not.toContain("secret detail");
+    expect(seen).toHaveLength(1);
   });
 
   it("refuses two tasks with one id", () => {

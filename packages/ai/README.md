@@ -65,7 +65,8 @@ The package ships `migrations/0001_genesis_ai.sql` with its pgTAP test.
 
    export const ai = defineAi({
      models: {
-       default: { model: anthropic("claude-sonnet-5-5"), effort: "low", fallbacks: { unavailable: ["fast"] } },
+       // `cache` turns on prompt caching (opt-in on Anthropic): "5m" or "1h".
+       default: { model: anthropic("claude-sonnet-5-5"), effort: "low", cache: "5m", fallbacks: { unavailable: ["fast"] } },
        fast: { model: anthropic("claude-haiku-5-5") },
      },
      store: supabaseStore(serviceClient),
@@ -91,6 +92,10 @@ The package ships `migrations/0001_genesis_ai.sql` with its pgTAP test.
      },
    });
    ```
+
+   The handler takes only `application/json` and refuses a browser request from another origin
+   (list extra ones in `allowedOrigins`), so another site can't spend a signed-in person's budget.
+   A thrown error answers `503 unavailable`; pass `onError` to report it.
 
 6. Call it from the client: `const { run, result, pending } = useAiTask("chat.recap")`, then
    `run({ conversationId })`.
@@ -121,6 +126,20 @@ export const checkInSummary = defineTask({
   output: z.object({ summary: z.string(), followUps: z.array(z.string()).max(3) }),
 });
 ```
+
+## Costs
+
+A call is priced by the model that answered. When Anthropic's server-side refusal fallback hands
+a request to another model, every hop in `usage.iterations` is priced at its own model's rate,
+the declined one included: an upper bound, since Anthropic bills a declined hop only in some
+refusal categories. A schema attempt that failed before the repair retry is billed on the same row.
+
+## Streaming
+
+`streamTask(ai, task, args, ctx, { abortSignal: request.signal })` runs the same steps and writes
+the row when the stream ends, fails or is aborted. A refusal can arrive mid-stream: when `done`
+resolves `refused`, discard what was shown. Output guardrails need the whole answer, so a task
+with them can't stream.
 
 ## Processors
 

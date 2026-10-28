@@ -6,13 +6,17 @@ export interface Recorded {
   body: Record<string, unknown>;
 }
 
+/** Stands for "the model this request named" in a canned response. */
+export const REQUESTED = "<requested>";
+
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 export const message = (over: Record<string, unknown> = {}) => ({
   id: "msg_1",
   type: "message",
   role: "assistant",
-  model: "claude-sonnet-5-5",
+  // The model the request named, as the API echoes it; filled in by mockAnthropic's fetch.
+  model: REQUESTED,
   content: [{ type: "text", text: "Hello." }],
   stop_reason: "end_turn",
   stop_sequence: null,
@@ -62,7 +66,10 @@ export function mockAnthropic() {
     calls.push(call);
     const next = queue.shift();
     if (!next) throw new Error("mockAnthropic: no response queued");
-    return next(call);
+    const response = next(call);
+    const model = String(call.body.model ?? "");
+    const body = (await response.text()).replaceAll(REQUESTED, model);
+    return new Response(body, { status: response.status, headers: response.headers });
   };
   const provider = createGenesisAnthropic({ apiKey: "test", fetch: fetch as typeof globalThis.fetch });
   return {

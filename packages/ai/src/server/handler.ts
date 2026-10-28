@@ -13,6 +13,14 @@ export interface AiHandlerOptions<Db> {
   context: (request: Request) => AiContext<Db> | null | Promise<AiContext<Db> | null>;
   /** Largest request body accepted, in bytes. Default 16 KB: args are ids, not content. */
   maxBodyBytes?: number | undefined;
+  /**
+   * Origins besides the request's own that may call it from a browser (a web app on another
+   * host, or behind a proxy that rewrites the URL). Requests with no `Origin`, such as native
+   * apps sending a bearer token, are not checked.
+   */
+  allowedOrigins?: readonly string[] | undefined;
+  /** Told about an error the pipeline threw (a loader, the store); the caller gets `unavailable`. */
+  onError?: ((error: unknown, request: Request) => void) | undefined;
 }
 
 const STATUS: Record<Exclude<AiOutcome, "ok">, number> = {
@@ -36,6 +44,11 @@ const error = (status: number, message: string) => json({ ok: false, outcome: "i
 /**
  * One HTTP endpoint for every task: `POST { task, args }` → the task's {@link AiResult} as JSON.
  * A web-standard handler, so it mounts in TanStack Start, Next, Hono or a Supabase Edge Function.
+ *
+ * Cross-site requests are refused before the session is read: the body must be
+ * `application/json` (a form or `text/plain` post from another site can't set it without a
+ * preflight) and a browser's `Origin` must be this one or listed in `allowedOrigins`. Without
+ * that, a page elsewhere could run tasks on a signed-in person's cookie and spend their budget.
  */
 export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Request) => Promise<Response> {
   const byId = new Map(options.tasks.map((task) => [task.id, task]));
@@ -43,6 +56,11 @@ export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Re
   const maxBytes = options.maxBodyBytes ?? 16_384;
   return async (request) => {
     if (request.method !== "POST") return new Response(null, { status: 405, headers: { allow: "POST" } });
+    if (!/^application\/json\b/i.test(request.headers.get("content-type") ?? "")) return error(415, "Send the request as JSON.");
+    const origin = request.headers.get("origin");
+    if (origin && origin !== new URL(request.url).origin && !options.allowedOrigins?.includes(origin)) {
+      return error(403, "Requests from another site aren't accepted.");
+    }
     const ctx = await options.context(request);
     if (!ctx) return error(401, "Sign in to use this.");
     if (Number(request.headers.get("content-length") ?? 0) > maxBytes) return error(413, "The request is too large.");
@@ -57,7 +75,13 @@ export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Re
     const { task: id, args } = (body ?? {}) as { task?: unknown; args?: unknown };
     const task = typeof id === "string" ? byId.get(id) : undefined;
     if (!task) return error(404, "No such task.");
-    const result: AiResult<unknown> = await runTask(options.ai, task, args ?? {}, ctx);
+    let result: AiResult<unknown>;
+    try {
+      result = await runTask(options.ai, task, args ?? {}, ctx);
+    } catch (thrown) {
+      options.onError?.(thrown, request);
+      return json({ ok: false, outcome: "unavailable", message: "The AI service failed. Try again." }, 503);
+    }
     return json(result, result.ok ? 200 : STATUS[result.outcome]);
   };
 }

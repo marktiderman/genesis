@@ -677,6 +677,13 @@ Where the build differs from this design, and why:
 - **The recap's output is text**, as `createChatAssistant` returns, so parity holds. A schema
   output can come with the recap's next version.
 
+Review fixes (2026-10-28): calls are priced by the model that answered, across every hop of a
+server-side fallback (`usage.iterations`); prompt caching is an alias option (`cache`), since
+Anthropic's is opt-in; a failed schema attempt is billed; `streamTask` takes the caller's abort,
+closes the row on abort and refuses tasks with output guardrails; `createAiHandler` takes JSON
+only, refuses other origins and answers a thrown error with `503`. Sonnet 5.5's cache-read price
+is $0.10 per million.
+
 Not done yet: a live call and a live recap eval (they need `ANTHROPIC_API_KEY`); spans in
 `core/observability` (spans go to the `telemetry` sink for now); the doctor rules; wiring
 moderation and transcription through `wrap` in the sample app; the consent screen; the TanStack

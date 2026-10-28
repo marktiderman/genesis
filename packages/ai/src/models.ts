@@ -30,10 +30,14 @@ const anthropic = (id: string, input: number, output: number, cacheRead: number,
   ...rest,
 });
 
-/** Prices from Anthropic's model table as of 2026-10-06, first-party API. */
+/**
+ * Prices from Anthropic's model table as of 2026-10-06, first-party API. Cache reads are 0.05× of
+ * input on Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1 and 0.1× elsewhere (prompt-caching docs,
+ * checked 2026-10-28).
+ */
 export const MODEL_RECORDS: Record<string, ModelRecord> = {
   "claude-opus-5-5": anthropic("claude-opus-5-5", 4, 20, 0.2, { defaultEffort: "medium" }),
-  "claude-sonnet-5-5": anthropic("claude-sonnet-5-5", 2, 10, 0.2),
+  "claude-sonnet-5-5": anthropic("claude-sonnet-5-5", 2, 10, 0.1),
   "claude-haiku-5-5": anthropic("claude-haiku-5-5", 0.1, 0.5, 0.01, {
     tier: { aboveInputTokens: 100_000, input: 0.5, output: 2.5 },
     refusalFallback: false,
@@ -42,8 +46,11 @@ export const MODEL_RECORDS: Record<string, ModelRecord> = {
   "claude-fable-5-1": anthropic("claude-fable-5-1", 10, 50, 0.25),
 };
 
-/** Cost of one call in USD from its usage. */
-export function costOf(record: ModelRecord, usage: AiUsage): number {
+/** How long a prompt cache entry lives. A 1-hour write costs 2× input; a 5-minute one 1.25×. */
+export type CacheTtl = "5m" | "1h";
+
+/** Cost of one call in USD from its usage. `cacheTtl` prices cache writes (default 5 minutes). */
+export function costOf(record: ModelRecord, usage: AiUsage, cacheTtl: CacheTtl = "5m"): number {
   const totalInput = usage.inputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
   const tiered = record.tier && totalInput > record.tier.aboveInputTokens;
   const input = tiered ? record.tier!.input : record.price.input;
@@ -52,7 +59,7 @@ export function costOf(record: ModelRecord, usage: AiUsage): number {
   return (
     usage.inputTokens * input * perToken +
     usage.cacheReadTokens * record.price.cacheRead * perToken +
-    usage.cacheWriteTokens * record.price.cacheWrite * perToken +
+    usage.cacheWriteTokens * (cacheTtl === "1h" ? input * 2 : record.price.cacheWrite) * perToken +
     usage.outputTokens * output * perToken
   );
 }

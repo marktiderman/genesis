@@ -70,8 +70,8 @@ describe("runTask", () => {
     const row = store.rows[0]!;
     expect(row).toMatchObject({ outcome: "ok", taskId: "notes.recap", taskVersion: 3, model: "claude-sonnet-5-5", tenantId: "practice-1" });
     expect(row.usage).toEqual({ inputTokens: 100, cacheReadTokens: 60, cacheWriteTokens: 30, outputTokens: 20 });
-    // 100 × $2 + 60 × $0.20 + 30 × $2.50 + 20 × $10, per million
-    expect(row.costUsd).toBeCloseTo((200 + 12 + 75 + 200) / 1e6, 10);
+    // 100 × $2 + 60 × $0.10 + 30 × $2.50 + 20 × $10, per million
+    expect(row.costUsd).toBeCloseTo((200 + 6 + 75 + 200) / 1e6, 10);
     expect(row.manifest).toEqual([{ name: "note", tokens: Math.ceil(ctx.db.notes.n1!.length / 4), ids: ["n1"] }]);
     const stored = JSON.stringify(store.rows) + JSON.stringify(spans);
     expect(stored).not.toContain("Slept badly");
@@ -160,6 +160,8 @@ describe("runTask", () => {
 
     reply(text("not json"), text(JSON.stringify({ summary: "Second try", mood: "ok" })));
     expect(await runTask(ai, structured, { noteId: "n1" }, ctx)).toMatchObject({ ok: true, output: { summary: "Second try" } });
+    // The failed attempt was billed too: both attempts' tokens are on the row.
+    expect(store.rows.at(-1)!.usage).toMatchObject({ inputTokens: 200, outputTokens: 40 });
 
     reply(text("not json"), text(JSON.stringify({ mood: "bad" })));
     expect(await runTask(ai, structured, { noteId: "n1" }, ctx)).toMatchObject({ ok: false, outcome: "invalid_output" });
@@ -175,6 +177,37 @@ describe("runTask", () => {
     // Haiku has no server-side refusal fallback; the backup alias sets no effort.
     expect(calls[1]!.body).not.toHaveProperty("fallbacks");
     expect(store.rows[0]).toMatchObject({ outcome: "ok", model: "claude-haiku-5-5", requestedModel: "claude-sonnet-5-5" });
+  });
+
+  it("bills a server-side refusal fallback at the rates of every model that ran", async () => {
+    const { ai, reply, store } = setup();
+    const hop = (type: string, model: string, input: number, output: number) => ({ type, model, input_tokens: input, output_tokens: output, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 });
+    reply(
+      text("From the fallback.", {
+        model: "claude-opus-5-5",
+        usage: { input_tokens: 412, output_tokens: 264, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, iterations: [hop("message", "claude-sonnet-5-5", 535, 0), hop("fallback_message", "claude-opus-5-5", 412, 264)] },
+      }),
+    );
+    expect(await runTask(ai, recap, { noteId: "n1" }, ctx)).toMatchObject({ ok: true, model: "claude-opus-5-5" });
+    // The declined Sonnet hop at Sonnet's input price, the answer at Opus's.
+    expect(store.rows[0]).toMatchObject({ model: "claude-opus-5-5", requestedModel: "claude-sonnet-5-5", usage: { inputTokens: 412, outputTokens: 264 } });
+    expect(store.rows[0]!.costUsd).toBeCloseTo((535 * 2 + 412 * 4 + 264 * 20) / 1e6, 10);
+  });
+
+  it("sends cache_control when the alias caches, and prices 1-hour writes at 2× input", async () => {
+    const mock = mockAnthropic();
+    const store = memoryStore({ consents: "all" });
+    const cached = defineAi({ models: { default: { model: mock.provider("claude-sonnet-5-5"), cache: "1h" } }, store, gate: () => true, maxRetries: 0 });
+    mock.reply(text("Cached."));
+    await runTask(cached, recap, { noteId: "n1" }, ctx);
+    expect(mock.calls[0]!.body.cache_control).toEqual({ type: "ephemeral", ttl: "1h" });
+    // 100 × $2 + 60 × $0.10 + 30 × $4 (1-hour write) + 20 × $10, per million
+    expect(store.rows[0]!.costUsd).toBeCloseTo((200 + 6 + 120 + 200) / 1e6, 10);
+
+    const { ai, reply, calls } = setup();
+    reply(text("Not cached."));
+    await runTask(ai, recap, { noteId: "n1" }, ctx);
+    expect(calls[0]!.body).not.toHaveProperty("cache_control");
   });
 
   it("is unavailable when every allowed alias is down, and never crosses vendors unasked", async () => {
@@ -205,6 +238,30 @@ describe("streamTask", () => {
     expect(await result.done).toMatchObject({ ok: true, output: { text: "Rough night." } });
     expect(calls[0]!.body).toMatchObject({ stream: true, output_config: { effort: "low" } });
     expect(store.rows[0]).toMatchObject({ outcome: "ok", usage: { outputTokens: 7 } });
+  });
+
+  it("won't stream a task with output guardrails", async () => {
+    const { ai, calls } = setup();
+    const guarded = defineTask({ ...recap, guardrails: { output: [(t) => t] } });
+    await expect(streamTask(ai, guarded, { noteId: "n1" }, ctx)).rejects.toThrow(/output guardrails/);
+    expect(calls).toHaveLength(0);
+  });
+
+  it("closes the usage row when the caller aborts", async () => {
+    const { ai, reply, store } = setup();
+    reply(streamOf(["Rough ", "night."]));
+    const controller = new AbortController();
+    controller.abort();
+    const result = await streamTask(ai, recap, { noteId: "n1" }, ctx, { abortSignal: controller.signal });
+    if (!result.ok) throw new Error(result.outcome);
+    try {
+      for await (const _ of result.textStream) void _;
+    } catch {
+      // an aborted stream may throw on read
+    }
+    expect(await result.done).toMatchObject({ ok: false, outcome: "unavailable" });
+    expect(store.rows).toHaveLength(1);
+    expect(store.rows[0]!.outcome).toBe("unavailable");
   });
 
   it("runs the same checks before streaming", async () => {
