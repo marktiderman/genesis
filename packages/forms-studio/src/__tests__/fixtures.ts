@@ -7,7 +7,7 @@ export const checkIn: FormDefinition = {
   id: "check-in",
   title: "Saturday check-in",
   blocks: [
-    { kind: "field", id: "r", key: "wod", type: "rating", label: "How was today's WOD?", props: { max: 5 } },
+    { kind: "field", id: "r", key: "score", type: "rating", label: "How was today's class?", props: { max: 5 } },
     { kind: "field", id: "c", key: "photo", type: "consent", label: "Photo consent" },
     { kind: "field", id: "t", key: "wrong", type: "long-text", label: "What went wrong?" },
     { kind: "field", id: "n", key: "name", type: "short-text", label: "Your name" },
@@ -20,11 +20,11 @@ let n = 0;
 /** One response to checkIn on `date`. */
 export function answer(
   date: string,
-  values: { wod?: number; photo?: boolean; wrong?: string; name?: string },
+  values: { score?: number; photo?: boolean; wrong?: string; name?: string },
   extra: SummaryItem["extra"] = {},
 ): SummaryItem {
   const answers: Record<string, Json> = {};
-  if (values.wod !== undefined) answers["r"] = values.wod;
+  if (values.score !== undefined) answers["r"] = values.score;
   if (values.photo !== undefined) answers["c"] = values.photo;
   if (values.wrong !== undefined) answers["t"] = values.wrong;
   if (values.name !== undefined) answers["n"] = values.name;

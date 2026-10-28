@@ -11,11 +11,11 @@ const skip = new Set(["name"]);
 
 describe("headlineNumbers", () => {
   const now = [
-    answer("2026-10-23", { wod: 5, photo: true }),
-    answer("2026-10-23", { wod: 2, photo: true, wrong: "Rower was broken again" }),
-    answer("2026-10-22", { wod: 4, photo: false }),
+    answer("2026-10-23", { score: 5, photo: true }),
+    answer("2026-10-23", { score: 2, photo: true, wrong: "Rower was broken again" }),
+    answer("2026-10-22", { score: 4, photo: false }),
   ];
-  const before = [answer("2026-10-16", { wod: 5 }), answer("2026-10-15", { wod: 4 })];
+  const before = [answer("2026-10-16", { score: 5 }), answer("2026-10-15", { score: 4 })];
 
   it("counts responses and the change against the period before", () => {
     const h = headlineNumbers(now, [checkIn], { previous: before, skip });
@@ -24,7 +24,7 @@ describe("headlineNumbers", () => {
 
   it("averages the first rating question, and how it moved", () => {
     const h = headlineNumbers(now, [checkIn], { previous: before, skip });
-    expect(h.rating).toMatchObject({ key: "wod", max: 5, previousAverage: 4.5, change: -0.8 });
+    expect(h.rating).toMatchObject({ key: "score", max: 5, previousAverage: 4.5, change: -0.8 });
     expect(h.rating?.average).toBeCloseTo(3.667, 2);
   });
 
@@ -70,22 +70,22 @@ describe("comparisonFilter", () => {
     });
   });
   it("keeps the other filters, and has nothing for all time or an open range", () => {
-    const value = { ...NO_FILTERS, when: "week" as const, match: { class: "6:00 WOD" }, low: true };
-    expect(comparisonFilter(value, today)?.filter).toMatchObject({ match: { class: "6:00 WOD" }, low: true });
+    const value = { ...NO_FILTERS, when: "week" as const, match: { class: "6:00 class" }, low: true };
+    expect(comparisonFilter(value, today)?.filter).toMatchObject({ match: { class: "6:00 class" }, low: true });
     expect(comparisonFilter(NO_FILTERS, today)).toBeNull();
     expect(comparisonFilter({ ...NO_FILTERS, when: "custom", from: "2026-10-01" }, today)).toBeNull();
   });
   it("finds the previous items with filterResponses", () => {
-    const items = [answer("2026-10-14", { wod: 3 }), answer("2026-10-21", { wod: 3 })];
+    const items = [answer("2026-10-14", { score: 3 }), answer("2026-10-21", { score: 3 })];
     const c = comparisonFilter({ ...NO_FILTERS, when: "week" }, today)!;
     expect(filterResponses(items, c.filter).map((i) => i.date)).toEqual(["2026-10-14"]);
   });
 });
 
 describe("needsFollowUp", () => {
-  const low = answer("2026-10-22", { wod: 2, wrong: "  Too crowded  ", name: "Ann" });
-  const lower = answer("2026-10-23", { wod: 1 });
-  const fine = answer("2026-10-23", { wod: 4, wrong: "Great" });
+  const low = answer("2026-10-22", { score: 2, wrong: "  Too crowded  ", name: "Ann" });
+  const lower = answer("2026-10-23", { score: 1 });
+  const fine = answer("2026-10-23", { score: 4, wrong: "Great" });
 
   it("lists low-rated responses newest first, with the score and comment", () => {
     const list = needsFollowUp([low, fine, lower], { skip });
@@ -101,7 +101,7 @@ describe("needsFollowUp", () => {
   });
 
   it("doesn't take a skipped key as the comment", () => {
-    const named = answer("2026-10-22", { wod: 1, name: "Ann" });
+    const named = answer("2026-10-22", { score: 1, name: "Ann" });
     expect(followUpOf(named, skip)?.comment).toBeNull();
     expect(followUpOf(fine)).toBeNull();
   });

@@ -12,13 +12,13 @@ const checkIn = (): FormDefinition => ({
   title: "Saturday check-in",
   layout: { mode: "focus" },
   blocks: [
-    { kind: "field", id: "q_wod", key: "wod", type: "rating", label: "How was today's WOD?", props: { max: 5, display: "stars", lowLabel: "Rough", highLabel: "Great" } },
+    { kind: "field", id: "q_score", key: "score", type: "rating", label: "How was today's class?", props: { max: 5, display: "stars", lowLabel: "Rough", highLabel: "Great" } },
     { kind: "field", id: "q_wrong", key: "wrong", type: "short-text", label: "What went wrong?" },
     { kind: "field", id: "q_photo", key: "photo", type: "consent", label: "Photo consent", required: true },
   ],
   logic: [
-    { id: "r_low", effect: "jump", from: "q_wod", to: "q_wrong", when: { op: "lte", left: { field: "q_wod" }, right: { value: 2 } } },
-    { id: "r_top", effect: "jump", from: "q_wod", to: { ending: "loved" }, when: { op: "eq", left: { field: "q_wod" }, right: { value: 5 } } },
+    { id: "r_low", effect: "jump", from: "q_score", to: "q_wrong", when: { op: "lte", left: { field: "q_score" }, right: { value: 2 } } },
+    { id: "r_top", effect: "jump", from: "q_score", to: { ending: "loved" }, when: { op: "eq", left: { field: "q_score" }, right: { value: 5 } } },
   ],
   endings: [
     { id: "default", title: "Thanks for your answers.", description: "We read every response." },

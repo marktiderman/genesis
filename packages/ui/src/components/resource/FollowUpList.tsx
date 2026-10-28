@@ -12,7 +12,7 @@ export interface FollowUpEntry {
   name: string;
   /** A tag beside the name, e.g. "Member" or "New lead". */
   tag?: { label: string; tone?: ChipTone | undefined } | undefined;
-  /** One line under the name: "Today · 6:00 WOD · Leo". */
+  /** One line under the name: "Today · 6:00 class · Leo". */
   meta?: ReactNode;
   /** What they wrote; null shows `noComment`. */
   comment?: string | null | undefined;

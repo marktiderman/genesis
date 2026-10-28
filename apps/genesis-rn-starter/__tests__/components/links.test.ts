@@ -4,8 +4,8 @@ import { normalizeLink } from "@marktiderman/genesis-native";
 import { appSchemes, links } from "@/lib/links";
 
 describe("deep links", () => {
-  it("opens the check-in from its documented link, gym and all", () => {
-    expect(normalizeLink("genesis-starter://check-in?gym=hilltop", links)).toBe("/check-in?gym=hilltop");
+  it("opens the check-in from its documented link, location and all", () => {
+    expect(normalizeLink("genesis-starter://check-in?location=hilltop", links)).toBe("/check-in?location=hilltop");
   });
 
   it("answers to every variant's scheme, whatever config Metro served", () => {
@@ -15,7 +15,7 @@ describe("deep links", () => {
     expect(appSchemes("genesis-starter", ["genesis-starter-preview"])).toEqual(all);
     expect(appSchemes("genesis-starter", "custom")).toEqual([...all, "custom"]);
     // The app's own map, as built in this test (no APP_VARIANT): a development build's link still opens.
-    expect(normalizeLink("genesis-starter-dev://check-in?gym=hilltop", links)).toBe("/check-in?gym=hilltop");
+    expect(normalizeLink("genesis-starter-dev://check-in?location=hilltop", links)).toBe("/check-in?location=hilltop");
     expect(normalizeLink("genesis-starter-preview://settings", links)).toBe("/settings");
   });
 
