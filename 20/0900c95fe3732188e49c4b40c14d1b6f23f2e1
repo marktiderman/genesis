@@ -1,0 +1,19 @@
+scripts/check-private-names.mjs
+  s_e78d57e50dc818::t_6d0dbb266ad8ca 34,38,44-48,50-60,73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "200900c95fe3732188e49c4b40c14d1b6f23f2e1",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
