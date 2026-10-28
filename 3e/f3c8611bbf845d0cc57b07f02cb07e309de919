@@ -1,0 +1,29 @@
+.changeset/schedule-host.md
+  s_5beca2076873c9::t_642717c7038563 1-7
+packages/sites/README.md
+  s_5beca2076873c9::t_aae2592be773b0 183-187
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_5beca2076873c9::t_7031dc59a46dac 77,79
+packages/sites/src/__tests__/fixtures.ts
+  s_5beca2076873c9::t_ed67f88d83cb86 94
+packages/sites/src/__tests__/sections-v1.test.tsx
+  s_5beca2076873c9::t_d7243a6868c1be 40,55,59-71
+packages/sites/src/sections/schedule.tsx
+  s_5beca2076873c9::t_93f5d45a9b4b3c 2-3,46-48,69,125,127-128,207,226-227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ef3c8611bbf845d0cc57b07f02cb07e309de919",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
