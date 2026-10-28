@@ -9,10 +9,32 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
 - `docs/component-reference.md` is generated: `pnpm gen:component-reference`. Never edit it by hand.
 - Merge, never rebase or force-push.
+- Genesis is public: never name an app or customer built on it, anywhere (code, tests, docs,
+  changelogs, commits, PRs). Write "a consumer app"; use neutral sample names (Acme, sample-app).
+  `pnpm check:private-names` runs in CI.
 - Before building anything, read Part 1 of `docs/FRAMEWORK.md` ("The Genesis way"): reuse, then
   extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
   are config; recreating something that exists, or should, is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
+
+## Building a screen in an app
+
+The same rules hold in every Genesis app, and `genesis doctor` enforces them from what each
+package declares (`genesis primitives` lists them; `genesis agents` writes them into an app's
+AGENTS.md and skill):
+
+- **A list** is a view: `defineView` (`@marktiderman/genesis-core/resource-view`) rendered by
+  `<ResourceView>` (`@marktiderman/genesis-ui/data`). Never a hand-built table, and `ResourcePage`
+  only as an escape hatch inside a component that renders ResourceView.
+- **A record's page** is `<ResourceWorkspace>` from the same description.
+- **On the phone**, the same view through `NativeResourceView` (`@marktiderman/genesis-ui-native/data`).
+- **Data** goes through the view and the resource's provider rules. A screen never calls
+  `supabase.from`, `.rpc` or `.schema(…).from` itself.
+- Never copy an older screen as a template, and write a gap up for Genesis before inventing.
+
+A package that adds a primitive declares its rule in its package.json (`genesis.doctor`); see
+the genesis-cli README, "Package rules". Every published package must declare one, or say why
+not.
 
 ## Before you start a build or a phase
 
@@ -37,7 +59,7 @@ be replaced, when this check was skipped.
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 126 features (9 idea, 19 planned, 46 building, 17 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 127 features (9 idea, 19 planned, 47 building, 17 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

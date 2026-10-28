@@ -70,5 +70,19 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "A builder an app hosts whole; nothing an app writes replaces it piece by piece.",
+      "primitives": [
+        {
+          "need": "editing a form definition",
+          "use": "<FormBuilder>",
+          "import": "@marktiderman/genesis-forms-builder",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/FORMS.md"
+        }
+      ]
+    }
   }
 }

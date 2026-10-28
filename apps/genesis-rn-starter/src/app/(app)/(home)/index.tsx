@@ -10,9 +10,9 @@ export default function HomeScreen() {
       {copy.home.checkIn}
     </NativeButton>
   ) : null;
-  // The same form opened from a link that fills in the gym, so that question is skipped.
+  // The same form opened from a link that fills in the location, so that question is skipped.
   const fromLink = starter.features.checkIn ? (
-    <NativeButton testID="home-check-in-link" variant="outline" onPress={() => router.push("/check-in?gym=hilltop")}>
+    <NativeButton testID="home-check-in-link" variant="outline" onPress={() => router.push("/check-in?location=hilltop")}>
       {copy.home.checkInFromLink}
     </NativeButton>
   ) : null;

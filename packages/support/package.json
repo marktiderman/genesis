@@ -302,6 +302,32 @@
           "Keep genesis-chat's runner going (push for replies). support_replies stays mirrored for one release, for older app builds; a later migration removes it."
         ]
       }
+    },
+    "doctor": {
+      "prefer": [
+        {
+          "id": "feedback-uses-support",
+          "need": "feedback and bug reports",
+          "level": "warn",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "exclude": [
+            "src/lib/**",
+            "**/*.server.*",
+            "**/server/**",
+            "**/api/**"
+          ],
+          "forbid": {
+            "pattern": "\\.from\\(\\s*[\"'](?:feedback|feedback_items|bug_reports|support_tickets)[\"']"
+          },
+          "use": "FeedbackPanel / FeedbackLauncher on the web, the feedback screen on the phone",
+          "import": "@marktiderman/genesis-support/web",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/support/README.md",
+          "why": "Feedback goes through one record and sink with the app's context and screenshots; a direct table write loses both."
+        }
+      ]
     }
   }
 }

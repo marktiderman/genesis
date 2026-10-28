@@ -14,7 +14,7 @@
 import { defineTask, GuardrailError, type AiContext, type TaskDefinition } from "@marktiderman/genesis-ai";
 // `zod/v4` is Zod 4 in both Zod 3.25+ and Zod 4, so apps on either can install this.
 import { z } from "zod/v4";
-import { DRAFT_SYSTEM, draftPrompt, RECAP_SYSTEM, recapPrompt, type AssistantMessage } from "../server/assistant";
+import { draftPrompt, draftSystem, recapPrompt, recapSystem, type AssistantMessage } from "../server/assistant";
 
 const MAX_MESSAGES = 200;
 
@@ -34,6 +34,11 @@ export interface ChatAiTaskOptions {
   model?: string | undefined;
   /** The FeatureId the gate checks. Default `chat`. */
   feature?: string | undefined;
+  /**
+   * What kind of conversation this is, as a noun phrase ("a coaching conversation", "a support
+   * ticket"), as `createChatAssistant` takes it. The prompts say "a conversation" without it.
+   */
+  context?: string | undefined;
 }
 
 export interface DraftTaskOptions extends ChatAiTaskOptions {
@@ -151,7 +156,7 @@ export function chatRecapTask(options: ChatAiTaskOptions = {}): TaskDefinition<{
     args,
     ...(options.can ? { can: options.can } : {}),
     load: (ctx, { conversationId }) => loadConversation(ctx, conversationId, options, "recap"),
-    system: RECAP_SYSTEM,
+    system: recapSystem(options.context),
     prompt: (loaded) => recapPrompt(loaded),
     output: "text",
   });
@@ -172,7 +177,7 @@ export function chatDraftReplyTask(options: DraftTaskOptions = {}): TaskDefiniti
       const voice = (await options.voice?.(ctx))?.trim();
       return voice ? { ...loaded, voice } : loaded;
     },
-    system: DRAFT_SYSTEM,
+    system: draftSystem(options.context),
     prompt: (loaded) => draftPrompt(loaded),
     output: "text",
   });

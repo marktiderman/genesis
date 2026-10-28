@@ -477,5 +477,109 @@
     "react-router": {
       "optional": true
     }
+  },
+  "genesis": {
+    "doctor": {
+      "prefer": [
+        {
+          "id": "lists-use-resource-view",
+          "need": "a list screen",
+          "level": "warn",
+          "platform": "web",
+          "files": [
+            "**/*.tsx",
+            "**/*.jsx"
+          ],
+          "forbid": {
+            "jsx": [
+              "DataTable",
+              "DataGrid",
+              "DataList",
+              "KanbanBoard",
+              "ResourcePage"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "ResourceView",
+              "ResourceWorkspace"
+            ]
+          },
+          "use": "a view (defineView from @marktiderman/genesis-core/resource-view) rendered by <ResourceView>",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
+          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView."
+        },
+        {
+          "id": "record-pages-use-resource-workspace",
+          "need": "a record page",
+          "level": "warn",
+          "platform": "web",
+          "newOnly": true,
+          "files": [
+            "{routes}/**/*$*.tsx",
+            "{routes}/**/*$*.jsx",
+            "{routes}/**/*$*/**/*.tsx",
+            "{routes}/**/*$*/**/*.jsx",
+            "{routes}/**/[*].tsx",
+            "{routes}/**/[*].jsx",
+            "{routes}/**/[*]/**/*.tsx",
+            "{routes}/**/[*]/**/*.jsx"
+          ],
+          "forbid": {
+            "jsx": [
+              "AppShellPageHeader",
+              "ResourceHeader",
+              "DetailPage"
+            ]
+          },
+          "unless": {
+            "renders": [
+              "ResourceWorkspace",
+              "BuilderLayout"
+            ]
+          },
+          "use": "a workspace (defineWorkspace from @marktiderman/genesis-core/resource-view) rendered by <ResourceWorkspace>",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#resourceworkspace",
+          "why": "One record's header, actions, sections, child lists and settings come from its workspace description, the same on web and phone. Builders (BuilderLayout) are exempt."
+        }
+      ],
+      "primitives": [
+        {
+          "need": "the app skeleton: navigation, header, content",
+          "use": "AppShell with a navigation tree",
+          "import": "@marktiderman/genesis-ui/layout",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "a dashboard, settings or form page",
+          "use": "DashboardPage, SettingsPage (SettingsRow, ToggleRow), FormPage",
+          "import": "@marktiderman/genesis-ui",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "a board, calendar or card wall over a list",
+          "use": "useResourceTable (ResourcePage's logic without its markup)",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "an empty state",
+          "use": "EmptyState",
+          "import": "@marktiderman/genesis-ui/empty-state"
+        },
+        {
+          "need": "editing formatted text",
+          "use": "RichTextEditor",
+          "import": "@marktiderman/genesis-ui/rich-text-editor"
+        },
+        {
+          "need": "showing formatted text",
+          "use": "RichText",
+          "import": "@marktiderman/genesis-ui/rich-text"
+        }
+      ]
+    }
   }
 }

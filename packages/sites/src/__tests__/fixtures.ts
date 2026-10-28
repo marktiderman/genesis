@@ -91,7 +91,7 @@ export const sectionProps: Record<string, Record<string, unknown>> = {
       { id: "open", name: "Open gym", tone: "plain" },
     ],
     sessions: [
-      { day: "mon", start: "06:00", end: "07:00", title: "Strength", type: "strength", coach: "Sam Lee", location: "Main floor" },
+      { day: "mon", start: "06:00", end: "07:00", title: "Strength", type: "strength", host: "Sam Lee", location: "Main floor" },
       { day: "mon", start: "18:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe" },
       { day: "tue", start: "06:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe", location: "Studio" },
       { day: "thu", start: "18:00", title: "Strength", type: "strength", coach: "Sam Lee", link: { label: "Book Thursday strength", href: "https://booking.example/riverside/thu", external: true, target: "_blank" } },

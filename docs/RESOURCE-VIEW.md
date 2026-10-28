@@ -64,7 +64,7 @@ build only what's missing.
 | Refusals | `readFailureMessage`, `DataWriteError`, `showWriteErrorToast` | Reuse for inline refusals |
 | Jobs | genesis-supabase `enqueueJob`, `runJobs` | Reuse. **A browser job-status read is new work** |
 | Feature gate | features `useFeature`, `FeatureGate` | Gates the sheet toggle. ResourceView gets a FeatureId |
-| Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. A "lists use ResourceView" rule joins the built-in structure rules |
+| Doctor | `page-layout` (`…Page`, `…PageShell`), `native-screen-layout` (`…Page`, `…Screen`) | Both rules learn `ResourceView` and `NativeResourceView`. **Done:** the packages declare `ui/lists-use-resource-view`, `ui/record-pages-use-resource-workspace`, `ui-native/lists-use-native-resource-view` and `core/direct-data-access` (genesis-cli README, "Package rules") |
 
 Naming follows what exists:
 - Modes are the existing `ViewMode` (`table`, `grid`, `list`) plus `sheet`. "Cards" means `grid`,
@@ -620,23 +620,23 @@ Data Studio reads it at run time because it must work on any table. Product scre
 `introspect` gives the same zero-effort start ahead of time: `defineView(resource, {})` is
 already a working screen.
 
-## Who builds what, and in what order
+## What gets built, and in what order
 
-| Phase | Piece | Owner |
-| --- | --- | --- |
-| 0 | Resource facts from `@genesis` comments (`labelField`, `noun`, `readonly`, `sensitive`); `satisfies ResourceContract<Row>` emit and name unions; browser-only contract | Less (core, introspect) |
-| 0 | Count mode; `ViewerScope.scope` (including sets); live: filtered shared channels, no echo, patch by id | Less |
-| 0 | Cursor-mode server search and sort in `useResourceTable`; lazy peek and form; virtualisation default | Shell |
-| 1 | `genesis-core/resource-view`: `defineView`, view types, derived validation, `summary`, guards | Shell |
-| 1 | `ResourceView`, `useResourceView`, header parts, page/embedded/compact layouts, renderer registry with web renderers, URL allow-list | Shell |
-| 1 | Three pilot screens: one plain admin list, one list embedded in a workspace tab, and one hard list (Tasks). Line counts measured before and after | Shell |
-| 2 | `mode="sheet"` on `SheetGrid` | Shell |
-| 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) | Scout |
-| 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts | Port |
-| 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView | Shell with app owners |
-| 2 | `ResourceWorkspace` and `NativeResourceWorkspace`: header, sections, settings, readiness from the same view | — |
-| 3 | Tree mode on the web: `tree={{ getParentId, defaultExpanded, cascadeSelect }}` on table and list ([Tree mode](#tree-mode)); logic in `genesis-core/resource-view` | Shell (review) |
-| later | Tree mode in NativeResourceView (reusing core's `treeRows`), children loaded on expand, conditional form fields | — |
+| Phase | Piece |
+| --- | --- |
+| 0 | Resource facts from `@genesis` comments (`labelField`, `noun`, `readonly`, `sensitive`); `satisfies ResourceContract<Row>` emit and name unions; browser-only contract |
+| 0 | Count mode; `ViewerScope.scope` (including sets); live: filtered shared channels, no echo, patch by id |
+| 0 | Cursor-mode server search and sort in `useResourceTable`; lazy peek and form; virtualisation default |
+| 1 | `genesis-core/resource-view`: `defineView`, view types, derived validation, `summary`, guards |
+| 1 | `ResourceView`, `useResourceView`, header parts, page/embedded/compact layouts, renderer registry with web renderers, URL allow-list |
+| 1 | Three pilot screens: one plain admin list, one list embedded in a workspace tab, and one hard list (Tasks). Line counts measured before and after |
+| 2 | `mode="sheet"` on `SheetGrid` |
+| 2 | `NativeResourceView`: rows, form sheet, swipe actions, detail routes (about 3 days) |
+| 2 | Session-agnostic provider and storage adapter, batched permissions feeding guards, `summary` → page bar, compact and detail layouts |
+| 3 | Remaining app screens, then a doctor rule: new list screens use ResourceView |
+| 2 | `ResourceWorkspace` and `NativeResourceWorkspace`: header, sections, settings, readiness from the same view |
+| 3 | Tree mode on the web: `tree={{ getParentId, defaultExpanded, cascadeSelect }}` on table and list ([Tree mode](#tree-mode)); logic in `genesis-core/resource-view` |
+| later | Tree mode in NativeResourceView (reusing core's `treeRows`), children loaded on expand, conditional form fields |
 
 Web phase 1 is about 5 days. Each phase ships as its own release.
 

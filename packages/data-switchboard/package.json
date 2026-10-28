@@ -68,5 +68,11 @@
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vitest": "^4.1.12"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "Data-layer configuration an app composes once; no hand-rolled equivalent is reliably detectable yet."
+    }
   }
 }

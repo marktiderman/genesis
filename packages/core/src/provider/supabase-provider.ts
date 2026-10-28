@@ -246,8 +246,8 @@ export interface SupabaseProviderOptions {
    * filter). The database reports such a delete as zero rows, so for these
    * the provider checks the row is visible, deletes it, and reads it back:
    * gone from view is success, still visible is `forbidden`. A row that was
-   * not visible beforehand is `gone`. A `public` table matches either
-   * spelling; a test is asked with the bare name, then `public.name`.
+   * not visible beforehand is `gone`. A list matches a `public` table under
+   * either spelling; a test is asked once, with the name as the caller gives it.
    */
   binTables?: readonly string[] | ((resource: string) => boolean);
   /**
@@ -283,8 +283,9 @@ export interface SupabaseProviderOptions {
    * Which resources `subscribe` serves through Supabase Realtime: `true` for
    * all, a list of names, or a test. Off by default; a resource's own
    * `resources[name].realtime` wins. Needs a client with `channel()` (any
-   * `@supabase/supabase-js` client). A `public` resource matches either
-   * spelling; a test is asked with the bare name, then `public.name`.
+   * `@supabase/supabase-js` client). A list matches a `public` resource
+   * under either spelling; a test is asked once, with the name as the caller
+   * gives it.
    */
   realtime?: boolean | readonly string[] | ((resource: string) => boolean);
 }
@@ -486,7 +487,7 @@ function otherSpelling(resource: string): string {
   return schemaDot(resource) < 0 ? `public.${quotePart(table)}` : quotePart(table);
 }
 
-/** Every spelling of a resource, for a list or test given either: a `public` one bare first, then qualified. */
+/** Every spelling of a resource, for a list given either: a `public` one bare first, then qualified. */
 function spellings(resource: string): string[] {
   const { schema } = splitRelation(resource);
   if (schema !== "public") return [resource];
@@ -749,7 +750,10 @@ export function createSupabaseProvider(
     const all = options.realtime;
     if (!all) return false;
     if (all === true) return true;
-    return spellings(resource).some((name) => (typeof all === "function" ? all(name) : all.includes(name)));
+    // A test is asked once, as the caller names the resource: asking the other spelling too would
+    // let `r => r !== "x"` say yes to `public.x`. Only a list matches either spelling.
+    if (typeof all === "function") return all(resource);
+    return spellings(resource).some((name) => all.includes(name));
   }
 
   function isBinTable(resource: string): boolean {
@@ -757,7 +761,8 @@ export function createSupabaseProvider(
     if (mode) return mode === "bin";
     const bin = options.binTables;
     if (!bin) return false;
-    return spellings(resource).some((name) => (typeof bin === "function" ? bin(name) : bin.includes(name)));
+    if (typeof bin === "function") return bin(resource);
+    return spellings(resource).some((name) => bin.includes(name));
   }
 
   /** Awaits a write-path query: its rows, or a `DataWriteError`. */

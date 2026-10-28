@@ -1,7 +1,7 @@
 /**
  * The check-in example (`features.checkIn`): a sample form in focus layout, with every check-in
  * field type, an "Other" answer, a list filtered by an earlier answer, a searchable list, a
- * question a link can fill in (`?gym=hilltop`) and content steps. Drafts and the submit outbox
+ * question a link can fill in (`?location=hilltop`) and content steps. Drafts and the submit outbox
  * keep their data in AsyncStorage, so a check-in survives the app closing and waits offline.
  *
  * Submissions go to a stub `send` that answers like `submitResponse` would. Point it at your own
@@ -46,8 +46,8 @@ function load(raw: unknown): FormDefinition {
 /** The sample check-in, checked once when the app loads. */
 export const checkInForm: FormDefinition = load(sample.definition);
 
-/** The coaches the app supplies for the filtered question (`optionsFrom: { source: "host", key: "coaches" }`). */
-export const checkInHostOptions: Readonly<Record<string, readonly ChoiceOption[]>> = { coaches: sample.coaches };
+/** The people the app supplies for the filtered question (`optionsFrom: { source: "host", key: "members" }`). */
+export const checkInHostOptions: Readonly<Record<string, readonly ChoiceOption[]>> = { members: sample.members };
 
 /** Where check-in drafts are kept, by form and respondent. */
 export const checkInDrafts = createDraftStore(AsyncStorage);

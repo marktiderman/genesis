@@ -1077,8 +1077,8 @@
 
 ### Patch Changes
 
-- 209ca2d: Five more findings surfaced by CodeRabbit reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 3), confirmed present in this repo's own current main:
+- 209ca2d: Five more findings surfaced by CodeRabbit reviewing a consumer app's genesis-harness re-vendor
+  (round 3), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `parse_pr_arg()`: `/pull/(\d+)` had no boundary after the digits,
     so trailing garbage (`/pull/881oops`) still resolved to PR 881. Now requires a `/`, `?`, `#`, or
     end-of-string right after the number.
@@ -1096,14 +1096,14 @@ slugs`) by extracting the shared `TERM_HEADING` regex into a new dependency-neut
   Two more findings from the same round were investigated and rejected as stale/false-positive on
   the actual current code (not applied):
   - `data/_schema/tables/library.yml`'s `sprint` FK `pending: true` is intentional, not leftover —
-    Gamify (the real consumer this targets) has zero real `library`/`sprint` rows today, so
+    the consumer app this targets has zero real `library`/`sprint` rows today, so
     un-pending now would repeat the `conversations.yml` mistake in reverse (see PR discussion).
   - `skills/alignment/references/frame-dimensions.md`'s "Stack — pnpm" line accurately describes
-    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — Gamify's
-    bun mandate is a Gamify-repo convention, not Genesis's own.
+    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — that app's
+    bun mandate is its own repo's convention, not Genesis's own.
 
-- 209ca2d: Four more findings surfaced by Codex reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 4), confirmed present in this repo's own current main:
+- 209ca2d: Four more findings surfaced by Codex reviewing a consumer app's genesis-harness re-vendor
+  (round 4), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `run()`: a WARN (GitHub still computing mergeability, or
     re-review ordering can't be confirmed because the head commit date didn't load) was silently
     counted as a PASS in both the printed verdict and the `--ci` exit code — an operator could read
@@ -1130,8 +1130,8 @@ cm-9999` backlink to a nonexistent canon anchor (typo, or an anchor removed/rena
 
 ### Patch Changes
 
-- acaecd8: Five more findings surfaced by CodeRabbit reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881, round 3), confirmed present in this repo's own current main:
+- acaecd8: Five more findings surfaced by CodeRabbit reviewing a consumer app's genesis-harness re-vendor
+  (round 3), confirmed present in this repo's own current main:
   - `scripts/harness/readiness.py` `parse_pr_arg()`: `/pull/(\d+)` had no boundary after the digits,
     so trailing garbage (`/pull/881oops`) still resolved to PR 881. Now requires a `/`, `?`, `#`, or
     end-of-string right after the number.
@@ -1149,18 +1149,18 @@ slugs`) by extracting the shared `TERM_HEADING` regex into a new dependency-neut
   Two more findings from the same round were investigated and rejected as stale/false-positive on
   the actual current code (not applied):
   - `data/_schema/tables/library.yml`'s `sprint` FK `pending: true` is intentional, not leftover —
-    Gamify (the real consumer this targets) has zero real `library`/`sprint` rows today, so
+    the consumer app this targets has zero real `library`/`sprint` rows today, so
     un-pending now would repeat the `conversations.yml` mistake in reverse (see PR discussion).
   - `skills/alignment/references/frame-dimensions.md`'s "Stack — pnpm" line accurately describes
-    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — Gamify's
-    bun mandate is a Gamify-repo convention, not Genesis's own.
+    Genesis's own current stack (`packageManager: pnpm@9.15.4`, `pnpm-lock.yaml` present) — that app's
+    bun mandate is its own repo's convention, not Genesis's own.
 
 ## 0.4.2
 
 ### Patch Changes
 
-- ec452ac: Five findings surfaced by CodeRabbit + Codex reviewing Gamify's genesis-harness re-vendor
-  (gamify-platform PR #881), all confirmed present in this repo's own current main:
+- ec452ac: Five findings surfaced by CodeRabbit + Codex reviewing a consumer app's genesis-harness re-vendor
+  (one PR review), all confirmed present in this repo's own current main:
   - `data/_schema/tables/sprints.yml`: the `master_sprint`/`master` `anyOf` let a row set BOTH to
     different valid ids — the resolver prefers `master_sprint`, so the row validated while the
     deprecated `master` alias silently pointed elsewhere. Added a mutual-exclusion `not: {allOf:

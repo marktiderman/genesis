@@ -64,7 +64,7 @@ describe("Responses filters", () => {
         onChange={() => {}}
         filtered={false}
         choices={[
-          { key: "class", label: "Class", allLabel: "Any class", options: ["6:00 WOD"] },
+          { key: "class", label: "Class", allLabel: "Any class", options: ["6:00 class"] },
           { key: "coach", label: "Coach", allLabel: "Any coach", options: [] },
         ]}
       />,
@@ -76,8 +76,8 @@ describe("Responses filters", () => {
 
 describe("Headline numbers and question cards", () => {
   const items = [
-    answer("2026-10-23", { wod: 5, photo: true }),
-    answer("2026-10-23", { wod: 2, photo: false, wrong: "Rower was broken again" }),
+    answer("2026-10-23", { score: 5, photo: true }),
+    answer("2026-10-23", { score: 2, photo: false, wrong: "Rower was broken again" }),
   ];
 
   it("shows the four cards with their details", () => {
@@ -91,7 +91,7 @@ describe("Headline numbers and question cards", () => {
 
   it("counts low ratings as the follow-up list does, leaving skipped keys out", () => {
     const rated = { ...checkIn, blocks: [...checkIn.blocks, { kind: "field", id: "s", key: "staff", type: "rating", label: "Staff only", props: { max: 5 } }] } as typeof checkIn;
-    const lowOnlyInSkipped = [{ ...answer("2026-10-23", { wod: 5 }), definition: rated, answers: { r: 5, s: 1 } }];
+    const lowOnlyInSkipped = [{ ...answer("2026-10-23", { score: 5 }), definition: rated, answers: { r: 5, s: 1 } }];
     const skip = new Set(["staff"]);
     const h = headlineNumbers(lowOnlyInSkipped, [rated], { skip });
     expect(h.low).toEqual({ count: 0 });
@@ -99,10 +99,10 @@ describe("Headline numbers and question cards", () => {
   });
 
   it("says how many answers came from an earlier scale", () => {
-    const ten = { ...checkIn, blocks: [{ kind: "field", id: "r", key: "wod", type: "rating", label: "How was today's WOD?", props: { max: 10 } }] } as typeof checkIn;
-    const mixed = [{ ...answer("2026-10-22", {}), definition: ten, answers: { r: 9 } }, answer("2026-10-23", { wod: 4 })];
+    const ten = { ...checkIn, blocks: [{ kind: "field", id: "r", key: "score", type: "rating", label: "How was today's class?", props: { max: 10 } }] } as typeof checkIn;
+    const mixed = [{ ...answer("2026-10-22", {}), definition: ten, answers: { r: 9 } }, answer("2026-10-23", { score: 4 })];
     render(<QuestionSummaryCards summaries={summarizeResponses(mixed, [checkIn, ten])} responses={2} />);
-    expect(screen.getByTestId("scale-note-wod").textContent).toBe("1 answer from an earlier version's scale moved onto 1–5.");
+    expect(screen.getByTestId("scale-note-score").textContent).toBe("1 answer from an earlier version's scale moved onto 1–5.");
   });
 
   it("says when every low rating is followed up", () => {
@@ -120,7 +120,7 @@ describe("Headline numbers and question cards", () => {
         answerMeta={() => "rated 2"}
       />,
     );
-    const rating = screen.getByTestId("summary-wod");
+    const rating = screen.getByTestId("summary-score");
     expect(within(rating).getByText("2 answers · average 3.5")).toBeTruthy();
     expect(within(screen.getByTestId("summary-photo")).getByText("Agreed · 1 (50%)")).toBeTruthy();
     const text = screen.getByTestId("summary-wrong");

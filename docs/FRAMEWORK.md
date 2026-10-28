@@ -48,10 +48,10 @@ The rule below comes from this, as Mark put it:
 > clean as possible. At some point, we're going to say, "Oh, this actually would benefit us multiple
 > times inside of our current client app." Then we would make it a component inside the client app.
 >
-> Let's just say there's something that Growth90 needs that really doesn't need to ship to Genesis
+> Let's just say there's something that one app needs that really doesn't need to ship to Genesis
 > yet. It's a custom component for coaching your growth. The worksheet component really is: as we
 > start dialing into that next, there's going to be some real power there that we might really
-> customize for Growth90 that never needs to go to Genesis.
+> customize for that app that never needs to go to Genesis.
 >
 > For instance, as we're building out the course builder and the lessons, as we decide, "Hey, we
 > actually want a whole learning package inside of Genesis," then it makes sense to move that
@@ -90,7 +90,15 @@ its config. Track both, separately: inventions show where an app is genuinely it
 which might be worth promoting); recreations show where Genesis isn't being used, or has a gap.
 `genesis doctor` already flags several kinds of recreation (raw HTML in place of Genesis
 components, exports that shadow Genesis's, hard-coded colors), and the native rule pack flags
-screens that don't use a Genesis screen layout.
+screens that don't use a Genesis screen layout. Each Genesis package also declares the
+primitives it owns and the doctor enforces them in every app that installs it: data screens
+that hand-build a list instead of a view rendered by `ResourceView` (and the app wrappers around
+those tables), record pages that assemble their own header instead of `ResourceWorkspace`, and
+direct data access (`supabase.from`, `.rpc`) in screens instead of the view and the resource's
+provider. `genesis primitives` lists every such rule. To hold new code to them while old code
+moves screen by screen, list them in `doctor.ratchet` and run the doctor with `--base` (a rule
+its package declares `newOnly` ratchets without the list); otherwise existing findings stay
+warnings, which `--strict` fails.
 
 ## Where an invention lives: the promotion ladder
 
@@ -173,7 +181,7 @@ A consumer can stop at any rung. That is the product.
 ### The test that does the most work
 
 **Domain vocabulary.** A primitive that knows the words `onTrack`, `atRisk`, `engagement` or
-`rock` is not a primitive — it is a pattern. This is the test that most often catches a
+`quarterlyGoal` is not a primitive — it is a pattern. This is the test that most often catches a
 component filed one layer too low, and a component filed too low is how a second
 implementation gets born: the next person needing that shape doesn't find it where they
 look, so they write another.
@@ -316,7 +324,7 @@ Two notes from executing this section against the actual source:
   implementation is the failure mode this document exists to prevent. The argument for keeping
   it consulted only the **Leans on** column and skipped **Banned from it**, which bans domain
   words from primitives — and the emphasized test below the layers table settles it: *"A
-  primitive that knows the words `onTrack`, `atRisk`, `engagement` or `rock` is not a
+  primitive that knows the words `onTrack`, `atRisk`, `engagement` or `quarterlyGoal` is not a
   primitive — it is a pattern."* `status-badge.tsx` is typed as `"onTrack" | "atRisk" |
   "offTrack" | ...`, the only domain-carrying file among the 51 left in `ui/`. Failing the
   Patterns admission test does not make a component a primitive when the Primitives row bans

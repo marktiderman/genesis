@@ -225,7 +225,7 @@ export function QuestionSummaryCards({
   onClearFilters?: (() => void) | undefined;
   /** Today (YYYY-MM-DD) on the responses' clock, so written answers say "Today". */
   today?: string | undefined;
-  /** Extra words after a written answer's day, by response id: "6:00 WOD · rated 2". */
+  /** Extra words after a written answer's day, by response id: "6:00 class · rated 2". */
   answerMeta?: ((id: string) => ReactNode) | undefined;
   className?: string | undefined;
 }) {

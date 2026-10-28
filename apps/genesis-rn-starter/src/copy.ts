@@ -42,7 +42,7 @@ const en = {
     emptyTitle: "Your app starts here",
     emptyBody: "This is the first tab. Replace this screen with your own.",
     checkIn: "Try the check-in",
-    checkInFromLink: "Check in at Hilltop Gym",
+    checkInFromLink: "Check in from the Hilltop office",
   },
   checkIn: {
     done: "Done",

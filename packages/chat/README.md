@@ -196,6 +196,9 @@ from a trigger.
 
 ## Topics, scheduled send, availability, broadcast, search, previews (migration 0002)
 
+Migration 0002 is the chat extras. Its file name, `0002_genesis_chat_coaching.sql`, is historical:
+it is released and applied in apps, so it keeps that name.
+
 Everything here is in the core and `/react`, so web and native share it; `/web` draws it.
 
 ### Core client
@@ -617,10 +620,14 @@ you give. `video.playbackUrl(playbackId)` signs a link to the stored file.
 
 ```ts
 import { createChatAssistant } from "@marktiderman/genesis-chat/server";
-const assistant = createChatAssistant({ apiKey: process.env.ANTHROPIC_API_KEY! }); // or { anthropic: new Anthropic() }
+const assistant = createChatAssistant({ apiKey: process.env.ANTHROPIC_API_KEY!, context: "a support ticket" }); // or { anthropic: new Anthropic() }
 const { text, model, labelled } = await assistant.recap({ messages, since: lastReadAt, me: userId, resolveName });
-const draft = await assistant.draftReply({ messages, me: coachId, voice: "warm, brief, first names", resolveName });
+const draft = await assistant.draftReply({ messages, me: userId, voice: "warm, brief, first names", resolveName });
 ```
+
+The prompts speak of "a conversation" and draft for the person labelled You, in their voice. `context`
+(optional, a noun phrase such as "a coaching conversation" or "a support ticket") tells the model what
+kind of conversation it is.
 
 Default model `claude-sonnet-5-5`, low effort, with `fallbacks: "default"` (a declined request is
 re-run on Anthropic's recommended model; `fallbacks: false` turns it off). Nothing is sent: show the

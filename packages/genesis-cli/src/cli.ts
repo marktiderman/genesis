@@ -7,7 +7,9 @@
  *
  * Usage:
  *   npx @marktiderman/genesis-cli init <consumer-name> [--target <dir>] [--emit-conflicts]
- *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>]
+ *   npx @marktiderman/genesis-cli doctor [--strict] [--json] [--build] [--config <path>] [--base <ref>]
+ *   npx @marktiderman/genesis-cli primitives [--json]
+ *   npx @marktiderman/genesis-cli agents [--check]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
  *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>]
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
@@ -158,13 +160,14 @@ program
       } finally {
         await sql.end();
       }
-      source = `Postgres (${schemas.join(", ")})`;
+      source = (await import("./doctor/contracts.js")).postgresSource(schemas);
     }
     const content = emitContracts(tables, { source });
     const target = path.resolve(opts.out);
     if (opts.check) {
       const current = await fs.readFile(target, "utf-8").catch(() => null);
-      if (current !== content) {
+      // A checkout with Windows line endings holds the same contract.
+      if (current?.replace(/\r\n/g, "\n") !== content) {
         console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
         process.exit(1);
       }
@@ -184,7 +187,7 @@ program
   .option("-c, --config <path>", "Config file (default: genesis.config.json, then package.json \"genesis\")")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .option("--print-genesis", "Print the components, tokens and raw tags read from Genesis, and exit", false)
-  .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate), e.g. origin/main")
+  .option("--base <ref>", "The git ref change checks compare against (the packages pack's change gate, and the ratchet: newOnly rules report unchanged files as info), e.g. origin/main")
   .action(async (opts: { strict: boolean; json: boolean; build: boolean; config?: string; dir: string; printGenesis: boolean; base?: string }) => {
     const doctor = await import("./doctor/index.js");
     const root = path.resolve(opts.dir);
@@ -205,6 +208,59 @@ program
       else console.error(`✗ ${err.message}`);
       process.exitCode = 2;
     }
+  });
+
+program
+  .command("primitives")
+  .description("Print the Genesis primitives catalog: for each need, what to use, its import and docs, from every installed Genesis package's declarations")
+  .option("--json", "Print the catalog as JSON", false)
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { json: boolean; dir: string }) => {
+    const doctor = await import("./doctor/index.js");
+    const packages = doctor.discoverPackages(path.resolve(opts.dir));
+    const rows = doctor.primitivesCatalog(packages);
+    // A package whose declaration doesn't validate is missing from the catalog: say so and exit 1, in both formats.
+    const broken = packages.filter((p) => p.error);
+    if (opts.json) {
+      console.log(JSON.stringify({ primitives: rows, ...doctor.primitivesSummary(packages), errors: broken.map((p) => p.error) }, null, 2));
+    } else {
+      console.log(doctor.formatPrimitives(rows));
+    }
+    for (const p of broken) console.error(`! ${p.error}`);
+    for (const note of packages.flatMap((p) => p.ignored ?? [])) console.error(`! ${note}`);
+    if (broken.length) process.exitCode = 1;
+  });
+
+program
+  .command("agents")
+  .description(`Write the agent guide from the installed Genesis packages: .claude/skills/genesis/SKILL.md and a marked block in AGENTS.md`)
+  .option("--check", "Write nothing; exit 1 if either is missing or out of date (for CI)", false)
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { check: boolean; dir: string }) => {
+    const doctor = await import("./doctor/index.js");
+    const root = path.resolve(opts.dir);
+    const packages = doctor.discoverPackages(root);
+    // The guide would leave out a package whose declaration doesn't validate: fix it first, in both modes.
+    const broken = packages.filter((p) => p.error);
+    if (broken.length) {
+      for (const p of broken) console.error(`✗ ${p.error}`);
+      console.error("✗ The agent guide can't include these packages; fix their declarations (or upgrade @marktiderman/genesis-cli) first.");
+      process.exitCode = 1;
+      return;
+    }
+    if (opts.check) {
+      const state = doctor.agentGuideState(root, packages);
+      const bad = Object.entries(state).filter(([, v]) => v !== "ok");
+      if (bad.length) {
+        console.error(`✗ The agent guide is ${bad.map(([k, v]) => `${k === "skill" ? doctor.SKILL_PATH : "AGENTS.md"} ${v}`).join(", ")}. Run \`genesis agents\` and commit the result.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log("✔ The agent guide matches the installed Genesis packages.");
+      return;
+    }
+    const changed = doctor.writeAgentGuide(root, packages);
+    console.log(changed.length ? `✔ Wrote ${changed.join(", ")}` : "= The agent guide is up to date.");
   });
 
 const features = program
