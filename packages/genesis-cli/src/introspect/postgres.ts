@@ -6,7 +6,7 @@
 import type postgres from "postgres";
 import { checkEnumValues, viewColumnOrigins } from "./catalog-text.js";
 import { parseColumnComment, parseTableComment } from "./comments.js";
-import { storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
+import { qualifiedName, storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
 
 type Sql = postgres.Sql;
 
@@ -122,7 +122,7 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
   for (const row of columns) {
     let relation = into.get(row.oid);
     if (!relation) {
-      const name = `${row.schema}.${row.table}`;
+      const name = qualifiedName(row.schema, row.table);
       const comment = parseTableComment(row.table_comment, name);
       relation = {
         oid: row.oid,
@@ -148,6 +148,8 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
       type: storageTypeOf(row.db_type),
       array: row.is_array,
       nullable: !row.not_null,
+      // A view's columns always read as nullable: unknown until traced to a table.
+      ...(row.relkind === "v" || row.relkind === "m" ? { nullableUnknown: true } : {}),
       hasDefault: row.has_default,
       generated: row.generated,
       ...(row.enum_values ? { enumValues: row.enum_values } : {}),
@@ -163,24 +165,32 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
   }
   for (const l of links) {
     const column = into.get(l.oid)?.columns.get(l.attnum);
-    if (column) column.references = { resource: `${l.ref_schema}.${l.ref_table}`, field: l.ref_column };
+    if (column) column.references = { resource: qualifiedName(l.ref_schema, l.ref_table), field: l.ref_column };
   }
+  // Every check's list on a column, then only the values all of them allow.
+  const listed = new Map<IntrospectedColumn, string[]>();
   for (const check of checks) {
     const column = into.get(check.oid)?.columns.get(check.attnum);
     if (!column || column.array) continue;
     const values = checkEnumValues(check.definition, check.column);
     if (!values) continue;
-    // Two checks on one column (or a check on an enum): only the values both allow.
-    column.enumValues = column.enumValues ? column.enumValues.filter((v) => values.includes(v)) : values;
+    const before = listed.get(column);
+    listed.set(column, before ? before.filter((v) => values.includes(v)) : values);
+  }
+  for (const [column, values] of listed) {
+    // A check on an enum type narrows it; checks that share no value say nothing usable.
+    const allowed = column.enumValues ? column.enumValues.filter((v) => values.includes(v)) : values;
+    if (allowed.length > 0) column.enumValues = allowed;
   }
   for (const view of views) {
     const relation = into.get(view.oid);
     if (!relation) continue;
-    const attnumOf = new Map([...relation.columns].map(([attnum, c]) => [c.name, attnum]));
     relation.origins = new Map();
+    // By position: a view column's attnum is its target entry's resno, whatever it's called now.
     for (const origin of viewColumnOrigins(view.ev_action)) {
-      const attnum = attnumOf.get(origin.name);
-      if (attnum !== undefined) relation.origins.set(attnum, { relation: String(origin.relation), column: origin.column });
+      if (relation.columns.has(origin.position)) {
+        relation.origins.set(origin.position, { relation: String(origin.relation), column: origin.column });
+      }
     }
   }
   return added;
@@ -197,6 +207,7 @@ function inherit(own: IntrospectedColumn, source: IntrospectedColumn): Introspec
     type: own.type,
     array: own.array,
     nullable: source.nullable,
+    ...(source.nullableUnknown ? { nullableUnknown: true } : {}),
     hasDefault: own.hasDefault || source.hasDefault,
     generated: source.generated,
     ...(enumValues ? { enumValues } : {}),

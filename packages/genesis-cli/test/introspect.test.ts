@@ -252,6 +252,20 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       create view public.goal_titles as select id as goal_id, upper(title) as title, status from public.goals;
       create view public.goal_counts as select status, count(*) as n from public.goals group by status;
       create view public.hidden_view as select * from private.hidden;
+      create table public.odd_checks (
+        id int primary key,
+        x text check (x in ('a', 'b')) check (x in ('c', 'd')),
+        y text check (y in ('a', 'b', 'c')) check (y in ('b', 'c', 'z'))
+      );
+      create table public.pairs (id int primary key, other_id int not null, note text);
+      create view public.swapped as select * from public.pairs;
+      alter view public.swapped rename column id to tmp;
+      alter view public.swapped rename column other_id to id;
+      alter view public.swapped rename column tmp to other_id;
+      alter view public.swapped rename column note to memo;
+      create schema "my.s";
+      create table "my.s"."we.ird" (id int primary key, pair_id int references public.pairs (id));
+      create table public."a.b" (id int primary key, w int references "my.s"."we.ird" (id));
     `);
   });
   afterAll(async () => {
@@ -263,16 +277,20 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
   it("reads tables, keys, types, links and comment settings from the catalog", async () => {
     const tables = await introspectPostgres(sql, ["public"]);
     expect(tables.map((t) => t.name)).toEqual([
+      'public."a.b"',
       "public.customers",
       "public.goal_counts",
       "public.goal_titles",
       "public.goals",
       "public.hidden_view",
       "public.my_goals",
+      "public.odd_checks",
       "public.owner_customers",
+      "public.pairs",
       "public.programs",
+      "public.swapped",
     ]);
-    const customers = tables[0]!;
+    const customers = tables.find((t) => t.name === "public.customers")!;
     expect(customers).toMatchObject({ key: ["id"], description: "People in a program.", settings: { label: "Customer accounts", labelField: "name" } });
     const col = (n: string) => customers.columns.find((c) => c.name === n)!;
     expect(col("status")).toMatchObject({ dbType: "customer_status", enumValues: ["active", "paused", "done"], hasDefault: true, nullable: false });
@@ -291,6 +309,10 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     expect(col("status")).toMatchObject({ enumValues: ["open", "done"], nullable: false, hasDefault: true });
     expect(col("stage")).toMatchObject({ enumValues: ["a", "b"], nullable: true });
     expect(col("title").enumValues).toBeUndefined();
+    const odd = (await introspectPostgres(sql, ["public"])).find((t) => t.name === "public.odd_checks")!;
+    // Two checks sharing nothing say nothing; two that overlap give what both allow.
+    expect(odd.columns.find((c) => c.name === "x")!.enumValues).toBeUndefined();
+    expect(odd.columns.find((c) => c.name === "y")!.enumValues).toEqual(["b", "c"]);
   });
 
   it("gives a simple view its table's key and column facts", async () => {
@@ -321,12 +343,43 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     // A view Postgres can't update (grouping) is left as read.
     const counts = tables.find((t) => t.name === "public.goal_counts")!;
     expect(counts.key).toEqual([]);
-    expect(counts.columns.every((c) => c.nullable && !c.enumValues)).toBe(true);
+    expect(counts.columns.every((c) => c.nullable && c.nullableUnknown && !c.enumValues)).toBe(true);
 
     // A source table outside the schemas asked for is read, not emitted.
     const hidden = tables.find((t) => t.name === "public.hidden_view")!;
     expect(hidden.key).toEqual(["id"]);
     expect(hidden.columns.map((c) => c.nullable)).toEqual([false, false]);
+  });
+
+  it("follows a renamed view column by position, not the name it was created with", async () => {
+    const swapped = (await introspectPostgres(sql, ["public"])).find((t) => t.name === "public.swapped")!;
+    // `id` in the view is the table's other_id now: the key is the view's other_id.
+    expect(swapped.key).toEqual(["other_id"]);
+    const col = (n: string) => swapped.columns.find((c) => c.name === n)!;
+    expect(col("other_id")).toMatchObject({ nullable: false, hasDefault: false });
+    expect(col("id")).toMatchObject({ nullable: false });
+    expect(col("id").nullableUnknown).toBeUndefined();
+    // Renamed once: still traced, still nullable as the table's note is.
+    expect(col("memo")).toMatchObject({ nullable: true });
+    expect(col("memo").nullableUnknown).toBeUndefined();
+  });
+
+  it("leaves a view's guessed nullability out of the contract, and states the known kinds", async () => {
+    const out = emitContracts(await introspectPostgres(sql, ["public"]), { source: "x" });
+    const block = (name: string) => out.slice(out.indexOf(`name: "${name}"`), out.indexOf("});", out.indexOf(`name: "${name}"`)));
+    expect(block("public.goal_counts")).not.toContain("nullable:");
+    expect(block("public.goals")).toContain('{ name: "title", type: "string", dbType: "text", nullable: false');
+    expect(block("public.goals")).toContain('{ name: "due_on", type: "datetime", dbType: "date", nullable: true');
+    expect(block("public.my_goals")).toContain('{ name: "title", type: "string", dbType: "text", nullable: false');
+  });
+
+  it("quotes a name part that holds a dot, so it splits back exactly", async () => {
+    const [weird] = await introspectPostgres(sql, ["my.s"]);
+    expect(weird!.name).toBe('"my.s"."we.ird"');
+    expect(weird!.columns.find((c) => c.name === "pair_id")!.references).toEqual({ resource: "public.pairs", field: "id" });
+    const dotted = (await introspectPostgres(sql, ["public"])).find((t) => t.table === "a.b")!;
+    expect(dotted.name).toBe('public."a.b"');
+    expect(dotted.columns.find((c) => c.name === "w")!.references).toEqual({ resource: '"my.s"."we.ird"', field: "id" });
   });
 
   it("emits the same bytes on a re-run", async () => {

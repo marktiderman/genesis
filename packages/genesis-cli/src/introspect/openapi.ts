@@ -5,7 +5,7 @@
 // comments arrive as descriptions, so `@genesis` settings work here too.
 
 import { parseColumnComment, parseTableComment } from "./comments.js";
-import { storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
+import { qualifiedName, storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
 
 interface OpenApiProperty {
   type?: string;
@@ -50,7 +50,7 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
     .sort()
     .map((tableName) => {
       const def = definitions[tableName]!;
-      const name = `${schema}.${tableName}`;
+      const name = qualifiedName(schema, tableName);
       const required = new Set(def.required ?? []);
       const key: string[] = [];
       const columns: IntrospectedColumn[] = Object.entries(def.properties ?? {}).map(([column, prop]) => {
@@ -71,7 +71,7 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
           hasDefault: prop.default !== undefined,
           generated: false,
           ...(prop.enum ? { enumValues: prop.enum.map(String) } : {}),
-          ...(fk ? { references: { resource: `${schema}.${fk[1]}`, field: fk[2]! } } : {}),
+          ...(fk ? { references: { resource: qualifiedName(schema, fk[1]!), field: fk[2]! } } : {}),
           ...(comment.description ? { description: comment.description } : {}),
           ...(comment.settings ? { settings: comment.settings } : {}),
         };

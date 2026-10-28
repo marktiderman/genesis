@@ -5,7 +5,12 @@
 
 /** A view column that is a plain reference to a column of another relation. */
 export interface ViewColumnOrigin {
-  /** The view column's name. */
+  /**
+   * The view column's number (`pg_attribute.attnum`): the entry's `resno`. Never match on the
+   * stored `resname`, which `alter view … rename column` doesn't update.
+   */
+  position: number;
+  /** The column's name when the view was created (it may have been renamed since). */
   name: string;
   /** The relation the column comes from (`pg_class.oid`). */
   relation: number;
@@ -88,9 +93,10 @@ export function viewColumnOrigins(evAction: string): ViewColumnOrigin[] {
       if (depth === 4 && entry) {
         const relation = Number(entry.get(":resorigtbl"));
         const column = Number(entry.get(":resorigcol"));
-        const name = entry.get(":resname");
-        if (entry.get(":resjunk") !== "true" && name !== undefined && relation > 0 && column > 0) {
-          origins.push({ name, relation, column });
+        const position = Number(entry.get(":resno"));
+        const name = entry.get(":resname") ?? "";
+        if (entry.get(":resjunk") !== "true" && position > 0 && relation > 0 && column > 0) {
+          origins.push({ position, name, relation, column });
         }
         entry = null;
       }

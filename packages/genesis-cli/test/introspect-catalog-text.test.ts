@@ -14,19 +14,19 @@ const fixture = (name: string) => readFileSync(new URL(`./fixtures/introspect/${
 describe("viewColumnOrigins", () => {
   it("traces every plain column of a select-star view, not the subquery's", () => {
     expect(viewColumnOrigins(fixture("view-select-star.txt"))).toEqual([
-      { name: "id", relation: 16384, column: 1 },
-      { name: "person_id", relation: 16384, column: 2 },
-      { name: "Title X", relation: 16384, column: 3 },
-      { name: "status", relation: 16384, column: 4 },
-      { name: "kind", relation: 16384, column: 5 },
-      { name: "due_on", relation: 16384, column: 6 },
+      { position: 1, name: "id", relation: 16384, column: 1 },
+      { position: 2, name: "person_id", relation: 16384, column: 2 },
+      { position: 3, name: "Title X", relation: 16384, column: 3 },
+      { position: 4, name: "status", relation: 16384, column: 4 },
+      { position: 5, name: "kind", relation: 16384, column: 5 },
+      { position: 6, name: "due_on", relation: 16384, column: 6 },
     ]);
   });
 
   it("follows a rename and leaves a computed column out", () => {
     expect(viewColumnOrigins(fixture("view-renamed.txt"))).toEqual([
-      { name: "goal_id", relation: 16384, column: 1 },
-      { name: "status", relation: 16384, column: 4 },
+      { position: 1, name: "goal_id", relation: 16384, column: 1 },
+      { position: 3, name: "status", relation: 16384, column: 4 },
     ]);
   });
 
