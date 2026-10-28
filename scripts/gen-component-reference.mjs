@@ -33,7 +33,7 @@
  *   node scripts/gen-component-reference.mjs
  */
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -166,7 +166,7 @@ const REEXPORT_STAR_RE = /export\s+\*\s+from\s+["']([^"']+)["'];?/g;
 // past an earlier `*/` and steal a comment that belongs to a non-exported
 // helper above the next export.
 const DECL_RE =
-  /(?:^|\n)(\/\*\*(?:(?!\*\/)[\s\S])*?\*\/\s*\n)?export\s+(function|const|let|var|class|interface|type|default function)\s+([A-Za-z_$][A-Za-z0-9_$]*)/g;
+  /(?:^|\n)(\/\*\*(?:(?!\*\/)[\s\S])*?\*\/\s*\n)?export\s+(?:async\s+)?(function|const|let|var|class|interface|type|default function)\s+([A-Za-z_$][A-Za-z0-9_$]*)/g;
 
 // `Experimental` is the fourth value, added for primitives that wrap an
 // upstream `unstable_*` export whose API the vendor documents as subject to
@@ -213,7 +213,28 @@ function parseJsDoc(jsdoc) {
 // Path resolution + source scanning
 // ---------------------------------------------------------------------------
 
+// Workspace packages by name, so `@marktiderman/genesis-core/urls` resolves to its source.
+let packageDirs = null;
+function packageDir(name) {
+  if (!packageDirs) {
+    packageDirs = new Map();
+    const root = resolve(REPO_ROOT, "packages");
+    for (const dir of readdirSync(root)) {
+      const manifest = join(root, dir, "package.json");
+      if (existsSync(manifest)) packageDirs.set(JSON.parse(readFileSync(manifest, "utf8")).name, join(root, dir));
+    }
+  }
+  return packageDirs.get(name) ?? null;
+}
+
 function resolveImport(fromFileAbs, importPath) {
+  if (!importPath.startsWith(".")) {
+    // A package-qualified path: `@scope/name` or `@scope/name/sub`, read from the package's src.
+    const m = /^(@[^/]+\/[^/]+|[^@/][^/]*)(?:\/(.+))?$/.exec(importPath);
+    const dir = m && packageDir(m[1]);
+    if (!dir) return null;
+    return resolveImport(join(dir, "src", "index.ts"), `./${m[2] ?? "index"}`);
+  }
   const fromDir = dirname(fromFileAbs);
   const base = resolve(fromDir, importPath);
   const candidates = [
@@ -243,6 +264,41 @@ function scanSourceFile(absPath) {
     }
   }
   return out;
+}
+
+/**
+ * Where `name` is declared, following re-exports from `file`: `export { name } from "…"`
+ * (relative or package-qualified) and `import { name } from "…"; export { name }`.
+ * Returns the declaring file and its kind and JSDoc, or null.
+ */
+export function resolveDeclaration(file, name, depth = 0) {
+  if (!file || depth > 8 || !existsSync(file)) return null;
+  const own = scanSourceFile(file).get(name);
+  if (own) return { file, ...own };
+  const src = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const named = (list) =>
+    list
+      .split(",")
+      .map((e) => e.replace(/\s+/g, " ").trim().replace(/^type\s+/, ""))
+      .filter(Boolean)
+      .map((e) => {
+        const [orig, alias] = e.split(/\s+as\s+/).map((x) => x.trim());
+        return { orig, name: alias || orig };
+      });
+  // `export { … name … } from "path"`
+  for (const m of src.matchAll(/export\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/g)) {
+    const hit = named(m[1]).find((e) => e.name === name);
+    if (hit) return resolveDeclaration(resolveImport(file, m[2]), hit.orig, depth + 1);
+  }
+  // `export { … name … }` of something imported
+  const local = [...src.matchAll(/export\s+(?:type\s+)?\{([^}]+)\}\s*;/g)].flatMap((m) => named(m[1]));
+  const exported = local.find((e) => e.name === name);
+  if (!exported) return null;
+  for (const m of src.matchAll(/import\s+(?:type\s+)?\{([^}]+)\}\s+from\s+["']([^"']+)["']/g)) {
+    const hit = named(m[1]).find((e) => e.name === exported.orig);
+    if (hit) return resolveDeclaration(resolveImport(file, m[2]), hit.orig, depth + 1);
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -281,13 +337,16 @@ function parseBarrel(barrelAbsPath, visited = new Set()) {
       const cleaned = entry.replace(/^type\s+/, "");
       const [orig, alias] = cleaned.split(/\s+as\s+/).map((s) => s.trim());
       const name = alias || orig;
-      const scanned = sourceFile ? scanSourceFile(sourceFile) : new Map();
-      const meta = scanned.get(orig) || { kind: null, summary: null, stability: null };
+      // The declaration itself, through any chain of re-exports (local or package-qualified).
+      const found = resolveDeclaration(sourceFile, orig);
+      const meta = found
+        ? { kind: found.kind, summary: found.summary, stability: found.stability }
+        : { kind: null, summary: null, stability: null };
       const finalIsType = isType || meta.kind === "type" || meta.kind === "interface";
       exports.push({
         name,
         isType: finalIsType,
-        sourceFile,
+        sourceFile: found?.file ?? sourceFile,
         ...meta,
       });
     }
@@ -502,4 +561,5 @@ function main() {
   );
 }
 
-main();
+// Run when executed, not when a test imports the helpers.
+if (process.argv[1] && resolve(process.argv[1]) === __filename) main();
