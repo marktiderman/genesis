@@ -19,6 +19,7 @@ import {
   useResourceForm,
   type DataProvider,
 } from "@marktiderman/genesis-core";
+import { blankValues } from "@marktiderman/genesis-core/hooks";
 
 function setup(extra: Partial<DataProvider> = {}) {
   const base = createMockProvider({ tasks: [{ id: "t1", title: "Write", status: "done" }] }, { delay: 0 });
@@ -257,3 +258,61 @@ describe("useResourceForm — an edit never blanks what it didn't load", () => {
   });
 });
 
+
+describe("useResourceForm — an empty input is no value", () => {
+  const fields = [
+    { key: "title", type: "text" as const, required: true },
+    { key: "due_on", type: "date" as const },
+    { key: "points", type: "number" as const },
+    { key: "stage", type: "select" as const, options: [{ value: "a", label: "A" }] },
+    { key: "owner_id", type: "relation" as const },
+    { key: "notes", type: "textarea" as const, nullable: true },
+    { key: "created_by", type: "text" as const, nullable: false, hasDefault: true },
+    { key: "code", type: "text" as const, nullable: false },
+    { key: "legacy", type: "text" as const },
+  ];
+  const blank = { title: "T", due_on: "", points: "", stage: "", owner_id: "", notes: "", created_by: "", code: "", legacy: "" };
+
+  it("leaves blanks out of a create, so the columns' defaults apply", () => {
+    expect(blankValues(blank, fields, "create")).toEqual({ title: "T", code: "", legacy: "" });
+  });
+
+  it("clears blanks to null on an edit", () => {
+    expect(blankValues(blank, fields, "edit")).toEqual({
+      title: "T",
+      due_on: null,
+      points: null,
+      stage: null,
+      owner_id: null,
+      notes: null,
+      created_by: "",
+      code: "",
+      legacy: "",
+    });
+  });
+
+  it("keeps every real value, falsy ones included", () => {
+    const values = { title: "T", points: 0, notes: null, done: false, tags: [] };
+    expect(blankValues(values, fields, "create")).toEqual(values);
+  });
+
+  it("sends a create without an empty date, and an edit with null", async () => {
+    const create = vi.fn(async (_r: string, { data }: { data: unknown }) => ({ data: { id: "t9", ...(data as object) } }));
+    const update = vi.fn(async (_r: string, { id, data }: { id: string | number; data: unknown }) => ({ data: { id, ...(data as object) } }));
+    const { wrapper } = setup({ create: create as unknown as DataProvider["create"], update: update as unknown as DataProvider["update"] });
+    const dates = [{ key: "title", type: "text" as const }, { key: "due_on", type: "date" as const }];
+    const { result: created } = renderHook(() => useResourceForm({ resource: "tasks", action: "create", fields: dates }), { wrapper });
+    await act(async () => {
+      await created.current.handleSave({ title: "New", due_on: "" });
+    });
+    expect(create.mock.calls[0]![1].data).toEqual({ title: "New" });
+    const { result: edited } = renderHook(
+      () => useResourceForm({ resource: "tasks", action: "edit", id: "t1", initialData: { id: "t1", title: "W", due_on: "2026-01-01" }, fields: dates }),
+      { wrapper },
+    );
+    await act(async () => {
+      await edited.current.handleSave({ title: "W", due_on: "" });
+    });
+    expect(update.mock.calls[0]![1].data).toEqual({ title: "W", due_on: null });
+  });
+});

@@ -61,7 +61,7 @@ export {
   type ResourceScope,
 } from "./viewer-scope";
 export { DEFAULT_LIVE_DEBOUNCE_MS, DEFAULT_LIVE_RESYNC_MS, type LiveOptions } from "./use-live";
-export { useResourceForm, buildArrayItemDefaults, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
+export { useResourceForm, buildArrayItemDefaults, blankValues, type UseResourceFormOptions, type UseResourceFormReturn } from "./use-resource-form";
 export { useWizard, type WizardStep, type UseWizardReturn } from "./use-wizard";
 export {
   DEFAULT_UNDO_DELAY_MS,

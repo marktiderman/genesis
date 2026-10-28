@@ -171,17 +171,30 @@ export type RowPicture =
   | { readonly kind: "image"; readonly src: string; readonly alt: string; readonly fallback: string }
   | { readonly kind: "initials"; readonly text: string };
 
-/** The words a view shows. Each defaults from the contract (`noun`, labels). */
+/**
+ * The words a view shows. Each one is a step in a chain, and each step overrides the one before:
+ * words derived from the resource's name, then the contract's (`noun`, `nounPlural`, `label`, which
+ * `genesis introspect` reads from the table comment's `@genesis {...}`), then these, then the
+ * screen's own props. Templates take `{noun}`, `{nouns}`, `{count}` and `{total}`.
+ */
 export interface ViewCopy {
-  /** One row, in a sentence: "brand". */
+  /** One row, in a sentence: "brand". Default: the contract's `noun`, then the table name's singular. */
   noun?: string;
-  /** Several: "brands". Default `noun` + "s". */
+  /** Several: "brands". Default: the contract's `nounPlural`, then `noun` + "s". */
   nounPlural?: string;
   /** The page title. Default: the contract's label, then the plural noun in title case. */
   title?: string;
   subtitle?: string;
   empty?: { title?: string; body?: string };
+  /** The create button. Default "New". */
   create?: string;
+  /** The form's title. Default "New {noun}" and "Edit {noun}" (the UI catalogue's `form`). */
+  form?: { createTitle?: string; editTitle?: string };
+  /**
+   * The count beside the title. Default "{count} {noun}" for one, "{count} {nouns}" for more, and
+   * "{count} of {total}" when filtered (the UI catalogue's `page.count*`).
+   */
+  count?: { one?: string; other?: string; filtered?: string };
 }
 
 /** What `defineView` accepts. */

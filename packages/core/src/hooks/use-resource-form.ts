@@ -339,6 +339,35 @@ export function buildArrayItemDefaults(
   return defaults;
 }
 
+// Input types whose empty value ("") can be a real value of the column.
+const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "url", "hidden"]);
+
+/**
+ * What a save sends for an input left empty (""): a create leaves it out, so the column's
+ * default (or null) applies, and an edit clears it to null. "" stays only for a text column
+ * that can't be null and, on a create, has no default to fall back on.
+ */
+export function blankValues(
+  values: Record<string, unknown>,
+  fields: readonly ResourceFormFieldDef[],
+  action: "create" | "edit",
+): Record<string, unknown> {
+  const byKey = new Map(fields.map((f) => [f.key, f]));
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (value !== "") {
+      out[key] = value;
+      continue;
+    }
+    const field = byKey.get(key);
+    const keepsEmptyText =
+      TEXT_TYPES.has(field?.type ?? "text") && field?.nullable !== true && !(action === "create" && field?.hasDefault);
+    if (keepsEmptyText) out[key] = "";
+    else if (action === "edit") out[key] = null;
+  }
+  return out;
+}
+
 /** Build default values from fields and existing data */
 function buildDefaults(
   fields: ResourceFormFieldDef[],
@@ -655,7 +684,7 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
       const writable = lockedOnEdit.size
         ? Object.fromEntries(Object.entries(submitted).filter(([k]) => !lockedOnEdit.has(k)))
         : submitted;
-      const formData =
+      const changed =
         action === "edit" && updates === "loaded" && opened
           ? Object.fromEntries(
               Object.entries(writable).filter(
@@ -667,6 +696,8 @@ export function useResourceForm(options: UseResourceFormOptions): UseResourceFor
               ),
             )
           : writable;
+      // An empty input is no value: left out of a create, null on an edit (see `blankValues`).
+      const formData = blankValues(changed, resolvedFields, action);
       // An edit with nothing left to write (only read-only fields) has nothing to send.
       if (action === "edit" && Object.keys(formData).length === 0) {
         markSaved();
