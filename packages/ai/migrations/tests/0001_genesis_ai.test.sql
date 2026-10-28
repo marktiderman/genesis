@@ -2,8 +2,8 @@
 -- pgTAP test for 0001_genesis_ai.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users and tenants, reads only its own rows, and rolls
--- everything back. If your app replaced private.genesis_ai_admin, it is replaced
--- again inside this transaction only.
+-- everything back. If your app replaced private.genesis_ai_admin, or set budgets, they
+-- are replaced and cleared inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
 select plan(68);
@@ -48,6 +48,9 @@ create temp table k (name text primary key, id uuid);
 grant select, insert on k to service_role, authenticated;
 create function pg_temp.k(n text) returns uuid language sql stable as $$ select id from k where name = n $$;
 grant execute on function pg_temp.k(text) to service_role, authenticated;
+
+-- The app's own budgets (a default, say) are set aside inside this transaction.
+delete from genesis_ai.budgets;
 
 -- c3 administers e1.
 create or replace function private.genesis_ai_admin(p_user uuid, p_tenant uuid)
