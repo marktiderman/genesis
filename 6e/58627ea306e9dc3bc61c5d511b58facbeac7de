@@ -1,0 +1,23 @@
+.changeset/form-empty-inputs.md
+  s_5beca2076873c9::t_2c68cfd5d53b68 1-5
+packages/core/src/hooks/use-resource-form.ts
+  s_5beca2076873c9::t_8e569eb8e6c936 346-352,358,364-370,704-710
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_5beca2076873c9::t_ca94edf81f6152 265-268,272,274-276,278-281,283-284,287-289,293-296,302,306-310,313,317-324,327-329,331,333-334
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6e58627ea306e9dc3bc61c5d511b58facbeac7de",
+  "prompts": {},
+  "sessions": {
+    "s_5beca2076873c9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c5d89ba4-dad1-44d8-aba4-9ec29609986b",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
