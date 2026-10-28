@@ -180,7 +180,11 @@ export type RowPicture =
 export interface ViewCopy {
   /** One row, in a sentence: "brand". Default: the contract's `noun`, then the table name's singular. */
   noun?: string;
-  /** Several: "brands". Default: the contract's `nounPlural`, then `noun` + "s". */
+  /**
+   * Several: "brands". Default: the contract's `nounPlural`, then the plural of a `noun` the view or
+   * contract gives ("entry" → "entries"); with only a noun derived from the name, the contract's
+   * label when it reads as a plural ("People"), else the table name.
+   */
   nounPlural?: string;
   /** The page title. Default: the contract's label, then the plural noun in title case. */
   title?: string;
