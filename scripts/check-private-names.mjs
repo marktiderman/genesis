@@ -31,16 +31,33 @@ const BLOCKED = new Set([
 const SKIP = /\.(png|jpe?g|gif|webp|ico|icns|woff2?|ttf|otf|pdf|zip|gz|mp4|mov|wasm)$/i;
 
 const hash = (word) => createHash("sha256").update(word).digest("hex");
+// Splits at camelCase (fooBar) and acronym-to-PascalCase (FOOBar) boundaries before lowercasing.
 const words = (line) =>
   line
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
     .filter(Boolean);
 
-const files = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter((f) => f && !SKIP.test(f));
 const seen = new Map();
+const isBlocked = (word) => {
+  let blocked = seen.get(word);
+  if (blocked === undefined) seen.set(word, (blocked = BLOCKED.has(hash(word))));
+  return blocked;
+};
 let found = 0;
+
+// Every tracked path first, binaries included: a folder or file can name an app too.
+const paths = execFileSync("git", ["ls-files", "-z"], { encoding: "utf8" }).split("\0").filter(Boolean);
+for (const path of paths) {
+  if (words(path).some(isBlocked)) {
+    console.error(`${path}: the path names an app or customer built on Genesis. Rename it.`);
+    found++;
+  }
+}
+
+const files = paths.filter((f) => !SKIP.test(f));
 for (const file of files) {
   let text;
   try {
@@ -53,9 +70,7 @@ for (const file of files) {
     // A lockfile's base64 integrity hash splits into chance words at its capitals.
     if (/\bintegrity:/.test(line)) return;
     for (const word of words(line)) {
-      let blocked = seen.get(word);
-      if (blocked === undefined) seen.set(word, (blocked = BLOCKED.has(hash(word))));
-      if (blocked) {
+      if (isBlocked(word)) {
         console.error(`${file}:${i + 1}: names an app or customer built on Genesis. Write "a consumer app" or a neutral sample name.`);
         found++;
         break;
