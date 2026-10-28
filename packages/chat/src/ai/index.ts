@@ -12,7 +12,8 @@
  * system prompts, transcript fencing, model, effort and refusal fallback.
  */
 import { defineTask, GuardrailError, type AiContext, type TaskDefinition } from "@marktiderman/genesis-ai";
-import { z } from "zod";
+// `zod/v4` is Zod 4 in both Zod 3.25+ and Zod 4, so apps on either can install this.
+import { z } from "zod/v4";
 import { DRAFT_SYSTEM, draftPrompt, RECAP_SYSTEM, recapPrompt, type AssistantMessage } from "../server/assistant";
 
 const MAX_MESSAGES = 200;
