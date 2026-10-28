@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_eb8f273c0695bf::t_459c4f14ded054 7016-7017,10374-10377,17486,17496,18947,21408-21412
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a47cb9df4b66dc907a812d588ece0eb28f09fdb5",
+  "prompts": {},
+  "sessions": {
+    "s_eb8f273c0695bf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ebe7fe83-aa8e-4bb2-aa43-5134866b623d",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
