@@ -159,27 +159,3 @@ export const webHandoffBlock = defineBlock({
   },
 });
 
-/**
- * The owner-access block: the contract every Genesis block with owned rows
- * calls in its policies. Two fail-closed wrappers over the app's hooks
- * (`genesis_owner_can`, `genesis_readable_owners`): a missing or broken hook
- * means no.
- *
- * @stability Experimental
- */
-export const ownerAccessBlock = defineBlock({
-  id: "owner-access",
-  requires: ["tenant-features"],
-  platforms: ["web", "native"],
-  contributes: {
-    migrations: [
-      {
-        package: PACKAGE,
-        file: "migrations/0009_genesis_owner_access.sql",
-        test: "migrations/tests/0009_genesis_owner_access.test.sql",
-      },
-      { package: PACKAGE, file: "migrations/0016_genesis_viewer_people.sql", test: "migrations/tests/0016_genesis_viewer_people.test.sql" },
-    ],
-    privacy: { notes: ["Stores nothing; it only asks the app's hooks who may read and write."] },
-  },
-});
