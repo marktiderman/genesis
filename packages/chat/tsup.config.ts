@@ -8,6 +8,7 @@ export default defineConfig({
     native: "src/native/index.ts",
     push: "src/native/push.ts",
     server: "src/server/index.ts",
+    ai: "src/ai/index.ts",
   },
   format: ["esm"],
   dts: true,
@@ -29,5 +30,6 @@ export default defineConfig({
     "lucide-react",
     "frimousse",
     "hls.js",
+    "zod",
   ],
 });
