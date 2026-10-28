@@ -12,6 +12,10 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 5
+    # Leave package.json ranges alone while the new version still satisfies them: a minor or
+    # patch bump only moves the lockfile, so published packages' ranges don't drift without a
+    # changeset. A bump outside a range edits the manifest and needs one.
+    versioning-strategy: increase-if-necessary
     commit-message:
       prefix: "chore(deps)"
     groups:
@@ -24,6 +28,13 @@ updates:
     ignore:
       # Genesis's own packages move through changesets, not Dependabot.
       - dependency-name: "@marktiderman/*"
+      # The Expo starter's native packages move together with the Expo SDK (`expo install`).
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native/*"
 
   - package-ecosystem: github-actions
     directory: /

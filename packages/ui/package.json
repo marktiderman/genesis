@@ -15,7 +15,7 @@
     "tailwind",
     "radix"
   ],
-  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ui#readme",
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ui",
   "bugs": {
     "url": "https://github.com/marktiderman/genesis/issues"
   },

@@ -74,7 +74,17 @@ Merges to `main` open or update a "chore: version packages" PR (via
 publishes to npm via OIDC trusted publishing — no long-lived npm token in
 this repo.
 
-## Conduct, security and support
+## Getting help
 
-Everyone here follows the [code of conduct](./CODE_OF_CONDUCT.md). Report a vulnerability
-privately, as [`SECURITY.md`](./SECURITY.md) says. For help, see [`SUPPORT.md`](./SUPPORT.md).
+- **How do I use a package?** Start with its README under `packages/`, then
+  [`docs/component-reference.md`](./docs/component-reference.md) for every export and the
+  design docs in [`docs/`](./docs).
+- **Found a bug?** Open an [issue](https://github.com/marktiderman/genesis/issues/new/choose)
+  with the package, its version and the smallest steps that reproduce it.
+- **Want a feature?** Open an issue that describes the need. Read
+  [`docs/FRAMEWORK.md`](./docs/FRAMEWORK.md) first: Genesis grows by reuse, then extension, and
+  takes in what several apps need.
+
+## Security
+
+Report a vulnerability privately, as [`SECURITY.md`](./SECURITY.md) says, never in a public issue.

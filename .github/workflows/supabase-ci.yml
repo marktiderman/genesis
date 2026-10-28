@@ -63,9 +63,9 @@ on:
         type: number
         default: 20
       image-registry:
-        description: "Where the Supabase CLI pulls its images: ghcr.io (default), public.ecr.aws (the CLI's own default, whose anonymous pulls are capped per IP and per month) or docker.io"
+        description: "Optional registry the Supabase CLI pulls its images from (ghcr.io, public.ecr.aws or docker.io). Empty (the default) keeps the CLI's own chain: public.ecr.aws, then ghcr.io, then Docker Hub. Setting one turns that fallback off"
         type: string
-        default: ghcr.io
+        default: ""
     secrets:
       npm-token:
         description: "Optional registry token, exposed as NODE_AUTH_TOKEN to the install (for an .npmrc that reads it)"
@@ -227,10 +227,6 @@ jobs:
     timeout-minutes: ${{ inputs.timeout-minutes }}
     permissions:
       contents: read
-    # Shared runner IPs hit the CLI's default registry's anonymous limits ("Data limit
-    # exceeded"); GHCR serves the same Supabase images for public pulls.
-    env:
-      SUPABASE_INTERNAL_IMAGE_REGISTRY: ${{ inputs.image-registry }}
     concurrency:
       group: genesis-supabase-pgtap-${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}-${{ inputs.working-directory }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -259,6 +255,14 @@ jobs:
           [ -e "$app/$TESTS" ] || fail "no pgTAP tests at '$TESTS' in '$WD' (set tests-path, or pass pgtap: false)"
           real=$(cd -- "$(dirname -- "$app/$TESTS")" && pwd -P)
           case "$real/" in "$ws"/*) ;; *) fail "tests-path '$TESTS' is outside the repository" ;; esac
+
+      # Only an explicit registry is passed on: SUPABASE_INTERNAL_IMAGE_REGISTRY replaces the
+      # CLI's fallback chain (public.ecr.aws, then ghcr.io, then Docker Hub) with that one registry.
+      - name: Choose the image registry
+        if: inputs.image-registry != ''
+        env:
+          REGISTRY: ${{ inputs.image-registry }}
+        run: echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
 
       - name: Check for Docker Hub credentials
         id: hub
