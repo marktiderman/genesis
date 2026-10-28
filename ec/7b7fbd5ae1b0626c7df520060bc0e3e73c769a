@@ -1,0 +1,23 @@
+packages/ai/package.json
+  s_e78d57e50dc818::t_967a62199bd422 126-183
+docs/AI.md
+  s_e78d57e50dc818::t_374bdb67898719 695-699
+.changeset/genesis-ai-core.md
+  s_e78d57e50dc818::t_3fb50f70276763 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ec7b7fbd5ae1b0626c7df520060bc0e3e73c769a",
+  "prompts": {},
+  "sessions": {
+    "s_e78d57e50dc818": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5aebed45-ed64-4066-ac7b-2f5da20e8a6c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
