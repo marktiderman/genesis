@@ -70,3 +70,18 @@ export function demoWorkspaces(role: DemoRole): Workspace[] {
 }
 
 export const orgById = (id: string | undefined) => ORGS.find((o) => o.id === id);
+
+const STAFF_PAGES = ["", "clients", "bookings", "intake", "chat", "assistant"];
+const OWNER_PAGES = [...STAFF_PAGES, "data", "settings"];
+
+/**
+ * Whether a role may open a page of a workspace (`path` is the part after
+ * `/demo/<ws>/`). The menu lists only these pages and the shell sends any
+ * other address back to the workspace's overview, so the two never disagree.
+ * A client opens the overview, their own record and their messages.
+ */
+export function canOpen(role: DemoRole, self: string | undefined, path: string): boolean {
+  const [page = "", id] = path.split("/");
+  if (role === "client") return page === "" || page === "chat" || (page === "clients" && !!self && id === self);
+  return (role === "owner" ? OWNER_PAGES : STAFF_PAGES).includes(page);
+}
