@@ -2,7 +2,7 @@
  * The edge verifier: checks a signed link, then streams the file from
  * storage, with HEAD and single byte ranges.
  */
-import { attachment, baseHeaders, forbidden, isInlineSafe, methodNotAllowed, notFound, pathSegments, plain } from "./http";
+import { attachment, baseHeaders, forbidden, isInlineSafe, isPdf, methodNotAllowed, notFound, pathSegments, plain } from "./http";
 import { mediaScope, scopeFilename, type MediaScope } from "./scope";
 import type { MediaSigner } from "./signer";
 import type { MediaObjectInfo, MediaRange, MediaStorage } from "./storage";
@@ -46,6 +46,11 @@ export interface SignedMediaHandlerOptions {
    * the link expires, at most 3600>`.
    */
   cacheControl?: string | undefined;
+  /**
+   * Called with an error `route` threw, before the request is answered with
+   * the same 403 as no route. For logging; the answer doesn't change.
+   */
+  onError?: ((error: unknown, request: Request) => void) | undefined;
   /** The time, in Unix seconds, for the default `cache-control`. Default the clock. */
   now?: (() => number) | undefined;
 }
@@ -93,8 +98,8 @@ export function ifRangeMatches(value: string, info: MediaObjectInfo): boolean {
  * exists), then streams the file: `GET` and `HEAD`, one byte range (206, or
  * 416 when it can't be met), the stored content type, length and ETag, a
  * download name per RFC 6266 for `download` scopes, and `x-robots-tag:
- * noindex`. Every response carries `content-security-policy: sandbox;
- * default-src 'none'`, and a file whose type isn't safe to show inline
+ * noindex`. Every response but a PDF carries `content-security-policy:
+ * sandbox; default-src 'none'`, and a file whose type isn't safe to show inline
  * (anything but non-SVG images, video, audio and PDF) is sent as an
  * attachment, so a stored HTML or SVG file can't run on the media origin.
  * A bad or expired signature, and a path `route` doesn't know, are the same
@@ -118,8 +123,10 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     let target: MediaRoute | undefined;
     try {
       target = segments?.length ? await route(segments.join("/"), { download, url }) : undefined;
-    } catch {
+    } catch (error) {
+      // Still the same 403 as no route (the caller learns nothing); the app sees the error.
       target = undefined;
+      options.onError?.(error, request);
     }
 
     // What the route said stays private until the link checks out: a path that isn't routable is
@@ -155,6 +162,8 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     const headers = baseHeaders();
     const contentType = meta.contentType || "application/octet-stream";
     headers.set("content-type", contentType);
+    // Chromium's PDF viewer is blank under the sandbox; nosniff and the declared type keep a PDF from running as HTML.
+    if (isPdf(contentType)) headers.delete("content-security-policy");
     headers.set("accept-ranges", "bytes");
     if (meta.etag) headers.set("etag", meta.etag);
     if (meta.lastModified) headers.set("last-modified", meta.lastModified.toUTCString());

@@ -180,6 +180,42 @@ describe("createSignedMediaHandler", () => {
     expect(seen).toEqual(["photos", "photos/p1", "p1/800.jpg"]);
   });
 
+  it("serves a filename with a plain % in it (100% done.jpg) round trip, while escapes stay refused", async () => {
+    const storage = createMemoryStorage({ "files/100% done.jpg": { body: "done", contentType: "image/jpeg" } });
+    const seen: string[] = [];
+    const handle = createSignedMediaHandler({
+      storage,
+      signer,
+      now,
+      route: (path) => (seen.push(path), path.startsWith("files/") ? { key: path, scope: mediaScope.item("files", path.slice(6)) } : undefined),
+    });
+    const url = await signer.signMediaUrl(BASE, "files/100% done.jpg", mediaScope.item("files", "100% done.jpg"), { ttl: "2h" });
+    expect(new URL(url).pathname).toBe("/files/100%25%20done.jpg");
+    const res = await handle(new Request(url));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("done");
+    for (const path of ["/files/%252e%252e", "/files/a%252Fb.jpg", "/files/%2525"]) expect((await handle(new Request(`${BASE}${path}`))).status, path).toBe(403);
+    expect(seen).toEqual(["files/100% done.jpg"]);
+  });
+
+  it("hands an error route threw to onError, and still answers the same 403", async () => {
+    const errors: [unknown, string][] = [];
+    const failure = new Error("database down");
+    const handle = createSignedMediaHandler({
+      storage: createMemoryStorage(objects),
+      signer,
+      now,
+      route: () => {
+        throw failure;
+      },
+      onError: (error, request) => errors.push([error, request.url]),
+    });
+    const res = await handle(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe("This link is invalid or has expired.");
+    expect(errors).toEqual([[failure, `${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`]]);
+  });
+
   it("checks the link before saying whether a path is routable: same answer, same HMAC, route throws included", async () => {
     let verifies = 0;
     const counted = { ...signer, verify: (...args: Parameters<typeof signer.verify>) => (verifies++, signer.verify(...args)) };
@@ -283,6 +319,27 @@ describe("the sandbox for stored files", () => {
     expect(await disposition("p6")).toBeNull();
     const video = await handle(new Request(await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"))));
     expect(video.headers.get("content-disposition")).toBeNull();
+  });
+
+  it("sends a PDF without the CSP (Chromium's viewer is blank under it), and every other type with it", async () => {
+    const handle = setup();
+    const get = async (id: string, method = "GET") => handle(new Request(await signed(`photos/${id}/800.jpg`, mediaScope.item("photos", id)), { method }));
+    for (const method of ["GET", "HEAD"]) {
+      const pdf = await get("p5", method);
+      expect(pdf.status).toBe(200);
+      expect(pdf.headers.get("content-type")).toBe("application/pdf");
+      expect(pdf.headers.get("content-security-policy"), method).toBeNull();
+      expect(pdf.headers.get("x-content-type-options")).toBe("nosniff");
+    }
+    const ranged = await handle(new Request(await signed("photos/p5/800.jpg", mediaScope.item("photos", "p5")), { headers: { range: "bytes=0-1" } }));
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-security-policy")).toBeNull();
+    // JPEG, HTML, SVG, untyped and audio all keep the sandbox, and so does video.
+    for (const id of ["p1", "p2", "p3", "p4", "p6"]) expect((await get(id)).headers.get("content-security-policy"), id).toBe(CSP);
+    const video = await handle(new Request(await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"))));
+    expect(video.headers.get("content-security-policy")).toBe(CSP);
+    // An error answer about a PDF path keeps it too.
+    expect((await handle(new Request(`${BASE}/photos/p5/800.jpg`))).headers.get("content-security-policy")).toBe(CSP);
   });
 
   it("sends the CSP sandbox on every response: 200, 206, HEAD, 403, 404, 405 and 416", async () => {

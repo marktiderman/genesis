@@ -14,7 +14,8 @@ export function attachment(filename?: string): string {
 /**
  * Headers every media response carries. The CSP sandbox means a stored file
  * that is really HTML or SVG can't run script on the media origin, even when
- * someone opens it directly.
+ * someone opens it directly. The file handler drops it for PDF only (see
+ * `isPdf`).
  */
 export function baseHeaders(): Headers {
   return new Headers({
@@ -36,6 +37,15 @@ export function isInlineSafe(contentType: string): boolean {
   return /^(video|audio)\/[a-z0-9.+-]+$/.test(type);
 }
 
+/**
+ * Whether a content type is PDF. A PDF goes out without the CSP sandbox:
+ * Chromium's PDF viewer shows a blank page under `default-src 'none'`, and
+ * with `nosniff` and the declared PDF type the file can't run as HTML.
+ */
+export function isPdf(contentType: string): boolean {
+  return contentType.split(";")[0]!.trim().toLowerCase() === "application/pdf";
+}
+
 /** A short plain-text answer that is never cached. */
 export function plain(status: number, text: string, extra: Record<string, string> = {}): Response {
   const headers = baseHeaders();
@@ -51,10 +61,11 @@ export const methodNotAllowed = () => plain(405, "Use GET or HEAD.", { allow: "G
 
 /**
  * A request's path as decoded segments, or null when a segment can't be
- * decoded, or once decoded is `.` or `..`, or holds a slash, a backslash,
- * NUL or `%`. Refusing `%` refuses double encoding (`%252e%252e`), which
- * would decode once here to `%2e%2e` and become `..` in a storage URL built
- * from it.
+ * decoded, or once decoded is `.` or `..`, holds a slash, a backslash or
+ * NUL, or still holds a percent-escape (`%2e`). Refusing escapes refuses
+ * double encoding (`%252e%252e`), which would decode once here to `%2e%2e`
+ * and become `..` in a storage URL built from it; a plain `%` (`100% done.jpg`)
+ * is fine.
  */
 export function pathSegments(url: URL): string[] | null {
   const segments: string[] = [];
@@ -66,7 +77,7 @@ export function pathSegments(url: URL): string[] | null {
     } catch {
       return null;
     }
-    if (part === "." || part === ".." || /[/\\\0%]/.test(part)) return null;
+    if (part === "." || part === ".." || /[/\\\0]/.test(part) || /%[0-9a-f]{2}/i.test(part)) return null;
     segments.push(part);
   }
   return segments;

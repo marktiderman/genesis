@@ -193,10 +193,12 @@ otherwise) and:
   are the same 403 (after the same HMAC); only a valid link to a missing file
   is 404; it never lists anything. `route` runs before the check (its scope
   is what gets checked), so keep it pure and cheap: no storage or database
-  reads;
+  reads. A `route` that throws is answered the same 403; pass
+  `onError(error, request)` to log it;
 - never hands `route` a path with `.` or `..` segments, or a segment that
-  decodes to a slash, backslash, NUL or `%` (so a double-encoded
-  `%252e%252e` can't become `..` in a storage URL built from the path);
+  decodes to a slash, backslash or NUL, or still holds a percent-escape (so
+  a double-encoded `%252e%252e` can't become `..` in a storage URL built from
+  the path; a plain `%`, as in `100% done.jpg`, is fine);
 - serves one byte `Range` as 206 (`bytes=0-99`, `bytes=100-`, `bytes=-500`;
   an end past the file is cut to it), a start past the end as 416 with
   `content-range: bytes */size`, and several ranges or a malformed header as
@@ -207,8 +209,10 @@ otherwise) and:
 - passes the stored content type, length, ETag and last-modified through, and
   sets `accept-ranges: bytes`, `x-robots-tag: noindex` and
   `x-content-type-options: nosniff`;
-- sandboxes every response (`content-security-policy: sandbox; default-src
-  'none'`) and shows a file inline only when its type is safe to: images
+- sandboxes every response but a PDF (`content-security-policy: sandbox;
+  default-src 'none'`; Chromium's PDF viewer is blank under it, and
+  `nosniff` with the declared PDF type can't run as HTML) and shows a file
+  inline only when its type is safe to: images
   other than SVG, video, audio and PDF. Anything else (HTML, SVG, XML, text,
   no type) goes out as `content-disposition: attachment`, so a stored file
   that is really a page can't run script on the media origin;
