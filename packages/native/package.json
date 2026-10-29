@@ -169,6 +169,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "shells",
+    "owner": "@marktiderman",
     "blocks": {
       "push": {
         "feature": {

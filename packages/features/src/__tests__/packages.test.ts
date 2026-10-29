@@ -94,6 +94,12 @@ describe("readPackageMeta", () => {
     return problems;
   };
 
+  it("takes an owner that is a GitHub handle or team", () => {
+    expect(meta({ layer: "primitive", group: "data", owner: "@octocat" })).toEqual([]);
+    expect(meta({ layer: "primitive", group: "data", owner: "@acme/web" })).toEqual([]);
+    expect(meta({ layer: "primitive", group: "data", owner: "octocat" })).toEqual(['@x/p genesis.owner: must be a GitHub handle or team, like "@octocat" or "@acme/web"']);
+  });
+
   it("needs a layer and a group from the lists", () => {
     expect(meta(undefined)).toEqual(['@x/p genesis: missing; every package declares "genesis": { "layer", "group" }']);
     expect(meta({ layer: "block", group: "start-here" })).toEqual([

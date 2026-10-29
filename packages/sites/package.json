@@ -140,6 +140,7 @@
   "genesis": {
     "layer": "module",
     "group": "modules",
+    "owner": "@marktiderman",
     "module": {
       "name": "Sites",
       "summary": "Multi-page sites, landing pages and a blog, edited in the app and served as cached HTML.",
