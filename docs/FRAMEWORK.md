@@ -272,6 +272,27 @@ If `genesis-ui` doesn't import it, `genesis-ui` doesn't declare it. Duplicate de
 across packages are the same overlap problem one level up, and they make every consumer
 install things they never use.
 
+### 7. A name says what kind of thing it is
+
+Accepted 2026-10-29 (R5). An export's prefix tells a reader, and an agent, what it does before
+they open it:
+
+| Prefix | Means | Example |
+| --- | --- | --- |
+| `define*` | A checked, frozen declaration, made once at module scope | `defineView`, `defineTask`, `defineBlock` |
+| `create*` | A runtime instance: a client, a store, a handler, a provider | `createSupabaseProvider`, `createAiHandler` |
+| `use*` | A React hook | `useResourceForm`, `useWorkspace` |
+| `with*` | A wrapper that returns the same kind of thing it takes | `withGenesis` |
+| `is*`, `has*`, `to*`, `parse*` | A pure check or conversion | `isColorScale`, `toRecords` |
+| `resolve*` | A pure computation over a registry or config | `resolveBlocks`, `resolveThemeRoles` |
+| `register*` | A side effect that registers into a registry | `registerSection` |
+
+`build*`, `new*` and `make*` are not used for new exports: a declaration is `define*`, an
+instance `create*`, a pure result `to*` or `resolve*`. Factory suffixes follow the same idea:
+`…Handler` (Request → Response), `…Provider`, `…Adapter`, `…Store`, `…Client`, `…Runner`,
+`…Sink`. The check (`pnpm check:export-prefixes`, CI on pull requests) reads only exports a pull
+request adds, so nothing existing is renamed; an old name moves only through a deprecated alias.
+
 ---
 
 ## What is explicitly OUT
