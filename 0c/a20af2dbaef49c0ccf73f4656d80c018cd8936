@@ -1,0 +1,37 @@
+packages/notifications/src/__tests__/inbound.test.ts
+  s_36f3212387dbf7::t_6e65314a08a710 44,46-48,81-82
+packages/support/src/__tests__/email.test.ts
+  s_36f3212387dbf7::t_6e65314a08a710 39-41
+packages/support/src/email.ts
+  s_36f3212387dbf7::t_071077239b5de3 48-50,76-78,91-92,177-178
+packages/support/migrations/tests/0002_genesis_support_email.test.sql
+  s_36f3212387dbf7::t_b5c4b01b809edb 8
+  s_36f3212387dbf7::t_9aff876a22fc2f 102-142
+  s_36f3212387dbf7::t_d96754b9111aa6 143
+packages/support/migrations/0002_genesis_support_email.sql
+  s_36f3212387dbf7::t_f50fdde7af8911 15,33-41,240,285-341,350-354,359,371,374
+  s_36f3212387dbf7::t_b0de76ffa1feba 90-91,93,102-104,180-181,185-191,213,219-221,230,233-239,241-244
+  s_36f3212387dbf7::t_51c92860a8ab3a 214,231-232
+packages/notifications/src/server/inbound.ts
+  s_36f3212387dbf7::t_071077239b5de3 40-45,108-112,116-118,129,131
+docs/adr/0011-support-email-tickets.md
+  s_36f3212387dbf7::t_79ceb7495b771d 37-43,45
+packages/support/README.md
+  s_36f3212387dbf7::t_9d9d447b80265b 199-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ca20af2dbaef49c0ccf73f4656d80c018cd8936",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
