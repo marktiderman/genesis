@@ -2759,6 +2759,56 @@
       "flags": []
     },
     {
+      "id": "design-systems",
+      "name": "Design systems and the colour engine",
+      "summary": "Versioned look rules attached to a brand (defineDesignSystem: a fluid type ramp, weights and case per font class, space, corners, surfaces, image treatment and CSS-only motion), plus an OKLCH colour engine that turns any brand colour into tinted neutrals, a warm or cool ground and an accent with fill and text forms, solved to pass WCAG AA in light and dark. Swapping one re-themes a site through CSS variables only.",
+      "category": "Design system",
+      "status": "building",
+      "layer": "token",
+      "keywords": [
+        "defineDesignSystem",
+        "design system",
+        "colour engine",
+        "OKLCH",
+        "fluid type",
+        "clamp",
+        "motion",
+        "contrast",
+        "themeFromBrand"
+      ],
+      "platforms": {
+        "web": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-design-system"
+      },
+      "requires": [
+        "design-tokens"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "Every colour pair the engine promises reaches its WCAG minimum for any brand colour, in light and dark.",
+        "Swapping a site's design system changes only its theme's CSS variables, never its HTML.",
+        "classic@1, the default, emits no tokens, so a brand that names no design system looks as before."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/design-system/src/design-systems",
+          "packages/sites/src/templates/design-systems.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "native-app-shell",
       "name": "Native app shell",
       "summary": "One root component above an Expo app's screens: boot steps behind the splash, error boundary and fatal screen with retry, theme, a persisted query client, data provider, auth gate, held deep links and an update banner, each a slot and each exported on its own.",

@@ -9,6 +9,7 @@
  * checked by that section's own schema (see `defineSection`), not here.
  */
 import { z } from "zod";
+import { FONT_IDS } from "@marktiderman/genesis-design-system/fonts";
 import { MAX_URL_LENGTH, PAGE_PATH, isSafeHref, isSafeImageSrc } from "./urls";
 
 /** zod 4 is required: `z.toJSONSchema` (editor fields, AI output) exists only there. */
@@ -200,25 +201,8 @@ export const Redirect = z.object({
 });
 export type Redirect = z.infer<typeof Redirect>;
 
-/** Fonts a site may choose for its headings; see `FONT_CHOICES` in theme.ts for their stacks. */
-export const FontChoice = z.enum([
-  "system",
-  "inter",
-  "dm-sans",
-  "work-sans",
-  "montserrat",
-  "poppins",
-  "space-grotesk",
-  "source-serif",
-  "merriweather",
-  "playfair-display",
-  "lora",
-  "barlow",
-  "barlow-condensed",
-  "oswald",
-  "roboto-condensed",
-  "bebas-neue",
-]);
+/** Fonts a site may choose for its headings: genesis-design-system's `FONT_IDS` (see `FONT_CHOICES` for their stacks). */
+export const FontChoice = z.enum(FONT_IDS);
 export type FontChoice = z.infer<typeof FontChoice>;
 
 /** Fonts a site may choose for its body text: every choice but the display faces that have one weight. */

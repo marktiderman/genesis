@@ -8,19 +8,28 @@
  * the new colours and purges the old pages. It
  * may be a full `CanonicalBrand` or the minimal shape a brand screen collects
  * (`SiteBrand`: a name, a primary colour for light and dark, a heading and a
- * body font from a fixed list, a logo).
+ * body font from a fixed list, a logo, and a design system).
  *
  * The variables are design-system `themeFromBrand(brand).variables` (the
- * brand's scales, `--color-*`) plus the genesis-ui roles the sections are
- * styled with (`--primary`, `--background`, `--font-display`, ...), so the
- * one shared stylesheet serves every brand. Foregrounds are picked for
- * contrast: the text on a primary button is whichever of the brand's light
- * or dark text reads better, and the focus ring falls back to the text
- * colour when the primary is too faint on the page.
+ * brand's scales, `--color-*`, and its design system's `--ds-*` tokens) plus
+ * the genesis-ui roles the sections are styled with (`--primary`,
+ * `--background`, `--font-display`, ...), so the one shared stylesheet serves
+ * every brand and every design system. Swapping the design system changes
+ * only these variables, never the HTML.
+ *
+ * - **With a colour design system** (one with `surfaces`, such as `crisp@1`),
+ *   the roles come from the OKLCH colour engine, which solves every text
+ *   pair to pass.
+ * - **With `classic@1`** (the default), the roles are today's: the brand's
+ *   neutrals and surface, with foregrounds picked for contrast (the text on
+ *   a primary button is whichever of the brand's light or dark text reads
+ *   better, and the focus ring falls back to the text colour when the
+ *   primary is too faint on the page).
  */
-import { genesisBrand, themeFromBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
-import { SELF_HOSTED_FONTS } from "./fonts";
+import { FONT_CHOICES, genesisBrand, themeFromBrand, type CanonicalBrand, type DesignSystem, type DesignSystemChoice, type FontInfo } from "@marktiderman/genesis-design-system";
 import type { BodyFontChoice, FontChoice, SiteDoc, TokenOverrides } from "./schemas";
+
+export { FONT_CHOICES, type FontInfo };
 
 /** The minimal brand: what a brand screen collects. */
 export interface SiteBrand {
@@ -30,10 +39,18 @@ export interface SiteBrand {
     primary: string;
     /** The primary in dark mode. Default: the light primary, lightened. */
     primaryDark?: string;
+    /** One optional supporting colour, as #rrggbb: chips, tags and illustrations, never a band. Used by a colour design system. */
+    secondary?: string;
   };
   fonts?: { heading?: FontChoice; body?: BodyFontChoice };
   /** The logo, shown in the header and footer and named in JSON-LD. */
   logo?: { src: string; alt?: string };
+  /**
+   * The design system (`{ id: "crisp@1" }`) and up to three choices: density,
+   * corners and motion. Unset: `classic@1`, today's look. An id must be
+   * built in or registered (`registerDesignSystem` from genesis-design-system).
+   */
+  designSystem?: DesignSystemChoice;
 }
 
 /** What a `BrandSource` may return: the minimal brand, or a full design-system brand (with an optional logo). */
@@ -43,48 +60,6 @@ export type BrandInput = SiteBrand | (CanonicalBrand & { logo?: { src: string; a
 export interface BrandSource {
   getBrand(siteId: string): Promise<BrandInput | null> | BrandInput | null;
 }
-
-export interface FontInfo {
-  /** The choice's id (`inter`). */
-  id: FontChoice;
-  label: string;
-  /** The CSS font stack. */
-  stack: string;
-  /** The family this package serves itself (latin woff2 under `/_gs/`), when it isn't a system font. */
-  family?: string;
-  /** The weights served. Empty for a system font. */
-  weights: readonly number[];
-  /** A display face with one weight: a heading font only. */
-  headingOnly?: boolean;
-}
-
-const sans = (family: string) => `${family.includes(" ") ? `"${family}"` : family}, ui-sans-serif, system-ui, sans-serif`;
-const serif = (family: string) => `${family.includes(" ") ? `"${family}"` : family}, Georgia, serif`;
-
-function served(id: Exclude<FontChoice, "system">, label: string, stack: (family: string) => string): FontInfo {
-  const font = SELF_HOSTED_FONTS[id];
-  return { id, label, stack: stack(font.family), family: font.family, weights: font.weights, ...(font.weights.length === 1 ? { headingOnly: true } : {}) };
-}
-
-/** The fonts a brand or site may choose. Every one but `system` is served by this package; none loads from a third party. */
-export const FONT_CHOICES: Readonly<Record<FontChoice, FontInfo>> = Object.freeze({
-  system: { id: "system", label: "System", stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', weights: [] },
-  inter: served("inter", "Inter", sans),
-  "dm-sans": served("dm-sans", "DM Sans", sans),
-  "work-sans": served("work-sans", "Work Sans", sans),
-  montserrat: served("montserrat", "Montserrat", sans),
-  poppins: served("poppins", "Poppins", sans),
-  "space-grotesk": served("space-grotesk", "Space Grotesk", sans),
-  "source-serif": served("source-serif", "Source Serif", serif),
-  merriweather: served("merriweather", "Merriweather", serif),
-  "playfair-display": served("playfair-display", "Playfair Display", serif),
-  lora: served("lora", "Lora", serif),
-  barlow: served("barlow", "Barlow", sans),
-  "barlow-condensed": served("barlow-condensed", "Barlow Condensed", sans),
-  oswald: served("oswald", "Oswald", sans),
-  "roboto-condensed": served("roboto-condensed", "Roboto Condensed", sans),
-  "bebas-neue": served("bebas-neue", "Bebas Neue", (family) => `"${family}", Impact, ui-sans-serif, sans-serif`),
-});
 
 const RADIUS: Record<NonNullable<TokenOverrides["radius"]>, string> = { none: "0rem", sm: "0.25rem", md: "0.5rem", lg: "0.75rem", full: "1.25rem" };
 
@@ -165,6 +140,8 @@ export function toCanonicalBrand(brand: BrandInput): CanonicalBrand {
   parseHex(primary);
   const primaryDark = (brand.colors.primaryDark ?? mix(primary, 0.35)).toLowerCase();
   parseHex(primaryDark);
+  const secondary = brand.colors.secondary?.toLowerCase();
+  if (secondary) parseHex(secondary);
   const heading = FONT_CHOICES[brand.fonts?.heading ?? "inter"] ?? FONT_CHOICES.inter;
   const chosenBody = FONT_CHOICES[brand.fonts?.body ?? "inter"];
   // A one-weight display face reads badly as body text: the schema refuses it, and so does this.
@@ -175,10 +152,11 @@ export function toCanonicalBrand(brand: BrandInput): CanonicalBrand {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-|-$/g, "") || "site",
-    accent: { DEFAULT: primary, light: primary, dark: primaryDark },
+    accent: { DEFAULT: primary, light: primary, dark: primaryDark, ...(secondary ? { secondary } : {}) },
     typography: {
       fontFamily: { body: body.stack.split(/,\s*/), display: heading.stack.split(/,\s*/) },
     },
+    ...(brand.designSystem ? { designSystem: brand.designSystem } : {}),
   };
 }
 
@@ -217,6 +195,8 @@ export interface SiteTheme {
   pairs: ThemePair[];
   /** Hash of the brand and overrides it was made from (recorded on a release). */
   brandHash: string;
+  /** The design system it was made with (`classic@1` when the brand names none, or names one that isn't available). */
+  designSystem: string;
 }
 
 interface ModeColours {
@@ -299,16 +279,40 @@ export function stableHash(value: unknown): string {
   return h1.toString(16).padStart(8, "0") + h2.toString(16).padStart(8, "0");
 }
 
+function withoutDesignSystem(brand: CanonicalBrand): CanonicalBrand {
+  const { designSystem: _designSystem, ...rest } = brand;
+  return rest;
+}
+
+/** The engine's pairs as the contrast check's pairs. */
+function enginePairs(pairs: NonNullable<ReturnType<typeof themeFromBrand>["designSystem"]>["pairs"], mode: "light" | "dark", primary: string, background: string): ThemePair[] {
+  return [
+    ...pairs.filter((p) => p.mode === mode).map(({ name, foreground, background: bg, minimum }) => ({ name, mode, foreground, background: bg, minimum })),
+    // The sections still draw the fill colour as a marker (a timetable chip's edge, the picked day): as in classic, it warns.
+    { name: "the primary colour as a border or marker on the page", mode, foreground: primary, background, minimum: 3, severity: "warning" as const },
+  ];
+}
+
+export interface SiteThemeOptions {
+  /**
+   * The design system to use instead of the brand's (a preview of a swap,
+   * say). Default: the brand's `designSystem.id`, else `classic@1`.
+   */
+  designSystem?: DesignSystem | string;
+}
+
 /**
  * The site's theme: variables for light and dark, the fonts to load, the
  * pairs the contrast check reads, and a hash of what it was made from.
  *
  * @stability Beta
  */
-export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = {}): SiteTheme {
+export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = {}, options: SiteThemeOptions = {}): SiteTheme {
   const canonical = toCanonicalBrand(brand);
   const overrides = theme.overrides ?? {};
-  const base = themeFromBrand(canonical).variables;
+  const made = themeFromBrand(canonical, options.designSystem ? { designSystem: options.designSystem } : {});
+  const base = made.variables;
+  const design = made.designSystem;
   const fontStack = (family: "body" | "display") => canonical.typography?.fontFamily?.[family]?.join(", ");
   const headingFont = overrides.headingFont ? FONT_CHOICES[overrides.headingFont] : undefined;
   const bodyFont = overrides.bodyFont ? FONT_CHOICES[overrides.bodyFont] : undefined;
@@ -319,8 +323,6 @@ export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = 
   if (display) fontVars["--font-display"] = display;
   if (overrides.radius) fontVars["--radius"] = RADIUS[overrides.radius];
 
-  const light = modeColours(canonical, "light");
-  const dark = modeColours(canonical, "dark");
   const usedFonts = new Map<string, FontInfo>();
   const choiceFor = (stack: string | undefined) => Object.values(FONT_CHOICES).find((f) => f.stack === stack);
   for (const stack of [sans, display]) {
@@ -329,15 +331,44 @@ export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = 
   }
   const headingChoice = choiceFor(display);
   const colorScheme = theme.colorScheme ?? "light";
-  const pairs = colorScheme === "light" ? pairsFor(light, "light") : colorScheme === "dark" ? pairsFor(dark, "dark") : [...pairsFor(light, "light"), ...pairsFor(dark, "dark")];
+
+  // A colour design system's engine gives the roles (already in `base`) and the pairs; otherwise today's roles.
+  const palette = design?.palette;
+  let light: Record<string, string>;
+  let dark: Record<string, string>;
+  let pairsLight: ThemePair[];
+  let pairsDark: ThemePair[];
+  if (palette && design) {
+    light = { ...base.light, ...fontVars };
+    dark = { ...base.dark, ...fontVars };
+    pairsLight = enginePairs(design.pairs, "light", palette.light.accentFill, palette.light.ground);
+    pairsDark = enginePairs(design.pairs, "dark", palette.dark.accentFill, palette.dark.ground);
+  } else {
+    const lightColours = modeColours(canonical, "light");
+    const darkColours = modeColours(canonical, "dark");
+    light = { ...base.light, ...roleVars(lightColours), ...fontVars };
+    dark = { ...base.dark, ...roleVars(darkColours), ...fontVars };
+    pairsLight = pairsFor(lightColours, "light");
+    pairsDark = pairsFor(darkColours, "dark");
+  }
+  const pairs = colorScheme === "light" ? pairsLight : colorScheme === "dark" ? pairsDark : [...pairsLight, ...pairsDark];
+  const designSystem = design?.id ?? "classic@1";
   return {
-    light: { ...base.light, ...roleVars(light), ...fontVars },
-    dark: { ...base.dark, ...roleVars(dark), ...fontVars },
+    light,
+    dark,
     colorScheme,
     fonts: [...usedFonts.values()],
     ...(headingChoice ? { headingFont: headingChoice } : {}),
     pairs,
-    brandHash: stableHash({ brand: canonical, overrides, colorScheme }),
+    // A design system other than classic (and the brand's choices for it) is in the hash, so a
+    // swap is checked again at the next publish; naming classic, or nothing, hashes as before.
+    brandHash: stableHash({
+      brand: withoutDesignSystem(canonical),
+      overrides,
+      colorScheme,
+      ...(design && designSystem !== "classic@1" ? { designSystem, choices: design.choices } : {}),
+    }),
+    designSystem,
   };
 }
 

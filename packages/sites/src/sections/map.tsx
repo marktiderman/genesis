@@ -147,7 +147,7 @@ export const mapSection = defineSection({
     );
     const copy = (
       <div className="flex flex-col gap-4">
-        {props.eyebrow ? <p className="text-sm font-semibold uppercase tracking-wider">{props.eyebrow}</p> : null}
+        {props.eyebrow ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{props.eyebrow}</p> : null}
         <SectionTitle ctx={ctx} id={titleId(ctx)} size="lg">
           {props.heading}
         </SectionTitle>

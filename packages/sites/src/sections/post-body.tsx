@@ -82,10 +82,10 @@ export const postBodySection = defineSection({
         <article aria-labelledby={titleId(ctx)} data-gs-section={node.type} data-gs-variant={node.variant}>
           <SectionBand node={node} ctx={ctx} surface="inverse" spacing="lg" labelled={false} className="isolate overflow-hidden">
             <SiteImage image={{ ...d.cover, decorative: true }} ctx={ctx} priority sizes="100vw" className="absolute inset-0 -z-10 h-full w-full object-cover" />
-            <div aria-hidden="true" className="absolute inset-0 -z-10 bg-foreground/80" />
+            <div aria-hidden="true" data-gs-scrim="" className="absolute inset-0 -z-10 bg-foreground/80" />
             <div className="mx-auto flex max-w-3xl flex-col gap-4">
               {back}
-              {d.category ? <p className="text-sm font-semibold uppercase tracking-wider">{d.category}</p> : null}
+              {d.category ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{d.category}</p> : null}
               {title}
               {meta}
             </div>
@@ -101,7 +101,7 @@ export const postBodySection = defineSection({
         <article aria-labelledby={titleId(ctx)} className="flex flex-col gap-6">
           <div className="flex flex-col gap-4">
             {back}
-            {d.category ? <p className="text-sm font-semibold uppercase tracking-wider">{d.category}</p> : null}
+            {d.category ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{d.category}</p> : null}
             {title}
             {meta}
           </div>

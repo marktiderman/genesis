@@ -140,7 +140,7 @@ export const formEmbedSection = defineSection({
         <SectionTitle ctx={ctx} id={titleId(ctx)} size="lg">
           {props.heading}
         </SectionTitle>
-        {props.body ? <BandLead tone={inverted ? "inherit" : "muted"}>{props.body}</BandLead> : null}
+        {props.body ? <BandLead data-gs-text="lead" tone={inverted ? "inherit" : "muted"}>{props.body}</BandLead> : null}
       </div>
     );
     if (variant === "split") {

@@ -6,6 +6,7 @@
 import type { BuiltInSectionType, SectionPreset } from "../core/registry";
 import type { SiteBrand } from "../core/theme";
 import type { TemplateMessage } from "../core/templates";
+import type { DesignSystem } from "@marktiderman/genesis-design-system";
 
 export interface IndustryTemplate {
   /** A stable id: lowercase letters and hyphens. */
@@ -16,6 +17,8 @@ export interface IndustryTemplate {
   readonly brand: SiteBrand;
   /** Sample copy for `landingPage`, `onePageSite` and `starterSite`. */
   readonly message: TemplateMessage;
+  /** The design systems that suit it, best first: what a picker offers (register them with `registerDesignSystem`). */
+  readonly designSystems?: readonly DesignSystem[];
   /** Presets per built-in section, on the section's own preset shape; each parses with that section's schema. */
   readonly presets: Partial<Record<BuiltInSectionType, readonly SectionPreset[]>>;
 }

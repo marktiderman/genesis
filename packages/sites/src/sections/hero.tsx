@@ -44,11 +44,11 @@ export const heroSection = defineSection({
   render: ({ props, variant, node, ctx }) => {
     const intro = (align: "center" | "left", tone: "muted" | "inherit" = "muted") => (
       <div className={align === "center" ? "mx-auto flex max-w-3xl flex-col items-center gap-6 text-center" : "flex flex-col items-start gap-6"}>
-        {props.eyebrow ? <p className="text-sm font-semibold uppercase tracking-wider">{props.eyebrow}</p> : null}
+        {props.eyebrow ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{props.eyebrow}</p> : null}
         <SectionTitle ctx={ctx} id={titleId(ctx)} size="xl">
           {props.heading}
         </SectionTitle>
-        {props.body ? <BandLead tone={tone}>{props.body}</BandLead> : null}
+        {props.body ? <BandLead data-gs-text="lead" tone={tone}>{props.body}</BandLead> : null}
         <Actions primary={props.primaryCta} secondary={props.secondaryCta} ctx={ctx} onAccent={tone === "inherit"} className={align === "center" ? "sm:justify-center" : undefined} />
       </div>
     );
@@ -58,7 +58,7 @@ export const heroSection = defineSection({
         <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface="inverse" spacing="lg" className="isolate overflow-hidden">
           <SiteImage image={{ ...props.image, decorative: true }} ctx={ctx} priority sizes="100vw" className="absolute inset-0 -z-10 h-full w-full object-cover" />
           {/* A scrim in the inverse band's own colour keeps the text at the band's contrast whatever the image. */}
-          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-foreground/80" />
+          <div aria-hidden="true" data-gs-scrim="" className="absolute inset-0 -z-10 bg-foreground/80" />
           {intro("center", "inherit")}
         </SectionBand>
       );

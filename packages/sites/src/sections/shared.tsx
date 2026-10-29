@@ -133,10 +133,13 @@ const TONE: Record<ButtonTone, string> = {
   ghost: buttonVariants({ variant: "ghost", size: "lg" }),
 };
 
+/** A button's corners: the design system's, else genesis-ui's `rounded-md`. */
+const BUTTON_RADIUS = "rounded-[var(--ds-radius-button,calc(var(--radius)_-_2px))]";
+
 /** A link drawn as a button: at least 44px tall, with the focus ring. */
 export function ButtonLink({ link, ctx, tone = "primary", className }: { link: Link; ctx: RenderContext; tone?: ButtonTone; className?: string }) {
   return (
-    <a {...withEventLast(linkAttrs(link, ctx, "cta"), cn(TONE[tone], "min-h-11", className))}>
+    <a {...withEventLast(linkAttrs(link, ctx, "cta"), cn(TONE[tone], "min-h-11", BUTTON_RADIUS, className))}>
       {link.label}
       <NewTabHint link={link} />
     </a>
@@ -233,8 +236,10 @@ export function SiteImage({ image, className, sizes, priority, ctx }: SiteImageP
 
 /** The section's title, at the level the page gives it (h1 for the page's main heading). */
 export function SectionTitle({ ctx, id, size, className, children }: { ctx: RenderContext; id: string; size?: "xl" | "lg" | "md" | "sm"; className?: string; children: React.ReactNode }) {
+  // `data-gs-size` lets the design system's type ramp size it (sites.css), with today's size as the fallback.
+  const step = size ?? (ctx.headingLevel === 1 ? "xl" : "lg");
   return (
-    <Display as={ctx.headingLevel === 1 ? "h1" : "h2"} id={id} size={size ?? (ctx.headingLevel === 1 ? "xl" : "lg")} className={className}>
+    <Display as={ctx.headingLevel === 1 ? "h1" : "h2"} id={id} size={step} data-gs-size={step} className={className}>
       {children}
     </Display>
   );
@@ -286,7 +291,16 @@ export function SectionBand({
 }) {
   const attrs = bandAttrs(node, ctx, anchor, labelled);
   return (
-    <Band {...attrs} as={labelled ? "section" : "div"} surface={surface} spacing={spacing} width={width} className={cn(attrs.className as string | undefined, className)}>
+    <Band
+      {...attrs}
+      as={labelled ? "section" : "div"}
+      surface={surface}
+      spacing={spacing}
+      // The design system's density sets the padding for this step (sites.css), with today's as the fallback.
+      {...(spacing && spacing !== "none" ? { "data-gs-spacing": spacing } : {})}
+      width={width}
+      className={cn(attrs.className as string | undefined, className)}
+    >
       {children}
     </Band>
   );
@@ -313,13 +327,13 @@ export function SectionIntro({
   if (!heading && !body) return null;
   return (
     <div className={cn("flex max-w-3xl flex-col gap-4", align === "center" ? "mx-auto items-center text-center" : "items-start text-left")}>
-      {eyebrow ? <p className="text-sm font-semibold uppercase tracking-wider">{eyebrow}</p> : null}
+      {eyebrow ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{eyebrow}</p> : null}
       {heading ? (
         <SectionTitle ctx={ctx} id={titleId(ctx)} size={size}>
           {heading}
         </SectionTitle>
       ) : null}
-      {body ? <BandLead tone={tone}>{body}</BandLead> : null}
+      {body ? <BandLead data-gs-text="lead" tone={tone}>{body}</BandLead> : null}
     </div>
   );
 }
