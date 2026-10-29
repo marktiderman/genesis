@@ -5,7 +5,7 @@ import { AUTH_ILLUSTRATION, AUTH_LOGO } from "./__fixtures__/public-brands";
 import { PUBLIC_VIEWPORTS } from "./__fixtures__/viewports";
 
 const meta: Meta<typeof AuthPage> = {
-  title: "Layout/AuthPage",
+  title: "Foundation/Layout/AuthPage",
   component: AuthPage,
   parameters: { layout: "fullscreen", viewport: { options: PUBLIC_VIEWPORTS } },
 };

@@ -61,7 +61,8 @@
   "files": [
     "dist",
     "migrations",
-    "README.md"
+    "README.md",
+    "SKILL.md"
   ],
   "scripts": {
     "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
@@ -137,6 +138,19 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "module",
+    "group": "modules",
+    "module": {
+      "name": "Support",
+      "summary": "Feedback with a marked-up screenshot, staff replies and an idea board with votes, in the app's own Supabase.",
+      "blocks": [
+        "support-feedback",
+        "support-chat"
+      ],
+      "install": "genesis add support-feedback",
+      "docs": "README.md",
+      "skill": "SKILL.md"
+    },
     "blocks": {
       "support-feedback": {
         "feature": {

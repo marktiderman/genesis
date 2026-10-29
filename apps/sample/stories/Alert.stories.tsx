@@ -3,7 +3,7 @@ import { Alert, AlertTitle, AlertDescription } from "@marktiderman/genesis-ui";
 import { AlertCircle, CheckCircle2, Info, Terminal } from "lucide-react";
 
 const meta: Meta<typeof Alert> = {
-  title: "UI/Alert",
+  title: "Foundation/UI/Alert",
   component: Alert,
   parameters: { layout: "padded" },
   argTypes: {

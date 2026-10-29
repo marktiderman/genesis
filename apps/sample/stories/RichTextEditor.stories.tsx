@@ -80,7 +80,7 @@ function LessonEditor({
 const EMPTY: RichTextDoc = { type: "doc", content: [{ type: "paragraph" }] };
 
 const meta: Meta<typeof LessonEditor> = {
-  title: "Patterns/RichTextEditor",
+  title: "Foundation/Patterns/RichTextEditor",
   component: LessonEditor,
 };
 export default meta;

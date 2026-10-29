@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Skeleton } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Skeleton> = { title: "UI/Skeleton", component: Skeleton };
+const meta: Meta<typeof Skeleton> = { title: "Foundation/UI/Skeleton", component: Skeleton };
 export default meta;
 type Story = StoryObj<typeof Skeleton>;
 

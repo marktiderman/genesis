@@ -97,6 +97,8 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
     "blocks": {
       "account": {
         "feature": {

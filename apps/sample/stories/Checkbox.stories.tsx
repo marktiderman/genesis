@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Checkbox, Label } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Checkbox> = {
-  title: "UI/Checkbox",
+  title: "Foundation/UI/Checkbox",
   component: Checkbox,
 };
 export default meta;

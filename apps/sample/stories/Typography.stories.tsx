@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { H1, H2, H3, H4, P, Lead, Large, Small, Muted } from "@marktiderman/genesis-ui";
 
-const meta: Meta = { title: "UI/Typography" };
+const meta: Meta = { title: "Foundation/UI/Typography" };
 export default meta;
 type Story = StoryObj;
 

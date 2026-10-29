@@ -9,7 +9,7 @@ import { Button } from "@marktiderman/genesis-ui";
  * snapshot.
  */
 const meta: Meta<typeof Button> = {
-  title: "UI/Button",
+  title: "Foundation/UI/Button",
   component: Button,
   args: { children: "Button" },
   argTypes: {

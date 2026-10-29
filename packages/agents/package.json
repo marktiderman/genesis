@@ -12,5 +12,9 @@
   "files": [
     "README.md",
     "RULES.md"
-  ]
+  ],
+  "genesis": {
+    "layer": "tooling",
+    "group": "core"
+  }
 }

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Progress } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Progress> = {
-  title: "UI/Progress",
+  title: "Foundation/UI/Progress",
   component: Progress,
   argTypes: {
     value: { control: { type: "range", min: 0, max: 100, step: 1 } },

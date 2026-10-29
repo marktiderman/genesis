@@ -49,7 +49,7 @@ function CourseSteps({ moveMenu = true }: { moveMenu?: boolean }) {
 }
 
 const meta: Meta<typeof CourseSteps> = {
-  title: "Patterns/SortableList",
+  title: "Foundation/Patterns/SortableList",
   component: CourseSteps,
 };
 export default meta;

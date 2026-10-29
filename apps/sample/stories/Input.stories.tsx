@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Input, Label } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Input> = {
-  title: "UI/Input",
+  title: "Foundation/UI/Input",
   component: Input,
   args: { placeholder: "Type here…" },
 };

@@ -78,6 +78,8 @@
     "@xyflow/react": "^12.12.0"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "forms",
     "doctor": {
       "enforce": false,
       "reason": "Development tooling mounted in a playground, not app screens."

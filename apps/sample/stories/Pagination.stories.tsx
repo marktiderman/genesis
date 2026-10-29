@@ -10,7 +10,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Pagination> = {
-  title: "UI/Pagination",
+  title: "Foundation/UI/Pagination",
   component: Pagination,
 };
 export default meta;

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ButtonGroup, Button } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof ButtonGroup> = {
-  title: "UI/ButtonGroup",
+  title: "Foundation/UI/ButtonGroup",
   component: ButtonGroup,
 };
 export default meta;

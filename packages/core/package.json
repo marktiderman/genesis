@@ -130,6 +130,9 @@
     "zod": "^4.6.7"
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "essential": true,
     "doctor": {
       "prefer": [
         {

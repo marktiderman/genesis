@@ -8,7 +8,7 @@ import { Badge, Button, Card, CardDescription, CardHeader, CardTitle } from "@ma
 import { ResourceView } from "@marktiderman/genesis-ui/data";
 import { ArrowRight, Bot, Building2, Check, ClipboardList, Copy, LayoutList, MessagesSquare, Smartphone } from "lucide-react";
 import { SiteFooter } from "../components/site-footer";
-import { PACKAGES, GENESIS_VERSION } from "../lib/packages";
+import { GENESIS_VERSION, GROUP_LABELS, LAYER_BANDS, PACKAGES, packagesIn, type GenesisPackage } from "../lib/packages";
 import { INIT_COMMAND, NPM_URL, REPO_URL, SITE_TAGLINE } from "../lib/site";
 import { itemsView } from "../lib/views/items.view";
 import itemsViewSource from "../lib/views/items.view.ts?raw";
@@ -84,6 +84,56 @@ function CopyCommand({ command }: { command: string }) {
         {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
       </Button>
     </div>
+  );
+}
+
+function PackageLink({ p }: { p: GenesisPackage }) {
+  return (
+    <li className="min-w-0">
+      <a className="font-mono text-sm font-medium hover:underline" href={`${BASE}packages/${p.dir}`}>
+        {p.short}
+      </a>{" "}
+      <span className="text-xs text-muted-foreground">{p.version}</span>
+      {p.essential ? (
+        <Badge variant="secondary" className="ml-2 align-middle text-[10px]" data-testid={`essential-${p.dir}`}>
+          essential
+        </Badge>
+      ) : null}
+      <p className="line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
+    </li>
+  );
+}
+
+function ModuleCard({ p }: { p: GenesisPackage }) {
+  const m = p.module!;
+  return (
+    <Card className="h-full" data-testid={`module-${p.dir}`}>
+      <CardHeader className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base">
+            <a className="hover:underline" href={`${BASE}packages/${p.dir}`}>{m.name}</a>
+          </CardTitle>
+          <span className="font-mono text-xs text-muted-foreground">{p.short} {p.version}</span>
+        </div>
+        <CardDescription>{m.summary}</CardDescription>
+        <div>
+          <p className="text-xs font-medium text-muted-foreground">Built from</p>
+          <ul className="mt-1 flex flex-wrap gap-1" aria-label={`${m.name} is built from`}>
+            {m.builtFrom.map((d) => (
+              <li key={d}>
+                <Badge variant="outline" className="font-mono text-[11px]">{d}</Badge>
+              </li>
+            ))}
+          </ul>
+        </div>
+        {m.schema ? (
+          <p className="text-xs text-muted-foreground">
+            Owns the <code className="rounded bg-muted px-1">{m.schema}</code> schema
+          </p>
+        ) : null}
+        <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-1.5 text-xs"><code>{m.install}</code></pre>
+      </CardHeader>
+    </Card>
   );
 }
 
@@ -188,20 +238,59 @@ export default function Home() {
             {PACKAGES.length} packages, one version
           </h2>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Install the umbrella, <code className="rounded bg-muted px-1 text-sm">@marktiderman/genesis</code>, or only the
-            packages you use. This list is read from the repository at build time.
+            In layers that only depend downward: the foundation and primitives are level 1, the modules built from
+            them level 2. Start with <code className="rounded bg-muted px-1 text-sm">{INIT_COMMAND}</code> and the
+            packages marked essential. This list is read from the repository at build time.
           </p>
-          <ul className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-            {PACKAGES.map((p) => (
-              <li key={p.name} className="min-w-0">
-                <a className="font-mono text-sm font-medium hover:underline" href={`${BASE}packages/${p.dir}`}>
-                  {p.short}
-                </a>{" "}
-                <span className="text-xs text-muted-foreground">{p.version}</span>
-                <p className="line-clamp-2 text-sm text-muted-foreground">{p.description}</p>
-              </li>
-            ))}
-          </ul>
+          <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_16rem]">
+            <div className="space-y-4">
+              {LAYER_BANDS.map((band) => (
+                <section
+                  key={band.layer}
+                  aria-labelledby={`band-${band.layer}`}
+                  className="rounded-lg border border-border p-4 sm:p-5"
+                  data-testid={`layer-${band.layer}`}
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <h3 id={`band-${band.layer}`} className="text-lg font-semibold">{band.title}</h3>
+                    <span className="text-xs uppercase tracking-wide text-muted-foreground">{band.level}</span>
+                  </div>
+                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{band.blurb}</p>
+                  {band.layer === "module" ? (
+                    <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {packagesIn("module").flatMap((g) => g.packages).map((p) => (
+                        <ModuleCard key={p.name} p={p} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 space-y-4">
+                      {packagesIn(band.layer).map((g) => (
+                        <div key={g.group} data-testid={`group-${band.layer}-${g.group}`}>
+                          <h4 className="text-sm font-medium">{GROUP_LABELS[g.group]}</h4>
+                          <ul className="mt-2 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {g.packages.map((p) => (
+                              <PackageLink key={p.name} p={p} />
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              ))}
+            </div>
+            <aside aria-labelledby="band-tooling" className="h-fit rounded-lg border border-dashed border-border p-4 sm:p-5" data-testid="layer-tooling">
+              <h3 id="band-tooling" className="text-lg font-semibold">Tooling</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Beside the layers: it may use any package, and no runtime package uses it.
+              </p>
+              <ul className="mt-4 space-y-3">
+                {packagesIn("tooling").flatMap((g) => g.packages).map((p) => (
+                  <PackageLink key={p.name} p={p} />
+                ))}
+              </ul>
+            </aside>
+          </div>
         </section>
       </main>
       <SiteFooter />

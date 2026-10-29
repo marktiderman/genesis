@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Switch, Label } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Switch> = {
-  title: "UI/Switch",
+  title: "Foundation/UI/Switch",
   component: Switch,
 };
 export default meta;
