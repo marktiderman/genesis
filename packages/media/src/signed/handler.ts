@@ -7,6 +7,22 @@ import { mediaScope, scopeFilename, type MediaScope } from "./scope";
 import type { MediaSigner } from "./signer";
 import type { MediaObjectInfo, MediaRange, MediaStorage } from "./storage";
 
+/**
+ * Hands an error to `onError` without letting the hook change the answer: a
+ * hook that throws, or returns a promise that rejects, is ignored, so the
+ * request still gets the same 403 rather than a 500.
+ */
+function reportError(onError: SignedMediaHandlerOptions["onError"], error: unknown, request: Request): void {
+  try {
+    const result: unknown = onError?.(error, request);
+    if (result && typeof (result as PromiseLike<unknown>).then === "function") {
+      (result as PromiseLike<unknown>).then(undefined, () => {});
+    }
+  } catch {
+    // The hook is for logging; its own failure must not reach the caller.
+  }
+}
+
 /** Checked when no route matched, so that answer costs the same HMAC as any other. */
 const UNROUTED = mediaScope.item("-", "-");
 
@@ -48,7 +64,8 @@ export interface SignedMediaHandlerOptions {
   cacheControl?: string | undefined;
   /**
    * Called with an error `route` threw, before the request is answered with
-   * the same 403 as no route. For logging; the answer doesn't change.
+   * the same 403 as no route. For logging; the answer doesn't change, even
+   * if the hook itself throws (its error is ignored).
    */
   onError?: ((error: unknown, request: Request) => void) | undefined;
   /** The time, in Unix seconds, for the default `cache-control`. Default the clock. */
@@ -126,7 +143,7 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     } catch (error) {
       // Still the same 403 as no route (the caller learns nothing); the app sees the error.
       target = undefined;
-      options.onError?.(error, request);
+      reportError(options.onError, error, request);
     }
 
     // What the route said stays private until the link checks out: a path that isn't routable is

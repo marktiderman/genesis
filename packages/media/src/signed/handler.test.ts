@@ -216,6 +216,28 @@ describe("createSignedMediaHandler", () => {
     expect(errors).toEqual([[failure, `${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`]]);
   });
 
+  it("still answers the same 403 when onError itself throws or rejects", async () => {
+    for (const onError of [
+      () => {
+        throw new Error("logger down");
+      },
+      () => Promise.reject(new Error("logger down")) as unknown as void,
+    ]) {
+      const handle = createSignedMediaHandler({
+        storage: createMemoryStorage(objects),
+        signer,
+        now,
+        route: () => {
+          throw new Error("database down");
+        },
+        onError,
+      });
+      const res = await handle(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+      expect(res.status).toBe(403);
+      expect(await res.text()).toBe("This link is invalid or has expired.");
+    }
+  });
+
   it("checks the link before saying whether a path is routable: same answer, same HMAC, route throws included", async () => {
     let verifies = 0;
     const counted = { ...signer, verify: (...args: Parameters<typeof signer.verify>) => (verifies++, signer.verify(...args)) };
