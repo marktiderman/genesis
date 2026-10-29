@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * React Router (v7, library or framework mode) adapters for genesis-ui's
+ * React Router (v7 or v8, library or framework mode) adapters for genesis-ui's
  * router-agnostic navigation contract.
  *
  * Import from `@marktiderman/genesis-ui/router/react-router`. This is the only
