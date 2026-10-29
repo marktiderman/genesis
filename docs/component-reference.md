@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3787 other exports · 2984 standalone types across 176 entry points in 28 packages.
+**Totals:** 589 components · 3790 other exports · 2993 standalone types across 176 entry points in 28 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,12 +23,13 @@ One server-side pipeline for every AI call a Genesis app makes: consent, the fea
 
 **Barrel:** [`packages/ai/src/index.ts`](../packages/ai/src/index.ts)
 
-### Other exports (8)
+### Other exports (11)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AI_SPEC`](../packages/ai/src/types.ts) | const | — | The version of the definition format (tasks today; tools and agents next), apart from the package's version: a definition written for spec 1 keeps its meaning while the package moves. |
 | [`ANTHROPIC_API_VERSION`](../packages/ai/src/models.ts) | const | — | Anthropic API version Genesis pins (sampling parameters are refused on it). |
 | [`checkTasks`](../packages/ai/src/define.ts) | function | — | _(no summary)_ |
 | [`costOf`](../packages/ai/src/models.ts) | function | — | Cost of one call in USD from its usage. `cacheTtl` prices cache writes (default 5 minutes). |
@@ -37,13 +38,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`estimateCost`](../packages/ai/src/models.ts) | function | — | Upper bound for the budget: the prompt at the input price plus the full output cap. |
 | [`GuardrailError`](../packages/ai/src/types.ts) | class | — | Stops a call with a typed outcome and a message the UI can show. Thrown by a guardrail, or by a task's `load` when there is nothing to do ("Nothing to catch up on yet") or the person may not read what it needs (`forbidden`). Before the m... |
 | [`MODEL_RECORDS`](../packages/ai/src/models.ts) | const | — | Prices from Anthropic's model table as of 2026-10-06, first-party API. Cache reads are 0.05× of input on Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1 and 0.1× elsewhere (prompt-caching docs, checked 2026-10-28). |
+| [`RUN_EVENT_TYPES`](../packages/ai/src/run-events.ts) | const | — | The names of {@link RunEvent}, in the order a text run sends them. |
+| [`textStreamToRunEvents`](../packages/ai/src/run-events.ts) | function | — | Turns the text stream's events into {@link RunEvent}s, one stream at a time: the first text opens the run and the message, `done` closes them. `threadId` defaults to the run's id (a run outside a conversation is its own thread). |
 
-### Types (32)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Ai };
+export type { AiActor };
 export type { AiConfig };
 export type { AiContext };
 export type { AiMessage };
@@ -51,6 +55,7 @@ export type { AiOutcome };
 export type { AiResult };
 export type { AiSchema };
 export type { AiSpan };
+export type { AiSpec };
 export type { AiStore };
 export type { AiUsage };
 export type { AiVendor };
@@ -58,21 +63,28 @@ export type { AliasConfig };
 export type { AliasFallbacks };
 export type { BeganCall };
 export type { BeginInput };
+export type { BudgetStore };
 export type { CacheTtl };
 export type { Capability };
+export type { ConsentStore };
 export type { ContextLayerRecord };
 export type { FinishInput };
 export type { Guardrail };
+export type { JsonPatchOperation };
 export type { KeySource };
+export type { KeyStore };
 export type { LoadContext };
 export type { Loaded };
 export type { ModelLike };
 export type { ModelRecord };
 export type { ResolvedAlias };
+export type { RunEvent };
 export type { SafetyProtocol };
 export type { SafetyRoute };
 export type { TaskDefinition };
 export type { TelemetrySink };
+export type { TextStreamEvent };
+export type { UsageStore };
 export type { VendorAdapter };
 export type { VendorKey };
 ```

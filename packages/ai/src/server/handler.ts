@@ -1,4 +1,5 @@
 import { checkTasks, type Ai } from "../define";
+import { textStreamToRunEvents, type RunEvent, type TextStreamEvent } from "../run-events";
 import type { AiContext, AiOutcome, AiResult, TaskDefinition } from "../types";
 import { runTask, streamTask } from "./run";
 
@@ -48,19 +49,23 @@ const error = (status: number, message: string) => json({ ok: false, outcome: "i
 function sse(
   started: { textStream: AsyncIterable<string>; done: Promise<AiResult<{ text: string }>> },
   abort: () => void,
+  runEvents?: (event: TextStreamEvent) => RunEvent[],
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   const event = (data: unknown) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+  const send = (controller: ReadableStreamDefaultController<Uint8Array>, e: TextStreamEvent) => {
+    for (const out of runEvents ? runEvents(e) : [e]) controller.enqueue(event(out));
+  };
   return new ReadableStream({
     async start(controller) {
       try {
-        for await (const text of started.textStream) controller.enqueue(event({ type: "text", text }));
+        for await (const text of started.textStream) send(controller, { type: "text", text });
       } catch {
         // the row is closed by streamTask; `done` says how it ended
       }
       const result = await started.done;
       try {
-        controller.enqueue(event({ type: "done", result }));
+        send(controller, { type: "done", result });
         controller.close();
       } catch {
         // the reader went away
@@ -76,8 +81,10 @@ function sse(
  * One HTTP endpoint for every task: `POST { task, args }` → the task's {@link AiResult} as JSON.
  * A web-standard handler, so it mounts in TanStack Start, Next, Hono or a Supabase Edge Function.
  * With `stream: true`, a text task answers as server-sent events: `{ type: "text", text }` as text
- * arrives, then `{ type: "done", result }` (`useAiStream` reads them). A stop before the model is
- * plain JSON either way. The tasks are checked against their models' capabilities at startup.
+ * arrives, then `{ type: "done", result }` (`useAiStream` reads them). With `stream: "events"`,
+ * the same stream as {@link RunEvent}s, named after AG-UI's events (`RUN_STARTED`,
+ * `TEXT_MESSAGE_CONTENT`, `RUN_FINISHED` or `RUN_ERROR`). A stop before the model is plain JSON
+ * either way. The tasks are checked against their models' capabilities at startup.
  *
  * Cross-site requests are refused before the session is read: the body must be
  * `application/json` (a form or `text/plain` post from another site can't set it without a
@@ -110,14 +117,17 @@ export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Re
     const { task: id, args, stream } = (body ?? {}) as { task?: unknown; args?: unknown; stream?: unknown };
     const task = typeof id === "string" ? byId.get(id) : undefined;
     if (!task) return error(404, "No such task.");
-    if (stream === true) {
+    if (stream === true || stream === "events") {
       if (task.output !== "text" || task.guardrails?.output?.length) return error(400, "This task doesn't stream.");
       try {
         const cancelled = new AbortController();
         const abortSignal = AbortSignal.any([request.signal, cancelled.signal]);
-        const started = await streamTask(options.ai, task, args ?? {}, ctx, { abortSignal });
+        // A run-events stream names its run, so the span and the store get the same id.
+        const runCtx = stream === "events" && !ctx.runId ? { ...ctx, runId: crypto.randomUUID() } : ctx;
+        const started = await streamTask(options.ai, task, args ?? {}, runCtx, { abortSignal });
         if (!started.ok) return json(started, STATUS[started.outcome]);
-        return new Response(sse(started, () => cancelled.abort()), { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
+        const runEvents = stream === "events" ? textStreamToRunEvents({ runId: runCtx.runId!, threadId: runCtx.conversationId }) : undefined;
+        return new Response(sse(started, () => cancelled.abort(), runEvents), { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
       } catch (thrown) {
         options.onError?.(thrown, request);
         return json({ ok: false, outcome: "unavailable", message: "The AI service failed. Try again." }, 503);

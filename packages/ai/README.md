@@ -32,7 +32,7 @@ Built on the [Vercel AI SDK](https://ai-sdk.dev) 7. Server only, except `/react`
 
 | Import | What |
 |---|---|
-| `@marktiderman/genesis-ai` | `defineAi`, `defineTask`, `checkTasks`, `GuardrailError`, `MODEL_RECORDS`, `costOf`, the types. No AI SDK code. |
+| `@marktiderman/genesis-ai` | `defineAi`, `defineTask`, `checkTasks`, `GuardrailError`, `MODEL_RECORDS`, `costOf`, `AI_SPEC`, `textStreamToRunEvents`, the types (`RunEvent`, the store ports). No AI SDK code. |
 | `/server` | `runTask`, `streamTask`, `wrap` (processors), `createAiHandler`, `memoryStore`, `otelSink`, `evaluate`. Throws if bundled into a browser. |
 | `/anthropic` | `anthropic(settings)`: the Anthropic vendor (API version `2026-10-21`, effort, refusal fallback, caching). `createGenesisAnthropic` for the bare provider. |
 | `/openai` | `openai(settings)`: the OpenAI vendor (Responses API, `reasoningEffort`, strict schemas). Add the models you use to `modelRecords`. |
@@ -173,6 +173,30 @@ the row when the stream ends, fails or is aborted. `createAiHandler` streams wit
 as server-sent events (`{ type: "text", text }`, then `{ type: "done", result }`). A refusal can
 arrive mid-stream: when the result is `refused`, discard what was shown (`useAiStream` does).
 Output guardrails need the whole answer, so a task with them can't stream.
+
+With `stream: "events"` the same stream comes as **run events**, named after the
+[AG-UI](https://docs.ag-ui.com) protocol's: `RUN_STARTED`, `TEXT_MESSAGE_START`,
+`TEXT_MESSAGE_CONTENT` (`delta`), `TEXT_MESSAGE_END`, then `RUN_FINISHED` or `RUN_ERROR`
+(both carry the result; `RUN_ERROR`'s `code` is the outcome). `useAiStream` reads both formats.
+`RunEvent` also names the tool-call and `STATE_DELTA` events agent runs will send, and a run paused
+for approval as a `CUSTOM` event named `genesis.interrupt`.
+`textStreamToRunEvents` converts the text stream.
+
+## The contract
+
+- **`spec: 1`.** `defineTask` stamps every task with the definition format's version
+  (`AI_SPEC`), apart from the package's version, and refuses any other. Tools and agents will
+  carry it too.
+- **Context.** Besides `tenantId`, `personId` and `db`, an `AiContext` can say who started the call
+  (`actor`: `"person"`, the default, `"agent"` or `"system"`), the run it is a step of (`runId`) and
+  its conversation (`conversationId`). They go on the span and to the store's `begin`.
+- **Store ports.** `AiStore` is `ConsentStore & BudgetStore & UsageStore & Partial<KeyStore>`;
+  `memoryStore()` and `supabaseStore()` implement all of them, and code that needs one port can
+  ask for just that one.
+- **Spans.** OpenTelemetry GenAI names: `chat {model}` for a task's model call,
+  `{operation} {id}` for a wrapped processor (`execute_tool notes.search`, `moderation
+  chat.moderate`), with `gen_ai.*` attributes, `gen_ai.conversation.id` from the context, and
+  Genesis's own under `genesis.ai.*` (task, outcome, key source, cost, usage id, actor, run id).
 
 ## Evaluations
 
