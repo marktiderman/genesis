@@ -539,8 +539,8 @@ describe("useResourceForm — mutation modes", () => {
     const { wrapper, list } = setup({ update: vi.fn(() => answer.promise) as DataProvider["update"] });
     const onError = vi.fn();
     const { result } = renderHook(
-      () =>
-        useResourceForm({
+      () => {
+        const formHook = useResourceForm({
           resource: "tasks",
           action: "edit",
           id: "t1",
@@ -548,7 +548,12 @@ describe("useResourceForm — mutation modes", () => {
           fields,
           mutationMode: "optimistic",
           onError,
-        }),
+        });
+        // Read the errors while rendering, as a form that shows them does: react-hook-form
+        // re-renders on an error change only for form state read during render.
+        void formHook.form.formState.errors;
+        return formHook;
+      },
       { wrapper },
     );
     await act(async () => {
