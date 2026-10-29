@@ -71,7 +71,7 @@
   "dependencies": {
     "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
-    "commander": "^12.1.0",
+    "commander": "^15.0.0",
     "jiti": "^2.4.0",
     "postgres": "^3.4.9"
   },
