@@ -1,0 +1,28 @@
+scripts/__tests__/check-adr-required.test.mjs
+  s_36f3212387dbf7::t_50389606b81492 1-17
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_3e13d9494e475e 120-129
+docs/adr/TEMPLATE.md
+  s_36f3212387dbf7::t_3e13d9494e475e 1-42
+scripts/check-adr-required.mjs
+  s_36f3212387dbf7::t_67b6cbb3b3a0ca 1-12,15-37,39-45
+  s_36f3212387dbf7::t_3e13d9494e475e 13-14,38
+package.json
+  s_36f3212387dbf7::t_3e13d9494e475e 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8b76d68789895948060f55043c79c5a32b238bd0",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
