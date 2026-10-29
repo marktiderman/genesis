@@ -21,7 +21,7 @@
     "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^6.0.0",
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-features": "workspace:^",
