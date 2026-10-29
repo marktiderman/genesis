@@ -95,6 +95,7 @@ export interface MediaSigner {
   /**
    * True when `token` was signed for exactly `scope` by one of this signer's
    * keys and hasn't expired. Takes the raw query values (strings or null).
+   * Never throws for a bad token or scope: it answers false.
    */
   verify(scope: MediaScope, token: MediaTokenInput): Promise<boolean>;
   /**
@@ -215,15 +216,19 @@ export function createMediaSignerWithFormats(
   return {
     sign,
     async verify(scope, token) {
-      checkScope(scope);
+      // A malformed scope (not from mediaScope) is a refusal, not a throw, so a handler answers 403.
+      if (!scopeKind(scope)) return false;
       const eText = typeof token?.e === "number" ? String(token.e) : token?.e;
       const s = token?.s;
-      if (typeof eText !== "string" || !/^\d{1,12}$/.test(eText) || typeof s !== "string") return false;
+      // Unix seconds as written by sign: digits, no sign, no leading zero.
+      if (typeof eText !== "string" || !/^[1-9]\d{0,11}$/.test(eText) || typeof s !== "string") return false;
       const e = Number(eText);
       if (e <= now()) return false;
-      const version = s.slice(0, s.indexOf("."));
-      const versionFormat = Object.hasOwn(formats, version) ? formats[version] : undefined;
-      if (!versionFormat) return false;
+      // The version is read explicitly: `v1x.…` or `v01.…` is no version, never v1.
+      const parsed = /^(v[1-9]\d{0,3})\.[A-Za-z0-9_-]{1,128}$/.exec(s);
+      const version = parsed?.[1];
+      const versionFormat = version !== undefined && Object.hasOwn(formats, version) ? formats[version] : undefined;
+      if (!versionFormat || version === undefined) return false;
       const k = token.k ?? undefined;
       // A token naming a key is checked with that key only; one with no id, with every key.
       const candidates = k !== undefined ? (KEY_ID.test(k) && secrets.has(k) ? [k] : []) : [...secrets.keys()];

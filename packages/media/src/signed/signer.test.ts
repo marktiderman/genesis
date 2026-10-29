@@ -62,11 +62,16 @@ describe("createMediaSigner: sign and verify", () => {
       s.replace(/^v1\./, ""),
       s.replace(/^v1\./, "v2."),
       s.replace(/^v1\./, "V1."),
+      s.replace(/^v1\./, "v1x."),
+      s.replace(/^v1\./, "v01."),
+      s.replace(/^v1\./, "v1.."),
+      "v1",
+      "v1.",
       "",
     ];
     for (const bad of tampered) expect(await signer.verify(scope, { e, s: bad }), bad).toBe(false);
     expect(await signer.verify(scope, { e, s: null })).toBe(false);
-    for (const badE of [null, "", "abc", `${e}.0`, `+${e}`, `${e} `, "1".repeat(13), -1]) {
+    for (const badE of [null, "", "abc", `${e}.0`, `+${e}`, `${e} `, `0${e}`, `00${e}`, "0", "1".repeat(13), -1]) {
       expect(await signer.verify(scope, { e: badE, s }), String(badE)).toBe(false);
     }
   });
@@ -119,9 +124,13 @@ describe("scopes", () => {
 
   it("refuses a scope not made by mediaScope, and empty parts", async () => {
     await expect(signer.sign("item:c/x/extra" as never, { ttl: "2h" })).rejects.toThrow(/mediaScope/);
-    await expect(signer.verify("anything" as never, { e: H + 10, s: "v1.x" })).rejects.toThrow(/mediaScope/);
+    // verify never throws: a malformed scope is a refusal, so a handler answers 403, not 500.
+    for (const bad of ["anything", "item:a b/c", "item:a/b/c", "ITEM:a/b", "thing:a/b", "item:a/%zz", "download:a/%C3", "download:a/%c3%a9", "item:a/"]) {
+      expect(await signer.verify(bad as never, { e: H + 10, s: "v1.x" }), bad).toBe(false);
+    }
     expect(() => mediaScope.item("", "x")).toThrow(/collection/);
     expect(() => mediaScope.download("p", "")).toThrow(/filename/);
+    expect(() => mediaScope.item("c", "\uD800")).toThrow(TypeError);
   });
 
   it("signMediaUrl encodes the path and carries e, s, and d for a download", async () => {

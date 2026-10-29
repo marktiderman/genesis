@@ -309,6 +309,14 @@ describe("createBundleHandler", () => {
     expect((await invalid(new Request(await link(m.id)))).status).toBe(500);
   });
 
+  it("refuses a malformed bundle id with the same 403 as a bad link", async () => {
+    const m = manifest();
+    for (const id of ["short", "has space in it ok", "x".repeat(129)]) {
+      const res = await bundle(m)(new Request(`${BASE}/bundles/${encodeURIComponent(id)}?e=${H + 60}&s=v1.x`));
+      expect(res.status, id).toBe(403);
+    }
+  });
+
   it("takes the manifest id as an argument, like a router param", async () => {
     const m = manifest();
     const url = new URL(await link(m.id));

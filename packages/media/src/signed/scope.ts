@@ -23,7 +23,24 @@ const PARTS: Record<MediaScopeKind, number> = { item: 2, file: 3, download: 2, b
 
 function part(name: string, value: string): string {
   if (typeof value !== "string" || value === "") throw new TypeError(`mediaScope: ${name} must be a non-empty string.`);
-  return encodeURIComponent(value);
+  try {
+    return encodeURIComponent(value);
+  } catch {
+    throw new TypeError(`mediaScope: ${name} isn't well-formed text (a lone surrogate).`);
+  }
+}
+
+/** One encoded part: exactly what `encodeURIComponent` emits. */
+const PART = "(?:[A-Za-z0-9\\-_.!~*'()]|%[0-9A-F]{2})+";
+const SCOPE = new RegExp(`^(item|file|download|bundle):(${PART}(?:/${PART})*)$`);
+
+/** A part decoded, or undefined when its percent-encoding isn't valid UTF-8. */
+function decodePart(encoded: string): string | undefined {
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return undefined;
+  }
 }
 
 const make = (kind: MediaScopeKind, ...parts: string[]) => `${kind}:${parts.join("/")}` as MediaScope;
@@ -50,18 +67,22 @@ export const mediaScope = {
   bundle: (manifestId: string): MediaScope => make("bundle", part("manifestId", manifestId)),
 } as const;
 
-/** The kind of a scope made by `mediaScope`, or undefined for any other string. */
+/**
+ * The kind of a scope made by `mediaScope`, or undefined for any other
+ * string: a known kind, the right number of parts, each in the exact
+ * character set `encodeURIComponent` emits and decoding to valid UTF-8.
+ */
 export function scopeKind(scope: string): MediaScopeKind | undefined {
   if (typeof scope !== "string") return undefined;
-  const colon = scope.indexOf(":");
-  const kind = scope.slice(0, colon);
-  if (!Object.hasOwn(PARTS, kind) || !/^[a-z]+:[^:/]+(\/[^:/]+)*$/.test(scope)) return undefined;
-  return scope.slice(colon + 1).split("/").length === PARTS[kind as MediaScopeKind] ? (kind as MediaScopeKind) : undefined;
+  const m = SCOPE.exec(scope);
+  if (!m) return undefined;
+  const kind = m[1] as MediaScopeKind;
+  const parts = m[2]!.split("/");
+  return parts.length === PARTS[kind] && parts.every((p) => decodePart(p) !== undefined) ? kind : undefined;
 }
 
-/** The filename a `download` scope binds in, or undefined for every other scope. */
+/** The filename a `download` scope binds in, or undefined for every other scope (or a malformed one). */
 export function scopeFilename(scope: string): string | undefined {
   if (scopeKind(scope) !== "download") return undefined;
-  const encoded = scope.slice(scope.lastIndexOf("/") + 1);
-  return decodeURIComponent(encoded);
+  return decodePart(scope.slice(scope.lastIndexOf("/") + 1));
 }

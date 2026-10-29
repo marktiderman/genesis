@@ -206,6 +206,16 @@ describe("createSignedMediaHandler", () => {
     expect((await handle(new Request(valid))).status).toBe(403);
   });
 
+  it("answers 403, not 500, when a route hands back a malformed download scope or a d the scope can't hold", async () => {
+    const malformed = createSignedMediaHandler({ storage: createMemoryStorage(objects), signer, now, route: () => ({ key: "media/photos/p1/800.jpg", scope: "download:a/%C3" as never }) });
+    const res = await malformed(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    expect(res.status).toBe(403);
+    // An empty d is no download; a lone surrogate can't reach mediaScope through a URL (it decodes to U+FFFD).
+    const url = new URL(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")));
+    url.searchParams.set("d", "");
+    expect((await setup()(new Request(url))).status).toBe(200);
+  });
+
   it("allows GET and HEAD only", async () => {
     const res = await setup()(new Request(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")), { method: "POST" }));
     expect(res.status).toBe(405);
