@@ -7,7 +7,7 @@
  * URLs. This entry resolves to nothing under the `browser` condition, so a
  * page bundle that imports it fails to build.
  *
- * - `createMediaSigner({ secret } | { keys }, …)`: `sign`, `verify`, `signMediaUrl`.
+ * - `createMediaSigner({ secret | keys, ttl?, align?, now? })`: `sign`, `verify`, `signMediaUrl`.
  * - `mediaScope.item | file | download | bundle`: what a link opens.
  * - `createSignedMediaHandler({ storage, signer, route })`: serves the links.
  * - `createZipManifest` and `createBundleHandler`: a streaming ZIP of many files.
