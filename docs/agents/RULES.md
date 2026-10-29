@@ -26,8 +26,8 @@ only product-specific part.
 - **Practice**: how the team already works.
 - **Proposed**: a lesson from a real failure; the owner decides.
 
-A rule nobody stated is never attributed to the owner. A rule a script can check moves to the
-last section and leaves this file once the check exists.
+A rule nobody stated is never attributed to the owner. A rule a script can check moves to
+"Checked rules" once the check exists.
 
 ## 1. Deciding
 

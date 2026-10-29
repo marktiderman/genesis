@@ -33,8 +33,8 @@ function changesetBumps(root: string): Map<string, { file: string; bump: string 
   for (const name of readdirSync(dir)) {
     if (!name.endsWith(".md") || name === "README.md") continue;
     const text = readFileSync(path.join(dir, name), "utf8");
-    const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? "";
-    for (const line of front.split("\n")) {
+    const front = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1] ?? "";
+    for (const line of front.split(/\r?\n/)) {
       const m = /^\s*["']?([^"':]+)["']?\s*:\s*(major|minor|patch)\s*$/.exec(line);
       if (!m) continue;
       const list = bumps.get(m[1]!) ?? [];
@@ -65,14 +65,51 @@ function firstVersionProblems(root: string): AgentRuleProblem[] {
   return problems;
 }
 
-/** The branch list of a workflow's `pull_request` trigger, when it has one. */
+/** A YAML line without its comment (a `#` after a space, outside quotes). */
+function uncomment(line: string): string {
+  let quote: string | null = null;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]!;
+    if (quote) {
+      if (ch === quote) quote = null;
+    } else if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === "#" && (i === 0 || /\s/.test(line[i - 1]!))) return line.slice(0, i).trimEnd();
+  }
+  return line.trimEnd();
+}
+
+const indentOf = (line: string) => line.length - line.trimStart().length;
+const unquote = (s: string) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
+
+/**
+ * The branch list of a workflow's `pull_request` (or `pull_request_target`) trigger, when it
+ * filters by branch. Reads the two YAML forms workflows use, an inline `[a, b]` and a `- a`
+ * list, with comments; enough for `on:` blocks, not a YAML parser.
+ */
 export function pullRequestBranches(workflow: string): string[] | undefined {
-  const block = /^\s{2}pull_request:\s*\n((?:\s{4,}.*\n?)*)/m.exec(workflow)?.[1];
-  if (!block) return undefined;
-  const inline = /^\s+branches:\s*\[([^\]]*)\]/m.exec(block);
-  if (inline) return inline[1]!.split(",").map((b) => b.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
-  const listed = /^(\s+)branches:\s*\n((?:\1\s+-\s.*\n?)*)/m.exec(block);
-  if (listed) return [...listed[2]!.matchAll(/-\s*["']?([^"'\n]+?)["']?\s*$/gm)].map((m) => m[1]!);
+  const lines = workflow.split(/\r?\n/).map(uncomment);
+  const start = lines.findIndex((l) => /^\s*pull_request(_target)?:\s*$/.test(l));
+  if (start < 0) return undefined;
+  const base = indentOf(lines[start]!);
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (!line.trim()) continue;
+    if (indentOf(line) <= base) return undefined;
+    const m = /^(\s*)branches:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const inline = /^\[(.*)\]$/.exec(m[2]!);
+    if (inline) return inline[1]!.split(",").map(unquote).filter(Boolean);
+    const at = m[1]!.length;
+    const out: string[] = [];
+    for (let j = i + 1; j < lines.length; j++) {
+      const item = lines[j]!;
+      if (!item.trim()) continue;
+      const dash = /^(\s*)-\s*(.*)$/.exec(item);
+      if (!dash || dash[1]!.length < at) break;
+      out.push(unquote(dash[2]!));
+    }
+    return out;
+  }
   return undefined;
 }
 

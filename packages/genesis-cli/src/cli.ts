@@ -241,6 +241,7 @@ program
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string }) => {
     const root = path.resolve(opts.dir);
+    if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
     if (opts.rules) {
       const { checkAgentRules } = await import("./agent-rules.js");
       const problems = checkAgentRules(root, { batch: opts.batch });

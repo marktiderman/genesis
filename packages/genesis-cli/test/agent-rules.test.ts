@@ -38,7 +38,7 @@ describe("genesis agents --rules", () => {
   it("refuses a new package past its first version, or bumped past a patch", () => {
     const root = repo({
       "packages/new/package.json": pkg("@acme/new", "1.0.0"),
-      ".changeset/a.md": "---\n'@acme/new': minor\n---\n",
+      ".changeset/a.md": "---\r\n'@acme/new': minor\r\n---\r\n",
     });
     expect(checkAgentRules(root).map((p) => p.message)).toEqual([
       "packages/new: @acme/new has never been released, so it starts at 0.1.0, not 1.0.0",
@@ -57,6 +57,10 @@ describe("genesis agents --rules", () => {
     ]);
     expect(pullRequestBranches(listed)).toEqual(["main", "staging/**"]);
     expect(pullRequestBranches(any)).toBeUndefined();
+    // Comments, a list level with its key, a comment line inside it, CRLF and pull_request_target.
+    expect(pullRequestBranches("on:\n  pull_request:\n    branches:\n    # the batches too\n    - main # always\n    - 'staging/**' # batch\n    paths: [x]\n")).toEqual(["main", "staging/**"]);
+    expect(pullRequestBranches("on:\r\n  pull_request_target:\r\n    branches: [main]\r\n")).toEqual(["main"]);
+    expect(pullRequestBranches("on:\n  pull_request:\n    types: [opened]\n  push:\n    branches: [main]\n")).toBeUndefined();
     expect(checkAgentRules(root, { batch: "release/*" }).map((p) => p.rule)).toEqual(["batch-ci", "batch-ci", "batch-ci"]);
   });
 });
