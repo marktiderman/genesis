@@ -57,7 +57,7 @@ const PREFER_KEYS = new Set(["id", "need", "level", "platform", "files", "exclud
 const FORBID_KEYS = new Set(["jsx", "imports", "pattern"]);
 const UNLESS_KEYS = new Set(["renders", "pattern"]);
 const PRIMITIVE_KEYS = new Set(["need", "use", "import", "docs"]);
-const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "primitives", "plugin", "$comment"]);
+const DECLARATION_KEYS = new Set(["enforce", "reason", "prefer", "catalog", "primitives", "plugin", "$comment"]);
 const SCRIPT_GLOBS = ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mts", "**/*.cts", "**/*.mjs", "**/*.cjs"];
 
 /** `ui` for `@marktiderman/genesis-ui`, `genesis` for the umbrella, the full name for anything else. */
@@ -127,8 +127,11 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
   if (c.reason !== undefined && (typeof c.reason !== "string" || !c.reason.trim())) fail(`reason must be a sentence`);
   const prefer = c.prefer === undefined ? [] : c.prefer;
   if (!Array.isArray(prefer)) fail(`prefer must be a list`);
-  const primitives = c.primitives === undefined ? [] : c.primitives;
-  if (!Array.isArray(primitives)) fail(`primitives must be a list`);
+  // `catalog` is the name; `primitives` is its deprecated name, read until the next major.
+  if (c.catalog !== undefined && c.primitives !== undefined) fail(`declares both catalog and primitives; keep catalog (primitives is its old name)`);
+  const listKey = c.catalog !== undefined ? "catalog" : "primitives";
+  const primitives = c[listKey] === undefined ? [] : c[listKey];
+  if (!Array.isArray(primitives)) fail(`${listKey} must be a list`);
   if (c.plugin !== undefined && (typeof c.plugin !== "string" || !c.plugin.trim())) fail(`plugin must be a module path inside the package`);
   if (!enforce) {
     if (typeof c.reason !== "string") fail(`turns enforcement off without a reason; add "reason"`);
@@ -143,7 +146,7 @@ export function validateDeclaration(raw: unknown, packageName: string, packageDi
     ids.add(r.id);
   }
   const entries = each(primitives as unknown[], (p, i) => {
-    const where = `primitives[${i}]`;
+    const where = `${listKey}[${i}]`;
     if (!isObject(p)) return fail(`${where} must be an object`);
     for (const key of Object.keys(p)) if (!PRIMITIVE_KEYS.has(key)) unknownKey(where, key);
     for (const key of ["need", "use"]) if (typeof p[key] !== "string" || !(p[key] as string).trim()) fail(`${where} needs "${key}"`);
@@ -527,7 +530,7 @@ export function unknownPackageRuleSettings(config: DoctorContext["config"], pack
       level: "warn",
       file: "genesis config",
       subject: id,
-      message: `packageRules names ${id}, which no installed package declares; check the id (genesis primitives lists them) or remove it`,
+      message: `packageRules names ${id}, which no installed package declares; check the id (genesis catalog lists them) or remove it`,
     }));
 }
 

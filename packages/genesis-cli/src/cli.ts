@@ -212,11 +212,33 @@ program
   });
 
 program
-  .command("primitives")
-  .description("Print the Genesis primitives catalog: for each need, what to use, its import and docs, from every installed Genesis package's declarations")
+  .command("catalog")
+  .description("Print the Genesis catalog: for each need, what to use, its import and docs, from every installed Genesis package's declarations")
   .option("--json", "Print the catalog as JSON", false)
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .action(async (opts: { json: boolean; dir: string }) => {
+    const doctor = await import("./doctor/index.js");
+    const packages = doctor.discoverPackages(path.resolve(opts.dir));
+    const rows = doctor.primitivesCatalog(packages);
+    // A package whose declaration doesn't validate is missing from the catalog: say so and exit 1, in both formats.
+    const broken = packages.filter((p) => p.error);
+    if (opts.json) {
+      console.log(JSON.stringify({ catalog: rows, ...doctor.primitivesSummary(packages), errors: broken.map((p) => p.error) }, null, 2));
+    } else {
+      console.log(doctor.formatPrimitives(rows));
+    }
+    for (const p of broken) console.error(`! ${p.error}`);
+    for (const note of packages.flatMap((p) => p.ignored ?? [])) console.error(`! ${note}`);
+    if (broken.length) process.exitCode = 1;
+  });
+
+program
+  .command("primitives")
+  .description("Deprecated name of `genesis catalog` (same output; JSON keeps the `primitives` key until the next major)")
+  .option("--json", "Print the catalog as JSON", false)
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { json: boolean; dir: string }) => {
+    console.error("! `genesis primitives` is now `genesis catalog`; the old name works until the next major.");
     const doctor = await import("./doctor/index.js");
     const packages = doctor.discoverPackages(path.resolve(opts.dir));
     const rows = doctor.primitivesCatalog(packages);

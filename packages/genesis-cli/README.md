@@ -415,7 +415,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
 
 It also prints **Available but unused**: the Genesis components no file imports, and a
-**Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
+**Primitives** line: how many rules the installed packages declare (`genesis catalog` lists
 them). Check both before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
@@ -596,17 +596,20 @@ A declaration has **`prefer` rules** ("use X instead of Y") and optional **`prim
           "newOnly": false
         }
       ],
-      "primitives": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
+      "catalog": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
       "plugin": "./dist/doctor-rules.js"
     }
   }
 }
 ```
 
+`catalog` was called `primitives`; the old key is still read until the next major (not both at
+once). A package that must stay readable by a genesis-cli before this release keeps `primitives`.
+
 | Key | |
 | --- | --- |
 | `id` | Lower-case words and dashes; namespaced by the doctor. |
-| `need` | The need it answers, for `genesis primitives` and the agent guide. |
+| `need` | The need it answers, for `genesis catalog` and the agent guide. |
 | `level` | `error`, `warn` (default) or `info`. |
 | `platform` | `web` (off with the `native` pack) or `native` (only with it). Default both. |
 | `files`, `exclude` | App-relative globs. `{routes}` is the routes folder (`routesDir`). Default: every scanned script file. |
@@ -645,14 +648,14 @@ silently. `rules` works too, but warns (`package-rule-override`) until the reaso
 }
 ```
 
-**The catalog.** `genesis primitives` (`--json` for data) prints, for each need, what to use,
+**The catalog.** `genesis catalog` (`--json` for data; `genesis primitives` is its deprecated name) prints, for each need, what to use,
 its import, the rule that enforces it and the docs: a short static core plus every installed
 package's declarations. `genesis agents` writes the same catalog as
 `.claude/skills/genesis/SKILL.md` and a `<!-- genesis-primitives:start -->` block in the app's
 AGENTS.md (the rest of the file is the app's), telling agents to use the primitives first, never
 copy an older screen, and write a gap up for Genesis before inventing. `genesis agents --check`
 writes nothing and fails when either is out of date, and the doctor's `agent-guide-stale` warns.
-Both commands, and `genesis primitives`, exit 1 when a package's declaration doesn't validate,
+Both commands, and `genesis catalog`, exit 1 when a package's declaration doesn't validate,
 since the catalog would leave it out. Run `genesis agents` after each Genesis upgrade.
 
 ### The ratchet
