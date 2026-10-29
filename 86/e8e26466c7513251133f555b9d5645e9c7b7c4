@@ -1,0 +1,25 @@
+.changeset/hookform-resolvers-6.md
+  s_8b8f6102383114::t_21de4cb89189d2 1-7
+packages/core/package.json
+  s_8b8f6102383114::t_685fc03dac5f51 111
+packages/studio/package.json
+  s_8b8f6102383114::t_848ffe9db72c75 56
+packages/ui-native/package.json
+  s_8b8f6102383114::t_e84e990277fd1f 91
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "86e8e26466c7513251133f555b9d5645e9c7b7c4",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
