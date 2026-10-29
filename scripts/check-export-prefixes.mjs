@@ -40,7 +40,8 @@ function main(argv) {
     console.log("check-export-prefixes: no --base; nothing to compare.");
     return 0;
   }
-  const diff = execFileSync("git", ["diff", "-U0", "--find-renames", base, "HEAD", "--", "packages/*/src"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+  // `packages/*/src/*`: a pathspec glob matches the whole path, so `packages/*/src` alone matches no file.
+  const diff = execFileSync("git", ["diff", "-U0", "--find-renames", base, "HEAD", "--", "packages/*/src/*"], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
   const problems = prefixProblems(diff);
   for (const p of problems) console.error(`✗ ${p}`);
   if (!problems.length) console.log("✔ check-export-prefixes: new exports follow the prefix rules.");
