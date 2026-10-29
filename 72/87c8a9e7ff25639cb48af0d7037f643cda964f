@@ -1,0 +1,27 @@
+.github/dependabot.yml
+  s_e2cf1ec4fac133::t_87fd705d76e59b 38-50
+apps/genesis-rn-starter/package.json
+  s_e2cf1ec4fac133::t_fa3a7ddce5957f 37
+apps/sample/package.json
+  s_e2cf1ec4fac133::t_82c0070e31e346 103
+packages/studio/package.json
+  s_e2cf1ec4fac133::t_de8a732ce3da1d 74
+pnpm-lock.yaml
+  s_e2cf1ec4fac133::t_171781e8778bbc 96-97,521-522,1551-1552,1711,5540-5541,5551-5552,5563-5564,5575-5576,5587-5588,5599-5600,5611-5612,5623-5624,5634-5635,5647-5648,5664-5665,6018-6019,6035-6036,7120-7122,7127,7133-7134,7243-7244,12874,14147,15299,15493,15499,15505,15511,15517,15523,15529,15535,15558,15565-15572,15580,15582,15591,15595,15597,15911,15913,15928,17275-17277,17370,17375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7287c8a9e7ff25639cb48af0d7037f643cda964f",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
