@@ -38,7 +38,7 @@ describe("genesis studio init", () => {
     expect(page).toContain('import "@marktiderman/genesis-studio/standalone.css";');
     expect(plan.files.find((f) => f.path === "supabase/config.toml")).toMatchObject({ append: true, content: expect.stringContaining("verify_jwt = false") });
     expect(plan.steps[0]).toContain('<Route path="/admin/data"');
-    expect(plan.install).toContain("@hookform/resolvers@^5.1.0");
+    expect(plan.install).toContain("@hookform/resolvers@>=5.1.0 <7");
     // The browser client and the Edge Function run the exact server this CLI was built with.
     const { version } = JSON.parse(readFileSync(new URL("../../studio-server/package.json", import.meta.url), "utf8"));
     expect(plan.install).toContain(`@marktiderman/genesis-studio-server@${version}`);
