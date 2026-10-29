@@ -42,8 +42,8 @@ updates:
       - dependency-name: "@sentry/react-native"
         update-types: ["version-update:semver-major"]
       # react, react-dom and @types/react are pinned to the SDK's exact version in
-      # pnpm-workspace.yaml (React Native refuses a react of another patch), so every bump,
-      # patches too, comes with the Expo SDK.
+      # pnpm-workspace.yaml (react-dom and React Native's renderer refuse a react of another
+      # patch), so every bump, patches too, comes with the Expo SDK.
       - dependency-name: "react"
       - dependency-name: "react-dom"
       - dependency-name: "@types/react"

@@ -12,6 +12,7 @@
     "check:adr-required": "node scripts/check-adr-required.mjs",
     "gen:codeowners": "node scripts/gen-codeowners.mjs",
     "check:codeowners": "node scripts/gen-codeowners.mjs --check",
+    "check:export-prefixes": "node scripts/check-export-prefixes.mjs",
     "check:error-reporting": "node scripts/check-error-reporting.mjs",
     "check:glossary": "node scripts/check-glossary.mjs",
     "check:forbidden-imports": "node scripts/check-forbidden-imports.mjs",
