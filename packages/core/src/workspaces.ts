@@ -64,7 +64,7 @@ export interface Workspace {
   image?: string;
   /**
    * A count or short status beside it in the switcher: unread messages, tasks waiting. `0`, an
-   * empty string, null and undefined show nothing.
+   * empty string, `null` and undefined show nothing.
    */
   badge?: string | number | null;
   /** Its brand, for the switcher's picture and anything the app themes inside it. */

@@ -1,6 +1,6 @@
 # ADR 0004: Workspaces
 
-- Status: proposed
+- Status: accepted (implemented in genesis-core 2.2 and genesis-ui 2.24)
 - Date: 2026-10-28
 - Features: `workspaces`, `app-shell`
 - Related: ADR 0003 (navigation zones): zones follow the workspace (section 5).
@@ -27,7 +27,7 @@ Genesis has most of the parts:
 So each app writes its own picker, its own way of reading the organization from the URL, and its
 own wiring into the scope.
 
-## Decision (proposed)
+## Decision
 
 ### 1. A workspace is where you are working, chosen first
 

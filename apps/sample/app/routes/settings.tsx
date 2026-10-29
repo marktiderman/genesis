@@ -18,7 +18,7 @@ export default function Settings() {
     <SettingsPage
       title="Settings"
       description="Manage your application preferences."
-      actions={<Button>Save changes</Button>}
+      actions={<Button testID="settings-button-1">Save changes</Button>}
       sections={[
         {
           id: "general",

@@ -333,7 +333,8 @@ function StudioWorkspace({
           </div>
         )}
         <TableTabs resources={list} selected={selected} onSelect={(resource) => router.navigate({ resource })} variant={variant} />
-        <main className="min-w-0" data-testid="studio-main">
+        {/* Not <main>: the studio sits inside the app's own main landmark. */}
+        <div className="min-w-0" data-testid="studio-main">
           {selected ? (
             <Sheet
               key={selected}
@@ -359,7 +360,7 @@ function StudioWorkspace({
               <p className="text-sm">{list.length ? "Pick a table to open it." : "No tables to show yet."}</p>
             </div>
           )}
-        </main>
+        </div>
       </div>
       <ActivityPanel entries={activity} onUndo={provider.undo ? (entry) => void undo(entry) : undefined} />
     </div>

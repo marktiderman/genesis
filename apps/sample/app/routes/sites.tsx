@@ -5,7 +5,7 @@
 import { Link } from "react-router";
 import { Globe } from "lucide-react";
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@marktiderman/genesis-ui";
-import { PageHeader } from "@marktiderman/genesis-ui/data";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/+$/, "");
 

@@ -23658,7 +23658,7 @@
               "type": "boolean | \"auto\"",
               "required": false,
               "defaultValue": "false",
-              "description": "A search box over the list, which then becomes a combobox (see the module comment). Default\n`false`. `\"auto\"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces."
+              "description": "A search box over the list, which then becomes a combobox (see the module comment). Default\n`false`. `\"auto\"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces.\nThe highlight starts on the first match, not the current workspace (as in cmdk), so opening and\npressing Enter goes to the first one."
             },
             {
               "name": "searchPlaceholder",

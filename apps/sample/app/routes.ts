@@ -13,6 +13,19 @@ export default [
   route("preview/:scenario", "routes/preview.$scenario.tsx"),
   // The genesis-sites editor: full screen, outside the app shell.
   route("sites-editor", "routes/sites-editor.tsx"),
+  // The demo app: its own shell, three organizations as workspaces.
+  route("demo", "routes/demo.tsx", [
+    index("routes/demo._index.tsx"),
+    route(":ws", "routes/demo.$ws._index.tsx"),
+    route(":ws/clients", "routes/demo.$ws.clients.tsx"),
+    route(":ws/clients/:id/:section?", "routes/demo.$ws.clients.$id.tsx"),
+    route(":ws/bookings", "routes/demo.$ws.bookings.tsx"),
+    route(":ws/intake", "routes/demo.$ws.intake.tsx"),
+    route(":ws/chat", "routes/demo.$ws.chat.tsx"),
+    route(":ws/assistant", "routes/demo.$ws.assistant.tsx"),
+    route(":ws/data", "routes/demo.$ws.data.tsx"),
+    route(":ws/settings", "routes/demo.$ws.settings.tsx"),
+  ]),
   layout("routes/_layout.tsx", [
     route("dashboard", "routes/dashboard.tsx"),
     route("items", "routes/items.tsx"),
@@ -28,9 +41,8 @@ export default [
       route(":scenario", "routes/forms.$scenario.tsx"),
     ]),
     route("settings", "routes/settings.tsx"),
-    // Shell sub-navigation demo: a page with four children.
-    route("projects", "routes/projects._index.tsx"),
-    route("projects/:projectId/:tab?", "routes/projects.$projectId.tsx"),
+    // The old record-page sample moved to the demo app's client pages.
+    route("projects/*", "routes/projects.tsx"),
     route("studio", "routes/studio.tsx"),
     route("features", "routes/features.tsx"),
     // genesis-sites: two demo sites in frames (sites-demo/ serves them).

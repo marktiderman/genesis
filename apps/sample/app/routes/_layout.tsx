@@ -5,22 +5,22 @@ import {
   ReactRouterLink,
   useReactRouterActivePath,
 } from "@marktiderman/genesis-ui/router/react-router";
-import { Home, AppWindow, Blocks, Boxes, LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks, FolderKanban, FileText, Activity, Globe, MessagesSquare } from "lucide-react";
+import { Home, AppWindow, Building2, Blocks, Boxes, LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks, Globe, MessagesSquare } from "lucide-react";
 
 // Grouped so the sidebar reads as a site, not a list of routes: the sample
 // app's screens, the building blocks on their own, and the design system.
 const globalItems: NavItem[] = [
   { to: "/", icon: Home, label: "Home", end: true },
   {
-    to: "/dashboard",
+    to: "/demo",
     icon: AppWindow,
     label: "Demo app",
     children: [
+      { to: "/demo", icon: Building2, label: "Live demo" },
       { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
       { to: "/items", icon: Package, label: "Items" },
       { to: "/tasks", icon: CheckSquare, label: "Tasks" },
       { to: "/orders", icon: ShoppingCart, label: "Orders" },
-      { to: "/projects", icon: FolderKanban, label: "Projects" },
       { to: "/settings", icon: Settings, label: "Settings" },
     ],
   },
@@ -57,18 +57,9 @@ const globalItems: NavItem[] = [
 // The phone's bottom bar holds four destinations; the rest are in the menu.
 const mobileItems: NavItem[] = [
   { to: "/", icon: Home, label: "Home", end: true },
-  { to: "/dashboard", icon: AppWindow, label: "Demo" },
+  { to: "/demo", icon: AppWindow, label: "Demo" },
   { to: "/forms", icon: Blocks, label: "Blocks" },
   { to: "/showcase", icon: Palette, label: "Design" },
-];
-
-// A project's four children. The page (`projects.$projectId.tsx`) hands over
-// the same list with live badges through `useAppShellSubNav`.
-const projectItems: NavItem[] = [
-  { to: "/projects/$projectId", icon: FileText, label: "Overview", end: true },
-  { to: "/projects/$projectId/tasks", icon: CheckSquare, label: "Tasks" },
-  { to: "/projects/$projectId/activity", icon: Activity, label: "Activity" },
-  { to: "/projects/$projectId/settings", icon: Settings, label: "Settings" },
 ];
 
 // Contextual nav while anywhere in the showcase.
@@ -92,16 +83,6 @@ const navigation: NavigationNode<NavItem> = {
     // The form builder needs the width: it opens with the sidebar as an icon
     // rail until the user picks a side with the toggle (or `[`).
     { id: "forms-builder", path: "/forms-builder", label: "Form builder", items: [], defaultCollapsed: true },
-    {
-      id: "projects",
-      path: "/projects",
-      label: "Projects",
-      items: [],
-      // Sub-navigation is opt-in; this subtree turns it on. The rest of the
-      // app (the showcase's contextual section) renders as it always has.
-      subNav: "tabs",
-      children: [{ id: "project", path: "/projects/$projectId", label: "Project", items: projectItems }],
-    },
     {
       id: "showcase",
       path: "/showcase",

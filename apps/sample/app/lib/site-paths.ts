@@ -7,12 +7,12 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import primitives from "../data/primitives.json";
-import { PROJECTS } from "../data/projects";
+import { CLIENT_SELF, ORGS } from "../demo/tenants";
 import { scenarios } from "./forms";
 import { LAYOUTS, TOKEN_CATEGORIES } from "./portfolio-data";
 import { pageFor, SITE_PAGES, type SitePage } from "./site";
 
-const PROJECT_TABS = ["tasks", "activity", "settings"];
+const DEMO_PAGES = ["clients", "bookings", "intake", "chat", "assistant", "data", "settings"];
 
 /** Every published package's folder under packages/: one page each. */
 export function packageDirs(): string[] {
@@ -32,7 +32,8 @@ export function sitePaths(): string[] {
     ...LAYOUTS.map((l) => `/showcase/layouts/${l.slug}`),
     ...[...slugs].map((s) => `/showcase/primitives/${s}`),
     ...scenarios.flatMap((s) => [`/forms/${s.id}`, `/preview/${s.id}`]),
-    ...PROJECTS.flatMap((p) => [`/projects/${p.id}`, ...PROJECT_TABS.map((t) => `/projects/${p.id}/${t}`)]),
+    ...["all", ...ORGS.map((o) => o.id)].flatMap((ws) => [`/demo/${ws}`, ...DEMO_PAGES.map((p) => `/demo/${ws}/${p}`)]),
+    ...ORGS.map((o) => `/demo/${o.id}/clients/${CLIENT_SELF[o.id]}/bookings`),
   ];
 }
 
