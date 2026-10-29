@@ -12,14 +12,14 @@
     "config",
     "runtime"
   ],
-  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/data-switchboard#readme",
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/switchboard#readme",
   "bugs": {
     "url": "https://github.com/marktiderman/genesis/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
-    "directory": "packages/data-switchboard"
+    "directory": "packages/switchboard"
   },
   "license": "MIT",
   "publishConfig": {

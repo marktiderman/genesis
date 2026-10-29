@@ -79,7 +79,8 @@
       "react-native": "./dist/theme/index.native.js",
       "import": "./dist/theme/index.js"
     },
-    "./themes/*.css": "./dist/themes/*.css"
+    "./themes/*.css": "./dist/themes/*.css",
+    "./package.json": "./package.json"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",

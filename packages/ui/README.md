@@ -1,0 +1,63 @@
+# @marktiderman/genesis-ui
+
+Genesis's web components: elements, patterns, layouts and data-bound views on shadcn/ui and
+Radix, styled only through the design system's tokens. Layer **foundation**, group **core**;
+essential (every Genesis web app starts with it). The React Native counterpart is
+[`genesis-ui-native`](../ui-native/README.md), with the same component names.
+
+## Install
+
+```bash
+pnpm add @marktiderman/genesis-ui @marktiderman/genesis-design-system @marktiderman/genesis-core
+```
+
+React 19 and Tailwind CSS 4. The other peer dependencies (Radix, date-fns, recharts, Tiptap and
+so on) are needed only by the components that use them.
+
+## Entry points
+
+| Import | What it holds |
+| --- | --- |
+| `@marktiderman/genesis-ui` | Every element and pattern from one place |
+| `@marktiderman/genesis-ui/<component>` | One component, e.g. `/button`, `/settings-row` (smaller bundles) |
+| `@marktiderman/genesis-ui/patterns` | Composed components with slots |
+| `@marktiderman/genesis-ui/layout` | `AppShell`, `PageHeader`, page and detail layouts |
+| `@marktiderman/genesis-ui/data` | `ResourceView`, `RecordView`, `DataPageShell`, `ResourcePage` |
+| `@marktiderman/genesis-ui/hooks/*` | The hooks behind the patterns |
+| `@marktiderman/genesis-ui/router/react-router`, `/router/tanstack-router` | Link and navigation adapters |
+| `@marktiderman/genesis-ui/styles.css` | The component styles |
+
+## Quick start
+
+A list screen is a view, not a hand-built table:
+
+```tsx
+import { defineView } from "@marktiderman/genesis-core/resource-view";
+import { ResourceView } from "@marktiderman/genesis-ui/data";
+import { contracts } from "./contracts"; // written by `genesis introspect`
+
+const tasksView = defineView(contracts["public.tasks"], {
+  columns: { default: ["title", "due", "status"], compact: ["title"] },
+});
+
+export function TasksScreen() {
+  return <ResourceView view={tasksView} />;
+}
+```
+
+Theme from a brand with [`genesis-design-system`](../design-system/README.md): import
+`@marktiderman/genesis-design-system/themes/genesis.css` (or your brand's) before the component
+styles.
+
+## Read next
+
+- [SKILL.md](./SKILL.md): the reuse ladder (pattern, slots, elements, hooks) and which export
+  answers which need. Agents load it before writing a screen.
+- [EXTENDING.md](./EXTENDING.md): what to do when a component is nearly right.
+- [docs/RESOURCE-VIEW.md](../../docs/RESOURCE-VIEW.md): views and record views.
+- [docs/component-reference.md](../../docs/component-reference.md): every export.
+- [The Genesis way](../../docs/FRAMEWORK.md): reuse, then extend, then invent.
+
+## License
+
+MIT

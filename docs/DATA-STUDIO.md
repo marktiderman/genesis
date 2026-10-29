@@ -1,7 +1,9 @@
 # Genesis Data Studio
 
-Plan v2.1, 2026-10-18. Status: **proposal, for the maintainer's decision**. Nothing described here
-is built yet.
+Plan v2.1, 2026-10-18. Status: **built**: the `data-studio` feature is live, in
+`@marktiderman/genesis-studio` and `@marktiderman/genesis-studio-server`, and `genesis studio init`
+(`studio-init`) turns it on in an app. This page is the design it was built from; `features.ts`
+tracks what is still to come.
 
 An Airtable-style workspace for any Supabase or Postgres project. It ships in Genesis, and each app
 hosts it either as a route of its own or as a second app in its monorepo.
@@ -51,7 +53,7 @@ Three findings shape the build:
 1. **`ResourcePage` loads only the first 25 rows** and then searches, sorts and filters in the browser
    (`ResourcePage.tsx:653`, `core/src/hooks/use-resource.ts:106`). The fix must be **opt-in**, because
    some providers reject server-side sort or search today: one app's API provider throws on sort, and
-   the switchboard bridge throws on search (`data-switchboard/src/data-provider.ts:110`).
+   the switchboard bridge throws on search (`switchboard/src/data-provider.ts:110`).
 2. **Browsers can no longer read the schema from hosted Supabase.** Since 8 Apr 2026 the `/rest/v1/`
    OpenAPI document is refused to anon keys (Supabase changelog 42949), and publishable keys never
    see it (see Confirmed, below). The schema has to be read on the server or generated ahead of time.

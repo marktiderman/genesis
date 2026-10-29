@@ -112,6 +112,7 @@
       "import": "./dist/router/tanstack-router.js"
     },
     "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json",
     "./accessible-icon": {
       "types": "./dist/components/ui/accessible-icon.d.ts",
       "import": "./dist/components/ui/accessible-icon.js"

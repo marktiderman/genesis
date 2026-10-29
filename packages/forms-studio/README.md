@@ -1,6 +1,6 @@
 # @marktiderman/genesis-forms-studio
 
-The workspace around a [Genesis Forms](../forms/README.md) builder: the page header, the
+The form management screens around a [Genesis Forms](../forms/README.md) builder: the page header, the
 Responses tab, the Settings page and the Share dialog. It stores nothing. The host passes the
 form's rows and handles every action (save, publish, mark handled, reply), so any app can use it.
 
