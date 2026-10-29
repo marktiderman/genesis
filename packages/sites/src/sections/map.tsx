@@ -126,7 +126,7 @@ export const mapSection = defineSection({
       >
         {props.image ? (
           <span data-gs-map-drop="" className="absolute inset-0 -z-10">
-            <SiteImage image={props.image} ctx={ctx} sizes="(min-width: 768px) 50vw, 100vw" className="h-full w-full object-cover" />
+            <SiteImage image={props.image} ctx={ctx} large sizes="(min-width: 1280px) 640px, (min-width: 768px) 50vw, 100vw" className="h-full w-full object-cover" />
           </span>
         ) : (
           <MapPin data-gs-map-drop="" aria-hidden="true" className="absolute left-1/2 top-1/3 -z-10 size-12 -translate-x-1/2 text-muted-foreground" />

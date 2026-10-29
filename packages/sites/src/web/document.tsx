@@ -5,6 +5,7 @@
  * form.
  */
 import * as React from "react";
+import { passThroughImageUrl, type ImageUrlBuilder } from "@marktiderman/genesis-media";
 import "../sections/index";
 import type { PostsContext, RenderContext } from "../core/registry";
 import { getSection } from "../core/registry";
@@ -52,6 +53,8 @@ export interface SiteRendererProps {
    * list's page number.
    */
   posts?: PostsContext;
+  /** Builds each image's `srcset` (genesis-media). Default pass-through: every image at its own URL. */
+  imageUrl?: ImageUrlBuilder;
 }
 
 /** A URL made safe to print inside `url("...")` in a `<style>`. */
@@ -163,7 +166,7 @@ function hrefFor(basePath: string) {
  *
  * @stability Beta
  */
-export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, posts }: SiteRendererProps) {
+export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, posts, imageUrl = passThroughImageUrl }: SiteRendererProps) {
   const site = snapshot.site;
   const preview = mode === "preview";
   const path = page?.path ?? "/404";
@@ -174,6 +177,8 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
     forms,
     mode,
     ...(posts ? { posts } : {}),
+    // One per render: the page's first large image takes the high priority, the rest load lazily.
+    media: { imageUrl, firstLarge: { claimed: false } },
   };
   const chrome = !page?.doc.root.props.hideSiteChrome;
   const h1 = { given: false };

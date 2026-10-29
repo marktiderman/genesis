@@ -110,7 +110,7 @@ export const blogListSection = defineSection({
                   {grid ? (
                     post.cover ? (
                       // The title says what the post is; its cover is decoration here.
-                      <SiteImage image={{ ...post.cover, decorative: true }} ctx={ctx} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-[16/10] w-full rounded-t-xl object-cover" />
+                      <SiteImage image={{ ...post.cover, decorative: true }} ctx={ctx} sizes="(min-width: 1280px) 400px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-[16/10] w-full rounded-t-xl object-cover" />
                     ) : (
                       <div aria-hidden="true" className="aspect-[16/10] w-full rounded-t-xl bg-muted" />
                     )

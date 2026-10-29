@@ -2,6 +2,7 @@
  * Shared test data: a made-up brand, props that exercise every variant of
  * every built-in section, a forms resolver, and a seeded memory store.
  */
+import { passThroughImageUrl } from "@marktiderman/genesis-media";
 import { defineForm, f, when } from "@marktiderman/genesis-forms";
 import {
   createMemorySiteStore,
@@ -246,6 +247,8 @@ export function testCtx(overrides: Partial<RenderContext> = {}): RenderContext {
     mode: "live",
     idPrefix: "gs-test",
     posts: testPosts(),
+    // A fresh page each time: the section's first large image takes the priority.
+    media: { imageUrl: passThroughImageUrl, firstLarge: { claimed: false } },
     ...overrides,
   };
 }

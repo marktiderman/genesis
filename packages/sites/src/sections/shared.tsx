@@ -10,6 +10,7 @@ import { z } from "zod";
 import { Band, BandLead, Display, type BandProps } from "@marktiderman/genesis-ui/band";
 import { buttonVariants } from "@marktiderman/genesis-ui/button";
 import { cn } from "@marktiderman/genesis-ui/utils";
+import { responsiveImage } from "@marktiderman/genesis-media";
 import {
   Activity,
   Award,
@@ -202,33 +203,77 @@ export function fileHref(file: FileRef, ctx: RenderContext): string | null {
 export interface SiteImageProps {
   image: Image;
   className?: string;
-  /** `sizes` for the browser's pick; the image is one source here (image CDN transforms are V1). */
+  /** How wide the image shows, for the browser's pick from the `srcset` (only sent with one). */
   sizes?: string;
-  /** The page's largest image (a hero): loaded eagerly, at high priority. */
-  priority?: boolean;
+  /**
+   * A large image (a hero, a half-width photo): the page's first one loads at
+   * once at high priority, the rest lazily.
+   */
+  large?: boolean;
+  /** Loads at once at normal priority, never lazily (the header's logo). */
+  eager?: boolean;
   ctx: RenderContext;
 }
 
-/** An image with alt text (empty when decorative), its size to stop layout shift, and lazy loading below the fold. */
-export function SiteImage({ image, className, sizes, priority, ctx }: SiteImageProps) {
-  if (!isSafeImageSrc(image.src)) {
+/** Is this the page's first large image? Claims the page's one high-priority load. */
+function claimPriority(ctx: RenderContext, large: boolean | undefined): boolean {
+  if (!large || !ctx.media || ctx.media.firstLarge.claimed) return false;
+  ctx.media.firstLarge.claimed = true;
+  return true;
+}
+
+/**
+ * An image with alt text (empty when decorative), its size to stop layout
+ * shift, a `srcset` through the host's image URL builder, the focal point as
+ * `object-position`, a phone crop as a `<picture>` source, and lazy loading
+ * except for the page's first large image.
+ */
+export function SiteImage({ image, className, sizes, large, eager, ctx }: SiteImageProps) {
+  if (!isSafeImageSrc(image.src) || (image.phone && !isSafeImageSrc(image.phone.src))) {
     console.error(`[genesis-sites] refused an unsafe image source on ${ctx.pagePath}.`);
     return null;
   }
-  const src = image.src.startsWith("/") ? ctx.href(image.src) : image.src;
-  return (
+  const at = (src: string) => (src.startsWith("/") ? ctx.href(src) : src);
+  const priority = claimPriority(ctx, large);
+  const r = responsiveImage(
+    { ...image, src: at(image.src), ...(image.phone ? { phone: { ...image.phone, src: at(image.phone.src) } } : {}) },
+    { ...(ctx.media ? { imageUrl: ctx.media.imageUrl } : {}), ...(sizes ? { sizes } : {}), priority, eager: eager ?? false },
+  );
+  const phonePosition = r.phone?.objectPosition && r.phone.objectPosition !== r.objectPosition ? r.phone.objectPosition : undefined;
+  const style: React.CSSProperties & Record<string, string> = {
+    ...(r.objectPosition ? { objectPosition: r.objectPosition } : {}),
+    // A different focal point on phones: sites.css swaps it in under the phone width.
+    ...(phonePosition ? { "--gs-pos-phone": phonePosition } : {}),
+    ...(r.placeholder ? { backgroundImage: `url("${r.placeholder}")`, backgroundSize: "cover", backgroundPosition: r.objectPosition ?? "50% 50%" } : {}),
+  };
+  const img = (
     <img
-      src={src}
-      alt={image.decorative ? "" : image.alt}
-      {...(image.width ? { width: image.width } : {})}
-      {...(image.height ? { height: image.height } : {})}
-      {...(sizes ? { sizes } : {})}
-      loading={priority ? "eager" : "lazy"}
-      decoding={priority ? "sync" : "async"}
-      {...(priority ? { fetchPriority: "high" as const } : {})}
-      style={image.focal ? { objectPosition: `${image.focal.x}% ${image.focal.y}%` } : undefined}
+      src={r.src}
+      {...(r.srcset ? { srcSet: r.srcset } : {})}
+      alt={r.alt}
+      {...(r.width ? { width: r.width } : {})}
+      {...(r.height ? { height: r.height } : {})}
+      {...(r.sizes ? { sizes: r.sizes } : {})}
+      loading={r.loading}
+      decoding={r.decoding}
+      {...(r.fetchpriority ? { fetchPriority: r.fetchpriority } : {})}
+      style={Object.keys(style).length ? style : undefined}
+      {...(phonePosition ? { "data-gs-phone-focal": "" } : {})}
       className={className}
     />
+  );
+  if (!r.phone) return img;
+  return (
+    <picture className="contents">
+      <source
+        media={r.phone.media}
+        srcSet={r.phone.srcset ?? r.phone.src}
+        {...(r.phone.sizes ? { sizes: r.phone.sizes } : {})}
+        {...(r.phone.width ? { width: r.phone.width } : {})}
+        {...(r.phone.height ? { height: r.phone.height } : {})}
+      />
+      {img}
+    </picture>
   );
 }
 

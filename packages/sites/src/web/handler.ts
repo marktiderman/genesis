@@ -15,6 +15,7 @@
  * unknown path is null (or the site's 404 page, with `unknownPath:
  * "not-found"`). Pages render to HTML with no hydration.
  */
+import type { ImageUrlBuilder } from "@marktiderman/genesis-media";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
@@ -87,6 +88,13 @@ export interface SiteRequestOptions {
    * `assetOrigins`, so what the check allowed the page can load.
    */
   assetOrigins?: readonly string[];
+  /**
+   * Builds each image's `srcset`, such as genesis-media's
+   * `supabaseImageUrl({ url })` for images in Supabase Storage. Default
+   * pass-through: every image at its own URL, as before. On `images: "own"`,
+   * the URLs it builds must be on an asset origin, or the policy blocks them.
+   */
+  imageUrl?: ImageUrlBuilder;
 }
 
 const LIVE_CACHE = "public, max-age=0, s-maxage=31536000, stale-while-revalidate=86400";
@@ -489,6 +497,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     forms,
     assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name), ...(fontUrl ? { font: fontUrl } : {}) },
     ...(posts ? { posts } : {}),
+    ...(options.imageUrl ? { imageUrl: options.imageUrl } : {}),
   });
   let failed: unknown = null;
   const stream = await renderToReadableStream(element, {

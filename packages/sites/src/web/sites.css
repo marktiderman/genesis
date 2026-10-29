@@ -211,3 +211,10 @@
     }
   }
 }
+
+/* An image with its own focal point on phones (SiteImage sets --gs-pos-phone). It wins over the inline object-position. */
+@media (max-width: 639px) {
+  img[data-gs-phone-focal] {
+    object-position: var(--gs-pos-phone) !important;
+  }
+}

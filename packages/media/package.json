@@ -1,0 +1,77 @@
+{
+  "name": "@marktiderman/genesis-media",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Images and files for Genesis apps: one image value (alt or decorative, size, focal point, phone crop, blur placeholder), responsive images (srcset, sizes, loading and priority) through a host's image URL builder, with Supabase Storage transform and pass-through adapters, byte sniffing, and a server-side fetch guarded against request forgery. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "images",
+    "responsive-images",
+    "srcset",
+    "media",
+    "ssrf"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/media#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/media"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "doctor": {
+      "enforce": false,
+      "reason": "A library that sections and screens build on; a hand-written srcset or fetch guard isn't reliably detectable yet.",
+      "primitives": [
+        {
+          "need": "a responsive image, or fetching a URL a person gave on the server",
+          "use": "responsiveImage with the host's image URL builder; fetchGuarded from /server",
+          "import": "@marktiderman/genesis-media",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md"
+        }
+      ]
+    }
+  }
+}
