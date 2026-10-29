@@ -25,18 +25,18 @@ export default function Integrations() {
               const feature = (features as Record<string, { name: string; links?: FeatureLinks }>)[i.feature]!;
               const code = feature.links?.code?.[0];
               return (
-                <Card key={i.name} className="h-full" data-testid={`integration-${i.name}`}>
+                <Card key={i.name} className="h-full" data-testid={`integration-${i.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
                   <CardHeader>
                     <div className="flex items-center justify-between gap-2">
-                      <CardTitle className="text-base">{i.name}</CardTitle>
+                      <CardTitle className="text-base">
+                        <h3>{i.name}</h3>
+                      </CardTitle>
                       <Badge variant={i.status === "available" ? "default" : "outline"}>{i.status}</Badge>
                     </div>
                     <CardDescription>{i.what}</CardDescription>
-                    {(
-                      <p className="text-xs text-muted-foreground">
-                        {code ? <a className="underline" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {code ? <a className="underline" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
+                    </p>
                   </CardHeader>
                 </Card>
               );
