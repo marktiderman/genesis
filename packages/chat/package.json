@@ -186,7 +186,7 @@
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
-    "@tanstack/react-query": "^5.75.0",
+    "@tanstack/react-query": "^5.104.5",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
