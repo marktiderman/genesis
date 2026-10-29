@@ -145,7 +145,7 @@ describe("createSignedMediaHandler", () => {
     expect((await handle(new Request(renamed))).status).toBe(403);
     const dropped = new URL(url);
     dropped.searchParams.delete("d");
-    expect((await handle(new Request(dropped))).status).toBe(404); // the original has no view route
+    expect((await handle(new Request(dropped))).status).toBe(403); // the original has no view route
   });
 
   it("checks the signature before touching storage: 403 for a bad or expired link, and nothing read", async () => {
@@ -166,18 +166,44 @@ describe("createSignedMediaHandler", () => {
     expect(calls).toEqual([]);
   });
 
-  it("is 404 for a missing file, an unknown path and a path that tries to climb, and never lists", async () => {
+  it("is 404 only for a missing file behind a valid link; an unknown or climbing path is the same 403 as a bad link", async () => {
     const handle = setup();
     expect((await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9"))))).status).toBe(404);
     expect((await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9")), { method: "HEAD" }))).status).toBe(404);
     const seen: string[] = [];
     const spy = createSignedMediaHandler({ storage: createMemoryStorage(objects), signer, now, route: (p, c) => (seen.push(p), route(p, c)) });
     for (const path of ["/", "/photos/", "/photos/p1/", "/photos/%2e%2e/p1/800.jpg", "/photos/..%2Fx/800.jpg", "/photos/a%5Cb/800.jpg", "/photos/%00/800.jpg", "/photos/%E0%A4%A/800.jpg", "/photos/%252e%252e/800.jpg", "/photos/p1%2525/800.jpg"]) {
-      expect((await spy(new Request(`${BASE}${path}`))).status, path).toBe(404);
+      expect((await spy(new Request(`${BASE}${path}`))).status, path).toBe(403);
     }
     // The URL parser resolves a dot segment, even encoded, before the handler sees it ("/photos/%2e%2e/p1/…" is "/p1/…");
     // a segment that decodes to a slash, a backslash, NUL or "%" (double encoding), or doesn't decode, never reaches the route.
     expect(seen).toEqual(["photos", "photos/p1", "p1/800.jpg"]);
+  });
+
+  it("checks the link before saying whether a path is routable: same answer, same HMAC, route throws included", async () => {
+    let verifies = 0;
+    const counted = { ...signer, verify: (...args: Parameters<typeof signer.verify>) => (verifies++, signer.verify(...args)) };
+    const handle = createSignedMediaHandler({
+      storage: createMemoryStorage(objects),
+      signer: counted,
+      now,
+      route: (p, c) => {
+        if (p.startsWith("boom")) throw new Error("route failed");
+        return route(p, c);
+      },
+    });
+    const routable = await handle(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    const unknown = await handle(new Request(`${BASE}/nothing/here.jpg?e=${H + 60}&s=v1.x`));
+    const thrown = await handle(new Request(`${BASE}/boom?e=${H + 60}&s=v1.x`));
+    for (const r of [routable, unknown, thrown]) {
+      expect(r.status).toBe(403);
+      expect(await r.text()).toBe("This link is invalid or has expired.");
+    }
+    expect(verifies).toBe(3);
+    // A valid link for one path, replayed on a path with no route, is refused too.
+    const valid = new URL(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")));
+    valid.pathname = "/photos/p1/9999.jpg";
+    expect((await handle(new Request(valid))).status).toBe(403);
   });
 
   it("allows GET and HEAD only", async () => {

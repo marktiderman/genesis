@@ -176,9 +176,13 @@ export default { fetch: (request: Request) => handle(request) };
 `(request) => Promise<Response>`. It answers `GET` and `HEAD` (405
 otherwise) and:
 
-- checks the link **before storage is read**, so an unsigned request can't
-  learn what exists: a bad, expired or other-scope link is 403; an unknown
-  path or a missing file is 404; it never lists anything;
+- checks the link **before storage is read**, and keeps `route`'s answer to
+  itself until the link checks out, so an unsigned request can't learn what
+  exists: a bad, expired or other-scope link and a path `route` doesn't know
+  are the same 403 (after the same HMAC); only a valid link to a missing file
+  is 404; it never lists anything. `route` runs before the check (its scope
+  is what gets checked), so keep it pure and cheap: no storage or database
+  reads;
 - never hands `route` a path with `.` or `..` segments, or a segment that
   decodes to a slash, backslash, NUL or `%` (so a double-encoded
   `%252e%252e` can't become `..` in a storage URL built from the path);

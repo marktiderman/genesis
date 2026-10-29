@@ -3,9 +3,12 @@
  * storage, with HEAD and single byte ranges.
  */
 import { attachment, baseHeaders, forbidden, isInlineSafe, methodNotAllowed, notFound, pathSegments, plain } from "./http";
-import { scopeFilename, type MediaScope } from "./scope";
+import { mediaScope, scopeFilename, type MediaScope } from "./scope";
 import type { MediaSigner } from "./signer";
 import type { MediaRange, MediaStorage } from "./storage";
+
+/** Checked when no route matched, so that answer costs the same HMAC as any other. */
+const UNROUTED = mediaScope.item("-", "-");
 
 /** What a request path opens: the storage key, and the scope its link must be signed for. */
 export interface MediaRoute {
@@ -26,7 +29,11 @@ export interface SignedMediaHandlerOptions {
   signer: MediaSigner;
   /**
    * Maps a request path to a storage key and the scope its link must be
-   * signed for, or undefined (404). `path` is the decoded path without its
+   * signed for, or undefined. It runs before the signature is checked (the
+   * scope it returns is what gets checked), for unsigned requests too, so
+   * keep it **pure and cheap**: no storage or database reads. Its answer is
+   * never shown to an unchecked request: no route and a bad link are the
+   * same 403. A throw counts as no route. `path` is the decoded path without its
    * leading slash; a path with `.`, `..`, or an encoded slash or backslash in
    * a segment never reaches it. Decide here which files each scope opens: an
    * `item` scope for preview sizes only, a `file` scope for each video
@@ -75,8 +82,9 @@ export function parseRange(header: string | null, size: number): MediaRange | "u
  * noindex`. Every response carries `content-security-policy: sandbox;
  * default-src 'none'`, and a file whose type isn't safe to show inline
  * (anything but non-SVG images, video, audio and PDF) is sent as an
- * attachment, so a stored HTML or SVG file can't run on the media origin. A bad or expired signature is 403; an unknown path or a missing
- * file is 404. It never lists anything.
+ * attachment, so a stored HTML or SVG file can't run on the media origin.
+ * A bad or expired signature, and a path `route` doesn't know, are the same
+ * 403; a missing file behind a valid link is 404. It never lists anything.
  *
  * ```ts
  * const handle = createSignedMediaHandler({ storage, signer, route });
@@ -92,14 +100,21 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     if (request.method !== "GET" && request.method !== "HEAD") return methodNotAllowed();
     const url = new URL(request.url);
     const segments = pathSegments(url);
-    if (!segments || segments.length === 0) return notFound();
-    const download = url.searchParams.get("d") ?? undefined;
-    const target = await route(segments.join("/"), { download, url });
-    if (!target) return notFound();
+    const download = url.searchParams.get("d") || undefined;
+    let target: MediaRoute | undefined;
+    try {
+      target = segments?.length ? await route(segments.join("/"), { download, url }) : undefined;
+    } catch {
+      target = undefined;
+    }
 
+    // What the route said stays private until the link checks out: a path that isn't routable is
+    // refused exactly like a bad signature, after the same HMAC, so an unsigned caller can't map
+    // which paths exist. Only a valid link learns that its file is missing (404).
     const e = url.searchParams.get("e");
     const token = { e, s: url.searchParams.get("s"), k: url.searchParams.get("k") };
-    if (!(await signer.verify(target.scope, token))) return forbidden();
+    const valid = await signer.verify(target?.scope ?? UNROUTED, token);
+    if (!target || !valid) return forbidden();
 
     const head = request.method === "HEAD";
     const rangeHeader = request.headers.get("range");
