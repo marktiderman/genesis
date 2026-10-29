@@ -1,0 +1,64 @@
+.changeset/hookform-resolvers-6.md
+  s_1cc73fa3649187::t_4e3fc5c1097885 1-7
+.github/workflows/claude-code-review.yml
+  s_1cc73fa3649187::t_4e3fc5c1097885 41
+apps/sample/app/data/primitives.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 13775-13780
+  s_1cc73fa3649187::t_f773891faf0e1b 13774
+packages/genesis-cli/CHANGELOG.md
+  s_1cc73fa3649187::t_4e3fc5c1097885 3-8
+packages/genesis-cli/test/studio-init.test.ts
+  s_1cc73fa3649187::t_4e3fc5c1097885 41
+package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 8
+packages/genesis-cli/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 3
+packages/core/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 111,118
+packages/ui/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 412,426,463
+packages/ui-native/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 91
+packages/studio/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 56,68
+apps/sample/.react-router/types/+server-build.d.ts
+  s_1cc73fa3649187::t_4e3fc5c1097885 16-17
+.github/workflows/claude.yml
+  s_1cc73fa3649187::t_4e3fc5c1097885 47
+.changeset/ui-react-router-8.md
+  s_1cc73fa3649187::t_4e3fc5c1097885 1-5
+apps/sample/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 24,60-61,83,92
+packages/design-system/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 88
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_1cc73fa3649187::t_4e3fc5c1097885 542-543,551-556
+.changeset/cli-starter-deps.md
+  s_1cc73fa3649187::t_4e3fc5c1097885 1-5
+packages/genesis-cli/src/studio/init.ts
+  s_1cc73fa3649187::t_4e3fc5c1097885 66,71
+packages/ui/src/router/react-router.tsx
+  s_1cc73fa3649187::t_4e3fc5c1097885 4
+apps/genesis-rn-starter/package.json
+  s_1cc73fa3649187::t_4e3fc5c1097885 21
+packages/genesis-cli/src/cli.ts
+  s_1cc73fa3649187::t_4e3fc5c1097885 411-412
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_1cc73fa3649187::t_056907cc5e1e53 17,21
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c2724dc207b88acb7094771b704ba931ee1b7ce",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
