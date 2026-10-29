@@ -144,3 +144,13 @@ describe("WorkspaceScope", () => {
     expect(await screen.findByText(/\{\}\|UTC\|none/)).toBeTruthy();
   });
 });
+
+describe("paths with trailing slashes", () => {
+  it("ignores them, keeps the root, and stays fast on many", () => {
+    expect(pathInWorkspace(acme, "/o/acme/clients///")).toBe("/clients");
+    expect(workspaceAt(workspaces, "/o/acme//")?.id).toBe("acme");
+    const started = Date.now();
+    expect(workspaceAt(workspaces, `/o/acme${"/".repeat(100_000)}x`)).toBeDefined();
+    expect(Date.now() - started).toBeLessThan(500);
+  });
+});
