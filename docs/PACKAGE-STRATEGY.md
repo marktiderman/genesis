@@ -199,6 +199,25 @@ into `genesis-cli` as `genesis product`.
 Foundation, Primitives (Core, Data, AI, Forms, Collaboration, Shells), Modules, and Tooling.
 Storybook titles start with the layer and group: `Foundation/UI/Button`, `Primitives/Forms/Form`.
 
+### What ships as a package, and what is copied in
+
+Accepted by the maintainer, 2026-10-29 (R6). Code ships as npm packages; an app never holds a
+copy of a Genesis component, hook or server function. What an app must own, because it runs or
+lives in the app's own project, is copied in by `genesis add` (and kept current by `genesis
+migrate` and `genesis upgrade`):
+
+| Ships in the package (the app imports it) | Copied into the app (the app owns the file) |
+| --- | --- |
+| Components, hooks, providers, server handlers, the doctor's rules | Migrations and their pgTAP tests (new timestamped files; an applied one is never rewritten) |
+| Types, contracts, views, blocks' declarations | Route stubs, Edge Functions and config the app's platform runs |
+| | Agent skills (`SKILL.md`) and the AGENTS.md block |
+
+There is no eject. An app that needs a component to behave differently uses its props, variants
+and slots (FRAMEWORK G2); when no extension point fits, it writes a gap in its
+`genesis-upstream.md` and works around it locally, and Genesis adds the extension point. A fix
+in a package then reaches every app with `genesis upgrade`, which a copied component never would.
+Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
+
 ### Moves, extending before inventing
 
 | # | Move | Builds on | Size |
