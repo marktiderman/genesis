@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   defaultWorkspace,
+  filterWorkspaces,
   groupWorkspaces,
+  orderedWorkspaces,
   pathInWorkspace,
   workspaceAt,
   workspaceHref,
@@ -81,6 +83,25 @@ describe("groupWorkspaces", () => {
 
   it("follows the given order and keeps kinds it doesn't name at the end", () => {
     expect(groupWorkspaces(workspaces, ["tenant"]).map((g) => g.kind)).toEqual(["tenant", "rollup", "personal"]);
+  });
+});
+
+describe("filterWorkspaces", () => {
+  it("keeps the workspaces whose label or second line has every word, ignoring case and accents", () => {
+    const zurich: Workspace = { ...acme, id: "zurich", label: "Zürich Studio", description: "Coach" };
+    const list = [...workspaces, zurich];
+    expect(filterWorkspaces(list, "acme").map((w) => w.id)).toEqual(["acme", "acme-west"]);
+    expect(filterWorkspaces(list, "  WEST acme ").map((w) => w.id)).toEqual(["acme-west"]);
+    expect(filterWorkspaces(list, "zurich coach").map((w) => w.id)).toEqual(["zurich"]);
+    expect(filterWorkspaces(list, "").length).toBe(list.length);
+    expect(filterWorkspaces(list, "nothing")).toEqual([]);
+  });
+});
+
+describe("orderedWorkspaces", () => {
+  it("lists them as the switcher does: grouped by kind, in order", () => {
+    expect(orderedWorkspaces(workspaces).map((w) => w.id)).toEqual(["me", "all", "acme", "acme-west"]);
+    expect(orderedWorkspaces(workspaces, ["tenant"]).map((w) => w.id)).toEqual(["acme", "acme-west", "all", "me"]);
   });
 });
 

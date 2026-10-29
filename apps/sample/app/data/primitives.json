@@ -23483,15 +23483,49 @@
       "primaryComponent": "WorkspaceSwitcher",
       "components": [
         {
+          "name": "workspaceThemeStyle",
+          "summary": "The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`,\n`--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as\n`brandThemeStyle` does for a public page. Empty without a valid accent. The switcher puts it on\neach workspace's picture and row; an app can put the current workspace's on its shell to brand\neverything inside.",
+          "props": [
+            {
+              "name": "theme",
+              "type": "WorkspaceTheme",
+              "required": false,
+              "defaultValue": null,
+              "description": "Its brand, for the switcher's picture and anything the app themes inside it."
+            }
+          ]
+        },
+        {
           "name": "WorkspaceSwitcher",
           "summary": "The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in\n`collapsedHeaderSlot` and `mobileHeaderSlot`.",
           "props": [
+            {
+              "name": "actions",
+              "type": "readonly WorkspaceSwitcherAction[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Typed items at the bottom of the menu, after a separator."
+            },
+            {
+              "name": "badgeLabel",
+              "type": "((workspace: W, value: string | number) => string)",
+              "required": false,
+              "defaultValue": "(_w: Workspace, value: string | number) => (typeof value === \"number\" ? `${value} new` : String(value))",
+              "description": "What a screen reader hears for a badge, in place of the bare value. Default: \"3 new\" for a\nnumber, the text itself otherwise."
+            },
             {
               "name": "className",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "classNames",
+              "type": "Partial<Record<WorkspaceSwitcherPart, string>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "A class for each part. `className` is the same as `classNames.root`."
             },
             {
               "name": "current",
@@ -23501,11 +23535,25 @@
               "description": "The current workspace; defaults to the nearest WorkspaceScope's."
             },
             {
-              "name": "footer",
+              "name": "defaultOpen",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Whether the menu starts open, uncontrolled."
+            },
+            {
+              "name": "emptyText",
               "type": "ReactNode",
               "required": false,
+              "defaultValue": "No workspaces found",
+              "description": "Shown when a search matches nothing. Default \"No workspaces found\"."
+            },
+            {
+              "name": "footer",
+              "type": "ReactNode | ((mode: \"search\" | \"menu\") => ReactNode)",
+              "required": false,
               "defaultValue": null,
-              "description": "The menu's last items, after a separator: \"New organization\", \"Manage workspaces\"."
+              "description": "The menu's last items, after `actions`. In the menu they are menu items (`DropdownMenuItem`);\nwith search they must be plain links or buttons, since there is no menu around them. Pass a\nfunction to render each mode's own: `(mode) => mode === \"menu\" ? <DropdownMenuItem … /> : <a … />`."
             },
             {
               "name": "hrefFor",
@@ -23540,7 +23588,35 @@
               "type": "LinkComponent",
               "required": false,
               "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
-              "description": "The router's link (see AppShell's `linkComponent`)."
+              "description": "The router's link (see AppShell's `linkComponent`). Each row is this link with the menu item's\nor option's props merged on, so it must pass `ref`, `id`, `role`, `aria-*`, `tabIndex`,\n`onClick`, `onMouseMove`, `onKeyDown`, `style` and `data-*` through to its `<a>` (see\n`LinkComponent`)."
+            },
+            {
+              "name": "onNavigate",
+              "type": "((href: string, workspace: W) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate. Without\nit a jump is a full page load of the link (a menu click still uses `linkComponent`), and the\nswitcher warns in development."
+            },
+            {
+              "name": "onOpenChange",
+              "type": "((open: boolean) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelect",
+              "type": "((workspace: W) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Called whenever the viewer picks a workspace, from the menu or the keyboard."
+            },
+            {
+              "name": "open",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Whether the menu is open, to control it."
             },
             {
               "name": "order",
@@ -23557,18 +23633,60 @@
               "description": "Shown when the URL is in no workspace. Default \"Choose a workspace\"."
             },
             {
+              "name": "renderBadge",
+              "type": "((workspace: W) => ReactNode)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`.\nA custom badge owns its screen-reader text: `badgeLabel` reaches only the default one."
+            },
+            {
               "name": "renderImage",
               "type": "((workspace: W, size: \"sm\" | \"md\") => ReactNode)",
               "required": false,
               "defaultValue": null,
-              "description": "Replaces the picture (a brand mark, a colored tile)."
+              "description": "Replaces the picture (a brand mark, a colored tile). Shorthand for `slots.image`."
             },
             {
               "name": "renderItem",
               "type": "((workspace: W, state: { current: boolean; }) => ReactNode)",
               "required": false,
               "defaultValue": null,
-              "description": "Replaces a row's content in the menu (the link around it stays)."
+              "description": "Replaces a row's content in the menu (the link around it stays). Shorthand for `slots.item`."
+            },
+            {
+              "name": "search",
+              "type": "boolean | \"auto\"",
+              "required": false,
+              "defaultValue": "false",
+              "description": "A search box over the list, which then becomes a combobox (see the module comment). Default\n`false`. `\"auto\"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces."
+            },
+            {
+              "name": "searchPlaceholder",
+              "type": "string",
+              "required": false,
+              "defaultValue": "Find a workspace",
+              "description": "The search box's placeholder and accessible name. Default \"Find a workspace\"."
+            },
+            {
+              "name": "shortcuts",
+              "type": "WorkspaceSwitcherShortcuts",
+              "required": false,
+              "defaultValue": null,
+              "description": "Keyboard shortcuts to open the menu and to jump to a workspace. Off by default."
+            },
+            {
+              "name": "slotProps",
+              "type": "WorkspaceSwitcherSlotProps<W>",
+              "required": false,
+              "defaultValue": null,
+              "description": "More props for a part, including the `trigger` button and the menu `content`."
+            },
+            {
+              "name": "slots",
+              "type": "WorkspaceSwitcherSlots<W>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Replace or drop a part."
             },
             {
               "name": "variant",
@@ -23585,6 +23703,21 @@
               "description": "Every workspace; defaults to the nearest WorkspaceScope's."
             }
           ]
+        },
+        {
+          "name": "WORKSPACE_SWITCHER_PARTS",
+          "summary": "Every part, in document order; see {@link WorkspaceSwitcherPart}.",
+          "props": []
+        },
+        {
+          "name": "WORKSPACE_SWITCHER_SCOPE",
+          "summary": "The value of every part's `data-scope`.",
+          "props": []
+        },
+        {
+          "name": "WORKSPACE_SWITCHER_SEARCH_THRESHOLD",
+          "summary": "With `search=\"auto\"`, past this many workspaces the menu opens with a search box.",
+          "props": []
         },
         {
           "name": "DEFAULT_WORKSPACE_KIND_LABELS",
