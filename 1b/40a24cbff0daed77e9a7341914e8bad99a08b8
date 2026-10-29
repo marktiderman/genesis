@@ -1,0 +1,21 @@
+packages/genesis-cli/package.json
+  s_8b8f6102383114::t_a106013db56c92 74
+pnpm-lock.yaml
+  s_8b8f6102383114::t_327340d924abcf 1246-1247,7209-7212,17560-17561
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1b40a24cbff0daed77e9a7341914e8bad99a08b8",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
