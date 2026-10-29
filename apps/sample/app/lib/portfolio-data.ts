@@ -47,7 +47,7 @@ export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
   {
     id: "storybook",
     title: "Storybook",
-    href: "http://localhost:6006",
+    href: "/storybook/",
     description:
       "Per-component stories with controls. Each story renders a deterministic state for Chromatic visual regression.",
     status: "stable",
