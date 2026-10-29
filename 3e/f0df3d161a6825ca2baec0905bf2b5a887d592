@@ -1,0 +1,39 @@
+docs/adr/0008-lockstep-versions.md
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-43
+package.json
+  s_36f3212387dbf7::t_6f1fd55680d75f 12
+scripts/__tests__/check-adr-required.test.mjs
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-23
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_6f1fd55680d75f 120-134
+AGENTS.md
+  s_36f3212387dbf7::t_6f1fd55680d75f 62
+docs/adr/0009-one-resource-contract.md
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-45
+docs/adr/TEMPLATE.md
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-42
+features.json
+  s_36f3212387dbf7::t_6f1fd55680d75f 4101-4102,4176-4177,5213-5214,5240-5241,5269-5270,5612-5613,5939-5940,5961-6129,6133-6137,6141,6152-6156,6158,6160-7045
+scripts/check-adr-required.mjs
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-57
+docs/adr/0007-tenancy.md
+  s_36f3212387dbf7::t_6f1fd55680d75f 1-71
+features.ts
+  s_36f3212387dbf7::t_6f1fd55680d75f 1788-1789,1819-1820,2286-2287,2299-2300,2312-2313,2454-2455,2608-2609,2624-2970,2983-3133
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3ef0df3d161a6825ca2baec0905bf2b5a887d592",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
