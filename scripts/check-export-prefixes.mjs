@@ -17,7 +17,8 @@ const EXPORT = /^export\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function
 
 /** Problems in a unified diff with zero context (`git diff -U0`). */
 export function prefixProblems(diff) {
-  const problems = [];
+  const added = [];
+  const removed = new Set();
   let file = null;
   for (const line of diff.split("\n")) {
     const header = /^\+\+\+ b\/(.+)$/.exec(line);
@@ -25,12 +26,18 @@ export function prefixProblems(diff) {
       file = header[1];
       continue;
     }
-    if (!file || !line.startsWith("+") || line.startsWith("+++")) continue;
-    if (!/^packages\/[^/]+\/src\//.test(file) || /__tests__|\.test\.|\.stories\./.test(file)) continue;
+    if (line.startsWith("+++") || line.startsWith("---")) continue;
+    if (!file || !/^packages\/[^/]+\/src\//.test(file) || /__tests__|\.test\.|\.stories\./.test(file)) continue;
     const m = EXPORT.exec(line.slice(1));
-    if (m) problems.push(`${file}: new export ${m[1]} uses the retired prefix ${m[2]}*; use ${RETIRED[m[2]]} (docs/FRAMEWORK.md, rule 7)`);
+    if (!m) continue;
+    if (line.startsWith("-")) removed.add(m[1]);
+    else if (line.startsWith("+")) added.push({ file, name: m[1], prefix: m[2] });
   }
-  return problems;
+  // A changed or moved line of an existing export shows as removed and added: only a name that
+  // wasn't there before is new.
+  return added
+    .filter((a) => !removed.has(a.name))
+    .map((a) => `${a.file}: new export ${a.name} uses the retired prefix ${a.prefix}*; use ${RETIRED[a.prefix]} (docs/FRAMEWORK.md, rule 7)`);
 }
 
 function main(argv) {

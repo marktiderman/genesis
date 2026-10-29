@@ -139,9 +139,11 @@ jobs:
       # New exports follow the prefix rules (docs/FRAMEWORK.md, rule 7); existing names stay.
       - name: Export prefixes on new exports
         if: github.event_name == 'pull_request'
-        run: node scripts/check-export-prefixes.mjs --base "origin/$BASE_REF"
         env:
           BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          node scripts/check-export-prefixes.mjs --base "origin/$BASE_REF"
 
       # The rules of engagement a script can check (docs/agents/RULES.md): a new package starts
       # at 0.1.0 with patch changesets; a workflow on PRs into main also runs on the batches.

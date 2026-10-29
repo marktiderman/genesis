@@ -13,4 +13,9 @@ describe("check-export-prefixes", () => {
     expect(prefixProblems(diff("apps/sample/app/a.ts", "export function newThing() {}"))).toEqual([]);
     expect(prefixProblems(diff("packages/core/src/b.ts", "export async function makeClient() {}"))).toHaveLength(1);
   });
+
+  it("leaves an existing export alone when its line changes or moves", () => {
+    const edited = "diff --git a/packages/chat/src/rows.ts b/packages/chat/src/rows.ts\n--- a/packages/chat/src/rows.ts\n+++ b/packages/chat/src/rows.ts\n@@ -45 +45 @@\n-export function buildThreadRows(items) {\n+export function buildThreadRows(items, options) {\n";
+    expect(prefixProblems(edited)).toEqual([]);
+  });
 });
