@@ -1,0 +1,27 @@
+package.json
+  s_36f3212387dbf7::t_760f4974e7ffd0 15
+scripts/__tests__/check-export-prefixes.test.mjs
+  s_36f3212387dbf7::t_760f4974e7ffd0 1-16
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_760f4974e7ffd0 139-145
+docs/FRAMEWORK.md
+  s_36f3212387dbf7::t_760f4974e7ffd0 275-295
+scripts/check-export-prefixes.mjs
+  s_36f3212387dbf7::t_760f4974e7ffd0 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c56389d713bd960cc98d0714fc006851437d0732",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
