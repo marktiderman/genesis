@@ -200,9 +200,13 @@ for approval as a `CUSTOM` event named `genesis.interrupt`.
 
 ## Evaluations
 
-`evaluate(ai, task, cases)` runs cases through the real pipeline and model and reports which
-passed. Run it with a live key before changing an alias, a rollout or a prompt version, and
-compare the reports.
+`evaluate(ai, task, cases, { scorers })` runs cases through the real pipeline and model and
+reports which passed. A case passes when its `check` (if it has one) and every scorer pass, and
+fails when it has neither; a scorer or `run` that throws rejects the whole evaluation; a
+scorer is `{ name, score(case, result) => { pass, score?, note? } }`, and every score is in the
+report. The target can be a task or anything with `{ id, version, run(args, ctx) }`, so an agent
+evaluates the same way once it exists. Cases live beside their tasks. Run it with a live key
+before changing an alias, a rollout or a prompt version, and compare the reports.
 
 ## Processors
 

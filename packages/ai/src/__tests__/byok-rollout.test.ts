@@ -157,6 +157,19 @@ describe("the handler's stream, telemetry and evaluations", () => {
       { name: "short", args: { id: "a" }, ctx, check: (r) => (r.ok && r.output.text.length < 20 ? true : "too long") },
       { name: "also short", args: { id: "b" }, ctx, check: (r) => (r.ok && r.output.text.length < 20 ? true : "too long") },
     ]);
-    expect(report).toEqual({ task: "echo", version: 1, passed: 1, failed: [{ name: "also short", reason: "too long" }] });
+    expect(report).toEqual({ task: "echo", version: 1, passed: 1, failed: [{ name: "also short", reason: "too long" }], scores: [] });
+  });
+
+  it("scores cases with scorers, and evaluates any target with a run", async () => {
+    const s = setup();
+    s.reply(text("Paris."));
+    const exact = { name: "exact", score: (c: { expected?: unknown }, r: { ok: boolean; output?: { text: string } }) => ({ pass: r.ok && r.output?.text === c.expected, score: r.ok && r.output?.text === c.expected ? 1 : 0 }) };
+    const report = await evaluate(s.ai, echo, [{ name: "capital", args: { id: "fr" }, ctx, expected: "Paris." }], { scorers: [exact] });
+    expect(report).toMatchObject({ passed: 1, failed: [], scores: [{ case: "capital", scorer: "exact", pass: true, score: 1 }] });
+
+    const agent = { id: "trip.planner", version: 2, run: async () => ({ ok: false as const, outcome: "refused" as const, message: "No." }) };
+    const refused = await evaluate(s.ai, agent, [{ name: "plan", args: {}, ctx }], { scorers: [{ name: "answers", score: (_c, r) => ({ pass: r.ok, note: r.ok ? undefined : "refused" }) }] });
+    expect(refused).toMatchObject({ task: "trip.planner", version: 2, passed: 0, failed: [{ name: "plan", reason: "answers: refused" }] });
+    expect((await evaluate(s.ai, agent, [{ name: "bare", args: {}, ctx }])).failed[0]!.reason).toBe("no check and no scorers");
   });
 });
