@@ -115,9 +115,9 @@ export function catalogTable(rows: readonly PrimitiveRow[], options: { docs?: bo
   return [head, ...body].join("\n");
 }
 
-/** `genesis primitives`: the catalog for a terminal. */
+/** `genesis catalog` (and its old name, `genesis primitives`): the catalog for a terminal. */
 export function formatPrimitives(rows: readonly PrimitiveRow[]): string {
-  const lines: string[] = ["Genesis primitives: what to use for each need (reuse, then extend, then invent).", ""];
+  const lines: string[] = ["Genesis catalog: what to use for each need (reuse, then extend, then invent).", ""];
   for (const r of rows) {
     lines.push(`- ${r.need}: ${r.use}`);
     if (r.import) lines.push(`    import  ${r.import}`);

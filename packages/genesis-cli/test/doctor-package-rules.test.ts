@@ -94,6 +94,13 @@ describe("package declarations", () => {
     expect(validateDeclaration({ enforce: false, reason: "Tooling only." }, "x").enforce).toBe(false);
   });
 
+  it("reads catalog, and primitives as its old name, but not both", () => {
+    const entry = { need: "dates", use: "dayIn" };
+    expect(validateDeclaration({ prefer: [LIST_RULE], catalog: [entry] }, "x").primitives).toEqual([entry]);
+    expect(() => validateDeclaration({ prefer: [LIST_RULE], catalog: [entry], primitives: [entry] }, "x")).toThrow(/both catalog and primitives/);
+    expect(() => validateDeclaration({ prefer: [LIST_RULE], catalog: [{ use: "dayIn" }] }, "x")).toThrow(/catalog\[0\] needs "need"/);
+  });
+
   it.each([
     [false, /say why/],
     [{ enforce: false }, /without a reason/],

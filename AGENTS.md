@@ -20,7 +20,7 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 ## Building a screen in an app
 
 The same rules hold in every Genesis app, and `genesis doctor` enforces them from what each
-package declares (`genesis primitives` lists them; `genesis agents` writes them into an app's
+package declares (`genesis catalog` lists them; `genesis agents` writes them into an app's
 AGENTS.md and skill):
 
 - **A list** is a view: `defineView` (`@marktiderman/genesis-core/resource-view`) rendered by
