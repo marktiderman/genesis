@@ -60,8 +60,6 @@ if (quick) {
 // Pages known to fail, each with the reason. Only shrinks: a listed page
 // that now renders fails the run, so it gets removed.
 const KNOWN_BROKEN = {
-  "/sites-editor": "Crashes on load: the editor has no config for the footer section.",
-  "/studio": "Needs the dev server's studio handler; static hosting has none.",
 };
 
 // Messages a page may log without failing: third-party noise, not our code.

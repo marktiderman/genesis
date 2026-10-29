@@ -16,7 +16,7 @@ import itemsViewSource from "../lib/views/items.view.ts?raw";
 const BASE = import.meta.env.BASE_URL;
 
 const NAV = [
-  { label: "Demo", to: "/dashboard" },
+  { label: "Demo", to: "/demo" },
   { label: "Components", to: "/showcase" },
   { label: "Packages", to: "/packages" },
   { label: "Docs", href: `${REPO_URL}/tree/main/docs` },
@@ -30,7 +30,7 @@ const PROOF = [
     icon: Building2,
     title: "Workspaces and tenants",
     body: "One app serves many organizations. Row-level security keeps each one's data apart; the workspace switcher picks which one you're working in.",
-    to: "/showcase/primitives/workspace-switcher",
+    to: "/demo",
   },
   {
     icon: LayoutList,
@@ -131,7 +131,7 @@ export default function Home() {
             <CopyCommand command={INIT_COMMAND} />
             <div className="flex flex-wrap gap-3">
               <Button asChild>
-                <Link to="/dashboard">
+                <Link to="/demo">
                   Try the demo <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>

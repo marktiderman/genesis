@@ -35,7 +35,7 @@ export const SITE_PAGES: SitePage[] = [
   { path: "/forms", title: "Forms playground", description: "Genesis Forms: a serializable form definition with logic, validation and a live inspector." },
   { path: "/forms-builder", title: "Form builder", description: "The visual Genesis Forms builder: questions, choices, show and hide logic." },
   { path: "/settings", title: "Settings", description: "A settings screen on Genesis components." },
-  { path: "/projects", title: "Projects", description: "Record pages with sub-navigation tabs inside the app shell." },
+  { path: "/demo", title: "Live demo", description: "A multi-tenant demo app on Genesis: three organizations, three roles, lists, record pages, forms, chat, an assistant and the Data Studio, in your browser." },
   { path: "/studio", title: "Data Studio", description: "An Airtable-style workspace over an app's own tables." },
   { path: "/features", title: "Features", description: "Genesis's own feature registry, rendered from features.ts." },
   { path: "/sites", title: "Sites", description: "Landing pages and small sites from the Genesis Sites section registry." },
@@ -56,8 +56,14 @@ const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => SitePage]> = [
   [/^\/showcase\/layouts\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} layout`, description: "A Genesis page layout, rendered live." })],
   [/^\/forms\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} form`, description: "A Genesis Forms scenario in the playground." })],
   [/^\/preview\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} form`, description: "A Genesis form as a respondent sees it." })],
-  [/^\/projects\/([^/]+)(\/[^/]+)?$/, (m) => ({ path: m[0], title: "Project", description: "A record page with sub-navigation tabs." })],
+  [/^\/demo\/([^/]+)(\/.*)?$/, (m) => ({ path: m[0], title: `Demo: ${demoTitle(m[1]!, m[2])}`, description: "A multi-tenant demo app on Genesis, running in your browser on sample data." })],
 ];
+
+const DEMO_ORGS: Record<string, string> = { harbor: "Harbor Studio", summit: "Summit Fitness", maple: "Maple Property Co.", all: "All organizations" };
+function demoTitle(ws: string, rest?: string): string {
+  const page = rest?.split("/")[1];
+  return [DEMO_ORGS[ws] ?? ws, page ? words(page) : null].filter(Boolean).join(" · ");
+}
 
 function words(slug: string): string {
   const s = slug.replace(/-/g, " ");
