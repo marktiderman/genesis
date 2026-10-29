@@ -1,0 +1,21 @@
+docs/adr/0003-navigation-zones.md
+  s_e2cf1ec4fac133::t_f4901ecad21d9d 3-4,6-9,13-15,17,19-24,27-49,51-52,54,56-57,68-70,74-123,127-132
+docs/adr/0004-workspaces.md
+  s_e2cf1ec4fac133::t_06c66f54b12d20 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "abd5c935f86cb7cf47cc0c7efa6161dea0b030ca",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
