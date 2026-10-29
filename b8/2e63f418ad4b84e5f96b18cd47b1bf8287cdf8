@@ -1,0 +1,39 @@
+apps/sample/app/components/layout-examples.tsx
+  s_e2cf1ec4fac133::t_4de0aa8f3b380c 26,77-78,101
+apps/sample/app/demo/source.tsx
+  s_e2cf1ec4fac133::t_067d38205051e7 26,39
+apps/sample/app/routes/_index.tsx
+  s_e2cf1ec4fac133::t_89d572a478f4b7 73,133,138,141
+apps/sample/app/routes/demo.$ws.assistant.tsx
+  s_e2cf1ec4fac133::t_d1a9309245a471 57
+apps/sample/app/routes/demo.$ws.chat.tsx
+  s_e2cf1ec4fac133::t_d0b0551d03a01e 60
+apps/sample/app/routes/demo.$ws.clients.$id.tsx
+  s_e2cf1ec4fac133::t_044ac2bd4f6232 32,51
+apps/sample/app/routes/demo.$ws.intake.tsx
+  s_e2cf1ec4fac133::t_7167b47739b208 55,72
+apps/sample/app/routes/demo.tsx
+  s_e2cf1ec4fac133::t_91fe69731baa2e 109
+apps/sample/app/routes/settings.tsx
+  s_e2cf1ec4fac133::t_18d919b39bb2fb 21
+apps/sample/app/routes/showcase.primitives._index.tsx
+  s_e2cf1ec4fac133::t_d3bd0fa0ecf591 68
+apps/sample/demo-coverage.allow.json
+  s_e2cf1ec4fac133::t_a354ab48e0056b 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b82e63f418ad4b84e5f96b18cd47b1bf8287cdf8",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
