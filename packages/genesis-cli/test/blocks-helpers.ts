@@ -2,18 +2,19 @@
  * Throwaway apps and packages for the block command tests: an app folder with
  * the files given, and fake Genesis packages "installed" in its node_modules.
  */
-import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach } from "vitest";
+import { removeTempDir } from "./temp.js";
 
 export const PACKAGES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 export const NOW = new Date("2026-11-01T12:00:00Z");
 
 const made: string[] = [];
 afterEach(() => {
-  while (made.length) rmSync(made.pop()!, { recursive: true, force: true });
+  while (made.length) removeTempDir(made.pop()!);
 });
 
 export function tempDir(prefix = "genesis-blocks-"): string {
