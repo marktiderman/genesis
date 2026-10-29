@@ -1,0 +1,27 @@
+.github/workflows/app-ci.yml
+  s_8b8f6102383114::t_4b080e42631b7e 137
+.github/workflows/genesis-upgrade.yml
+  s_8b8f6102383114::t_c0e8e0fd950ba8 290,414
+.github/workflows/product-board.yml
+  s_8b8f6102383114::t_db7a2b0187701c 37
+.github/workflows/release.yml
+  s_8b8f6102383114::t_5d2f622355d2e5 300-302,347
+.github/workflows/supabase-ci.yml
+  s_8b8f6102383114::t_e94c25d19e554b 138
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25ecc8a955711c886aee9fdd4e8ad8540e33bfdb",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
