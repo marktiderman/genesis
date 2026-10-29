@@ -13,7 +13,7 @@
  */
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { extname, join, resolve } from "node:path";
+import { extname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { chromium } from "playwright";
@@ -29,14 +29,25 @@ if (shots) mkdirSync(shots, { recursive: true });
 
 const TYPES = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".json": "application/json", ".png": "image/png", ".txt": "text/plain", ".xml": "application/xml", ".md": "text/markdown", ".woff2": "font/woff2" };
 
+const FALLBACK = existsSync(join(ROOT, "404.html")) ? join(ROOT, "404.html") : join(ROOT, "__spa-fallback.html");
+
+/** A file inside the build for a request path, or null. Never anything outside ROOT. */
+function inRoot(...parts) {
+  const file = resolve(ROOT, ...parts);
+  return file.startsWith(ROOT + sep) && existsSync(file) && statSync(file).isFile() ? file : null;
+}
+
 function resolveFile(urlPath) {
-  const clean = decodeURIComponent(urlPath.split("?")[0]).replace(/\/+$/, "") || "/";
-  const direct = join(ROOT, clean);
-  if (existsSync(direct) && statSync(direct).isFile()) return { file: direct, status: 200 };
-  const index = join(ROOT, clean, "index.html");
-  if (existsSync(index)) return { file: index, status: 200 };
-  const fallback = existsSync(join(ROOT, "404.html")) ? join(ROOT, "404.html") : join(ROOT, "__spa-fallback.html");
-  return { file: fallback, status: 404 };
+  let clean;
+  try {
+    clean = decodeURIComponent(new URL(urlPath, "http://localhost").pathname);
+  } catch {
+    return { file: FALLBACK, status: 400 };
+  }
+  if (clean.includes("\0")) return { file: FALLBACK, status: 400 };
+  const rel = `.${clean.replace(/\/+$/, "")}`;
+  const file = inRoot(rel) ?? inRoot(rel, "index.html");
+  return file ? { file, status: 200 } : { file: FALLBACK, status: 404 };
 }
 
 const server = createServer((req, res) => {
