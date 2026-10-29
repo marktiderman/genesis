@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeTempDir } from "./temp.js";
-import { checkAgentRules, pullRequestBranches } from "../src/agent-rules";
+import { checkAgentRules, pullRequestBranches, runsOnPullRequestsInto } from "../src/agent-rules";
 
 const created: string[] = [];
 afterEach(() => {
@@ -53,7 +53,7 @@ describe("genesis agents --rules", () => {
     const any = "on:\n  pull_request:\n    types: [opened]\n";
     const root = repo({ ".github/workflows/ci.yml": only, ".github/workflows/b.yml": both, ".github/workflows/c.yml": listed, ".github/workflows/d.yml": any });
     expect(checkAgentRules(root)).toEqual([
-      { rule: "batch-ci", message: ".github/workflows/ci.yml: runs on pull requests into main but not into staging/**; add it to pull_request.branches" },
+      { rule: "batch-ci", message: ".github/workflows/ci.yml: runs on pull requests into main but not into staging/**; let pull_request's branch filter include it" },
     ]);
     expect(pullRequestBranches(listed)).toEqual(["main", "staging/**"]);
     expect(pullRequestBranches(any)).toBeUndefined();
@@ -62,5 +62,15 @@ describe("genesis agents --rules", () => {
     expect(pullRequestBranches("on:\r\n  pull_request_target:\r\n    branches: [main]\r\n")).toEqual(["main"]);
     expect(pullRequestBranches("on:\n  pull_request:\n    types: [opened]\n  push:\n    branches: [main]\n")).toBeUndefined();
     expect(checkAgentRules(root, { batch: "release/*" }).map((p) => p.rule)).toEqual(["batch-ci", "batch-ci", "batch-ci"]);
+  });
+
+  it("reads the effective filter: a later !pattern, branches-ignore, globs", () => {
+    const negated = 'on:\n  pull_request:\n    branches: [main, "staging/**", "!staging/**"]\n';
+    const ignored = "on:\n  pull_request:\n    branches-ignore: ['staging/**']\n";
+    const glob = 'on:\n  pull_request:\n    branches: [main, "stag*/**"]\n';
+    const root = repo({ ".github/workflows/a.yml": negated, ".github/workflows/b.yml": ignored, ".github/workflows/c.yml": glob });
+    expect(checkAgentRules(root).map((p) => p.message.split(":")[0])).toEqual([".github/workflows/a.yml", ".github/workflows/b.yml"]);
+    expect(runsOnPullRequestsInto(ignored, "main")).toBe(true);
+    expect(runsOnPullRequestsInto("on:\n  push:\n    branches: [main]\n", "main")).toBeUndefined();
   });
 });

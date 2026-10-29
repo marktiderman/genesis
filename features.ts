@@ -847,7 +847,7 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
     reviewedAt: "2026-10-25",
-    links: { code: ["docs/agents/RULES.md", "packages/genesis-cli/src/agent-rules.ts"] },
+    links: { code: ["packages/genesis-cli/src/agent-rules.ts"], docs: ["docs/agents/RULES.md"] },
   },
   "genesis-plugin": {
     name: "Genesis agent plugin",

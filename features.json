@@ -1927,8 +1927,10 @@
       "reviewedAt": "2026-10-25",
       "links": {
         "code": [
-          "docs/agents/RULES.md",
           "packages/genesis-cli/src/agent-rules.ts"
+        ],
+        "docs": [
+          "docs/agents/RULES.md"
         ]
       },
       "access": "all",

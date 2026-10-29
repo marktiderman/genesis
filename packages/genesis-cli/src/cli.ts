@@ -20,7 +20,7 @@ import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { FindOptions } from "@marktiderman/genesis-features";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
@@ -243,6 +243,9 @@ program
     const root = path.resolve(opts.dir);
     if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
     if (opts.rules) {
+      if (!existsSync(path.join(root, "packages")) && !existsSync(path.join(root, ".github", "workflows"))) {
+        return program.error(`--rules checks a repository: ${root} has no packages/ or .github/workflows/. Run it from the repo root or pass --dir.`);
+      }
       const { checkAgentRules } = await import("./agent-rules.js");
       const problems = checkAgentRules(root, { batch: opts.batch });
       for (const p of problems) console.error(`✗ ${p.rule}: ${p.message}`);
