@@ -40,7 +40,10 @@ Five primitives and one module, each named for what it is, not for the app that 
    then sign. Writes are uploads (4), never a signed read link.
 2. **Bundles** (genesis-media). `createZipManifest` and `createBundleHandler`: a streaming ZIP
    from a manifest that carries its own expiry and filename, no buffering, ZIP64 past 4 GB,
-   Worker-friendly. Exports, submissions, galleries.
+   Worker-friendly. Exports, submissions, galleries. A manifest is immutable once stored: a
+   different file set is a new manifest id, so a signed bundle link can never serve files it was
+   not signed for. Access to each file is decided when the manifest is made (the app's rules);
+   the handler serves exactly the manifest and does not re-check items.
 3. **The media value** (media-library, primitive, data). One typed record for a piece of media:
    - kind (image, video, audio, document);
    - `originals[]` (a RAW and JPEG pair, a sidecar), each with checksums as `{ algo: value }`;
@@ -62,14 +65,27 @@ Five primitives and one module, each named for what it is, not for the app that 
    read-back check per target. The never-delete-the-source rule is fixed; priorities,
    pause/resume and speed caps are a client's configuration, not the contract. A desktop or
    worker uploader built on the same contract is tooling, later.
+   - Every upload operation (create, resume, part, finalize) is bound to the person or service
+     that created it and checked by the app's rules; another owner's upload is not found, and
+     skip-if-identical only compares within objects the caller may already read.
+   - Identity for skip-if-identical is the whole object's SHA-256 (and size), declared at create
+     and checked at finalize; per-part digests verify transfer only and never decide a skip.
+   - "Never delete the source" means an upload never deletes or moves the original it read from
+     (the person's card or disk). It is not a retention rule: deleting a media value, an
+     account's erasure and its copies follow the app's retention policy, and a copy under an
+     Object Lock retention is purged when the lock ends, recorded on the copy.
 5. **Annotations** (a primitive in the collaboration group, beside comments). A comment anchored
-   to a place in one version of a file: in frames (integers, `endFrame` optional) against the
-   version's rational frame rate, seconds derived and never stored; or `{ page?, region }` for an
+   to a place in one version of a file (`versionId`, the stable id of that version's media
+   value): in frames (integers, `endFrame` optional) against the version's rational frame rate,
+   seconds derived and never stored. Frame 0 is the first frame of the file (not the start
+   timecode), `endFrame` is inclusive, and timecode (drop-frame or not) is only a display and
+   export conversion from the frame number; or `{ page?, region }` for an
    image or a page. Regions and drawings (arrow, box, pen, with colour) are normalised 0–1 to the
    picture, so they survive resizing and other renditions. Threads, mentions and resolution;
    carry-forward to the next version is an optional mapping. Decisions (`approved | changes`, who,
    when, a note) are a sibling record per version, kept as history. A reviewer without an account
-   is a signed name and email on the link. Exports (FCPXML, EDL, CSV markers) are adapters. The
+   gets an opaque signed link; the name and email they give are stored on the annotation record,
+   never in the URL. Exports (FCPXML, EDL, CSV markers) are adapters. The
    studio's review tool, a coach's form check and a teacher's essay feedback are the same thing.
 6. **The galleries module** (module). Collections of media values people browse and act on:
    sets (and derived sets, such as an automatic black-and-white set), private items, access
