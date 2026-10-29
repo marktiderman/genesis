@@ -368,6 +368,37 @@ featureOptions(
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
 });
 
+const upstream = program.command("upstream").description("The app's register of what it needed from Genesis (docs/genesis-upstream.md)");
+
+upstream
+  .command("check")
+  .description("Check docs/genesis-upstream.md: kinds, statuses, local paths, and promoted entries whose local copy is still there")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { dir: string }) => {
+    const { checkUpstream } = await import("./upstream.js");
+    const result = checkUpstream(path.resolve(opts.dir));
+    for (const w of result.warnings) console.warn(`! ${w}`);
+    for (const p of result.problems) console.error(`✗ ${p}`);
+    if (result.problems.length) process.exitCode = 1;
+    else if (!result.missing) console.log(`✔ ${result.entries.length} register entr${result.entries.length === 1 ? "y" : "ies"} check out.`);
+  });
+
+upstream
+  .command("export")
+  .description("Print the link that files a register entry with Genesis through the gap form (sends nothing)")
+  .argument("<id>", "The entry's id")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (id: string, opts: { dir: string }) => {
+    const { checkUpstream, exportIssueUrl } = await import("./upstream.js");
+    const register = checkUpstream(path.resolve(opts.dir));
+    if (register.missing) return program.error("There is no docs/genesis-upstream.md here; add the register first (see genesis upstream check).");
+    const entry = register.entries.find((e) => e.id === id);
+    if (!entry) return program.error(`No register entry "${id}" in docs/genesis-upstream.md.`);
+    const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
+    if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
+    console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);
+  });
+
 const studio = program.command("studio").description("The Genesis Data Studio");
 
 studio
