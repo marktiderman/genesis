@@ -109,12 +109,16 @@ G1, G2):
   search on the list is a combobox instead: the box (`role="combobox"`) filters a `role="listbox"`
   of the workspaces, ↑/↓ move the highlight, Enter goes to it (never during an IME composition,
   and never to a footer action when nothing matches). `actions` then render as buttons under the
-  list, and `footer` must hold plain links or buttons rather than menu items.
+  list, and `footer` must hold plain links or buttons rather than menu items; a `footer` given as
+  a function of the mode (`"menu"` or `"search"`) renders each mode's own, and `search="auto"`
+  stays a menu (warning in development) when the footer is not a function.
 - **Keyboard.** `shortcuts={{ open: "mod+shift+o", jump: true }}`: a configurable shortcut opens
-  the menu, and ⌘1 to ⌘9 (Ctrl elsewhere; `jump: "alt"` for Alt, since browsers keep some of
-  those for tabs) go straight to a workspace in the menu's order (`orderedWorkspaces`). Both are
-  off by default. Only the switcher on screen answers (not one in an `inert` or `aria-hidden`
-  drawer), so the sidebar, rail and bar copies don't all fire. The Alt jump never fires while the
+  and closes the menu, and Alt+1 to Alt+9 (`jump: true` or `"alt"`) go straight to a workspace in
+  the menu's order (`orderedWorkspaces`). `jump: "mod"` uses ⌘/Ctrl+digit instead, best effort
+  only: browsers such as Chrome keep those for switching tabs and never pass them to the page.
+  Both are off by default. Only the switcher on screen answers (not one in an `inert` or
+  `aria-hidden` drawer, though its own open menu marks the page `aria-hidden`), so the sidebar,
+  rail and bar copies don't all fire. The Alt jump never fires while the
   viewer types, since Option+digit types characters on a Mac. A jump navigates through
   `onNavigate` (the router's navigate); without it the page reloads, and the switcher warns in
   development.

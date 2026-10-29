@@ -25,7 +25,8 @@
  *   combobox: a text box (`role="combobox"`) that filters a `role="listbox"` of the workspaces,
  *   with ↑/↓ to move and Enter to go, because a text box can't sit inside a menu. In that mode
  *   `actions` render as buttons under the list, and `footer` must hold plain links or buttons, not
- *   menu items.
+ *   menu items: pass `footer` as a function of the mode to give each mode its own. With
+ *   `search="auto"`, a `footer` that is not a function keeps the menu (and warns in development).
  * - **Slots** (genesis-core's `slots`/`slotProps` contract): replace or drop a part (`image`,
  *   `item`, `badge`, `empty`, `search`), or pass a part more props (`slotProps`, which also
  *   reaches the `trigger` button and the menu `content`). `renderImage`, `renderItem` and
@@ -202,9 +203,10 @@ export interface WorkspaceSwitcherShortcuts {
    */
   open?: string | false;
   /**
-   * `true` or `"mod"`: ⌘1 to ⌘9 (Ctrl elsewhere) go straight to the first nine workspaces, in the
-   * menu's order, and the menu shows each one's number. Browsers keep some of these for their
-   * tabs, so `"alt"` uses Alt+1 to Alt+9 instead.
+   * Go straight to the first nine workspaces, in the menu's order, and show each one's number in
+   * the menu. `true` or `"alt"`: Alt+1 to Alt+9 (⌥ on a Mac), which browsers pass to the page.
+   * `"mod"`: ⌘1 to ⌘9 (Ctrl elsewhere), best effort only: Chrome and most browsers keep these for
+   * switching tabs and never pass them on, so use it in an installed or desktop-wrapped app.
    */
   jump?: boolean | "mod" | "alt";
 }
@@ -234,7 +236,7 @@ export interface WorkspaceSwitcherItemProps<W extends Workspace = Workspace> {
   classNames?: WorkspaceSwitcherClassNames;
 }
 
-/** What `slots.badge` receives. */
+/** What `slots.badge` receives. A replacement owns its screen-reader text: use `label`. */
 export interface WorkspaceSwitcherBadgeProps<W extends Workspace = Workspace> {
   workspace: W;
   value: string | number;
@@ -315,7 +317,12 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   current?: W;
   /** Where each choice goes; defaults to the WorkspaceScope's, else the workspace's landing page. */
   hrefFor?: (workspace: W) => string;
-  /** The router's link (see AppShell's `linkComponent`). */
+  /**
+   * The router's link (see AppShell's `linkComponent`). Each row is this link with the menu item's
+   * or option's props merged on, so it must pass `ref`, `id`, `role`, `aria-*`, `tabIndex`,
+   * `onClick`, `onMouseMove`, `onKeyDown`, `style` and `data-*` through to its `<a>` (see
+   * `LinkComponent`).
+   */
   linkComponent?: LinkComponent;
   /**
    * How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate. Without
@@ -335,7 +342,10 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   renderImage?: (workspace: W, size: "sm" | "md") => ReactNode;
   /** Replaces a row's content in the menu (the link around it stays). Shorthand for `slots.item`. */
   renderItem?: (workspace: W, state: { current: boolean }) => ReactNode;
-  /** Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`. */
+  /**
+   * Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`.
+   * A custom badge owns its screen-reader text: `badgeLabel` reaches only the default one.
+   */
   renderBadge?: (workspace: W) => ReactNode;
   /**
    * What a screen reader hears for a badge, in place of the bare value. Default: "3 new" for a
@@ -355,8 +365,12 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   shortcuts?: WorkspaceSwitcherShortcuts;
   /** Typed items at the bottom of the menu, after a separator. */
   actions?: readonly WorkspaceSwitcherAction[];
-  /** The menu's last items, after `actions`: any menu items of your own. */
-  footer?: ReactNode;
+  /**
+   * The menu's last items, after `actions`. In the menu they are menu items (`DropdownMenuItem`);
+   * with search they must be plain links or buttons, since there is no menu around them. Pass a
+   * function to render each mode's own: `(mode) => mode === "menu" ? <DropdownMenuItem … /> : <a … />`.
+   */
+  footer?: ReactNode | ((mode: "menu" | "search") => ReactNode);
   /** Replace or drop a part. */
   slots?: WorkspaceSwitcherSlots<W>;
   /** More props for a part, including the `trigger` button and the menu `content`. */
@@ -521,9 +535,10 @@ function parseShortcut(spec: string): ParsedShortcut | undefined {
 }
 
 function matchesShortcut(e: KeyboardEvent, s: ParsedShortcut): boolean {
-  // `code` too, so Alt+O on a Mac (which types "ø") still matches.
+  // `code` too, so Alt+O on a Mac (which types "ø") and Shift+1 (which types "!") still match.
   const key = e.key?.toLowerCase();
-  if (key !== s.key && e.code?.toLowerCase() !== `key${s.key}`) return false;
+  const code = e.code?.toLowerCase();
+  if (key !== s.key && code !== `key${s.key}` && code !== `digit${s.key}`) return false;
   const modifiers = s.mod ? e.metaKey || e.ctrlKey : e.metaKey === s.meta && e.ctrlKey === s.ctrl;
   return modifiers && e.altKey === s.alt && e.shiftKey === s.shift;
 }
@@ -544,11 +559,13 @@ function isTyping(target: EventTarget | null): boolean {
 /**
  * Whether the switcher is on screen, so only the visible one of several (sidebar, rail, phone bar)
  * answers a shortcut. `checkVisibility` misses a closed drawer that is moved off screen, so a copy
- * inside an `inert` or `aria-hidden` ancestor (AppShell's closed mobile drawer) never counts.
+ * inside an `inert` or `aria-hidden` ancestor (AppShell's closed mobile drawer) never counts,
+ * unless its own menu is open: an open Radix menu is modal and marks the rest of the page
+ * `aria-hidden`, the switcher's own root included.
  */
-function onScreen(el: HTMLElement | null): boolean {
+function onScreen(el: HTMLElement | null, open: boolean): boolean {
   if (!el) return false;
-  if (el.closest("[inert],[aria-hidden='true']")) return false;
+  if (el.closest(open ? "[inert]" : "[inert],[aria-hidden='true']")) return false;
   return typeof el.checkVisibility === "function" ? el.checkVisibility() : true;
 }
 
@@ -566,6 +583,8 @@ function useIsMac(): boolean {
   }, []);
   return mac;
 }
+
+const NO_WORKSPACES: readonly Workspace[] = [];
 
 const ITEM_CLASS =
   "group/workspace-item relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground";
@@ -608,9 +627,15 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   className,
 }: WorkspaceSwitcherProps<W>) {
   const scope = useWorkspace<W>();
-  const workspaces = workspacesProp ?? scope?.workspaces ?? [];
+  const workspaces = workspacesProp ?? scope?.workspaces ?? (NO_WORKSPACES as readonly W[]);
   const current = currentProp ?? scope?.current;
-  const hrefFor = hrefForProp ?? scope?.hrefFor ?? ((to: W) => workspaceHref(workspaces, to, current?.path));
+  const scopeHrefFor = scope?.hrefFor;
+  const currentPath = current?.path;
+  // Stable across renders, so the shortcut listener isn't re-added on each one.
+  const hrefFor = useMemo(
+    () => hrefForProp ?? scopeHrefFor ?? ((to: W) => workspaceHref(workspaces, to, currentPath)),
+    [hrefForProp, scopeHrefFor, workspaces, currentPath],
+  );
   const labels = { ...DEFAULT_WORKSPACE_KIND_LABELS, ...kindLabels };
   const icons: Partial<Record<WorkspaceKind, LucideIcon>> = { ...DEFAULT_WORKSPACE_KIND_ICONS, ...kindIcons };
   const name = current?.label ?? placeholder;
@@ -636,14 +661,27 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     }
   }, [open]);
 
-  const showSearch = search === true || (search === "auto" && workspaces.length > WORKSPACE_SWITCHER_SEARCH_THRESHOLD);
+  // "auto" never moves a footer of menu items into the search popover, where they would throw.
+  const footerFitsSearch = footer === undefined || footer === null || typeof footer === "function";
+  const autoSearch = search === "auto" && workspaces.length > WORKSPACE_SWITCHER_SEARCH_THRESHOLD;
+  const showSearch = search === true || (autoSearch && footerFitsSearch);
+  const footerFor = (mode: "menu" | "search") => (typeof footer === "function" ? footer(mode) : footer);
+  const autoBlocked = autoSearch && !footerFitsSearch;
+  useEffect(() => {
+    if (autoBlocked && isDevelopment()) {
+      // genesis-allow-console: a development set-up hint (search="auto" with a menu-only footer), not an error.
+      console.warn(
+        'WorkspaceSwitcher: search="auto" stays a menu because footer is not a function. Pass footer as (mode) => … to render plain links in search mode.',
+      );
+    }
+  }, [autoBlocked]);
   const ordered = useMemo(() => orderedWorkspaces(workspaces, order), [workspaces, order]);
   const groups = groupWorkspaces(showSearch ? filterWorkspaces(workspaces, query) : workspaces, order);
   const matches = groups.flatMap((g) => g.workspaces);
   const activeIndex = matches.length === 0 ? -1 : Math.min(active, matches.length - 1);
   const optionId = (i: number) => `${listId}-option-${i}`;
 
-  const jumpMode = shortcuts?.jump === true ? "mod" : shortcuts?.jump || undefined;
+  const jumpMode = shortcuts?.jump === true ? "alt" : shortcuts?.jump || undefined;
   const openSpec = shortcuts?.open || undefined;
   const openShortcut = useMemo(() => (openSpec ? parseShortcut(openSpec) : undefined), [openSpec]);
   const jumpHint = (index: number) =>
@@ -680,12 +718,13 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     }
   }, [missingNavigate]);
 
+  // The listener reads the latest props through a ref, so it is added once rather than on every
+  // render an app passes new inline callbacks.
+  const keyHandler = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
-    if (!openShortcut && !jumpMode) return;
-    if (typeof window === "undefined") return;
-    const onKeyDown = (e: KeyboardEvent) => {
+    keyHandler.current = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.repeat || e.isComposing) return;
-      if (!onScreen(rootRef.current)) return;
+      if (!onScreen(rootRef.current, open)) return;
       if (openShortcut && matchesShortcut(e, openShortcut)) {
         const plain = !openShortcut.mod && !openShortcut.meta && !openShortcut.ctrl && !openShortcut.alt;
         if (plain && isTyping(e.target)) return;
@@ -705,9 +744,14 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
       if (open) setOpen(false);
       if (target.id !== current?.id) go(target);
     };
+  });
+  const listening = Boolean(openShortcut || jumpMode);
+  useEffect(() => {
+    if (!listening || typeof window === "undefined") return;
+    const onKeyDown = (e: KeyboardEvent) => keyHandler.current(e);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [openShortcut, jumpMode, ordered, current?.id, go, open, setOpen]);
+  }, [listening]);
 
   // Keep the highlighted option in view as the arrows move it.
   useEffect(() => {
@@ -857,6 +901,7 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     const searchExtra = slotProps?.search;
     const emptyExtra = slotProps?.empty;
     const hasActions = Boolean(actions?.length);
+    const searchFooter = footerFor("search");
     return root(
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
@@ -955,6 +1000,7 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
                             setOpen(false);
                           }}
                         >
+                          {/* Not redundant: aria-selected follows the arrow keys' highlight, aria-current marks where the viewer is. */}
                           <Link
                             href={hrefFor(w)}
                             className="flex w-full items-center gap-2"
@@ -971,7 +1017,7 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
               })}
             </div>
           )}
-          {hasActions || footer ? (
+          {hasActions || searchFooter ? (
             <>
               <div {...part("separator")} aria-hidden className={cn("-mx-1 my-1 h-px bg-muted", classNames?.separator)} />
               <div {...part("footer")} className={cn("flex flex-col", classNames?.footer)}>
@@ -1005,7 +1051,7 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
                     </Button>
                   );
                 })}
-                {footer}
+                {searchFooter}
               </div>
             </>
           ) : null}
@@ -1015,6 +1061,7 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   }
 
   const separator = () => <DropdownMenuSeparator {...part("separator")} className={classNames?.separator} />;
+  const menuFooter = footerFor("menu");
 
   return root(
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -1085,14 +1132,14 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
                   </DropdownMenuItem>
                 );
               })}
-              {footer}
+              {menuFooter}
             </DropdownMenuGroup>
           </>
-        ) : footer ? (
+        ) : menuFooter ? (
           // Without `actions`, the footer is exactly where it always was: after a separator, unwrapped.
           <>
             <DropdownMenuSeparator />
-            {footer}
+            {menuFooter}
           </>
         ) : null}
       </DropdownMenuContent>

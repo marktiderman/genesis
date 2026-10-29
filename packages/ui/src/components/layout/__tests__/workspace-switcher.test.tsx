@@ -10,6 +10,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { WorkspaceScope } from "@marktiderman/genesis-core/hooks";
 import type { Workspace } from "@marktiderman/genesis-core/workspaces";
 
+import { DropdownMenuItem } from "../../ui/dropdown-menu";
 import { AppShell } from "../AppShell";
 import { WorkspaceSwitcher, type WorkspaceSwitcherItemProps } from "../workspace-switcher";
 
@@ -198,7 +199,7 @@ describe("WorkspaceSwitcher", () => {
 
   it("keeps the badge's bare value and the jump hint out of the row's name, and says what the badge means", async () => {
     const withBadge: Workspace[] = [{ ...workspaces[0]!, badge: 3 }, workspaces[1]!];
-    render(<WorkspaceSwitcher workspaces={withBadge} current={withBadge[0]} shortcuts={{ jump: true }} onNavigate={() => {}} />);
+    render(<WorkspaceSwitcher workspaces={withBadge} current={withBadge[0]} shortcuts={{ jump: "mod" }} onNavigate={() => {}} />);
     openMenu();
     await screen.findByRole("menu");
     const acme = screen.getByTestId("workspace-switcher-item-acme");
@@ -410,7 +411,7 @@ describe("WorkspaceSwitcher", () => {
           current={workspaces[0]}
           onNavigate={onNavigate}
           onSelect={onSelect}
-          shortcuts={{ jump: true }}
+          shortcuts={{ jump: "mod" }}
         />,
       );
       // Personal, All organizations, Acme Fitness, Globex.
@@ -482,13 +483,45 @@ describe("WorkspaceSwitcher", () => {
       }
     });
 
-    it("uses Alt for the jump when asked", () => {
+    it.each([["alt" as const], [true as const]])("uses Alt for the jump with jump=%s (browsers keep ⌘/Ctrl+digit for tabs)", (jump) => {
       const onNavigate = vi.fn();
-      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} onNavigate={onNavigate} shortcuts={{ jump: "alt" }} />);
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} onNavigate={onNavigate} shortcuts={{ jump }} />);
       fireEvent.keyDown(window, { key: "1", code: "Digit1", metaKey: true });
       expect(onNavigate).not.toHaveBeenCalled();
       fireEvent.keyDown(window, { key: "¡", code: "Digit1", altKey: true });
       expect(onNavigate).toHaveBeenCalledWith("/me", workspaces[3]);
+    });
+
+    it("matches a digit shortcut with Shift held, which types a symbol", async () => {
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+shift+1" }} />);
+      fireEvent.keyDown(window, { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true });
+      expect(await screen.findByRole("menu")).toBeTruthy();
+    });
+
+    it("answers while its own menu is open, though the open menu hides the rest of the page", async () => {
+      const onNavigate = vi.fn();
+      render(
+        <WorkspaceSwitcher
+          workspaces={workspaces}
+          current={workspaces[0]}
+          onNavigate={onNavigate}
+          shortcuts={{ open: "mod+shift+o", jump: "alt" }}
+        />,
+      );
+      const root = screen.getByTestId("workspace-switcher");
+      fireEvent.keyDown(window, { key: "O", code: "KeyO", ctrlKey: true, shiftKey: true });
+      await screen.findByRole("menu");
+      await waitFor(() => expect(root.closest("[aria-hidden='true']")).not.toBeNull());
+      fireEvent.keyDown(document.activeElement ?? window, { key: "O", code: "KeyO", ctrlKey: true, shiftKey: true });
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+      expect(root.getAttribute("data-state")).toBe("closed");
+
+      fireEvent.keyDown(window, { key: "O", code: "KeyO", ctrlKey: true, shiftKey: true });
+      await screen.findByRole("menu");
+      await waitFor(() => expect(root.closest("[aria-hidden='true']")).not.toBeNull());
+      fireEvent.keyDown(document.activeElement ?? window, { key: "¡", code: "Digit1", altKey: true });
+      expect(onNavigate).toHaveBeenCalledWith("/me", workspaces[3]);
+      await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
     });
   });
 
@@ -500,6 +533,58 @@ describe("WorkspaceSwitcher", () => {
     expect(item.parentElement).toBe(menu);
     expect(item.previousElementSibling?.getAttribute("role")).toBe("separator");
     expect(menu.querySelector('[data-part="footer"]')).toBeNull();
+  });
+
+  describe("footer with search", () => {
+    const many: Workspace[] = Array.from({ length: 9 }, (_, i) => ({
+      id: `org-${i + 1}`,
+      kind: "tenant" as const,
+      label: `Tenant ${i + 1}`,
+      path: `/o/org-${i + 1}`,
+      scope: { orgId: `org-${i + 1}` },
+    }));
+
+    it('keeps the menu with search="auto" when the footer is menu items, and warns', async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        render(
+          <WorkspaceSwitcher
+            workspaces={many}
+            current={many[0]}
+            search="auto"
+            footer={<DropdownMenuItem data-testid="new-org">New organization</DropdownMenuItem>}
+          />,
+        );
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining("footer"));
+        openMenu();
+        await screen.findByRole("menu");
+        expect(screen.queryByRole("combobox")).toBeNull();
+        expect(screen.getByTestId("new-org").getAttribute("role")).toBe("menuitem");
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it("renders a function footer for the mode it is in", async () => {
+      const footer = (mode: "menu" | "search") =>
+        mode === "menu" ? (
+          <DropdownMenuItem data-testid="new-org">New organization</DropdownMenuItem>
+        ) : (
+          <a href="/new" data-testid="new-org">
+            New organization
+          </a>
+        );
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search="auto" footer={footer} />);
+      openMenu();
+      await screen.findByRole("combobox");
+      expect(screen.getByTestId("new-org").tagName).toBe("A");
+      expect(screen.getByTestId("new-org").closest('[data-part="footer"]')).not.toBeNull();
+      cleanup();
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search="auto" footer={footer} />);
+      openMenu();
+      await screen.findByRole("menu");
+      expect(screen.getByTestId("new-org").getAttribute("role")).toBe("menuitem");
+    });
   });
 
   it("keeps the picture's rounded-md and the menu's w-64 classes", async () => {

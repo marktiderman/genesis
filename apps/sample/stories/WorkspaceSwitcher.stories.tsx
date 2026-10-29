@@ -115,6 +115,13 @@ export const Search: Story = {
     workspaces: many,
     search: true,
     actions: [{ id: "new", label: "New organization", icon: Plus, onSelect: fn() }],
+    // A function footer gets the mode: plain links here, menu items in the menu.
+    footer: (mode) =>
+      mode === "search" ? (
+        <a href="#/settings/workspaces" className="rounded-sm px-2 py-1.5 text-sm hover:bg-accent">
+          Manage workspaces
+        </a>
+      ) : null,
   },
   parameters: axeOnPage,
   play: async ({ canvasElement }) => {
@@ -137,7 +144,8 @@ export const Search: Story = {
 };
 
 /**
- * Ctrl/⌘+Shift+O opens it; Alt+1 to Alt+9 jump straight to a workspace (numbered in the menu).
+ * Ctrl/⌘+Shift+O opens and closes it; Alt+1 to Alt+9 (`jump: true` or `"alt"`) jump straight to a
+ * workspace (numbered in the menu). `jump: "mod"` (⌘/Ctrl+digit) is best effort: browsers keep it for tabs.
  * Pass the router's navigate as `onNavigate`, or a jump reloads the page.
  */
 export const KeyboardShortcuts: Story = {
@@ -146,10 +154,14 @@ export const KeyboardShortcuts: Story = {
     await userEvent.keyboard("{Control>}{Shift>}o{/Shift}{/Control}");
     const body = within(canvasElement.ownerDocument.body);
     await expect(await body.findByRole("menu")).toBeVisible();
-    await userEvent.keyboard("{Escape}");
+    // The open menu marks the page aria-hidden; the shortcut still closes it, and a jump still works.
+    await userEvent.keyboard("{Control>}{Shift>}o{/Shift}{/Control}");
     await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
+    await userEvent.keyboard("{Control>}{Shift>}o{/Shift}{/Control}");
+    await body.findByRole("menu");
     await userEvent.keyboard("{Alt>}4{/Alt}");
     await expect(args.onNavigate).toHaveBeenCalledWith("#/o/globex", workspaces[3]);
+    await waitFor(() => expect(body.queryByRole("menu")).toBeNull());
   },
 };
 

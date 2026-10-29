@@ -23550,10 +23550,10 @@
             },
             {
               "name": "footer",
-              "type": "ReactNode",
+              "type": "ReactNode | ((mode: \"search\" | \"menu\") => ReactNode)",
               "required": false,
               "defaultValue": null,
-              "description": "The menu's last items, after `actions`: any menu items of your own."
+              "description": "The menu's last items, after `actions`. In the menu they are menu items (`DropdownMenuItem`);\nwith search they must be plain links or buttons, since there is no menu around them. Pass a\nfunction to render each mode's own: `(mode) => mode === \"menu\" ? <DropdownMenuItem … /> : <a … />`."
             },
             {
               "name": "hrefFor",
@@ -23588,7 +23588,7 @@
               "type": "LinkComponent",
               "required": false,
               "defaultValue": "({\n  href,\n  children,\n  testID,\n  ...rest\n}) => (\n  <a href={href} data-testid={testID} {...rest}>\n    {children}\n  </a>\n)",
-              "description": "The router's link (see AppShell's `linkComponent`)."
+              "description": "The router's link (see AppShell's `linkComponent`). Each row is this link with the menu item's\nor option's props merged on, so it must pass `ref`, `id`, `role`, `aria-*`, `tabIndex`,\n`onClick`, `onMouseMove`, `onKeyDown`, `style` and `data-*` through to its `<a>` (see\n`LinkComponent`)."
             },
             {
               "name": "onNavigate",
@@ -23637,7 +23637,7 @@
               "type": "((workspace: W) => ReactNode)",
               "required": false,
               "defaultValue": null,
-              "description": "Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`."
+              "description": "Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`.\nA custom badge owns its screen-reader text: `badgeLabel` reaches only the default one."
             },
             {
               "name": "renderImage",
