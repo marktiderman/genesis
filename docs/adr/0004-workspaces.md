@@ -3,7 +3,7 @@
 - Status: proposed
 - Date: 2026-10-28
 - Features: `workspaces`, `app-shell`
-- Related: ADR 0003 (navigation zones, proposed)
+- Related: ADR 0003 (navigation zones)
 
 ## Context
 
