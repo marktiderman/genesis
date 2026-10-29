@@ -7,7 +7,7 @@ import { LOW_CONTRAST_BRAND, PASSING_BRAND } from "./__fixtures__/public-brands"
 import { PUBLIC_VIEWPORTS } from "./__fixtures__/viewports";
 
 const meta: Meta<typeof PublicPage> = {
-  title: "Layout/PublicPage",
+  title: "Foundation/Layout/PublicPage",
   component: PublicPage,
   parameters: { layout: "fullscreen", viewport: { options: PUBLIC_VIEWPORTS } },
 };

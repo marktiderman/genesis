@@ -10,7 +10,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Card> = {
-  title: "UI/Card",
+  title: "Foundation/UI/Card",
   component: Card,
 };
 

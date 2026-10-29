@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Spinner } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Spinner> = {
-  title: "UI/Spinner",
+  title: "Foundation/UI/Spinner",
   component: Spinner,
 };
 export default meta;

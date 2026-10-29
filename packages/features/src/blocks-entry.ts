@@ -7,3 +7,4 @@
 export * from "./blocks";
 export { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
 export * from "./content-packs";
+export * from "./packages";

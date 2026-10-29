@@ -1,6 +1,7 @@
 export {
   FEATURE_HORIZONS,
   FEATURE_LAYERS,
+  featureLayer,
   FEATURE_PLATFORMS,
   FEATURE_STATUSES,
   FLAG_KINDS,
@@ -18,6 +19,7 @@ export {
   type FeatureDef,
   type FeatureHorizon,
   type FeatureIdOf,
+  type DeprecatedFeatureLayer,
   type FeatureLayer,
   type FeatureLinks,
   type FeatureMedia,
@@ -102,3 +104,14 @@ export {
   type ContentPackRoadmapTemplate,
   type ContentPackSessionType,
 } from "./content-packs";
+export {
+  PACKAGE_GROUPS,
+  PACKAGE_LAYERS,
+  packageLayerProblems,
+  readPackageMeta,
+  type LayerPackage,
+  type ModuleMeta,
+  type PackageGroup,
+  type PackageLayer,
+  type PackageMeta,
+} from "./packages";

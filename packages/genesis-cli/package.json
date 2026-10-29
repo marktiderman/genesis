@@ -107,6 +107,8 @@
     }
   },
   "genesis": {
+    "layer": "tooling",
+    "group": "core",
     "doctor": {
       "enforce": false,
       "reason": "The doctor itself: its rules are the built-ins."

@@ -9,7 +9,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Select> = {
-  title: "UI/Select",
+  title: "Foundation/UI/Select",
   component: Select,
   parameters: { layout: "centered" },
 };

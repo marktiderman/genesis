@@ -65,6 +65,11 @@ jobs:
       - name: Build packages
         run: pnpm build:packages
 
+      # Every package's genesis layer and group, and dependencies pointing down: foundation,
+      # primitives, modules, with tooling on the side (docs/PACKAGE-STRATEGY.md, "Layers").
+      - name: Package layers
+        run: pnpm check:package-layers
+
       - name: Typecheck
         run: pnpm typecheck
 

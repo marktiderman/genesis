@@ -107,6 +107,8 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "forms",
     "doctor": {
       "prefer": [
         {

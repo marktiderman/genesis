@@ -56,6 +56,8 @@
     "@types/node": "^22.9.0"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "collaboration",
     "doctor": {
       "enforce": false,
       "reason": "A headless core and schema that features build on; no app pattern it replaces is reliably detectable yet.",

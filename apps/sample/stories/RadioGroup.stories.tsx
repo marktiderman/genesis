@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { RadioGroup, RadioGroupItem, Label } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof RadioGroup> = {
-  title: "UI/RadioGroup",
+  title: "Foundation/UI/RadioGroup",
   component: RadioGroup,
 };
 export default meta;

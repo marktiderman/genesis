@@ -15,7 +15,7 @@ import {
 import { BookOpen, Clock, Link2, PlayCircle, Users } from "lucide-react";
 
 // The resource page with a course, not a form: every noun comes from the host.
-const meta: Meta = { title: "Patterns/Publishable resource page" };
+const meta: Meta = { title: "Foundation/Patterns/Publishable resource page" };
 export default meta;
 type Story = StoryObj;
 

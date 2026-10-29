@@ -81,6 +81,8 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
     "doctor": {
       "enforce": false,
       "reason": "Data-layer configuration an app composes once; no hand-rolled equivalent is reliably detectable yet."

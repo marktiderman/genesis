@@ -10,7 +10,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof DropdownMenu> = {
-  title: "UI/DropdownMenu",
+  title: "Foundation/UI/DropdownMenu",
   component: DropdownMenu,
 };
 export default meta;

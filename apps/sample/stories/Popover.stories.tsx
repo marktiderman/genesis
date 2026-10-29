@@ -6,7 +6,7 @@ import {
   Button,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Popover> = { title: "UI/Popover", component: Popover };
+const meta: Meta<typeof Popover> = { title: "Foundation/UI/Popover", component: Popover };
 export default meta;
 type Story = StoryObj<typeof Popover>;
 

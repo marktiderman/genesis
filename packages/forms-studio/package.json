@@ -92,6 +92,8 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "forms",
     "doctor": {
       "enforce": false,
       "reason": "Its components are already checked by the built-in local-genesis-copy and page-layout rules (componentPackages).",

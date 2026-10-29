@@ -6,7 +6,7 @@ import {
   InputOTPSeparator,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof InputOTP> = { title: "UI/InputOTP", component: InputOTP };
+const meta: Meta<typeof InputOTP> = { title: "Foundation/UI/InputOTP", component: InputOTP };
 export default meta;
 type Story = StoryObj<typeof InputOTP>;
 

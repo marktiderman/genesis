@@ -203,6 +203,8 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "collaboration",
     "blocks": {
       "chat": {
         "feature": {

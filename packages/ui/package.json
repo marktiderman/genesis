@@ -493,6 +493,9 @@
     }
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "essential": true,
     "doctor": {
       "prefer": [
         {

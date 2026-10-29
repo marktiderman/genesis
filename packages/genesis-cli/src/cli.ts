@@ -311,7 +311,7 @@ featureOptions(
     .description("Search features before building: reuse one, extend one, or add an idea first")
     .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
     .option("--platform <platform>", "Only features on web, native, server or cli")
-    .option("--layer <layer>", "Only token, primitive, pattern, layout, hook, provider, block, service or tool")
+    .option("--layer <layer>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
     .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
 ).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
   const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
@@ -324,7 +324,8 @@ featureOptions(
   const { platform, layer, status, ...rest } = opts;
   const filters = {
     platform: pick("platform", platform, FEATURE_PLATFORMS),
-    layer: pick("layer", layer, FEATURE_LAYERS),
+    // "primitive" is the deprecated name of "element".
+    layer: pick("layer", layer === "primitive" ? "element" : layer, FEATURE_LAYERS),
     status: pick("status", status, FEATURE_STATUSES),
   };
   if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
