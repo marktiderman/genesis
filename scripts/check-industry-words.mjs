@@ -20,7 +20,8 @@ import { join } from "node:path";
 import { EXEMPT, SCOPE, WORDS } from "./industry-words.mjs";
 
 const BLOCKED = new Map(Object.entries(WORDS).flatMap(([industry, words]) => words.map((w) => [w, industry])));
-const SKIP = /\.(png|jpe?g|gif|webp|ico|svg|woff2?|ttf|otf|pdf|zip|gz|mp4|mov|wasm)$/i;
+// SVG is text and can carry words (a title, an id), so it is read like any other file.
+const SKIP = /\.(png|jpe?g|gif|webp|ico|woff2?|ttf|otf|pdf|zip|gz|mp4|mov|wasm)$/i;
 const ALLOW = /industry-words: allow\b/;
 
 const words = (line) =>

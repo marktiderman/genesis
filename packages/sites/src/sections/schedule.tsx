@@ -82,10 +82,11 @@ const schema = z.object({
    */
   labels: z
     .object({
-      items: Line(40).default("sessions"),
-      types: Line(60).default("Session types"),
+      items: Line(40).default("sessions").meta({ title: "What's on, plural (sessions)" }),
+      types: Line(60).default("Session types").meta({ title: "The legend's name" }),
     })
-    .default({ items: "sessions", types: "Session types" }),
+    .default({ items: "sessions", types: "Session types" })
+    .meta({ title: "Words" }),
   footnote: Copy(300).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
