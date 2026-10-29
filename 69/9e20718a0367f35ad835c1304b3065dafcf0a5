@@ -1,0 +1,19 @@
+apps/sample/app/routes/showcase.primitives-redirect.tsx
+  s_36f3212387dbf7::t_80f8d5bdbbe384 2,4,10-12,14,18,23-26,29-34
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "699e20718a0367f35ad835c1304b3065dafcf0a5",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
