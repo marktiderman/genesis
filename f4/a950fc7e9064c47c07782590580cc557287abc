@@ -1,0 +1,32 @@
+apps/sample/scripts/story-ids.ts
+  s_e2cf1ec4fac133::t_14bc63a15da18a 48-51
+  s_e2cf1ec4fac133::t_2dee6a65bfcefd 1-47,52-63
+apps/sample/app/lib/storybook.ts
+  s_e2cf1ec4fac133::t_e4aedcc73d3f50 1-26
+apps/sample/app/data/story-ids.json
+  s_e2cf1ec4fac133::t_d7d83405f19bd8 1-59
+apps/sample/app/lib/portfolio-data.ts
+  s_e2cf1ec4fac133::t_5db92581020369 6-7,14-15,54-55
+apps/sample/app/routes/showcase._index.tsx
+  s_e2cf1ec4fac133::t_90da738747a8c1 44
+apps/sample/app/routes/showcase.primitives.$slug.tsx
+  s_e2cf1ec4fac133::t_8cc847f9e78acb 13,42-44,77,217,229
+apps/sample/scripts/generate-primitive-docs.ts
+  s_e2cf1ec4fac133::t_c8aafd24a218b0 31-33,44,56,425,428-439,469
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f4a950fc7e9064c47c07782590580cc557287abc",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
