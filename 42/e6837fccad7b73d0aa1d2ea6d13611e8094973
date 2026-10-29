@@ -1,0 +1,21 @@
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_8b8f6102383114::t_68cb32fc599244 17,21
+packages/ui/src/hooks/__tests__/core-mutation-modes.test.tsx
+  s_8b8f6102383114::t_a3e1c043a3c084 542-543,551-556
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "42e6837fccad7b73d0aa1d2ea6d13611e8094973",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
