@@ -92,7 +92,7 @@ function preferSupported(
 /**
  * Look up a primitive by canonical slug, falling back to declared aliases
  * (e.g. `toast` resolves to `sonner.tsx`). Web primitives win over native
- * when both surfaces share a slug, since today's /showcase/primitives/:slug
+ * when both surfaces share a slug, since today's /showcase/elements/:slug
  * route is the web reference page. Within a surface, a non-deprecated entry
  * wins over a deprecated one sharing the same slug (see `preferSupported`).
  * The incoming slug is normalised (trim + toLowerCase) so URL

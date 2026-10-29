@@ -29,7 +29,7 @@ if (!existsSync(OUT)) throw new Error(`No client build at ${OUT}; run react-rout
 {
   const routes = readFileSync(join(SAMPLE, "app", "routes.ts"), "utf8");
   const listed = new Set(SITE_PAGES.map((p) => p.path));
-  const UNLISTED = new Set(["forms-frame", "forms-playground", "projects/*"]); // framed by another page / an older alias
+  const UNLISTED = new Set(["forms-frame", "forms-playground", "projects/*", "showcase/primitives"]); // framed by another page / an older alias / a redirect
   const missing = [...routes.matchAll(/route\("([^"]+)"/g)]
     .map((m) => m[1]!)
     .filter((path) => !path.includes(":") && !UNLISTED.has(path) && !listed.has(`/${path}`));
@@ -114,7 +114,7 @@ write(
 write("robots.txt", `User-agent: *\nAllow: /\n\nSitemap: ${url("/sitemap.xml")}\n`);
 
 // 3. llms.txt (the index) and llms-full.txt (everything).
-const demoPages = pages.filter((p) => !p.path.startsWith("/showcase/primitives/") && !p.path.includes("/preview/"));
+const demoPages = pages.filter((p) => !p.path.startsWith("/showcase/elements/") && !p.path.includes("/preview/"));
 const llms = [
   "# Genesis",
   "",

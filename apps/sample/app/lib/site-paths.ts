@@ -30,7 +30,7 @@ export function sitePaths(): string[] {
     ...packageDirs().map((d) => `/packages/${d}`),
     ...TOKEN_CATEGORIES.map((c) => `/showcase/tokens/${c.slug}`),
     ...LAYOUTS.map((l) => `/showcase/layouts/${l.slug}`),
-    ...[...slugs].map((s) => `/showcase/primitives/${s}`),
+    ...[...slugs].map((s) => `/showcase/elements/${s}`),
     ...scenarios.flatMap((s) => [`/forms/${s.id}`, `/preview/${s.id}`]),
     ...["all", ...ORGS.map((o) => o.id)].flatMap((ws) => [`/demo/${ws}`, ...DEMO_PAGES.map((p) => `/demo/${ws}/${p}`)]),
     ...ORGS.map((o) => `/demo/${o.id}/clients/${CLIENT_SELF[o.id]}/bookings`),
@@ -40,8 +40,14 @@ export function sitePaths(): string[] {
 /** Pages that are only ever framed by another page: prerendered, but not in the sitemap. */
 const FRAMED = ["/forms-frame"];
 
+/** Old addresses that redirect: prerendered (a static host can't redirect), not in the sitemap. */
+export function redirectPaths(): string[] {
+  const slugs = new Set((primitives as { primitives: Array<{ slug: string }> }).primitives.map((p) => p.slug));
+  return ["/showcase/primitives", ...[...slugs].map((s) => `/showcase/primitives/${s}`)];
+}
+
 export function prerenderPaths(): string[] {
-  return [...sitePaths(), ...FRAMED];
+  return [...sitePaths(), ...FRAMED, ...redirectPaths()];
 }
 
 export function sitePages(): SitePage[] {

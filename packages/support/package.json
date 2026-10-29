@@ -56,6 +56,10 @@
     "./native": {
       "types": "./dist/native.d.ts",
       "import": "./dist/native.js"
+    },
+    "./email": {
+      "types": "./dist/email.d.ts",
+      "import": "./dist/email.js"
     }
   },
   "files": [
@@ -336,6 +340,45 @@
           "Pass genesis-chat's client to support: createSupport({ ..., chat: createChatClient(supabase) }) on native, createSupportClient(supabase, { chat }) on the web. Without it, threads stay on support_replies.",
           "Web: render SupportReportThread (the person) or SupportStaffThread (staff: status, assignee, internal notes) from @marktiderman/genesis-support/web-chat under genesis-chat's ChatProvider.",
           "Keep genesis-chat's runner going (push for replies). support_replies stays mirrored for one release, for older app builds; a later migration removes it."
+        ]
+      },
+      "support-email": {
+        "feature": {
+          "name": "Support over email",
+          "summary": "Email is a ticket channel: mail to a support address opens or continues a ticket, staff replies go back in the same thread through Resend, and one thread holds app and email.",
+          "keywords": [
+            "help desk",
+            "email tickets",
+            "zendesk",
+            "inbound email",
+            "support inbox",
+            "resend"
+          ],
+          "audience": [
+            "person",
+            "admin"
+          ]
+        },
+        "requires": [
+          "support-feedback"
+        ],
+        "platforms": [
+          "web"
+        ],
+        "packages": [
+          "@marktiderman/genesis-support",
+          "@marktiderman/genesis-notifications"
+        ],
+        "migrations": [
+          {
+            "file": "migrations/0002_genesis_support_email.sql",
+            "test": "migrations/tests/0002_genesis_support_email.test.sql"
+          }
+        ],
+        "steps": [
+          "Point a receiving domain at Resend (MX record) and add an email.received webhook to your server route: createInboundEmailHandler from @marktiderman/genesis-notifications/server with supportEmailRoute(admin, { addresses, replyDomain }) from @marktiderman/genesis-support/email.",
+          "Run runSupportEmail(admin, { email: resendProvider(...), from, replyDomain }) every minute from your jobs, so staff replies on email tickets go out threaded.",
+          "Set RESEND_INBOUND_WEBHOOK_SECRET and RESEND_API_KEY (one that can read received email) on the server only."
         ]
       }
     },

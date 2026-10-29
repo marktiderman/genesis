@@ -53,7 +53,7 @@ export default function PrimitivesIndex() {
   return (
     <div className="mx-auto max-w-5xl p-6 space-y-6" data-testid="showcase-primitives-index">
       <header>
-        <h1 className="text-3xl font-bold tracking-tight">Primitives</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Elements</h1>
         <p className="text-muted-foreground mt-1">
           {CARDS.filter((c) => c.surface === "web").length} web components in{" "}
           <code>@marktiderman/genesis-ui</code> and {CARDS.filter((c) => c.surface === "native").length} native ones in{" "}
@@ -83,7 +83,7 @@ export default function PrimitivesIndex() {
         {filtered.map((p) => (
           <Link
             key={p.key}
-            to={`/showcase/primitives/${p.slug}${p.surface === "native" ? "?surface=native" : ""}`}
+            to={`/showcase/elements/${p.slug}${p.surface === "native" ? "?surface=native" : ""}`}
             className="block hover:opacity-90 transition"
           >
             <Card data-testid={`primitive-${p.slug}`} className="h-full">

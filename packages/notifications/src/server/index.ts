@@ -42,6 +42,7 @@ export { resendProvider, RESEND_API, RESEND_DEFAULT_PER_SECOND, type EmailMessag
 export { resolveSecretLink, SecretLinkError, SECRET_LINK_PLACEHOLDER, type SecretLinkRef, type SecretLinks } from "./secret-links";
 export { createUnsubscribeToken, verifyUnsubscribeToken, unsubscribeHeaders, emailHash, type UnsubscribeClaims } from "./unsubscribe";
 export { verifyResendWebhook, emailEventOf, WEBHOOK_TOLERANCE_SECONDS } from "./webhook";
+export { createInboundEmailHandler, inboundEmailOf, parseAddress, RESEND_RECEIVING_API, type InboundEmail, type InboundEmailHandlerOptions, type InboundEmailRoute } from "./inbound";
 export { checkSenderDomain, isReservedDomain, senderOwnershipRecord, SENDER_OWNERSHIP_HOST, type DomainCheck, type DomainCheckOptions } from "./dns";
 export {
   canonicalJson,

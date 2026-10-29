@@ -54,7 +54,7 @@ const PROOF = [
     icon: Smartphone,
     title: "Web and native",
     body: "The same views on React Native through the native components and an Expo starter.",
-    to: "/showcase/primitives",
+    to: "/showcase/elements",
   },
   {
     icon: Bot,
