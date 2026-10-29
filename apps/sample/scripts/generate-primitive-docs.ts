@@ -28,6 +28,9 @@
  *   - summary        rolled-up summary from the primary component
  *   - components     list of parsed components
  *
+ * It also writes apps/sample/app/data/story-ids.json (scripts/story-ids.ts):
+ * each component's first Storybook story, for the "Open in Storybook" links.
+ *
  * Modes:
  *   docs:generate           — write primitives.json
  *   docs:generate --check   — fail if regenerating produces a diff (used in CI
@@ -38,6 +41,7 @@ import { execSync } from "node:child_process";
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildStoryIds } from "./story-ids";
 
 import {
   type ComponentDoc,
@@ -49,6 +53,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "..", "..", "..");
 const SAMPLE_APP = resolve(__dirname, "..");
 const OUTPUT_PATH = resolve(SAMPLE_APP, "app", "data", "primitives.json");
+const STORY_IDS_PATH = resolve(SAMPLE_APP, "app", "data", "story-ids.json");
 
 const UI_SRC = resolve(REPO_ROOT, "packages", "ui", "src");
 const UI_NATIVE_SRC = resolve(REPO_ROOT, "packages", "ui-native", "src");
@@ -417,8 +422,21 @@ function main() {
   console.log("Generating primitive docs from TS source…");
   const output = build();
   const serialised = JSON.stringify(output, null, 2) + "\n";
+  const storyIds = JSON.stringify(buildStoryIds(resolve(SAMPLE_APP, "stories")), null, 2) + "\n";
 
   if (checkMode) {
+    const existingStoryIds = (() => {
+      try {
+        return readFileSync(STORY_IDS_PATH, "utf8");
+      } catch {
+        return "";
+      }
+    })();
+    if (existingStoryIds !== storyIds) {
+      console.error("\n✖ apps/sample/app/data/story-ids.json is out of date.");
+      console.error("  Run `pnpm --filter sample docs:generate` and commit the result.");
+      process.exit(1);
+    }
     const existing = (() => {
       try {
         return readFileSync(OUTPUT_PATH, "utf8");
@@ -448,6 +466,7 @@ function main() {
 
   mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
   writeFileSync(OUTPUT_PATH, serialised, "utf8");
+  writeFileSync(STORY_IDS_PATH, storyIds, "utf8");
   const totalComponents = output.primitives.reduce((acc, p) => acc + p.components.length, 0);
   console.log(
     `✓ wrote ${relative(REPO_ROOT, OUTPUT_PATH)} — ${output.primitives.length} primitives ` +

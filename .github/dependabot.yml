@@ -45,11 +45,8 @@ updates:
       default-days: 7
     commit-message:
       prefix: "ci(deps)"
+    # Every action is pinned to a commit SHA with its version in a comment
+    # (`uses: owner/action@<sha> # v1.2.3`); Dependabot moves both together.
     groups:
       actions:
         patterns: ["*"]
-    ignore:
-      # changesets/action v2 needs Changesets CLI v3 and renames the inputs and
-      # outputs release.yml uses. Upgrade it on purpose, with the CLI.
-      - dependency-name: "changesets/action"
-        update-types: ["version-update:semver-major"]
