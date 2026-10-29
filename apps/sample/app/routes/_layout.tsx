@@ -46,7 +46,7 @@ const globalItems: NavItem[] = [
     children: [
       { to: "/showcase", icon: Sparkles, label: "Components", end: true },
       { to: "/showcase/tokens", icon: SwatchBook, label: "Tokens" },
-      { to: "/showcase/primitives", icon: Shapes, label: "Primitives" },
+      { to: "/showcase/elements", icon: Shapes, label: "Elements" },
       { to: "/showcase/layouts", icon: LayoutTemplate, label: "Layouts" },
       { to: "/packages", icon: Boxes, label: "Packages" },
       { to: "/design-system", icon: Palette, label: "All on one page" },
@@ -66,7 +66,7 @@ const mobileItems: NavItem[] = [
 const showcaseItems: NavItem[] = [
   { to: "/showcase", icon: Sparkles, label: "Overview", end: true },
   { to: "/showcase/tokens", icon: SwatchBook, label: "Tokens" },
-  { to: "/showcase/primitives", icon: Shapes, label: "Primitives" },
+  { to: "/showcase/elements", icon: Shapes, label: "Elements" },
   { to: "/showcase/layouts", icon: LayoutTemplate, label: "Layouts" },
   { to: "/showcase/standards", icon: ScrollText, label: "Standards" },
 ];
@@ -98,10 +98,10 @@ const navigation: NavigationNode<NavItem> = {
         },
         {
           id: "primitives",
-          path: "/showcase/primitives",
-          label: "Primitives",
+          path: "/showcase/elements",
+          label: "Elements",
           items: showcaseItems,
-          children: [{ id: "primitive", path: "/showcase/primitives/$slug", label: "Primitive", items: showcaseItems }],
+          children: [{ id: "primitive", path: "/showcase/elements/$slug", label: "Element", items: showcaseItems }],
         },
         {
           id: "layouts",

@@ -79,7 +79,7 @@ export default function PackagePage({ loaderData: pkg }: Route.ComponentProps) {
                   {e.components.map((c) => (
                     <li key={c.name} className="min-w-0">
                       {c.page ? (
-                        <Link className="font-mono hover:underline" to={`/showcase/primitives/${c.page}`}>{c.name}</Link>
+                        <Link className="font-mono hover:underline" to={`/showcase/elements/${c.page}`}>{c.name}</Link>
                       ) : (
                         <span className="font-mono">{c.name}</span>
                       )}
