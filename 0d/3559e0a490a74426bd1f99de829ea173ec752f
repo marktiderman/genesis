@@ -1,0 +1,23 @@
+packages/genesis-cli/test/doctor-stability.test.ts
+  s_36f3212387dbf7::t_607998de5a8416 54-76
+.changeset/stability-imports.md
+  s_36f3212387dbf7::t_d9525e69c5151a 1-5
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_d3e9b2ac659c4f 408-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0d3559e0a490a74426bd1f99de829ea173ec752f",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
