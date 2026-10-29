@@ -95,6 +95,15 @@ interface Queued {
   personId?: string;
 }
 
+/** A random session id from Web Crypto (Node 20+, browsers, React Native with a crypto polyfill). */
+function randomId(): string {
+  const c = globalThis.crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  if (c?.getRandomValues) return Array.from(c.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+  // No Web Crypto: no session id rather than a guessable one; events still group by login.
+  return "none";
+}
+
 /**
  * A batching tracker for the app's own events.
  *
@@ -104,7 +113,7 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
   const batchSize = Math.min(Math.max(options.batchSize ?? 20, 1), 100);
   const maxQueue = options.maxQueue ?? 500;
   const platform = options.platform ?? (options.server ? "server" : "web");
-  const sessionId = options.sessionId ?? (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`);
+  const sessionId = options.sessionId ?? randomId();
   const now = options.now ?? (() => new Date());
   const fn = options.server ? "genesis_track_server_events" : "genesis_track_events";
   let queue: Queued[] = [];
