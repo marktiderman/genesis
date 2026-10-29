@@ -1,0 +1,21 @@
+.github/dependabot.yml
+  s_36f3212387dbf7::t_6cae884c99118e 45-46
+scripts/check-export-prefixes.mjs
+  s_36f3212387dbf7::t_cafc9720d5dfb5 43-44
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f035606cf44b41756f208998536da0d8c93aca9",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
