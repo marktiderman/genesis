@@ -41,10 +41,10 @@ select ok(not has_function_privilege('anon', 'public.genesis_track_events(jsonb)
 select ok(has_function_privilege('authenticated', 'public.genesis_track_events(jsonb)', 'execute'), 'a signed-in person can');
 select ok(not has_function_privilege('authenticated', 'public.genesis_track_server_events(jsonb)', 'execute'), 'server tracking is the service role''s');
 select ok(not has_function_privilege('authenticated', 'public.genesis_feature_usage(uuid, timestamptz)', 'execute'), 'usage summaries are the service role''s');
-select ok(not has_function_privilege('authenticated', 'public.genesis_prune_events(interval)', 'execute'), 'pruning is the service role''s');
+select ok(not has_function_privilege('authenticated', 'public.genesis_prune_events(interval, integer)', 'execute'), 'pruning is the service role''s');
 select ok(not has_function_privilege('anon', 'public.genesis_track_server_events(jsonb)', 'execute')
   and not has_function_privilege('anon', 'public.genesis_feature_usage(uuid, timestamptz)', 'execute')
-  and not has_function_privilege('anon', 'public.genesis_prune_events(interval)', 'execute'), 'anon reaches none of the service functions');
+  and not has_function_privilege('anon', 'public.genesis_prune_events(interval, integer)', 'execute'), 'anon reaches none of the service functions');
 select ok(not has_function_privilege('authenticated', 'private.genesis_event_row(jsonb, boolean)', 'execute')
   and not has_function_privilege('anon', 'private.genesis_event_row(jsonb, boolean)', 'execute'), 'nobody but the owner calls the row check');
 

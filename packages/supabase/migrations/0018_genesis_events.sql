@@ -24,8 +24,9 @@
 --     Per feature in a tenant since a time: events, distinct people, the last one. Service role
 --     only; the product hub reads usage through it.
 --
---   public.genesis_prune_events(older_than interval default '400 days') returns bigint
---     Deletes older events and returns how many. Service role only; run it from a schedule.
+--   public.genesis_prune_events(older_than interval default '400 days', max_rows integer default 50000) returns bigint
+--     Deletes up to max_rows older events and returns how many (call again until 0). Service role
+--     only; run it from a schedule.
 --
 -- Needs 0016 (its private.genesis_viewer_person_ids, which reads the app's people hook).
 --
@@ -66,6 +67,8 @@ comment on table public.genesis_events is
 create index genesis_events_tenant_time on public.genesis_events (tenant_id, occurred_at desc);
 create index genesis_events_feature_time on public.genesis_events (feature_id, occurred_at desc) where feature_id is not null;
 create index genesis_events_name_time on public.genesis_events (name, occurred_at desc);
+-- Append-only by time: a BRIN index keeps pruning old events cheap at any size.
+create index genesis_events_occurred_brin on public.genesis_events using brin (occurred_at);
 create index genesis_events_user_received on public.genesis_events (user_id, received_at desc) where user_id is not null;
 
 alter table public.genesis_events enable row level security;
@@ -233,19 +236,25 @@ comment on function public.genesis_feature_usage(uuid, timestamptz) is
 revoke execute on function public.genesis_feature_usage(uuid, timestamptz) from public, anon, authenticated;
 grant execute on function public.genesis_feature_usage(uuid, timestamptz) to service_role;
 
-create or replace function public.genesis_prune_events(older_than interval default '400 days')
+create or replace function public.genesis_prune_events(older_than interval default '400 days', max_rows integer default 50000)
 returns bigint
 language sql
 volatile
 security definer
 set search_path = ''
 as $$
-  with gone as (delete from public.genesis_events where older_than > interval '0' and occurred_at < now() - older_than returning 1)
+  -- At most max_rows per call, so one run never holds a long lock; call again until it returns 0.
+  with gone as (
+    delete from public.genesis_events
+     where id in (select e.id from public.genesis_events e
+                   where older_than > interval '0' and e.occurred_at < now() - older_than
+                   limit greatest(1, least(max_rows, 500000)))
+    returning 1)
   select count(*) from gone
 $$;
 
-comment on function public.genesis_prune_events(interval) is
-  'Deletes events older than older_than (default 400 days) and returns how many. Service role only; run it from a schedule. Genesis events.';
+comment on function public.genesis_prune_events(interval, integer) is
+  'Deletes up to max_rows (default 50,000) events older than older_than (default 400 days) and returns how many; call again until 0. Service role only; run it from a schedule. Genesis events.';
 
-revoke execute on function public.genesis_prune_events(interval) from public, anon, authenticated;
-grant execute on function public.genesis_prune_events(interval) to service_role;
+revoke execute on function public.genesis_prune_events(interval, integer) from public, anon, authenticated;
+grant execute on function public.genesis_prune_events(interval, integer) to service_role;

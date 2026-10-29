@@ -880,8 +880,8 @@ events.track("task.completed", { feature: "tasks", tenantId, properties: { count
 - A login keeps at most 2,000 events an hour (GS429 past it). Call `tracker.reset()` on sign-out so
   queued events never go out as the next person's.
 - Only the service role reads the table. `genesis_feature_usage(tenant, since)` gives events and
-  people per feature for the product hub; `genesis_prune_events(older_than)` (default 400 days) is
-  for a schedule.
+  people per feature for the product hub; `genesis_prune_events(older_than, max_rows)` (default 400 days, 50,000 rows a call) is
+  for a schedule; call it until it returns 0.
 - A vendor (PostHog, Amplitude) is a later sink fed from these events; Genesis flags stay the
   source of truth.
 
