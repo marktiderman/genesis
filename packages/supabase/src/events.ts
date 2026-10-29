@@ -4,8 +4,9 @@
  *
  * - `createEventTracker`: queues events and sends them in batches through
  *   `genesis_track_events` (a signed-in person's client) or `genesis_track_server_events`
- *   (`server: true`, a service-role client). A failed send keeps the batch for the next flush;
- *   tracking never throws into the app.
+ *   (`server: true`, a service-role client). A send that fails for a while (offline, a 5xx) is
+ *   retried with backoff; one that can't succeed (signed out, a bad batch, the migration not
+ *   applied) drops what it sent. Call `reset()` on sign-out. Tracking never throws into the app.
  * - `eventsSink`: the tracker as a genesis-native observability sink, so `observability.event(…)`
  *   reaches the table beside Sentry and EAS Observe.
  *
@@ -14,7 +15,8 @@
  * events.track("task.completed", { feature: "tasks", tenantId, properties: { count: 3 } });
  * ```
  *
- * Properties are labels and counts, never content someone typed or personal data.
+ * Properties are flat labels and counts: no content someone typed, no personal data. The timer is
+ * unref'd, so a short script calls `close()` to send what is left.
  *
  * @packageDocumentation
  */
@@ -71,7 +73,9 @@ export interface EventTracker {
   flush(): Promise<number>;
   /** How many events are waiting. */
   readonly pending: number;
-  /** Stop the timer and send what is left. */
+  /** Drop what is queued, unsent: call it when the login changes, so one person's events never go out as another's. */
+  reset(): void;
+  /** Stop the timer and send what is left; later events are ignored. */
   close(): Promise<number>;
 }
 
@@ -106,6 +110,9 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
   let queue: Queued[] = [];
   let sending: Promise<number> | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let closed = false;
+  let failures = 0;
+  let retryAt = 0;
 
   const startTimer = () => {
     const ms = options.flushIntervalMs ?? 5000;
@@ -115,31 +122,52 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
     }
   };
 
-  const sendOnce = async (): Promise<number> => {
-    if (!queue.length) return 0;
+  // Errors a retry can't fix: not signed in (42501: drop everything, it would go out as whoever
+  // signs in next), a refused batch (22023, 413), the functions not installed (PGRST202, 42883).
+  const permanent = (code?: string) => code === "22023" || code === "413" || code === "PGRST202" || code === "42883";
+  const drop = (sent: readonly Queued[]) => {
+    const gone = new Set(sent);
+    queue = queue.filter((e) => !gone.has(e));
+  };
+
+  /** One batch: true when it is settled (sent or dropped), false to retry later. */
+  const sendOnce = async (): Promise<{ settled: boolean; kept: number }> => {
     const batch = queue.slice(0, 100);
+    let error: { message: string; code?: string } | null = null;
+    let data: unknown = null;
     try {
-      const { data, error } = await options.client.rpc(fn, { events: batch });
-      if (error) {
-        options.onError?.(error);
-        return 0;
-      }
-      queue = queue.slice(batch.length);
-      return typeof data === "number" ? data : 0;
+      ({ data, error } = await options.client.rpc(fn, { events: batch }));
     } catch (thrown) {
-      options.onError?.({ message: thrown instanceof Error ? thrown.message : String(thrown) });
-      return 0;
+      error = { message: thrown instanceof Error ? thrown.message : String(thrown) };
     }
+    if (!error) {
+      drop(batch);
+      failures = 0;
+      return { settled: true, kept: typeof data === "number" ? data : 0 };
+    }
+    options.onError?.(error);
+    if (error.code === "42501") {
+      queue = [];
+      return { settled: true, kept: 0 };
+    }
+    if (permanent(error.code)) {
+      drop(batch);
+      return { settled: true, kept: 0 };
+    }
+    failures++;
+    retryAt = Date.now() + Math.min(300_000, 1000 * 2 ** Math.min(failures, 9));
+    return { settled: false, kept: 0 };
   };
 
   async function flush(): Promise<number> {
     if (sending) return sending;
+    if (Date.now() < retryAt) return 0;
     sending = (async () => {
       let kept = 0;
       while (queue.length) {
-        const before = queue.length;
-        kept += await sendOnce();
-        if (queue.length === before) break; // the send failed: try again next flush
+        const result = await sendOnce();
+        kept += result.kept;
+        if (!result.settled) break; // retry after the backoff
       }
       return kept;
     })().finally(() => {
@@ -151,7 +179,7 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
   return {
     track(name, opts = {}) {
       try {
-        if (!NAME.test(name)) return;
+        if (closed || !NAME.test(name)) return;
         const flags = options.flags?.();
         queue.push({
           name,
@@ -166,7 +194,8 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
           ...(options.server && opts.userId ? { userId: opts.userId } : {}),
           ...(options.server && opts.personId ? { personId: opts.personId } : {}),
         });
-        if (queue.length > maxQueue) queue = queue.slice(queue.length - maxQueue);
+        if (queue.length > maxQueue) queue = queue.slice(queue.length - maxQueue); // oldest first
+
         startTimer();
         if (queue.length >= batchSize) void flush();
       } catch {
@@ -177,9 +206,17 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
     get pending() {
       return queue.length;
     },
+    reset() {
+      queue = [];
+      failures = 0;
+      retryAt = 0;
+    },
     async close() {
+      closed = true;
       if (timer) clearInterval(timer);
       timer = null;
+      if (sending) await sending;
+      retryAt = 0;
       return flush();
     },
   };
@@ -208,7 +245,11 @@ export function eventsSink(tracker: EventTracker, options: EventsSinkOptions = {
       tracker.track(name, { properties: props, ...(feature ? { feature } : {}), ...(tenantId ? { tenantId } : {}) });
     },
     flush(timeoutMs: number): Promise<boolean> {
-      return Promise.race([tracker.flush().then(() => true), new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs))]);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<boolean>((resolve) => {
+        timer = setTimeout(() => resolve(false), timeoutMs);
+      });
+      return Promise.race([tracker.flush().then(() => true), timeout]).finally(() => clearTimeout(timer));
     },
   };
 }

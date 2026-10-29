@@ -37,7 +37,8 @@ describe("createEventTracker", () => {
     expect(t.pending).toBe(0);
   });
 
-  it("keeps a failed batch for the next flush and reports the error", async () => {
+  it("keeps a failed batch and retries it after a backoff", async () => {
+    vi.useFakeTimers();
     const onError = vi.fn();
     const { client, calls } = fakeClient([{ error: { message: "offline" } }]);
     const t = createEventTracker({ client, flushIntervalMs: 0, onError });
@@ -45,12 +46,36 @@ describe("createEventTracker", () => {
     expect(await t.flush()).toBe(0);
     expect(onError).toHaveBeenCalledWith({ message: "offline" });
     expect(t.pending).toBe(1);
+    expect(await t.flush()).toBe(0); // still backing off
+    expect(calls).toHaveLength(1);
+    vi.advanceTimersByTime(2500);
     expect(await t.flush()).toBe(1);
     expect(calls).toHaveLength(2);
+    vi.useRealTimers();
+  });
+
+  it("drops events it can never send: signed out drops all, a refused batch drops itself", async () => {
+    const signedOut = fakeClient([{ error: { message: "sign in first", code: "42501" } as { message: string } }]);
+    const a = createEventTracker({ client: signedOut.client, flushIntervalMs: 0 });
+    a.track("a.one");
+    a.track("a.two");
+    await a.flush();
+    expect(a.pending).toBe(0);
+    const refused = fakeClient([{ error: { message: "missing", code: "PGRST202" } as { message: string } }]);
+    const b = createEventTracker({ client: refused.client, flushIntervalMs: 0 });
+    b.track("b.one");
+    await b.flush();
+    expect(b.pending).toBe(0);
+    b.track("b.two");
+    b.reset();
+    expect(b.pending).toBe(0);
+    await b.close();
+    b.track("b.three");
+    expect(b.pending).toBe(0);
   });
 
   it("sends a full batch at once, caps the queue, and uses the server function for server code", async () => {
-    const { client, calls } = fakeClient([{ error: { message: "down" } }, { error: { message: "down" } }]);
+    const { client, calls } = fakeClient([{ error: { message: "down" } }]);
     const t = createEventTracker({ client, batchSize: 2, maxQueue: 3, flushIntervalMs: 0, server: true });
     t.track("a.one", { userId: "u1", personId: "p1" });
     t.track("a.two");

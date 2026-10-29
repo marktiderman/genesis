@@ -22,11 +22,11 @@ rule.
 
 1. **The app's own Postgres is the source of truth for product events**: one table,
    `public.genesis_events` (genesis-supabase migration 0018), with the tenant, the person, the
-   feature id, a short event name, small properties (no content, no personal data), the flags that
+   feature id, a short event name, small flat properties (no content; identifiers only), the flags that
    were on, the platform and the time.
 2. **Writes go through functions, never the table**: `genesis_track_events(events)` for a
    signed-in person (their own tenants only, checked through `private.genesis_viewer_person_ids()`;
-   a batch of at most 100, sizes capped), `genesis_track_server_events(events)` for server code.
+   a batch of at most 100, sizes capped, 2,000 an hour per login), `genesis_track_server_events(events)` for server code.
    Nobody but the service role reads the table; summaries such as `genesis_feature_usage` are
    service-role functions the product hub calls.
 3. **Clients send through one tracker**: `createEventTracker` (genesis-supabase `/events`) batches,

@@ -3,16 +3,18 @@
 --   public.genesis_events
 --     One row per product event: when it happened, who (the login and, in a tenant, their person
 --     record), where (the tenant), what (a short name and the feature id it belongs to), small
---     properties, the flags that were on, the platform and the app version. Properties are labels
---     and counts, never content someone typed or personal data. Row security is on with no
---     policies: only the service role reads it, and only the functions below write it.
+--     flat properties, the flags that were on, the platform and the app version. Properties are
+--     labels and counts: no content someone typed, and identifiers only (the login and person
+--     ids). Row security is on with no policies: only the service role reads it, and only the
+--     functions below write it. Deleting a login (0001) clears its user_id.
 --
 --   public.genesis_track_events(events jsonb) returns integer
 --     For a signed-in person. Takes a JSON array of at most 100 events and returns how many it
 --     kept. An event naming a tenant the person has no record in (private.genesis_viewer_person_ids,
 --     0016) is dropped, as is one with a bad name or oversized properties; the person record is
 --     filled in from the tenant. A client clock more than five minutes ahead or seven days behind
---     is replaced by now().
+--     is replaced by now(). A person keeps at most 2,000 events an hour (SQLSTATE GS429 past it)
+--     and a call is at most 512 KB; a client can't claim the `server` platform.
 --
 --   public.genesis_track_server_events(events jsonb) returns integer
 --     For server code (service role only): the same shape, plus user_id and person_id, trusted as
@@ -26,6 +28,10 @@
 --     Deletes older events and returns how many. Service role only; run it from a schedule.
 --
 -- Needs 0016 (its private.genesis_viewer_person_ids, which reads the app's people hook).
+--
+-- Use: copy this file into your app's `supabase/migrations/` under a new timestamped name
+-- (`genesis add events` does it). Never edit it once applied; change it with a new migration.
+--
 -- Verify: tests/0018_genesis_events.test.sql.
 
 create table public.genesis_events (
@@ -33,7 +39,7 @@ create table public.genesis_events (
   occurred_at timestamptz not null,
   received_at timestamptz not null default now(),
   -- The login, when there was one; null for an event server code raised for nobody in particular.
-  user_id uuid,
+  user_id uuid references auth.users (id) on delete set null,
   tenant_id uuid,
   person_id uuid,
   name text not null
@@ -41,8 +47,10 @@ create table public.genesis_events (
   -- The FeatureId it belongs to. No foreign key: an app's registry mirror may lag a deploy.
   feature_id text
     constraint genesis_events_feature_format check (feature_id is null or (feature_id ~ '^[a-z][a-z0-9]*([-_.][a-z0-9]+)*$' and char_length(feature_id) <= 100)),
+  -- Flat: { "count": 3, "view": "grid" }, no nested objects or lists.
   properties jsonb not null default '{}'
-    constraint genesis_events_properties_object check (jsonb_typeof(properties) = 'object' and octet_length(properties::text) <= 4096),
+    constraint genesis_events_properties_object check (jsonb_typeof(properties) = 'object' and octet_length(properties::text) <= 4096
+      and not jsonb_path_exists(properties, '$.* ? (@.type() == "object" || @.type() == "array")')),
   -- The flags that were on, { "flag-id": value }, so a reader can split by them.
   flags jsonb not null default '{}'
     constraint genesis_events_flags_object check (jsonb_typeof(flags) = 'object' and octet_length(flags::text) <= 2048),
@@ -53,11 +61,12 @@ create table public.genesis_events (
 );
 
 comment on table public.genesis_events is
-  'Product events: who, where, which feature, when, small properties and the flags that were on. No content or personal data. Written through genesis_track_events and genesis_track_server_events; read by the service role. Genesis events.';
+  'Product events: who, where, which feature, when, small flat properties and the flags that were on. No content; identifiers only. Written through genesis_track_events and genesis_track_server_events; read by the service role. Genesis events.';
 
 create index genesis_events_tenant_time on public.genesis_events (tenant_id, occurred_at desc);
 create index genesis_events_feature_time on public.genesis_events (feature_id, occurred_at desc) where feature_id is not null;
 create index genesis_events_name_time on public.genesis_events (name, occurred_at desc);
+create index genesis_events_user_received on public.genesis_events (user_id, received_at desc) where user_id is not null;
 
 alter table public.genesis_events enable row level security;
 revoke all on table public.genesis_events from public, anon, authenticated;
@@ -86,8 +95,9 @@ begin
   if r.name is null or r.name !~ '^[a-z][a-z0-9]*([._:-][a-z0-9]+)*$' or char_length(r.name) > 100
      or (r.feature_id is not null and (r.feature_id !~ '^[a-z][a-z0-9]*([-_.][a-z0-9]+)*$' or char_length(r.feature_id) > 100))
      or jsonb_typeof(r.properties) <> 'object' or octet_length(r.properties::text) > 4096
+     or jsonb_path_exists(r.properties, '$.* ? (@.type() == "object" || @.type() == "array")')
      or jsonb_typeof(r.flags) <> 'object' or octet_length(r.flags::text) > 2048
-     or r.platform not in ('web', 'native', 'server')
+     or r.platform not in ('web', 'native', 'server') or (r.platform = 'server' and not trusted)
      or char_length(r.app_version) > 40 or char_length(r.session_id) > 64 then
     return null;
   end if;
@@ -129,8 +139,12 @@ begin
   if viewer is null then
     raise exception 'genesis_track_events: sign in first' using errcode = '42501';
   end if;
-  if jsonb_typeof(events) is distinct from 'array' or jsonb_array_length(events) > 100 then
-    raise exception 'genesis_track_events: send a JSON array of at most 100 events' using errcode = '22023';
+  if jsonb_typeof(events) is distinct from 'array' or jsonb_array_length(events) > 100 or octet_length(events::text) > 524288 then
+    raise exception 'genesis_track_events: send a JSON array of at most 100 events and 512 KB' using errcode = '22023';
+  end if;
+  -- At most 2,000 kept events per login per hour, so one login can't fill the table.
+  if (select count(*) from public.genesis_events g where g.user_id = viewer and g.received_at > now() - interval '1 hour') + jsonb_array_length(events) > 2000 then
+    raise exception 'genesis_track_events: too many events this hour' using errcode = 'GS429';
   end if;
   for e in select value from jsonb_array_elements(events) loop
     r := private.genesis_event_row(e, false);
@@ -138,7 +152,7 @@ begin
     r.user_id := viewer;
     if r.tenant_id is not null then
       -- Only a tenant the person has a record in, and that record is who they were there.
-      select v.person_id into r.person_id from private.genesis_viewer_person_ids() v where v.tenant_id = r.tenant_id limit 1;
+      select v.person_id into r.person_id from private.genesis_viewer_person_ids() v where v.tenant_id = r.tenant_id order by v.person_id limit 1;
       continue when r.person_id is null;
     end if;
     insert into public.genesis_events (occurred_at, received_at, user_id, tenant_id, person_id, name, feature_id, properties, flags, platform, app_version, session_id)
@@ -167,12 +181,16 @@ declare
   r public.genesis_events;
   kept integer := 0;
 begin
-  if jsonb_typeof(events) is distinct from 'array' or jsonb_array_length(events) > 1000 then
+  if jsonb_typeof(events) is distinct from 'array' or jsonb_array_length(events) > 1000 or octet_length(events::text) > 4194304 then
     raise exception 'genesis_track_server_events: send a JSON array of at most 1000 events' using errcode = '22023';
   end if;
   for e in select value from jsonb_array_elements(events) loop
     r := private.genesis_event_row(e, true);
     continue when r is null;
+    -- A login that no longer exists (or never did) is kept as no login, not an error for the batch.
+    if r.user_id is not null and not exists (select 1 from auth.users u where u.id = r.user_id) then
+      r.user_id := null;
+    end if;
     insert into public.genesis_events (occurred_at, received_at, user_id, tenant_id, person_id, name, feature_id, properties, flags, platform, app_version, session_id)
     values (r.occurred_at, r.received_at, r.user_id, r.tenant_id, r.person_id, r.name, r.feature_id, r.properties, r.flags, r.platform, r.app_version, r.session_id);
     kept := kept + 1;
@@ -214,7 +232,7 @@ volatile
 security definer
 set search_path = ''
 as $$
-  with gone as (delete from public.genesis_events where occurred_at < now() - older_than returning 1)
+  with gone as (delete from public.genesis_events where older_than > interval '0' and occurred_at < now() - older_than returning 1)
   select count(*) from gone
 $$;
 
