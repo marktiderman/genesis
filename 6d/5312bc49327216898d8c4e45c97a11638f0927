@@ -1,0 +1,50 @@
+packages/supabase/src/blocks.ts
+  s_36f3212387dbf7::t_d88b409c7a5e46 162-181
+packages/supabase/package.json
+  s_36f3212387dbf7::t_55b04658663c14 306-309
+  s_36f3212387dbf7::t_e547cb5f4a66db 60-63,280-305
+  s_36f3212387dbf7::t_f006d561457757 310
+features.ts
+  s_36f3212387dbf7::t_9abe858ec8d9a4 2705,3149-3165
+  s_36f3212387dbf7::t_016e2d2b71856b 3166
+docs/adr/0010-own-product-events.md
+  s_36f3212387dbf7::t_55c05c2ba253a3 1-48
+packages/supabase/src/__tests__/events.test.ts
+  s_36f3212387dbf7::t_92310f06a48cfb 1-78
+packages/supabase/src/index.ts
+  s_36f3212387dbf7::t_55b04658663c14 206
+packages/supabase/migrations/0018_genesis_events.sql
+  s_36f3212387dbf7::t_aae15e48d09501 1-225
+packages/supabase/migrations/tests/0018_genesis_events.test.sql
+  s_36f3212387dbf7::t_b404b382f2e2da 33,50,53,67,88,93
+  s_36f3212387dbf7::t_78bbc06e3b7229 58
+  s_36f3212387dbf7::t_80fc837ca6175b 1-32,34-49,51-52,54-57,59-66,68-87,89-92,94-104
+packages/supabase/src/events.ts
+  s_36f3212387dbf7::t_5a32292cf5dad8 1-214
+packages/supabase/tsup.config.ts
+  s_36f3212387dbf7::t_e547cb5f4a66db 4
+.changeset/product-events.md
+  s_36f3212387dbf7::t_28d70646aa708e 1-5
+AGENTS.md
+  s_36f3212387dbf7::t_8a7cb2896b1c66 62
+features.json
+  s_36f3212387dbf7::t_1424a70d76d17a 6154,7106-7145
+packages/supabase/README.md
+  s_36f3212387dbf7::t_e91e9fdd474295 860-884
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6d5312bc49327216898d8c4e45c97a11638f0927",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
