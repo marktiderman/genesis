@@ -1,0 +1,103 @@
+packages/design-system/src/design-systems/color.ts
+  s_1cc73fa3649187::t_2daf155599f9da 1-404
+  s_1cc73fa3649187::t_b4acd6c8709ed1 405-431
+packages/design-system/README.md
+  s_1cc73fa3649187::t_d8c22bf628dd95 1-160
+packages/design-system/src/fonts.ts
+  s_1cc73fa3649187::t_f2ea2c90fef907 1-132
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_1cc73fa3649187::t_52cceff9125a94 1-232
+  s_1cc73fa3649187::t_27174431388c2c 233-236
+packages/design-system/src/design-systems/define.ts
+  s_1cc73fa3649187::t_457eb693e4a64a 1-319
+packages/sites/src/__tests__/design-systems.test.ts
+  s_1cc73fa3649187::t_8febc624c6367a 1-118
+packages/design-system/src/design-systems/tokens.ts
+  s_1cc73fa3649187::t_39ae6440e60d8e 1-287
+.changeset/design-systems.md
+  s_1cc73fa3649187::t_ae3c66162deff9 1-5
+.changeset/sites-design-systems.md
+  s_1cc73fa3649187::t_bacb36a46a18e1 1-5
+AGENTS.md
+  s_1cc73fa3649187::t_9958f1fa42fb1b 62
+docs/SITES.md
+  s_1cc73fa3649187::t_b5a68253aec3d0 336-342,387-436
+features.json
+  s_1cc73fa3649187::t_f7b42aa4c1f3d2 2761-2810
+features.ts
+  s_1cc73fa3649187::t_5a0d2bf4f8c9cf 1216-1237
+packages/design-system/package.json
+  s_1cc73fa3649187::t_fb9222cab3ceec 77-84
+packages/design-system/schema/brand.schema.json
+  s_1cc73fa3649187::t_f36468be114fa7 101-112,117,119
+packages/design-system/src/design-systems/built-in.ts
+  s_1cc73fa3649187::t_c3ffcb5f718303 1-58
+packages/design-system/src/design-systems/index.ts
+  s_1cc73fa3649187::t_c6734e3e161503 1-65
+packages/design-system/src/design-systems/registry.ts
+  s_1cc73fa3649187::t_19105c32a49bf4 1-41
+packages/design-system/src/factories/from-brand.ts
+  s_1cc73fa3649187::t_f887697eb63de5 85-89,164-170,209-215,222,225-226,714-719,723,738-770
+packages/design-system/src/index.native.ts
+  s_1cc73fa3649187::t_e7e5e51f76975b 43,46-63
+packages/design-system/src/index.ts
+  s_1cc73fa3649187::t_6d061db8e4b2ce 34,37-54
+packages/design-system/src/schema/brand.ts
+  s_1cc73fa3649187::t_1d4f12b9b0fae6 63-86,262-270,429,504,506,561,563,898-901
+packages/design-system/tsup.config.ts
+  s_1cc73fa3649187::t_3bdb6d93302aeb 29-31
+packages/sites/README.md
+  s_1cc73fa3649187::t_968c720713300c 142-144,300-357,367-370,395-396
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_1cc73fa3649187::t_6ee7ca1fe55067 1-5563
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_1cc73fa3649187::t_dc01e31d73ffa1 3,5,7,9,11,13,15,17,19,21,23,25,27,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79,81,83,85,87,89,91,93,95
+packages/sites/src/core/fonts.ts
+  s_1cc73fa3649187::t_f427ffa405cb5d 2,4-12,14
+packages/sites/src/core/schemas.ts
+  s_1cc73fa3649187::t_6ea63c2d761cd3 12,204-205
+packages/sites/src/core/theme.ts
+  s_1cc73fa3649187::t_251b6d406cf6a8 11,14-27,29,32-33,42-43,48-53,143-144,155,159,198-199,282-303,310,313-315,334-355,357-358,363-371
+packages/sites/src/index.ts
+  s_1cc73fa3649187::t_d22d5e1993dda9 148
+packages/sites/src/sections/cta.tsx
+  s_1cc73fa3649187::t_fe49e8c09f6e0f 45,60,73
+packages/sites/src/sections/form-embed.tsx
+  s_1cc73fa3649187::t_7c44c7f27ddb37 143
+packages/sites/src/sections/hero.tsx
+  s_1cc73fa3649187::t_e6e0b09de115ae 47,51,61
+packages/sites/src/sections/map.tsx
+  s_1cc73fa3649187::t_892ef4cb5c67c7 150
+packages/sites/src/sections/post-body.tsx
+  s_1cc73fa3649187::t_2a8aaa0717fbb7 85,88,104
+packages/sites/src/sections/pricing.tsx
+  s_1cc73fa3649187::t_ab46be9091339b 175
+packages/sites/src/sections/shared.tsx
+  s_1cc73fa3649187::t_b459b8d7822d92 136-138,142,239-240,242,294-303,330,336
+packages/sites/src/templates/design-systems.ts
+  s_1cc73fa3649187::t_5150ec4eaec357 1-69
+packages/sites/src/templates/fitness.ts
+  s_1cc73fa3649187::t_08647bb6829388 11,111
+packages/sites/src/templates/index.ts
+  s_1cc73fa3649187::t_b709f233d2eafa 9-12,17
+packages/sites/src/templates/types.ts
+  s_1cc73fa3649187::t_c2a060cee088f3 9,20-21
+packages/sites/src/web/sites.css
+  s_1cc73fa3649187::t_fe21fb103f85e5 7,61-213
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c2ba64f4a1049d8d6bd725dee7887125f3aee203",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
