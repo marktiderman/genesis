@@ -62,8 +62,27 @@ export interface Workspace {
   timeZone?: string | null;
   /** Its picture: a logo URL, else initials made from `label`. */
   image?: string;
+  /**
+   * A count or short status beside it in the switcher: unread messages, tasks waiting. `0`, an
+   * empty string and undefined show nothing.
+   */
+  badge?: string | number;
+  /** Its brand, for the switcher's picture and anything the app themes inside it. */
+  theme?: WorkspaceTheme;
   /** Anything else the app needs; Genesis never reads it. */
   meta?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * A workspace's brand. `accent` takes the same values as a public page's brand accent (`#rgb`,
+ * `#rrggbb`, `rgb()`, `hsl()` or a bare token triplet like `"160 84% 39%"`); genesis-ui turns it
+ * into the design system's `--primary` (`workspaceThemeStyle`), darkened when it is too light to
+ * carry text.
+ *
+ * @stability Beta
+ */
+export interface WorkspaceTheme {
+  accent?: string;
 }
 
 /** The kinds in their default order: personal, roll-up, then each tenant. */
@@ -197,4 +216,37 @@ export function workspaceInitials(label: string): string {
   const words = label.trim().split(/\s+/).filter(Boolean);
   const letters = words.length > 1 ? [words[0]![0], words[1]![0]] : [...(words[0] ?? "")].slice(0, 2);
   return letters.join("").toUpperCase();
+}
+
+/**
+ * The workspaces whose label or second line contains every word of `query`, ignoring case and
+ * accents, in the order given. An empty query keeps them all. For the switcher's search box, on
+ * the web and on the phone.
+ *
+ * @stability Beta
+ */
+export function filterWorkspaces<W extends Workspace>(workspaces: readonly W[], query: string): W[] {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return [...workspaces];
+  return workspaces.filter((w) => {
+    const text = fold(`${w.label} ${w.description ?? ""}`);
+    return words.every((word) => text.includes(word));
+  });
+}
+
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/**
+ * The workspaces in the order the switcher lists them (grouped by kind, in `order`): the order its
+ * keyboard jump numbers them, 1 to 9.
+ *
+ * @stability Beta
+ */
+export function orderedWorkspaces<W extends Workspace>(
+  workspaces: readonly W[],
+  order: readonly WorkspaceKind[] = WORKSPACE_KIND_ORDER,
+): W[] {
+  return groupWorkspaces(workspaces, order).flatMap((g) => g.workspaces);
 }
