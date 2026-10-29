@@ -1,5 +1,21 @@
 # @marktiderman/genesis-ui
 
+## 2.24.0
+
+### Minor Changes
+
+- 5a0c1d2: A record's page is now a **record view**, so "workspace" can mean where the viewer is working (ADR 0004). `defineWorkspace` is `defineRecordView`, `ResourceWorkspace` is `RecordView`, `NativeResourceWorkspace` is `NativeRecordView` (with `NativeRecordViewMenu` and `getNativeRecordViewStackOptions`), and the `Workspace…` types are `RecordView…`. The components take `view` in place of `workspace`, as `ResourceView` does. The old names still work for one minor release, marked deprecated. The doctor rule `ui/record-pages-use-resource-workspace` is now `ui/records-use-record-view`: rename it in an app's config if the app sets its level. Message keys (`messages.workspace`) and default test ids (`resource-workspace`) are unchanged.
+- 4e2d436: `WorkspaceSwitcher` (`@marktiderman/genesis-ui/layout`): the workspace picker for AppShell's sidebar header, collapsed rail and phone top bar, with app-set labels, pictures, rows and footer. AppShell gains `mobileHeaderSlot`, which replaces the app name in the phone's top bar.
+
+  `ResourceView` now follows the viewer's scope by itself: inside a `ViewerScope` or `WorkspaceScope`, each of the view's `scope` keys filters the list (a list value, as in a roll-up, matches any of its values) and starts new rows. A screen's own `filter` wins over a scope key it also sets; `scoped={false}` opts a list out.
+
+### Patch Changes
+
+- Updated dependencies [5a0c1d2]
+- Updated dependencies [4e2d436]
+- Updated dependencies [0a4b8fd]
+  - @marktiderman/genesis-core@2.2.0
+
 ## 2.23.0
 
 ### Minor Changes
