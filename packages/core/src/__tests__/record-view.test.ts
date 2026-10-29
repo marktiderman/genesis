@@ -291,9 +291,9 @@ describe("defineRecordView checks", () => {
         ],
       }),
     );
-    expect(problems).toContain("sections.a.list.view is a workspace; sections don't nest");
-    expect(problems).toContain("sections.b holds a workspace; sections don't nest");
-    expect(problems).toContain("sections.c holds a workspace; sections don't nest");
+    expect(problems).toContain("sections.a.list.view is a record view; sections don't nest");
+    expect(problems).toContain("sections.b holds a record view; sections don't nest");
+    expect(problems).toContain("sections.c holds a record view; sections don't nest");
     expect(problems).toContain("sections[3] has no id");
   });
 

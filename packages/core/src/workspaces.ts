@@ -71,7 +71,10 @@ export const WORKSPACE_KIND_ORDER: readonly WorkspaceKind[] = ["personal", "roll
 
 function trimPath(path: string): string {
   const bare = path.split(/[?#]/)[0] ?? "";
-  return bare.length > 1 ? bare.replace(/\/+$/, "") : bare;
+  // Trailing slashes off, keeping "/" itself. A loop, not /\/+$/, which is slow on many slashes.
+  let end = bare.length;
+  while (end > 1 && bare[end - 1] === "/") end--;
+  return bare.slice(0, end);
 }
 
 function within(pathname: string, prefix: string): boolean {

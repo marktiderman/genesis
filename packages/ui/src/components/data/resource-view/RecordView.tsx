@@ -405,10 +405,10 @@ function SettingField({
   );
 }
 
-/** @deprecated Renamed `RecordViewProps`; its `workspace` prop is now `recordView`. */
+/** @deprecated Renamed `RecordViewProps`; its `workspace` prop is now `view`. */
 export type ResourceWorkspaceProps<T extends Row = Row> = Omit<RecordViewProps<T>, "view"> & { workspace: RecordViewProps<T>["view"] };
 
-/** @deprecated Renamed `RecordView`, with `recordView` in place of `workspace`. */
+/** @deprecated Renamed `RecordView`, with `view` in place of `workspace`. */
 export function ResourceWorkspace<T extends Row = Row>({ workspace, ...props }: ResourceWorkspaceProps<T>) {
   return <RecordView<T> {...props} view={workspace} />;
 }
