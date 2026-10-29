@@ -81,6 +81,12 @@ export interface SiteRequestOptions {
   fonts?: boolean;
   /** A Content-Security-Policy header (default true). */
   csp?: boolean;
+  /**
+   * Origins a site on `images: "own"` may load images from, besides itself
+   * and the store's `assetOrigin`. Pass the same origins as the publish's
+   * `assetOrigins`, so what the check allowed the page can load.
+   */
+  assetOrigins?: readonly string[];
 }
 
 const LIVE_CACHE = "public, max-age=0, s-maxage=31536000, stale-while-revalidate=86400";
@@ -108,12 +114,24 @@ function originOf(url: string): string | null {
 
 /**
  * Where a page's images may load from. A site on `images: "own"` loads only
- * from itself and the store's asset origin; any other site from any https host.
+ * from itself and the asset origins (the store's, and any the host names);
+ * any other site from any https host. An asset origin may be http (a local
+ * Supabase), as the publish check accepts it.
  */
-function imageSources(snapshot: ReleaseSnapshot, assetOrigin: string | undefined): string {
+function imageSources(snapshot: ReleaseSnapshot, assetOrigins: readonly (string | undefined)[]): string {
   if (snapshot.site.images !== "own") return "'self' https: data:";
-  const own = assetOrigin ? originOf(assetOrigin) : null;
-  return own ? `'self' data: ${own}` : "'self' data:";
+  const own = new Set<string>();
+  for (const value of assetOrigins) {
+    if (!value) continue;
+    try {
+      const u = new URL(value);
+      if (u.protocol === "https:" || u.protocol === "http:") own.add(u.origin);
+      else console.error(`[genesis-sites] the asset origin ${value} isn't http(s); images there will be blocked.`);
+    } catch {
+      console.error(`[genesis-sites] the asset origin ${value} isn't a URL; images there will be blocked.`);
+    }
+  }
+  return ["'self'", "data:", ...own].join(" ");
 }
 
 async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, imgSrc: string, sectionFrames: readonly string[] = []): Promise<string> {
@@ -166,8 +184,14 @@ const fontCache = new Map<string, Uint8Array<ArrayBuffer>>();
 async function fontBody(name: string): Promise<Uint8Array<ArrayBuffer> | null> {
   const cached = fontCache.get(name);
   if (cached) return cached;
-  const { FONT_BODIES } = await import("./fonts.generated");
-  const base64 = FONT_BODIES[name];
+  let bodies: Readonly<Record<string, string>>;
+  try {
+    bodies = (await import("./fonts.generated")).FONT_BODIES;
+  } catch (err) {
+    console.error(`[genesis-sites] the font files couldn't be loaded; ${name} is served as not found.`, err);
+    return null;
+  }
+  const base64 = bodies[name];
   if (!base64) {
     console.error(`[genesis-sites] the font file ${name} is listed but has no body; rebuild the assets.`);
     return null;
@@ -483,7 +507,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     "referrer-policy": "strict-origin-when-cross-origin",
     ...cacheHeaders(status, page && !brandChanged ? LIVE_CACHE : MISS_CACHE),
   };
-  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(pageStyleText(theme, fontUrl), forms, imageSources(snapshot, options.store.assetOrigin), sectionFrames);
+  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(pageStyleText(theme, fontUrl), forms, imageSources(snapshot, [options.store.assetOrigin, ...(options.assetOrigins ?? [])]), sectionFrames);
   return new Response(head ? null : stream, { status, headers });
 }
 

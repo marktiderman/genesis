@@ -161,6 +161,10 @@ describe("images from elsewhere", () => {
     const { options } = await site({}, { image: `${assetOrigin}/storage/v1/object/public/site-assets/rig.jpg`, images: "own", assetOrigin });
     const csp = (await handleSiteRequest(get("/"), options))!.headers.get("content-security-policy")!;
     expect(csp).toContain(`img-src 'self' data: ${assetOrigin};`);
+    // Origins the host names besides the store's, as it passed them to the publish.
+    const cdn = "https://cdn.site.example";
+    const extra = (await handleSiteRequest(get("/"), { ...options, assetOrigins: [cdn, "ftp://nope.example"] }))!.headers.get("content-security-policy")!;
+    expect(extra).toContain(`img-src 'self' data: ${assetOrigin} ${cdn};`);
     const local = await site({}, { image: "/images/rig.jpg", images: "own" });
     expect((await handleSiteRequest(get("/"), local.options))!.headers.get("content-security-policy")).toContain("img-src 'self' data:;");
   });

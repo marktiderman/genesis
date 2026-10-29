@@ -151,7 +151,8 @@ with `putAsset`, or copied from an old site with `importAssets` (see
 host. A site that sets `images: "own"` in its site document makes that an
 error, and its page's policy narrows `img-src` to `'self' data:` plus the
 store's asset origin (`SiteStore.assetOrigin`; the Supabase store's is its
-storage origin). Without it, `img-src` allows any https host, so existing
+storage origin). Other origins go in the publish's `assetOrigins` and, the
+same list, in `handleSiteRequest`'s `assetOrigins`. Without it, `img-src` allows any https host, so existing
 sites keep working.
 
 **Publishing and the cache.** Wrap the editor's store with
