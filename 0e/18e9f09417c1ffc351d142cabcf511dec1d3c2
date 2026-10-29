@@ -1,0 +1,23 @@
+.changeset/package-layers.md
+  s_e2cf1ec4fac133::t_c3f1f6da1dac2c 6
+packages/features/src/__tests__/packages.test.ts
+  s_e2cf1ec4fac133::t_76ac6c6aa10abd 131-143
+packages/features/src/model.ts
+  s_e2cf1ec4fac133::t_e551b4656529bb 467-468,489
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0e18e9f09417c1ffc351d142cabcf511dec1d3c2",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
