@@ -1,0 +1,25 @@
+.github/workflows/ci.yml
+  s_8b8f6102383114::t_9a797e3e26be2c 10-12,44-45,87-88
+apps/genesis-rn-starter/package.json
+  s_8b8f6102383114::t_9d54829faf6f4a 71
+packages/native/package.json
+  s_8b8f6102383114::t_4a076f79c32a7f 158
+pnpm-lock.yaml
+  s_8b8f6102383114::t_0ff24fb30584a7 1314
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab9bc98fab48bf2ee36fd0c91109c616e057c8db",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
