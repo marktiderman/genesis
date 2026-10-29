@@ -33,6 +33,7 @@ import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkRecordViews } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
+import { checkStabilityImports } from "./stability.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
 import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
@@ -227,6 +228,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "resource-view-trees", check: checkTreeViews },
     { name: "studio-server-imports", check: checkStudioServerImports },
     { name: "removed-scope-names", check: checkRemovedScopeNames },
+    { name: "stability-imports", check: checkStabilityImports },
     { name: "agent-guide", check: checkAgentGuide },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
