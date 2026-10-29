@@ -116,6 +116,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "ai",
+    "owner": "@marktiderman",
     "blocks": {
       "ai-providers": {
         "feature": {

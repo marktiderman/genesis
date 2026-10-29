@@ -70,6 +70,10 @@ jobs:
       - name: Package layers
         run: pnpm check:package-layers
 
+      # .github/CODEOWNERS is generated from each package's genesis.owner.
+      - name: Code owners
+        run: pnpm check:codeowners
+
       - name: Typecheck
         run: pnpm typecheck
 

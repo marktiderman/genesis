@@ -166,6 +166,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "core",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "An umbrella that re-exports other Genesis packages, whose own declarations carry the rules."

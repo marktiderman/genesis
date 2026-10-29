@@ -133,6 +133,7 @@
   "genesis": {
     "layer": "foundation",
     "group": "core",
+    "owner": "@marktiderman",
     "essential": true,
     "doctor": {
       "prefer": [

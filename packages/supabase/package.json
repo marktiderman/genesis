@@ -99,6 +99,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "data",
+    "owner": "@marktiderman",
     "blocks": {
       "account": {
         "feature": {

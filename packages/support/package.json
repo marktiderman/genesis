@@ -140,6 +140,7 @@
   "genesis": {
     "layer": "module",
     "group": "modules",
+    "owner": "@marktiderman",
     "module": {
       "name": "Support",
       "summary": "Feedback with a marked-up screenshot, staff replies and an idea board with votes, in the app's own Supabase.",

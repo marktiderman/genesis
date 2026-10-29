@@ -83,6 +83,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "data",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "Data-layer configuration an app composes once; no hand-rolled equivalent is reliably detectable yet."

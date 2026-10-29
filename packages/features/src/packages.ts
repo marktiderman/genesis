@@ -80,6 +80,8 @@ export interface PackageMeta {
   module?: ModuleMeta;
   /** Entry points (`./node`) that are tooling inside a runtime package: no runtime package imports them. */
   toolingEntries?: readonly string[];
+  /** Who reviews changes to it: a GitHub handle (`@octocat`) or team (`@acme/web`). Generates CODEOWNERS. */
+  owner?: string;
 }
 
 /**
@@ -121,7 +123,10 @@ export function readPackageMeta(name: string, genesis: unknown, problems: string
     return null;
   }
   const before = problems.length;
-  const { layer, group, essential, module, toolingEntries } = genesis;
+  const { layer, group, essential, module, toolingEntries, owner } = genesis;
+  if (owner !== undefined && (typeof owner !== "string" || !/^@[A-Za-z0-9-]+(\/[A-Za-z0-9._-]+)?$/.test(owner))) {
+    problems.push(`${at}.owner: must be a GitHub handle or team, like "@octocat" or "@acme/web"`);
+  }
   if (!(PACKAGE_LAYERS as readonly unknown[]).includes(layer)) problems.push(`${at}.layer: must be one of ${PACKAGE_LAYERS.join(", ")}, not ${JSON.stringify(layer)}`);
   if (!(PACKAGE_GROUPS as readonly unknown[]).includes(group)) problems.push(`${at}.group: must be one of ${PACKAGE_GROUPS.join(", ")}, not ${JSON.stringify(group)}`);
   if (essential !== undefined && typeof essential !== "boolean") problems.push(`${at}.essential: must be true or false`);

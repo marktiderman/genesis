@@ -302,7 +302,7 @@ export function formatReport(result: DoctorResult): string {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
   lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
-  lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis primitives`);
+  lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);
   return lines.join("\n");

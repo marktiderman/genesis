@@ -58,6 +58,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "collaboration",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "A headless core and schema that features build on; no app pattern it replaces is reliably detectable yet.",
