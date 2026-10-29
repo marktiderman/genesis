@@ -32,7 +32,7 @@
     "product": "genesis-product"
   },
   "devDependencies": {
-    "@changesets/cli": "~2.30.0",
+    "@changesets/cli": "~3.0.3",
     "@marktiderman/genesis-cli": "workspace:*",
     "@marktiderman/genesis-features": "workspace:*",
     "@marktiderman/genesis-product": "workspace:*",
