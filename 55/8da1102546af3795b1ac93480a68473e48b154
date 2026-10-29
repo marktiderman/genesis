@@ -1,0 +1,36 @@
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_8b8f6102383114::t_fcc4fa316917fe 11-28,30-43,47,49,59-60,70,73,78-135,149-278,294-300,307,309,311-326,328-338,346-355,357-368,372,377,383-506,519-520,526-531,533-538,546,548,550-681,685-686,689-692,695-696,698,700-702,705,709-713,715-724,727,730-737,739-754,758-759,761-766,770,772-781,788-803,811,813-843
+  s_8b8f6102383114::t_5bea35cf9d4dde 844
+apps/sample/stories/WorkspaceSwitcher.stories.tsx
+  s_8b8f6102383114::t_33737b3812e992 1-193
+.changeset/workspace-switcher-parts.md
+  s_8b8f6102383114::t_7a35b8e91b12fc 1-12
+apps/sample/app/data/primitives.json
+  s_8b8f6102383114::t_7ac9487042a892 23485-23497,23502-23508,23516-23522,23530-23543,23549,23586-23613,23628-23634,23640,23647-23682,23700-23714
+docs/adr/0004-workspaces.md
+  s_8b8f6102383114::t_b486159cafba0e 6-7,55-56,100-130,134,155-159
+packages/core/src/__tests__/workspaces.test.tsx
+  s_8b8f6102383114::t_46092b177df85a 9,11,89-107
+packages/core/src/workspaces.ts
+  s_8b8f6102383114::t_978ee9b20e2aa6 65-71,76-87,220-252
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_8b8f6102383114::t_2cc0cd8d7bf539 7-8,14,116-375
+packages/ui/src/components/layout/index.ts
+  s_8b8f6102383114::t_3ac1a430c60c09 54-64,66-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "558da1102546af3795b1ac93480a68473e48b154",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
