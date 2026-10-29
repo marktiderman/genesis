@@ -2619,7 +2619,7 @@ export const features = defineFeatures({
   "passkeys": {
     name: "Passkeys",
     summary: "Sign in with a passkey (WebAuthn) on web and native, beside the existing email and social sign-in, through Supabase Auth.",
-    category: "Platform",
+    category: "Identity",
     status: "idea",
     kind: "service",
     keywords: ["webauthn", "passwordless", "sign in", "fido"],
@@ -2666,7 +2666,7 @@ export const features = defineFeatures({
   },
   "workflows": {
     name: "Jobs v2: steps and schedules",
-    summary: "Multi-step jobs with retries per step, schedules (pg_cron) and a queue (pgmq), extending genesis-supabase's job queue; also where durable AI runs resume.",
+    summary: "Multi-step jobs with retries per step and a pgmq queue, extending the jobs feature (which already runs named schedules on pg_cron); also where durable AI runs resume.",
     category: "Data",
     status: "idea",
     kind: "service",
@@ -2702,8 +2702,9 @@ export const features = defineFeatures({
   },
   "product-analytics": {
     name: "Product analytics",
-    summary: "Typed product events from both platforms to PostHog as the default sink, with Genesis flags staying the source of truth; usage flows back into the product board.",
+    summary: "A PostHog sink for observability's typed analytics events as the default sink, with Genesis flags staying the source of truth; usage flows back into the product board.",
     category: "Platform",
+    extends: "observability",
     status: "idea",
     kind: "service",
     keywords: ["posthog", "analytics", "events", "funnels", "usage"],
@@ -2714,8 +2715,9 @@ export const features = defineFeatures({
   },
   "genesis-mcp": {
     name: "genesis-mcp",
-    summary: "An app's MCP server: tools generated from resources and ViewActions plus defineTools, authorized by Supabase Auth's OAuth 2.1 so every tool runs as the person under RLS. Read-only first, writes with approvals later.",
+    summary: "The first step of agent-operable-apps, as a package: an app's MCP server: tools generated from resources and ViewActions plus defineTools, authorized by Supabase Auth's OAuth 2.1 so every tool runs as the person under RLS. Read-only first, writes with approvals later.",
     category: "AI",
+    extends: "agent-operable-apps",
     status: "idea",
     kind: "service",
     keywords: ["mcp", "model context protocol", "agents", "tools", "oauth"],
@@ -2930,7 +2932,7 @@ export const features = defineFeatures({
   },
   "forms-app": {
     name: "Forms (module)",
-    summary: "A forms workspace with its own navigation and a responses inbox; the forms packages stay primitives.",
+    summary: "A forms mini app with its own navigation, built on forms-studio's header, Responses tab and Share dialog; the forms packages stay primitives.",
     category: "Modules",
     status: "idea",
     kind: "block",
@@ -2943,7 +2945,7 @@ export const features = defineFeatures({
   "access-rules": {
     name: "Access rules",
     summary: "Named rules (who, feature, scope) for pages, menus, zones, tabs and guards over featureOn, promoted from a consumer app (G9).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "service",
     keywords: ["access", "permissions", "guards", "who can see", "rules"],
@@ -2955,7 +2957,7 @@ export const features = defineFeatures({
   "lockstep-versions": {
     name: "Lockstep framework versions",
     summary: "Framework packages release under one version line, and genesis upgrade runs codemods between versions (GF2).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["lockstep", "versions", "release", "codemods", "upgrade"],
@@ -2966,8 +2968,8 @@ export const features = defineFeatures({
   },
   "resource-contract": {
     name: "One resource contract",
-    summary: "One resource definition drives the list view, record view, form, API, AI tools and MCP server (GF3).",
-    category: "Framework",
+    summary: "One resource definition drives the list view, record view, form, API, AI tools and MCP server (GF3). agent-operable-apps and genesis-mcp are its AI and MCP surfaces.",
+    category: "Tooling",
     status: "idea",
     kind: "service",
     keywords: ["resource", "contract", "views", "forms", "api", "tools"],
@@ -2979,7 +2981,7 @@ export const features = defineFeatures({
   "tenant-model": {
     name: "Tenant model",
     summary: "Tenant (an organization) → location (a workspace kind) → person, keyed from day one in every app, shipped by Genesis (GF4, with T1's nouns).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "service",
     keywords: ["tenant", "organization", "multi-tenant", "org_id", "location"],
@@ -2991,7 +2993,7 @@ export const features = defineFeatures({
   "package-subpaths": {
     name: "One package per capability",
     summary: "A capability is one package with platform subpaths; split families such as forms merge at the 1.0 major (GF1).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["subpaths", "packages", "merge", "forms", "1.0"],
@@ -3003,7 +3005,7 @@ export const features = defineFeatures({
   "glossary-data": {
     name: "Glossary as data",
     summary: "The glossary as a data file that generates docs/GLOSSARY.md, the glossary lint and an AGENTS block (T7).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["glossary", "terms", "vocabulary", "lint"],
@@ -3015,7 +3017,7 @@ export const features = defineFeatures({
   "adr-template": {
     name: "ADR template and required ADRs",
     summary: "An ADR template and a CI check that a new package, glossary term or subpath kind links an ADR (T8).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["adr", "decisions", "rfc", "governance"],
@@ -3027,7 +3029,7 @@ export const features = defineFeatures({
   "genesis-catalog": {
     name: "genesis catalog",
     summary: "The doctor's need→use catalog as genesis catalog and doctor.catalog, with primitives kept as a deprecated alias (T2).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["catalog", "primitives", "reuse", "find"],
@@ -3039,7 +3041,7 @@ export const features = defineFeatures({
   "stability-tags": {
     name: "Stability tags and coverage",
     summary: "@stability on every export a beta or live feature reaches, a doctor warning on @beta or @deprecated imports, and a ratchet on untagged exports (R3).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["stability", "beta", "deprecated", "jsdoc", "coverage"],
@@ -3051,7 +3053,7 @@ export const features = defineFeatures({
   "export-prefix-rules": {
     name: "Export naming rules",
     summary: "define*/create*/use*/with* and the other prefixes checked on new exports (R5).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["naming", "prefixes", "define", "create", "exports"],
@@ -3063,7 +3065,7 @@ export const features = defineFeatures({
   "genesis-upstream": {
     name: "genesis upstream",
     summary: "An app's register of gaps, extensions and inventions, checked by genesis upstream check and filed by genesis upstream export through a gap issue form (T10).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["upstream", "gaps", "register", "promote", "intake"],
@@ -3075,7 +3077,7 @@ export const features = defineFeatures({
   "package-owners": {
     name: "Package owners and CODEOWNERS",
     summary: "A genesis.owner per package that generates CODEOWNERS path entries (T11).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["owners", "codeowners", "ownership"],
@@ -3087,7 +3089,7 @@ export const features = defineFeatures({
   "docs-front-matter": {
     name: "Docs front matter and kinds",
     summary: "Front matter (kind, status, features, reviewed) on every doc, CI-checked, then Diátaxis folders with the docs site (R4).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["docs", "front matter", "diataxis", "docs site"],
@@ -3099,7 +3101,7 @@ export const features = defineFeatures({
   "npm-scope-rename": {
     name: "npm scope @genesisone",
     summary: "Packages move to the @genesisone scope at the lockstep 1.0, with deprecation notices on the old names (S5).",
-    category: "Framework",
+    category: "Tooling",
     status: "idea",
     kind: "tool",
     keywords: ["npm", "scope", "rename", "genesisone", "1.0"],
