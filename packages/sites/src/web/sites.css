@@ -44,7 +44,7 @@
 }
 
 /*
- * The timetable's day picker on a phone: the checked day's classes, no
+ * The timetable's day picker on a phone: the checked day's sessions, no
  * script. Where :has() isn't supported every day shows, which still reads.
  */
 @layer components {

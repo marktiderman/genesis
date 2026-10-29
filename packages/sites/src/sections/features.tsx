@@ -70,8 +70,8 @@ export const featuresSection = defineSection({
       props: {
         heading: "How to start",
         items: [
-          { title: "Come to a free class", body: "Meet the coaches and try a session.", cta: { label: "Book a free class", href: "#contact" } },
-          { title: "Learn the basics", body: "A few sessions on the movements, with a coach." },
+          { title: "Book a free first visit", body: "Meet the team and see how it works.", cta: { label: "Book a free visit", href: "#contact" } },
+          { title: "Get set up", body: "We walk you through the first steps, one to one." },
           { title: "Pick a plan", body: "Choose what fits your week.", cta: { label: "See the plans", href: "/plans" } },
         ],
       },

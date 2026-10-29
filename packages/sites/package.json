@@ -72,6 +72,10 @@
       "types": "./dist/import.d.ts",
       "import": "./dist/import.js"
     },
+    "./templates": {
+      "types": "./dist/templates.d.ts",
+      "import": "./dist/templates.js"
+    },
     "./sites.css": "./dist/assets/sites.css",
     "./sites-forms.css": "./dist/assets/sites-forms.css"
   },

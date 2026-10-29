@@ -19,7 +19,7 @@ const schema = z.object({
     )
     .min(1)
     .max(24),
-  /** The trust bar's short claim ("Small classes, friendly coaches"). */
+  /** The trust bar's short claim ("Friendly people, fair prices"). */
   claim: Copy(200).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
@@ -47,7 +47,7 @@ export const logosSection = defineSection({
     {
       name: "Trust bar",
       variant: "trust-bar",
-      props: { claim: "Why people trust us", items: [{ name: "Small classes" }, { name: "Friendly coaches" }, { name: "Free first visit" }], surface: "inverse" },
+      props: { claim: "Why people trust us", items: [{ name: "Friendly people" }, { name: "Fair prices" }, { name: "Free first visit" }], surface: "inverse" },
     },
   ],
   render: ({ props, variant, node, ctx }) => {

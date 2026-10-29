@@ -18,7 +18,7 @@ import { SectionNode } from "../core/schemas";
 import { fieldFor, sectionFields, type FieldContext } from "../editor/fields";
 import { Autosaver, AutosaveBlockedError } from "../editor/autosave";
 import { checkSite, pageTemplates, pathProblems, publishSite, renamePage, slugify } from "../editor/site-actions";
-import { brand, sectionProps } from "./fixtures";
+import { brand, LEGACY_HOST, sectionProps } from "./fixtures";
 
 // ── Puck stays in the editor ────────────────────────────────────────────────
 
@@ -95,12 +95,12 @@ describe("createEditorConfig", () => {
     }
   });
 
-  it("hides a deprecated prop from the editor: a schedule session shows Host, not the old coach", () => {
+  it("hides a deprecated prop from the editor: a schedule session shows Host, not the legacy host field", () => {
     const sessions = config.components.schedule!.fields?.sessions as { arrayFields: Record<string, unknown> };
     expect(sessions.arrayFields.host).toBeDefined();
-    expect(sessions.arrayFields.coach).toBeUndefined();
+    expect(sessions.arrayFields[LEGACY_HOST]).toBeUndefined();
     // The schema still accepts it.
-    expect(getSection("schedule")!.schema.safeParse({ heading: "H", sessions: [{ day: "mon", start: "06:00", title: "A", coach: "Grace" }] }).success).toBe(true);
+    expect(getSection("schedule")!.schema.safeParse({ heading: "H", sessions: [{ day: "mon", start: "06:00", title: "A", [LEGACY_HOST]: "Grace" }] }).success).toBe(true);
   });
 
   it("gives a record keyed by an enum one optional text field per key", () => {
@@ -190,7 +190,7 @@ describe("createEditorConfig", () => {
         schema: z.object({ heading: z.string().min(1).max(80), people: z.array(z.object({ name: z.string().min(1), bio: z.string().max(400).optional() })).max(8) }),
         variants: [{ id: "grid", label: "Grid" }],
         defaultVariant: "grid",
-        presets: [{ name: "Team grid", variant: "grid", props: { heading: "Our coaches", people: [{ name: "Ada" }] } }],
+        presets: [{ name: "Team grid", variant: "grid", props: { heading: "Our people", people: [{ name: "Ada" }] } }],
         render: ({ props }) => <section>{props.heading}</section>,
       }),
     );
@@ -229,11 +229,11 @@ describe("createEditorConfig", () => {
   });
 
   it("draws a section on the canvas with its own renderer, h1 where the page puts it", () => {
-    const meta: CanvasMetadata = { site: { name: "Riverside Gym", lang: "en", nav: [] }, pagePath: "/", forms: {}, h1Id: "h1", placeholders: {} };
+    const meta: CanvasMetadata = { site: { name: "Riverside Works", lang: "en", nav: [] }, pagePath: "/", forms: {}, h1Id: "h1", placeholders: {} };
     const render = config.components.hero!.render as (p: Record<string, unknown>) => React.ReactElement;
     const html = renderToStaticMarkup(render({ ...sectionProps.hero, id: "h1", _variant: "centered", _v: 1, puck: { metadata: meta, isEditing: true } }));
     expect(html).toContain("<h1");
-    expect(html).toContain("Train with people who know your name");
+    expect(html).toContain("Make things with people who know your name");
     const second = renderToStaticMarkup(render({ ...sectionProps.hero, id: "other", _v: 1, puck: { metadata: meta, isEditing: true } }));
     expect(second).toContain("<h2");
   });
@@ -257,11 +257,11 @@ describe("createEditorConfig", () => {
 // ── Documents and Puck data ─────────────────────────────────────────────────
 
 describe("toEditorData / fromEditorData", () => {
-  const t = landingPage({ brand, message: { headline: "Train with people who know your name", subhead: "Small classes." } });
+  const t = landingPage({ brand, message: { headline: "Make things with people who know your name", subhead: "Small groups." } });
   const page = t.pages[0]!.doc;
   const site = { header: t.site.header ?? [], footer: t.site.footer ?? [] };
 
-  it("opens an old schedule in the editor with its coach carried into host, so an edit saves host", () => {
+  it("opens an old schedule in the editor with its legacy host carried into host, so an edit saves host", () => {
     const old: SectionNode = {
       id: "s1",
       type: "schedule",
@@ -269,14 +269,14 @@ describe("toEditorData / fromEditorData", () => {
       props: {
         heading: "H",
         sessions: [
-          { day: "mon", start: "06:00", title: "A", coach: "Grace" },
-          { day: "tue", start: "06:00", title: "B", host: "Ada", coach: "Mina" },
+          { day: "mon", start: "06:00", title: "A", [LEGACY_HOST]: "Grace" },
+          { day: "tue", start: "06:00", title: "B", host: "Ada", [LEGACY_HOST]: "Mina" },
         ],
       },
     };
     const item = toEditorData({ ...page, content: [old] }, { header: [], footer: [] }).content[0]!;
     const sessions = (item.props as unknown as { sessions: Record<string, unknown>[] }).sessions;
-    expect(sessions.map((x) => [x.host, x.coach])).toEqual([["Grace", undefined], ["Ada", undefined]]);
+    expect(sessions.map((x) => [x.host, x[LEGACY_HOST]])).toEqual([["Grace", undefined], ["Ada", undefined]]);
     const back = fromEditorData({ content: [item] } as never).page.content[0]!;
     expect(back.v).toBe(getSection("schedule")!.version);
     expect((back.props as unknown as { sessions: Record<string, unknown>[] }).sessions[0]).toMatchObject({ host: "Grace" });
@@ -612,7 +612,7 @@ describe("Autosaver", () => {
 
 async function landingStore() {
   const store = createMemorySiteStore();
-  const t = landingPage({ brand, message: { headline: "Train with people who know your name", subhead: "Small classes." } });
+  const t = landingPage({ brand, message: { headline: "Make things with people who know your name", subhead: "Small groups." } });
   const { siteId, pageIds } = await store.createSite({ site: t.site, pages: [...t.pages, { path: "/about", doc: { schemaVersion: 1, root: { props: { title: "About" } }, content: [] } }] });
   return { store, siteId, home: pageIds[0]!, about: pageIds[1]! };
 }
@@ -644,7 +644,7 @@ describe("publishing", () => {
   });
 
   it("compares migrated props by content, not key order", () => {
-    const node = { id: "h", type: "hero", v: getSection("hero")!.version, variant: "centered", props: { body: "Small classes.", heading: "Hello" } };
+    const node = { id: "h", type: "hero", v: getSection("hero")!.version, variant: "centered", props: { body: "Small groups.", heading: "Hello" } };
     const m = migrateNode(node);
     expect(JSON.stringify(m.node!.props)).not.toBe(JSON.stringify(node.props)); // zod returns the schema's order
     expect(m.changed).toBe(false);
@@ -719,7 +719,7 @@ describe("pages", () => {
   });
 
   it("makes addresses from titles", () => {
-    expect(slugify("Our Classes & Prices")).toBe("/our-classes-prices");
+    expect(slugify("Our Services & Prices")).toBe("/our-services-prices");
     expect(slugify("Café crème")).toBe("/cafe-creme");
     expect(slugify("!!!")).toBe("/page");
   });

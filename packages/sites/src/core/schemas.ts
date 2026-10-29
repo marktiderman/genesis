@@ -237,7 +237,7 @@ export const TokenOverrides = z.object({
 export type TokenOverrides = z.infer<typeof TokenOverrides>;
 
 export const SeoDefaults = z.object({
-  /** `%s` is the page's title: `"%s · Riverside Gym"`. */
+  /** `%s` is the page's title: `"%s · Riverside Works"`. */
   titleTemplate: z.string().max(80).optional(),
   description: z.string().trim().max(200).optional(),
   ogImage: Image.optional(),

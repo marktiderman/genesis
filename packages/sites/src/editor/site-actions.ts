@@ -76,7 +76,7 @@ export function pathProblems(path: string, pages: readonly Pick<PageMeta, "id" |
   return problems;
 }
 
-/** A page's title as a path segment: "Our classes" → "/our-classes". */
+/** A page's title as a path segment: "Our services" → "/our-services". */
 export function slugify(title: string): string {
   const slug = title
     .normalize("NFKD")

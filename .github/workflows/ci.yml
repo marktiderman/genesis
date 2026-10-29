@@ -48,6 +48,10 @@ jobs:
       - name: No private names
         run: node scripts/check-private-names.mjs
 
+      # The site builder's core names no industry; industry wording lives in its templates folder.
+      - name: No industry words in the sites core
+        run: node scripts/check-industry-words.mjs
+
       - uses: pnpm/action-setup@v6
         with:
           version: 11.26.0

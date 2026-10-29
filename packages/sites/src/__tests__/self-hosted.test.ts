@@ -38,7 +38,7 @@ const require = createRequire(import.meta.url);
 
 /** A published one-page site with this brand, an image at `heroSrc`, and the site's image mode. */
 async function site(brand: Partial<SiteBrand> = {}, opts: { image?: string; images?: "any" | "own"; assetOrigin?: string } = {}) {
-  const t = onePageSite({ name: "Hilltop Fitness", message: { headline: "Fitness on the hill", subhead: "Classes for every level." }, colors: { primary: "#b45309" } });
+  const t = onePageSite({ name: "Hilltop Collective", message: { headline: "Made on the hill", subhead: "Sessions for every level." }, colors: { primary: "#b45309" } });
   const b: SiteBrand = { ...t.brand, ...brand };
   if (opts.image) {
     const page = t.pages[0]!;
@@ -108,7 +108,7 @@ describe("self-hosted fonts", () => {
     expect(fontFaces(theme, undefined)).toEqual({ css: "", preload: [] });
   });
 
-  it("offers fonts gym and studio sites use, and keeps a one-weight face out of body text", () => {
+  it("offers the fonts small-business sites use, and keeps a one-weight face out of body text", () => {
     for (const id of ["barlow", "barlow-condensed", "oswald", "roboto-condensed", "bebas-neue"] as const) {
       expect(FontChoice.options).toContain(id);
       expect(FONT_CHOICES[id].family).toBeTruthy();
