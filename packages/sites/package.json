@@ -6,6 +6,7 @@
   "sideEffects": [
     "./dist/sections.js",
     "./dist/editor.js",
+    "./dist/chunk-*.js",
     "*.css"
   ],
   "description": "Sites and landing pages for Genesis apps: a section registry with zod 4 schemas, 20 server-rendered sections on Genesis UI (timetable, team, blog, map, timeline and downloads among them), a blog with drafts, published posts, RSS and Article JSON-LD, a guarded asset import (/import), a per-request renderer with no hydration, SEO (meta, sitemap, robots, JSON-LD, redirects), publish-time accessibility checks, one-click landing pages from a brand, a Supabase schema with draft, publish and rollback, and a visual editor on Puck (/editor) that published pages never load. Part of the Genesis framework.",

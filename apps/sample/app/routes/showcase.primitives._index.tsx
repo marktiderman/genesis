@@ -65,7 +65,7 @@ export default function PrimitivesIndex() {
       <div className="flex flex-col gap-3 sm:flex-row">
         <div className="flex gap-2" role="group" aria-label="Platform">
           {(["web", "native"] as const).map((s) => (
-            <Button key={s} size="sm" variant={surface === s ? "default" : "outline"} aria-pressed={surface === s} onClick={() => setSurface(s)}>
+            <Button testID="showcase-primitives-index-button-1" key={s} size="sm" variant={surface === s ? "default" : "outline"} aria-pressed={surface === s} onClick={() => setSurface(s)}>
               {s === "web" ? "Web" : "Native"}
             </Button>
           ))}

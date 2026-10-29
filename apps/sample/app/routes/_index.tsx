@@ -16,7 +16,7 @@ import itemsViewSource from "../lib/views/items.view.ts?raw";
 const BASE = import.meta.env.BASE_URL;
 
 const NAV = [
-  { label: "Demo", to: "/dashboard" },
+  { label: "Demo", to: "/demo" },
   { label: "Components", to: "/showcase" },
   { label: "Packages", to: "/packages" },
   { label: "Docs", href: `${REPO_URL}/tree/main/docs` },
@@ -30,7 +30,7 @@ const PROOF = [
     icon: Building2,
     title: "Workspaces and tenants",
     body: "One app serves many organizations. Row-level security keeps each one's data apart; the workspace switcher picks which one you're working in.",
-    to: "/showcase/primitives/workspace-switcher",
+    to: "/demo",
   },
   {
     icon: LayoutList,
@@ -70,7 +70,7 @@ function CopyCommand({ command }: { command: string }) {
     <div className="flex w-full max-w-xl items-center gap-2 rounded-lg border border-border bg-muted/50 py-1.5 pl-4 pr-1.5 font-mono text-sm">
       <span aria-hidden className="select-none text-muted-foreground">$</span>
       <code className="min-w-0 flex-1 truncate">{command}</code>
-      <Button
+      <Button testID="index-button-1"
         variant="ghost"
         size="icon"
         aria-label={copied ? "Copied" : "Copy the command"}
@@ -130,15 +130,15 @@ export default function Home() {
           <div className="mt-8 flex flex-col gap-4">
             <CopyCommand command={INIT_COMMAND} />
             <div className="flex flex-wrap gap-3">
-              <Button asChild>
-                <Link to="/dashboard">
+              <Button testID="index-button-2" asChild>
+                <Link to="/demo">
                   Try the demo <ArrowRight className="ml-1 h-4 w-4" />
                 </Link>
               </Button>
-              <Button asChild variant="outline">
+              <Button testID="index-button-3" asChild variant="outline">
                 <a href={`${REPO_URL}/blob/main/docs/FRAMEWORK.md`}>Read the docs</a>
               </Button>
-              <Button asChild variant="ghost">
+              <Button testID="index-button-4" asChild variant="ghost">
                 <a href={NPM_URL}>npm</a>
               </Button>
             </div>

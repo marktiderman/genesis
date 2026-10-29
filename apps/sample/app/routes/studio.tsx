@@ -2,7 +2,7 @@
 // server (studio/vite-plugin.ts); this page is everything an app adds on the
 // client: a provider pointed at the handler, a router adapter, and a sign-in.
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Navigate, useSearchParams } from "react-router";
 import { DataStudio, createSearchParamsRouter } from "@marktiderman/genesis-studio";
 import { createStudioProvider } from "@marktiderman/genesis-studio-server/client";
 import { Button, Input, Label } from "@marktiderman/genesis-ui";
@@ -38,7 +38,15 @@ function readSession(): Session | null {
   }
 }
 
+// The studio's handler runs in the dev server only (studio/vite-plugin.ts). A
+// static build has none, so it shows the demo app's Data Studio, which runs
+// on in-memory rows.
 export default function Studio() {
+  if (import.meta.env.PROD) return <Navigate to="/demo/harbor/data" replace />;
+  return <DevStudio />;
+}
+
+function DevStudio() {
   const [params, setParams] = useSearchParams();
   const router = useMemo(
     () => createSearchParamsRouter(params, (next, { replace }) => setParams(next, { replace })),
