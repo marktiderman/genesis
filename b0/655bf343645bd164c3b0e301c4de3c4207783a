@@ -1,0 +1,58 @@
+apps/sample/scripts/smoke-site.mjs
+  s_e2cf1ec4fac133::t_f4e48c3b5fb3c3 1-101
+  s_e2cf1ec4fac133::t_ae28bb2799bef4 102-135
+apps/sample/.react-router/types/+routes.ts
+  s_e2cf1ec4fac133::t_8f74e443f47e98 87-94,130,150,228-235,296-297
+apps/sample/.react-router/types/app/routes/+types/packages.$name.ts
+  s_e2cf1ec4fac133::t_690f35edf7d3fa 1-74
+apps/sample/.react-router/types/app/routes/+types/packages._index.ts
+  s_e2cf1ec4fac133::t_4c4ed992b4b892 1-74
+apps/sample/app/lib/catalog.server.ts
+  s_e2cf1ec4fac133::t_729e49348c84f9 1-59
+apps/sample/app/lib/site-paths.ts
+  s_e2cf1ec4fac133::t_35455c744cd1a5 7-8,17-25,30
+apps/sample/app/lib/site.ts
+  s_e2cf1ec4fac133::t_d5e6a5eae0fca0 44,53
+apps/sample/app/routes.ts
+  s_e2cf1ec4fac133::t_92fff3ddc58cee 41-43
+apps/sample/app/routes/_index.tsx
+  s_e2cf1ec4fac133::t_b8a36fce0a0737 21,197
+apps/sample/app/routes/_layout.tsx
+  s_e2cf1ec4fac133::t_438fe44fc6e254 8,51
+apps/sample/app/routes/packages.$name.tsx
+  s_e2cf1ec4fac133::t_efb49abb073403 1-106
+apps/sample/app/routes/packages._index.tsx
+  s_e2cf1ec4fac133::t_d4580b6e76f6e4 1-49
+apps/sample/app/routes/showcase.primitives._index.tsx
+  s_e2cf1ec4fac133::t_fb0e6f114eb19b 9,12-29,46-47,58-61,65-72,74,85
+apps/sample/demo-coverage.allow.json
+  s_e2cf1ec4fac133::t_d7c97d9bc6dc70 1-52
+apps/sample/package.json
+  s_e2cf1ec4fac133::t_485b5801dd6b23 12-14,108
+apps/sample/scripts/check-demo-coverage.ts
+  s_e2cf1ec4fac133::t_e16f43653e3def 1-92
+apps/sample/scripts/generate-site-files.ts
+  s_e2cf1ec4fac133::t_c3210849fe283b 153-154
+docs/component-reference.md
+  s_e2cf1ec4fac133::t_2a7debfe25f73f 5,7,20,22,24,26,32-39,41,46-77,82,84,86,92-99,101,106-115,120,122,124,126-339,343,345,351-9041,9096-9487,9490,9494-10019,10022,10032,10034,10036,10038-10040,10042,10044-10050,10052,10056,10058,10060,10062-10066,10072-10074,10078,10080,10086,10088,10090,10092,10094,10096-10098,10102,10104,10106,10110-10114,10116,10118,10120-10124,10126,10128,10133,10138,10140,10142,10145-10146,10148,10150,10152-10156,10158,10160,10165-10166,10171,10173,10175,10179,10181,10187,10189-10195,10200,10203-10246,10248-10250,10252,10254,10256,10258,10260,10262,10264,10266,10268-10274,10278,10280,10282,10284,10288-10383,10385,10391-10436,10438,10443-10502,10507,10509,10511,10513-10597,10603-10624,10626,10631-10661,10666,10668,10670,10672-10686,10692-10729,10734-10755,10760,10762,10768,10770,10776-10790,10794,10796,10798,10800-10817,10823-10841,10843,10848-10872,10875-10902
+pnpm-lock.yaml
+  s_e2cf1ec4fac133::t_2da63c78ac1be3 523-525
+scripts/gen-component-reference.mjs
+  s_e2cf1ec4fac133::t_f7671004db2303 5-6,13-15,25,49-51,161-228,516-519,582-594,603,605,628
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b0655bf343645bd164c3b0e301c4de3c4207783a",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
