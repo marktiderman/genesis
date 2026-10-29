@@ -5,6 +5,8 @@
  */
 import { useState } from "react";
 import { Link, Navigate } from "react-router";
+import { personDay } from "@marktiderman/genesis-core/dates";
+import { useWorkspace } from "@marktiderman/genesis-core/hooks";
 import type { FormEngine, Json } from "@marktiderman/genesis-forms";
 import { validateSubmission } from "@marktiderman/genesis-forms/server";
 import { Form } from "@marktiderman/genesis-forms-web";
@@ -26,6 +28,7 @@ export default function DemoIntake() {
 function Intake() {
   const { org, href } = useDemo();
   const { create } = useClients();
+  const workspace = useWorkspace()?.current;
   const [added, setAdded] = useState<string | null>(null);
   const [run, setRun] = useState(0);
 
@@ -42,7 +45,8 @@ function Intake() {
       plan: String(answers.plan),
       notes: answers.notes ? String(answers.notes) : null,
       status: "lead",
-      joined_on: new Date().toISOString().slice(0, 10),
+      // The day on the organization's clock (its workspace's time zone), not UTC's.
+      joined_on: personDay(workspace),
     });
     setAdded(String(answers.name));
   };
