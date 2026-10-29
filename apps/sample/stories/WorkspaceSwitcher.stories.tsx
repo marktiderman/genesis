@@ -93,25 +93,53 @@ export const BrandThemes: Story = {
   args: { workspaces: branded, current: branded[2], defaultOpen: true },
 };
 
-/** Past seven workspaces the menu opens with a search box. */
+/**
+ * Axe checks the open menu (portaled out of the story's root) and fails the test on a violation.
+ * Only the menu: Radix's modal menu hides the rest of the page with aria-hidden, which axe flags
+ * on any page with a dropdown open.
+ */
+const axeOnPage = { a11y: { test: "error", context: { include: ['[data-scope="workspace-switcher"][data-part="content"]'] } } };
+
+/** The menu open: a Radix menu, typeahead included. Axe-checked. */
+export const Open: Story = {
+  args: { defaultOpen: true },
+  parameters: axeOnPage,
+};
+
+/**
+ * `search` (opt-in; `"auto"` turns it on past seven): the list becomes a combobox over a listbox.
+ * ↑/↓ move, Enter goes. Axe-checked.
+ */
 export const Search: Story = {
-  args: { workspaces: many },
+  args: {
+    workspaces: many,
+    search: true,
+    actions: [{ id: "new", label: "New organization", icon: Plus, onSelect: fn() }],
+  },
+  parameters: axeOnPage,
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: /Switch workspace/ }));
     const body = within(canvasElement.ownerDocument.body);
-    const box = await body.findByTestId("workspace-switcher-search");
+    const box = await body.findByRole("combobox");
     await waitFor(() => expect(box).toHaveFocus());
-    await userEvent.type(box, "yoga");
-    await expect(body.getAllByRole("menuitem").map((i) => i.getAttribute("data-testid"))).toEqual([
-      "workspace-switcher-item-extra-4",
-    ]);
-    await userEvent.clear(box);
     await userEvent.type(box, "nothing like it");
     await expect(body.getByText("No workspaces found")).toBeVisible();
+    await userEvent.clear(box);
+    await userEvent.type(box, "o");
+    await userEvent.keyboard("{ArrowDown}");
+    await expect(box).toHaveAttribute("aria-activedescendant", body.getAllByRole("option")[1]!.id);
+    await userEvent.clear(box);
+    await userEvent.type(box, "yoga");
+    await expect(body.getAllByRole("option").map((i) => i.getAttribute("data-testid"))).toEqual([
+      "workspace-switcher-item-extra-4",
+    ]);
   },
 };
 
-/** Ctrl/⌘+Shift+O opens it; Alt+1 to Alt+9 jump straight to a workspace (numbered in the menu). */
+/**
+ * Ctrl/⌘+Shift+O opens it; Alt+1 to Alt+9 jump straight to a workspace (numbered in the menu).
+ * Pass the router's navigate as `onNavigate`, or a jump reloads the page.
+ */
 export const KeyboardShortcuts: Story = {
   args: { shortcuts: { open: "mod+shift+o", jump: "alt" }, onNavigate: fn(), onSelect: fn() },
   play: async ({ args, canvasElement }) => {
@@ -137,8 +165,8 @@ export const FooterActions: Story = {
 };
 
 /**
- * Styling by part: `classNames` per part, and the CSS variables for the menu's width and the
- * pictures' corners. The same parts are reachable from a stylesheet through
+ * Styling by part with `classNames`, Tailwind's `data-*` variants and the design tokens. The same
+ * parts are reachable from a stylesheet through
  * `[data-scope="workspace-switcher"][data-part="item"][data-current]`.
  */
 export const StyledParts: Story = {
@@ -146,11 +174,11 @@ export const StyledParts: Story = {
     defaultOpen: true,
     classNames: {
       trigger: "rounded-full border border-border",
-      image: "[--workspace-switcher-image-radius:9999px]",
+      image: "rounded-full",
+      content: "w-80",
       "group-label": "uppercase tracking-wide",
       item: "data-[current]:bg-accent data-[current]:font-medium",
     },
-    slotProps: { content: { className: "[--workspace-switcher-menu-width:20rem]" } },
   },
 };
 

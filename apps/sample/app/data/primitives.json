@@ -23507,6 +23507,13 @@
               "description": "Typed items at the bottom of the menu, after a separator."
             },
             {
+              "name": "badgeLabel",
+              "type": "((workspace: W, value: string | number) => string)",
+              "required": false,
+              "defaultValue": "(_w: Workspace, value: string | number) => (typeof value === \"number\" ? `${value} new` : String(value))",
+              "description": "What a screen reader hears for a badge, in place of the bare value. Default: \"3 new\" for a\nnumber, the text itself otherwise."
+            },
+            {
               "name": "className",
               "type": "string",
               "required": false,
@@ -23588,7 +23595,7 @@
               "type": "((href: string, workspace: W) => void)",
               "required": false,
               "defaultValue": null,
-              "description": "How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate.\nDefault: a full page load of the link."
+              "description": "How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate. Without\nit a jump is a full page load of the link (a menu click still uses `linkComponent`), and the\nswitcher warns in development."
             },
             {
               "name": "onOpenChange",
@@ -23650,8 +23657,8 @@
               "name": "search",
               "type": "boolean | \"auto\"",
               "required": false,
-              "defaultValue": "auto",
-              "description": "A search box at the top of the menu. Default `\"auto\"`: shown past\n{@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces."
+              "defaultValue": "false",
+              "description": "A search box over the list, which then becomes a combobox (see the module comment). Default\n`false`. `\"auto\"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces."
             },
             {
               "name": "searchPlaceholder",
@@ -23709,7 +23716,7 @@
         },
         {
           "name": "WORKSPACE_SWITCHER_SEARCH_THRESHOLD",
-          "summary": "Past this many workspaces the menu opens with a search box (unless `search` says otherwise).",
+          "summary": "With `search=\"auto\"`, past this many workspaces the menu opens with a search box.",
           "props": []
         },
         {

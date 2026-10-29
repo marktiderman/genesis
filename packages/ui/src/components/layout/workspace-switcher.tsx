@@ -12,16 +12,20 @@
  *
  * Customizing it, from lightest to heaviest:
  *
- * - **Props**: group headings (`kindLabels`), pictures (`kindIcons`), a search box (`search`,
- *   on by itself past 7 workspaces), keyboard shortcuts (`shortcuts`), the menu's last items
- *   (`actions`, `footer`).
+ * - **Props**: group headings (`kindLabels`), pictures (`kindIcons`), badges, a search box
+ *   (`search`, opt-in), keyboard shortcuts (`shortcuts`), the menu's last items (`actions`,
+ *   `footer`).
  * - **Styling**: every element carries `data-scope="workspace-switcher"` and a `data-part`, plus
- *   state attributes (`data-state`, `data-current`, `data-kind`, `data-variant`), so a stylesheet
- *   or Tailwind's `data-*` variants can reach any part. `classNames` adds classes per part. The
- *   menu's width and the pictures' corner radius are CSS variables
- *   (`--workspace-switcher-menu-width`, `--workspace-switcher-image-radius`); colors are the
- *   design system's tokens, and a workspace's `theme.accent` re-points `--primary` on its own
- *   picture and row (`workspaceThemeStyle`).
+ *   state attributes (`data-state`, `data-current`, `data-kind`, `data-variant`,
+ *   `data-highlighted`), so a stylesheet or Tailwind's `data-*` variants can reach any part.
+ *   `classNames` adds classes per part (`classNames.content: "w-80"`, `classNames.image:
+ *   "rounded-full"`). Colors are the design system's tokens (CSS variables), and a workspace's
+ *   `theme.accent` re-points `--primary` on its own picture and row (`workspaceThemeStyle`).
+ * - **Search**: without it the list is a Radix menu (`role="menu"`, typeahead). With it, it is a
+ *   combobox: a text box (`role="combobox"`) that filters a `role="listbox"` of the workspaces,
+ *   with ↑/↓ to move and Enter to go, because a text box can't sit inside a menu. In that mode
+ *   `actions` render as buttons under the list, and `footer` must hold plain links or buttons, not
+ *   menu items.
  * - **Slots** (genesis-core's `slots`/`slotProps` contract): replace or drop a part (`image`,
  *   `item`, `badge`, `empty`, `search`), or pass a part more props (`slotProps`, which also
  *   reaches the `trigger` button and the menu `content`). `renderImage`, `renderItem` and
@@ -30,6 +34,7 @@
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -39,7 +44,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   type Ref,
+  type RefCallback,
 } from "react";
+import { Slot as SlotPrimitive } from "radix-ui";
 import { Check, ChevronsUpDown, Layers, Search, UserRound, type LucideIcon } from "lucide-react";
 
 import { useWorkspace } from "@marktiderman/genesis-core/hooks";
@@ -70,6 +77,7 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { brandThemeStyle } from "./brand-theme";
 
 /** @stability Beta */
@@ -90,6 +98,7 @@ export type WorkspaceSwitcherPart =
   | "indicator"
   | "content"
   | "search"
+  | "list"
   | "group"
   | "group-label"
   | "item"
@@ -113,6 +122,7 @@ export const WORKSPACE_SWITCHER_PARTS: readonly WorkspaceSwitcherPart[] = [
   "indicator",
   "content",
   "search",
+  "list",
   "group",
   "group-label",
   "item",
@@ -130,7 +140,7 @@ export const WORKSPACE_SWITCHER_PARTS: readonly WorkspaceSwitcherPart[] = [
 /** The value of every part's `data-scope`. */
 export const WORKSPACE_SWITCHER_SCOPE = "workspace-switcher";
 
-/** Past this many workspaces the menu opens with a search box (unless `search` says otherwise). */
+/** With `search="auto"`, past this many workspaces the menu opens with a search box. */
 export const WORKSPACE_SWITCHER_SEARCH_THRESHOLD = 7;
 
 /** The default heading over each kind's group in the menu. */
@@ -228,6 +238,8 @@ export interface WorkspaceSwitcherItemProps<W extends Workspace = Workspace> {
 export interface WorkspaceSwitcherBadgeProps<W extends Workspace = Workspace> {
   workspace: W;
   value: string | number;
+  /** What a screen reader hears for it ("3 new"; see `badgeLabel`). The visible value is hidden from them. */
+  label: string;
   className?: string;
 }
 
@@ -243,11 +255,19 @@ export interface WorkspaceSwitcherEmptyProps {
 export interface WorkspaceSwitcherSearchProps {
   value: string;
   onValueChange: (value: string) => void;
-  /** Put it on your input: it keeps the menu's typeahead off the box and moves into the list on ↓. */
+  /** Put it on your input: ↑/↓ move through the list and Enter goes to the highlighted workspace. */
   onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   placeholder: string;
-  /** Put it on your input: the menu focuses it on opening. */
+  /** Put it on your input: the switcher focuses it on opening. */
   inputRef: Ref<HTMLInputElement>;
+  /** Spread on your input: the combobox's role and ARIA state. */
+  comboboxProps: {
+    role: "combobox";
+    "aria-expanded": boolean;
+    "aria-controls"?: string;
+    "aria-activedescendant"?: string;
+    "aria-autocomplete": "list";
+  };
   className?: string;
 }
 
@@ -270,7 +290,13 @@ export type WorkspaceSwitcherSlotProps<W extends Workspace = Workspace> = {
   [K in keyof WorkspaceSwitcherSlotMap<W>]?: Partial<WorkspaceSwitcherSlotMap<W>[K]>;
 } & {
   trigger?: Partial<ComponentProps<typeof Button>>;
-  content?: Partial<ComponentProps<typeof DropdownMenuContent>>;
+  /** The menu (or, with search, the popover). Its `ref` is composed with the switcher's own. */
+  content?: Partial<
+    Pick<
+      ComponentProps<typeof DropdownMenuContent>,
+      "ref" | "id" | "className" | "style" | "align" | "alignOffset" | "side" | "sideOffset" | "collisionPadding" | "avoidCollisions"
+    >
+  >;
 };
 
 /** A class for each part, added to the switcher's own. */
@@ -292,8 +318,9 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   /** The router's link (see AppShell's `linkComponent`). */
   linkComponent?: LinkComponent;
   /**
-   * How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate.
-   * Default: a full page load of the link.
+   * How a keyboard jump (`shortcuts.jump`) goes to a workspace: pass the router's navigate. Without
+   * it a jump is a full page load of the link (a menu click still uses `linkComponent`), and the
+   * switcher warns in development.
    */
   onNavigate?: (href: string, workspace: W) => void;
   /** Called whenever the viewer picks a workspace, from the menu or the keyboard. */
@@ -311,8 +338,13 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   /** Replaces a workspace's badge (default: its `badge`, as a pill). Shorthand for `slots.badge`. */
   renderBadge?: (workspace: W) => ReactNode;
   /**
-   * A search box at the top of the menu. Default `"auto"`: shown past
-   * {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces.
+   * What a screen reader hears for a badge, in place of the bare value. Default: "3 new" for a
+   * number, the text itself otherwise.
+   */
+  badgeLabel?: (workspace: W, value: string | number) => string;
+  /**
+   * A search box over the list, which then becomes a combobox (see the module comment). Default
+   * `false`. `"auto"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces.
    */
   search?: boolean | "auto";
   /** The search box's placeholder and accessible name. Default "Find a workspace". */
@@ -350,6 +382,17 @@ function hasBadge(value: Workspace["badge"]): value is string | number {
   return value !== undefined && value !== null && value !== "" && value !== 0;
 }
 
+const defaultBadgeLabel = (_w: Workspace, value: string | number) => (typeof value === "number" ? `${value} new` : String(value));
+
+function composeRefs<T>(...refs: (Ref<T> | undefined)[]): RefCallback<T> {
+  return (node) => {
+    for (const ref of refs) {
+      if (typeof ref === "function") ref(node);
+      else if (ref) (ref as { current: T | null }).current = node;
+    }
+  };
+}
+
 /** The default picture: the workspace's image, else its kind's icon, else its initials. */
 function DefaultWorkspaceImage<W extends Workspace>({ workspace, size, icon: Icon, className, style }: WorkspaceSwitcherImageProps<W>) {
   const ShownIcon = workspace.image ? undefined : Icon;
@@ -358,18 +401,14 @@ function DefaultWorkspaceImage<W extends Workspace>({ workspace, size, icon: Ico
       {...part("image")}
       data-kind={workspace.kind}
       data-size={size}
-      className={cn(
-        "shrink-0 rounded-[var(--workspace-switcher-image-radius,calc(var(--radius)-2px))]",
-        size === "sm" ? "size-6" : "size-8",
-        className,
-      )}
+      className={cn("shrink-0 rounded-md", size === "sm" ? "size-6" : "size-8", className)}
       style={style}
       aria-hidden
     >
       {workspace.image ? <AvatarImage src={workspace.image} alt="" /> : null}
       <AvatarFallback
         className={cn(
-          "rounded-[inherit] font-semibold",
+          "rounded-md font-semibold",
           size === "sm" ? "text-[10px]" : "text-xs",
           workspace.kind === "tenant" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
         )}
@@ -380,11 +419,15 @@ function DefaultWorkspaceImage<W extends Workspace>({ workspace, size, icon: Ico
   );
 }
 
-function DefaultWorkspaceBadge<W extends Workspace>({ value, className }: WorkspaceSwitcherBadgeProps<W>) {
+/** The value is for sighted viewers; a screen reader hears `label` ("3 new") instead. */
+function DefaultWorkspaceBadge<W extends Workspace>({ value, label, className }: WorkspaceSwitcherBadgeProps<W>) {
   return (
-    <Badge {...part("badge")} variant="secondary" className={cn("shrink-0 px-1.5 py-0 tabular-nums", className)}>
-      {value}
-    </Badge>
+    <>
+      <Badge {...part("badge")} variant="secondary" aria-hidden className={cn("shrink-0 px-1.5 py-0 tabular-nums", className)}>
+        {value}
+      </Badge>
+      <span className="sr-only">{`, ${label}`}</span>
+    </>
   );
 }
 
@@ -397,14 +440,21 @@ function DefaultWorkspaceItem<W extends Workspace>({ workspace, current, image, 
           {workspace.label}
         </span>
         {workspace.description ? (
-          <span {...part("item-description")} className={cn("truncate text-xs text-muted-foreground", classNames?.["item-description"])}>
+          <span
+            {...part("item-description")}
+            className={cn(
+              "truncate text-xs text-muted-foreground group-data-[highlighted]/workspace-item:text-accent-foreground",
+              classNames?.["item-description"],
+            )}
+          >
             {workspace.description}
           </span>
         ) : null}
       </span>
       {badge}
       {shortcut ? (
-        <DropdownMenuShortcut {...part("item-shortcut")} className={cn("ml-0", classNames?.["item-shortcut"])}>
+        // The row's aria-keyshortcuts names the key; the hint is for sighted viewers.
+        <DropdownMenuShortcut {...part("item-shortcut")} aria-hidden className={cn("ml-0", classNames?.["item-shortcut"])}>
           {shortcut}
         </DropdownMenuShortcut>
       ) : null}
@@ -421,20 +471,21 @@ function DefaultWorkspaceEmpty({ children, className }: WorkspaceSwitcherEmptyPr
   );
 }
 
-function DefaultWorkspaceSearch({ value, onValueChange, onKeyDown, placeholder, inputRef, className }: WorkspaceSwitcherSearchProps) {
+function DefaultWorkspaceSearch({ value, onValueChange, onKeyDown, placeholder, inputRef, comboboxProps, className }: WorkspaceSwitcherSearchProps) {
   return (
     <div {...part("search")} className={cn("-mx-1 -mt-1 mb-1 flex items-center gap-2 border-b px-3", className)}>
       <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
       <input
         ref={inputRef}
         type="text"
-        role="searchbox"
+        {...comboboxProps}
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
         onKeyDown={onKeyDown}
         placeholder={placeholder}
         aria-label={placeholder}
         autoComplete="off"
+        spellCheck={false}
         className="h-9 w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         data-testid="workspace-switcher-search"
       />
@@ -490,10 +541,22 @@ function isTyping(target: EventTarget | null): boolean {
   return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
 }
 
-/** Whether the switcher is on screen, so only the visible one of several answers a shortcut. */
+/**
+ * Whether the switcher is on screen, so only the visible one of several (sidebar, rail, phone bar)
+ * answers a shortcut. `checkVisibility` misses a closed drawer that is moved off screen, so a copy
+ * inside an `inert` or `aria-hidden` ancestor (AppShell's closed mobile drawer) never counts.
+ */
 function onScreen(el: HTMLElement | null): boolean {
   if (!el) return false;
+  if (el.closest("[inert],[aria-hidden='true']")) return false;
   return typeof el.checkVisibility === "function" ? el.checkVisibility() : true;
+}
+
+// The bundler's NODE_ENV, typed here so the package needs no Node types.
+declare const process: { env?: { NODE_ENV?: string } } | undefined;
+
+function isDevelopment(): boolean {
+  return typeof process !== "undefined" && process.env?.NODE_ENV !== "production";
 }
 
 function useIsMac(): boolean {
@@ -503,6 +566,9 @@ function useIsMac(): boolean {
   }, []);
   return mac;
 }
+
+const ITEM_CLASS =
+  "group/workspace-item relative flex cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground";
 
 /**
  * The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in
@@ -524,7 +590,8 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   renderImage,
   renderItem,
   renderBadge,
-  search = "auto",
+  badgeLabel = defaultBadgeLabel,
+  search = false,
   searchPlaceholder = "Find a workspace",
   emptyText = "No workspaces found",
   shortcuts,
@@ -548,22 +615,33 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   const icons: Partial<Record<WorkspaceKind, LucideIcon>> = { ...DEFAULT_WORKSPACE_KIND_ICONS, ...kindIcons };
   const name = current?.label ?? placeholder;
   const isMac = useIsMac();
+  const listId = useId();
 
   const [openState, setOpenState] = useState(defaultOpen);
   const open = openProp ?? openState;
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState(0);
   const setOpen = useCallback(
     (next: boolean) => {
       if (openProp === undefined) setOpenState(next);
-      if (!next) setQuery("");
       onOpenChange?.(next);
     },
     [openProp, onOpenChange],
   );
+  // However it closes (the viewer, or a parent controlling `open`), the next opening starts clean.
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setActive(0);
+    }
+  }, [open]);
 
   const showSearch = search === true || (search === "auto" && workspaces.length > WORKSPACE_SWITCHER_SEARCH_THRESHOLD);
   const ordered = useMemo(() => orderedWorkspaces(workspaces, order), [workspaces, order]);
   const groups = groupWorkspaces(showSearch ? filterWorkspaces(workspaces, query) : workspaces, order);
+  const matches = groups.flatMap((g) => g.workspaces);
+  const activeIndex = matches.length === 0 ? -1 : Math.min(active, matches.length - 1);
+  const optionId = (i: number) => `${listId}-option-${i}`;
 
   const jumpMode = shortcuts?.jump === true ? "mod" : shortcuts?.jump || undefined;
   const openSpec = shortcuts?.open || undefined;
@@ -572,10 +650,15 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     jumpMode && index >= 0 && index < 9
       ? `${jumpMode === "alt" ? (isMac ? "⌥" : "Alt+") : isMac ? "⌘" : "Ctrl+"}${index + 1}`
       : undefined;
+  const jumpKeys = (index: number) =>
+    jumpMode && index >= 0 && index < 9 ? (jumpMode === "alt" ? `Alt+${index + 1}` : `Control+${index + 1} Meta+${index + 1}`) : undefined;
 
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
+  const contentExtra = slotProps?.content;
+  const consumerContentRef = contentExtra?.ref;
+  const setContentRef = useMemo(() => composeRefs<HTMLDivElement>(contentRef, consumerContentRef), [consumerContentRef]);
 
   const go = useCallback(
     (w: W) => {
@@ -587,11 +670,21 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     [hrefFor, onNavigate, onSelect],
   );
 
+  const missingNavigate = Boolean(jumpMode) && !onNavigate;
+  useEffect(() => {
+    if (missingNavigate && isDevelopment()) {
+      // genesis-allow-console: a development set-up hint (jump without onNavigate), not an error.
+      console.warn(
+        "WorkspaceSwitcher: shortcuts.jump is on without onNavigate, so a jump reloads the page. Pass your router's navigate as onNavigate.",
+      );
+    }
+  }, [missingNavigate]);
+
   useEffect(() => {
     if (!openShortcut && !jumpMode) return;
     if (typeof window === "undefined") return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.repeat) return;
+      if (e.defaultPrevented || e.repeat || e.isComposing) return;
       if (!onScreen(rootRef.current)) return;
       if (openShortcut && matchesShortcut(e, openShortcut)) {
         const plain = !openShortcut.mod && !openShortcut.meta && !openShortcut.ctrl && !openShortcut.alt;
@@ -603,6 +696,8 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
       if (!jumpMode || e.shiftKey) return;
       const held = jumpMode === "alt" ? e.altKey && !e.metaKey && !e.ctrlKey : (e.metaKey || e.ctrlKey) && !e.altKey;
       if (!held) return;
+      // Option+digit types a character on a Mac (# [ ] | { }), so the Alt jump never fires in a text field.
+      if (jumpMode === "alt" && isTyping(e.target)) return;
       const digit = /^Digit([1-9])$/.exec(e.code ?? "")?.[1] ?? (/^[1-9]$/.test(e.key) ? e.key : undefined);
       const target = digit ? ordered[Number(digit) - 1] : undefined;
       if (!target) return;
@@ -614,15 +709,14 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [openShortcut, jumpMode, ordered, current?.id, go, open, setOpen]);
 
-  // The menu focuses itself on opening; move focus on to the search box.
+  // Keep the highlighted option in view as the arrows move it.
   useEffect(() => {
-    if (!open || !showSearch) return;
-    searchRef.current?.focus();
-    const frame = typeof requestAnimationFrame === "function" ? requestAnimationFrame(() => searchRef.current?.focus()) : undefined;
-    return () => {
-      if (frame !== undefined) cancelAnimationFrame(frame);
-    };
-  }, [open, showSearch]);
+    if (!open || !showSearch || activeIndex < 0) return;
+    const el = typeof document !== "undefined" ? document.getElementById(optionId(activeIndex)) : null;
+    el?.scrollIntoView?.({ block: "nearest" });
+    // optionId is derived from listId, which is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, showSearch, activeIndex]);
 
   const imageFor = (w: W, size: "sm" | "md") => {
     if (renderImage) return renderImage(w, size);
@@ -642,21 +736,38 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
     return renderSlot(
       DefaultWorkspaceBadge<W>,
       slots?.badge,
-      { workspace: w, value: w.badge },
+      { workspace: w, value: w.badge, label: badgeLabel(w, w.badge) },
       { ...extra, className: cn(classNames?.badge, extra?.className) },
     );
   };
 
+  const itemContent = (w: W, isCurrent: boolean) => {
+    if (renderItem) return renderItem(w, { current: isCurrent });
+    const index = ordered.indexOf(w);
+    return renderSlot(
+      DefaultWorkspaceItem<W>,
+      slots?.item,
+      { workspace: w, current: isCurrent, index, image: imageFor(w, "sm"), badge: badgeFor(w), shortcut: jumpHint(index), classNames },
+      slotProps?.item,
+    );
+  };
+
   const onSearchKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Escape" || e.key === "Tab") return;
-    // Keep the menu's typeahead and arrow keys off the box; ↓ moves into the list, Enter picks the first.
-    e.stopPropagation();
-    if (e.key !== "ArrowDown" && e.key !== "Enter") return;
-    const first = contentRef.current?.querySelector<HTMLElement>('[role="menuitem"]:not([data-disabled])');
-    if (!first) return;
-    e.preventDefault();
-    if (e.key === "Enter") first.click();
-    else first.focus();
+    // An IME's Enter commits the composition; it never picks a workspace.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (matches.length === 0) return;
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      setActive((activeIndex + step + matches.length) % matches.length);
+      return;
+    }
+    if (e.key === "Enter") {
+      // Only a workspace: with no match, Enter does nothing (never a footer action).
+      if (activeIndex < 0) return;
+      e.preventDefault();
+      contentRef.current?.querySelector<HTMLElement>(`[id="${optionId(activeIndex)}"]`)?.click();
+    }
   };
 
   const triggerExtra = slotProps?.trigger;
@@ -706,12 +817,28 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
       </Button>
     );
 
-  const contentExtra = slotProps?.content;
-  const searchExtra = slotProps?.search;
-  const emptyExtra = slotProps?.empty;
-  const separator = (key?: string) => <DropdownMenuSeparator key={key} {...part("separator")} className={classNames?.separator} />;
+  const contentProps = {
+    align: "start" as const,
+    side: variant === "rail" ? ("right" as const) : ("bottom" as const),
+    ...part("content"),
+    "data-variant": variant,
+    ...contentExtra,
+    ref: setContentRef,
+    className: cn("w-64 max-w-[calc(100vw-2rem)]", classNames?.content, contentExtra?.className),
+  };
 
-  return (
+  const actionContent = (action: WorkspaceSwitcherAction) => {
+    const Icon = action.icon;
+    return (
+      <>
+        {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
+        <span className="min-w-0 flex-1 truncate text-left">{action.label}</span>
+        {action.shortcut ? <DropdownMenuShortcut aria-hidden>{action.shortcut}</DropdownMenuShortcut> : null}
+      </>
+    );
+  };
+
+  const root = (children: ReactNode) => (
     <div
       ref={rootRef}
       {...part("root")}
@@ -721,131 +848,254 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
       className={cn(variant === "sidebar" && "p-2", classNames?.root, className)}
       data-testid="workspace-switcher"
     >
-      <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-        <DropdownMenuContent
-          ref={contentRef}
-          align="start"
-          side={variant === "rail" ? "right" : "bottom"}
-          {...part("content")}
-          data-variant={variant}
-          {...contentExtra}
-          className={cn(
-            "w-[var(--workspace-switcher-menu-width,16rem)] max-w-[calc(100vw-2rem)]",
-            classNames?.content,
-            contentExtra?.className,
-          )}
+      {children}
+    </div>
+  );
+
+  if (showSearch) {
+    // A combobox: a text box can't live inside role="menu", so the list is a listbox it controls.
+    const searchExtra = slotProps?.search;
+    const emptyExtra = slotProps?.empty;
+    const hasActions = Boolean(actions?.length);
+    return root(
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent
+          {...contentProps}
+          className={cn("p-1", contentProps.className)}
+          data-search=""
+          aria-label={label}
+          onOpenAutoFocus={(e) => {
+            e.preventDefault();
+            searchRef.current?.focus();
+          }}
         >
-          {showSearch
-            ? renderSlot(
-                DefaultWorkspaceSearch,
-                slots?.search,
-                { value: query, onValueChange: setQuery, onKeyDown: onSearchKeyDown, placeholder: searchPlaceholder, inputRef: searchRef },
-                { ...searchExtra, className: cn(classNames?.search, searchExtra?.className) },
-              )
-            : null}
-          {showSearch && groups.length === 0
-            ? renderSlot(
-                DefaultWorkspaceEmpty,
-                slots?.empty,
-                { query, children: emptyText },
-                { ...emptyExtra, className: cn(classNames?.empty, emptyExtra?.className) },
-              )
-            : null}
-          {groups.map((group, i) => {
-            const heading = labels[group.kind];
-            return (
-              <DropdownMenuGroup key={group.kind} {...part("group")} data-kind={group.kind} className={classNames?.group}>
-                {i > 0 ? separator() : null}
-                {heading ? (
-                  <DropdownMenuLabel
-                    {...part("group-label")}
-                    className={cn("text-xs font-normal text-muted-foreground", classNames?.["group-label"])}
+          {renderSlot(
+            DefaultWorkspaceSearch,
+            slots?.search,
+            {
+              value: query,
+              onValueChange: (v: string) => {
+                setQuery(v);
+                setActive(0);
+              },
+              onKeyDown: onSearchKeyDown,
+              placeholder: searchPlaceholder,
+              inputRef: searchRef,
+              comboboxProps: {
+                role: "combobox",
+                "aria-expanded": matches.length > 0,
+                "aria-controls": matches.length > 0 ? listId : undefined,
+                "aria-activedescendant": activeIndex >= 0 ? optionId(activeIndex) : undefined,
+                "aria-autocomplete": "list",
+              },
+            },
+            { ...searchExtra, className: cn(classNames?.search, searchExtra?.className) },
+          )}
+          {matches.length === 0 ? (
+            renderSlot(
+              DefaultWorkspaceEmpty,
+              slots?.empty,
+              { query, children: emptyText },
+              { ...emptyExtra, className: cn(classNames?.empty, emptyExtra?.className) },
+            )
+          ) : (
+            <div
+              {...part("list")}
+              id={listId}
+              role="listbox"
+              aria-label={label}
+              className={cn("max-h-[min(20rem,var(--radix-popover-content-available-height))] overflow-y-auto", classNames?.list)}
+            >
+              {groups.map((group, i) => {
+                const heading = labels[group.kind];
+                const headingId = `${listId}-group-${group.kind}`;
+                return (
+                  <div
+                    key={group.kind}
+                    {...part("group")}
+                    role="group"
+                    aria-labelledby={heading ? headingId : undefined}
+                    data-kind={group.kind}
+                    className={classNames?.group}
                   >
-                    {heading}
-                  </DropdownMenuLabel>
-                ) : null}
-                {group.workspaces.map((w) => {
-                  const isCurrent = w.id === current?.id;
-                  const index = ordered.indexOf(w);
-                  return (
-                    <DropdownMenuItem
-                      key={w.id}
-                      asChild
-                      {...part("item")}
-                      data-kind={w.kind}
-                      data-current={flag(isCurrent)}
-                      className={classNames?.item}
-                      style={workspaceThemeStyle(w)}
-                      onSelect={() => onSelect?.(w)}
-                    >
-                      <Link
-                        href={hrefFor(w)}
-                        className="flex w-full items-center gap-2"
-                        {...(isCurrent ? { "aria-current": "page" as const } : {})}
-                        testID={`workspace-switcher-item-${w.id}`}
+                    {i > 0 ? <div {...part("separator")} aria-hidden className={cn("-mx-1 my-1 h-px bg-muted", classNames?.separator)} /> : null}
+                    {heading ? (
+                      <div
+                        {...part("group-label")}
+                        id={headingId}
+                        className={cn("px-2 py-1.5 text-xs font-normal text-muted-foreground", classNames?.["group-label"])}
                       >
-                        {renderItem
-                          ? renderItem(w, { current: isCurrent })
-                          : renderSlot(
-                              DefaultWorkspaceItem<W>,
-                              slots?.item,
-                              {
-                                workspace: w,
-                                current: isCurrent,
-                                index,
-                                image: imageFor(w, "sm"),
-                                badge: badgeFor(w),
-                                shortcut: jumpHint(index),
-                                classNames,
-                              },
-                              slotProps?.item,
-                            )}
-                      </Link>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuGroup>
-            );
-          })}
-          {actions?.length || footer ? (
+                        {heading}
+                      </div>
+                    ) : null}
+                    {group.workspaces.map((w) => {
+                      const isCurrent = w.id === current?.id;
+                      const position = matches.indexOf(w);
+                      const highlighted = position === activeIndex;
+                      return (
+                        <SlotPrimitive.Root
+                          key={w.id}
+                          {...part("item")}
+                          id={optionId(position)}
+                          role="option"
+                          aria-selected={highlighted}
+                          aria-keyshortcuts={jumpKeys(ordered.indexOf(w))}
+                          tabIndex={-1}
+                          data-kind={w.kind}
+                          data-current={flag(isCurrent)}
+                          data-highlighted={flag(highlighted)}
+                          className={cn(ITEM_CLASS, classNames?.item)}
+                          style={workspaceThemeStyle(w)}
+                          onMouseMove={() => {
+                            if (!highlighted) setActive(position);
+                          }}
+                          onClick={() => {
+                            onSelect?.(w);
+                            setOpen(false);
+                          }}
+                        >
+                          <Link
+                            href={hrefFor(w)}
+                            className="flex w-full items-center gap-2"
+                            {...(isCurrent ? { "aria-current": "page" as const } : {})}
+                            testID={`workspace-switcher-item-${w.id}`}
+                          >
+                            {itemContent(w, isCurrent)}
+                          </Link>
+                        </SlotPrimitive.Root>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {hasActions || footer ? (
             <>
-              {groups.length > 0 || showSearch ? separator() : null}
-              <DropdownMenuGroup {...part("footer")} className={classNames?.footer}>
+              <div {...part("separator")} aria-hidden className={cn("-mx-1 my-1 h-px bg-muted", classNames?.separator)} />
+              <div {...part("footer")} className={cn("flex flex-col", classNames?.footer)}>
                 {actions?.map((action) => {
-                  const Icon = action.icon;
-                  const inner = (
-                    <>
-                      {Icon ? <Icon className="size-4 shrink-0 text-muted-foreground" /> : null}
-                      <span className="min-w-0 flex-1 truncate">{action.label}</span>
-                      {action.shortcut ? <DropdownMenuShortcut>{action.shortcut}</DropdownMenuShortcut> : null}
-                    </>
-                  );
                   const common = {
                     ...part("action"),
                     "data-action": action.id,
-                    disabled: action.disabled,
-                    className: cn("gap-2", classNames?.action),
-                    onSelect: action.onSelect,
+                    variant: "ghost" as const,
+                    className: cn("h-auto w-full justify-start gap-2 px-2 py-1.5 text-left font-normal", classNames?.action),
                   };
                   return action.href && !action.disabled ? (
-                    <DropdownMenuItem key={action.id} asChild {...common}>
-                      <Link href={action.href} className="flex w-full items-center gap-2" testID={`workspace-switcher-action-${action.id}`}>
-                        {inner}
+                    <Button key={action.id} asChild {...common} onClick={() => setOpen(false)}>
+                      <Link href={action.href} testID={`workspace-switcher-action-${action.id}`}>
+                        {actionContent(action)}
                       </Link>
-                    </DropdownMenuItem>
+                    </Button>
                   ) : (
-                    <DropdownMenuItem key={action.id} {...common} data-testid={`workspace-switcher-action-${action.id}`}>
-                      {inner}
-                    </DropdownMenuItem>
+                    <Button
+                      key={action.id}
+                      type="button"
+                      {...common}
+                      disabled={action.disabled}
+                      data-disabled={flag(Boolean(action.disabled))}
+                      data-testid={`workspace-switcher-action-${action.id}`}
+                      onClick={() => {
+                        action.onSelect?.();
+                        setOpen(false);
+                      }}
+                    >
+                      {actionContent(action)}
+                    </Button>
                   );
                 })}
                 {footer}
-              </DropdownMenuGroup>
+              </div>
             </>
           ) : null}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+        </PopoverContent>
+      </Popover>,
+    );
+  }
+
+  const separator = () => <DropdownMenuSeparator {...part("separator")} className={classNames?.separator} />;
+
+  return root(
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+      <DropdownMenuContent {...contentProps}>
+        {groups.map((group, i) => {
+          const heading = labels[group.kind];
+          return (
+            <DropdownMenuGroup key={group.kind} {...part("group")} data-kind={group.kind} className={classNames?.group}>
+              {i > 0 ? separator() : null}
+              {heading ? (
+                <DropdownMenuLabel
+                  {...part("group-label")}
+                  className={cn("text-xs font-normal text-muted-foreground", classNames?.["group-label"])}
+                >
+                  {heading}
+                </DropdownMenuLabel>
+              ) : null}
+              {group.workspaces.map((w) => {
+                const isCurrent = w.id === current?.id;
+                return (
+                  <DropdownMenuItem
+                    key={w.id}
+                    asChild
+                    {...part("item")}
+                    aria-keyshortcuts={jumpKeys(ordered.indexOf(w))}
+                    data-kind={w.kind}
+                    data-current={flag(isCurrent)}
+                    className={cn("group/workspace-item", classNames?.item)}
+                    style={workspaceThemeStyle(w)}
+                    onSelect={() => onSelect?.(w)}
+                  >
+                    <Link
+                      href={hrefFor(w)}
+                      className="flex w-full items-center gap-2"
+                      {...(isCurrent ? { "aria-current": "page" as const } : {})}
+                      testID={`workspace-switcher-item-${w.id}`}
+                    >
+                      {itemContent(w, isCurrent)}
+                    </Link>
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
+          );
+        })}
+        {actions?.length ? (
+          <>
+            {separator()}
+            <DropdownMenuGroup {...part("footer")} className={classNames?.footer}>
+              {actions.map((action) => {
+                const common = {
+                  ...part("action"),
+                  "data-action": action.id,
+                  disabled: action.disabled,
+                  className: cn("gap-2", classNames?.action),
+                  onSelect: action.onSelect,
+                };
+                return action.href && !action.disabled ? (
+                  <DropdownMenuItem key={action.id} asChild {...common}>
+                    <Link href={action.href} className="flex w-full items-center gap-2" testID={`workspace-switcher-action-${action.id}`}>
+                      {actionContent(action)}
+                    </Link>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem key={action.id} {...common} data-testid={`workspace-switcher-action-${action.id}`}>
+                    {actionContent(action)}
+                  </DropdownMenuItem>
+                );
+              })}
+              {footer}
+            </DropdownMenuGroup>
+          </>
+        ) : footer ? (
+          // Without `actions`, the footer is exactly where it always was: after a separator, unwrapped.
+          <>
+            <DropdownMenuSeparator />
+            {footer}
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>,
   );
 }

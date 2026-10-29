@@ -101,15 +101,23 @@ Apps customize it without forking it, on the same ladder as every Genesis patter
 G1, G2):
 
 - **Props.** The group headings (`kindLabels`), the pictures (`kindIcons`), a badge per workspace
-  (`Workspace.badge`, or `renderBadge`), a search box (`search`: on by itself past seven
-  workspaces, matching the name and second line, `filterWorkspaces` in core), typed actions at the
-  bottom (`actions`: `{ id, label, icon, href | onSelect, shortcut, disabled }`) and any other items
-  (`footer`), and a controlled `open`.
+  (`Workspace.badge`, or `renderBadge`; screen readers hear `badgeLabel`, "3 new", not the bare
+  number), typed actions at the bottom (`actions`: `{ id, label, icon, href | onSelect, shortcut,
+  disabled }`) and any other items (`footer`), and a controlled `open`.
+- **Search** is opt-in (`search`; `"auto"` turns it on past seven workspaces), matching the name and
+  second line (`filterWorkspaces` in core). A text box can't sit inside `role="menu"`, so with
+  search on the list is a combobox instead: the box (`role="combobox"`) filters a `role="listbox"`
+  of the workspaces, ↑/↓ move the highlight, Enter goes to it (never during an IME composition,
+  and never to a footer action when nothing matches). `actions` then render as buttons under the
+  list, and `footer` must hold plain links or buttons rather than menu items.
 - **Keyboard.** `shortcuts={{ open: "mod+shift+o", jump: true }}`: a configurable shortcut opens
   the menu, and ⌘1 to ⌘9 (Ctrl elsewhere; `jump: "alt"` for Alt, since browsers keep some of
   those for tabs) go straight to a workspace in the menu's order (`orderedWorkspaces`). Both are
-  off by default. Only the switcher on screen answers, so the sidebar, rail and bar copies don't
-  all fire, and a jump navigates through `onNavigate` (the router's navigate).
+  off by default. Only the switcher on screen answers (not one in an `inert` or `aria-hidden`
+  drawer), so the sidebar, rail and bar copies don't all fire. The Alt jump never fires while the
+  viewer types, since Option+digit types characters on a Mac. A jump navigates through
+  `onNavigate` (the router's navigate); without it the page reloads, and the switcher warns in
+  development.
 - **Styling by part.** Every element carries `data-scope="workspace-switcher"` and a
   `data-part` (`root`, `trigger`, `image`, `name`, `description`, `indicator`, `content`,
   `search`, `group`, `group-label`, `item`, `item-name`, `item-description`, `item-indicator`,
@@ -117,10 +125,10 @@ G1, G2):
   use, plus state attributes in Radix's style: `data-state="open|closed"`, `data-variant`,
   `data-kind`, and `data-current` on the current row (Radix adds `data-highlighted` and
   `data-disabled`). `classNames` adds Tailwind classes per part, so
-  `classNames={{ item: "data-[current]:font-medium" }}` works without a stylesheet. This is the
-  design system's styling, not a second one: colors stay the semantic tokens, and the two sizes
-  apps tune are CSS variables (`--workspace-switcher-menu-width`, default 16rem, and
-  `--workspace-switcher-image-radius`).
+  `classNames={{ item: "data-[current]:font-medium", content: "w-80", image: "rounded-full" }}`
+  works without a stylesheet. This is the design system's styling, not a second one: colors are
+  the semantic tokens (CSS variables), and the default classes (`w-64`, `rounded-md`) are the
+  ones the switcher always had.
 - **Brand per workspace.** A workspace's `theme.accent` goes through `workspaceThemeStyle`, the
   same contrast-checked `brandThemeStyle` public pages use, and re-points `--primary` on that
   workspace's tile and row. An app can put the current workspace's on its shell.

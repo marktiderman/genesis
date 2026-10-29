@@ -35,12 +35,11 @@ function inScope(ui: React.ReactNode, pathname = "/o/acme/clients/42") {
   );
 }
 
-/** Radix's trigger opens on pointerdown, not click. */
+/** Radix's menu trigger opens on pointerdown; the search popover's on click. */
 function openMenu(name: RegExp = /Switch workspace/) {
-  fireEvent.pointerDown(
-    screen.getByRole("button", { name }),
-    new PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: false }),
-  );
+  const trigger = screen.getByRole("button", { name });
+  fireEvent.pointerDown(trigger, new PointerEvent("pointerdown", { bubbles: true, button: 0, ctrlKey: false }));
+  if (trigger.getAttribute("aria-haspopup") === "dialog") fireEvent.click(trigger);
 }
 
 describe("WorkspaceSwitcher", () => {
@@ -197,6 +196,26 @@ describe("WorkspaceSwitcher", () => {
     expect(screen.getByTestId("workspace-switcher-item-me").querySelector('[data-part="badge"]')?.textContent).toBe("new");
   });
 
+  it("keeps the badge's bare value and the jump hint out of the row's name, and says what the badge means", async () => {
+    const withBadge: Workspace[] = [{ ...workspaces[0]!, badge: 3 }, workspaces[1]!];
+    render(<WorkspaceSwitcher workspaces={withBadge} current={withBadge[0]} shortcuts={{ jump: true }} onNavigate={() => {}} />);
+    openMenu();
+    await screen.findByRole("menu");
+    const acme = screen.getByTestId("workspace-switcher-item-acme");
+    expect(acme.querySelector('[data-part="badge"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(acme.querySelector('[data-part="item-shortcut"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByRole("menuitem", { name: "Acme Fitness Owner , 3 new" })).toBe(acme);
+    expect(acme.getAttribute("aria-keyshortcuts")).toBe("Control+1 Meta+1");
+  });
+
+  it("takes the badge's spoken label from badgeLabel", async () => {
+    const withBadge: Workspace[] = [{ ...workspaces[0]!, badge: 3 }];
+    render(<WorkspaceSwitcher workspaces={withBadge} current={withBadge[0]} badgeLabel={(_w, v) => `${v} unread messages`} />);
+    openMenu();
+    await screen.findByRole("menu");
+    expect(screen.getByTestId("workspace-switcher-item-acme").textContent).toContain("3 unread messages");
+  });
+
   it("takes a badge renderer, and slots.badge null drops them", async () => {
     const withBadge: Workspace[] = [{ ...workspaces[0]!, badge: 3 }, workspaces[1]!];
     const { unmount } = render(
@@ -232,53 +251,134 @@ describe("WorkspaceSwitcher", () => {
       scope: { orgId: `org-${i + 1}` },
     }));
 
-    it("is off for a short list and on past seven", async () => {
-      const { unmount } = render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} />);
+    it("is off by default, however many workspaces there are: the list stays a menu", async () => {
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} />);
+      openMenu();
+      await screen.findByRole("menu");
+      expect(screen.queryByTestId("workspace-switcher-search")).toBeNull();
+      expect(screen.queryByRole("combobox")).toBeNull();
+    });
+
+    it("turns on past seven with search=\"auto\", and can be forced on", async () => {
+      const { unmount } = render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search="auto" />);
       openMenu();
       await screen.findByRole("menu");
       expect(screen.queryByTestId("workspace-switcher-search")).toBeNull();
       unmount();
-      render(<WorkspaceSwitcher workspaces={many} current={many[0]} />);
+      const second = render(<WorkspaceSwitcher workspaces={many} current={many[0]} search="auto" />);
       openMenu();
-      await screen.findByRole("menu");
-      expect(screen.getByTestId("workspace-switcher-search")).toBeTruthy();
+      expect(await screen.findByRole("combobox")).toBeTruthy();
+      second.unmount();
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search />);
+      openMenu();
+      expect(await screen.findByRole("combobox")).toBeTruthy();
+    });
+
+    it("is a combobox over a listbox, never a text box inside a menu", async () => {
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search actions={[{ id: "new", label: "New", onSelect: () => {} }]} />);
+      openMenu();
+      const box = await screen.findByRole("combobox");
+      expect(screen.queryByRole("menu")).toBeNull();
+      const list = screen.getByRole("listbox");
+      expect(box.getAttribute("aria-controls")).toBe(list.id);
+      expect(box.getAttribute("aria-autocomplete")).toBe("list");
+      // A listbox owns groups and options only; the footer sits outside it.
+      for (const child of Array.from(list.children)) expect(child.getAttribute("role")).toBe("group");
+      for (const group of Array.from(list.children)) {
+        for (const el of Array.from(group.children)) {
+          expect(["option", null]).toContain(el.getAttribute("role"));
+          if (el.getAttribute("role") === null) expect(el.querySelector("a,button,input")).toBeNull();
+        }
+      }
+      expect(within(list).getAllByRole("option").length).toBe(9);
+      expect(list.contains(screen.getByTestId("workspace-switcher-action-new"))).toBe(false);
+      expect(box.getAttribute("aria-activedescendant")).toBe(screen.getByTestId("workspace-switcher-item-org-1").id);
     });
 
     it("narrows the list as the viewer types, and says when nothing matches", async () => {
-      render(<WorkspaceSwitcher workspaces={many} current={many[0]} emptyText="Nothing here" />);
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search emptyText="Nothing here" />);
       openMenu();
-      const menu = await screen.findByRole("menu");
-      const box = screen.getByTestId("workspace-switcher-search");
+      const box = await screen.findByRole("combobox");
       fireEvent.change(box, { target: { value: "zurich" } });
-      expect(within(menu).getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["ZSZürich Studio"]);
+      expect(screen.getAllByRole("option").map((i) => i.textContent)).toEqual(["ZSZürich Studio"]);
       fireEvent.change(box, { target: { value: "nope" } });
-      expect(within(menu).queryAllByRole("menuitem")).toEqual([]);
-      expect(within(menu).getByText("Nothing here").getAttribute("data-part")).toBe("empty");
+      expect(screen.queryAllByRole("option")).toEqual([]);
+      expect(screen.queryByRole("listbox")).toBeNull();
+      expect(box.hasAttribute("aria-activedescendant")).toBe(false);
+      expect(screen.getByText("Nothing here").getAttribute("data-part")).toBe("empty");
     });
 
-    it("takes focus on opening, keeps typed letters, and moves into the list on the down arrow", async () => {
-      render(<WorkspaceSwitcher workspaces={many} current={many[0]} />);
+    it("takes focus on opening; the arrows move the highlight and Enter goes there", async () => {
+      const onSelect = vi.fn();
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search onSelect={onSelect} />);
       openMenu();
-      await screen.findByRole("menu");
-      const box = screen.getByTestId("workspace-switcher-search");
+      const box = await screen.findByRole("combobox");
       await waitFor(() => expect(document.activeElement).toBe(box));
-      fireEvent.keyDown(box, { key: "t" });
-      expect(document.activeElement).toBe(box);
-      fireEvent.change(box, { target: { value: "tenant 9" } });
+      fireEvent.change(box, { target: { value: "tenant" } });
       fireEvent.keyDown(box, { key: "ArrowDown" });
-      expect(document.activeElement).toBe(screen.getByTestId("workspace-switcher-item-org-9"));
+      fireEvent.keyDown(box, { key: "ArrowDown" });
+      const third = screen.getByTestId("workspace-switcher-item-org-3");
+      expect(third.getAttribute("aria-selected")).toBe("true");
+      expect(third.hasAttribute("data-highlighted")).toBe(true);
+      expect(box.getAttribute("aria-activedescendant")).toBe(third.id);
+      fireEvent.keyDown(box, { key: "ArrowUp" });
+      fireEvent.keyDown(box, { key: "ArrowUp" });
+      fireEvent.keyDown(box, { key: "ArrowUp" });
+      expect(screen.getByTestId("workspace-switcher-item-org-9").getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(box);
+      fireEvent.keyDown(box, { key: "Enter" });
+      expect(onSelect).toHaveBeenCalledWith(many[8]);
     });
 
-    it("can be forced on or off", async () => {
-      const { unmount } = render(<WorkspaceSwitcher workspaces={many} current={many[0]} search={false} />);
+    it("ignores the Enter that commits an IME composition", async () => {
+      const onSelect = vi.fn();
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search onSelect={onSelect} />);
       openMenu();
-      await screen.findByRole("menu");
-      expect(screen.queryByTestId("workspace-switcher-search")).toBeNull();
-      unmount();
-      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search />);
+      const box = await screen.findByRole("combobox");
+      fireEvent.keyDown(box, { key: "Enter", keyCode: 229, isComposing: true });
+      fireEvent.keyDown(box, { key: "Process", keyCode: 229 });
+      expect(onSelect).not.toHaveBeenCalled();
+    });
+
+    it("does nothing on Enter when nothing matches, never running a footer action", async () => {
+      const onAction = vi.fn();
+      const onSelect = vi.fn();
+      render(
+        <WorkspaceSwitcher workspaces={many} current={many[0]} search onSelect={onSelect} actions={[{ id: "new", label: "New organization", onSelect: onAction }]} />,
+      );
       openMenu();
-      await screen.findByRole("menu");
-      expect(screen.getByTestId("workspace-switcher-search")).toBeTruthy();
+      const box = await screen.findByRole("combobox");
+      fireEvent.change(box, { target: { value: "zzzz" } });
+      fireEvent.keyDown(box, { key: "Enter" });
+      expect(onAction).not.toHaveBeenCalled();
+      expect(onSelect).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByTestId("workspace-switcher-action-new"));
+      expect(onAction).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps working with a ref of the app's own on the content", async () => {
+      const ref = { current: null as HTMLDivElement | null };
+      const onSelect = vi.fn();
+      render(<WorkspaceSwitcher workspaces={many} current={many[0]} search onSelect={onSelect} slotProps={{ content: { ref } }} />);
+      openMenu();
+      const box = await screen.findByRole("combobox");
+      expect(ref.current?.getAttribute("data-part")).toBe("content");
+      fireEvent.keyDown(box, { key: "ArrowDown" });
+      fireEvent.keyDown(box, { key: "Enter" });
+      expect(onSelect).toHaveBeenCalledWith(many[1]);
+    });
+
+    it("starts clean after a parent closes it", async () => {
+      const props = { workspaces: many, current: many[0], search: true } as const;
+      const { rerender } = render(<WorkspaceSwitcher {...props} open />);
+      const box = await screen.findByRole("combobox");
+      fireEvent.change(box, { target: { value: "tenant 3" } });
+      expect(screen.getAllByRole("option").length).toBe(1);
+      rerender(<WorkspaceSwitcher {...props} open={false} />);
+      rerender(<WorkspaceSwitcher {...props} open />);
+      const again = await screen.findByRole("combobox");
+      expect((again as HTMLInputElement).value).toBe("");
+      expect(screen.getAllByRole("option").length).toBe(9);
     });
   });
 
@@ -328,6 +428,60 @@ describe("WorkspaceSwitcher", () => {
       expect(hint).toMatch(/1$/);
     });
 
+    it("never jumps with Alt while the viewer types (Option+digit types a character on a Mac)", () => {
+      const onNavigate = vi.fn();
+      render(
+        <>
+          <textarea data-testid="notes" />
+          <WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} onNavigate={onNavigate} shortcuts={{ jump: "alt" }} />
+        </>,
+      );
+      const notes = screen.getByTestId("notes");
+      notes.focus();
+      const typed = fireEvent.keyDown(notes, { key: "#", code: "Digit3", altKey: true });
+      expect(typed).toBe(true);
+      expect(onNavigate).not.toHaveBeenCalled();
+    });
+
+    it("warns in development when jumping has no onNavigate", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ jump: true }} />);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("onNavigate"));
+      warn.mockClear();
+      cleanup();
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ jump: true }} onNavigate={() => {}} />);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+
+    it("answers from the copy on screen, never the closed mobile drawer's", async () => {
+      // Below md: the desktop sidebar is display:none; the closed drawer is inert and aria-hidden.
+      const original = HTMLElement.prototype.checkVisibility;
+      HTMLElement.prototype.checkVisibility = function (this: HTMLElement) {
+        return !this.closest("aside:not(#app-shell-mobile-nav)");
+      };
+      try {
+        inScope(
+          <AppShell
+            appName="Sample"
+            navItems={[]}
+            options={{ showThemeToggle: false, configurable: false }}
+            headerSlot={<WorkspaceSwitcher shortcuts={{ open: "mod+k" }} />}
+            mobileHeaderSlot={<WorkspaceSwitcher variant="bar" shortcuts={{ open: "mod+k" }} />}
+          >
+            <p>content</p>
+          </AppShell>,
+        );
+        await screen.findAllByRole("button", { name: /Acme Fitness/ });
+        fireEvent.keyDown(window, { key: "k", code: "KeyK", ctrlKey: true });
+        await screen.findByRole("menu");
+        const states = screen.getAllByTestId("workspace-switcher").map((el) => [el.getAttribute("data-variant"), el.getAttribute("data-state")]);
+        expect(states.filter(([, state]) => state === "open")).toEqual([["bar", "open"]]);
+      } finally {
+        HTMLElement.prototype.checkVisibility = original;
+      }
+    });
+
     it("uses Alt for the jump when asked", () => {
       const onNavigate = vi.fn();
       render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} onNavigate={onNavigate} shortcuts={{ jump: "alt" }} />);
@@ -336,6 +490,24 @@ describe("WorkspaceSwitcher", () => {
       fireEvent.keyDown(window, { key: "¡", code: "Digit1", altKey: true });
       expect(onNavigate).toHaveBeenCalledWith("/me", workspaces[3]);
     });
+  });
+
+  it("keeps the footer where it was when there are no actions: after a separator, straight in the menu", async () => {
+    render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} footer={<a href="/new" data-testid="new-org">New organization</a>} />);
+    openMenu();
+    const menu = await screen.findByRole("menu");
+    const item = screen.getByTestId("new-org");
+    expect(item.parentElement).toBe(menu);
+    expect(item.previousElementSibling?.getAttribute("role")).toBe("separator");
+    expect(menu.querySelector('[data-part="footer"]')).toBeNull();
+  });
+
+  it("keeps the picture's rounded-md and the menu's w-64 classes", async () => {
+    render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} />);
+    const trigger = screen.getByRole("button", { name: /Acme Fitness/ });
+    expect(trigger.querySelector('[data-part="image"]')?.classList.contains("rounded-md")).toBe(true);
+    openMenu();
+    expect((await screen.findByRole("menu")).classList.contains("w-64")).toBe(true);
   });
 
   it("lists typed actions at the bottom of the menu", async () => {
