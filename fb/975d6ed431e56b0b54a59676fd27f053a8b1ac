@@ -1,0 +1,28 @@
+docs/DATA-STUDIO.md
+  s_36f3212387dbf7::t_38f029b7f23fd5 8
+packages/ui/README.md
+  s_36f3212387dbf7::t_38f029b7f23fd5 37,48-51
+scripts/__tests__/check-glossary.test.mjs
+  s_36f3212387dbf7::t_38f029b7f23fd5 14-15,29-32
+  s_36f3212387dbf7::t_18e8ac7c897aa7 13
+scripts/check-glossary.mjs
+  s_36f3212387dbf7::t_38f029b7f23fd5 15,24,34,52-53,62-63,65,101-102
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_38f029b7f23fd5 46-48,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fb975d6ed431e56b0b54a59676fd27f053a8b1ac",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
