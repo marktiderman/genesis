@@ -1,0 +1,25 @@
+.github/workflows/ci.yml
+  s_8b8f6102383114::t_364b5ce512b0d3 108-119
+.github/workflows/release.yml
+  s_8b8f6102383114::t_f18ee57444f323 323-325
+docs/RELEASING.md
+  s_8b8f6102383114::t_32321e6373e1c7 48-51
+scripts/create-tag-ref.sh
+  s_8b8f6102383114::t_039a7270996519 33-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b82251f02275becbf06ae1f5fc75abe2eddfeaac",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
