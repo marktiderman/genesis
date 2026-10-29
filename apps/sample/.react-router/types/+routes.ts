@@ -130,6 +130,9 @@ type Pages = {
   "/chat": {
     params: {};
   };
+  "/integrations": {
+    params: {};
+  };
   "/packages": {
     params: {};
   };
@@ -181,7 +184,7 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/forms-frame" | "/preview/:scenario" | "/sites-editor" | "/demo" | "/demo/:ws" | "/demo/:ws/clients" | "/demo/:ws/clients/:id/:section?" | "/demo/:ws/bookings" | "/demo/:ws/intake" | "/demo/:ws/chat" | "/demo/:ws/assistant" | "/demo/:ws/data" | "/demo/:ws/settings" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/features" | "/sites" | "/chat" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/" | "/forms-frame" | "/preview/:scenario" | "/sites-editor" | "/demo" | "/demo/:ws" | "/demo/:ws/clients" | "/demo/:ws/clients/:id/:section?" | "/demo/:ws/bookings" | "/demo/:ws/intake" | "/demo/:ws/chat" | "/demo/:ws/assistant" | "/demo/:ws/data" | "/demo/:ws/settings" | "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
@@ -245,7 +248,7 @@ type RouteFiles = {
   };
   "routes/_layout.tsx": {
     id: "routes/_layout";
-    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/features" | "/sites" | "/chat" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
+    page: "/dashboard" | "/items" | "/items-custom" | "/tasks" | "/orders" | "/design-system" | "/sandbox" | "/forms-playground" | "/forms-builder" | "/forms" | "/forms/:scenario" | "/settings" | "/projects/*" | "/studio" | "/features" | "/sites" | "/chat" | "/integrations" | "/packages" | "/packages/:name" | "/showcase" | "/showcase/tokens" | "/showcase/tokens/:category" | "/showcase/elements" | "/showcase/elements/:slug" | "/showcase/primitives" | "/showcase/primitives/:slug" | "/showcase/layouts" | "/showcase/layouts/:slug" | "/showcase/standards";
   };
   "routes/dashboard.tsx": {
     id: "routes/dashboard";
@@ -318,6 +321,10 @@ type RouteFiles = {
   "routes/chat.tsx": {
     id: "routes/chat";
     page: "/chat";
+  };
+  "routes/integrations.tsx": {
+    id: "routes/integrations";
+    page: "/integrations";
   };
   "routes/packages._index.tsx": {
     id: "routes/packages._index";
@@ -404,6 +411,7 @@ type RouteModules = {
   "routes/features": typeof import("./app/routes/features.tsx");
   "routes/sites": typeof import("./app/routes/sites.tsx");
   "routes/chat": typeof import("./app/routes/chat.tsx");
+  "routes/integrations": typeof import("./app/routes/integrations.tsx");
   "routes/packages._index": typeof import("./app/routes/packages._index.tsx");
   "routes/packages.$name": typeof import("./app/routes/packages.$name.tsx");
   "routes/showcase._index": typeof import("./app/routes/showcase._index.tsx");

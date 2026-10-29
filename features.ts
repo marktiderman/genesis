@@ -3198,6 +3198,21 @@ export const features = defineFeatures({
       docs: ["docs/adr/0010-own-product-events.md"],
     },
   },
+  "integrations-catalog": {
+    name: "Integrations on the site",
+    summary: "The site's /integrations page: every outside service Genesis works with (available or planned), grouped, each linked to the feature that holds its code; Genesis owns the contract and vendors plug in behind it.",
+    category: "Integrations",
+    status: "building",
+    horizon: "now",
+    claimedBy: "mark",
+    kind: "tool",
+    keywords: ["integrations", "vendors", "partners", "website", "adapters"],
+    owner: "mark",
+    apps: ["web"],
+    audience: ["developer"],
+    visibility: "public",
+    links: { code: ["apps/sample/app/lib/integrations.ts", "apps/sample/app/routes/integrations.tsx"] },
+  },
 });
 
 export type FeatureId = FeatureIdOf<typeof features>;
