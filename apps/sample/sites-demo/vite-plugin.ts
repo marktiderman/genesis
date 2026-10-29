@@ -72,12 +72,15 @@ export function sitesDemo(): Plugin {
       server.middlewares.use(middleware(base));
     },
     // The static copy, for the client build only (react-router builds the client into build/client).
-    async writeBundle() {
-      if (!outDir.endsWith(join("build", "client"))) return;
+    // The bundle's own output dir: under React Router 8's Vite environments the resolved config's
+    // outDir is the top-level one, not the client build's.
+    async writeBundle(options) {
+      const dir = options.dir ?? outDir;
+      if (!dir.endsWith(join("build", "client"))) return;
       const origin = "https://genesisone.dev";
       const root = base.replace(/\/+$/, "");
       const write = (path: string, body: string) => {
-        const file = join(outDir, path.slice(root.length));
+        const file = join(dir, path.slice(root.length));
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, body);
       };
