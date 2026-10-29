@@ -1,0 +1,41 @@
+apps/sample/app/routes/integrations.tsx
+  s_36f3212387dbf7::t_fe4161f117d91b 26,35
+  s_36f3212387dbf7::t_3059b7a3e71373 3,25
+  s_36f3212387dbf7::t_ad0192f592257f 1-2,4-24,27-34,36-49
+apps/sample/app/routes/_layout.tsx
+  s_36f3212387dbf7::t_774b8e4a3c1646 8
+  s_36f3212387dbf7::t_59f5dac09ab380 52
+apps/sample/.react-router/types/app/routes/+types/integrations.ts
+  s_36f3212387dbf7::t_09377dba0e7e24 1-74
+apps/sample/app/lib/site.ts
+  s_36f3212387dbf7::t_59f5dac09ab380 57
+AGENTS.md
+  s_36f3212387dbf7::t_a728c3b80566f4 62
+apps/sample/app/routes.ts
+  s_36f3212387dbf7::t_59f5dac09ab380 54
+apps/sample/app/lib/integrations.ts
+  s_36f3212387dbf7::t_09377dba0e7e24 6-7,15
+  s_36f3212387dbf7::t_9a56319ba675ab 1-5,8-14,16-40
+apps/sample/.react-router/types/+routes.ts
+  s_36f3212387dbf7::t_09377dba0e7e24 133-135,187,251,325-328,414
+features.json
+  s_36f3212387dbf7::t_a728c3b80566f4 7221-7253
+features.ts
+  s_36f3212387dbf7::t_a728c3b80566f4 3201-3215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "99d261e41f016dde9502d20ff151b0d3f3eb11ba",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
