@@ -122,10 +122,15 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BASE_REF: ${{ github.base_ref }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        # The description is read now, not from the event, so editing it and re-running the job
+        # is enough after adding an ADR link.
         run: |
           git fetch --no-tags --depth=1 origin "$BASE_REF"
-          node scripts/check-adr-required.mjs --base "origin/$BASE_REF"
+          PR_BODY="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""')" \
+            node scripts/check-adr-required.mjs --base "origin/$BASE_REF"
 
       # The rules of engagement a script can check (docs/agents/RULES.md): a new package starts
       # at 0.1.0 with patch changesets; a workflow on PRs into main also runs on the batches.

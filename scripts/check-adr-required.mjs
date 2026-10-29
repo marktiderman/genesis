@@ -28,14 +28,26 @@ export function adrProblems(added, body = "") {
   );
 }
 
+/** A batch moving up (staging → main, prestage → staging) carries packages accepted lower down. */
+export const isBatchHead = (head = "") => /^(staging|prestage)\//.test(head);
+
 function main(argv) {
   const at = argv.indexOf("--base");
+  if (at >= 0 && !argv[at + 1]) {
+    console.error("check-adr-required: --base needs a ref.");
+    return 1;
+  }
   const base = at >= 0 ? argv[at + 1] : process.env.GITHUB_BASE_REF ? `origin/${process.env.GITHUB_BASE_REF}` : null;
   if (!base) {
     console.log("check-adr-required: no base branch (not a pull request); nothing to check.");
     return 0;
   }
-  const added = execFileSync("git", ["diff", "--name-only", "--diff-filter=A", base, "HEAD"], { encoding: "utf8" }).split("\n").filter(Boolean);
+  if (isBatchHead(process.env.HEAD_REF)) {
+    console.log(`check-adr-required: ${process.env.HEAD_REF} is a batch; its pull requests were checked on the way in.`);
+    return 0;
+  }
+  // Renames are found explicitly, so a moved package folder is a rename, not a new package.
+  const added = execFileSync("git", ["diff", "--name-only", "--find-renames", "--diff-filter=A", base, "HEAD"], { encoding: "utf8" }).split("\n").filter(Boolean);
   const problems = adrProblems(added, process.env.PR_BODY ?? "");
   for (const p of problems) console.error(`✗ ${p}`);
   if (!problems.length) console.log("✔ check-adr-required: every new noun links an ADR.");
