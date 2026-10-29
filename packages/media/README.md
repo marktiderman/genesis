@@ -336,11 +336,71 @@ For `head`, send a `GET` with `range: bytes=0-0`, read the size from
 `content-range`, and cancel the body. The service role key stays in the
 Worker, like the signing secret.
 
+### Responsive images from private storage
+
+`createSignedImageUrls` gives a private photo a `srcset` like a public one.
+It signs every declared derivative of the items you name and resolves to an
+`ImageUrlBuilder` for `responsiveImage`:
+
+```ts
+import { createSignedImageUrls, finishSizes, mediaSrc } from "@marktiderman/genesis-media/signed";
+import { responsiveImage } from "@marktiderman/genesis-media";
+
+// After the app's own rules have chosen what this person may see:
+const imageUrl = await createSignedImageUrls(signer, {
+  base: "https://media.example.com",
+  derivatives: finishSizes("color", [800, 2400]), // color/800 and color/2400
+  items: visible.map((photo) => mediaSrc("photos", photo.id)),
+});
+
+const img = responsiveImage(
+  { src: mediaSrc("photos", photo.id), alt: photo.alt, width: photo.width, height: photo.height },
+  { imageUrl, widths: imageUrl.widths, sizes: "(min-width: 768px) 50vw, 100vw" },
+);
+```
+
+- **It signs; it never decides access.** Pass only the items the person may
+  already see. Any other `src` gets `null` from the builder, so
+  `responsiveImage` leaves it at its own URL with no `srcset`, and nothing
+  unchecked is signed.
+- **Derivatives** follow ADR 0012's names: finish × size (`color/800`,
+  `bw/2400`, made with `finishSizes`), renditions (`web-1080`, `web-720`) and
+  `poster`, each `{ name, width }`. For each width a `srcset` asks for, the
+  builder serves the smallest derivative at least that wide, or the widest
+  there is. Pass `imageUrl.widths` as `responsiveImage`'s `widths`, so every
+  `w` in the `srcset` is the derivative's own width. `format` and `quality`
+  are ignored: derivatives are fixed files.
+- **One link per derivative.** Each URL is signed for
+  `mediaScope.file(collection, id, derivative)`, so a link to `color/800`
+  can't open `color/2400`, another item, or the original.
+- **Hour-aligned by default** (`sign: { align: "hour" }`, with the signer's
+  `file` TTL), so every `srcset` URL stays the same, and caches, for the
+  clock hour when the TTL is whole hours. Pass `sign` to change it.
+- **Async.** WebCrypto signs asynchronously, so the links are made when the
+  promise resolves and the builder only looks them up. Make one builder per
+  response, for that response's items.
+- **Paths** default to `<collection>/<id>/<derivative>` under `base`
+  (`photos/a1/color/800`); `path(item, derivative)` changes that. The
+  handler's `route` reads the default back with `parseSignedImagePath`, and
+  must check the derivative is one you declared:
+
+```ts
+const names = new Set(derivatives.map((d) => d.name));
+const handle = createSignedMediaHandler({
+  storage, signer,
+  route: (path) => {
+    const p = parseSignedImagePath(path);
+    if (!p || !names.has(p.derivative)) return undefined;
+    return { key: `media/${path}.jpg`, scope: mediaScope.file(p.collection, p.id, p.derivative) };
+  },
+});
+```
+
 ### Where an app customizes (ADR 0013)
 
 | Level | Signed links | Bundles |
 | --- | --- | --- |
-| **Configure** | scopes, TTL per scope kind or per link, hour alignment, `cacheControl`, keys | filename, expiry, entries |
+| **Configure** | scopes, TTL per scope kind or per link, hour alignment, `cacheControl`, keys; for images, the derivatives and their path | filename, expiry, entries |
 | **Brand** | none: nothing here is seen | none |
 | **Compose** | none: there is no UI | none |
 | **Adapt** | the `MediaStorage` behind the verifier (R2, S3-compatible, Supabase, memory) | the same storage, and where `readManifest` reads from |
