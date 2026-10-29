@@ -6,7 +6,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, "staging/**", "prestage/**"]
   schedule:
     - cron: "17 6 * * 1"
 

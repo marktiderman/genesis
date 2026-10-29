@@ -14,7 +14,10 @@ which commit shipped.
 ## Normal release (nothing to do on npm)
 
 1. In your feature PR, add a changeset: `pnpm changeset` (pick packages and
-   bump type). Merge the PR.
+   bump type). Merge the PR. Work usually lands in a `staging/*` (or
+   `prestage/*`) batch first, then reaches `main` in one release PR; PRs into a
+   batch run the same CI as PRs into `main` (build, typecheck, test, features,
+   lint, Storybook, self-lint, tarball integrity, CodeQL).
 2. The Release workflow opens or updates a **"chore: version packages"** PR.
 3. Merge that PR. Release runs again, checks npm trusts it for every package
    about to publish, publishes, then tags and creates GitHub releases.
