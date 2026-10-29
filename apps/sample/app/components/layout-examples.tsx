@@ -23,7 +23,7 @@ export function DashboardExample() {
     <DashboardPage
       title="This week"
       subtitle="Bookings and revenue across the studio."
-      actions={<Button size="sm">New booking</Button>}
+      actions={<Button testID="layout-examples-button-1" size="sm">New booking</Button>}
       stats={[
         <Stat key="b" label="Bookings" value="128" />,
         <Stat key="r" label="Revenue" value="$9,420" />,
@@ -74,8 +74,8 @@ export function FormExample() {
       description="Add someone to the workspace."
       actions={
         <>
-          <Button variant="outline">Cancel</Button>
-          <Button>Save</Button>
+          <Button testID="layout-examples-button-2" variant="outline">Cancel</Button>
+          <Button testID="layout-examples-button-3">Save</Button>
         </>
       }
     >
@@ -98,7 +98,7 @@ export function DetailExample() {
     <DetailPage
       title="Jordan Lee"
       subtitle="Client since March"
-      actions={<Button size="sm" variant="outline">Edit</Button>}
+      actions={<Button testID="layout-examples-button-4" size="sm" variant="outline">Edit</Button>}
       sidebar={
         <Card>
           <CardHeader>

@@ -23,7 +23,7 @@ export function ViewSource({
     <Sheet {...(controlled ? { open: openProp, onOpenChange } : {})}>
       {controlled ? null : (
         <SheetTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button testID="source-button-1" variant="outline" size="sm">
             <Code className="mr-1.5 h-4 w-4" aria-hidden />
             View source
           </Button>
@@ -36,7 +36,7 @@ export function ViewSource({
         </SheetHeader>
         <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Files">
           {names.map((n) => (
-            <Button key={n} role="tab" aria-selected={n === open} size="sm" variant={n === open ? "default" : "ghost"} onClick={() => setOpen(n)}>
+            <Button testID="source-button-2" key={n} role="tab" aria-selected={n === open} size="sm" variant={n === open ? "default" : "ghost"} onClick={() => setOpen(n)}>
               <span className="font-mono text-xs">{n}</span>
             </Button>
           ))}

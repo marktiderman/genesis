@@ -52,7 +52,7 @@ function Intake() {
     <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
       <PageHeader
       title="Intake form"
-      description={`What a new ${org?.clientNoun.toLowerCase() ?? "client"} of ${org?.name ?? "the organization"} fills in. Submitting adds them to the list as a lead.`}
+      subtitle={`What a new ${org?.clientNoun.toLowerCase() ?? "client"} of ${org?.name ?? "the organization"} fills in. Submitting adds them to the list as a lead.`}
       actions={<ViewSource files={{ "intake.form.ts": formSource }} />}
     />
       <FeatureGate
@@ -69,7 +69,7 @@ function Intake() {
             <AlertTitle>{added} is on the list</AlertTitle>
             <AlertDescription className="flex flex-wrap items-center gap-3">
               <Link className="underline" to={href("clients")}>Open the list</Link>
-              <Button size="sm" variant="outline" onClick={() => { setAdded(null); setRun((n) => n + 1); }}>Fill it in again</Button>
+              <Button testID="demo-ws-intake-button-1" size="sm" variant="outline" onClick={() => { setAdded(null); setRun((n) => n + 1); }}>Fill it in again</Button>
             </AlertDescription>
           </Alert>
         ) : null}

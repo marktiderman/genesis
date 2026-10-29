@@ -106,7 +106,7 @@ export default function DemoLayout() {
           ))}
         </SelectContent>
       </Select>
-      <Button variant="ghost" size="sm" className="w-full justify-start" onClick={() => setResets((n) => n + 1)} data-testid="demo-reset">
+      <Button testID="demo-button-1" variant="ghost" size="sm" className="w-full justify-start" onClick={() => setResets((n) => n + 1)} data-testid="demo-reset">
         <RotateCcw className="mr-2 h-4 w-4" aria-hidden />
         Reset demo data
       </Button>

@@ -29,7 +29,7 @@ export default function DemoClient() {
       <EmptyState
         title="Not here"
         description={role === "client" ? "A client sees only their own record." : "This record isn't in this organization."}
-        action={<Button asChild><Link to={href(role === "client" ? "" : "clients")}>Back</Link></Button>}
+        action={<Button testID="demo-ws-clients-id-button-1" asChild><Link to={href(role === "client" ? "" : "clients")}>Back</Link></Button>}
       />
     );
   }
@@ -48,7 +48,7 @@ export default function DemoClient() {
           activity: (
             <div className="space-y-3 p-1 text-sm">
               <p className="text-muted-foreground">Joined on {row.joined_on}. {row.notes ?? "No notes yet."}</p>
-              <Button variant="outline" size="sm" onClick={() => setSource(true)}>
+              <Button testID="demo-ws-clients-id-button-2" variant="outline" size="sm" onClick={() => setSource(true)}>
                 <Code className="mr-1.5 h-4 w-4" aria-hidden />
                 View source
               </Button>

@@ -57,7 +57,7 @@ export default function DemoChat() {
       <PageHeader
         title="Messages"
         subtitle="genesis-chat on its in-memory client: replies, reactions and read state, nothing sent anywhere."
-        actions={<Button variant="outline" size="sm" onClick={reply}>Simulate a reply</Button>}
+        actions={<Button testID="demo-ws-chat-button-1" variant="outline" size="sm" onClick={reply}>Simulate a reply</Button>}
       />
       <QueryClientProvider client={queryClient}>
         <ChatProvider key={`${org?.id}-${role}`} client={client} userId={ME}>

@@ -54,7 +54,7 @@ export default function DemoAssistant() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button disabled={!picked || ai.pending} onClick={() => void ai.run({ clientId })}>
+              <Button testID="demo-ws-assistant-button-1" disabled={!picked || ai.pending} onClick={() => void ai.run({ clientId })}>
                 {ai.pending ? "Writing…" : "Summarise"}
               </Button>
             </div>
