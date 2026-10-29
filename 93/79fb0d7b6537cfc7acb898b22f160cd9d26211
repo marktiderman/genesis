@@ -1,0 +1,39 @@
+packages/chat/vitest.config.ts
+  s_8b8f6102383114::t_b7dae9d65ff87c 12
+packages/forms-native/vitest.config.ts
+  s_8b8f6102383114::t_a2811cef6c9830 11,24
+packages/genesis-cli/test/blocks-helpers.ts
+  s_8b8f6102383114::t_4f5993fce97cf3 5,10,17
+packages/genesis-cli/test/doctor-helpers.ts
+  s_8b8f6102383114::t_cb2dc2c7f87032 7,11,47
+packages/genesis-cli/test/expo.test.ts
+  s_8b8f6102383114::t_72f7efe2e6e729 6,14,48
+packages/genesis-cli/test/features.test.ts
+  s_8b8f6102383114::t_2e000c461d22db 7,11,16
+packages/genesis-cli/test/temp.ts
+  s_8b8f6102383114::t_c00616c45bb1c3 1-15
+packages/native/vitest.config.ts
+  s_8b8f6102383114::t_4df7d7ed687068 12
+packages/notifications/vitest.config.ts
+  s_8b8f6102383114::t_f3d90b3485b125 11-12
+packages/support/vitest.config.ts
+  s_8b8f6102383114::t_00598f111d76f2 12
+packages/ui-native/vitest.config.ts
+  s_8b8f6102383114::t_bc4be4eefa9116 28,30,33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9379fb0d7b6537cfc7acb898b22f160cd9d26211",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
