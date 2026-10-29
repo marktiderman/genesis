@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_057f1f4f3a1abc 144-146
+scripts/__tests__/check-export-prefixes.test.mjs
+  s_36f3212387dbf7::t_1db6adb7b4cb60 16-20
+scripts/check-export-prefixes.mjs
+  s_36f3212387dbf7::t_27c3abdd5eab6c 20-21,29-30,32-34,36-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "91a4c63537e45273d1e4de1579403e6dd4bfc987",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
