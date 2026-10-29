@@ -1,0 +1,25 @@
+.changeset/workspace-switcher-parts.md
+  s_e2cf1ec4fac133::t_df8c5a8bab5e3b 6,9-11
+packages/core/src/workspaces.ts
+  s_e2cf1ec4fac133::t_a0d0bb283e5311 67,69
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_e2cf1ec4fac133::t_a1114d894889ff 372-383,512-534
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_e2cf1ec4fac133::t_c04f374af44498 201-205,527-528,542-544,547-548,694-700,931-937
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ae347ec87616eab56e99610e0ff05f1b206d3ba6",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
