@@ -1,0 +1,99 @@
+README.md
+  s_36f3212387dbf7::t_ec655b646f9104 20-21,160
+docs/AI.md
+  s_36f3212387dbf7::t_5903193894c29c 199-200,210
+docs/COLLABORATION.md
+  s_36f3212387dbf7::t_c8242ff6d9451d 1,3-6
+docs/DATA-STUDIO.md
+  s_36f3212387dbf7::t_4ed7c8f19cee63 3-6,56
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_b5621df68542ab 29-30,32,34-54,81,143,207,212,327-329
+features.ts
+  s_36f3212387dbf7::t_71a8754c2c000b 343,347,455
+packages/collab/LICENSE
+  s_36f3212387dbf7::t_df83891c2d71a1 1-21
+packages/core/package.json
+  s_36f3212387dbf7::t_ac7882133483e1 98-99
+packages/design-system/README.md
+  s_36f3212387dbf7::t_407cc218c87a7e 1-60
+packages/design-system/package.json
+  s_36f3212387dbf7::t_94d430d37efafa 82-83
+packages/forms-studio/README.md
+  s_36f3212387dbf7::t_9530ababbe284a 3
+packages/forms-studio/package.json
+  s_36f3212387dbf7::t_d6c177a45f9db9 9
+packages/genesis-cli/package.json
+  s_36f3212387dbf7::t_c7b604a346aead 61-62
+packages/genesis/package.json
+  s_36f3212387dbf7::t_9886afe6ac6c6f 137-138
+packages/genesis/scripts/smoke-web-install.mjs
+  s_ba8cb54dbea75a::t_b96ac7e016b662 49
+packages/native/LICENSE
+  s_36f3212387dbf7::t_74f1f9ee328445 1-21
+packages/notifications/LICENSE
+  s_36f3212387dbf7::t_6ae7ced4d4933d 1-21
+packages/sites/LICENSE
+  s_36f3212387dbf7::t_84b0ffd124b0d0 1-21
+packages/studio/README.md
+  s_36f3212387dbf7::t_470706ae746d88 3
+packages/studio/package.json
+  s_36f3212387dbf7::t_5e4e193887d7de 9
+packages/supabase/LICENSE
+  s_36f3212387dbf7::t_b588c2fe62f4c1 1-21
+packages/switchboard/LICENSE
+  s_36f3212387dbf7::t_d374104df8ae3c 1-21
+packages/switchboard/SWITCHBOARD.md
+  s_ba8cb54dbea75a::t_6fcc4b1323acb4 58
+packages/switchboard/package.json
+  s_ba8cb54dbea75a::t_b82115d6d8b24a 15,22
+packages/ui-native/package.json
+  s_36f3212387dbf7::t_0037f69f37c87c 86-87
+packages/ui/README.md
+  s_36f3212387dbf7::t_1e93d27e39ad18 1-63
+packages/ui/package.json
+  s_36f3212387dbf7::t_48a8d915f75325 115
+packages/ui/scripts/gen-exports.mjs
+  s_36f3212387dbf7::t_89f407b27f8cc6 251
+packages/ui/src/components/data/ResourceDetailPage.tsx
+  s_ba8cb54dbea75a::t_1a8850e42c6952 63
+packages/ui/src/components/data/__tests__/resource-detail-page.test.tsx
+  s_ba8cb54dbea75a::t_4a657edc2f1c24 236
+pnpm-lock.yaml
+  s_f2749d65575000::t_8ac3ce297f546d 1201,1688-1708
+scripts/check-error-reporting.mjs
+  s_ba8cb54dbea75a::t_b68a9279fdf57a 96,108-110
+scripts/gen-component-reference.mjs
+  s_ba8cb54dbea75a::t_6f9c356d44097d 120-121,123
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "42717cc12384ef6e2fedefb51b4f08ac8e5c0e10",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f2749d65575000": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "561dabc4-8eef-43a3-b218-d94e2b6476ed",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
