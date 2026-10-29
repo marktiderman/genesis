@@ -26,13 +26,17 @@ declare function Untagged(): void;
     expect(tags.get("Settled")).toEqual({ stability: "stable" });
     expect(tags.has("old")).toBe(false);
     expect(tags.has("Untagged")).toBe(false);
+    const prose = stabilityTagsIn("/**\n * See the `@deprecated` block below.\n * @stability Beta\n */\ndeclare function Empty(): void;\n");
+    expect(prose.get("Empty")).toEqual({ stability: "beta" });
+    const long = stabilityTagsIn("/**\n * @deprecated Import `X` from `@marktiderman/genesis-ui/layout`\n *   instead.\n * @see docs\n */\ndeclare const X: number;\n");
+    expect(long.get("X")?.note).toBe("Import `X` from `@marktiderman/genesis-ui/layout` instead.");
   });
 
   it("finds named imports from Genesis packages, with aliases and type imports", () => {
     const code = `import { Button, OldButton as Legacy } from "@marktiderman/genesis-ui";\nimport type { Fresh } from "@marktiderman/genesis-ui/data";\nimport { x } from "left-pad";\n`;
     expect(genesisNamedImports(code)).toEqual([
-      { pkg: "@marktiderman/genesis-ui", names: ["Button", "OldButton"], line: 1 },
-      { pkg: "@marktiderman/genesis-ui", names: ["Fresh"], line: 2 },
+      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button", "OldButton"], line: 1 },
+      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui/data", names: ["Fresh"], line: 2 },
     ]);
   });
 
@@ -72,5 +76,21 @@ describe("checkStabilityImports", () => {
       expect.objectContaining({ rule: "deprecated-import", level: "warn", message: "OldList from @marktiderman/genesis-widgets is deprecated and goes at the next major: Use `NewList`." }),
       expect.objectContaining({ rule: "beta-import", level: "info" }),
     ]);
+
+    // A deprecated alias on one subpath doesn't mark the real declaration on another.
+    writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "1.0.0", exports: { "./data": { types: "./dist/data.d.ts" }, "./layout": { types: "./dist/layout.d.ts" } } }));
+    writeFileSync(path.join(pkg, "dist/data.d.ts"), "/** @deprecated Import `Shell` from `/layout`. */\ndeclare const Shell: number;\n");
+    writeFileSync(path.join(pkg, "dist/shell-chunk.d.ts"), "declare function Shell(): void;\n");
+    writeFileSync(path.join(pkg, "dist/layout.d.ts"), "export { Shell } from './shell-chunk';\n");
+    const second: Array<{ rule: string }> = [];
+    checkStabilityImports({
+      root,
+      files: [
+        { path: "src/b.tsx", ext: ".tsx", code: 'import { Shell } from "@marktiderman/genesis-widgets/layout";\n' },
+        { path: "src/c.tsx", ext: ".tsx", code: 'import { Shell } from "@marktiderman/genesis-widgets/data";\n' },
+      ],
+      report: (f: { rule: string }) => second.push(f),
+    } as never);
+    expect(second.map((f) => f.rule)).toEqual(["deprecated-import"]);
   });
 });
