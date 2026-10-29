@@ -63,12 +63,12 @@ const PACKAGES = [
   "@marktiderman/genesis-ui",
   "@marktiderman/genesis-core",
   // Pinned to the ranges the studio supports: an unpinned "latest" can move
-  // past them (@hookform/resolvers 6 is a different major).
+  // past them to a major it doesn't.
   "@tanstack/react-query@^5",
   "@tanstack/react-virtual@^3.14",
   "react-hook-form@^7",
   "zod@^4",
-  "@hookform/resolvers@^5.1.0",
+  "@hookform/resolvers@>=5.1.0 <7",
 ];
 
 const ROLE = /^[a-z_][a-z0-9_]{0,62}$/;

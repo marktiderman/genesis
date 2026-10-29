@@ -21,7 +21,7 @@
     "studio:contract": "genesis introspect --database-env STUDIO_CONTRACT_DATABASE_URL --out studio/resources.genesis.ts"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^6.0.0",
     "@marktiderman/genesis-chat": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-features": "workspace:^",
@@ -57,8 +57,8 @@
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-toggle-group": "^1.1.0",
-    "@react-router/node": "7.14.0",
-    "@react-router/serve": "7.14.0",
+    "@react-router/node": "8.5.0",
+    "@react-router/serve": "8.5.0",
     "@tanstack/react-query": "^5.104.5",
     "@tanstack/react-table": "^8.21.3",
     "@tiptap/core": "3.32.0",
@@ -80,7 +80,7 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.72.1",
     "react-resizable-panels": "^2.0.0",
-    "react-router": "7.14.0",
+    "react-router": "8.5.0",
     "recharts": "^3.8.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
@@ -89,7 +89,7 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-cli": "workspace:^",
-    "@react-router/dev": "7.14.0",
+    "@react-router/dev": "8.5.0",
     "@storybook/addon-a11y": "^10.6.3",
     "@storybook/addon-docs": "^10.6.3",
     "@storybook/addon-vitest": "^10.6.3",

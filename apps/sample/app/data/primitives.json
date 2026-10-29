@@ -13772,6 +13772,13 @@
               "description": ""
             },
             {
+              "name": "nonce",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "noScriptCSSFallback",
               "type": "string | null",
               "required": false,
