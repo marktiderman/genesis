@@ -11,6 +11,27 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## A feature's `kind` replaces `layer` — `@marktiderman/genesis-features` 0.8, `@marktiderman/genesis-cli` (deprecation; **minor**)
+
+🟡 **Action recommended.** In your `features.ts`, rename each feature's `layer:` to `kind:` (same
+values; write `"element"` where it says `"primitive"`). `layer` is read as a kind until the next
+major, and `features check` warns on each one. After that, `layer` means the layer of the package
+that owns the feature (foundation, primitive, module or tooling), derived from its `entry` or
+`links.code`, never written.
+
+| Before | After |
+| --- | --- |
+| `layer: "pattern"` in features.ts | `kind: "pattern"` |
+| `FEATURE_LAYERS`, `FeatureLayer` | `FEATURE_KINDS`, `FeatureKind` |
+| `findFeatures(…, { layer })` | `findFeatures(…, { kind })` |
+| `genesis features find --layer element` | `genesis features find --kind element` |
+| a block's `feature.layer` | `feature.kind` |
+
+
+New: `genesis features find --layer foundation|module|tooling` and `featurePackageLayer()`.
+
+---
+
 ## Record pages are record views; workspaces — `@marktiderman/genesis-core` 2.2, `@marktiderman/genesis-ui` 2.24 (deprecation; **minor**)
 
 🟡 **Action recommended.** A record's page is now a **record view**, so "workspace" can mean

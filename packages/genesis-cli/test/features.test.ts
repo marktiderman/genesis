@@ -126,6 +126,27 @@ describe("genesis features", () => {
     expect(formatFeature((await runFeaturesFind({ dir: root }, "tasks"))[0]!)).toBe("tasks — Tasks [live] (mark)\n  Next steps.\n  code: src/tasks.ts");
   });
 
+  it("finds by kind, the deprecated layer field, and the owning package's layer", async () => {
+    const root = repo({
+      "src/features.ts": `export const features = {
+  button: { name: "Button", summary: "Presses.", status: "building", owner: "mark", apps: ["web"], audience: ["developer"], kind: "element", entry: { web: "@acme/ui/button" } },
+  thread: { name: "Thread", summary: "Talks.", status: "building", owner: "mark", apps: ["web"], audience: ["developer"], layer: "pattern", links: { code: ["packages/chat/src"] } },
+};
+`,
+      "packages/chat/package.json": JSON.stringify({ name: "@acme/chat", genesis: { layer: "primitive", group: "collaboration" } }),
+      "packages/chat/src/index.ts": "",
+      "node_modules/@marktiderman/ui/package.json": JSON.stringify({ name: "@acme/ui", genesis: { layer: "foundation", group: "core" } }),
+    });
+    const ids = (r: { id: string }[]) => r.map((x) => x.id);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { kind: "pattern" }))).toEqual(["thread"]);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { packageLayer: "foundation" }))).toEqual(["button"]);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { packageLayer: "primitive" }))).toEqual(["thread"]);
+    expect(formatFeature((await runFeaturesFind({ dir: root }, "thread"))[0]!)).toContain("[building] pattern (mark)");
+    expect((await runFeaturesCheck({ dir: root, ...off })).warnings).toContain(
+      'thread.layer: deprecated, write kind: "pattern" (layer will be the owning package\'s, derived)',
+    );
+  });
+
   it("fails on a missing code path", async () => {
     const root = repo({ "src/features.ts": registry("live") });
     expect((await runFeaturesCheck({ dir: root, ...off })).errors).toEqual(["tasks.links.code: src/tasks.ts doesn't exist"]);

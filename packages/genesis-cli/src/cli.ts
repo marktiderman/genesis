@@ -311,24 +311,29 @@ featureOptions(
     .description("Search features before building: reuse one, extend one, or add an idea first")
     .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
     .option("--platform <platform>", "Only features on web, native, server or cli")
-    .option("--layer <layer>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
+    .option("--kind <kind>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
+    .option("--layer <layer>", "Only features whose package is foundation, module or tooling (a kind here is deprecated: use --kind)")
     .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
-).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
-  const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
+).action(async (term: string, opts: FeatureCliOptions & { platform?: string; kind?: string; layer?: string; status?: string }) => {
+  const { FEATURE_KINDS, FEATURE_PLATFORMS, FEATURE_STATUSES, PACKAGE_LAYERS } = await import("@marktiderman/genesis-features");
   const { runFeaturesFind, formatFeature } = await import("./features.js");
   const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
     if (value === undefined) return undefined;
     if ((allowed as readonly string[]).includes(value)) return value as T;
     return program.error(`--${name} must be one of ${allowed.join(", ")}`);
   };
-  const { platform, layer, status, ...rest } = opts;
+  const { platform, kind, layer, status, ...rest } = opts;
+  // Until the next major, --layer also takes a kind (its old meaning), and "primitive" there
+  // still means the element kind; after it, --layer is the package layer only.
+  const layerIsKind = layer !== undefined && (layer === "primitive" || (FEATURE_KINDS as readonly string[]).includes(layer));
+  if (layerIsKind) console.warn(`! --layer ${layer} is deprecated for a kind: use --kind ${layer === "primitive" ? "element" : layer}`);
   const filters = {
     platform: pick("platform", platform, FEATURE_PLATFORMS),
-    // "primitive" is the deprecated name of "element".
-    layer: pick("layer", layer === "primitive" ? "element" : layer, FEATURE_LAYERS),
+    kind: pick("kind", kind ?? (layerIsKind ? (layer === "primitive" ? "element" : layer) : undefined), FEATURE_KINDS),
+    packageLayer: layerIsKind ? undefined : pick("layer", layer, PACKAGE_LAYERS.filter((l) => l !== "primitive")),
     status: pick("status", status, FEATURE_STATUSES),
   };
-  if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
+  if (!term && !filters.platform && !filters.kind && !filters.packageLayer && !filters.status) program.error("Give a term, or --platform, --kind, --layer or --status");
   const hits = await runFeaturesFind(rest, term, filters);
   const what = term ? `"${term}"` : "those filters";
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);

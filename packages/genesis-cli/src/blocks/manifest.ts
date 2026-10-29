@@ -48,7 +48,8 @@ export interface ManifestFunction {
 export interface ManifestFeature {
   name: string;
   summary: string;
-  layer?: string;
+  /** The feature's kind (`block` when left out). */
+  kind?: string;
   keywords?: string[];
   audience?: string[];
 }
@@ -215,7 +216,9 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
     if (!isObject(f) || typeof f["name"] !== "string" || typeof f["summary"] !== "string") problems.push(`${at}.feature: needs a name and a summary`);
     else {
       feature = { name: f["name"], summary: f["summary"] };
-      if (typeof f["layer"] === "string") feature.layer = f["layer"];
+      // `layer` is the deprecated name of `kind`, read until the next major.
+      const kind = f["kind"] ?? f["layer"];
+      if (typeof kind === "string") feature.kind = kind === "primitive" ? "element" : kind;
       if (strings(f["keywords"])) feature.keywords = f["keywords"];
       if (strings(f["audience"])) feature.audience = f["audience"];
     }

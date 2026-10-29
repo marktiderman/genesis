@@ -10,7 +10,7 @@
  * options win over both.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { createJiti } from "jiti";
 import {
@@ -21,7 +21,17 @@ import {
   type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
-import { findFeatures, type FeatureRecord, type Features, type FindOptions, type Flags } from "@marktiderman/genesis-features";
+import {
+  featureKind,
+  findFeatures,
+  PACKAGE_LAYERS,
+  type FeaturePackage,
+  type FeatureRecord,
+  type Features,
+  type FindOptions,
+  type Flags,
+  type PackageLayer,
+} from "@marktiderman/genesis-features";
 
 type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
 
@@ -158,14 +168,46 @@ export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise
   return { ...result, summary };
 }
 
+/**
+ * The packages a feature can belong to, with their layers: this repo's own
+ * `packages/*` and the installed `@marktiderman/*` packages, read from each
+ * package.json's `genesis.layer`.
+ */
+export function readFeaturePackages(root: string): FeaturePackage[] {
+  const found: FeaturePackage[] = [];
+  const read = (dir: string, inRepo: boolean) => {
+    const file = path.join(dir, "package.json");
+    if (!existsSync(file)) return;
+    try {
+      const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: unknown; genesis?: { layer?: unknown } };
+      const layer = pkg.genesis?.layer;
+      if (typeof pkg.name !== "string" || !(PACKAGE_LAYERS as readonly unknown[]).includes(layer)) return;
+      if (found.some((p) => p.name === pkg.name)) return;
+      found.push({ name: pkg.name, layer: layer as PackageLayer, ...(inRepo ? { dir: path.relative(root, dir).split(path.sep).join("/") } : {}) });
+    } catch {
+      // An unreadable package.json owns no features.
+    }
+  };
+  for (const [base, inRepo] of [
+    [path.join(root, "packages"), true],
+    [path.join(root, "node_modules", "@marktiderman"), false],
+  ] as const) {
+    if (!existsSync(base)) continue;
+    for (const name of readdirSync(base)) read(path.join(base, name), inRepo);
+  }
+  return found;
+}
+
 export async function runFeaturesFind(options: FeaturesCommandOptions, term: string, filters: FindOptions = {}): Promise<FeatureRecord[]> {
   const project = await loadRegistry(options);
-  return findFeatures(project.features, term, project.flags, filters);
+  const packages = filters.packageLayer && !filters.packages ? readFeaturePackages(project.root) : filters.packages;
+  return findFeatures(project.features, term, project.flags, { ...filters, ...(packages ? { packages } : {}) });
 }
 
 /** One search hit, for the terminal. */
 export function formatFeature(r: FeatureRecord): string {
-  const kind = r.layer ? ` ${r.layer}` : "";
+  const kindOf = featureKind(r);
+  const kind = kindOf ? ` ${kindOf}` : "";
   const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}]${kind} (${r.owner})`, `  ${r.summary}`];
   if (r.platforms) lines.push(`  platforms: ${Object.entries(r.platforms).map(([p, s]) => `${p} ${s}`).join(", ")}`);
   if (r.entry) lines.push(`  import: ${Object.entries(r.entry).map(([p, e]) => `${e} (${p})`).join(", ")}`);

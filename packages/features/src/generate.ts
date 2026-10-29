@@ -209,8 +209,9 @@ description: Find, add, change and retire this repo's features in ${source}, and
 
 ## Find: reuse, then extend, then invent
 - \`${command} find <term>\` searches ids, aliases, names, keywords, summaries, import paths, slots
-  and code paths; \`--platform\`, \`--layer\` and \`--status\` narrow it (an empty term lists all
-  that pass). Run it before building anything new, in this order:
+  and code paths; \`--platform\`, \`--kind\`, \`--layer\` (the owning package's layer) and
+  \`--status\` narrow it (an empty term lists all that pass). Run it before building anything
+  new, in this order:
   1. **Reuse**: a feature already does it. Use it as is, configured through its \`slots\`.
   2. **Extend**: one is close. Fill a slot, or add a variant with \`extends: <id>\`.
   3. **Invent**: nothing is close. Add an entry first (an \`idea\` is enough), then build.
@@ -227,7 +228,8 @@ description: Find, add, change and retire this repo's features in ${source}, and
    - \`visibility\` (internal, customer, public, client:<name>) and \`access\` ("all" or { plan }).
      Paid access is \`access\`, never a flag. The id is the billing entitlement's lookup key.
    - For a public page: \`tagline\` (the customer benefit), \`category\`, \`media\`, \`highlight\`.
-   - For reuse: \`layer\` (token, element, pattern, layout, hook, provider, block, service, tool),
+   - For reuse: \`kind\` (token, element, pattern, layout, hook, provider, block, service, tool;
+     \`layer\` is its deprecated name, read until the next major),
      \`platforms\` (status per platform when it differs), \`entry\` (what to import, per platform),
      \`keywords\`, \`slots\`, \`extends\` (the feature this is a variant of), \`requires\` (a beta or
      live feature can't require an idea, a planned or a retired one) and \`contributes\`.

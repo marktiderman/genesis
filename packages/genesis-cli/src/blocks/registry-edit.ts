@@ -26,7 +26,7 @@ export function featureSnippet(manifest: BlockManifest, owner: string): string {
     summary: manifest.feature?.summary ?? `The ${manifest.id} block from ${manifest.package}.`,
     // Just added: the app hasn't shipped it yet. Move it on when it has.
     status: "building",
-    ...(manifest.feature?.layer ? { layer: manifest.feature.layer } : { layer: "block" }),
+    kind: manifest.feature?.kind ?? "block",
     ...(manifest.feature?.keywords?.length ? { keywords: manifest.feature.keywords } : {}),
     ...(manifest.requires.length ? { requires: manifest.requires } : {}),
     owner,
