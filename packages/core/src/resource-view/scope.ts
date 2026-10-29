@@ -40,3 +40,24 @@ export function scopeValues(
   }
   return Object.freeze(out);
 }
+
+/**
+ * The view's scope keys as a list filter, the way `ResourceView` applies them itself: like
+ * {@link scopeValues}, but a list (`{ orgId: ["o1", "o2"] }`, a roll-up across organizations)
+ * filters to any of its values, and a key the scope doesn't set is left out instead of throwing.
+ * A single value also starts new rows; a list doesn't, so a new row in a roll-up asks which one.
+ */
+export function scopeFilter(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
+  view: Pick<ResourceView<any, any>, "definition">,
+  scope: ResourceScope | null | undefined,
+): Readonly<Record<string, ScopeValue | readonly (string | number)[]>> {
+  const out: Record<string, ScopeValue | readonly (string | number)[]> = {};
+  if (!scope) return out;
+  for (const key of (view.definition.scope ?? []) as readonly string[]) {
+    const value = Object.hasOwn(scope, key) ? scope[key] : scope[camel(key)];
+    if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") out[key] = value;
+    else if (Array.isArray(value) && value.every((v) => typeof v === "string" || typeof v === "number")) out[key] = value as readonly (string | number)[];
+  }
+  return Object.freeze(out);
+}

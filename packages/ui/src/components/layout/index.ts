@@ -46,6 +46,14 @@ export {
   type NavigationNode,
   type ResolvedNavigation,
 } from "../../navigation";
+// Where the viewer is working: one organization, the roll-up, or personal (ADR 0004).
+export {
+  WorkspaceSwitcher,
+  DEFAULT_WORKSPACE_KIND_LABELS,
+  DEFAULT_WORKSPACE_KIND_ICONS,
+  type WorkspaceSwitcherProps,
+  type WorkspaceSwitcherVariant,
+} from "./workspace-switcher";
 export { PageHeader, type PageHeaderProps, type PageHeaderOptions } from "./PageHeader";
 // FRAMEWORK.md migration step 8. Each takes its content as props/children and
 // binds to nothing; the record-bound counterpart to `DetailPage` is

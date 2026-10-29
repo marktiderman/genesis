@@ -4,7 +4,7 @@
 
 export { defineView, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
-export { scopeValues } from "./scope";
+export { scopeFilter, scopeValues } from "./scope";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
 export type { ResourceTree, TreeNode, TreeOptions, TreeResult } from "./tree";
 export type {
@@ -35,19 +35,23 @@ export type {
 } from "./types";
 export { NO_VIEWER } from "../viewer";
 export type { GenesisViewerRoles } from "../viewer";
-export { defineWorkspace, isWorkspace } from "./workspace";
+export { defineRecordView, isRecordView, defineWorkspace, isWorkspace } from "./record-view";
 export type {
   ResolvedReadinessItem,
-  ResolvedWorkspaceSection,
+  ResolvedRecordViewSection,
+  RecordView,
+  RecordViewDefinition,
+  RecordViewFilter,
+  RecordViewHeader,
+  RecordViewHeaderAction,
+  RecordViewHeaderOptions,
+  RecordViewListSection,
+  RecordViewReadinessItem,
+  RecordViewSection,
+  RecordViewSettingsSection,
+  RecordViewSlotSection,
   ResourceWorkspace,
   WorkspaceDefinition,
-  WorkspaceFilter,
-  WorkspaceHeader,
-  WorkspaceHeaderAction,
-  WorkspaceHeaderOptions,
-  WorkspaceListSection,
-  WorkspaceReadinessItem,
   WorkspaceSection,
-  WorkspaceSettingsSection,
-  WorkspaceSlotSection,
-} from "./workspace";
+  WorkspaceHeaderAction,
+} from "./record-view";
