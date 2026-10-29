@@ -1,0 +1,65 @@
+.changeset/workspace-switcher-parts.md
+  s_e2cf1ec4fac133::t_2068910b7ddb91 1-13
+.github/dependabot.yml
+  s_e2cf1ec4fac133::t_e9f63b3d36f86c 38-50
+.github/workflows/deploy-pages.yml
+  s_e2cf1ec4fac133::t_35f23ed9968fcd 61-65
+apps/genesis-rn-starter/package.json
+  s_e2cf1ec4fac133::t_b4655804fb5aab 37
+apps/sample/app/data/primitives.json
+  s_e2cf1ec4fac133::t_2bde9b1dcd6c46 23485-23497,23502-23515,23523-23529,23538-23545,23548-23554,23556,23591-23619,23635-23641,23647,23654-23689,23707-23721
+apps/sample/app/data/story-ids.json
+  s_e2cf1ec4fac133::t_cefb341015c9a1 1-59
+apps/sample/app/lib/portfolio-data.ts
+  s_e2cf1ec4fac133::t_d2755350af6f18 6-7,14-15,54-55
+apps/sample/app/lib/storybook.ts
+  s_e2cf1ec4fac133::t_b801b1871a35fa 1-26
+apps/sample/app/routes/showcase._index.tsx
+  s_e2cf1ec4fac133::t_f2cb1e8cc85416 44
+apps/sample/app/routes/showcase.primitives.$slug.tsx
+  s_e2cf1ec4fac133::t_ef3f25509f45b6 13,42-44,77,217,229
+apps/sample/package.json
+  s_e2cf1ec4fac133::t_194ab1e70da986 103
+apps/sample/scripts/generate-primitive-docs.ts
+  s_e2cf1ec4fac133::t_9380e85e253fd9 31-33,44,56,425,428-439,469
+apps/sample/scripts/story-ids.ts
+  s_e2cf1ec4fac133::t_323e040368e80f 1-63
+apps/sample/sites-demo/vite-plugin.ts
+  s_e2cf1ec4fac133::t_4af7da6fab1eb6 75-79,83
+apps/sample/stories/WorkspaceSwitcher.stories.tsx
+  s_e2cf1ec4fac133::t_9ec9bc6be4004d 1-233
+docs/adr/0004-workspaces.md
+  s_e2cf1ec4fac133::t_a1a071586b7d7b 6,54-55,99-141,145,166-170
+packages/core/src/__tests__/workspaces.test.tsx
+  s_e2cf1ec4fac133::t_7907960cc947d2 9,11,89-107
+packages/core/src/workspaces.ts
+  s_e2cf1ec4fac133::t_97a65df0cb805a 65-71,76-87,220-252
+packages/studio/package.json
+  s_e2cf1ec4fac133::t_cf6c867360a219 74
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_e2cf1ec4fac133::t_24bfd64b2f081f 7-8,13,15,39,41-43,116-632
+packages/ui/src/components/layout/index.ts
+  s_e2cf1ec4fac133::t_d526cccb3188ab 54-64,66-70
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_e2cf1ec4fac133::t_6f46e63263d97d 11-33,35-51,55,57,67-68,78,81-82,87-146,160-306,320-325,327-334,341,343,345-384,392-412,414-421,430,436-591,604-605,611-617,619-624,630,632-638,640,642-836,840-841,844-847,850-851,853,855-857,860,864-916,918-972,974-1034,1036-1051,1054-1055,1058-1146
+packages/ui/src/navigation.tsx
+  s_e2cf1ec4fac133::t_64c57cd5292d94 59-63
+pnpm-lock.yaml
+  s_e2cf1ec4fac133::t_fa40e013147f02 96-97,521-522,1551-1552,1711,5540-5541,5551-5552,5563-5564,5575-5576,5587-5588,5599-5600,5611-5612,5623-5624,5634-5635,5647-5648,5664-5665,6018-6019,6035-6036,7120-7122,7127,7133-7134,7243-7244,12874,14147,15299,15493,15499,15505,15511,15517,15523,15529,15535,15558,15565-15572,15580,15582,15591,15595,15597,15911,15913,15928,17275-17277,17370,17375
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "fca8f52f2a7db82fd916511fc6cd359301c16d55",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
