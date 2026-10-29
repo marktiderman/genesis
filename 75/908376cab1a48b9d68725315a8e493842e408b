@@ -1,0 +1,21 @@
+.github/dependabot.yml
+  s_36f3212387dbf7::t_7d959652b7249c 39,51-52
+pnpm-lock.yaml
+  s_36f3212387dbf7::t_ea46d2ca1894bc 49,290,479,531,712,763,1520,1737,1875,1881,1905,1911,3294-3295,7127-7128,10858-10863,11040-11041,13353,17286,21674-21678,21874,22363,22379,22395
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "75908376cab1a48b9d68725315a8e493842e408b",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
