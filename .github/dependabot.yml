@@ -48,3 +48,8 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+    ignore:
+      # changesets/action v2 needs Changesets CLI v3 and renames the inputs and
+      # outputs release.yml uses. Upgrade it on purpose, with the CLI.
+      - dependency-name: "changesets/action"
+        update-types: ["version-update:semver-major"]

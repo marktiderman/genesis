@@ -107,6 +107,9 @@ describe("DataTable virtualization", () => {
   beforeEach(() => {
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);
     vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(800);
+    // @tanstack/virtual-core 3.19 measures the scroll element by its client box.
+    vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(400);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(800);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
       x: 0, y: 0, top: 0, left: 0, bottom: 400, right: 800, width: 800, height: 400, toJSON: () => ({}),
     } as DOMRect);

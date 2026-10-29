@@ -40,7 +40,7 @@ jobs:
       packages: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # changesets needs history to work out what to version.
           fetch-depth: 0
@@ -69,7 +69,7 @@ jobs:
       # The lockfile format version is unchanged across pnpm 9, 10 and 11, so
       # `--frozen-lockfile` reads the existing `pnpm-lock.yaml` (lockfileVersion
       # 9.0) without a regeneration.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         with:
           version: 11.26.0
 
@@ -97,7 +97,7 @@ jobs:
       # even though the Trusted Publisher for @marktiderman/genesis-core is
       # correctly configured (marktiderman / genesis / release.yml).
       # With no `.npmrc` and no token, npm performs the OIDC exchange itself.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22.22.1
           cache: pnpm
@@ -297,6 +297,8 @@ jobs:
 
       - name: Create Release PR or Publish
         id: changesets
+        # Held at v1: v2 needs Changesets CLI v3 (this repo is on 2.30) and renames
+        # publish/version/commit/title and the outputs used below.
         uses: changesets/action@v1
         with:
           publish: pnpm changeset publish
