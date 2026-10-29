@@ -1,0 +1,19 @@
+apps/sample/app/data/story-ids.json
+  s_f2749d65575000::t_746e2dd2dd6d0e 58-59
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "aca2c1f8802c241ea960aa3464adbed02edcc235",
+  "prompts": {},
+  "sessions": {
+    "s_f2749d65575000": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "561dabc4-8eef-43a3-b218-d94e2b6476ed",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
