@@ -35,18 +35,24 @@ updates:
       - dependency-name: "react-native"
       - dependency-name: "react-native-*"
       - dependency-name: "@react-native/*"
-      # Majors that move with the Expo SDK (`expo install` picks the version the SDK supports;
-      # pnpm-workspace.yaml pins react, react-dom and @types/react to it) or with eslint-config-expo (eslint).
+      # Majors that move with the Expo SDK (`expo install` picks the version the SDK supports) or
+      # with eslint-config-expo (eslint).
       # Minors and patches still come through.
       - dependency-name: "@react-native-async-storage/*"
         update-types: ["version-update:semver-major"]
       - dependency-name: "@sentry/react-native"
         update-types: ["version-update:semver-major"]
+      # react, react-dom and @types/react are pinned to the SDK's exact version in
+      # pnpm-workspace.yaml (React Native refuses a react of another patch), so every bump,
+      # patches too, comes with the Expo SDK.
       - dependency-name: "react"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major"]
       - dependency-name: "@types/react"
+      # The starter is on NativeWind 4, which needs Tailwind 3; both majors move together, with
+      # NativeWind 5. The web packages are on Tailwind 4 already.
+      - dependency-name: "nativewind"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
