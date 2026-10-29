@@ -1,0 +1,22 @@
+packages/sites/scripts/drop-fonts-sourcemap.mjs
+  s_1cc73fa3649187::t_f3d67f5bd6d7bb 1-4,6-16,19-22
+  s_1cc73fa3649187::t_ec033d784ab0ec 5,17-18
+packages/sites/package.json
+  s_1cc73fa3649187::t_f3d67f5bd6d7bb 85
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a940d4f798e365201c6e6c22cec59d89a92908ff",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
