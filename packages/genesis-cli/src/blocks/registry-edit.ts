@@ -4,6 +4,8 @@
  * file has exactly one `defineFeatures({ … })` call whose object can be found
  * unambiguously; otherwise the caller prints the snippet to paste.
  */
+import { readFileSync } from "node:fs";
+import * as path from "node:path";
 import type { BlockManifest } from "./manifest.js";
 
 const IDENT = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -18,15 +20,37 @@ function literal(value: unknown, indent: string): string {
   return JSON.stringify(value);
 }
 
+/**
+ * Which field an app's features.ts takes a feature's kind in: `kind` from
+ * genesis-features 0.8, else the older `layer` (every release reads it, and
+ * an older release refuses an unknown `kind`). Read from the genesis-features
+ * the app has installed, looking up from `root`; `layer` when none is found.
+ */
+export function featureKindField(root: string): "kind" | "layer" {
+  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
+    for (const file of [path.join(dir, "node_modules/@marktiderman/genesis-features/package.json"), path.join(dir, "packages/features/package.json")]) {
+      try {
+        const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: string; version?: string };
+        if (pkg.name !== "@marktiderman/genesis-features" || !pkg.version) continue;
+        const [major = 0, minor = 0] = pkg.version.split(".").map(Number);
+        return major > 0 || minor >= 8 ? "kind" : "layer";
+      } catch {
+        // Not here; look further up.
+      }
+    }
+    if (path.dirname(dir) === dir) return "layer";
+  }
+}
+
 /** The registry entry for a block, as `"<id>": { … },` at two spaces. */
-export function featureSnippet(manifest: BlockManifest, owner: string): string {
+export function featureSnippet(manifest: BlockManifest, owner: string, kindField: "kind" | "layer" = "kind"): string {
   const apps = manifest.platforms?.length ? manifest.platforms : ["web", "native"];
   const entry: Record<string, unknown> = {
     name: manifest.feature?.name ?? manifest.id,
     summary: manifest.feature?.summary ?? `The ${manifest.id} block from ${manifest.package}.`,
     // Just added: the app hasn't shipped it yet. Move it on when it has.
     status: "building",
-    kind: manifest.feature?.kind ?? "block",
+    [kindField]: manifest.feature?.kind ?? "block",
     ...(manifest.feature?.keywords?.length ? { keywords: manifest.feature.keywords } : {}),
     ...(manifest.requires.length ? { requires: manifest.requires } : {}),
     owner,

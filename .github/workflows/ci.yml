@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # PRs into a batch run the full CI too, so a failure shows on the PR that caused it rather
+  # than on the release PR into main.
   pull_request:
-    branches: [main]
+    branches: [main, "staging/**", "prestage/**"]
   workflow_dispatch:
 
 permissions:

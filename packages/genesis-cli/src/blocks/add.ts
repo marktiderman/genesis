@@ -22,7 +22,7 @@ import type { BlockManifest } from "./manifest.js";
 import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, type MigrationPlan, type SourceMigration } from "./migrations.js";
 import { copyOwned, type OwnedWrite } from "./owned.js";
 import { addCommand, detectPackageManager, pinnedVersion, run, shellLine } from "./pm.js";
-import { addFeatureEntry, featureSnippet } from "./registry-edit.js";
+import { addFeatureEntry, featureKindField, featureSnippet } from "./registry-edit.js";
 import { planRouteStubs, routeStub } from "./routes.js";
 
 export interface Logger {
@@ -224,7 +224,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     let registryEdit: string | null = null;
     if (!ids?.has(manifest.id)) {
       const owner = (JSON.parse(readApp(root, "package.json") ?? "{}") as { name?: string }).name ?? "app";
-      snippet = featureSnippet(manifest, owner);
+      snippet = featureSnippet(manifest, owner, featureKindField(root));
       if (registry) registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
     }
     const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);

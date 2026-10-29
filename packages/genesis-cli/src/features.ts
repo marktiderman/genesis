@@ -22,6 +22,9 @@ import {
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
 import {
+  FEATURE_KINDS,
+  FEATURE_PLATFORMS,
+  FEATURE_STATUSES,
   featureKind,
   findFeatures,
   PACKAGE_LAYERS,
@@ -198,9 +201,38 @@ export function readFeaturePackages(root: string): FeaturePackage[] {
   return found;
 }
 
+/**
+ * `genesis features find`'s filter flags, checked. Until the next major,
+ * `--layer` also takes a kind (its old meaning; `primitive` is the element
+ * kind there), with a warning; otherwise it is the owning package's layer
+ * (foundation, module or tooling).
+ */
+export function findFilters(flags: { platform?: string; kind?: string; layer?: string; status?: string }): { filters: FindOptions; warning?: string } {
+  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
+    if (value === undefined) return undefined;
+    if ((allowed as readonly string[]).includes(value)) return value as T;
+    throw new Error(`--${name} must be one of ${allowed.join(", ")}`);
+  };
+  const { layer } = flags;
+  const layerKind = layer === "primitive" ? "element" : (FEATURE_KINDS as readonly string[]).includes(layer ?? "") ? layer : undefined;
+  if (layerKind && flags.kind && layerKind !== flags.kind) throw new Error(`--layer ${layer} and --kind ${flags.kind} disagree; use --kind alone`);
+  return {
+    filters: {
+      platform: pick("platform", flags.platform, FEATURE_PLATFORMS),
+      kind: pick("kind", flags.kind ?? layerKind, FEATURE_KINDS),
+      packageLayer: layerKind ? undefined : pick("layer", layer, PACKAGE_LAYERS.filter((l) => l !== "primitive")),
+      status: pick("status", flags.status, FEATURE_STATUSES),
+    },
+    ...(layerKind ? { warning: `--layer ${layer} is deprecated for a kind: use --kind ${layerKind}` } : {}),
+  };
+}
+
 export async function runFeaturesFind(options: FeaturesCommandOptions, term: string, filters: FindOptions = {}): Promise<FeatureRecord[]> {
   const project = await loadRegistry(options);
   const packages = filters.packageLayer && !filters.packages ? readFeaturePackages(project.root) : filters.packages;
+  if (filters.packageLayer && !packages?.length) {
+    throw new Error("--layer needs package layers, and no package here declares one (genesis.layer in packages/* or node_modules/@marktiderman/*)");
+  }
   return findFeatures(project.features, term, project.flags, { ...filters, ...(packages ? { packages } : {}) });
 }
 

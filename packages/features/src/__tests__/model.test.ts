@@ -231,7 +231,9 @@ describe("kind, and layer from the owning package", () => {
   it("reads kind, and the deprecated layer field as a kind", () => {
     expect(ids(findFeatures(catalog, "", undefined, { kind: "element" }))).toEqual(["button", "old"]);
     expect(ids(findFeatures(catalog, "", undefined, { layer: "primitive" }))).toEqual(["button", "old"]);
-    expect(toRecords(catalog).find((r) => r.id === "old")?.kind).toBe("element");
+    const old = toRecords(catalog).find((r) => r.id === "old");
+    expect(old?.kind).toBe("element");
+    expect(old && "layer" in old).toBe(false);
   });
 
   it("derives a feature's layer from its entry, else its code paths", () => {
@@ -240,6 +242,8 @@ describe("kind, and layer from the owning package", () => {
     expect(featurePackageLayer(catalog.thread, packages)).toBe("primitive");
     expect(featurePackageLayer(catalog.local, packages)).toBeUndefined();
     expect(ids(findFeatures(catalog, "", undefined, { packageLayer: "primitive", packages }))).toEqual(["thread"]);
+    expect(() => findFeatures(catalog, "", undefined, { packageLayer: "primitive" })).toThrow(/needs packages/);
+    expect(featurePackageLayer({ ...base, links: { code: ["./packages/chat/src/a.ts"] } }, packages)).toBe("primitive");
   });
 
   it("refuses a layer that disagrees with kind", () => {
