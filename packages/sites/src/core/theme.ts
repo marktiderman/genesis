@@ -19,7 +19,8 @@
  * colour when the primary is too faint on the page.
  */
 import { genesisBrand, themeFromBrand, type CanonicalBrand } from "@marktiderman/genesis-design-system";
-import type { FontChoice, SiteDoc, TokenOverrides } from "./schemas";
+import { SELF_HOSTED_FONTS } from "./fonts";
+import type { BodyFontChoice, FontChoice, SiteDoc, TokenOverrides } from "./schemas";
 
 /** The minimal brand: what a brand screen collects. */
 export interface SiteBrand {
@@ -30,7 +31,7 @@ export interface SiteBrand {
     /** The primary in dark mode. Default: the light primary, lightened. */
     primaryDark?: string;
   };
-  fonts?: { heading?: FontChoice; body?: FontChoice };
+  fonts?: { heading?: FontChoice; body?: BodyFontChoice };
   /** The logo, shown in the header and footer and named in JSON-LD. */
   logo?: { src: string; alt?: string };
 }
@@ -44,26 +45,45 @@ export interface BrandSource {
 }
 
 export interface FontInfo {
+  /** The choice's id (`inter`). */
+  id: FontChoice;
   label: string;
   /** The CSS font stack. */
   stack: string;
-  /** The Google Fonts `family=` value, when it isn't a system font. */
-  google?: string;
+  /** The family this package serves itself (latin woff2 under `/_gs/`), when it isn't a system font. */
+  family?: string;
+  /** The weights served. Empty for a system font. */
+  weights: readonly number[];
+  /** A display face with one weight: a heading font only. */
+  headingOnly?: boolean;
 }
 
-/** The fonts a brand or site may choose. */
+const sans = (family: string) => `${family.includes(" ") ? `"${family}"` : family}, ui-sans-serif, system-ui, sans-serif`;
+const serif = (family: string) => `${family.includes(" ") ? `"${family}"` : family}, Georgia, serif`;
+
+function served(id: Exclude<FontChoice, "system">, label: string, stack: (family: string) => string): FontInfo {
+  const font = SELF_HOSTED_FONTS[id];
+  return { id, label, stack: stack(font.family), family: font.family, weights: font.weights, ...(font.weights.length === 1 ? { headingOnly: true } : {}) };
+}
+
+/** The fonts a brand or site may choose. Every one but `system` is served by this package; none loads from a third party. */
 export const FONT_CHOICES: Readonly<Record<FontChoice, FontInfo>> = Object.freeze({
-  system: { label: "System", stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
-  inter: { label: "Inter", stack: "Inter, ui-sans-serif, system-ui, sans-serif", google: "Inter:wght@400;500;600;700" },
-  "dm-sans": { label: "DM Sans", stack: '"DM Sans", ui-sans-serif, system-ui, sans-serif', google: "DM+Sans:wght@400;500;700" },
-  "work-sans": { label: "Work Sans", stack: '"Work Sans", ui-sans-serif, system-ui, sans-serif', google: "Work+Sans:wght@400;500;700" },
-  montserrat: { label: "Montserrat", stack: "Montserrat, ui-sans-serif, system-ui, sans-serif", google: "Montserrat:wght@400;600;700" },
-  poppins: { label: "Poppins", stack: "Poppins, ui-sans-serif, system-ui, sans-serif", google: "Poppins:wght@400;600;700" },
-  "space-grotesk": { label: "Space Grotesk", stack: '"Space Grotesk", ui-sans-serif, system-ui, sans-serif', google: "Space+Grotesk:wght@400;500;700" },
-  "source-serif": { label: "Source Serif", stack: '"Source Serif 4", Georgia, serif', google: "Source+Serif+4:wght@400;600;700" },
-  merriweather: { label: "Merriweather", stack: "Merriweather, Georgia, serif", google: "Merriweather:wght@400;700" },
-  "playfair-display": { label: "Playfair Display", stack: '"Playfair Display", Georgia, serif', google: "Playfair+Display:wght@400;600;700" },
-  lora: { label: "Lora", stack: "Lora, Georgia, serif", google: "Lora:wght@400;600;700" },
+  system: { id: "system", label: "System", stack: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif', weights: [] },
+  inter: served("inter", "Inter", sans),
+  "dm-sans": served("dm-sans", "DM Sans", sans),
+  "work-sans": served("work-sans", "Work Sans", sans),
+  montserrat: served("montserrat", "Montserrat", sans),
+  poppins: served("poppins", "Poppins", sans),
+  "space-grotesk": served("space-grotesk", "Space Grotesk", sans),
+  "source-serif": served("source-serif", "Source Serif", serif),
+  merriweather: served("merriweather", "Merriweather", serif),
+  "playfair-display": served("playfair-display", "Playfair Display", serif),
+  lora: served("lora", "Lora", serif),
+  barlow: served("barlow", "Barlow", sans),
+  "barlow-condensed": served("barlow-condensed", "Barlow Condensed", sans),
+  oswald: served("oswald", "Oswald", sans),
+  "roboto-condensed": served("roboto-condensed", "Roboto Condensed", sans),
+  "bebas-neue": served("bebas-neue", "Bebas Neue", (family) => `"${family}", Impact, ui-sans-serif, sans-serif`),
 });
 
 const RADIUS: Record<NonNullable<TokenOverrides["radius"]>, string> = { none: "0rem", sm: "0.25rem", md: "0.5rem", lg: "0.75rem", full: "1.25rem" };
@@ -146,7 +166,9 @@ export function toCanonicalBrand(brand: BrandInput): CanonicalBrand {
   const primaryDark = (brand.colors.primaryDark ?? mix(primary, 0.35)).toLowerCase();
   parseHex(primaryDark);
   const heading = FONT_CHOICES[brand.fonts?.heading ?? "inter"] ?? FONT_CHOICES.inter;
-  const body = FONT_CHOICES[brand.fonts?.body ?? "inter"] ?? FONT_CHOICES.inter;
+  const chosenBody = FONT_CHOICES[brand.fonts?.body ?? "inter"];
+  // A one-weight display face reads badly as body text: the schema refuses it, and so does this.
+  const body = chosenBody && !chosenBody.headingOnly ? chosenBody : FONT_CHOICES.inter;
   return {
     ...genesisBrand,
     name: brand.name
@@ -189,6 +211,8 @@ export interface SiteTheme {
   colorScheme: "light" | "dark" | "auto";
   /** The fonts the site uses, to load. */
   fonts: FontInfo[];
+  /** The headings' font, when it is one of `FONT_CHOICES`: the page preloads it. */
+  headingFont?: FontInfo;
   /** The colour pairs the sections draw, for the contrast check. */
   pairs: ThemePair[];
   /** Hash of the brand and overrides it was made from (recorded on a release). */
@@ -298,10 +322,12 @@ export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = 
   const light = modeColours(canonical, "light");
   const dark = modeColours(canonical, "dark");
   const usedFonts = new Map<string, FontInfo>();
+  const choiceFor = (stack: string | undefined) => Object.values(FONT_CHOICES).find((f) => f.stack === stack);
   for (const stack of [sans, display]) {
-    const info = Object.values(FONT_CHOICES).find((f) => f.stack === stack);
-    if (info) usedFonts.set(info.label, info);
+    const info = choiceFor(stack);
+    if (info) usedFonts.set(info.id, info);
   }
+  const headingChoice = choiceFor(display);
   const colorScheme = theme.colorScheme ?? "light";
   const pairs = colorScheme === "light" ? pairsFor(light, "light") : colorScheme === "dark" ? pairsFor(dark, "dark") : [...pairsFor(light, "light"), ...pairsFor(dark, "dark")];
   return {
@@ -309,6 +335,7 @@ export function siteTheme(brand: BrandInput, theme: Partial<SiteDoc["theme"]> = 
     dark: { ...base.dark, ...roleVars(dark), ...fontVars },
     colorScheme,
     fonts: [...usedFonts.values()],
+    ...(headingChoice ? { headingFont: headingChoice } : {}),
     pairs,
     brandHash: stableHash({ brand: canonical, overrides, colorScheme }),
   };

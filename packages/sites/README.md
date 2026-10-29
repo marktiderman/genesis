@@ -117,6 +117,44 @@ serves:
 The page loads one script, the islands loader (2.3 KB), and only when it has a
 phone menu or a form. Pass `basePath` to mount a site under a path.
 
+### Everything from the site itself
+
+A published page loads its fonts, styles and scripts from the site, never from
+a third party. No visitor's address goes to a font host, and the
+Content-Security-Policy says so: `font-src 'self'`, `script-src 'self'`, and a
+`style-src` that names only the site and the hash of the page's one inline
+style.
+
+**Fonts.** Every font choice but `system` is served from `/_gs/`: the latin
+subset, one woff2 per weight the choice lists, content-hashed and immutable.
+The page's inline style declares an `@font-face` for each weight, with
+`font-display: swap`, and the page preloads the heading font's bold file. A
+face with one weight (Bebas Neue) is declared for every weight, so a bold
+heading draws it as it is, without a faux bold. Pass `fonts: false` to load no
+files; the page then uses an installed font or the stack's fallback.
+
+The choices (`FONT_CHOICES`): System, Inter, DM Sans, Work Sans, Montserrat,
+Poppins, Space Grotesk, Source Serif, Merriweather, Playfair Display, Lora,
+Barlow, Barlow Condensed, Oswald, Roboto Condensed and Bebas Neue. Bebas Neue
+has one weight, so it is a heading font only (`BodyFontChoice` leaves it out).
+
+The files come from the `@fontsource/*` packages at build time. All are under
+the SIL Open Font License 1.1; their licences ship in
+`dist/assets/fonts/LICENSES.txt`. They cost about 840 KB of woff2 (1.1 MB as
+the base64 chunk the server holds). The handler loads that chunk on the first
+font request only, never to render a page, and a visitor downloads only the
+weights a page uses (about 20 KB each).
+
+**Images.** A page's images and files should live on the site too: uploaded
+with `putAsset`, or copied from an old site with `importAssets` (see
+[Importing a site](#importing-a-site)). The publish check warns about one that loads from another
+host. A site that sets `images: "own"` in its site document makes that an
+error, and its page's policy narrows `img-src` to `'self' data:` plus the
+store's asset origin (`SiteStore.assetOrigin`; the Supabase store's is its
+storage origin). Other origins go in the publish's `assetOrigins` and, the
+same list, in `handleSiteRequest`'s `assetOrigins`. Without it, `img-src` allows any https host, so existing
+sites keep working.
+
 **Publishing and the cache.** Wrap the editor's store with
 `withCacheInvalidation` so publish and rollback purge `site:<id>`. Mind what
 the purge does: on Vercel, `invalidateByTag` serves each cached page once more
@@ -267,12 +305,18 @@ to publish (`PublishBlockedError`, with `issues`) when:
 - an image has no alt text and isn't marked decorative;
 - a section is unknown, has invalid props or was saved by newer code;
 - a template placeholder is still visible;
-- a page path is malformed or reserved, or the site has no home page.
+- a page path is malformed or reserved, or the site has no home page;
+- on a site with `images: "own"`, an image, a file or the brand's logo loads
+  from a host other than the site and the store's asset origin.
 
-Warnings (an unknown variant, a page with no hero, a missing description)
-don't block.
-`checkRelease`, `checkPage`, `checkContrast` and `checkHtmlOutline` are
-exported for an editor's lint panel.
+Warnings (an unknown variant, a page with no hero, a missing description, an
+image from another host on any other site) don't block. An image from another
+host says how to fix it: upload it again, or copy the old site's files with
+`importAssets`.
+`checkRelease`, `checkPage`, `checkContrast`, `checkAssetHosts` and
+`checkHtmlOutline` are exported for an editor's lint panel. `checkPost` takes
+the same `{ images, assetOrigins }` as its third argument; the stores pass the
+site's setting when they publish a post.
 
 ## SEO
 
@@ -547,4 +591,5 @@ Vercel.
 
 ## License
 
-MIT
+MIT. The font files it serves are under the SIL Open Font License 1.1 (see
+`dist/assets/fonts/LICENSES.txt`).

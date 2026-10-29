@@ -129,6 +129,14 @@ const fromPostJson = (j: { id: string; siteId: string; slug: string; title: stri
 export function createSupabaseSiteStore(client: SupabaseClient, options: SupabaseSiteStoreOptions = {}): SiteStore {
   const db = client.schema(SITES_SCHEMA);
   const bucket = options.bucket ?? "site-assets";
+  // Where uploads live: the storage URL's origin, read without a request.
+  const assetOrigin = (() => {
+    try {
+      return new URL(client.storage.from(bucket).getPublicUrl("x").data.publicUrl).origin;
+    } catch {
+      return undefined;
+    }
+  })();
 
   async function release(id: string): Promise<Release> {
     const { data, error } = await db.from("site_releases").select("id, site_id, number, note, created_at, published_at, brand_hash, snapshot").eq("id", id).single();
@@ -145,6 +153,7 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
   }
 
   const store: SiteStore = {
+    ...(assetOrigin ? { assetOrigin } : {}),
     async getLive(siteId) {
       const { data, error } = await db.rpc("live_release", { site_id: siteId });
       if (error) fail(error, "reading the live site");
@@ -219,7 +228,7 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
       const rows = await pageRows(siteId, true);
       const pages = rows.map((r) => ({ id: r.id, path: r.path, kind: r.kind, doc: PageDoc.parse(r.draft), rev: r.draft_rev }));
       // Throws PublishBlockedError when a check fails.
-      const prepared = prepareRelease(draft.site, pages, opts);
+      const prepared = prepareRelease(draft.site, pages, { ...opts, assetOrigins: [...(assetOrigin ? [assetOrigin] : []), ...(opts.assetOrigins ?? [])] });
       // Migrated props go back into the drafts first, so the release holds them.
       const revs: Record<string, number> = Object.fromEntries(pages.map((p) => [p.id, p.rev]));
       let siteRev = draft.rev;
@@ -334,7 +343,9 @@ export function createSupabaseSiteStore(client: SupabaseClient, options: Supabas
     async publishPost(postId) {
       const draft = await store.getPost!(postId);
       if (!draft) throw new SiteStoreError(`No post ${postId} (or you can't see it).`, "P0002");
-      const issues = checkPost(draft.slug, draft.doc);
+      // A site that serves only its own files refuses a post that loads one from elsewhere.
+      const images = (await store.getDraft(draft.siteId))?.site.images;
+      const issues = checkPost(draft.slug, draft.doc, { ...(images ? { images } : {}), ...(assetOrigin ? { assetOrigins: [assetOrigin] } : {}) });
       if (!isPublishable(issues)) throw new PublishBlockedError(issues);
       // The revision just checked: if someone saved since, the database refuses (GS409).
       const { data, error } = await db.rpc("publish_post", { post_id: postId, expected_rev: draft.rev });

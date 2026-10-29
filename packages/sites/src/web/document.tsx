@@ -11,6 +11,7 @@ import { getSection } from "../core/registry";
 import { migrateNode } from "../core/migrate";
 import type { ReleasePage, ReleaseSnapshot, SectionNode } from "../core/schemas";
 import { absoluteUrl, articleJsonLd, breadcrumbJsonLd, organizationJsonLd, pageMeta, safeJsonForHtml, websiteJsonLd } from "../core/seo";
+import { fontFileKey, LATIN_UNICODE_RANGE } from "../core/fonts";
 import { themeCss, type FontInfo, type SiteTheme } from "../core/theme";
 import type { ResolvedForm } from "../core/forms";
 import { formDrawMode } from "../sections/form-embed";
@@ -22,6 +23,12 @@ export interface SiteAssets {
   formsCss: string;
   /** The islands loader. */
   islands: string;
+  /**
+   * A font file's URL by its key (`inter-700`, see `fontFileKey`), or null
+   * when it isn't served. Without it the page names its fonts but loads no
+   * files, so a visitor sees an installed font or the stack's fallback.
+   */
+  font?: (key: string) => string | null;
 }
 
 export interface SiteRendererProps {
@@ -39,8 +46,6 @@ export interface SiteRendererProps {
   forms?: ReadonlyMap<string, ResolvedForm | null>;
   /** Asset URLs. */
   assets: SiteAssets;
-  /** The stylesheet URL for a font, or null to rely on installed fonts. Default: Google Fonts. */
-  fontHref?: ((font: FontInfo) => string | null) | false;
   /**
    * The blog, when the site has a post page: its path, the posts, the post
    * this page shows (`page` is then that post on the post page) and the
@@ -49,8 +54,47 @@ export interface SiteRendererProps {
   posts?: PostsContext;
 }
 
-export const googleFontHref = (font: FontInfo): string | null =>
-  font.google ? `https://fonts.googleapis.com/css2?family=${font.google}&display=swap` : null;
+/** A URL made safe to print inside `url("...")` in a `<style>`. */
+const cssUrl = (url: string) => url.replace(/["\\<>\n\r{};]/g, "");
+
+/** The weight a heading draws in (bold, else the heaviest below it, else the lightest): the file a page preloads. */
+function headingWeight(font: FontInfo): number | undefined {
+  const atMost = font.weights.filter((w) => w <= 700);
+  return atMost.length ? Math.max(...atMost) : font.weights[0];
+}
+
+/**
+ * The `@font-face` rules for a theme's fonts, from files this package serves
+ * (`font-display: swap`, the latin subset), and the heading font's file to
+ * preload. A face with one weight is declared for every weight, so a bold
+ * heading draws it as it is instead of a faux bold.
+ *
+ * @stability Beta
+ */
+export function fontFaces(theme: Pick<SiteTheme, "fonts" | "headingFont">, fontUrl: ((key: string) => string | null) | undefined): { css: string; preload: string[] } {
+  if (!fontUrl) return { css: "", preload: [] };
+  const rules: string[] = [];
+  for (const font of theme.fonts) {
+    if (!font.family) continue;
+    for (const weight of font.weights) {
+      const url = fontUrl(fontFileKey(font.id, weight));
+      if (!url) continue;
+      rules.push(
+        `@font-face{font-family:"${font.family}";font-style:normal;font-weight:${font.weights.length === 1 ? "100 900" : weight};font-display:swap;src:url("${cssUrl(url)}") format("woff2");unicode-range:${LATIN_UNICODE_RANGE}}`,
+      );
+    }
+  }
+  const heading = theme.headingFont?.family ? theme.headingFont : undefined;
+  const weight = heading ? headingWeight(heading) : undefined;
+  const preload = heading && weight !== undefined ? fontUrl(fontFileKey(heading.id, weight)) : null;
+  return { css: rules.join("\n"), preload: preload ? [preload] : [] };
+}
+
+/** The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. */
+export function pageStyleText(theme: SiteTheme, fontUrl: ((key: string) => string | null) | undefined): string {
+  const { css } = fontFaces(theme, fontUrl);
+  return css ? `${css}\n${themeCss(theme)}` : themeCss(theme);
+}
 
 const FORM_SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 
@@ -119,7 +163,7 @@ function hrefFor(basePath: string) {
  *
  * @stability Beta
  */
-export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, fontHref = googleFontHref, posts }: SiteRendererProps) {
+export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mode = "live", logo, forms = new Map(), assets, posts }: SiteRendererProps) {
   const site = snapshot.site;
   const preview = mode === "preview";
   const path = page?.path ?? "/404";
@@ -163,7 +207,7 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
     const crumbs = breadcrumbJsonLd(post ? [...snapshot.pages, page] : snapshot.pages, page, origin, basePath);
     if (crumbs) jsonLd.push(crumbs);
   }
-  const fontLinks = fontHref ? theme.fonts.map(fontHref).filter((h): h is string => Boolean(h)) : [];
+  const fontPreloads = fontFaces(theme, assets.font).preload;
 
   return (
     <html lang={site.lang} data-gs-site="" {...(theme.colorScheme === "dark" ? { className: "dark" } : {})}>
@@ -180,19 +224,14 @@ export function SiteRenderer({ snapshot, page, theme, origin, basePath = "", mod
         {Object.entries(meta.twitter).map(([name, content]) => (
           <meta key={name} name={name} content={content} />
         ))}
-        {fontLinks.length ? (
-          <>
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-            {fontLinks.map((href) => (
-              <link key={href} rel="stylesheet" href={href} />
-            ))}
-          </>
-        ) : null}
+        {/* The heading font, from the site itself: it is in the first view, so it shouldn't wait for the stylesheet. */}
+        {fontPreloads.map((href) => (
+          <link key={href} rel="preload" href={href} as="font" type="font/woff2" crossOrigin="anonymous" />
+        ))}
         <link rel="stylesheet" href={assets.css} />
         {hasFormBundle ? <link rel="stylesheet" href={assets.formsCss} /> : null}
-        {/* The site's theme: CSS variables from the brand, after the shared stylesheet so they win. */}
-        <style data-gs-theme="" dangerouslySetInnerHTML={{ __html: themeCss(theme) }} />
+        {/* The site's fonts and theme (CSS variables from the brand), after the shared stylesheet so they win. */}
+        <style data-gs-theme="" dangerouslySetInnerHTML={{ __html: pageStyleText(theme, assets.font) }} />
         {jsonLd.map((data, i) => (
           <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonForHtml(data) }} />
         ))}

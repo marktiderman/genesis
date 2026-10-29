@@ -41,7 +41,11 @@ export async function checkSite(store: SiteStore, siteId: string, options: Pick<
   });
   let issues: SiteIssue[];
   try {
-    issues = prepareRelease(draft.site, pages, { reserved: options.reserved ?? DEFAULT_RESERVED_PATHS, ...(options.brand ? { brand: options.brand } : {}) }).issues;
+    issues = prepareRelease(draft.site, pages, {
+      reserved: options.reserved ?? DEFAULT_RESERVED_PATHS,
+      ...(options.brand ? { brand: options.brand } : {}),
+      ...(store.assetOrigin ? { assetOrigins: [store.assetOrigin] } : {}),
+    }).issues;
   } catch (err) {
     if (!(err instanceof PublishBlockedError)) {
       // A draft that doesn't even form a snapshot (a schema the store let through): report it, don't throw.

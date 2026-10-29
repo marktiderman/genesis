@@ -200,7 +200,7 @@ export const Redirect = z.object({
 });
 export type Redirect = z.infer<typeof Redirect>;
 
-/** Fonts a site may choose; see `FONT_CHOICES` in theme.ts for their stacks. */
+/** Fonts a site may choose for its headings; see `FONT_CHOICES` in theme.ts for their stacks. */
 export const FontChoice = z.enum([
   "system",
   "inter",
@@ -213,8 +213,17 @@ export const FontChoice = z.enum([
   "merriweather",
   "playfair-display",
   "lora",
+  "barlow",
+  "barlow-condensed",
+  "oswald",
+  "roboto-condensed",
+  "bebas-neue",
 ]);
 export type FontChoice = z.infer<typeof FontChoice>;
+
+/** Fonts a site may choose for its body text: every choice but the display faces that have one weight. */
+export const BodyFontChoice = FontChoice.exclude(["bebas-neue"]);
+export type BodyFontChoice = z.infer<typeof BodyFontChoice>;
 
 /**
  * A site's theme choices on top of the brand: token choices only, never raw
@@ -223,7 +232,7 @@ export type FontChoice = z.infer<typeof FontChoice>;
 export const TokenOverrides = z.object({
   radius: z.enum(["none", "sm", "md", "lg", "full"]).optional(),
   headingFont: FontChoice.optional(),
-  bodyFont: FontChoice.optional(),
+  bodyFont: BodyFontChoice.optional(),
 });
 export type TokenOverrides = z.infer<typeof TokenOverrides>;
 
@@ -263,6 +272,13 @@ export const SiteDoc = z.object({
   footer: z.array(SectionNode).max(3).default([]),
   seo: SeoDefaults.default({}),
   redirects: z.array(Redirect).max(500).default([]),
+  /**
+   * Where the site's images and files may load from. `"own"`: only the site
+   * itself and the store's asset origin. An image elsewhere then blocks the
+   * publish, and the page's Content-Security-Policy refuses other hosts.
+   * Unset: any https host, and an image elsewhere is a warning.
+   */
+  images: z.enum(["any", "own"]).optional(),
 });
 export type SiteDoc = z.infer<typeof SiteDoc>;
 /** A `SiteDoc` as written, before defaults. */

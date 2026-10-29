@@ -114,7 +114,7 @@ Sources: [Puck docs](https://puckeditor.com/docs) (Context7 `/websites/puckedito
 | Templates | **One-click landing page**: brand plus a message produce nav, hero, features, testimonials, CTA, form and footer. A 3-page starter site. A one-page site seeded from a name, logo, message and brand colours and fonts | Template gallery | — |
 | Pages/nav | Pages with clean slugs; nav and footer menus; a 404 page | Nested menus | — |
 | SEO | Title, description, OG/Twitter image, canonical, `noindex`; sitemap.xml; robots.txt; JSON-LD `Organization`/`WebSite`/`BreadcrumbList`; automatic redirect on slug change | **Built:** `Article` and `og:type` article on posts, posts in the sitemap, rss.xml. Still to do: redirect manager; `LocalBusiness`, `Event` | — |
-| Performance | Server-rendered HTML; no hydration; one loader script under 5 KB for the phone menu and plain forms; width/height on images; fonts preconnected | Image CDN transforms (`srcset`, AVIF/WebP); LCP image priority | — |
+| Performance | Server-rendered HTML; no hydration; one loader script under 5 KB for the phone menu and plain forms; width/height on images; fonts self-hosted (latin woff2 under `/_gs/`, `font-display: swap`, the heading font preloaded); nothing loads from a third party | Image CDN transforms (`srcset`, AVIF/WebP); LCP image priority | — |
 | A11y (WCAG 2.2 AA) | Renderer assigns heading levels (one `h1`, from the hero); contrast of brand pairs at 4.5:1 (1.4.3) blocks publish; alt text required; focus visible; 24px targets (2.5.8) | Lint panel in the editor | — |
 | Publishing | Draft, private preview, publish, release history, rollback | Scheduled publish; single-page publish | Approval workflow |
 | Domains | Host app (see §5) | — | — |
@@ -339,6 +339,21 @@ demos and previews with the same rules.
   one `<style>` per site. The section CSS is shared and static, so a single
   stylesheet serves every brand. A Content-Security-Policy pins the style by
   hash.
+- **Fonts.** The package serves every font choice itself, from `/_gs/`: the
+  latin subset, one woff2 per listed weight, copied from the `@fontsource/*`
+  packages at build time (SIL OFL 1.1; the licences ship in
+  `dist/assets/fonts/LICENSES.txt`). The page's one inline style starts with
+  an `@font-face` per weight (`font-display: swap`), and the page preloads the
+  heading font. No page names a font host, so the policy is `font-src 'self'`
+  and `style-src` names only the site and the style's hash. The files cost
+  about 840 KB, held by the server as a separate chunk it loads on the first
+  font request.
+- **Content-Security-Policy.** `default-src`, `script-src` and `font-src` are
+  `'self'`. `img-src` is `'self' https: data:` by default, so an image hosted
+  elsewhere still shows, and the publish check warns about it. A site with
+  `images: "own"` gets `img-src 'self' data:` plus the store's asset origin,
+  and its publish check makes such an image an error. `importAssets` brings
+  an old site's files onto the store first.
 - **Caching.** Pages carry `Cache-Control: public, max-age=0,
   s-maxage=31536000, stale-while-revalidate=86400` and `Vercel-Cache-Tag:
   site:<id>`. A store wrapped in `withCacheInvalidation` purges the tag after
@@ -415,7 +430,9 @@ packages/sites/                  @marktiderman/genesis-sites
   `themeFromBrand` variables itself.
 - **The brand schema has no logo field.** The logo comes from the host's
   `BrandSource`. Fonts exist as `typography.fontFamily`; a site's fonts are a
-  fixed list of choices (`FONT_CHOICES`).
+  fixed list of choices (`FONT_CHOICES`), each served by the package. A
+  one-weight display face (Bebas Neue) is a heading choice only
+  (`BodyFontChoice`).
 - **genesis-ui `Section` is an app-page section** (heading `text-xl`). Marketing
   bands needed a display type scale and a full-bleed surface primitive, added
   to genesis-ui as `Band`, `BandLead` and `Display`

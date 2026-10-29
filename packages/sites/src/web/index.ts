@@ -5,5 +5,5 @@
  * @packageDocumentation
  */
 export { ASSETS_PREFIX, handleSiteRequest, renderSitePageToString, type SiteRequestOptions } from "./handler";
-export { SiteRenderer, collectFormSlugs, googleFontHref, type SiteAssets, type SiteRendererProps } from "./document";
-export { ASSET_SIZES } from "./assets.generated";
+export { SiteRenderer, collectFormSlugs, fontFaces, pageStyleText, type SiteAssets, type SiteRendererProps } from "./document";
+export { ASSET_SIZES, FONT_FILES } from "./assets.generated";
