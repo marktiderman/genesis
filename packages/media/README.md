@@ -1,8 +1,8 @@
 # @marktiderman/genesis-media
 
 Images and files for Genesis apps: one image value, responsive images through
-your image service, byte sniffing, and a server-side fetch that can't be aimed
-at your own network.
+your image service, byte sniffing, a server-side fetch that can't be aimed
+at your own network, and signed links and ZIP bundles for private media.
 
 ```bash
 pnpm add @marktiderman/genesis-media
@@ -78,11 +78,237 @@ from https down to http, a size cap and a time limit. A refusal is a
 pieces are exported too: `urlProblems`, `isPublicAddress`, `guardedLookup`,
 `createGuardedTransport` and `readCapped`.
 
+## Signed links: `@marktiderman/genesis-media/signed` (server and edge)
+
+Short-lived links to files in private storage, for people the app has already
+checked, so the bytes stream from storage or an edge Worker and never through
+the app server. Fetch and WebCrypto only: Node 20+ and Workers. ADR 0012
+("media primitives") is the design.
+
+**Server and edge only.** The secret both signs and verifies, so it must never
+reach a browser: a browser only ever receives finished signed URLs. The
+`/signed` entry resolves to nothing under the `browser` export condition, so a
+page bundle that imports it fails to build (Workers bundlers match `workerd`
+or `worker` first and resolve it), and `createMediaSigner` throws where there
+is a `document`.
+
+The signer never decides access. The app's own rules (RLS, roles) decide who
+may see what; the signer only proves "the app said yes, recently". Uploading
+is not part of this: never hand out a signed read link for writing.
+
+### Signing
+
+```ts
+import { createMediaSigner, mediaScope } from "@marktiderman/genesis-media/signed";
+
+const signer = createMediaSigner({
+  secret: env.MEDIA_SIGNING_SECRET, // at least 32 bytes: openssl rand -base64 32
+  ttl: { download: "7d" },          // per scope kind; the rest keep two hours
+  align: "hour",
+});
+
+// After the app has checked the person:
+const poster = await signer.signMediaUrl(MEDIA_BASE, "videos/v1/poster.jpg",
+  mediaScope.file("videos", "v1", "poster"));
+const original = await signer.signMediaUrl(MEDIA_BASE, "videos/v1/original.mov",
+  mediaScope.download("videos/v1/original.mov", "Final cut.mov"), { ttl: "3d" });
+// https://media.example.com/videos/v1/poster.jpg?e=1800007200&s=v1.…
+// https://media.example.com/videos/v1/original.mov?e=…&s=v1.…&d=Final+cut.mov
+```
+
+- **Scopes** (`mediaScope`): each names one exact thing, and no kind stands in
+  for another.
+  - `item(collection, id)`: every interchangeable preview of one item (its
+    thumbnail and display sizes);
+  - `file(collection, id, variant)`: one file of an item (one video
+    rendition, a poster). Sign anything big per file: an item link for a
+    poster must never open the film;
+  - `download(path, filename)`: one exact file, its download name bound in;
+  - `bundle(manifestId)`: a ZIP (below).
+- **`sign(scope, { ttl?, align? })`** returns `{ e, s, k? }`: the expiry
+  (Unix seconds), the signature (`v1.` and base64url) and, with `keys`, the
+  key id. `verify(scope, { e, s, k })` checks the expiry and the signature
+  (compared in constant time) and takes the raw query values.
+  `signMediaUrl(base, path, scope, options?)` appends them, and `d` for a
+  download.
+- **TTL** is per call, else per scope kind (`ttl: { item, file, download,
+  bundle }`, each defaulting to two hours): from one minute to 30 days
+  (`"30m"`, `"2h"`, `"7d"`, or seconds); anything else throws a `RangeError`.
+  Hours suit viewing; days suit a lab or a video provider fetching an
+  original. `align: "hour"` ends the link at the end of the hour `now + ttl`
+  falls in, so every link to the same thing within one hour is the same URL
+  and caches as one; it lasts between `ttl` and `ttl` plus an hour. Hiding an
+  item takes effect when its links expire, so keep viewing links short.
+- **Key rotation:** `createMediaSigner({ keys: { current: "k2", secrets: { k1, k2 } } })`
+  signs with `current` and puts its id in the link (`k`); a link verifies
+  with the key its id names. A link without an id (from the single-secret
+  form) verifies with any listed key, so moving from `{ secret }` to `keys`
+  keeps links in flight working. Drop a key once its longest TTL has passed.
+- **Versioned format:** the signed text starts `v1:` and the signature `v1.`.
+  A later format is added beside v1, so links already handed out keep
+  verifying until they expire.
+
+### Serving
+
+```ts
+import { createSignedMediaHandler, mediaScope } from "@marktiderman/genesis-media/signed";
+
+const handle = createSignedMediaHandler({
+  storage, // a MediaStorage (below)
+  signer,
+  // The app maps a path to a storage key and the scope its link must carry.
+  route: (path, { download }) => {
+    const m = /^(videos|photos)\/([\w-]+)\/([\w-]+)\.(jpg|mp4|mov)$/.exec(path);
+    if (!m) return undefined;
+    const [, collection, id, variant] = m;
+    const key = `media/${path}`;
+    if (download) return { key, scope: mediaScope.download(path, download) };
+    if (variant === "original") return undefined; // originals only as downloads
+    return collection === "photos"
+      ? { key, scope: mediaScope.item(collection, id) }
+      : { key, scope: mediaScope.file(collection, id, variant) };
+  },
+});
+
+export default { fetch: (request: Request) => handle(request) };
+```
+
+`(request) => Promise<Response>`. It answers `GET` and `HEAD` (405
+otherwise) and:
+
+- checks the link **before storage is read**, so an unsigned request can't
+  learn what exists: a bad, expired or other-scope link is 403; an unknown
+  path or a missing file is 404; it never lists anything;
+- never hands `route` a path with `.` or `..` segments, or a segment that
+  decodes to a slash, backslash or NUL;
+- serves one byte `Range` as 206 (`bytes=0-99`, `bytes=100-`, `bytes=-500`;
+  an end past the file is cut to it), a start past the end as 416 with
+  `content-range: bytes */size`, and several ranges or a malformed header as
+  the whole file;
+- passes the stored content type, length, ETag and last-modified through, and
+  sets `accept-ranges: bytes`, `x-robots-tag: noindex` and
+  `x-content-type-options: nosniff`;
+- names a download per RFC 6266 (`attachment; filename="…"` in plain ASCII
+  plus `filename*=UTF-8''…`), always with the filename the signature binds;
+- caches as `private, max-age=` the link's remaining life, at most an hour,
+  unless `cacheControl` says otherwise.
+
+### Bundles: many files as one ZIP
+
+```ts
+import { createBundleHandler, createZipManifest, mediaScope } from "@marktiderman/genesis-media/signed";
+
+// When the person asks for the download (after the app has checked them):
+const manifest = createZipManifest({
+  name: "Selected files",       // the download name; .zip is added
+  entries: [{ key: "media/photos/p1/original.jpg", name: "photos/p1.jpg", size: 4_812_330 }],
+  expiresAt: new Date(Date.now() + 86_400_000),
+});
+await env.BUCKET.put(`bundles/${manifest.id}.json`, JSON.stringify(manifest));
+const url = await signer.signMediaUrl(MEDIA_BASE, `bundles/${manifest.id}`, mediaScope.bundle(manifest.id));
+
+// In the Worker:
+const bundles = createBundleHandler({
+  storage, signer,
+  readManifest: async (id) => (await env.BUCKET.get(`bundles/${id}.json`))?.json() ?? null,
+});
+// bundles(request) reads the id from the path's last segment, or bundles(request, id).
+```
+
+- The manifest has a random 128-bit id, its own filename and its own expiry
+  (Unix seconds), which wins over a longer link. Entry names that would unzip
+  outside their folder (`..`, absolute, backslashes, control characters) and
+  duplicates are refused.
+- The ZIP is store-only (media is already compressed) and built on the fly
+  with [`client-zip`](https://github.com/Touffy/client-zip): one file at a
+  time as the download is read, so memory stays flat, and ZIP64 past 4 GB or
+  65,535 files. When every entry has a `size`, the response carries the exact
+  `content-length`, so the browser shows progress.
+- A file that has gone missing, or whose size no longer matches, ends the
+  stream with an error: the download fails rather than arriving incomplete.
+- 403 for a bad link (before the manifest is read), 404 for a missing,
+  expired or mismatched manifest, `cache-control: no-store`.
+
+### Storage
+
+The handlers read through a small interface, so any object store works:
+
+```ts
+interface MediaStorage {
+  head(key: string): Promise<{ size: number; contentType?: string; etag?: string; lastModified?: Date } | null>;
+  get(key: string, options?: { range?: { offset: number; length: number } }):
+    Promise<{ size: number; contentType?: string; etag?: string; lastModified?: Date; body: ReadableStream<Uint8Array> } | null>;
+}
+```
+
+`size` is always the whole object's. `createMemoryStorage({ [key]: { body, contentType? } })`
+is one in memory, for tests.
+
+**An R2 bucket** (`env.BUCKET` in a Worker):
+
+```ts
+const info = (o: R2Object) => ({ size: o.size, contentType: o.httpMetadata?.contentType, etag: o.httpEtag, lastModified: o.uploaded });
+const storage: MediaStorage = {
+  head: async (key) => {
+    const o = await env.BUCKET.head(key);
+    return o && info(o);
+  },
+  get: async (key, options) => {
+    const o = await env.BUCKET.get(key, options?.range ? { range: options.range } : undefined);
+    return o && { ...info(o), body: o.body };
+  },
+};
+```
+
+**S3-compatible storage** (S3, B2, MinIO) over fetch, with a signing client
+such as `aws4fetch`:
+
+```ts
+const s3 = new AwsClient({ accessKeyId, secretAccessKey, service: "s3", region });
+const at = (key: string) => `${endpoint}/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`;
+const read = (res: Response, size: number) => ({
+  size, contentType: res.headers.get("content-type") ?? undefined, etag: res.headers.get("etag") ?? undefined,
+  lastModified: res.headers.has("last-modified") ? new Date(res.headers.get("last-modified")!) : undefined,
+});
+const storage: MediaStorage = {
+  head: async (key) => {
+    const res = await s3.fetch(at(key), { method: "HEAD" });
+    return res.ok ? read(res, Number(res.headers.get("content-length"))) : null;
+  },
+  get: async (key, options) => {
+    const r = options?.range;
+    const res = await s3.fetch(at(key), r ? { headers: { range: `bytes=${r.offset}-${r.offset + r.length - 1}` } } : {});
+    if (!res.ok || !res.body) return null;
+    const size = r ? Number(res.headers.get("content-range")?.split("/")[1]) : Number(res.headers.get("content-length"));
+    return { ...read(res, size), body: res.body };
+  },
+};
+```
+
+**Supabase Storage** (a private bucket) is the same fetch wrapper with plain
+`fetch`, `authorization: Bearer <service role key>`, and
+``at = (key) => `${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${key}` ``.
+For `head`, send a `GET` with `range: bytes=0-0`, read the size from
+`content-range`, and cancel the body. The service role key stays in the
+Worker, like the signing secret.
+
+### Where an app customizes (ADR 0013)
+
+| Level | Signed links | Bundles |
+| --- | --- | --- |
+| **Configure** | scopes, TTL per scope kind or per link, hour alignment, `cacheControl`, keys | filename, expiry, entries |
+| **Brand** | none: nothing here is seen | none |
+| **Compose** | none: there is no UI | none |
+| **Adapt** | the `MediaStorage` behind the verifier (R2, S3-compatible, Supabase, memory) | the same storage, and where `readManifest` reads from |
+| **Own** (stays in the app) | who may see what (RLS, roles), and the `route` from paths to keys | which files go in |
+
 ## Used by
 
 - `@marktiderman/genesis-sites` renders every section image through
   `responsiveImage` (`handleSiteRequest`'s `imageUrl` option), and its
   `/import` re-hosts files through `fetchGuarded` and `sniff`.
+- `/signed` is promoted from a consumer app's signed-link signer and its
+  edge Worker (verifier, ranges, ZIP), which move onto it.
 
 ## Follow-ups
 
