@@ -139,6 +139,8 @@ begin
   if viewer is null then
     raise exception 'genesis_track_events: sign in first' using errcode = '42501';
   end if;
+  -- One login's calls take turns, so two at once can't both pass the hourly limit.
+  perform pg_advisory_xact_lock(hashtextextended('genesis_events:' || viewer::text, 0));
   if jsonb_typeof(events) is distinct from 'array' or jsonb_array_length(events) > 100 or octet_length(events::text) > 524288 then
     raise exception 'genesis_track_events: send a JSON array of at most 100 events and 512 KB' using errcode = '22023';
   end if;
@@ -212,11 +214,17 @@ stable
 security definer
 set search_path = ''
 as $$
+  -- Two branches so each uses genesis_events_tenant_time: one tenant, or the events with none.
   select e.feature_id, count(*), count(distinct coalesce(e.person_id, e.user_id)), max(e.occurred_at)
   from public.genesis_events e
-  where e.tenant_id is not distinct from tenant and e.occurred_at >= since and e.feature_id is not null
+  where tenant is not null and e.tenant_id = tenant and e.occurred_at >= since and e.feature_id is not null
   group by e.feature_id
-  order by count(*) desc
+  union all
+  select e.feature_id, count(*), count(distinct coalesce(e.person_id, e.user_id)), max(e.occurred_at)
+  from public.genesis_events e
+  where tenant is null and e.tenant_id is null and e.occurred_at >= since and e.feature_id is not null
+  group by e.feature_id
+  order by 2 desc
 $$;
 
 comment on function public.genesis_feature_usage(uuid, timestamptz) is

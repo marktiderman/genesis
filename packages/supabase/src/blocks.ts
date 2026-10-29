@@ -162,7 +162,7 @@ export const webHandoffBlock = defineBlock({
 
 /**
  * The product events block: the app's own events table and its tracking functions (ADR 0010).
- * The client is `createEventTracker` from `/events`; on native, `eventsSink` plugs it into the
+ * The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the
  * observability sinks.
  *
  * @stability Beta

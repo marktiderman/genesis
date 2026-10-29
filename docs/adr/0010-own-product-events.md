@@ -30,7 +30,7 @@ rule.
    Nobody but the service role reads the table; summaries such as `genesis_feature_usage` are
    service-role functions the product hub calls.
 3. **Clients send through one tracker**: `createEventTracker` (genesis-supabase `/events`) batches,
-   retries and flushes; on native, `eventsSink` makes it an observability sink beside Sentry.
+   retries and flushes; on native, `createEventsSink` makes it an observability sink beside Sentry.
 4. **Vendors are sinks, later**: a PostHog, Amplitude or warehouse adapter reads the same events
    (fan-out from the tracker, or an export job from the table). Genesis flags stay the source of
    truth; an event records which flags were on, so a vendor can split by them without deciding

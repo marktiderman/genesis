@@ -874,7 +874,7 @@ events.track("task.completed", { feature: "tasks", tenantId, properties: { count
   names a tenant the person has no record in is dropped, and the person record is filled in from
   the tenant, through the `private.genesis_viewer_people` hook (0016).
 - Server code tracks with a service-role client and `server: true` (`genesis_track_server_events`).
-- On native, `eventsSink(tracker, { feature, tenantId })` is an observability sink beside Sentry.
+- On native, `createEventsSink(tracker, { feature, tenantId })` is an observability sink beside Sentry.
 - Properties are flat labels and counts (no nested objects): never typed content or personal data.
   Events carry identifiers only (the login and person ids); deleting a login clears its user_id.
 - A login keeps at most 2,000 events an hour (GS429 past it). Call `tracker.reset()` on sign-out so

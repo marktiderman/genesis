@@ -301,7 +301,7 @@
           }
         ],
         "steps": [
-          "Track from the client with createEventTracker from @marktiderman/genesis-supabase/events (and eventsSink on native). Events in a tenant count only when the app defines the private.genesis_viewer_people hook (0016).",
+          "Track from the client with createEventTracker from @marktiderman/genesis-supabase/events (and createEventsSink on native). Events in a tenant count only when the app defines the private.genesis_viewer_people hook (0016).",
           "Schedule genesis_prune_events() (default 400 days) from your jobs, e.g. a monthly genesis_schedule_job."
         ],
         "platforms": [

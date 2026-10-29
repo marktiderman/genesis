@@ -1,6 +1,6 @@
 // @feat:product-events
 import { describe, expect, it, vi } from "vitest";
-import { createEventTracker, eventsSink, type EventsClient } from "../events";
+import { createEventTracker, createEventsSink, type EventsClient } from "../events";
 
 function fakeClient(results: Array<{ data?: unknown; error?: { message: string } | null }>) {
   const calls: Array<{ fn: string; events: unknown[] }> = [];
@@ -54,7 +54,7 @@ describe("createEventTracker", () => {
     vi.useRealTimers();
   });
 
-  it("drops events it can never send: signed out drops all, a refused batch drops itself", async () => {
+  it("drops events it can never send: a signed-out or refused batch drops itself", async () => {
     const signedOut = fakeClient([{ error: { message: "sign in first", code: "42501" } as { message: string } }]);
     const a = createEventTracker({ client: signedOut.client, flushIntervalMs: 0 });
     a.track("a.one");
@@ -91,11 +91,11 @@ describe("createEventTracker", () => {
   });
 });
 
-describe("eventsSink", () => {
+describe("createEventsSink", () => {
   it("turns observability events into tracked ones with their feature and tenant", async () => {
     const { client, calls } = fakeClient([]);
     const t = createEventTracker({ client, flushIntervalMs: 0, now: at, sessionId: "s" });
-    const sink = eventsSink(t, { feature: (n) => (n.startsWith("task.") ? "tasks" : undefined), tenantId: () => "t1" });
+    const sink = createEventsSink(t, { feature: (n) => (n.startsWith("task.") ? "tasks" : undefined), tenantId: () => "t1" });
     sink.event("task.completed", { count: 2 });
     expect(await sink.flush(1000)).toBe(true);
     expect(calls[0]!.events[0]).toMatchObject({ name: "task.completed", feature: "tasks", tenantId: "t1", properties: { count: 2 } });

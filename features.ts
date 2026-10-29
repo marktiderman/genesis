@@ -3148,7 +3148,7 @@ export const features = defineFeatures({
   },
   "product-events": {
     name: "Product events",
-    summary: "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and eventsSink on native.",
+    summary: "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
     category: "Data",
     status: "building",
     horizon: "now",

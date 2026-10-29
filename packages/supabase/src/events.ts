@@ -7,7 +7,7 @@
  *   (`server: true`, a service-role client). A send that fails for a while (offline, a 5xx) is
  *   retried with backoff; one that can't succeed (signed out, a bad batch, the migration not
  *   applied) drops what it sent. Call `reset()` on sign-out. Tracking never throws into the app.
- * - `eventsSink`: the tracker as a genesis-native observability sink, so `observability.event(…)`
+ * - `createEventsSink`: the tracker as a genesis-native observability sink, so `observability.event(…)`
  *   reaches the table beside Sentry and EAS Observe.
  *
  * ```ts
@@ -154,9 +154,14 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
       failures = 0;
       return { settled: true, kept: typeof data === "number" ? data : 0 };
     }
-    options.onError?.(error);
+    try {
+      options.onError?.(error);
+    } catch {
+      // A throwing callback doesn't break the tracker.
+    }
     if (error.code === "42501") {
-      queue = [];
+      // Signed out: this batch can't be sent as anyone; call reset() on sign-out for the rest.
+      drop(batch);
       return { settled: true, kept: 0 };
     }
     if (permanent(error.code)) {
@@ -231,7 +236,7 @@ export function createEventTracker(options: EventTrackerOptions): EventTracker {
   };
 }
 
-/** What `eventsSink` needs to place an event: its feature and tenant. */
+/** What `createEventsSink` needs to place an event: its feature and tenant. */
 export interface EventsSinkOptions {
   /** The FeatureId an event name belongs to (`"task.completed"` → `"tasks"`). */
   feature?: (name: string) => string | undefined;
@@ -245,7 +250,7 @@ export interface EventsSinkOptions {
  *
  * @stability Beta
  */
-export function eventsSink(tracker: EventTracker, options: EventsSinkOptions = {}) {
+export function createEventsSink(tracker: EventTracker, options: EventsSinkOptions = {}) {
   return {
     name: "genesis-events",
     event(name: string, props: Readonly<Record<string, string | number | boolean>>) {
@@ -258,7 +263,8 @@ export function eventsSink(tracker: EventTracker, options: EventsSinkOptions = {
       const timeout = new Promise<boolean>((resolve) => {
         timer = setTimeout(() => resolve(false), timeoutMs);
       });
-      return Promise.race([tracker.flush().then(() => true), timeout]).finally(() => clearTimeout(timer));
+      // Finished means nothing is left queued (a dropped batch counts as finished).
+      return Promise.race([tracker.flush().then(() => tracker.pending === 0), timeout]).finally(() => clearTimeout(timer));
     },
   };
 }
