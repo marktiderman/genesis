@@ -1,0 +1,29 @@
+.changeset/sites-neutral-core.md
+  s_1cc73fa3649187::t_2bcdb960fb1cea 5
+packages/sites/README.md
+  s_1cc73fa3649187::t_5764a612a676c8 226-227
+packages/sites/src/__tests__/second-industry.test.tsx
+  s_1cc73fa3649187::t_3659b69e1b8cd0 69-76
+packages/sites/src/sections/schedule.tsx
+  s_1cc73fa3649187::t_fd8983507e90f7 78-88,211,298,354
+packages/sites/src/templates/fitness.ts
+  s_1cc73fa3649187::t_ea19ad68935b8f 47
+packages/sites/src/templates/templates.test.tsx
+  s_1cc73fa3649187::t_a8e547e52d3eeb 33-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b7e4d233567393555bd0b5b677218170a069bc8f",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
