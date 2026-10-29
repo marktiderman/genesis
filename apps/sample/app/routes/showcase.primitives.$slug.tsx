@@ -210,12 +210,11 @@ function PropsTable({ props }: { props: PrimitiveProp[] }) {
   );
 }
 
-// Storybook host. Defaults to the local dev server; override at build/run
-// time via VITE_STORYBOOK_URL when pointing at a deployed Storybook (e.g.
-// Chromatic preview, GitHub Pages).
+// Storybook host: VITE_STORYBOOK_URL when set, else the site's own /storybook/
+// in a build (the Pages site serves it there) and the local dev server in dev.
 const STORYBOOK_BASE_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_STORYBOOK_URL) ||
-  "http://localhost:6006";
+  (import.meta.env?.PROD ? "/storybook" : "http://localhost:6006");
 
 function storybookUrl(slug: string): string {
   const storyId = `ui-${slug.replace(/-/g, "")}--default`;
