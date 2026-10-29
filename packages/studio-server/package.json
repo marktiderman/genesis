@@ -87,7 +87,7 @@
     "@types/node": "^22",
     "drizzle-orm": "^0.45.4",
     "tsup": "^8.3.0",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vitest": "^5.0.5"
   },
   "genesis": {

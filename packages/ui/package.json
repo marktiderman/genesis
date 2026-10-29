@@ -464,7 +464,7 @@
     "recharts": "^2.15.0",
     "sonner": "^1.0.0",
     "tsup": "^8.3.0",
-    "typescript": "~6.0.3",
+    "typescript": "~7.0.2",
     "vaul": "^1.0.0",
     "vitest": "^5.0.5",
     "zod": "^4.6.6"
