@@ -87,6 +87,11 @@ const unquote = (s: string) => s.trim().replace(/^(["'])(.*)\1$/, "$2");
  * list, with comments; enough for `on:` blocks, not a YAML parser.
  */
 export function pullRequestBranches(workflow: string): string[] | undefined {
+  return pullRequestList(workflow, "branches");
+}
+
+/** A list under the workflow's `pull_request` trigger: `branches` or `branches-ignore`. */
+export function pullRequestList(workflow: string, key: "branches" | "branches-ignore"): string[] | undefined {
   const lines = workflow.split(/\r?\n/).map(uncomment);
   const start = lines.findIndex((l) => /^\s*pull_request(_target)?:\s*$/.test(l));
   if (start < 0) return undefined;
@@ -95,7 +100,7 @@ export function pullRequestBranches(workflow: string): string[] | undefined {
     const line = lines[i]!;
     if (!line.trim()) continue;
     if (indentOf(line) <= base) return undefined;
-    const m = /^(\s*)branches:\s*(.*)$/.exec(line);
+    const m = new RegExp(`^(\\s*)${key}:\\s*(.*)$`).exec(line);
     if (!m) continue;
     const inline = /^\[(.*)\]$/.exec(m[2]!);
     if (inline) return inline[1]!.split(",").map(unquote).filter(Boolean);
@@ -113,15 +118,48 @@ export function pullRequestBranches(workflow: string): string[] | undefined {
   return undefined;
 }
 
+/** GitHub's branch glob: `**` any characters, `*` any but `/`, `?` one character. */
+function globMatches(pattern: string, branch: string): boolean {
+  const source = pattern
+    .split(/(\*\*|\*|\?)/)
+    .map((part) => (part === "**" ? ".*" : part === "*" ? "[^/]*" : part === "?" ? "." : part.replace(/[.+^${}()|[\]\\]/g, "\\$&")))
+    .join("");
+  return new RegExp(`^${source}$`).test(branch);
+}
+
+/**
+ * Whether pull requests into `branch` run a workflow, from its `branches` (in order, a later
+ * `!pattern` excluding what an earlier one included) or its `branches-ignore`. Undefined when
+ * the trigger doesn't filter by branch, or there is no pull_request trigger.
+ */
+export function runsOnPullRequestsInto(workflow: string, branch: string): boolean | undefined {
+  const branches = pullRequestList(workflow, "branches");
+  if (branches) {
+    let runs = false;
+    for (const p of branches) {
+      if (p.startsWith("!")) {
+        if (globMatches(p.slice(1), branch)) runs = false;
+      } else if (globMatches(p, branch)) runs = true;
+    }
+    return runs;
+  }
+  const ignore = pullRequestList(workflow, "branches-ignore");
+  return ignore ? !ignore.some((p) => globMatches(p, branch)) : undefined;
+}
+
+/** A branch the pattern matches, to test a workflow's filter with: `staging/**` → `staging/x/y`. */
+const sampleBranch = (pattern: string) => pattern.replace(/\*\*/g, "x/y").replace(/\*/g, "x").replace(/\?/g, "x");
+
 function batchCiProblems(root: string, batch: string): AgentRuleProblem[] {
   const dir = path.join(root, ".github", "workflows");
   if (!existsSync(dir)) return [];
   const problems: AgentRuleProblem[] = [];
   for (const name of readdirSync(dir)) {
     if (!/\.ya?ml$/.test(name)) continue;
-    const branches = pullRequestBranches(readFileSync(path.join(dir, name), "utf8"));
-    if (branches?.includes("main") && !branches.includes(batch)) {
-      problems.push({ rule: "batch-ci", message: `.github/workflows/${name}: runs on pull requests into main but not into ${batch}; add it to pull_request.branches` });
+    const workflow = readFileSync(path.join(dir, name), "utf8");
+    const main = runsOnPullRequestsInto(workflow, "main");
+    if (main && !runsOnPullRequestsInto(workflow, sampleBranch(batch))) {
+      problems.push({ rule: "batch-ci", message: `.github/workflows/${name}: runs on pull requests into main but not into ${batch}; let pull_request's branch filter include it` });
     }
   }
   return problems;
