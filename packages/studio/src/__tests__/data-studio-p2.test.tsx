@@ -134,6 +134,8 @@ beforeAll(() => {
   // The sheet grid virtualizes rows; give happy-dom a viewport to lay out in.
   Object.defineProperty(HTMLElement.prototype, "offsetHeight", { configurable: true, get: () => 520 });
   Object.defineProperty(HTMLElement.prototype, "offsetWidth", { configurable: true, get: () => 1024 });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", { configurable: true, get: () => 520 });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 1024 });
   HTMLElement.prototype.getBoundingClientRect = () =>
     ({ x: 0, y: 0, top: 0, left: 0, bottom: 520, right: 1024, width: 1024, height: 520, toJSON: () => ({}) }) as DOMRect;
 });
