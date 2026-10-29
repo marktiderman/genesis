@@ -1311,7 +1311,7 @@ importers:
         specifier: 5.104.5
         version: 5.104.5
       '@tanstack/react-query':
-        specifier: ^5.104.5
+        specifier: 5.104.5
         version: 5.104.5(@types/react@19.3.0)(react@19.3.0)
       '@testing-library/react':
         specifier: ^16.3.2
