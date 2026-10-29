@@ -17,8 +17,8 @@ npx @marktiderman/genesis-cli init my-app --template native   # an Expo app
 
 Or add it to an app you have: `npm install @marktiderman/genesis`, the umbrella that pins the
 foundation (`core`, `ui`, `ui-native`, `design-system`, `features`), the native app shell,
-`switchboard` and forms at one version. Platform services (`supabase`, `connect`, `notifications`,
-`ai`) and domain blocks (`chat`, `sites`, `support`, …) install on their own.
+`switchboard` and forms at one version. Other primitives (`supabase`, `connect`, `notifications`,
+`ai`, `chat`, …) and the modules (`sites`, `support`, `product`) install on their own.
 
 ## A screen is a description
 
@@ -157,7 +157,7 @@ primitives; level 2 is the modules built from them. Each package's `genesis.laye
 | --- | --- | --- |
 | Foundation | Core | [`genesis-core`](./packages/core) (data contract, providers, hooks, views, workspaces) · [`genesis-ui`](./packages/ui) (web components, layouts, `ResourceView`, `RecordView`, `AppShell`) · [`genesis-ui-native`](./packages/ui-native) (React Native components, `NativeResourceView`) · [`genesis-design-system`](./packages/design-system) (tokens, brand schema, themes) · [`genesis-features`](./packages/features) (feature registry, flags, the gate, blocks). All five are essential: every app starts with them. |
 | Primitives | Core | [`genesis`](./packages/genesis), the umbrella: one version coordinate for the foundation, the native shell, switchboard and forms. It holds no code of its own, and bundles primitives, never modules. |
-| | Data | [`genesis-supabase`](./packages/supabase) · [`genesis-switchboard`](./packages/data-switchboard) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) · [`genesis-connect`](./packages/connect) |
+| | Data | [`genesis-supabase`](./packages/supabase) · [`genesis-switchboard`](./packages/switchboard) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) · [`genesis-connect`](./packages/connect) |
 | | AI | [`genesis-ai`](./packages/ai) |
 | | Forms | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) |
 | | Collaboration | [`genesis-chat`](./packages/chat) · [`genesis-notifications`](./packages/notifications) · [`genesis-collab`](./packages/collab) |

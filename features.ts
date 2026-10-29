@@ -340,11 +340,11 @@ export const features = defineFeatures({
     visibility: "public",
     acceptance: ["driftReport lists the rows where the two backends disagree."],
     reviewedAt,
-    links: { code: ["packages/data-switchboard"], docs: ["packages/data-switchboard/README.md"] },
+    links: { code: ["packages/switchboard"], docs: ["packages/switchboard/README.md"] },
   },
   "data-studio": {
     name: "Data Studio",
-    summary: "An Airtable-style workspace over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
+    summary: "An Airtable-style data editor over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
     tagline: "A spreadsheet over your own database, as the signed-in user.",
     category: "Data",
     status: "live",
@@ -452,7 +452,7 @@ export const features = defineFeatures({
   },
   "forms-studio": {
     name: "Form studio",
-    summary: "The workspace around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
+    summary: "The form management screens around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
     tagline: "Run a form end to end: edit, publish, share and read the responses.",
     category: "Forms",
     status: "building",

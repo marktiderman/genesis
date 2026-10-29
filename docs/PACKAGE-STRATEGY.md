@@ -26,33 +26,32 @@ order, coach-side first.
 
 ## 1. What Genesis has today
 
-Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests. The
-groups in this table are the 2026-10-28 baseline; [Layers](#layers) has where each package sits
-now.
+Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests. Each
+row shows the package's layer and group from [Layers](#layers).
 
-| Group | Package | Lines | What it is |
+| Layer · group | Package | Lines | What it is |
 |---|---|---:|---|
-| **Foundation** | `design-system` | 3.8k | Tokens, brands, themes |
-| | `core` | 10.8k | DataProvider, hooks (including optimistic and **undoable** writes), query keys, dates, slots, navigation, `reportError` |
-| | `ui` | 28.3k | Web components, patterns, layouts, data views, `CommandPalette` with `useCommandPaletteHotkey` |
-| | `ui-native` | 14.4k | The same vocabulary on React Native |
-| | `features` | 3.1k | Feature registry, flags, gate, blocks |
-| **App shells** | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, observability sinks, devtools |
-| | `extension` | 2.1k | Chrome MV3 kit |
-| **Platform services** | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, jobs, feature mirror, web handoff, people, **person entitlements** (0017, with `grant_person_entitlement`) |
-| | `connect` | 1.9k | Encrypted secrets, OAuth connector kit |
-| | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
-| | `data-switchboard` | 4.1k | Move a resource between backends |
-| **Domain blocks** | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
-| | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, workspace, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
-| | `sites` | 12.2k | Sites, landing pages, blog, editor |
-| | `support` | 3.5k | Feedback, reports, idea board |
-| | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
-| | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
-| | `product` | 2.1k | Product board, triage, release notes |
-| **Tooling** | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
-| | `agents` | docs | Rules of engagement for agent sessions |
-| | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
+| foundation · core | `design-system` | 3.8k | Tokens, brands, themes |
+| foundation · core | `core` | 10.8k | DataProvider, hooks (including optimistic and **undoable** writes), query keys, dates, slots, navigation, `reportError` |
+| foundation · core | `ui` | 28.3k | Web components, patterns, layouts, data views, `CommandPalette` with `useCommandPaletteHotkey` |
+| foundation · core | `ui-native` | 14.4k | The same vocabulary on React Native |
+| foundation · core | `features` | 3.1k | Feature registry, flags, gate, blocks |
+| primitive · shells | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, observability sinks, devtools |
+| primitive · shells | `extension` | 2.1k | Chrome MV3 kit |
+| primitive · data | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, jobs, feature mirror, web handoff, people, **person entitlements** (0017, with `grant_person_entitlement`) |
+| primitive · data | `connect` | 1.9k | Encrypted secrets, OAuth connector kit |
+| primitive · collaboration | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
+| primitive · data | `switchboard` | 4.1k | Move a resource between backends |
+| primitive · collaboration | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
+| primitive · forms | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, form management screens, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
+| module · modules | `sites` | 12.2k | Sites, landing pages, blog, editor |
+| module · modules | `support` | 3.5k | Feedback, reports, idea board |
+| primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
+| primitive · data | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
+| module · modules | `product` | 2.1k | Product board, triage, release notes |
+| tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
+| tooling · core | `agents` | docs | Rules of engagement for agent sessions |
+| primitive · core | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
 
 ### Consumers today
 
@@ -79,7 +78,7 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 - **Domains own their schema.** `chat`, `support`, `sites` and `notifications` ship migrations
   into their own Postgres schema and install as blocks through `genesis add`.
 - **The feature registry is the spine.** Status, flags, tenant switches and entitlements all pass
-  through one `featureOn`. New platform services gate through it rather than add their own
+  through one `featureOn`. New primitives gate through it rather than add their own
   switches.
 
 ### What isn't
@@ -141,7 +140,7 @@ gets a working product surface to switch on for tenants, it is a **module**.
 |---|---|---|---|
 | design-system, core, ui, ui-native, features | foundation | core | essential |
 | genesis (umbrella) | primitive | core | bundles primitives, never modules |
-| supabase, data-switchboard, studio, studio-server, connect | primitive | data | |
+| supabase, switchboard, studio, studio-server, connect | primitive | data | |
 | ai | primitive | ai | |
 | forms, forms-react, forms-web, forms-native, forms-builder, forms-studio, forms-devtools | primitive | forms | |
 | collab, chat, notifications | primitive | collaboration | chat is embedded by support and apps, so a primitive |
@@ -205,12 +204,12 @@ Storybook titles start with the layer and group: `Foundation/UI/Button`, `Primit
 | # | Move | Builds on | Size |
 |---|---|---|---|
 | M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; The main app's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
-| M2 | **`genesis-ai`**, a new platform service, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
+| M2 | **`genesis-ai`**, a new primitive, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
 | M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; The main app's nav-driven palette | S after #449 |
 | M4 | **One upload protocol.** Promote forms' signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) to a shared home (types in `core`, the Supabase Storage handler in `supabase`), then move chat, support and sites onto it through their own seams. A `genesis-files` package only if the shared code outgrows those homes. | forms' protocol, `FileUploadField` | M |
 | M5 | **Billing writes grants.** When `entitlements` (planned) starts, a billing block (Stripe on the web, store purchases on native, a paywall) writes through `grant_person_entitlement` / `revoke_person_entitlement` with `source` and `source_ref`, which 0017 already reserves for "a billing webhook". The entitlement tables stay with the gate. | Migration 0017; `featureOn` | L |
 | M6 | **Small platform pieces, one home each.** Rate limiting moves from forms into a shared module (AI budgets reuse it). The two key-value storage contracts merge. | `forms/src/rate-limit.ts`; `core/storage` | S |
-| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable platform service and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
+| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable primitive and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
 
 Deliberately **not** moved:
 
@@ -325,9 +324,9 @@ Decided by the maintainer on 2026-10-28:
    agents stay ideas (`ai-providers`, `ai-control-plane`).
 4. **Accepted:** M3 extends #449's `defineNavigation`, and builds after #449 lands
    (`command-registry`).
-5. **Narrowed:** the umbrella promises Foundation, the native shell, switchboard and forms; platform
-   services and domain blocks are installed on their own. The README says so. Revisit when the
-   platform services are stable.
+5. **Narrowed:** the umbrella promises Foundation, the native shell, switchboard and forms; the other
+   primitives and every module are installed on their own (an umbrella never bundles a module).
+   The README says so. Revisit when those primitives are stable.
 6. **Accepted:** the ranked list is in `features.ts` as `planned` and `idea` entries with
    horizons.
 

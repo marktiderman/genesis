@@ -46,7 +46,7 @@ const GRANULAR = [
   { name: "@marktiderman/genesis-core", dir: "packages/core" },
   { name: "@marktiderman/genesis-ui", dir: "packages/ui" },
   { name: "@marktiderman/genesis-design-system", dir: "packages/design-system" },
-  { name: "@marktiderman/genesis-switchboard", dir: "packages/data-switchboard" },
+  { name: "@marktiderman/genesis-switchboard", dir: "packages/switchboard" },
   { name: "@marktiderman/genesis-ui-native", dir: "packages/ui-native" },
 ];
 const ALL = [UMBRELLA, ...GRANULAR];

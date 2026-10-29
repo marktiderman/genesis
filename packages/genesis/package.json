@@ -134,7 +134,8 @@
       "types": "./dist/features.d.ts",
       "import": "./dist/features.js"
     },
-    "./versions.json": "./dist/versions.json"
+    "./versions.json": "./dist/versions.json",
+    "./package.json": "./package.json"
   },
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:*",

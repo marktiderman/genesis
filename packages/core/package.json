@@ -95,7 +95,8 @@
     "./errors": {
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js"
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
