@@ -39,9 +39,10 @@ company. An app keeps its own word in its copy and maps it in its CONTEXT doc (t
 - A **location** belongs to one tenant (`tenant_id`, `location_id`). It is optional: a tenant
   with one place never sees the word. A location is also a workspace kind, so the switcher can
   show "Acme · Downtown" and views scope to `{ tenantId, locationId }`.
-- A **person** is a record in one tenant (`tenant_id`, `person_id`, roles, optionally
-  `location_id`), as genesis-supabase already models it: the app's people table, which Genesis
-  reads through `private.genesis_viewer_people(viewer)` (one row per tenant the login is in). One
+- A **person** is a record in one tenant (`tenant_id`, `person_id`), in the app's own people
+  table, which Genesis reads through a hook the app defines,
+  `private.genesis_viewer_people(viewer)` (one `(tenant_id, person_id)` row per tenant the login
+  is in). Roles there and an optional `location_id` are the model's to add. One
   login can be a person in many tenants, which is what the roll-up workspace reads.
 - Every Genesis-owned table that holds tenant data carries `tenant_id` from its first migration,
   with row-level security through one function per check (`genesis_*.is_member(tenant_id)`),
@@ -51,9 +52,10 @@ company. An app keeps its own word in its copy and maps it in its CONTEXT doc (t
 
 Genesis tables say `tenant_id`. An app's own tables may say what the app already says
 (`org_id`, `practice_id`): the view's `scope` maps the workspace's key to the app's column, as it
-does today (`scope: ["org_id"]`), so no app renames columns for this ADR. `ResourceScope`'s
-`orgId` key stays as it is in genesis-core 2.x; a `tenantId` alias comes with the tenant model's
-first release, and `orgId` is deprecated in the next major, with a codemod.
+does today (`scope: ["org_id"]`), so no app renames columns for this ADR. `ResourceScope` names
+no tenant key today (it has `personId`, `spaceId`, `personIds` and an open slot an app fills with
+its own key, such as `orgId`); the tenant model adds a named `tenantId` key, and apps move to it
+when they adopt the model.
 
 ## Consequences
 
@@ -64,6 +66,6 @@ first release, and `orgId` is deprecated in the next major, with a codemod.
   1. `genesis_tenants` and `is_member` (over `genesis_viewer_people`) in genesis-supabase, with
      pgTAP, adoptable by pointing at an existing organizations table;
   2. locations as a workspace kind and a scope key;
-  3. `genesis init` starting every new app on it, with the `tenantId` scope alias.
+  3. `genesis init` starting every new app on it, with the `tenantId` scope key.
 - Rejected: "organization" everywhere (renames 123 Genesis uses for a word apps already show
   their way), and "account" (collides with the login account).
