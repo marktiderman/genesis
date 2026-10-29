@@ -1,0 +1,37 @@
+.changeset/workspace-switcher-parts.md
+  s_8b8f6102383114::t_07a56aa24127ff 6,8-11
+apps/sample/app/data/primitives.json
+  s_1cc73fa3649187::t_18d755045d45e6 23509-23515,23598,23660-23661,23719
+apps/sample/stories/WorkspaceSwitcher.stories.tsx
+  s_8b8f6102383114::t_c1b38938cba804 96-112,114-119,123,125-131,133,139-142,168-169,177-178
+docs/adr/0004-workspaces.md
+  s_8b8f6102383114::t_7c72f0a416f8f1 104-112,116-120,128-131
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_8b8f6102383114::t_549e5abfc8f88f 38,40-42,199-218,254-255,259-263,266-295,299,301,303,305-308,311-313,315,317-318,320-330,333-335,337-348,350-381,431-484,495-512
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_8b8f6102383114::t_40732fe5436dca 15-17,19-28,37,47,49,80,101,125,143,241-242,258,261,263-270,293-299,321-323,341-347,385-395,404,411,422-423,425-430,443-449,456-457,474,481,488,544-548,551,555-561,570-572,593-594,618,623,631-637,642-644,653-654,659-661,673-682,687,699-700,712,714-719,739,744-754,756-770,820-828,830-841,851-871,873-920,922-927,929-974,976-977,982-983,986-988,990,992-1005,1009,1012-1099
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7e6c2f617d9b7902db95346b6b802c5bc8567c7b",
+  "prompts": {},
+  "sessions": {
+    "s_1cc73fa3649187": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16abbc74-01c9-450f-9b57-1a6c298061d6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
