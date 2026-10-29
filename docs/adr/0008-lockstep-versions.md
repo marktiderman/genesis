@@ -27,8 +27,8 @@ release and runs a codemod when a release declares a breaking change it fixes
    ships with a codemod when it is mechanical, and with a MIGRATION.md entry always.
 3. **Where it starts.** At the 1.0 line, together with the package merges of split families
    (`package-subpaths`) and the `@genesisone` scope (`npm-scope-rename`), so apps migrate once.
-   Until then packages keep their own versions, and genesis-ai stays 0.x with genesis-mcp in
-   step with it.
+   Until then packages keep their own versions, and genesis-ai stays 0.x (genesis-mcp, when it
+   exists, ships in step with it).
 4. **Outside the group**: private packages, and a package still at its hand-set first version
    (0.1.0), which joins the group at its first CI release.
 

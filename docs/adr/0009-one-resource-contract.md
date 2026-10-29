@@ -2,7 +2,7 @@
 
 - Status: accepted as direction (approved by the maintainer, 2026-10-29)
 - Date: 2026-10-29
-- Features: `resource-contract`, `resource-view`, `genesis-mcp`, `agent-operable-apps`
+- Features: `resource-contract`, `data-views`, `genesis-mcp`, `agent-operable-apps`
 - Related: ADR 0004 (workspaces), ADR 0006 (AI direction), docs/RESOURCE-VIEW.md
 
 ## Context
@@ -25,9 +25,9 @@ or export. Each is a second description that drifts from the first, and each is 
    - the form (the view's fields and the contract's types);
    - the API: one handler per resource, reading and writing through the resource's provider
      and the person's row-level security;
-   - AI tools (`defineTool`, ADR 0006), one per view action and per read, with `risk` from the
-     action;
-   - the app's MCP server (`genesis-mcp`), which serves those tools, read-only first.
+   - AI tools (`defineTool`, planned in ADR 0006), one per view action and per read, with `risk`
+     from the action;
+   - the app's MCP server (`genesis-mcp`, planned), which serves those tools, read-only first.
 2. **Rules travel with it.** `can`, scope and field visibility are part of the description, so
    a derived surface cannot skip them. Row-level security stays the boundary under all of them,
    and every derived server function gets a pgTAP test.
