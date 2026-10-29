@@ -320,11 +320,9 @@ jobs:
           version-script: pnpm run version:packages
           commit-message: "chore: version packages"
           pr-title: "chore: version packages"
-        env:
-          # NPM_TOKEN intentionally omitted — OIDC Trusted Publishing handles auth.
-          # id-token: write above is for the OIDC publish token. npm still adds
-          # an SLSA provenance attestation to trusted publishes, despite
-          # publishConfig.provenance: false (see docs/RELEASING.md).
+        # No env: NPM_TOKEN is intentionally omitted, since OIDC Trusted Publishing handles auth
+        # (id-token: write above). npm still adds an SLSA provenance attestation to trusted
+        # publishes, despite publishConfig.provenance: false (see docs/RELEASING.md).
 
 
   # Release notes (genesis-product; docs/RELEASING.md, "Release notes"): what reached beta or live

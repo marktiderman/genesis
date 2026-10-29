@@ -30,7 +30,10 @@ if ! ref=$(gh api "repos/$repo/git/ref/tags/$name" --jq '"\(.object.type) \(.obj
 fi
 type=${ref%% *}
 at=${ref#* }
-if [ "$type" = tag ]; then at=$(gh api "repos/$repo/git/tags/$at" --jq .object.sha); fi
+if [ "$type" = tag ] && ! at=$(gh api "repos/$repo/git/tags/$at" --jq .object.sha); then
+  echo "::error::Couldn't read the annotated tag $name to find its commit."
+  exit 1
+fi
 if [ "$at" = "$sha" ]; then
   echo "Tag $name is already at $sha"
   exit 0

@@ -105,6 +105,18 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # A workflow file GitHub can't parse fails with no jobs and no CI signal (an empty `env:`
+      # once stopped Release outright), so every workflow is linted here. Pinned by checksum.
+      - name: Lint workflows (actionlint)
+        env:
+          VERSION: 1.7.11
+          SHA256: 900919a84f2229bac68ca9cd4103ea297abc35e9689ebb842c6e34a3d1b01b0a
+        run: |
+          curl -fsSLo actionlint.tgz "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "${SHA256}  actionlint.tgz" | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint
+          ./actionlint -color
+
   storybook-browser-tests:
     name: Storybook browser tests
     # Version-packages PRs only bump versions and changelogs; the code already passed CI on the release PR.
