@@ -118,3 +118,28 @@ export function defineSupportChatBlock(options: { requires?: readonly string[] }
     },
   });
 }
+
+/** The support-email block's id. */
+export const SUPPORT_EMAIL_BLOCK_ID = "support-email" as const;
+
+/**
+ * The support-email block: email is a ticket channel (ADR 0011). It brings migration
+ * `0002_genesis_support_email.sql` from this package, after 0006; the server half is
+ * `@marktiderman/genesis-support/email` with genesis-notifications' inbound router and sender.
+ */
+export function defineSupportEmailBlock(options: { requires?: readonly string[] } = {}) {
+  return defineBlock({
+    id: SUPPORT_EMAIL_BLOCK_ID,
+    requires: options.requires ?? [SUPPORT_BLOCK_ID],
+    contributes: {
+      migrations: [
+        { package: "@marktiderman/genesis-support", file: "migrations/0002_genesis_support_email.sql", test: "migrations/tests/0002_genesis_support_email.test.sql" },
+      ],
+      privacy: {
+        notes: [
+          "Keeps each support email's addresses, subject, text, Message-IDs and SPF/DKIM/DMARC results with its ticket; attachments are listed by name, type and size, not stored. Deleting a ticket deletes its emails.",
+        ],
+      },
+    },
+  });
+}

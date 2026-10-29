@@ -7105,6 +7105,81 @@
       "flags": []
     },
     {
+      "id": "support-email",
+      "name": "Support over email",
+      "summary": "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email.",
+      "category": "Support",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "block",
+      "keywords": [
+        "help desk",
+        "email tickets",
+        "zendesk",
+        "inbound email",
+        "support inbox",
+        "resend"
+      ],
+      "requires": [
+        "support-feedback"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "server"
+      ],
+      "audience": [
+        "person",
+        "admin"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/support/migrations/0002_genesis_support_email.sql",
+          "packages/support/src/email.ts"
+        ],
+        "docs": [
+          "docs/adr/0011-support-email-tickets.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "inbound-email",
+      "name": "Inbound email",
+      "summary": "Receiving email through Resend: one signed webhook, the full message fetched, and routes that take it in order (support tickets, an agent's inbox, onboarding, forwarding); SMS will route the same way.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "service",
+      "keywords": [
+        "receive email",
+        "inbound",
+        "resend",
+        "email webhook",
+        "agent inbox",
+        "routing"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/notifications/src/server/inbound.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "product-events",
       "name": "Product events",
       "summary": "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
