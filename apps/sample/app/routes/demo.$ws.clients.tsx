@@ -1,5 +1,5 @@
-/** The client list: one line, from the view. The workspace scopes it; the guards narrow it by role. */
-import { Navigate, useNavigate } from "react-router";
+/** The client list: one line, from the view. The workspace scopes it; the view's guards narrow what each role may do, and the shell keeps clients out (canOpen). */
+import { useNavigate } from "react-router";
 import { useState } from "react";
 import { Code } from "lucide-react";
 import { ResourceView } from "@marktiderman/genesis-ui/data";
@@ -10,9 +10,8 @@ import viewSource from "../demo/views/clients.view.ts?raw";
 
 export default function DemoClients() {
   const [source, setSource] = useState(false);
-  const { org, role, self, href } = useDemo();
+  const { org, href } = useDemo();
   const navigate = useNavigate();
-  if (role === "client" && self) return <Navigate to={href(`clients/${self}`)} replace />;
   return (
     <>
     <ViewSource files={{ "clients.view.ts": viewSource }} open={source} onOpenChange={setSource} />

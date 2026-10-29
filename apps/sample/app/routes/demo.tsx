@@ -6,7 +6,7 @@
  * rows; Reset puts the sample data back.
  */
 import { useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation, useParams } from "react-router";
+import { Navigate, Outlet, useLocation, useParams } from "react-router";
 import { GenesisProvider } from "@marktiderman/genesis-core/provider";
 import { WorkspaceScope } from "@marktiderman/genesis-core/hooks";
 import { FeatureGateProvider } from "@marktiderman/genesis-features/gate/react";
@@ -17,7 +17,7 @@ import { Bot, CalendarDays, ClipboardList, Database, Home, LayoutDashboard, Mess
 import { DemoContext, type DemoState } from "../demo/context";
 import { demoGate } from "../demo/features";
 import { createDemoProvider } from "../demo/provider";
-import { CLIENT_SELF, demoWorkspaces, orgById, ROLES, type DemoRole } from "../demo/tenants";
+import { canOpen, CLIENT_SELF, demoWorkspaces, ORGS, orgById, ROLES, type DemoRole } from "../demo/tenants";
 
 const ROLE_KEY = "genesis-demo:role";
 
@@ -62,24 +62,36 @@ export default function DemoLayout() {
   const href = (path = "") => (path ? `${base}/${path}` : base);
   const on = (id: string) => gate.answers[id]?.on !== false;
 
+  // One list of pages: the menu shows those the role may open (and the gate has on);
+  // the guard below sends any other address back to the role's home.
+  const pages: Array<Pick<NavItem, "icon" | "label"> & { path: string; end?: true; feature?: string; needsOrg?: true }> = [
+    { path: "", icon: LayoutDashboard, label: "Overview", end: true },
+    ...(self ? [{ path: `clients/${self}`, icon: Users, label: "My record" }] : []),
+    { path: "clients", icon: Users, label: org?.clientNoun ? `${org.clientNoun}s` : "Clients" },
+    { path: "bookings", icon: CalendarDays, label: "Bookings" },
+    { path: "intake", icon: ClipboardList, label: "Intake form", feature: "demo-intake", needsOrg: true },
+    { path: "chat", icon: MessagesSquare, label: "Messages" },
+    { path: "assistant", icon: Bot, label: "Assistant", feature: "demo-assistant" },
+    { path: "data", icon: Database, label: "Data Studio", feature: "demo-data-studio" },
+    { path: "settings", icon: Settings, label: "Settings", needsOrg: true },
+  ];
   const nav: NavItem[] = !ws
     ? [{ to: "/demo", icon: Home, label: "Organizations", end: true }]
-    : role === "client"
-      ? [
-          { to: href(), icon: LayoutDashboard, label: "Overview", end: true },
-          ...(self ? [{ to: href(`clients/${self}`), icon: Users, label: "My record" }] : []),
-          { to: href("chat"), icon: MessagesSquare, label: "Messages" },
-        ]
-      : [
-          { to: href(), icon: LayoutDashboard, label: "Overview", end: true },
-          { to: href("clients"), icon: Users, label: org?.clientNoun ? `${org.clientNoun}s` : "Clients" },
-          { to: href("bookings"), icon: CalendarDays, label: "Bookings" },
-          ...(on("demo-intake") && org ? [{ to: href("intake"), icon: ClipboardList, label: "Intake form" }] : []),
-          { to: href("chat"), icon: MessagesSquare, label: "Messages" },
-          ...(on("demo-assistant") ? [{ to: href("assistant"), icon: Bot, label: "Assistant" }] : []),
-          ...(role === "owner" && on("demo-data-studio") ? [{ to: href("data"), icon: Database, label: "Data Studio" }] : []),
-          ...(role === "owner" && org ? [{ to: href("settings"), icon: Settings, label: "Settings" }] : []),
-        ];
+    : pages
+        .filter((p) => canOpen(role, self, p.path) && (!p.feature || on(p.feature)) && (!p.needsOrg || org))
+        .map((p) => ({ to: href(p.path), icon: p.icon, label: p.label, ...(p.end ? { end: true } : {}) }));
+
+  // The guard: the roll-up is an owner's, a workspace must be one of the role's, and a page one it may open.
+  const page = pathname.slice(base.length).replace(/^\/+|\/+$/g, "");
+  const redirect = !ws
+    ? null
+    : !workspaces.some((w) => w.id === ws)
+      ? ws === "all"
+        ? `/demo/${ORGS[0]!.id}`
+        : "/demo"
+      : !canOpen(role, self, page)
+        ? href()
+        : null;
 
   const state: DemoState = {
     org,
@@ -131,7 +143,7 @@ export default function DemoLayout() {
               activePath={activePath}
               optionsStorageKey="genesis-demo:app-shell"
             >
-              <Outlet />
+              {redirect ? <Navigate to={redirect} replace /> : <Outlet />}
             </AppShell>
           </DemoContext.Provider>
         </FeatureGateProvider>

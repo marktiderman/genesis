@@ -136,6 +136,76 @@ const queue = [...paths];
 await Promise.all(Array.from({ length: 6 }, async () => {
   while (queue.length) await check(queue.shift());
 }));
+// The demo's behaviour, not just its rendering: roles, workspaces, the Data Studio, intake and reset.
+// Each step runs in a fresh browser context (its own saved role) and fails on any console error.
+async function demoStep(name, run) {
+  const context = await browser.newContext({ viewport: { width: 1280, height: 860 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(`throws: ${e.message.split("\n")[0]}`));
+  page.on("console", (m) => {
+    if (m.type() === "error" && !/^Failed to load resource/.test(m.text()) && !IGNORE.some((re) => re.test(m.text())))
+      errors.push(`logs: ${m.text().split("\n")[0].slice(0, 200)}`);
+  });
+  const go = (path) => page.goto(origin + path, { waitUntil: "networkidle", timeout: 30_000 });
+  const expect = (ok, message) => {
+    if (!ok) errors.push(message);
+  };
+  try {
+    await run({ page, go, expect });
+  } catch (e) {
+    errors.push(`failed: ${e.message.split("\n")[0]}`);
+  }
+  if (errors.length) failures.push({ path: `demo: ${name}`, errors: [...new Set(errors)] });
+  await context.close();
+}
+
+const pathOf = (page) => new URL(page.url()).pathname.replace(/\/$/, "");
+const switcher = (page) => page.locator('[data-testid="workspace-switcher"] button:visible').first();
+
+await demoStep("a client sees only their own records", async ({ page, go, expect }) => {
+  await go("/demo/all/clients");
+  await page.getByText("Grace Liu").first().waitFor();
+  await page.locator('[data-testid="demo-role"]:visible').first().click();
+  await page.getByRole("option", { name: "View as client" }).click();
+  await page.waitForURL((u) => u.pathname.replace(/\/$/, "") === "/demo/harbor");
+  await page.getByText("Signed in as Juniper Coffee Co.").waitFor();
+  const text = await page.locator("main").innerText();
+  expect(!/Brightline Bikes|Grace Liu|Ari Patel/.test(text), "the client sees other clients after switching from the roll-up");
+  for (const path of ["/demo/all/clients", "/demo/harbor/clients", "/demo/harbor/bookings", "/demo/harbor/data", "/demo/maple/bookings", "/demo/harbor/clients/harbor-c2"]) {
+    await go(path);
+    const home = path.startsWith("/demo/maple") ? "/demo/maple" : "/demo/harbor";
+    await page.waitForURL((u) => u.pathname.replace(/\/$/, "") === home, { timeout: 5_000 }).catch(() => {});
+    expect(pathOf(page) === home, `a client reached ${path} (at ${pathOf(page)})`);
+  }
+});
+
+await demoStep("the Data Studio follows the workspace, and a deep link hydrates", async ({ page, go, expect }) => {
+  await go("/demo/harbor/data?table=clients");
+  await page.getByText("Juniper Coffee Co.").first().waitFor();
+  await switcher(page).click();
+  await page.locator('[data-testid="workspace-switcher-item-maple"]:visible').first().click();
+  await page.waitForURL((u) => u.pathname.startsWith("/demo/maple"));
+  if (!new URL(page.url()).search.includes("table=clients")) await page.getByText("Clients", { exact: true }).first().click();
+  await page.getByText("Grace Liu").first().waitFor();
+  const text = await page.locator("main").innerText();
+  expect(!text.includes("Juniper Coffee Co."), "the studio still shows Harbor's rows after switching to Maple");
+});
+
+await demoStep("an intake submission joins the list, and Reset removes it", async ({ page, go, expect }) => {
+  await go("/demo/harbor/intake");
+  await page.getByLabel("Your name", { exact: false }).first().fill("Smoke Test Lead");
+  await page.locator('main input[type="email"]').fill("lead@example.com");
+  await page.getByRole("radio", { name: "Getting started" }).click();
+  await page.getByRole("button", { name: "Send" }).click();
+  await page.getByText("Smoke Test Lead is on the list").waitFor();
+  await page.getByRole("link", { name: "Open the list" }).click();
+  await page.getByText("Smoke Test Lead").first().waitFor();
+  await page.locator('[data-testid="demo-reset"]:visible').first().click();
+  await page.getByText("Juniper Coffee Co.").first().waitFor();
+  expect(!(await page.getByText("Smoke Test Lead").count()), "Reset left the intake's client on the list");
+});
+
 await browser.close();
 server.close();
 
