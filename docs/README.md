@@ -12,11 +12,18 @@
   export of every entry point of every published package. Regenerate with
   `pnpm gen:component-reference`. The same data drives the package pages at
   [genesisone.dev/packages](https://genesisone.dev/packages).
+- [`CHARTER.md`](./CHARTER.md): what Genesis is for, its scope and non-goals, and how decisions
+  are made.
+- [`GLOSSARY.md`](./GLOSSARY.md): one word per concept, and the synonyms not to use (draft).
+- [`REFERENCES.md`](./REFERENCES.md): the outside projects Genesis models itself on, what it takes
+  from each and where it differs, with a last-checked date per row.
 - [`adr/`](./adr/): the architecture decisions:
   [0001 one feature gate](./adr/0001-one-feature-gate.md),
   [0002 the product system](./adr/0002-product-system.md),
   [0003 navigation zones](./adr/0003-navigation-zones.md),
-  [0004 workspaces](./adr/0004-workspaces.md).
+  [0004 workspaces](./adr/0004-workspaces.md),
+  [0005 package layers](./adr/0005-package-layers.md),
+  [0006 AI direction](./adr/0006-ai-direction.md).
 - [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): proposal for how the packages are grouped
   (foundation, app shells, platform services, domain blocks, tooling), what the apps on Genesis
   use today, what Linear, Cursor and the leading starter kits build once, and a ranked, sized list
