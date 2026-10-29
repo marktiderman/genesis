@@ -1,0 +1,33 @@
+.changeset/features-kind.md
+  s_36f3212387dbf7::t_5849ce175eb371 8
+packages/features/src/__tests__/model.test.ts
+  s_36f3212387dbf7::t_bd060b8f1605d8 234-236,245-246
+packages/features/src/model.ts
+  s_36f3212387dbf7::t_6d0c437a7a04f0 476-477,480,500,543-544,565
+packages/genesis-cli/src/blocks/add.ts
+  s_36f3212387dbf7::t_dad958095df0b7 25,227
+packages/genesis-cli/src/blocks/registry-edit.ts
+  s_36f3212387dbf7::t_e62a15d8e3a687 7-8,23-44,46,53
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_1487e4c63954a0 24,319,321-328
+packages/genesis-cli/src/features.ts
+  s_36f3212387dbf7::t_c4b28e99c7a68b 25-27,204-229,233-235
+packages/genesis-cli/test/features.test.ts
+  s_36f3212387dbf7::t_896d5994b3817b 12-14,152-178
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "03a62f52b9aa53b4776a09b1f0abe9f1ea331c13",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
