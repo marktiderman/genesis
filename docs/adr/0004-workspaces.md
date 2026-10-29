@@ -3,8 +3,7 @@
 - Status: proposed
 - Date: 2026-10-28
 - Features: `workspaces`, `app-shell`
-- Related: ADR 0003 (navigation zones, proposed, #449): this ADR answers its per-login or per-tenant
-  question. Zones follow the workspace (section 5).
+- Related: ADR 0003 (navigation zones): zones follow the workspace (section 5).
 
 ## Context
 
