@@ -55,5 +55,6 @@
   "togglerow": "ui-togglerow--default",
   "tooltip": "ui-tooltip--default",
   "typography": "ui-typography--all",
-  "useravatar": "ui-useravatar--initials-fallback"
+  "useravatar": "ui-useravatar--initials-fallback",
+  "workspaceswitcher": "layout-workspaceswitcher--sidebar"
 }
