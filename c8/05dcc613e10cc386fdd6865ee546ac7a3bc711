@@ -1,0 +1,25 @@
+.github/workflows/deploy-pages.yml
+  s_8b8f6102383114::t_1453e4321bc1d3 59-63
+apps/sample/app/lib/portfolio-data.ts
+  s_8b8f6102383114::t_f48a1039656add 50
+apps/sample/app/routes/showcase.primitives.$slug.tsx
+  s_8b8f6102383114::t_aa700aa482d404 213-214,217
+apps/sample/sites-demo/vite-plugin.ts
+  s_8b8f6102383114::t_a48f693fb47101 75-79,83
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c805dcc613e10cc386fdd6865ee546ac7a3bc711",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
