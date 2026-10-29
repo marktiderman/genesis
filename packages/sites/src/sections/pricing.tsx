@@ -83,9 +83,9 @@ export const pricingSection = defineSection({
       name: "Plan groups",
       variant: "cards",
       props: {
-        heading: "Memberships",
+        heading: "Plans and prices",
         groups: [
-          { heading: "Start here", anchor: "start", tiers: [{ name: "Single visit", price: "$20", description: "One class", cta: { label: "Book a visit", href: "#contact" } }] },
+          { heading: "Start here", anchor: "start", tiers: [{ name: "Single visit", price: "$20", description: "One visit", cta: { label: "Book a visit", href: "#contact" } }] },
           { heading: "Every week", anchor: "weekly", tiers: [{ name: "Monthly", price: "$99", period: "per month", cta: { label: "Join monthly", href: "#contact" } }, { name: "Yearly", price: "$89", period: "per month", description: "Paid yearly", highlighted: true, cta: { label: "Join for a year", href: "#contact" } }] },
         ],
       },

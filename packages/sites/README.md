@@ -18,6 +18,8 @@ hydration, and published as immutable releases you can roll back.
 - **Editor** (`/editor`): `<SiteEditor>`, the visual editor (on Puck).
 - **Block** (`/blocks`): `sitesBlock`, so `genesis add sites` installs the
   migration.
+- **Templates** (`/templates`): industry template content, as data on the
+  neutral sections (see [A neutral core](#a-neutral-core-and-industry-templates)).
 
 Status: beta. The design and its reasoning are in
 [docs/SITES.md](../../docs/SITES.md).
@@ -49,18 +51,18 @@ import { createMemorySiteStore, landingPage } from "@marktiderman/genesis-sites"
 import { handleSiteRequest } from "@marktiderman/genesis-sites/web";
 
 const brand = {
-  name: "Riverside Gym",
+  name: "Riverside Works",
   colors: { primary: "#0f766e", primaryDark: "#2dd4bf" },
   fonts: { heading: "space-grotesk", body: "inter" },
 };
 const { site, pages } = landingPage({
   brand,
   message: {
-    headline: "Train with people who know your name",
-    subhead: "Small classes and real coaching by the river.",
-    benefits: [{ title: "Coached classes", body: "A coach in every class." }],
+    headline: "Make things with people who know your name",
+    subhead: "Small groups and real teaching by the river.",
+    benefits: [{ title: "Guided sessions", body: "A host in every session." }],
   },
-  form: { slug: "free-class", heading: "Book a free class" },
+  form: { slug: "free-class", heading: "Book a free visit" },
   contact: { email: "hello@riverside.example" },
 });
 
@@ -218,12 +220,14 @@ a button and a note per step) and `numbered`; `pricing` takes plan `groups`
 `tiers`; `logos` has a `trust-bar` variant (a short claim and badges), and an
 item without an image is a text badge.
 
-- **`schedule`**: the week's classes by time and day, with a host ("with …";
-  `coach` is a deprecated alias), place, a note and a booking link per class,
-  and chips per class type in the brand's colours (`types`, with a legend). On
+- **`schedule`**: the week's sessions by time and day, with a host ("with …";
+  documents saved before version 2 keep an older key for it, which still
+  renders and moves into `host`), place, a note and a booking link per
+  session, the nouns a visitor hears (`labels`: `items`, default "sessions",
+  and `types`, default "Session types"), and chips per session type in the brand's colours (`types`, with a legend). On
   wider screens it is a table (a caption, a header cell per day and per time,
   an empty slot said as `emptyText`, default "Nothing scheduled"); on a phone a day picker: radio buttons and the stylesheet's
-  `:has()` show one day's classes, with no script (every day shows where
+  `:has()` show one day's sessions, with no script (every day shows where
   `:has()` isn't supported).
 - **`team`**: photo, role, credentials, a long bio, a quote, a button and a
   link to the person's page (`profile`). The cards open each bio in place
@@ -290,6 +294,29 @@ props; `migrateNode` runs the steps on read and a publish writes the result
 into the release. `sectionJsonSchema(type)` gives the props' JSON Schema (for
 editor fields and AI output) and `sectionManifests()` the editor's catalog.
 
+## A neutral core, and industry templates
+
+The core never names an industry: its schemas, sections, presets, defaults,
+examples and docs read naturally for any business (a person and their role,
+a session and its host). Industry flavour is template content, in
+`src/templates/` and exported from `/templates`: per-section presets on the
+sections' own preset shape, plus a sample brand and message for
+`landingPage`, `onePageSite` and `starterSite`. A template never adds a code
+path; a section renders the same whichever template its props came from.
+The businesses in templates are made up.
+
+```ts
+import { industryTemplates } from "@marktiderman/genesis-sites/templates";
+
+for (const template of Object.values(industryTemplates)) {
+  template.presets.team; // SectionPreset[]: offer them beside the built-in ones
+}
+```
+
+CI (`scripts/check-industry-words.mjs`, word list in
+`scripts/industry-words.mjs`) fails on industry words anywhere in this
+package but `src/templates/`.
+
 ## Publish checks
 
 `store.publish` runs `prepareRelease`, which migrates every node and refuses
@@ -320,7 +347,7 @@ site's setting when they publish a post.
 
 ## SEO
 
-Each page gets a title from the site's template (`%s · Riverside Gym`), a
+Each page gets a title from the site's template (`%s · Riverside Works`), a
 description, `robots`, a canonical URL from `origin`, and Open Graph and
 Twitter tags. The home page carries `Organization` and `WebSite` JSON-LD, and
 every page below it a `BreadcrumbList`. `sitemap.xml` lists the indexable

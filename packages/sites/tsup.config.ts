@@ -9,6 +9,7 @@ export default defineConfig({
     blocks: "src/blocks.ts",
     editor: "src/editor/index.ts",
     import: "src/import/index.ts",
+    templates: "src/templates/index.ts",
   },
   format: ["esm"],
   dts: true,

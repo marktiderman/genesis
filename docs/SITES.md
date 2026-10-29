@@ -2,7 +2,7 @@
 
 Status: the landing-page and multi-page MVP is built in `packages/sites`
 (`@marktiderman/genesis-sites`, October 2026), and so is the first part of
-V1: the sections a real multi-page gym site needs (timetable, team, blog,
+V1: the sections a real multi-page small-business site needs (timetable, team, blog,
 map, timeline, downloads, grouped pricing, numbered steps, a trust bar,
 outbound booking links), the blog, a guarded import of an old site's
 files, and the editor (`/editor`, on Puck 0.23).
@@ -399,7 +399,17 @@ packages/sites/                  @marktiderman/genesis-sites
   migrations/    0001_genesis_sites.sql, 0002_genesis_sites_posts.sql (+ their pgTAP tests in tests/)
   src/editor/    SiteEditor: the Puck config from the registry, Genesis-styled overrides, the canvas,
                  autosave (Autosaver), the Pages and Publish panels, the image picker
+  src/templates/ industry template content (`/templates`): presets and sample data, plain data only
 ```
+
+The core is neutral: the engine, sections, schemas, defaults, examples, docs
+and tests never name an industry, so every section reads naturally for any
+business. Industry templates live in `src/templates/` as data on the neutral
+sections (presets in the sections' own shape and sample data), never as code
+paths, and use made-up businesses. `scripts/check-industry-words.mjs` fails CI
+on industry words outside that folder; its word list is
+`scripts/industry-words.mjs`. The full template format (content packs) comes
+later.
 
 ## Phased build plan
 

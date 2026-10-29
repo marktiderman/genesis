@@ -45,7 +45,7 @@ function imageUrl(image: Image | undefined, origin: string, basePath: string): s
 }
 
 /**
- * The page's title with the site's template (`%s · Riverside Gym`), so every
+ * The page's title with the site's template (`%s · Riverside Works`), so every
  * tab and search result names the site. An SEO title written for the page
  * (`seo.title`) is used as it is.
  */

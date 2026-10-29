@@ -19,56 +19,59 @@ import {
 
 export const brand = exampleBrands.riverside;
 
+/** The schedule section's key for a host from before version 2, still read from stored documents. */
+export const LEGACY_HOST = "coach"; // industry-words: allow (a stored key the tests keep reading)
+
 const img = (name: string, alt = `Photo of ${name}`) => ({ src: `/images/${name}.jpg`, alt, width: 1200, height: 900 });
 
 /** Props for each built-in section, filled out so every variant has something to draw. */
 export const sectionProps: Record<string, Record<string, unknown>> = {
   nav: { showName: true, cta: { label: "Join today", href: "#contact" } },
   hero: {
-    eyebrow: "Strength and conditioning",
-    heading: "Train with people who know your name",
-    body: "Small classes, real coaching and a community that shows up for you.",
-    primaryCta: { label: "Book a free class", href: "#contact" },
+    eyebrow: "Workshops and studio time",
+    heading: "Make things with people who know your name",
+    body: "Small groups, real teaching and a community that shows up for you.",
+    primaryCta: { label: "Book a free visit", href: "#contact" },
     secondaryCta: { label: "See the timetable", href: "/timetable" },
-    image: img("gym-floor"),
+    image: img("studio-floor"),
   },
   features: {
     eyebrow: "Why Riverside",
-    heading: "Everything you need to get stronger",
-    body: "Coaching, programming and a place you want to be.",
+    heading: "Everything you need to get better",
+    body: "Teaching, tools and a place you want to be.",
     items: [
-      { title: "Coached classes", body: "Every class has a coach who watches your form.", icon: "users", image: img("class"), link: { label: "Classes", href: "/classes" } },
-      { title: "Open gym", body: "Train on your own, six days a week.", icon: "dumbbell", image: img("open-gym") },
-      { title: "Nutrition", body: "Simple habits that last.", icon: "leaf", image: img("food") },
+      { title: "Guided sessions", body: "Every session has a host who helps you along.", icon: "users", image: img("session"), link: { label: "Sessions", href: "/sessions" } },
+      { title: "Open studio", body: "Work on your own, six days a week.", icon: "clock", image: img("open-studio") },
+      { title: "Materials", body: "Simple supplies that last.", icon: "leaf", image: img("supplies") },
     ],
   },
-  cta: { heading: "Your first class is free", body: "Come and see if it's for you.", primaryCta: { label: "Book now", href: "#contact" }, secondaryCta: { label: "Ask a question", href: "mailto:hello@riverside.example" } },
+  cta: { heading: "Your first visit is free", body: "Come and see if it's for you.", primaryCta: { label: "Book now", href: "#contact" }, secondaryCta: { label: "Ask a question", href: "mailto:hello@riverside.example" } },
   testimonials: {
     heading: "Members say",
     items: [
-      { quote: "I never thought I'd enjoy training. Now I don't miss a week.", name: "Sam Lee", role: "Member since 2022", avatar: img("sam", "Sam Lee") },
-      { quote: "The coaches actually remember my goals.", name: "Jane Doe" },
+      { quote: "I never thought I'd enjoy making things. Now I don't miss a week.", name: "Sam Lee", role: "Member since 2022", avatar: img("sam", "Sam Lee") },
+      { quote: "The hosts actually remember my projects.", name: "Jane Doe" },
     ],
   },
   faq: {
     heading: "Questions",
     items: [
-      { question: "Do I need to be fit to start?", answer: "No. Every workout scales to you.\n\nStart where you are." },
-      { question: "What should I bring?", answer: "Water, trainers and a towel." },
+      { question: "Do I need experience to start?", answer: "No. Every session starts from the basics.\n\nStart where you are." },
+      { question: "What should I bring?", answer: "Old clothes and a notebook." },
     ],
   },
   pricing: {
-    heading: "Memberships",
+    heading: "Plans and prices",
     body: "No joining fee.",
     tiers: [
-      { name: "Two a week", price: "$89", period: "per month", features: ["Two classes a week", "Open gym"], cta: { label: "Choose", href: "#contact" } },
-      { name: "Unlimited", price: "$139", period: "per month", description: "Most members pick this.", features: ["Every class", "Open gym", "Nutrition guide"], cta: { label: "Choose", href: "#contact" }, highlighted: true },
+      { name: "Two a week", price: "$89", period: "per month", features: ["Two sessions a week", "Open studio"], cta: { label: "Choose", href: "#contact" } },
+      { name: "Unlimited", price: "$139", period: "per month", description: "Most members pick this.", features: ["Every session", "Open studio", "Materials included"], cta: { label: "Choose", href: "#contact" }, highlighted: true },
     ],
     note: "Prices include tax.",
   },
   logos: { heading: "As seen in", items: [{ name: "Hilltop News", image: { src: "/logos/news.png", alt: "" }, href: "https://news.example" }, { name: "City Radio", image: { src: "/logos/radio.png", alt: "City Radio" } }] },
-  stats: { heading: "In numbers", items: [{ value: "12", label: "years open" }, { value: "40+", label: "classes a week" }, { value: "6", label: "coaches" }] },
-  gallery: { heading: "Inside the gym", images: [{ ...img("rig"), caption: "The rig" }, img("rowers"), img("weights")] },
+  stats: { heading: "In numbers", items: [{ value: "12", label: "years open" }, { value: "40+", label: "sessions a week" }, { value: "6", label: "hosts" }] },
+  gallery: { heading: "Inside the studio", images: [{ ...img("bench"), caption: "The bench" }, img("shelves"), img("tools")] },
   "rich-text": {
     heading: "Our story",
     body: {
@@ -80,43 +83,43 @@ export const sectionProps: Record<string, Record<string, unknown>> = {
       ],
     },
   },
-  "form-embed": { heading: "Book a free class", body: "We'll reply within a day.", form: "free-class" },
+  "form-embed": { heading: "Book a free visit", body: "We'll reply within a day.", form: "free-class" },
   schedule: {
     eyebrow: "Every week",
-    heading: "Class times",
-    body: "Coached classes six days a week.",
+    heading: "Session times",
+    body: "Hosted sessions six days a week.",
     types: [
-      { id: "strength", name: "Strength", description: "Barbell work in a coached group.", tone: "primary" },
-      { id: "conditioning", name: "Conditioning", description: "Intervals for every level.", tone: "soft" },
-      { id: "open", name: "Open gym", tone: "plain" },
+      { id: "making", name: "Making", description: "Hands-on work in a hosted group.", tone: "primary" },
+      { id: "talk", name: "Talk", description: "Short talks for every level.", tone: "soft" },
+      { id: "open", name: "Open studio", tone: "plain" },
     ],
     sessions: [
-      { day: "mon", start: "06:00", end: "07:00", title: "Strength", type: "strength", host: "Sam Lee", location: "Main floor" },
-      { day: "mon", start: "18:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe" },
-      { day: "tue", start: "06:00", title: "Conditioning", type: "conditioning", coach: "Jane Doe", location: "Studio" },
-      { day: "thu", start: "18:00", title: "Strength", type: "strength", coach: "Sam Lee", link: { label: "Book Thursday strength", href: "https://booking.example/riverside/thu", external: true, target: "_blank" } },
-      { day: "sat", start: "09:00", title: "Open gym", type: "open", note: "Members only" },
+      { day: "mon", start: "06:00", end: "07:00", title: "Making", type: "making", host: "Sam Lee", location: "Main floor" },
+      { day: "mon", start: "18:00", title: "Talk", type: "talk", [LEGACY_HOST]: "Jane Doe" },
+      { day: "tue", start: "06:00", title: "Talk", type: "talk", [LEGACY_HOST]: "Jane Doe", location: "Studio" },
+      { day: "thu", start: "18:00", title: "Making", type: "making", [LEGACY_HOST]: "Sam Lee", link: { label: "Book Thursday making", href: "https://booking.example/riverside/thu", external: true, target: "_blank" } },
+      { day: "sat", start: "09:00", title: "Open studio", type: "open", note: "Members only" },
     ],
     days: ["mon", "tue", "wed", "thu", "fri", "sat"],
     footnote: "Check the noticeboard for term dates.",
   },
   team: {
-    eyebrow: "The coaches",
-    heading: "Our coaches",
+    eyebrow: "The team",
+    heading: "Our hosts",
     members: [
       {
         name: "Sam Lee",
-        role: "Head coach",
-        credentials: "Level 2 coach, weightlifting coach",
-        photo: img("sam", "Sam Lee coaching a lift"),
-        summary: "Loves teaching the barbell lifts.",
-        bio: "Sam started coaching in 2015.\n\nToday Sam runs the strength programme and the Saturday class.",
-        quote: { text: "Strong is a skill.", cite: "Sam Lee" },
-        profile: "/coaches/sam-lee",
-        cta: { label: "Train with Sam", href: "#contact" },
+        role: "Lead host",
+        credentials: "Ten years teaching, first-aid trained",
+        photo: img("sam", "Sam Lee at the bench"),
+        summary: "Loves teaching the first steps.",
+        bio: "Sam started teaching in 2015.\n\nToday Sam runs the making programme and the Saturday session.",
+        quote: { text: "Skill is practice.", cite: "Sam Lee" },
+        profile: "/team/sam-lee",
+        cta: { label: "Book with Sam", href: "#contact" },
         anchor: "sam-lee",
       },
-      { name: "Jane Doe", role: "Coach", photo: img("jane", "Jane Doe"), summary: "Runs the morning conditioning classes." },
+      { name: "Jane Doe", role: "Host", photo: img("jane", "Jane Doe"), summary: "Runs the morning talks." },
     ],
   },
   "blog-list": { eyebrow: "Notes", heading: "From the blog", perPage: 2, cta: { label: "All posts", href: "/blog" } },
@@ -129,32 +132,32 @@ export const sectionProps: Record<string, Record<string, unknown>> = {
     provider: "openstreetmap",
     lat: 51.5007,
     lng: -0.1246,
-    image: img("map", "A map of the streets around the gym"),
+    image: img("map", "A map of the streets around the studio"),
     contact: [{ label: "+1 555 0100", href: "tel:+15550100" }, { label: "hello@riverside.example", href: "mailto:hello@riverside.example" }],
-    primaryCta: { label: "Book a class", href: "https://booking.example/riverside", external: true, target: "_blank" },
+    primaryCta: { label: "Book a session", href: "https://booking.example/riverside", external: true, target: "_blank" },
   },
   timeline: {
     eyebrow: "Six weeks",
     heading: "The course, week by week",
     steps: [
-      { label: "Week 1", title: "Basics", body: "Learn the warm-up and the first lifts." },
-      { label: "Week 3", title: "Skills", body: "Put the lifts together.", image: img("skills", "Members practising kettlebell swings") },
+      { label: "Week 1", title: "Basics", body: "Learn the tools and the first steps." },
+      { label: "Week 3", title: "Skills", body: "Put the steps together.", image: img("skills", "Members practising at the bench") },
       { label: "Week 6", title: "Showcase", body: "Show friends what you learned.", cta: { label: "Sign up", href: "https://booking.example/riverside/course", external: true } },
     ],
   },
   file: {
     heading: "Downloads",
-    body: "Print these before your first class.",
+    body: "Print these before your first visit.",
     files: [
-      { label: "Timetable", description: "This term's classes.", file: { src: "/sites/s1/files/a1-timetable.pdf", mime: "application/pdf", bytes: 245760 } },
+      { label: "Timetable", description: "This term's sessions.", file: { src: "/sites/s1/files/a1-timetable.pdf", mime: "application/pdf", bytes: 245760 } },
       { label: "Price list", file: { src: "https://files.example/prices.pdf", mime: "application/pdf", bytes: 2097152 } },
     ],
   },
   footer: {
-    tagline: "Strength and conditioning by the river.",
+    tagline: "Workshops and studio time by the river.",
     columns: [{ heading: "Visit", links: [{ label: "Timetable", href: "/timetable" }, { label: "Contact", href: "/contact" }] }],
     links: [{ label: "Privacy", href: "/privacy" }, { label: "Instagram", href: "https://instagram.example/riverside", newTab: true }],
-    copyright: "© 2026 Riverside Gym",
+    copyright: "© 2026 Riverside Works",
   },
 };
 
@@ -180,7 +183,7 @@ export const everyLightField = defineForm({
     f.number("age", { label: "Age", min: 16, max: 99, step: 1 }),
     f.singleChoice("level", { label: "Level", required: true, options: [{ value: "new", label: "New" }, { value: "some", label: "Some" }, { value: "lots", label: "Lots" }] }),
     f.dropdown("time", { label: "Best time", options: [{ value: "morning", label: "Morning" }, { value: "evening", label: "Evening" }] }),
-    f.multiChoice("goals", { label: "Goals", required: true, options: [{ value: "strength", label: "Strength" }, { value: "fitness", label: "Fitness" }] }),
+    f.multiChoice("goals", { label: "Goals", required: true, options: [{ value: "skills", label: "Skills" }, { value: "friends", label: "Friends" }] }),
     f.yesNo("injury", { label: "Any injuries?" }),
     f.consent("terms", { label: "Terms", text: "I agree to the terms", required: true }),
   ],
@@ -220,7 +223,7 @@ export const postDoc = (title: string, extra: Partial<PostDocInput> = {}): PostD
 });
 
 export const livePosts: LivePost[] = [
-  { slug: "first-class-tips", publishedAt: "2026-09-02T09:00:00Z", updatedAt: "2026-09-02T09:00:00Z", doc: { ...(postDoc("Five tips for your first class") as LivePost["doc"]), cover: { src: "/images/kettlebells.jpg", alt: "Kettlebells in a row", width: 1600, height: 1000 }, category: "Training", author: { name: "Sam Lee" } } },
+  { slug: "first-class-tips", publishedAt: "2026-09-02T09:00:00Z", updatedAt: "2026-09-02T09:00:00Z", doc: { ...(postDoc("Five tips for your first class") as LivePost["doc"]), cover: { src: "/images/tools.jpg", alt: "Tools in a row", width: 1600, height: 1000 }, category: "Training", author: { name: "Sam Lee" } } },
   { slug: "why-we-warm-up", publishedAt: "2026-06-17T09:00:00Z", updatedAt: "2026-06-18T09:00:00Z", doc: postDoc("Why we warm up") as LivePost["doc"] },
   { slug: "morning-crew", publishedAt: "2026-05-01T09:00:00Z", updatedAt: "2026-05-01T09:00:00Z", doc: { ...(postDoc("Meet the morning crew") as LivePost["doc"]), category: "News" } },
 ];
@@ -228,7 +231,7 @@ export const livePosts: LivePost[] = [
 export const testPosts = (overrides: Partial<PostsContext> = {}): PostsContext => ({
   path: "/blog",
   list: livePosts.map(postSummary),
-  current: { slug: "first-post", publishedAt: "2026-10-01T09:00:00Z", updatedAt: "2026-10-02T09:00:00Z", doc: { ...(postDoc("Our first post") as LivePost["doc"]), cover: { src: "/images/first.jpg", alt: "The gym at sunrise" }, author: { name: "Jane Doe" }, category: "News" } },
+  current: { slug: "first-post", publishedAt: "2026-10-01T09:00:00Z", updatedAt: "2026-10-02T09:00:00Z", doc: { ...(postDoc("Our first post") as LivePost["doc"]), cover: { src: "/images/first.jpg", alt: "The studio at sunrise" }, author: { name: "Jane Doe" }, category: "News" } },
   page: 1,
   ...overrides,
 });
@@ -236,7 +239,7 @@ export const testPosts = (overrides: Partial<PostsContext> = {}): PostsContext =
 export function testCtx(overrides: Partial<RenderContext> = {}): RenderContext {
   return {
     headingLevel: 2,
-    site: { name: "Riverside Gym", lang: "en", nav: [{ label: "Home", href: "/" }, { label: "Classes", href: "/classes" }, { label: "Contact", href: "/contact" }] },
+    site: { name: "Riverside Works", lang: "en", nav: [{ label: "Home", href: "/" }, { label: "Sessions", href: "/sessions" }, { label: "Contact", href: "/contact" }] },
     pagePath: "/",
     href: (h) => h,
     forms: new Map(["free-class", "sign-up", "branching"].map((slug) => [slug, formsResolver(slug, { siteId: "s", pagePath: "/", mode: "live" }) as ResolvedForm])),
@@ -253,22 +256,22 @@ export async function seededStore() {
   const landing = landingPage({
     brand,
     message: {
-      headline: "Train with people who know your name",
-      subhead: "Small classes and real coaching by the river.",
+      headline: "Make things with people who know your name",
+      subhead: "Small groups and real teaching by the river.",
       benefits: [
-        { title: "Coached classes", body: "A coach in every class." },
-        { title: "Open gym", body: "Six days a week." },
+        { title: "Guided sessions", body: "A host in every session." },
+        { title: "Open studio", body: "Six days a week." },
         { title: "Community", body: "People who show up for you." },
       ],
     },
-    form: { slug: "free-class", heading: "Book a free class" },
+    form: { slug: "free-class", heading: "Book a free visit" },
     contact: { email: "hello@riverside.example" },
   });
   // The template's sample quotes are placeholders: replace them as an editor would.
   const page = landing.pages[0]!;
   page.doc.content = page.doc.content.map((n) => (n.type === "testimonials" ? { ...n, placeholder: false, props: sectionProps.testimonials! } : n));
   await store.createSite({ id: "landing", site: landing.site, pages: landing.pages });
-  const starter = starterSite({ brand: exampleBrands.hilltop, message: { headline: "Fitness on the hill", subhead: "Classes for every level.", benefits: [{ title: "Every level", body: "Start where you are." }] }, form: { slug: "free-class" } });
+  const starter = starterSite({ brand: exampleBrands.hilltop, message: { headline: "Made on the hill", subhead: "Sessions for every level.", benefits: [{ title: "Every level", body: "Start where you are." }] }, form: { slug: "free-class" } });
   for (const p of starter.pages) p.doc.content = p.doc.content.map((n) => (n.placeholder ? { ...n, placeholder: false } : n));
   await store.createSite({ id: "starter", site: starter.site, pages: starter.pages });
   await store.publish("landing", { brand, note: "First" });
