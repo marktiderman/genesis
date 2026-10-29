@@ -294,7 +294,8 @@ jobs:
       - name: Publish versions already on main
         if: steps.verify.outputs.unpublished == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # RELEASE_TAG_TOKEN is optional and unset by default (docs/RELEASING.md).
+          GH_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if ! find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
@@ -419,6 +420,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only for the tag (scripts/create-tag-ref.sh); optional and unset by default.
+          TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           trap 'echo "::error::The packages are published, but the release tag or notes failed. Re-run this job, or follow docs/RELEASING.md (Release notes) by hand."' ERR
@@ -434,7 +437,7 @@ jobs:
             while git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; do
               n=$((n + 1)); tag="$base-$n"
             done
-            scripts/create-tag-ref.sh "$tag" "$(git rev-parse HEAD)"
+            GH_TOKEN=$TAG_TOKEN scripts/create-tag-ref.sh "$tag" "$(git rev-parse HEAD)"
           fi
           name=${tag#release/}
           pnpm exec genesis-product release --from "$prev" --name "$name" --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/notes.md" 2> "$RUNNER_TEMP/notes.err"

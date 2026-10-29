@@ -42,6 +42,13 @@ repos/{owner}/{repo}/git/refs`, which creates the ref without pushing commits an
 `contents: write`. It is idempotent: a tag already at that commit counts as done, so re-runs are
 safe. The checkouts keep no git credentials (`persist-credentials: false`).
 
+If GitHub ever refuses the API call with the same `workflows` message, the script prints it and
+the job fails. Fix it without a code change: create a fine-grained personal access token for
+`marktiderman/genesis` only, with **Contents: read and write** and **Workflows: read and write**,
+and save it as the repository secret `RELEASE_TAG_TOKEN`. Release uses it for the tag calls when
+it is set, and `GITHUB_TOKEN` when it isn't. Then use **Re-run failed jobs**. The secret is not
+set today.
+
 ## Release notes
 
 Release notes are for people, not developers: what reached beta or live in `features.ts`, written
