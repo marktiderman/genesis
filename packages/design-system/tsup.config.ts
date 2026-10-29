@@ -26,6 +26,9 @@ export default defineConfig({
     "src/schema/brand.ts",
     // PRD-07 A4.0 — cross-platform factories.
     "src/factories/from-brand.ts",
+    // Design systems, the colour engine and the font list.
+    "src/design-systems/index.ts",
+    "src/fonts.ts",
     // PRD-07 A2b — unified theme barrel + platform-specific providers.
     // Both `index.web.ts` and `index.native.ts` are emitted; the
     // package.json `exports."./theme"` block uses the `react-native`

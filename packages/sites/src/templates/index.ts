@@ -6,10 +6,15 @@
  * section and sample data. Nothing here is a code path; a section renders the
  * same whichever template its props came from. The businesses are made up.
  *
+ * Industry design systems (`forgeDesignSystem`, `studioDesignSystem`) are here
+ * too: tokens only. Register the ones you offer with genesis-design-system's
+ * `registerDesignSystem(...industryDesignSystems)`.
+ *
  * @packageDocumentation
  */
 export type { IndustryTemplate } from "./types";
 export { fitness } from "./fitness";
+export { forgeDesignSystem, industryDesignSystems, studioDesignSystem } from "./design-systems";
 
 import { fitness } from "./fitness";
 import type { IndustryTemplate } from "./types";

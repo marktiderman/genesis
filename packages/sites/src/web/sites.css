@@ -4,7 +4,7 @@
  * arrives as CSS variables in its own <style>, after this file, so the
  * variables below are only defaults.
  */
-@layer theme, base, components, utilities;
+@layer theme, base, components, utilities, gs-design;
 
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/preflight.css" layer(base);
@@ -56,5 +56,158 @@
   [data-gs-schedule]:has(input[data-day="5"]:checked) [data-panel]:not([data-panel="5"]),
   [data-gs-schedule]:has(input[data-day="6"]:checked) [data-panel]:not([data-panel="6"]) {
     display: none;
+  }
+}
+
+/*
+ * Design system tokens. A brand's design system (genesis-design-system's
+ * `defineDesignSystem`) arrives as `--ds-*` variables in the site's own
+ * <style>; every rule here reads one, with a fallback that is exactly
+ * today's look (the `--gs-*` defaults below, which match genesis-ui's
+ * Display, BandLead and Band classes). So `classic@1`, which emits no
+ * tokens, renders as before, and swapping design systems changes only
+ * variables, never the HTML.
+ *
+ * The rules sit in their own layer after utilities, because they replace
+ * the type and padding utilities that genesis-ui's Display and Band carry.
+ */
+@layer base {
+  :root {
+    --gs-size-xl: 2.25rem;
+    --gs-size-lg: 1.875rem;
+    --gs-size-md: 1.5rem;
+    --gs-size-sm: 1.25rem;
+    --gs-size-lead: 1.125rem;
+    --gs-band-sm: 2rem;
+    --gs-band-md: 3rem;
+    --gs-band-lg: 4rem;
+  }
+  @media (min-width: 40rem) {
+    :root {
+      --gs-size-xl: 3rem;
+      --gs-size-lg: 2.25rem;
+      --gs-size-md: 1.875rem;
+      --gs-size-lead: 1.25rem;
+      --gs-band-sm: 2.5rem;
+      --gs-band-md: 4rem;
+      --gs-band-lg: 6rem;
+    }
+  }
+  @media (min-width: 64rem) {
+    :root {
+      --gs-size-xl: 3.75rem;
+      --gs-band-md: 5rem;
+      --gs-band-lg: 8rem;
+    }
+  }
+}
+
+@layer gs-design {
+  /* Headings: a section title's size step (xl is the hero's display, lg a section's h2). */
+  [data-gs-size] {
+    font-weight: var(--ds-heading-weight, 700);
+    letter-spacing: var(--ds-heading-tracking, -0.025em);
+    text-transform: var(--ds-heading-case, none);
+  }
+  [data-gs-size="xl"] {
+    font-size: var(--ds-text-display, var(--gs-size-xl));
+    line-height: var(--ds-leading-display, 1.1);
+    font-weight: var(--ds-display-weight, 700);
+    letter-spacing: var(--ds-display-tracking, -0.025em);
+    text-transform: var(--ds-display-case, none);
+  }
+  [data-gs-size="lg"] {
+    font-size: var(--ds-text-h2, var(--gs-size-lg));
+    line-height: var(--ds-leading-h2, 1.25);
+  }
+  [data-gs-size="md"] {
+    font-size: var(--ds-text-h3, var(--gs-size-md));
+    line-height: var(--ds-leading-h3, 1.375);
+  }
+  [data-gs-size="sm"] {
+    font-size: var(--ds-text-h4, var(--gs-size-sm));
+    line-height: var(--ds-leading-h4, 1.375);
+  }
+  [data-gs-text="lead"] {
+    font-size: var(--ds-text-lead, var(--gs-size-lead));
+    line-height: var(--ds-leading-lead, 1.625);
+  }
+  [data-gs-text="eyebrow"] {
+    font-size: var(--ds-text-eyebrow, 0.875rem);
+    line-height: var(--ds-leading-eyebrow, calc(1.25 / 0.875));
+    font-weight: var(--ds-eyebrow-weight, 600);
+    letter-spacing: var(--ds-eyebrow-tracking, 0.05em);
+    text-transform: var(--ds-eyebrow-case, uppercase);
+  }
+
+  /* Section padding, by the band's step and the design system's density. */
+  [data-gs-spacing="sm"] {
+    padding-block: var(--ds-section-y-sm, var(--gs-band-sm));
+  }
+  [data-gs-spacing="md"] {
+    padding-block: var(--ds-section-y-md, var(--gs-band-md));
+  }
+  [data-gs-spacing="lg"] {
+    padding-block: var(--ds-section-y-lg, var(--gs-band-lg));
+  }
+  /* Two neighbours on the same surface read as one band: the second drops its top padding (not in classic). */
+  :is([data-surface="base"] + [data-surface="base"], [data-surface="muted"] + [data-surface="muted"], [data-surface="accent"] + [data-surface="accent"], [data-surface="inverse"] + [data-surface="inverse"])[data-gs-spacing="sm"] {
+    padding-top: var(--ds-collapse-top, var(--ds-section-y-sm, var(--gs-band-sm)));
+  }
+  :is([data-surface="base"] + [data-surface="base"], [data-surface="muted"] + [data-surface="muted"], [data-surface="accent"] + [data-surface="accent"], [data-surface="inverse"] + [data-surface="inverse"])[data-gs-spacing="md"] {
+    padding-top: var(--ds-collapse-top, var(--ds-section-y-md, var(--gs-band-md)));
+  }
+  :is([data-surface="base"] + [data-surface="base"], [data-surface="muted"] + [data-surface="muted"], [data-surface="accent"] + [data-surface="accent"], [data-surface="inverse"] + [data-surface="inverse"])[data-gs-spacing="lg"] {
+    padding-top: var(--ds-collapse-top, var(--ds-section-y-lg, var(--gs-band-lg)));
+  }
+
+  /* Text over a photo: the least wash that keeps it at 4.5:1 (the engine solves it), else today's 80%. */
+  [data-gs-scrim] {
+    background-color: var(--ds-scrim-full, color-mix(in oklab, hsl(var(--foreground)) 80%, transparent));
+  }
+
+  /* One treatment for every photo on the page; never on logos. */
+  [data-gs-section]:not([data-gs-section="logos"], [data-gs-section="nav"], [data-gs-section="footer"]) img {
+    filter: var(--ds-image-filter, none);
+  }
+}
+
+/*
+ * Motion, CSS only. A section below the first rises in as it scrolls into
+ * view (a scroll-driven animation, so there is no script and nothing is
+ * hidden where it isn't supported). Never the first section or the hero,
+ * so the largest paint never waits. Reduced motion turns it off, and on
+ * phones a bold reveal falls back to the calm one.
+ */
+@keyframes ds-rise {
+  from {
+    opacity: 0;
+    translate: 0 var(--ds-reveal-distance, 0px);
+  }
+}
+@keyframes ds-clip {
+  from {
+    opacity: 0;
+    translate: 0 var(--ds-reveal-distance, 0px);
+    clip-path: inset(0 0 100% 0);
+  }
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    @layer gs-design {
+      main > [data-gs-section]:not(:first-child, [data-gs-section="hero"]) {
+        animation-name: var(--ds-reveal, none);
+        animation-duration: auto;
+        animation-fill-mode: both;
+        animation-timing-function: var(--ds-ease-out, ease-out);
+        animation-timeline: view();
+        animation-range: var(--ds-reveal-range, normal);
+      }
+      @media (max-width: 47.99rem) {
+        main > [data-gs-section]:not(:first-child, [data-gs-section="hero"]) {
+          animation-name: var(--ds-reveal-phone, none);
+        }
+      }
+    }
   }
 }

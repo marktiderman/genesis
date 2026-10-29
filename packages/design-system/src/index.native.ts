@@ -40,7 +40,26 @@ export {
   type PlatformOverridable,
   isColorScale,
   validateBrand,
+  clampBounds,
 } from "./schema/brand";
+
+// Design systems and the OKLCH colour engine (pure maths; same as web).
+export * from "./design-systems/index";
+
+// The fonts a brand may choose.
+export {
+  FONT_CHOICES,
+  FONT_CLASSES,
+  FONT_IDS,
+  LATIN_UNICODE_RANGE,
+  SELF_HOSTED_FONTS,
+  fontFileKey,
+  fontForStack,
+  type FontClass,
+  type FontId,
+  type FontInfo,
+  type SelfHostedFont,
+} from "./fonts";
 
 // Cross-platform factories
 export {

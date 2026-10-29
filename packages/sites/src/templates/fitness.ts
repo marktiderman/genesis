@@ -8,6 +8,7 @@ import type { SectionPreset } from "../core/registry";
 import type { SiteBrand } from "../core/theme";
 import type { TemplateMessage } from "../core/templates";
 import type { IndustryTemplate } from "./types";
+import { forgeDesignSystem, studioDesignSystem } from "./design-systems";
 
 const brand: SiteBrand = {
   name: "Riverside Gym",
@@ -107,5 +108,6 @@ export const fitness: IndustryTemplate = Object.freeze({
   label: "Fitness",
   brand,
   message,
+  designSystems: [forgeDesignSystem, studioDesignSystem],
   presets: { team, schedule, features, stats, logos, pricing, file },
 });

@@ -31,7 +31,26 @@ export {
   type PlatformOverridable,
   isColorScale,
   validateBrand,
+  clampBounds,
 } from "./schema/brand";
+
+// Design systems and the OKLCH colour engine. Also at "./design-systems".
+export * from "./design-systems/index";
+
+// The fonts a brand may choose (moved from genesis-sites). Also at "./fonts".
+export {
+  FONT_CHOICES,
+  FONT_CLASSES,
+  FONT_IDS,
+  LATIN_UNICODE_RANGE,
+  SELF_HOSTED_FONTS,
+  fontFileKey,
+  fontForStack,
+  type FontClass,
+  type FontId,
+  type FontInfo,
+  type SelfHostedFont,
+} from "./fonts";
 
 // Cross-platform factories (PRD-07 A4.0). Derive a Tailwind v4 web preset
 // AND a NativeWind v5 native theme from a single CanonicalBrand object.

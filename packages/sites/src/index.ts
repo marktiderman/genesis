@@ -145,6 +145,7 @@ export {
   type FontInfo,
   type SiteBrand,
   type SiteTheme,
+  type SiteThemeOptions,
   type ThemePair,
 } from "./core/theme";
 export { landingPage, onePageSite, starterSite, type OnePageSiteInput, type TemplateInput, type TemplateMessage, type TemplateResult } from "./core/templates";

@@ -139,6 +139,9 @@ The choices (`FONT_CHOICES`): System, Inter, DM Sans, Work Sans, Montserrat,
 Poppins, Space Grotesk, Source Serif, Merriweather, Playfair Display, Lora,
 Barlow, Barlow Condensed, Oswald, Roboto Condensed and Bebas Neue. Bebas Neue
 has one weight, so it is a heading font only (`BodyFontChoice` leaves it out).
+The list itself lives in genesis-design-system (`/fonts`), where each font
+carries its class (grotesk, geometric, condensed, serif) for the design
+systems' heading rules; this package still builds and serves the files.
 
 The files come from the `@fontsource/*` packages at build time. All are under
 the SIL Open Font License 1.1; their licences ship in
@@ -294,6 +297,64 @@ props; `migrateNode` runs the steps on read and a publish writes the result
 into the release. `sectionJsonSchema(type)` gives the props' JSON Schema (for
 editor fields and AI output) and `sectionManifests()` the editor's catalog.
 
+## Design systems
+
+A brand is identity (name, colours, fonts, logo). A **design system** is the
+look rules attached to it: the type ramp, space, corners, surfaces, image
+treatment and motion. They come from genesis-design-system
+(`defineDesignSystem`, versioned like `crisp@1`); a brand names one, plus up
+to three choices from fixed lists:
+
+```ts
+const brand: SiteBrand = {
+  name: "Riverside Works",
+  colors: { primary: "#0f766e", secondary: "#f59e0b" }, // one accent, one optional supporting colour
+  fonts: { heading: "space-grotesk", body: "inter" },
+  designSystem: { id: "soft@1", density: "generous", corners: "round", motion: "calm" },
+};
+```
+
+- **Swapping it re-themes every page with no other work.** Sections draw only
+  tokens, so a swap changes the page's theme `<style>` (its CSS variables) and
+  nothing else in the HTML. A test renders the same page under every shipped
+  design system and compares.
+- **`classic@1` is the default** and emits no tokens: a brand that names no
+  design system looks exactly as before, and its release hash is unchanged.
+- **Built in** (genesis-design-system): `classic@1`, `crisp@1` (cool, exact,
+  flat) and `soft@1` (warm, generous, rounded). **Industry ones** are template
+  content in `/templates`: `forge@1` (bold, poster headings, square) and
+  `studio@1` (calm, warm, rounded). Register the ones you offer once at
+  startup; a brand naming an id that isn't registered is logged and themes
+  as `classic@1`:
+
+  ```ts
+  import { registerDesignSystem } from "@marktiderman/genesis-design-system";
+  import { industryDesignSystems } from "@marktiderman/genesis-sites/templates";
+
+  registerDesignSystem(...industryDesignSystems);
+  ```
+
+- **Colour.** A design system with `surfaces` themes through the OKLCH colour
+  engine: neutrals tinted with the brand, a warm or cool ground (never pure
+  white), the accent as a fill (the brand colour, unchanged) and as text
+  (walked down its ramp until it reads at 4.5:1), and every text colour
+  solved to pass WCAG AA, in light and dark. A neon or near-white brand
+  colour passes: its buttons keep the colour, with dark text on them. The
+  publish's contrast check reads the engine's pairs.
+- **What the tokens drive today** (`src/web/sites.css`, each with today's
+  value as its fallback): heading sizes from the fluid ramp (a clamp per step,
+  so browser zoom works; the hero's display step can reach 112px), heading
+  weight, tracking and case by the heading font's class, eyebrows and lead
+  copy, section padding by density, neighbouring bands on the same surface
+  sharing their padding (no doubled gap), corners (`--radius`) and button
+  corners, the photo filter, the wash behind text over a photo (the least
+  that keeps 4.5:1, instead of 80%), and motion: below-the-fold sections rise
+  in with a scroll-driven animation, never the hero, and never under reduced
+  motion. Shadows, border width, grain and the space scale are emitted as
+  tokens for sections to adopt.
+- `siteTheme(brand, theme, { designSystem })` previews another design system
+  without changing the brand ("try a look").
+
 ## A neutral core, and industry templates
 
 The core never names an industry: its schemas, sections, presets, defaults,
@@ -303,7 +364,10 @@ a session and its host). Industry flavour is template content, in
 sections' own preset shape, plus a sample brand and message for
 `landingPage`, `onePageSite` and `starterSite`. A template never adds a code
 path; a section renders the same whichever template its props came from.
-The businesses in templates are made up.
+The businesses in templates are made up. Industry design systems
+(`forgeDesignSystem`, `studioDesignSystem`, `industryDesignSystems`) live here
+too, as tokens only, and a template lists the ones that suit it
+(`template.designSystems`).
 
 ```ts
 import { industryTemplates } from "@marktiderman/genesis-sites/templates";
@@ -328,7 +392,8 @@ to publish (`PublishBlockedError`, with `issues`) when:
   one hero;
 - a brand colour pair the sections draw is under 4.5:1 (3:1 for the focus
   ring), in each colour scheme the site uses, or the publish wasn't given the
-  brand to check;
+  brand to check (with a colour design system, these are the colour engine's
+  pairs, which are solved to pass);
 - an image has no alt text and isn't marked decorative;
 - a section is unknown, has invalid props or was saved by newer code;
 - a template placeholder is still visible;

@@ -333,12 +333,13 @@ demos and previews with the same rules.
   `<Form>` and loads the form bundle on demand; pages without one never
   download it. The form embed names its form by slug, and the host's `forms`
   resolver says what it is.
-- **Theme.** `themeFromBrand(brand).variables` (from genesis-design-system,
-  `packages/design-system/src/factories/from-brand.ts`) plus the genesis-ui
-  role variables, with foregrounds picked for contrast, are serialised into
-  one `<style>` per site. The section CSS is shared and static, so a single
-  stylesheet serves every brand. A Content-Security-Policy pins the style by
-  hash.
+- **Theme.** One `<style>` per site holds CSS variables: the brand's scales
+  from `themeFromBrand(brand, { designSystem })` (genesis-design-system,
+  `packages/design-system/src/factories/from-brand.ts`), its design system's
+  `--ds-*` tokens, and the genesis-ui role variables. The section CSS is
+  shared and static, so one stylesheet serves every brand and every design
+  system. A Content-Security-Policy pins the style by hash. See "Theme and
+  design systems" below.
 - **Fonts.** The package serves every font choice itself, from `/_gs/`: the
   latin subset, one woff2 per listed weight, copied from the `@fontsource/*`
   packages at build time (SIL OFL 1.1; the licences ship in
@@ -382,6 +383,56 @@ demos and previews with the same rules.
   The editor's iframe uses the same renderer.
 - **Native.** The renderer is web-only. The native app previews sites in a
   WebView.
+
+## Theme and design systems
+
+A brand is identity: name, logo, colours (one primary, one optional
+secondary) and fonts. A **design system** is the look rules attached to the
+brand, defined in code with `defineDesignSystem` and versioned (`crisp@1`):
+
+| Group | What it sets | Tokens |
+|---|---|---|
+| `type` | A fluid ramp, a `clamp()` per step from a 360px to a 1440px viewport (never on the root, so zoom works): eyebrow, sm, body, lead, h4, h3, h2, h1, display. Line heights. Weight, tracking and case per font class (grotesk, geometric, condensed, serif, mono), read from the heading font. The eyebrow's weight, tracking and case | `--ds-text-*`, `--ds-leading-*`, `--ds-display-*`, `--ds-heading-*`, `--ds-eyebrow-*` |
+| `space` | Section padding by density (compact, normal, generous), a 4px space scale, the gutter, and the same-surface collapse | `--ds-section-y-{sm,md,lg}`, `--ds-space-1…11`, `--ds-gutter`, `--ds-collapse-top` |
+| `shape` | Corners (square, crisp, soft, round, friendly), border width, shadows (flat, soft, lifted; tinted with ink; none on a dark ground) | `--ds-radius-*`, `--radius`, `--ds-border-width`, `--ds-shadow-1…3` |
+| `surfaces` | The colour engine's ground: `paper` (warm), `chalk` (cool), `pure`, `night` | `--ds-ground*`, `--ds-ink*`, `--ds-accent-*`, `--ds-on-*`, `--ds-focus`, `--ds-scrim-full`, and genesis-ui's `--background`, `--primary`, … |
+| `image` | One filter for every photo (none, warm, crisp, mono), grain, where a scrim sits | `--ds-image-filter`, `--ds-image-grain` |
+| `motion` | none, calm, lively or bold; CSS only | `--ds-ease-*`, `--ds-dur-*`, `--ds-reveal*`, `--ds-hover-lift` |
+
+- **The brand chooses** one design system plus up to three settings from fixed
+  lists: `density`, `corners` and `motion` (`brand.designSystem`, on
+  `CanonicalBrand` and `SiteBrand`). Swapping it changes only the variables in
+  that one `<style>`; the HTML is the same, and a test proves it.
+- **Every group is optional.** A group left out emits nothing and the
+  stylesheet keeps its own value: every rule in `sites.css` reads its token
+  with today's value as the fallback. `classic@1`, the default, has no groups,
+  so it renders exactly as before.
+- **The colour engine** (OKLCH, sRGB out). Each brand colour gets an 11-step
+  ramp at fixed lightness, chroma capped to the gamut and eased at both ends,
+  with the brand's own hex on its nearest step. Neutrals take the ground's hue
+  at a very low chroma; ink is never black and the ground never white (except
+  `pure`, at L 0.995). The accent has a fill form (the brand colour as given)
+  and a text form (walked down the ramp until it reads at 4.5:1 on the page,
+  a card and a sunk band). Text on a fill is the tinted ink or ground when it
+  reads at 4.5:1, else white or black. Quiet text, the focus ring (3:1 on
+  every surface), a form field's edge (3:1) and the wash over a photo (the
+  least opacity that keeps text over a white or a black photo at 4.5:1) are
+  solved too. Dark mode is its own solve on `night`, with the fill's chroma
+  cut 12%. The solver aims slightly above each minimum, so the printed HSL
+  values still pass. A test sweeps 24 hues × 5 lightnesses × 3 chromas × 4
+  grounds, light and dark.
+- **Where design systems live.** Neutral ones ship in genesis-design-system
+  (`classic@1`, `crisp@1`, `soft@1`). Industry ones are template content in
+  genesis-sites' `src/templates/` (`forge@1`, `studio@1`), exempt from the
+  industry-words check. An app may define private ones. All are registered
+  by id (`registerDesignSystem`); an unknown id is logged and themes as
+  `classic@1`.
+- **The torture test** renders six made-up brands (a neon, a near-white and a
+  near-black colour among them), light and dark, under every shipped design
+  system: no contrast pair fails, and the variables are snapshotted.
+- **Not yet:** sections adopting shadows, border width, grain and the space
+  scale; mono, variable and modern serif fonts; motion on hover; a native
+  reading of the design system (native gets the clamp's minimum).
 
 ## Package layout
 
