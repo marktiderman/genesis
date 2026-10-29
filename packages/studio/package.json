@@ -53,7 +53,7 @@
     "test": "vitest run"
   },
   "peerDependencies": {
-    "@hookform/resolvers": "^5.1.0",
+    "@hookform/resolvers": "^5.1.0 || ^6.0.0",
     "@marktiderman/genesis-core": "workspace:>=1.17.0 <3.0.0",
     "@marktiderman/genesis-ui": "workspace:^",
     "@tanstack/react-query": "^5.0.0",
