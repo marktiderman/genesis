@@ -369,6 +369,18 @@ describe("WorkspaceSwitcher", () => {
       expect(onSelect).toHaveBeenCalledWith(many[1]);
     });
 
+    it("empties the search box on Escape before closing", async () => {
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search />);
+      openMenu();
+      const box = (await screen.findByRole("combobox")) as HTMLInputElement;
+      fireEvent.change(box, { target: { value: "glo" } });
+      fireEvent.keyDown(box, { key: "Escape" });
+      await waitFor(() => expect(box.value).toBe(""));
+      expect(screen.getByRole("combobox")).toBeTruthy();
+      fireEvent.keyDown(box, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
+    });
+
     it("starts clean after a parent closes it", async () => {
       const props = { workspaces: many, current: many[0], search: true } as const;
       const { rerender } = render(<WorkspaceSwitcher {...props} open />);
@@ -496,6 +508,29 @@ describe("WorkspaceSwitcher", () => {
       render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+shift+1" }} />);
       fireEvent.keyDown(window, { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true });
       expect(await screen.findByRole("menu")).toBeTruthy();
+    });
+
+    it("never takes another layout's letter for the shortcut's (Dvorak's KeyO types r), but matches Alt+O's ø", async () => {
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+shift+o" }} />);
+      const reload = fireEvent.keyDown(window, { key: "R", code: "KeyO", metaKey: true, shiftKey: true });
+      expect(reload).toBe(true);
+      expect(screen.queryByRole("menu")).toBeNull();
+      cleanup();
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "alt+o" }} />);
+      fireEvent.keyDown(window, { key: "ø", code: "KeyO", altKey: true });
+      expect(await screen.findByRole("menu")).toBeTruthy();
+    });
+
+    it("takes + as a key, and warns in development about a spec with no key", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod++" }} />);
+      expect(warn).not.toHaveBeenCalled();
+      fireEvent.keyDown(window, { key: "+", code: "Equal", ctrlKey: true, shiftKey: false });
+      expect(await screen.findByRole("menu")).toBeTruthy();
+      cleanup();
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+" }} />);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"mod+" names no key'));
+      warn.mockRestore();
     });
 
     it("answers while its own menu is open, though the open menu hides the rest of the page", async () => {

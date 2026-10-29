@@ -198,8 +198,11 @@ export interface WorkspaceSwitcherAction {
 export interface WorkspaceSwitcherShortcuts {
   /**
    * Opens and closes the menu, as `mod+shift+o`: modifiers `mod` (⌘ on a Mac, Ctrl elsewhere),
-   * `meta`/`cmd`, `ctrl`, `alt`/`option` and `shift`, joined by `+`, then the key. A key with no
-   * modifier is ignored while the viewer is typing.
+   * `meta`/`cmd`, `ctrl`, `alt`/`option` and `shift`, joined by `+`, then the key: a letter, a
+   * digit, `+`, or a named key as `KeyboardEvent.key` spells it (`enter`, `f2`). A key that Shift
+   * changes, such as `shift+/` (which types `?`), never matches; name the key it types instead. A
+   * key with no modifier is ignored while the viewer is typing. A spec with no key warns in
+   * development and does nothing.
    */
   open?: string | false;
   /**
@@ -521,7 +524,8 @@ function parseShortcut(spec: string): ParsedShortcut | undefined {
     .toLowerCase()
     .split("+")
     .map((t) => t.trim());
-  const key = tokens.pop();
+  // "mod++": the key is "+", which split into two empty tokens.
+  const key = tokens.at(-1) === "" && tokens.at(-2) === "" ? (tokens.splice(-2), "+") : tokens.pop();
   if (!key) return undefined;
   const has = (...names: string[]) => tokens.some((t) => names.includes(t));
   return {
@@ -535,10 +539,13 @@ function parseShortcut(spec: string): ParsedShortcut | undefined {
 }
 
 function matchesShortcut(e: KeyboardEvent, s: ParsedShortcut): boolean {
-  // `code` too, so Alt+O on a Mac (which types "ø") and Shift+1 (which types "!") still match.
+  // `code` as well, so Alt+O on a Mac (which types "ø") and Shift+1 (which types "!") still match;
+  // but only when the key typed is not itself a letter or digit, or on Dvorak (where the KeyO key
+  // types "r") ⌘⇧R would be taken for ⌘⇧O.
   const key = e.key?.toLowerCase();
   const code = e.code?.toLowerCase();
-  if (key !== s.key && code !== `key${s.key}` && code !== `digit${s.key}`) return false;
+  const typedPlain = key !== undefined && /^[a-z0-9]$/.test(key);
+  if (key !== s.key && (typedPlain || (code !== `key${s.key}` && code !== `digit${s.key}`))) return false;
   const modifiers = s.mod ? e.metaKey || e.ctrlKey : e.metaKey === s.meta && e.ctrlKey === s.ctrl;
   return modifiers && e.altKey === s.alt && e.shiftKey === s.shift;
 }
@@ -684,6 +691,13 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   const jumpMode = shortcuts?.jump === true ? "alt" : shortcuts?.jump || undefined;
   const openSpec = shortcuts?.open || undefined;
   const openShortcut = useMemo(() => (openSpec ? parseShortcut(openSpec) : undefined), [openSpec]);
+  const badSpec = Boolean(openSpec) && !openShortcut;
+  useEffect(() => {
+    if (badSpec && isDevelopment()) {
+      // genesis-allow-console: a development set-up hint (an open shortcut with no key), not an error.
+      console.warn(`WorkspaceSwitcher: shortcuts.open "${openSpec}" names no key, so it does nothing.`);
+    }
+  }, [badSpec, openSpec]);
   const jumpHint = (index: number) =>
     jumpMode && index >= 0 && index < 9
       ? `${jumpMode === "alt" ? (isMac ? "⌥" : "Alt+") : isMac ? "⌘" : "Ctrl+"}${index + 1}`
@@ -913,6 +927,13 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             searchRef.current?.focus();
+          }}
+          // Escape empties a search box that has text first, as cmdk and Radix Select do; then closes.
+          onEscapeKeyDown={(e) => {
+            if (!query) return;
+            e.preventDefault();
+            setQuery("");
+            setActive(0);
           }}
         >
           {renderSlot(
