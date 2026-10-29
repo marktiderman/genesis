@@ -1,6 +1,6 @@
 // L2 Example: Component Composition
 // This page builds the same Items view manually from Genesis data components.
-// Compare with items.tsx which achieves the same result using ResourcePage (L1).
+// Compare with items.tsx which achieves the same result using ResourcePage.
 
 import { useState, useMemo } from "react";
 import { Package, Plus, MoreHorizontal, Tag } from "lucide-react";

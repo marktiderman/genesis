@@ -291,6 +291,9 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system
@@ -517,6 +520,9 @@ importers:
       '@vitest/browser-playwright':
         specifier: ^5.0.5
         version: 5.0.5(playwright@1.64.1)(vite@8.3.5(@types/node@22.20.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.49.1)(tsx@4.23.15)(yaml@2.9.1))(vitest@5.0.5)
+      axe-core:
+        specifier: ^4.14.0
+        version: 4.14.0
       chromatic:
         specifier: ^18.13.2
         version: 18.13.3

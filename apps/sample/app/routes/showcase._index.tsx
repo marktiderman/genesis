@@ -22,10 +22,9 @@ export default function ShowcaseIndex() {
   return (
     <div className="mx-auto max-w-4xl p-6 space-y-8" data-testid="showcase-index">
       <header className="space-y-3">
-        <Badge variant="outline">Genesis Showcase &middot; Phase G</Badge>
-        <h1 className="text-4xl font-bold tracking-tight">Genesis</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Components</h1>
         <p className="text-xl text-muted-foreground">
-          The brand-agnostic design system for Tiderman Ventures.
+          The Genesis design system: tokens, components and page layouts, for any brand.
         </p>
         <p className="text-sm text-muted-foreground max-w-2xl">
           This sample app is the canonical browser-side reference for{" "}

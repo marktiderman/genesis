@@ -6,7 +6,7 @@ import { Button } from "@marktiderman/genesis-ui";
  * Stories for `Button` from @marktiderman/genesis-ui.
  *
  * Each story renders a single deterministic state for Chromatic to
- * snapshot. PRD-07 Phase D-VR (DVR.4).
+ * snapshot.
  */
 const meta: Meta<typeof Button> = {
   title: "UI/Button",

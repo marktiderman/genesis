@@ -14225,7 +14225,7 @@
             },
             {
               "name": "filters",
-              "type": "DeepPartial<{ search: string; status: string; sortBy: string; views: string; viewCount: string; noViews: string; saveCurrent: string; clearAll: string; saveViewTitle: string; viewNamePlaceholder: string; }>",
+              "type": "DeepPartial<{ search: string; status: string; sortBy: string; sort: string; clearSearch: string; views: string; viewCount: string; noViews: string; saveCurrent: string; clearAll: string; saveViewTitle: string; viewNamePlaceholder: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""

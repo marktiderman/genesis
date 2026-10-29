@@ -293,7 +293,7 @@ export default function Sandbox() {
               Dataset
             </label>
             <Select value={dataset} onValueChange={(v) => handleDatasetChange(v as DatasetKey)}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Dataset">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -310,7 +310,7 @@ export default function Sandbox() {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Title
             </label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           {/* Subtitle */}
@@ -318,7 +318,7 @@ export default function Sandbox() {
             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Subtitle
             </label>
-            <Input
+            <Input aria-label="Subtitle"
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
             />
@@ -330,7 +330,7 @@ export default function Sandbox() {
               Icon
             </label>
             <Select value={iconName} onValueChange={setIconName}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Icon">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -364,7 +364,7 @@ export default function Sandbox() {
                 Detail Width
               </label>
               <Select value={detailWidth} onValueChange={(v) => setDetailWidth(v as DetailWidth)}>
-                <SelectTrigger>
+                <SelectTrigger aria-label="Detail Width">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -403,7 +403,7 @@ export default function Sandbox() {
                 value={gridCols}
                 onValueChange={(v) => setGridCols(v as GridColsPreset)}
               >
-                <SelectTrigger id="sandbox-grid-cols" data-testid="sandbox-grid-cols">
+                <SelectTrigger aria-label="Default View" id="sandbox-grid-cols" data-testid="sandbox-grid-cols">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -437,7 +437,7 @@ export default function Sandbox() {
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Create Label
               </label>
-              <Input
+              <Input aria-label="Create Label"
                 value={createLabel}
                 onChange={(e) => setCreateLabel(e.target.value)}
               />
@@ -465,6 +465,7 @@ export default function Sandbox() {
             {availableColumnKeys.map((key) => (
               <div key={key} className="flex items-center gap-2">
                 <Checkbox
+                  aria-label={key}
                   checked={!!enabledColumns[key]}
                   onCheckedChange={() => toggleColumn(key)}
                 />

@@ -1,5 +1,5 @@
 /**
- * <ThemeControls /> — web theme switcher (Phase G.13).
+ * <ThemeControls /> — web theme switcher.
  *
  * Three controls used across every showcase route:
  *   1. Light / Dark / System mode toggle.

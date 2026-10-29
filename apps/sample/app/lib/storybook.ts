@@ -3,10 +3,13 @@ import storyIds from "../data/story-ids.json";
 // Storybook host: VITE_STORYBOOK_URL when set, else the site's own storybook/
 // under the build's base path (the Pages site serves it there), else the local
 // dev server.
+// `import.meta.env` is missing when a build script (tsx) imports this file.
+const env: Partial<ImportMetaEnv> = import.meta.env ?? {};
+
 export const STORYBOOK_URL: string = (
-  import.meta.env.VITE_STORYBOOK_URL ||
-  (import.meta.env.PROD
-    ? `${import.meta.env.BASE_URL.replace(/\/+$/, "")}/storybook/`
+  env.VITE_STORYBOOK_URL ||
+  (env.PROD
+    ? `${(env.BASE_URL ?? "/").replace(/\/+$/, "")}/storybook/`
     : "http://localhost:6006/")
 ).replace(/\/*$/, "/");
 

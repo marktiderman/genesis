@@ -1,6 +1,6 @@
 /**
  * Web showcase portfolio data — mirrors the native portfolio so each
- * surface has a stable URL. Phase G (G.9-G.10).
+ * surface has a stable URL.
  */
 
 import { STORYBOOK_URL } from "./storybook";
@@ -29,7 +29,7 @@ export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
     title: "Primitives",
     href: "/showcase/primitives",
     description:
-      "All 50+ web primitives in @marktiderman/genesis-ui plus the next batch shipped via G-MEGA-1.",
+      "Every web and native component, generated from the packages' source: props, stability and examples.",
     status: "stable",
   },
   {
@@ -37,8 +37,8 @@ export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
     title: "Layouts",
     href: "/showcase/layouts",
     description:
-      "Settings, Notifications, EmptyState, Auth — placeholder routes today; real implementations land with G-MEGA-2.",
-    status: "planned",
+      "DashboardPage, SettingsPage, FormPage and DetailPage: the page layouts every screen sits in, rendered live.",
+    status: "stable",
   },
   {
     id: "standards",
@@ -134,37 +134,38 @@ export const PRIMITIVE_CARDS: PrimitiveCardEntry[] = [
   { slug: "password-toggle-field", label: "PasswordToggleField", blurb: "Password input with a show/hide toggle that keeps caret position and re-masks on submit. Wraps a Radix unstable_* export — API may change.", exports: ["PasswordToggleField", "PasswordToggleFieldInput", "PasswordToggleFieldToggle", "PasswordToggleFieldSlot", "PasswordToggleFieldIcon"], stability: "experimental" },
 ];
 
+const DOCS = "https://github.com/marktiderman/genesis/blob/main";
+
 export const STANDARDS = [
   {
-    title: "Design opinions",
+    title: "The Genesis way",
     summary:
-      "Premium animations + haptics on by default. Apple HIG on iOS, Material 3 on Android. SF Symbols on iOS via expo-symbols. Reduced-motion respect via useReducedMotion(). 44pt minimum touch target. testID required on every interactive primitive. Simpler is the default — F4-locked.",
-    href: "https://github.com/marktiderman/genesis/blob/main/docs/prds/PRD-07-genesis-consumption-architecture/standards/design-opinions.md",
+      "Reuse, then extend, then invent, and invent in the app before Genesis. Slots, variants and configuration are config; recreating something that exists is the custom code Genesis removes.",
+    href: `${DOCS}/docs/FRAMEWORK.md`,
   },
   {
-    title: "Usage doctrine",
+    title: "One description per resource",
     summary:
-      "Reuse > Extend > Invent. Decision tree: when to reuse a Genesis primitive, when to wrap, when to add to @<consumer>/components, when to escalate as an RFC.",
-    href: "https://github.com/marktiderman/genesis/blob/main/docs/prds/PRD-07-genesis-consumption-architecture/standards/usage-doctrine.md",
+      "Describe a resource once with defineView; a list is <ResourceView>, a record page is <RecordView>, and the phone uses the same view. Screens never call the database themselves.",
+    href: `${DOCS}/docs/RESOURCE-VIEW.md`,
   },
   {
-    title: "Upgrade process",
+    title: "What to use for each need",
     summary:
-      "How to upgrade @marktiderman/genesis-* in a consumer (changeset → consume → smoke check → ship). Pull, never push.",
-    href: "https://github.com/marktiderman/genesis/blob/main/docs/prds/PRD-07-genesis-consumption-architecture/standards/upgrade-process.md",
+      "The skill coding agents read first: the primitive, import and docs for every need, from a list screen to dates.",
+    href: `${DOCS}/packages/ui/SKILL.md`,
   },
   {
-    title: "Agent usage",
+    title: "Upgrading",
     summary:
-      "Instructions agents read on session start. Before creating any component, run /design-check. Before adding inline styles, check token names.",
-    href: "https://github.com/marktiderman/genesis/blob/main/docs/prds/PRD-07-genesis-consumption-architecture/standards/agent-usage.md",
+      "Every breaking change has a migration entry and, where it can, a codemod. Apps pull new versions on their own schedule.",
+    href: `${DOCS}/docs/MIGRATION.md`,
   },
 ];
 
 export const LAYOUTS = [
-  { slug: "settings", label: "SettingsPage", spec: "E1", summary: "Top-level settings — sectioned list, leading icon, title, optional value, chevron." },
-  { slug: "settings-sub", label: "SettingsSubPage", spec: "E2", summary: "Drill-in detail — form fields, save in nav bar, dirty-state guard, optimistic save." },
-  { slug: "notifications", label: "NotificationsPage", spec: "E3", summary: "Feed grouped by date, swipe-to-mark-read, empty state, pull-to-refresh." },
-  { slug: "empty-state", label: "EmptyState (page)", spec: "E6", summary: "First-run / no-results / error variants with primary action slot." },
-  { slug: "auth", label: "Auth (primitive group)", spec: "E7", summary: "Decomposed into <AuthForm> + <SocialAuthRow> + <AuthBranding>." },
+  { slug: "dashboard", label: "DashboardPage", summary: "A title, actions, a row of stat tiles and the page's content." },
+  { slug: "settings", label: "SettingsPage", summary: "Settings in sections, with a section menu beside them on wide screens." },
+  { slug: "form", label: "FormPage", summary: "One form on its own page: title, description, errors and actions." },
+  { slug: "detail", label: "DetailPage", summary: "One record: a title, breadcrumb, actions, the body and a sidebar." },
 ];

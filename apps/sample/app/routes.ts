@@ -37,7 +37,10 @@ export default [
     route("sites", "routes/sites.tsx"),
     // genesis-chat: the panel on the in-memory client.
     route("chat", "routes/chat.tsx"),
-    // Phase G — Genesis Showcase portfolio routes
+    // The design system: tokens, primitives, layouts and standards.
+    // Generated at build from packages/* (app/lib/catalog.server.ts).
+    route("packages", "routes/packages._index.tsx"),
+    route("packages/:name", "routes/packages.$name.tsx"),
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),
     route("showcase/tokens/:category", "routes/showcase.tokens.$category.tsx"),

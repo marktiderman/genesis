@@ -32,7 +32,7 @@ export const Default: Story = {
           <div>
             <h4 className="font-semibold">@genesis</h4>
             <p className="text-sm text-muted-foreground">
-              Brand-agnostic design system for Tiderman Ventures.
+              Business apps on React and Supabase, built for your coding agent.
             </p>
           </div>
         </div>
