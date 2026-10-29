@@ -1,0 +1,63 @@
+packages/media/src/signed/scope.ts
+  s_ba8cb54dbea75a::t_b93e139adb47ad 21-22
+  s_ba8cb54dbea75a::t_6216f14441d2e0 1-20,23-54,60-67
+  s_ba8cb54dbea75a::t_c277199f1fd981 55-59
+packages/media/src/signed/storage.ts
+  s_ba8cb54dbea75a::t_57b365f3ae8a9e 1-89
+packages/media/src/signed/handler.ts
+  s_ba8cb54dbea75a::t_288a25ab49b647 1-128,130
+  s_ba8cb54dbea75a::t_9a0d30e711c278 129
+packages/media/src/signed/signer.test.ts
+  s_ba8cb54dbea75a::t_217b03c6620d72 1-250
+packages/media/src/signed/signer.ts
+  s_ba8cb54dbea75a::t_44f81f03ffdb79 1,5-12,14-15,21-22,24-28,30,32-33,39-41,50-51,55,74,77-82,85,87-88,92-94,104,110-114,118-133,135,142-145,148,151,153,159-161,175,178,188-193,196-202,205-206,221-222,224-229,231-235,254
+  s_ba8cb54dbea75a::t_e3215a68b5d986 2-4,13,16-20,23,29,31,34-38,42-49,52-54,56-73,75-76,83-84,86,89-91,95-103,105-109,115-117,134,136-141,146-147,149-150,152,154-158,162-174,176-177,179-187,194-195,203-204,207-220,223,230,236-253
+  s_ba8cb54dbea75a::t_32beba00a61156 255-271
+packages/media/src/signed/bundle.ts
+  s_ba8cb54dbea75a::t_aa560d380ceb17 1-176
+  s_ba8cb54dbea75a::t_fc5e4ef43f7082 177-186
+packages/media/src/signed/handler.test.ts
+  s_ba8cb54dbea75a::t_18f77f0d4067fd 1-192
+  s_ba8cb54dbea75a::t_c3a9ff74cf1a99 193-195
+packages/media/src/signed/bundle.test.ts
+  s_ba8cb54dbea75a::t_f4156036346d68 1-287
+  s_ba8cb54dbea75a::t_b6cdfa0f2862e2 288-292
+packages/media/src/signed/http.ts
+  s_ba8cb54dbea75a::t_b3f5c15469b885 1-49
+.changeset/media-signed-links.md
+  s_ba8cb54dbea75a::t_abcaf02a9bdcf2 1-13
+AGENTS.md
+  s_ba8cb54dbea75a::t_7dc26c7b544e39 62
+features.json
+  s_ba8cb54dbea75a::t_702a3e710237ab 1685-1786
+features.ts
+  s_ba8cb54dbea75a::t_65e73729274b41 736-781
+packages/media/README.md
+  s_ba8cb54dbea75a::t_6cbac80da4b84e 4-5,81-304,310-311
+packages/media/package.json
+  s_ba8cb54dbea75a::t_7a5feec66551c4 7,15-17,47-57,86-91,95-97
+packages/media/src/index.ts
+  s_ba8cb54dbea75a::t_a037d89d09501a 13-15
+packages/media/src/signed/index.ts
+  s_ba8cb54dbea75a::t_7d2d2d8d0dfc1b 1-54
+packages/media/tsup.config.ts
+  s_ba8cb54dbea75a::t_e1a7006fdfaaff 4
+pnpm-lock.yaml
+  s_ba8cb54dbea75a::t_21c7a0e79c9cc5 1284-1287,7271-7273,17545-17546
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9b26400a60d4e000ed6d4ebf05bbdcef2c3ea7c",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
