@@ -1,0 +1,37 @@
+.changeset/product-events.md
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 5
+packages/supabase/README.md
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 877
+packages/supabase/src/blocks.ts
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 165
+packages/supabase/src/__tests__/events.test.ts
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 3,57,94,98
+packages/supabase/migrations/0018_genesis_events.sql
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 142-143,217,220,222-227
+packages/supabase/package.json
+  s_36f3212387dbf7::t_20022b12c44d6d 304
+packages/supabase/src/events.ts
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 10,157-161,163-164,239,253,266-267
+docs/adr/0010-own-product-events.md
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 33
+features.ts
+  s_36f3212387dbf7::t_b5ee270fb9dc1c 3151
+features.json
+  s_36f3212387dbf7::t_7f5fc77004d017 7110
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0ce7522d1de4efb6fe227237cd70e902c9be214f",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
