@@ -1,6 +1,6 @@
 # ADR 0013: The customization layer: five levels, one vocabulary
 
-- Status: proposed (for the maintainer; comment period two days)
+- Status: accepted (2026-10-29)
 - Date: 2026-10-29
 - Features: `genesis-catalog`, `genesis-upstream`, `design-system`
 - Related: docs/FRAMEWORK.md (G1–G5, rule 7), ADR 0005 (layers), ADR 0012 (media primitives)

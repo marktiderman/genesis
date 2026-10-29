@@ -1,6 +1,6 @@
 # ADR 0012: Media primitives, reduced to what every app shares
 
-- Status: proposed (for the maintainer; comment period two days)
+- Status: accepted (2026-10-29)
 - Date: 2026-10-29
 - Features: `media-library`, `galleries`, `upload-protocol`, `genesis-mcp`
 - Related: ADR 0005 (layers), ADR 0009 (one resource contract), ADR 0010 (own events)
