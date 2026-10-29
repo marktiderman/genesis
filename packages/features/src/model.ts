@@ -473,10 +473,11 @@ export interface FeatureRecord extends FeatureDef {
  * @stability Beta
  */
 export function toRecords(features: Features, flags?: Flags): FeatureRecord[] {
-  return Object.entries(features).map(([id, def]) => ({
+  // The deprecated `layer` comes out as `kind`, so a record's `layer` can later mean the package's.
+  return Object.entries(features).map(([id, { layer: _layer, ...def }]) => ({
     id,
     ...def,
-    ...(featureKind(def) ? { kind: featureKind(def) } : {}),
+    ...(featureKind({ ...def, layer: _layer }) ? { kind: featureKind({ ...def, layer: _layer }) } : {}),
     visibility: def.visibility ?? "customer",
     access: def.access ?? "all",
     flags: flagsForFeature(flags, id),
@@ -496,7 +497,7 @@ export interface FindOptions {
   layer?: FeatureKind | DeprecatedFeatureLayer;
   /**
    * Only features whose package is in this layer (see {@link featurePackageLayer}).
-   * Needs `packages`.
+   * Needs `packages`: without them it throws, rather than matching nothing.
    */
   packageLayer?: PackageLayer;
   /** The packages a feature can belong to, for `packageLayer`. */
@@ -539,7 +540,8 @@ export function featurePackageLayer(
     const hit = packages.find((p) => p.name === name);
     if (hit) return hit.layer;
   }
-  for (const path of def.links?.code ?? []) {
+  for (const raw of def.links?.code ?? []) {
+    const path = raw.replace(/\\/g, "/").replace(/^\.\//, "");
     const hit = packages.find((p) => p.dir && (path === p.dir || path.startsWith(`${p.dir}/`)));
     if (hit) return hit.layer;
   }
@@ -560,6 +562,7 @@ export { statusOn };
 export function findFeatures(features: Features, term: string, flags?: Flags, options: FindOptions = {}): FeatureRecord[] {
   const needle = term.trim().toLowerCase();
   const kind = options.kind ?? featureLayer(options.layer);
+  if (options.packageLayer && !options.packages) throw new Error("findFeatures: packageLayer needs packages");
   const filtered = Boolean(options.platform || kind || options.packageLayer || options.status);
   if (!needle && !filtered) return [];
   const keep = (r: FeatureRecord) =>

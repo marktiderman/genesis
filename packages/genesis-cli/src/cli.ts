@@ -21,6 +21,7 @@ import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { readFileSync } from "node:fs";
+import type { FindOptions } from "@marktiderman/genesis-features";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -315,24 +316,16 @@ featureOptions(
     .option("--layer <layer>", "Only features whose package is foundation, module or tooling (a kind here is deprecated: use --kind)")
     .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
 ).action(async (term: string, opts: FeatureCliOptions & { platform?: string; kind?: string; layer?: string; status?: string }) => {
-  const { FEATURE_KINDS, FEATURE_PLATFORMS, FEATURE_STATUSES, PACKAGE_LAYERS } = await import("@marktiderman/genesis-features");
-  const { runFeaturesFind, formatFeature } = await import("./features.js");
-  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
-    if (value === undefined) return undefined;
-    if ((allowed as readonly string[]).includes(value)) return value as T;
-    return program.error(`--${name} must be one of ${allowed.join(", ")}`);
-  };
+  const { findFilters, runFeaturesFind, formatFeature } = await import("./features.js");
   const { platform, kind, layer, status, ...rest } = opts;
-  // Until the next major, --layer also takes a kind (its old meaning), and "primitive" there
-  // still means the element kind; after it, --layer is the package layer only.
-  const layerIsKind = layer !== undefined && (layer === "primitive" || (FEATURE_KINDS as readonly string[]).includes(layer));
-  if (layerIsKind) console.warn(`! --layer ${layer} is deprecated for a kind: use --kind ${layer === "primitive" ? "element" : layer}`);
-  const filters = {
-    platform: pick("platform", platform, FEATURE_PLATFORMS),
-    kind: pick("kind", kind ?? (layerIsKind ? (layer === "primitive" ? "element" : layer) : undefined), FEATURE_KINDS),
-    packageLayer: layerIsKind ? undefined : pick("layer", layer, PACKAGE_LAYERS.filter((l) => l !== "primitive")),
-    status: pick("status", status, FEATURE_STATUSES),
-  };
+  let filters: FindOptions;
+  try {
+    const parsed = findFilters({ platform, kind, layer, status });
+    if (parsed.warning) console.warn(`! ${parsed.warning}`);
+    filters = parsed.filters;
+  } catch (error) {
+    return program.error((error as Error).message);
+  }
   if (!term && !filters.platform && !filters.kind && !filters.packageLayer && !filters.status) program.error("Give a term, or --platform, --kind, --layer or --status");
   const hits = await runFeaturesFind(rest, term, filters);
   const what = term ? `"${term}"` : "those filters";
