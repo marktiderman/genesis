@@ -346,10 +346,12 @@ It signs every declared derivative of the items you name and resolves to an
 import { createSignedImageUrls, finishSizes, mediaSrc } from "@marktiderman/genesis-media/signed";
 import { responsiveImage } from "@marktiderman/genesis-media";
 
+const derivatives = finishSizes("color", [800, 2400]); // color/800 and color/2400
+
 // After the app's own rules have chosen what this person may see:
 const imageUrl = await createSignedImageUrls(signer, {
   base: "https://media.example.com",
-  derivatives: finishSizes("color", [800, 2400]), // color/800 and color/2400
+  derivatives,
   items: visible.map((photo) => mediaSrc("photos", photo.id)),
 });
 
@@ -385,6 +387,7 @@ const img = responsiveImage(
   must check the derivative is one you declared:
 
 ```ts
+// The same `derivatives` as above: only declared ones are served.
 const names = new Set(derivatives.map((d) => d.name));
 const handle = createSignedMediaHandler({
   storage, signer,
