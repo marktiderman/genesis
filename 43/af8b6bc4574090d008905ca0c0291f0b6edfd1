@@ -1,0 +1,29 @@
+apps/sample/README.md
+  s_e2cf1ec4fac133::t_baa711df8b4b78 1,3-6,8,11-14,17-60
+README.md
+  s_e2cf1ec4fac133::t_b781cc0d5048be 3-11,14-15,18-21,23,25-26,29-49,52-56,104,106,109,147-149,151-158,160,162-165
+docs/FRAMEWORK.md
+  s_e2cf1ec4fac133::t_efc4bed73a6189 268-271,273,275-278,280-282,393-394,432-447
+docs/MIGRATION.md
+  s_e2cf1ec4fac133::t_0d17ac5d70ae49 14-40
+docs/README.md
+  s_e2cf1ec4fac133::t_40ccc79ed9a32e 8-10,12-19,42-48
+docs/adr/0004-workspaces.md
+  s_e2cf1ec4fac133::t_1121d73085ee2b 3,30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43af8b6bc4574090d008905ca0c0291f0b6edfd1",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
