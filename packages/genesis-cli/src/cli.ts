@@ -20,7 +20,7 @@ import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import type { FindOptions } from "@marktiderman/genesis-features";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
@@ -236,10 +236,24 @@ program
   .command("agents")
   .description(`Write the agent guide from the installed Genesis packages: .claude/skills/genesis/SKILL.md and a marked block in AGENTS.md`)
   .option("--check", "Write nothing; exit 1 if either is missing or out of date (for CI)", false)
+  .option("--rules", "Check the repo against the agent rules of engagement a script can check (docs/agents/RULES.md); exit 1 on a break", false)
+  .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; dir: string }) => {
-    const doctor = await import("./doctor/index.js");
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string }) => {
     const root = path.resolve(opts.dir);
+    if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
+    if (opts.rules) {
+      if (!existsSync(path.join(root, "packages")) && !existsSync(path.join(root, ".github", "workflows"))) {
+        return program.error(`--rules checks a repository: ${root} has no packages/ or .github/workflows/. Run it from the repo root or pass --dir.`);
+      }
+      const { checkAgentRules } = await import("./agent-rules.js");
+      const problems = checkAgentRules(root, { batch: opts.batch });
+      for (const p of problems) console.error(`✗ ${p.rule}: ${p.message}`);
+      if (problems.length) process.exitCode = 1;
+      else console.log("✔ The repo keeps the checkable rules of engagement (first-version, batch-ci).");
+      return;
+    }
+    const doctor = await import("./doctor/index.js");
     const packages = doctor.discoverPackages(root);
     // The guide would leave out a package whose declaration doesn't validate: fix it first, in both modes.
     const broken = packages.filter((p) => p.error);

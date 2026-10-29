@@ -163,7 +163,7 @@ primitives; level 2 is the modules built from them. Each package's `genesis.laye
 | | Collaboration | [`genesis-chat`](./packages/chat) · [`genesis-notifications`](./packages/notifications) · [`genesis-collab`](./packages/collab) |
 | | Shells | [`genesis-native`](./packages/native) (the Expo app shell) · [`genesis-extension`](./packages/extension) (Chrome extensions) |
 | Modules | Modules | [`genesis-sites`](./packages/sites) (`genesis add sites`) · [`genesis-support`](./packages/support) (`genesis add support-feedback`) · [`genesis-product`](./packages/product) (`genesis add product-board`): mini apps with their own tables, screens and settings, installed as blocks and switched on per tenant |
-| Tooling | Core | [`genesis-cli`](./packages/genesis-cli) (`init`, `add`, `doctor`, `introspect`, `features`, codemods) · `genesis-agents` (rules for agent sessions; not published). genesis-product's `genesis-product` bin and `/node` entry are tooling too. |
+| Tooling | Core | [`genesis-cli`](./packages/genesis-cli) (`init`, `add`, `doctor`, `introspect`, `features`, codemods) · the rules for agent sessions ([docs/agents/RULES.md](./docs/agents/RULES.md), checked by `genesis agents --rules`). genesis-product's `genesis-product` bin and `/node` entry are tooling too. |
 
 ## Reference apps
 
