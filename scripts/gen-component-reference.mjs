@@ -2,16 +2,17 @@
 /**
  * gen-component-reference.mjs
  *
- * PRD-07 Phase D7.2 — auto-generate the canonical component reference
- * from each Genesis package's `src/index.ts` barrel.
+ * Auto-generate the canonical component reference from every entry point
+ * of every published Genesis package (package.json `exports`).
  *
  * Why a script, not handwritten markdown: per genesis CLAUDE.md rule #2 —
  * "Enforcement > documentation. If a rule matters, it gets a hook or
  * script." Manual component lists drift the moment someone adds an export
  * and forgets the doc. This regenerates from source on demand.
  *
- * Approach (lightweight, regex-based — Path 1 in the PRD):
- *   1. Read each package's barrel: `src/index.ts`.
+ * Approach (lightweight, regex-based):
+ *   1. For each entry point, find its source barrel (`./dist/data/index.js`
+ *      → `src/data/index.ts`).
  *   2. For each `export { ... } from "./path"` entry, follow the import
  *      and read the source file. For `export * from "./path"`, recurse if
  *      that path is itself a barrel.
@@ -21,7 +22,7 @@
  *         - `@stability` tag (Stable / Beta / Deprecated) if present
  *      Detect Props interface by matching `<Symbol>Props` in source.
  *
- * Heavy alternative (Path 2, future): swap regex for `react-docgen`
+ * Heavy alternative (future): swap regex for `react-docgen`
  * or `typedoc` once we want to render every prop's type + default.
  * Tracked as a follow-up; this script is intentionally minimal.
  *
@@ -45,7 +46,9 @@ const REPO_ROOT = resolve(__dirname, "..");
 // Package targets
 // ---------------------------------------------------------------------------
 
-const PACKAGES = [
+// Hand-written descriptions for some entry points. Every published package
+// and entry point is listed whether or not it has one (discoverPackages).
+const DESCRIPTIONS = [
   {
     name: "@marktiderman/genesis-core",
     dir: "packages/core",
@@ -154,6 +157,74 @@ const PACKAGES = [
     ],
   },
 ];
+
+const OVERRIDES = new Map();
+for (const pkg of DESCRIPTIONS) {
+  OVERRIDES.set(pkg.name, pkg);
+  for (const sub of pkg.subpaths ?? []) OVERRIDES.set(sub.name, sub);
+}
+
+/** The source file an export entry builds from: `./dist/data/index.js` → `src/data/index.ts`. */
+function entrySource(pkgDir, subpath, target) {
+  const file = typeof target === "string" ? target : (target?.import ?? target?.default ?? target?.types ?? "");
+  const rn = typeof target === "object" && target ? target["react-native"] : undefined;
+  const stems = [];
+  if (typeof rn === "string" && rn.startsWith("./src/")) stems.push(rn.slice(2).replace(/\.(tsx?|jsx?)$/, ""));
+  if (typeof file === "string" && file.startsWith("./dist/")) stems.push(`src/${file.slice(7).replace(/\.(d\.ts|m?js|cjs)$/, "")}`);
+  stems.push(subpath === "." ? "src/index" : `src/${subpath.slice(2)}`);
+  for (const stem of stems) {
+    for (const c of [`${stem}.ts`, `${stem}.tsx`, `${stem}/index.ts`, `${stem}/index.tsx`]) {
+      if (existsSync(join(pkgDir, c))) return join(pkgDir, c);
+    }
+  }
+  return null;
+}
+
+/**
+ * Every published package (not `private`) and each of its JavaScript entry
+ * points, from package.json `exports`. A new package or subpath shows up
+ * here, in docs/component-reference.md and on the public site's package
+ * pages with no edit.
+ */
+export function discoverPackages() {
+  const root = resolve(REPO_ROOT, "packages");
+  const out = [];
+  for (const dir of readdirSync(root).sort()) {
+    const manifest = join(root, dir, "package.json");
+    if (!existsSync(manifest)) continue;
+    const json = JSON.parse(readFileSync(manifest, "utf8"));
+    if (json.private) continue;
+    const pkgDir = join(root, dir);
+    const exportsMap = typeof json.exports === "object" && json.exports ? json.exports : { ".": json.main ?? "./dist/index.js" };
+    const entries = [];
+    for (const [subpath, target] of Object.entries(exportsMap)) {
+      if (subpath.includes("*") || /\.(css|json)$/.test(subpath)) continue;
+      const source = entrySource(pkgDir, subpath, target);
+      if (!source) continue;
+      const name = subpath === "." ? json.name : `${json.name}/${subpath.slice(2)}`;
+      entries.push({ name, subpath, barrel: source.slice(REPO_ROOT.length + 1), description: OVERRIDES.get(name)?.description ?? "" });
+    }
+    out.push({ name: json.name, dir, version: json.version, description: OVERRIDES.get(json.name)?.description ?? json.description ?? "", entries });
+  }
+  return out;
+}
+
+/** Every package and entry point with its exports, classified (the data behind the reference and the site). */
+export function collectCatalog() {
+  return discoverPackages().map((pkg) => ({
+    ...pkg,
+    entries: pkg.entries.map((entry) => {
+      const { components, otherValues, standaloneTypes } = classifyExports(parseBarrel(resolve(REPO_ROOT, entry.barrel)));
+      const pick = (e) => ({ name: e.name, kind: e.kind || "value", stability: e.stability || null, summary: e.summary ? renderSummary(e.summary) : null, source: e.sourceFile ? e.sourceFile.slice(REPO_ROOT.length + 1) : null });
+      return {
+        ...entry,
+        components: components.map((c) => ({ ...pick(c), propsType: c.propsType })).sort((a, b) => a.name.localeCompare(b.name)),
+        values: otherValues.map(pick).sort((a, b) => a.name.localeCompare(b.name)),
+        types: standaloneTypes,
+      };
+    }),
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // Regex helpers — lightweight, regex-only TS parsing
@@ -442,8 +513,10 @@ function renderPackageSection(pkg, classification) {
 
   lines.push(`## ${pkg.name}`);
   lines.push("");
-  lines.push(pkg.description);
-  lines.push("");
+  if (pkg.description) {
+    lines.push(pkg.description);
+    lines.push("");
+  }
   lines.push(`**Barrel:** [\`${pkg.barrel}\`](../${pkg.barrel})`);
   lines.push("");
 
@@ -506,24 +579,19 @@ function main() {
   let totalComponents = 0;
   let totalOther = 0;
   let totalTypes = 0;
+  let entryCount = 0;
+  const packages = discoverPackages();
 
-  for (const pkg of PACKAGES) {
-    const barrelAbs = resolve(REPO_ROOT, pkg.barrel);
-    const allExports = parseBarrel(barrelAbs);
-    const classified = classifyExports(allExports);
-
-    totalComponents += classified.components.length;
-    totalOther += classified.otherValues.length;
-    totalTypes += classified.standaloneTypes.length;
-
-    sections.push(renderPackageSection(pkg, classified));
-
-    for (const sub of pkg.subpaths ?? []) {
-      const subClassified = classifyExports(parseBarrel(resolve(REPO_ROOT, sub.barrel)));
-      totalComponents += subClassified.components.length;
-      totalOther += subClassified.otherValues.length;
-      totalTypes += subClassified.standaloneTypes.length;
-      sections.push(renderPackageSection(sub, subClassified));
+  for (const pkg of packages) {
+    for (const entry of pkg.entries) {
+      const classified = classifyExports(parseBarrel(resolve(REPO_ROOT, entry.barrel)));
+      if (!classified.components.length && !classified.otherValues.length && !classified.standaloneTypes.length) continue;
+      entryCount += 1;
+      totalComponents += classified.components.length;
+      totalOther += classified.otherValues.length;
+      totalTypes += classified.standaloneTypes.length;
+      const description = entry.description || (entry.subpath === "." ? pkg.description : "");
+      sections.push(renderPackageSection({ name: entry.name, barrel: entry.barrel, description }, classified));
     }
   }
 
@@ -532,9 +600,9 @@ function main() {
     "",
     "> **Auto-generated.** Do not edit by hand. Run `pnpm gen:component-reference` (or `node scripts/gen-component-reference.mjs`) to regenerate.",
     "",
-    "> **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.",
+    "> **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.",
     "",
-    `**Totals:** ${totalComponents} components · ${totalOther} other exports · ${totalTypes} standalone types across ${PACKAGES.length} packages and entry points.`,
+    `**Totals:** ${totalComponents} components · ${totalOther} other exports · ${totalTypes} standalone types across ${entryCount} entry points in ${packages.length} packages.`,
     "",
     "**Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.",
     "",
@@ -557,7 +625,7 @@ function main() {
 
   console.log(`[gen-component-reference] wrote ${outPath}`);
   console.log(
-    `[gen-component-reference] ${totalComponents} components · ${totalOther} other exports · ${totalTypes} types · ${PACKAGES.length} packages`,
+    `[gen-component-reference] ${totalComponents} components · ${totalOther} other exports · ${totalTypes} types · ${entryCount} entry points in ${packages.length} packages`,
   );
 }
 

@@ -150,7 +150,8 @@ write("llms.txt", llms);
 const full = [
   `# Genesis\n\n> ${SITE_TAGLINE} ${SITE_DESCRIPTION}\n`,
   ...packages.filter((p) => p.skill).map((p) => `\n\n---\n\n<!-- ${p.name} SKILL.md -->\n\n${p.skill}`),
-  ...docs.map((d) => `\n\n---\n\n<!-- ${d.rel} -->\n\n${d.body}`),
+  // The component reference is a generated table of every export: linked from llms.txt, not inlined.
+  ...docs.filter((d) => d.rel !== "docs/component-reference.md").map((d) => `\n\n---\n\n<!-- ${d.rel} -->\n\n${d.body}`),
   ...packages.filter((p) => p.readme).map((p) => `\n\n---\n\n<!-- ${p.name} README.md -->\n\n${p.readme}`),
 ].join("");
 write("llms-full.txt", full);

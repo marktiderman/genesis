@@ -18,6 +18,7 @@ const BASE = import.meta.env.BASE_URL;
 const NAV = [
   { label: "Demo", to: "/dashboard" },
   { label: "Components", to: "/showcase" },
+  { label: "Packages", to: "/packages" },
   { label: "Docs", href: `${REPO_URL}/tree/main/docs` },
   { label: "Agents", href: `${BASE}llms.txt` },
   { label: "Storybook", href: `${BASE}storybook/` },
@@ -193,7 +194,7 @@ export default function Home() {
           <ul className="mt-6 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             {PACKAGES.map((p) => (
               <li key={p.name} className="min-w-0">
-                <a className="font-mono text-sm font-medium hover:underline" href={`${REPO_URL}/tree/main/packages/${p.dir}`}>
+                <a className="font-mono text-sm font-medium hover:underline" href={`${BASE}packages/${p.dir}`}>
                   {p.short}
                 </a>{" "}
                 <span className="text-xs text-muted-foreground">{p.version}</span>

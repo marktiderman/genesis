@@ -5,7 +5,7 @@ import {
   ReactRouterLink,
   useReactRouterActivePath,
 } from "@marktiderman/genesis-ui/router/react-router";
-import { Home, AppWindow, Blocks, LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks, FolderKanban, FileText, Activity, Globe, MessagesSquare } from "lucide-react";
+import { Home, AppWindow, Blocks, Boxes, LayoutDashboard, Package, List, CheckSquare, ShoppingCart, Palette, SlidersHorizontal, Settings, Sparkles, Database, ClipboardList, PencilRuler, SwatchBook, Shapes, LayoutTemplate, ScrollText, ListChecks, FolderKanban, FileText, Activity, Globe, MessagesSquare } from "lucide-react";
 
 // Grouped so the sidebar reads as a site, not a list of routes: the sample
 // app's screens, the building blocks on their own, and the design system.
@@ -48,6 +48,7 @@ const globalItems: NavItem[] = [
       { to: "/showcase/tokens", icon: SwatchBook, label: "Tokens" },
       { to: "/showcase/primitives", icon: Shapes, label: "Primitives" },
       { to: "/showcase/layouts", icon: LayoutTemplate, label: "Layouts" },
+      { to: "/packages", icon: Boxes, label: "Packages" },
       { to: "/design-system", icon: Palette, label: "All on one page" },
     ],
   },
