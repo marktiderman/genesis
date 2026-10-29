@@ -100,7 +100,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitest/browser": "^5.0.5",
     "@vitest/browser-playwright": "^5.0.5",
-    "chromatic": "^11.25.2",
+    "chromatic": "^18.13.2",
     "jose": "^6.2.12",
     "playwright": "~1.64.1",
     "postgres": "^3.4.9",
