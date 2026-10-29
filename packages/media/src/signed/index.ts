@@ -31,6 +31,7 @@ export {
 } from "./signer";
 export {
   createSignedMediaHandler,
+  ifRangeMatches,
   parseRange,
   type MediaRoute,
   type MediaRouteContext,

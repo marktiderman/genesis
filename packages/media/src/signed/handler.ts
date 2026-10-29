@@ -5,7 +5,7 @@
 import { attachment, baseHeaders, forbidden, isInlineSafe, methodNotAllowed, notFound, pathSegments, plain } from "./http";
 import { mediaScope, scopeFilename, type MediaScope } from "./scope";
 import type { MediaSigner } from "./signer";
-import type { MediaRange, MediaStorage } from "./storage";
+import type { MediaObjectInfo, MediaRange, MediaStorage } from "./storage";
 
 /** Checked when no route matched, so that answer costs the same HMAC as any other. */
 const UNROUTED = mediaScope.item("-", "-");
@@ -57,7 +57,8 @@ export interface SignedMediaHandlerOptions {
  */
 export function parseRange(header: string | null, size: number): MediaRange | "unsatisfiable" | undefined {
   if (!header) return undefined;
-  const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  // The unit is case-insensitive (RFC 9110 §14.1).
+  const m = /^bytes=(\d*)-(\d*)$/i.exec(header.trim());
   if (!m || (m[1] === "" && m[2] === "")) return undefined;
   if (m[1] === "") {
     // A suffix: the last n bytes.
@@ -71,6 +72,19 @@ export function parseRange(header: string | null, size: number): MediaRange | "u
   if (start >= size) return "unsatisfiable";
   const end = m[2] === "" ? size - 1 : Number(m[2]);
   return { offset: start, length: Math.min(end, size - 1) - start + 1 };
+}
+
+/**
+ * Whether an `If-Range` value still names the stored file (RFC 9110
+ * §13.1.5): a strong ETag equal to the stored one, or an HTTP date equal to
+ * its last-modified second. A weak ETag never matches.
+ */
+export function ifRangeMatches(value: string, info: MediaObjectInfo): boolean {
+  const v = value.trim();
+  if (v.startsWith("W/")) return false;
+  if (v.startsWith('"')) return info.etag !== undefined && !info.etag.startsWith("W/") && v === info.etag;
+  const date = Date.parse(v);
+  return Number.isFinite(date) && info.lastModified !== undefined && Math.floor(info.lastModified.getTime() / 1000) * 1000 === date;
 }
 
 /**
@@ -117,15 +131,25 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     if (!target || !valid) return forbidden();
 
     const head = request.method === "HEAD";
-    const rangeHeader = request.headers.get("range");
+    let rangeHeader = request.headers.get("range");
     // Without a range, one read gives the size; a range needs the size first.
     const info = head || rangeHeader ? await storage.head(target.key) : null;
     if ((head || rangeHeader) && !info) return notFound();
-    const range = info ? parseRange(rangeHeader, info.size) : undefined;
+    // If-Range: a range of the file the client already holds part of, else the whole file (200).
+    const ifRange = request.headers.get("if-range");
+    if (rangeHeader && ifRange !== null && !ifRangeMatches(ifRange, info!)) rangeHeader = null;
+    let range = info ? parseRange(rangeHeader, info.size) : undefined;
     if (range === "unsatisfiable") return plain(416, "Range not satisfiable.", { "content-range": `bytes */${info!.size}` });
 
-    const object = head ? null : await storage.get(target.key, range ? { range } : undefined);
+    let object = head ? null : await storage.get(target.key, range ? { range } : undefined);
     if (!head && !object) return notFound();
+    // The file changed between head and get: the range was worked out on the old one, so send the new one whole.
+    if (object && range && info?.etag && object.etag && object.etag !== info.etag) {
+      await object.body.cancel().catch(() => {});
+      object = await storage.get(target.key);
+      if (!object) return notFound();
+      range = undefined;
+    }
     const meta = object ?? info!;
 
     const headers = baseHeaders();

@@ -189,7 +189,10 @@ otherwise) and:
 - serves one byte `Range` as 206 (`bytes=0-99`, `bytes=100-`, `bytes=-500`;
   an end past the file is cut to it), a start past the end as 416 with
   `content-range: bytes */size`, and several ranges or a malformed header as
-  the whole file;
+  the whole file. `If-Range` is honoured (RFC 9110 §13.1.5): the range is
+  sent only while the strong ETag (or the last-modified date) still matches,
+  else the whole file as 200. If the ETag changes between the size check
+  and the read, the new file is sent whole;
 - passes the stored content type, length, ETag and last-modified through, and
   sets `accept-ranges: bytes`, `x-robots-tag: noindex` and
   `x-content-type-options: nosniff`;

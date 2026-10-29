@@ -213,6 +213,52 @@ describe("createSignedMediaHandler", () => {
   });
 });
 
+describe("If-Range", () => {
+  const url = () => signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"));
+
+  it("sends the range while the strong ETag or the date still matches, else the whole file", async () => {
+    const storage = createMemoryStorage(objects);
+    const handle = setup(storage);
+    const etag = (await storage.head("media/videos/v1/web-1080.mp4"))!.etag!;
+    const get = async (ifRange: string) => handle(new Request(await url(), { headers: { range: "bytes=0-3", "if-range": ifRange } }));
+    const same = await get(etag);
+    expect(same.status).toBe(206);
+    expect(await same.text()).toBe("0123");
+    for (const stale of ['"other"', `W/${etag}`, "Thu, 01 Jan 2026 00:00:00 GMT", "not a date"]) {
+      const res = await get(stale);
+      expect(res.status, stale).toBe(200);
+      expect(await res.text(), stale).toBe(VIDEO);
+    }
+    expect((await get("Fri, 02 Jan 2026 03:04:05 GMT")).status).toBe(206);
+    // A stale If-Range wins over an unsatisfiable range: the whole file, not 416.
+    expect((await handle(new Request(await url(), { headers: { range: "bytes=99-", "if-range": '"other"' } }))).status).toBe(200);
+  });
+
+  it("sends the new file whole when it changes between the size check and the read", async () => {
+    const changing: MediaStorage = {
+      head: async () => ({ size: 20, etag: '"old"', contentType: "video/mp4" }),
+      get: async (_key, options) => ({
+        size: 24,
+        etag: '"new"',
+        contentType: "video/mp4",
+        body: new Response(options?.range ? "partial" : "the new file, 24 bytes!!").body!,
+      }),
+    };
+    const res = await setup(changing)(new Request(await url(), { headers: { range: "bytes=0-3" } }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
+    expect(res.headers.get("etag")).toBe('"new"');
+    expect(res.headers.get("content-length")).toBe("24");
+    expect(await res.text()).toBe("the new file, 24 bytes!!");
+  });
+
+  it("reads the range unit case-insensitively", async () => {
+    const res = await setup()(new Request(await url(), { headers: { range: "BYTES=0-1" } }));
+    expect(res.status).toBe(206);
+    expect(await res.text()).toBe("01");
+  });
+});
+
 describe("the sandbox for stored files", () => {
   const CSP = "sandbox; default-src 'none'";
 
