@@ -509,6 +509,7 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
       if (!/^https?:\/\//.test(path) && !existsSync(join(root, path))) warnings.push(`${id}.links.docs: ${path} doesn't exist`);
     }
     if (def.claimedBy) claims.push([id, def.claimedBy]);
+    if (def.layer !== undefined) warnings.push(`${id}.layer: deprecated, write kind: "${def.layer === "primitive" ? "element" : def.layer}" (layer will be the owning package's, derived)`);
     if (def.status !== "idea" && def.status !== "planned" && def.status !== "retired") {
       if (!def.reviewedAt) warnings.push(`${id}: never reviewed (set reviewedAt)`);
       else if (def.reviewedAt < reviewCutoff) warnings.push(`${id}: last reviewed ${def.reviewedAt}, over ${options.reviewDays ?? 90} days ago`);

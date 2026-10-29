@@ -21,6 +21,7 @@ import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { readFileSync } from "node:fs";
+import type { FindOptions } from "@marktiderman/genesis-features";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -311,24 +312,21 @@ featureOptions(
     .description("Search features before building: reuse one, extend one, or add an idea first")
     .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
     .option("--platform <platform>", "Only features on web, native, server or cli")
-    .option("--layer <layer>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
+    .option("--kind <kind>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
+    .option("--layer <layer>", "Only features whose package is foundation, module or tooling (a kind here is deprecated: use --kind)")
     .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
-).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
-  const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
-  const { runFeaturesFind, formatFeature } = await import("./features.js");
-  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
-    if (value === undefined) return undefined;
-    if ((allowed as readonly string[]).includes(value)) return value as T;
-    return program.error(`--${name} must be one of ${allowed.join(", ")}`);
-  };
-  const { platform, layer, status, ...rest } = opts;
-  const filters = {
-    platform: pick("platform", platform, FEATURE_PLATFORMS),
-    // "primitive" is the deprecated name of "element".
-    layer: pick("layer", layer === "primitive" ? "element" : layer, FEATURE_LAYERS),
-    status: pick("status", status, FEATURE_STATUSES),
-  };
-  if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
+).action(async (term: string, opts: FeatureCliOptions & { platform?: string; kind?: string; layer?: string; status?: string }) => {
+  const { findFilters, runFeaturesFind, formatFeature } = await import("./features.js");
+  const { platform, kind, layer, status, ...rest } = opts;
+  let filters: FindOptions;
+  try {
+    const parsed = findFilters({ platform, kind, layer, status });
+    if (parsed.warning) console.warn(`! ${parsed.warning}`);
+    filters = parsed.filters;
+  } catch (error) {
+    return program.error((error as Error).message);
+  }
+  if (!term && !filters.platform && !filters.kind && !filters.packageLayer && !filters.status) program.error("Give a term, or --platform, --kind, --layer or --status");
   const hits = await runFeaturesFind(rest, term, filters);
   const what = term ? `"${term}"` : "those filters";
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
