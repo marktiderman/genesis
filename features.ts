@@ -2614,13 +2614,6 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
   },
-  "typescript-7": {
-    name: "TypeScript 7",
-    summary: "Move the workspace to TypeScript 7 (the native compiler): every package's build, typecheck and type tests, and the tsup and declaration output, in one upgrade PR. Dependabot's bump fails build, typecheck and tests today.",
-    category: "Tooling",
-    status: "idea",
-    kind: "tool",
-    keywords: ["typescript", "tsc", "tsgo", "compiler", "upgrade"],
   // Genesis One roadmap (2026-10-29): ideas for each wave and the register's later items, so
   // `features find` shows them before anyone builds beside them.
   "passkeys": {
@@ -2973,13 +2966,6 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
   },
-  "react-day-picker-10": {
-    name: "react-day-picker 10",
-    summary: "Move genesis-ui's date pickers to react-day-picker 10 and widen the peer range, with its API changes absorbed in the Calendar and DatePicker components. Dependabot's bump fails build and tests today.",
-    category: "Tooling",
-    status: "idea",
-    kind: "tool",
-    keywords: ["react-day-picker", "calendar", "date picker", "upgrade"],
   "resource-contract": {
     name: "One resource contract",
     summary: "One resource definition drives the list view, record view, form, API, AI tools and MCP server (GF3). agent-operable-apps and genesis-mcp are its AI and MCP surfaces.",
@@ -3131,6 +3117,30 @@ export const features = defineFeatures({
     status: "idea",
     kind: "block",
     keywords: ["product management", "paid", "open core", "roadmap app"],
+    owner: "mark",
+    apps: ["web"],
+    audience: ["developer"],
+    visibility: "internal",
+  },
+  "typescript-7": {
+    name: "TypeScript 7",
+    summary: "Move the workspace to TypeScript 7 (the native compiler): every package's build, typecheck and type tests, and the tsup and declaration output, in one upgrade PR. Dependabot's bump fails build, typecheck and tests today.",
+    category: "Tooling",
+    status: "idea",
+    kind: "tool",
+    keywords: ["typescript", "tsc", "tsgo", "compiler", "upgrade"],
+    owner: "mark",
+    apps: ["cli"],
+    audience: ["developer"],
+    visibility: "internal",
+  },
+  "react-day-picker-10": {
+    name: "react-day-picker 10",
+    summary: "Move genesis-ui's date pickers to react-day-picker 10 and widen the peer range, with its API changes absorbed in the Calendar and DatePicker components. Dependabot's bump fails build and tests today.",
+    category: "Tooling",
+    status: "idea",
+    kind: "tool",
+    keywords: ["react-day-picker", "calendar", "date picker", "upgrade"],
     owner: "mark",
     apps: ["web"],
     audience: ["developer"],
