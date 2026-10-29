@@ -1,0 +1,21 @@
+.changeset/cli-commander-15.md
+  s_8b8f6102383114::t_05936e3ee99c5f 1-5
+packages/genesis-cli/package.json
+  s_8b8f6102383114::t_d8a4680f171f88 26-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "09ac7e7426f33e6bcc49dd74873a5ad3793da434",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
