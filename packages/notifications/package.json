@@ -5,6 +5,21 @@
   "type": "module",
   "sideEffects": false,
   "description": "One notifier for Genesis apps: a domain (chat, forms, sites, support) says who and what; this decides how and when. defineNotifications registers types (category, channels, critical, transactional, device action categories, Android channels); notify() queues them through a security-definer SQL function; the in-app feed is also the outbox; one runner (claim with SKIP LOCKED, retries with jittered backoff, deferrals) sends Expo push (batches of 100, receipts, dead tokens pruned, private previews) and Resend email (rendered once for byte-identical retries, tenant sender identities, RFC 8058 one-click unsubscribe, bounce and complaint suppression); preferences by category and channel with tenant defaults and quiet hours across daylight saving; secret links built at send time; erasure. Hooks for React and React Native, a web bell, feed, preferences matrix and admin views on genesis-ui, a native feed on genesis-ui-native. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "notifications",
+    "push",
+    "email",
+    "in-app",
+    "inbox",
+    "preferences",
+    "unsubscribe"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/notifications#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -130,18 +145,18 @@
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@react-email/components": "1.0.12",
-    "@tanstack/react-query": "^5.75.0",
+    "@tanstack/react-query": "^5.104.5",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "lucide-react": "^1.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "blocks": {

@@ -17,9 +17,9 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "happy-dom",
-    // Rich text tests render YouTube/Vimeo iframes; never fetch them.
+    // Rich text tests render YouTube/Vimeo iframes; never fetch them (happy-dom 21's default, kept explicit).
     environmentOptions: {
-      happyDOM: { settings: { disableIframePageLoading: true } },
+      happyDOM: { settings: { enableIframePageLoading: false } },
     },
     globals: false,
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],

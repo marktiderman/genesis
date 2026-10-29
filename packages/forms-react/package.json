@@ -5,6 +5,17 @@
   "type": "module",
   "sideEffects": false,
   "description": "React bindings for Genesis Forms: useForm, useField with one-field re-renders, a ranked renderer registry and a headless FormRuntime. Works in React DOM and React Native. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "react",
+    "hooks"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-react#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -44,12 +55,12 @@
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "doctor": {

@@ -1,15 +1,31 @@
 {
   "name": "@marktiderman/genesis-cli",
-  "version": "1.15.0",
+  "version": "1.16.1",
   "private": false,
   "type": "module",
   "description": "Genesis CLI — `genesis init` scaffolds a Genesis app (`--template native`: a new Expo app from the RN starter); `genesis add <block>` adds a block from what its package declares; `genesis migrate` copies new package migrations in and never rewrites an applied one; `genesis upgrade` moves every Genesis package to one release and refreshes the files Genesis owns; `genesis doctor` checks an app against the installed Genesis; `genesis studio init` turns the Data Studio on; `genesis introspect` writes a checked-in contract; `genesis features build|check` keeps generated feature docs in step with features.ts; `withGenesis()` (`app.plugin.js`, `/expo`) is the Expo config plugin.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "cli",
+    "scaffolding",
+    "codemods",
+    "linter",
+    "doctor"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/genesis-cli#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
     "directory": "packages/genesis-cli"
   },
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "publishConfig": {
     "access": "public",
     "provenance": false
@@ -58,7 +74,7 @@
   "dependencies": {
     "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-studio-server": "workspace:^",
-    "commander": "^12.1.0",
+    "commander": "^15.0.0",
     "jiti": "^2.4.0",
     "postgres": "^3.4.9"
   },
@@ -70,8 +86,8 @@
     "@types/node": "^22.9.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vite": "^8.0.3",
-    "vitest": "^4.1.12"
+    "vite": "^8.2.4",
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {
     "@expo/config-plugins": ">=54",

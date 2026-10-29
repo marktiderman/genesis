@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads each Genesis package's `src/index.ts` barrel + adjacent JSDoc / `<Name>Props` types. Lightweight regex parser (PRD-07 D7.2 path 1); a `react-docgen` / `typedoc` upgrade is tracked as a follow-up.
 
-**Totals:** 153 components · 574 other exports · 439 standalone types across 11 packages and entry points.
+**Totals:** 154 components · 576 other exports · 440 standalone types across 11 packages and entry points.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,15 +23,16 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 
 **Barrel:** [`packages/core/src/index.ts`](../packages/core/src/index.ts)
 
-### Components (3)
+### Components (4)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`DataProviderRoot`](../packages/core/src/provider/context.tsx) | `DataProviderRootProps` | — | _(no summary)_ |
 | [`GenesisProvider`](../packages/core/src/provider/context.tsx) | `GenesisProviderProps` | — | Convenience root: a `QueryClientProvider`, storage, and a data provider (yours, or a mock built from datasets). It creates its own `QueryClient` unless you pass `queryClient`; an app that already has one should pass it, or mount `DataPro... |
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
+| [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (67)
+### Other exports (69)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -79,6 +80,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
 | [`RPC_FAILED`](../packages/core/src/provider/write-helpers.ts) | const | — | _(no summary)_ |
@@ -101,11 +103,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useViewer`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer for guards: `{ id, scope, roles }` from the nearest ViewerScope, or {@link NO_VIEWER} without one. The object is stable while those are equal by value, so it can sit in a memo's dependencies. |
 | [`useViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The viewer and scope from the nearest `ViewerScope`. Throws without one: screens that cache per viewer need it. |
 | [`useWizard`](../packages/core/src/hooks/use-wizard.ts) | function | — | _(no summary)_ |
+| [`useWorkspace`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The nearest `WorkspaceScope`'s workspaces, or null outside one. |
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (111)
+### Types (112)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -219,6 +222,7 @@ export type { Viewer };
 export type { ViewerContext };
 export type { WidgetHint };
 export type { WizardStep };
+export type { WorkspaceContext };
 export type { WriteEvent };
 export type { WriteOutcome };
 ```

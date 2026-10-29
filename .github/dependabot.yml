@@ -1,0 +1,52 @@
+# Dependency updates. Security updates are on in the repository settings; these are the
+# routine ones, weekly and grouped so they arrive as a few reviewable PRs.
+# `cooldown` waits a week after a release before proposing it, the same age rule the
+# lockfile and Edge Function imports follow: a compromised release is usually pulled within days.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 5
+    # Leave package.json ranges alone while the new version still satisfies them: a minor or
+    # patch bump only moves the lockfile, so published packages' ranges don't drift without a
+    # changeset. A bump outside a range edits the manifest and needs one.
+    versioning-strategy: increase-if-necessary
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      dev-tooling:
+        dependency-type: development
+        update-types: [minor, patch]
+      runtime-minor:
+        dependency-type: production
+        update-types: [minor, patch]
+    ignore:
+      # Genesis's own packages move through changesets, not Dependabot.
+      - dependency-name: "@marktiderman/*"
+      # The Expo starter's native packages move together with the Expo SDK (`expo install`).
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "ci(deps)"
+    # Every action is pinned to a commit SHA with its version in a comment
+    # (`uses: owner/action@<sha> # v1.2.3`); Dependabot moves both together.
+    groups:
+      actions:
+        patterns: ["*"]

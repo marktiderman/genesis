@@ -1,5 +1,23 @@
 # @marktiderman/genesis-cli
 
+## 1.16.1
+
+### Patch Changes
+
+- 5f60fb4: `genesis init --template native` starts apps on newer dependencies: `@hookform/resolvers` ^6, `@sentry/react-native` ~8.31, `@tanstack/react-query` and its persisters 5.104.5, `@shopify/flash-list` 2.3.3 and `@react-native-community/datetimepicker` 9.2.2. `genesis studio init` now accepts `@hookform/resolvers` 5 or 6 (`>=5.1.0 <7`), so it no longer asks an app already on 6 to go back to 5.
+
+## 1.16.0
+
+### Minor Changes
+
+- 09ac7e7: The `genesis` command now runs on commander 15, which needs Node.js 22.12 or newer (the package declares `engines.node: >=22.12.0`; Node 20 reached end of life in April 2026). Every command, option and default is unchanged. One behaviour from commander 13: a command given more positional arguments than it takes now stops with "too many arguments" instead of ignoring them.
+
+## 1.15.1
+
+### Patch Changes
+
+- 5a0c1d2: A record's page is now a **record view**, so "workspace" can mean where the viewer is working (ADR 0004). `defineWorkspace` is `defineRecordView`, `ResourceWorkspace` is `RecordView`, `NativeResourceWorkspace` is `NativeRecordView` (with `NativeRecordViewMenu` and `getNativeRecordViewStackOptions`), and the `Workspace…` types are `RecordView…`. The components take `view` in place of `workspace`, as `ResourceView` does. The old names still work for one minor release, marked deprecated. The doctor rule `ui/record-pages-use-resource-workspace` is now `ui/records-use-record-view`: rename it in an app's config if the app sets its level. Message keys (`messages.workspace`) and default test ids (`resource-workspace`) are unchanged.
+
 ## 1.15.0
 
 ### Minor Changes

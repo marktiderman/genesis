@@ -5,7 +5,7 @@
   "description": "Genesis — a shadcn-based, brand-agnostic design system and data-provider layer for building React apps fast.",
   "packageManager": "pnpm@11.26.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
@@ -32,11 +32,11 @@
     "product": "genesis-product"
   },
   "devDependencies": {
-    "@changesets/cli": "~2.30.0",
+    "@changesets/cli": "~3.0.3",
     "@marktiderman/genesis-cli": "workspace:*",
     "@marktiderman/genesis-features": "workspace:*",
     "@marktiderman/genesis-product": "workspace:*",
-    "vitest": "^4.1.12",
+    "vitest": "^5.0.5",
     "yaml": "^2.6.0"
   },
   "genesisFeatures": {

@@ -1,10 +1,24 @@
 {
   "name": "@marktiderman/genesis-ui",
-  "version": "2.23.0",
+  "version": "2.24.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
   "description": "Genesis Shadcn-based web components. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "react",
+    "ui",
+    "components",
+    "shadcn",
+    "tailwind",
+    "radix"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ui",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -395,7 +409,7 @@
     "react-dropzone": "^14.0.0 || ^15.0.0",
     "react-hook-form": "^7.0.0",
     "react-resizable-panels": "^2.0.0",
-    "react-router": "^7.0.0",
+    "react-router": "^7.0.0 || ^8.0.0",
     "recharts": "^2.12.0 || ^3.0.0",
     "sonner": "^1.0.0 || ^2.0.0",
     "vaul": "^1.0.0"
@@ -409,7 +423,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
-    "@hookform/resolvers": "^5.2.2",
+    "@hookform/resolvers": "^6.0.0",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-aspect-ratio": "^1.1.0",
@@ -425,19 +439,19 @@
     "@radix-ui/react-switch": "^1.1.0",
     "@radix-ui/react-toggle": "^1.1.0",
     "@radix-ui/react-toggle-group": "^1.1.0",
-    "@tanstack/react-query": "^5.75.0",
-    "@tanstack/react-router": "1.170.41",
+    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-router": "1.170.45",
     "@testing-library/react": "^16.3.2",
-    "@tiptap/core": "3.31.4",
-    "@tiptap/extensions": "3.31.4",
-    "@tiptap/pm": "3.31.4",
-    "@tiptap/react": "3.31.4",
-    "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/core": "3.32.0",
+    "@tiptap/extensions": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/react": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.0.0",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "input-otp": "^1.4.0",
     "lucide-react": "^1.0.0",
     "react": "^19.0.0",
@@ -446,14 +460,14 @@
     "react-dropzone": "^15.0.0",
     "react-hook-form": "^7.72.1",
     "react-resizable-panels": "^2.0.0",
-    "react-router": "7.14.0",
+    "react-router": "8.5.0",
     "recharts": "^2.15.0",
     "sonner": "^1.0.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vaul": "^1.0.0",
-    "vitest": "^4.1.12",
-    "zod": "^4.3.6"
+    "vitest": "^5.0.5",
+    "zod": "^4.6.6"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-router": {
@@ -502,6 +516,7 @@
           "unless": {
             "renders": [
               "ResourceView",
+              "RecordView",
               "ResourceWorkspace"
             ]
           },
@@ -511,8 +526,8 @@
           "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView."
         },
         {
-          "id": "record-pages-use-resource-workspace",
-          "need": "a record page",
+          "id": "records-use-record-view",
+          "need": "a record view",
           "level": "warn",
           "platform": "web",
           "newOnly": true,
@@ -535,14 +550,15 @@
           },
           "unless": {
             "renders": [
+              "RecordView",
               "ResourceWorkspace",
               "BuilderLayout"
             ]
           },
-          "use": "a workspace (defineWorkspace from @marktiderman/genesis-core/resource-view) rendered by <ResourceWorkspace>",
+          "use": "a record view (defineRecordView from @marktiderman/genesis-core/resource-view) rendered by <RecordView>",
           "import": "@marktiderman/genesis-ui/data",
-          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#resourceworkspace",
-          "why": "One record's header, actions, sections, child lists and settings come from its workspace description, the same on web and phone. Builders (BuilderLayout) are exempt."
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#recordview",
+          "why": "One record's header, actions, sections, child lists and settings come from its record view description, the same on web and phone. Builders (BuilderLayout) are exempt."
         }
       ],
       "primitives": [
@@ -551,6 +567,12 @@
           "use": "AppShell with a navigation tree",
           "import": "@marktiderman/genesis-ui/layout",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
+        },
+        {
+          "need": "choosing which organization (or the roll-up, or personal) the viewer is working in",
+          "use": "WorkspaceSwitcher in AppShell's headerSlot, under a WorkspaceScope (genesis-core) that scopes every view to it",
+          "import": "@marktiderman/genesis-ui/layout",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/adr/0004-workspaces.md"
         },
         {
           "need": "a dashboard, settings or form page",

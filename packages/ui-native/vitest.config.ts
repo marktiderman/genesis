@@ -25,12 +25,12 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "react-native": path.resolve(__dirname, "test-utils/rn-mock.tsx"),
+      "react-native": path.resolve(import.meta.dirname, "test-utils/rn-mock.tsx"),
       "react-native-safe-area-context": path.resolve(
-        __dirname,
+        import.meta.dirname,
         "test-utils/safe-area-mock.tsx"
       ),
-      nativewind: path.resolve(__dirname, "test-utils/nativewind-mock.ts"),
+      nativewind: path.resolve(import.meta.dirname, "test-utils/nativewind-mock.ts"),
     },
   },
 });

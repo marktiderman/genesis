@@ -20,7 +20,7 @@ already exist and that reuse won't do:
 
 ## Setup
 
-- **Package manager:** pnpm (`packageManager: pnpm@9.15.4`). Node `>=20`.
+- **Package manager:** pnpm (`packageManager: pnpm@11.26.0`). Node `>=20`.
 - `pnpm install`
 - `pnpm build:packages`
 
@@ -31,7 +31,9 @@ already exist and that reuse won't do:
    `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `ci:` — scope optional,
    e.g. `feat(ui): promote Button loading slot`.
 3. Add a changeset for any `packages/**` source change (below).
-4. Open the PR ready for review (not draft).
+4. Open the PR ready for review (not draft). CodeRabbit reviews it against `AGENTS.md` and
+   `docs/FRAMEWORK.md` (its settings are in `.coderabbit.yaml`); comment `@coderabbitai review`
+   to ask again after you push.
 
 ## Changesets (required for package changes)
 
@@ -71,3 +73,18 @@ Merges to `main` open or update a "chore: version packages" PR (via
 [changesets](https://github.com/changesets/changesets)); merging *that* PR
 publishes to npm via OIDC trusted publishing — no long-lived npm token in
 this repo.
+
+## Getting help
+
+- **How do I use a package?** Start with its README under `packages/`, then
+  [`docs/component-reference.md`](./docs/component-reference.md) for every export and the
+  design docs in [`docs/`](./docs).
+- **Found a bug?** Open an [issue](https://github.com/marktiderman/genesis/issues/new/choose)
+  with the package, its version and the smallest steps that reproduce it.
+- **Want a feature?** Open an issue that describes the need. Read
+  [`docs/FRAMEWORK.md`](./docs/FRAMEWORK.md) first: Genesis grows by reuse, then extension, and
+  takes in what several apps need.
+
+## Security
+
+Report a vulnerability privately, as [`SECURITY.md`](./SECURITY.md) says, never in a public issue.

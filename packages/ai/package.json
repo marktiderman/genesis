@@ -1,10 +1,28 @@
 {
   "name": "@marktiderman/genesis-ai",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": false,
   "type": "module",
   "sideEffects": false,
   "description": "One server-side pipeline for every AI call a Genesis app makes: consent, the feature gate, a bounded budget, server-side loading with a context manifest, safety routing, guardrails, the model call with rollouts, refusal and outage fallbacks, a usage row with no content and a trace. Tasks are versioned prompts with typed arguments and outputs, called by id; processors such as moderation and transcription are wrapped in place. Vendors are adapters (Anthropic and OpenAI ship), keys can be the platform's or a tenant's or person's own (BYOK, in Supabase Vault), and model records carry prices and capabilities that fail loudly on an unknown model. On the Vercel AI SDK, server only except /react. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "ai",
+    "llm",
+    "anthropic",
+    "openai",
+    "vercel-ai-sdk",
+    "byok",
+    "genesis-ai",
+    "usage",
+    "ai-budget",
+    "consent"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/ai#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -87,13 +105,13 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "ai": "7.0.148",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12",
-    "zod": "^4.4.3"
+    "vitest": "^5.0.5",
+    "zod": "^4.6.6"
   },
   "genesis": {
     "blocks": {

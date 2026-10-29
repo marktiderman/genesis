@@ -1,10 +1,31 @@
 {
   "name": "@marktiderman/genesis-chat",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
   "description": "Chat for Genesis apps, in the app's own Supabase: conversations of kinds the app defines (direct, group, cohort, support ticket) with members, observers and internal notes; messages with replies, threads, topics, mentions, reactions, edits and deletes; photos, files, voice notes and videos; read state, live updates and typing over private Realtime topics; an outbox for push, transcripts and storage cleanup. A headless core, React hooks, web and native renderers on Genesis UI, and a server runner. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "chat",
+    "messaging",
+    "supabase",
+    "realtime",
+    "react",
+    "react-native",
+    "messages",
+    "dm",
+    "group-chat",
+    "voice-notes",
+    "video-messages",
+    "inbox",
+    "support-tickets"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/chat#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -165,21 +186,21 @@
     "@marktiderman/genesis-ui": "workspace:^",
     "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
-    "@tanstack/react-query": "^5.75.0",
+    "@tanstack/react-query": "^5.104.5",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "ai": "7.0.148",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "hls.js": "1.7.3",
     "lucide-react": "^1.28.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12",
-    "zod": "^4.4.3"
+    "vitest": "^5.0.5",
+    "zod": "^4.6.6"
   },
   "genesis": {
     "blocks": {

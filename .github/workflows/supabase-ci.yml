@@ -62,9 +62,19 @@ on:
         description: "Timeout for each job"
         type: number
         default: 20
+      image-registry:
+        description: "Optional registry the Supabase CLI pulls its images from (ghcr.io, public.ecr.aws or docker.io). Empty (the default) keeps the CLI's own chain: public.ecr.aws, then ghcr.io, then Docker Hub. Setting one turns that fallback off"
+        type: string
+        default: ""
     secrets:
       npm-token:
         description: "Optional registry token, exposed as NODE_AUTH_TOKEN to the install (for an .npmrc that reads it)"
+        required: false
+      dockerhub-username:
+        description: "Optional Docker Hub user: with dockerhub-token, the job logs in before pulling (needed for image-registry docker.io past the anonymous limit)"
+        required: false
+      dockerhub-token:
+        description: "Optional Docker Hub access token (read-only scope is enough)"
         required: false
 
 jobs:
@@ -245,6 +255,36 @@ jobs:
           [ -e "$app/$TESTS" ] || fail "no pgTAP tests at '$TESTS' in '$WD' (set tests-path, or pass pgtap: false)"
           real=$(cd -- "$(dirname -- "$app/$TESTS")" && pwd -P)
           case "$real/" in "$ws"/*) ;; *) fail "tests-path '$TESTS' is outside the repository" ;; esac
+
+      # Only an explicit registry is passed on: SUPABASE_INTERNAL_IMAGE_REGISTRY replaces the
+      # CLI's fallback chain (public.ecr.aws, then ghcr.io, then Docker Hub) with that one registry.
+      - name: Choose the image registry
+        if: inputs.image-registry != ''
+        env:
+          REGISTRY: ${{ inputs.image-registry }}
+        # A registry is a host (and optional port or path): anything else, a newline above all,
+        # could write a second variable into GITHUB_ENV.
+        run: |
+          if ! [[ "$REGISTRY" =~ ^[A-Za-z0-9.:/-]+$ ]]; then
+            echo "::error title=supabase-ci::image-registry must be a registry host, such as ghcr.io"
+            exit 1
+          fi
+          echo "SUPABASE_INTERNAL_IMAGE_REGISTRY=$REGISTRY" >> "$GITHUB_ENV"
+
+      - name: Check for Docker Hub credentials
+        id: hub
+        env:
+          HUB_USER: ${{ secrets.dockerhub-username }}
+          HUB_TOKEN: ${{ secrets.dockerhub-token }}
+        run: |
+          if [ -n "$HUB_USER" ] && [ -n "$HUB_TOKEN" ]; then echo "login=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Log in to Docker Hub
+        if: steps.hub.outputs.login == 'true'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.dockerhub-username }}
+          password: ${{ secrets.dockerhub-token }}
 
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:

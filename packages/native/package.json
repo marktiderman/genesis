@@ -5,6 +5,27 @@
   "type": "module",
   "sideEffects": false,
   "description": "The native app shell for Genesis Expo apps: one GenesisNativeApp root that runs boot steps behind the splash, catches errors into a fatal screen with retry, persists the query cache, gates on the Supabase session and normalizes deep links. An optional updates block (/updates) adds force upgrade, maintenance, an update banner and what's new; an optional push block (/push) adds push registration, tap routing, the badge and a notification settings screen with quiet hours and private previews; the observability block (/observability) reports errors, breadcrumbs, typed analytics events and timings through vendor-neutral sinks (Sentry, EAS Observe, console) with PII scrubbed on the device; the devtools overlay (/devtools) is a debug sheet for development and preview builds. openOnWeb (/web-handoff) opens a page of the web app signed in as the same person. Blocks (defineBlock declarations, through `blocks`) add boot steps, roots, slot fills and Settings rows. Every part is a slot and is also exported on its own. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "react-native",
+    "expo",
+    "app-shell",
+    "notifications",
+    "push-token",
+    "quiet-hours",
+    "force-upgrade",
+    "maintenance",
+    "ota",
+    "crash-reporting",
+    "sentry",
+    "analytics",
+    "breadcrumbs"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/native#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -132,18 +153,18 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "^2.118.0",
-    "@tanstack/query-async-storage-persister": "5.101.4",
-    "@tanstack/query-persist-client-core": "5.101.4",
-    "@tanstack/react-query": "^5.75.0",
+    "@tanstack/query-async-storage-persister": "5.104.5",
+    "@tanstack/query-persist-client-core": "5.104.5",
+    "@tanstack/react-query": "5.104.5",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "expo": "~58.0.19",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "blocks": {

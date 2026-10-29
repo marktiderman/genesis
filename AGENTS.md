@@ -26,7 +26,7 @@ AGENTS.md and skill):
 - **A list** is a view: `defineView` (`@marktiderman/genesis-core/resource-view`) rendered by
   `<ResourceView>` (`@marktiderman/genesis-ui/data`). Never a hand-built table, and `ResourcePage`
   only as an escape hatch inside a component that renders ResourceView.
-- **A record's page** is `<ResourceWorkspace>` from the same description.
+- **A record's page** is `<RecordView>` from the same description.
 - **On the phone**, the same view through `NativeResourceView` (`@marktiderman/genesis-ui-native/data`).
 - **Data** goes through the view and the resource's provider rules. A screen never calls
   `supabase.from`, `.rpc` or `.schema(…).from` itself.
@@ -59,7 +59,7 @@ be replaced, when this check was skipped.
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 127 features (9 idea, 19 planned, 47 building, 17 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 128 features (9 idea, 19 planned, 48 building, 17 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

@@ -7,6 +7,17 @@
     "*.css"
   ],
   "description": "A visual builder for Genesis Forms definitions: questions, choices, show/hide and jump logic, endings, hidden inputs and settings, with live validation, path coverage, a live preview and a breaking-change diff between versions. It edits a definition and nothing else, so any app can host it. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "form-builder",
+    "react"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-builder#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -63,13 +74,13 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "fast-check": "^4.10.2",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "doctor": {

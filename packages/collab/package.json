@@ -5,6 +5,18 @@
   "type": "module",
   "sideEffects": false,
   "description": "Collaboration and sharing for Genesis apps: a space (a subject, an audience, roles, a visibility policy and timing) for anything more than one person works on, with the rules for who sees whose contributions and when, in the app's own Supabase (the genesis_collab schema) and in a headless core for the interface. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "collaboration",
+    "sharing",
+    "permissions",
+    "supabase"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/collab#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",

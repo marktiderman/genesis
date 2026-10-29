@@ -5,6 +5,18 @@
   "type": "module",
   "sideEffects": false,
   "description": "Genesis Data Studio server handler — a web-standard Request → Response handler that reads and edits a Postgres or Supabase database AS the signed-in user: schema discovery with per-user column rights, version-checked edits, and an audit entry in the same transaction. The only Genesis package that touches database credentials. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "admin",
+    "postgres",
+    "supabase",
+    "server"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/studio-server#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -73,10 +85,10 @@
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
     "@types/node": "^22",
-    "drizzle-orm": "^0.44.7",
+    "drizzle-orm": "^0.45.4",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "doctor": {

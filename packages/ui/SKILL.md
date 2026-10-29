@@ -133,8 +133,8 @@ and use it the same way.
 | Sidebar, contextual nav, tab bar and back link from one tree | `AppShell navigation={tree}` (`NavigationNode`; `parentNavigation` to override)    | `/layout`                                                         |
 | Page title row with count, view toggle, options               | `PageHeader` (+ `options.configurable` for the in-header options popover)          | `/layout`                                                         |
 | A list screen over a resource                                 | a view (`defineView`) rendered by `ResourceView`; never a hand-built table        | `@marktiderman/genesis-core/resource-view` + `/data`              |
-| A record page: header, actions, sections, child lists         | a workspace (`defineWorkspace`) rendered by `ResourceWorkspace`                    | `@marktiderman/genesis-core/resource-view` + `/data`              |
-| The same list or record on the phone                          | `NativeResourceView`, `NativeResourceWorkspace` from the same view                 | `@marktiderman/genesis-ui-native/data`                            |
+| A record view: header, actions, sections, child lists         | a record view (`defineRecordView`) rendered by `RecordView`                    | `@marktiderman/genesis-core/resource-view` + `/data`              |
+| The same list or record on the phone                          | `NativeResourceView`, `NativeRecordView` from the same view                 | `@marktiderman/genesis-ui-native/data`                            |
 | Reading and writing data                                      | the view and the resource's provider (`useWrite`, the view's form); never `supabase.from` in a screen | `@marktiderman/genesis-core`                     |
 | List page chrome: header, filters, loading/empty/error        | `DataPageShell` (`stats`, `filters` slots)                                         | `/data`                                                           |
 | A list a view can't describe yet (escape hatch)               | `ResourcePage`, inside a component that renders `ResourceView`                     | `/data`                                                           |
@@ -209,10 +209,10 @@ wins over `@layer theme`. `tailwindFromBrand(brand).css` adds brand ramps
 
 A list screen is a view: describe the resource once with `defineView`
 (`@marktiderman/genesis-core/resource-view`) and render it with `<ResourceView view={…} />`;
-a record's page is `<ResourceWorkspace>`, and the phone renders the same view with
+a record's page is `<RecordView>`, and the phone renders the same view with
 `NativeResourceView` ([docs/RESOURCE-VIEW.md](https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md)).
 Never copy an older screen as a template. `genesis doctor` enforces this
-(`ui/lists-use-resource-view`, `ui/record-pages-use-resource-workspace`,
+(`ui/lists-use-resource-view`, `ui/records-use-record-view`,
 `core/direct-data-access`), and `genesis primitives` lists every primitive the installed
 packages declare.
 

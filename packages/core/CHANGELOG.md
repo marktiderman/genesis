@@ -1,5 +1,24 @@
 # @marktiderman/genesis-core
 
+## 2.2.1
+
+### Patch Changes
+
+- 86e8e26: The optional `@hookform/resolvers` peer now accepts v6 (core and ui-native: `^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0`; studio: `^5.1.0 || ^6.0.0`). v6's listed breaking change is the Effect resolver moving to Effect v4. The zod resolver Genesis uses keeps its API, but builds its errors differently: for a union field it reports the branch with the fewest issues, so an app's messages on union fields can change when it upgrades. Genesis's own forms are unaffected, and the packages' tests now run on 6.0.
+
+## 2.2.0
+
+### Minor Changes
+
+- 5a0c1d2: A record's page is now a **record view**, so "workspace" can mean where the viewer is working (ADR 0004). `defineWorkspace` is `defineRecordView`, `ResourceWorkspace` is `RecordView`, `NativeResourceWorkspace` is `NativeRecordView` (with `NativeRecordViewMenu` and `getNativeRecordViewStackOptions`), and the `Workspace…` types are `RecordView…`. The components take `view` in place of `workspace`, as `ResourceView` does. The old names still work for one minor release, marked deprecated. The doctor rule `ui/record-pages-use-resource-workspace` is now `ui/records-use-record-view`: rename it in an app's config if the app sets its level. Message keys (`messages.workspace`) and default test ids (`resource-workspace`) are unchanged.
+- 4e2d436: Workspaces (ADR 0004): `@marktiderman/genesis-core/workspaces` describes where the viewer is working (one organization, the roll-up, or personal) and reads it from the URL (`workspaceAt`, `workspaceHref`, `defaultWorkspace`, `groupWorkspaces`). `WorkspaceScope` replaces `ViewerScope` in an app with workspaces: it scopes every view under it to the current workspace and remembers it per viewer.
+
+  `scopeFilter(view, scope)` (resource-view): a view's scope keys as a list filter, accepting a list per key and skipping keys the scope doesn't set.
+
+### Patch Changes
+
+- 0a4b8fd: Workspaces: trailing slashes are trimmed with a loop instead of a regular expression, which was slow on a path with very many slashes (CodeQL js/polynomial-redos).
+
 ## 2.1.0
 
 ### Minor Changes

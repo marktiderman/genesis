@@ -3,7 +3,7 @@
  * withGenesis() on plain ExpoConfig objects, and the `links` block of
  * genesis.config.json it reads through the CLI's config loader.
  */
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import type { ExpoConfig } from "@expo/config-types";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { loadConfig } from "../src/doctor/config";
+import { removeTempDir } from "./temp.js";
 import {
   applyPrivacyApis,
   GenesisConfigError,
@@ -44,7 +45,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  rmSync(root, { recursive: true, force: true });
+  removeTempDir(root);
   if (savedVariant === undefined) delete process.env.APP_VARIANT;
   else process.env.APP_VARIANT = savedVariant;
 });

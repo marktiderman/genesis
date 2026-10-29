@@ -7,6 +7,17 @@
     "*.css"
   ],
   "description": "The form workspace around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "forms",
+    "form-builder",
+    "react"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/forms-studio#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
@@ -72,13 +83,13 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "happy-dom": "^20.9.0",
+    "happy-dom": "^21.0.4",
     "radix-ui": "^1.6.7",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12"
+    "vitest": "^5.0.5"
   },
   "genesis": {
     "doctor": {
