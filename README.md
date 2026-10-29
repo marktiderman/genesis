@@ -1,43 +1,58 @@
 # Genesis
 
-A shadcn-based, brand-agnostic design system and data-provider layer for building React (and React Native) apps fast — without hand-rolling a component library or a CRUD data layer for every new project.
+**Business apps on React and Supabase, built for your coding agent.** Genesis is a framework for
+multi-tenant business apps: workspaces, lists, record pages, forms, chat, sites and AI, on web and
+React Native, from one design system. Row-level security keeps each tenant's data apart, and
+`genesis doctor` keeps every screen on the system, whoever wrote it.
+
+**See it running: [genesisone.dev](https://genesisone.dev)** — a [live demo app](https://genesisone.dev/demo)
+with three tenants and three roles, every [package](https://genesisone.dev/packages) and
+[component](https://genesisone.dev/showcase/primitives), [Storybook](https://genesisone.dev/storybook/),
+and [llms.txt](https://genesisone.dev/llms.txt) for agents.
 
 ```bash
-npm install @marktiderman/genesis-ui @marktiderman/genesis-core @marktiderman/genesis-design-system
+npx @marktiderman/genesis-cli init my-app          # a web app
+npx @marktiderman/genesis-cli init my-app --template native   # an Expo app
 ```
 
-Or pull in the core of the system as one pinned coordinate:
+Or add it to an app you have: `npm install @marktiderman/genesis`, the umbrella that pins the
+foundation (`core`, `ui`, `ui-native`, `design-system`, `features`), the native app shell,
+`switchboard` and forms at one version. Platform services (`supabase`, `connect`, `notifications`,
+`ai`) and domain blocks (`chat`, `sites`, `support`, …) install on their own.
 
-```bash
-npm install @marktiderman/genesis
-```
+## A screen is a description
 
-The umbrella covers the foundation (`core`, `ui`, `ui-native`, `design-system`, `features`), the
-native app shell, `switchboard` and forms. Platform services (`supabase`, `connect`,
-`notifications`) and domain blocks (`chat`, `sites`, `support`, …) are installed on their own.
+Describe a resource once; a list is one line and a record page another, on web and on the phone
+([docs/RESOURCE-VIEW.md](./docs/RESOURCE-VIEW.md)):
 
 ```tsx
-import {
-  GenesisProvider,
-  createSupabaseProvider,
-} from "@marktiderman/genesis-core";
-import { ResourcePage } from "@marktiderman/genesis-ui/data";
-import { Button } from "@marktiderman/genesis-ui";
+import { defineView, defineRecordView } from "@marktiderman/genesis-core/resource-view";
+import { ResourceView, RecordView } from "@marktiderman/genesis-ui/data";
+import { contracts } from "./resources.genesis"; // written by `genesis introspect`
 
-<GenesisProvider provider={createSupabaseProvider(supabase)}>
-  <ResourcePage
-    resource="orders"
-    title="Orders"
-    columns={["customer", "email", "status", "total"]}
-    allowCreate
-    allowEdit
-    formFields={[
-      { key: "customer", required: true },
-      { key: "email", type: "email" },
-    ]}
-  />
-</GenesisProvider>;
+export const clientsView = defineView(contracts["public.clients"], {
+  scope: ["org_id"], // follows the workspace switcher
+  fields: { status: { tones: { active: "success", paused: "warning" } } },
+  columns: { default: ["name", "status", "plan", "email"] },
+  form: ["name", "email", "status", "plan"],
+  can: { delete: (_row, viewer) => (viewer.roles?.orgRole === "owner" ? true : "Only an owner removes a client.") },
+});
+
+export const clientRecord = defineRecordView(clientsView, {
+  sections: [
+    { id: "bookings", label: "Bookings", list: { view: bookingsView, filter: (c) => ({ client_id: c.id }) } },
+    { id: "details", label: "Details", settings: ["name", "email", "status"] },
+  ],
+});
+
+<ResourceView view={clientsView} />;                       // the list screen
+<RecordView view={clientRecord} row={client} section={section} sectionHref={(s) => `/clients/${client.id}/${s}`} />;
 ```
+
+Inside `WorkspaceScope` (the current organization, read from the URL) every view with
+`scope: ["org_id"]` follows the `WorkspaceSwitcher` in the app shell with no screen code
+([ADR 0004](./docs/adr/0004-workspaces.md)). The guards narrow what the page offers; the database's
+row-level security is the boundary.
 
 <!-- genesis-features:marketing:start -->
 ## Features
@@ -86,12 +101,12 @@ Every pattern component offers a **ladder**. When a rung stops fitting you step 
 
 | Rung                      | What it is                                                               | Reach for it when                             |
 | ------------------------- | ------------------------------------------------------------------------ | --------------------------------------------- |
-| 1 · The pattern           | `<ResourcePage resource="orders" … />` — the whole page, wired           | it fits                                       |
+| 1 · The pattern           | `<ResourceView view={ordersView} />` — the whole page, from the view      | it fits                                       |
 | 2 · `slots` / `slotProps` | swap one interior part, or pass it more props; `className` on the root   | one part is wrong and the rest is right       |
-| 3 · The primitives        | `DataPageShell`, `DataTable`, `DataFilters`, … across 75 subpath exports | you need a different page layout              |
+| 3 · The primitives        | `DataPageShell`, `DataTable`, `DataFilters`, … in `genesis-ui`'s subpaths | you need a different page layout             |
 | 4 · The hooks             | `useResourcePage()` and eight others under `/hooks`                      | you want the behaviour and none of the markup |
 
-Rung 2 is the one that keeps you on the ladder. Each pattern names every part it composes in a slot map (`ResourcePageSlotMap`), your replacement receives exactly the props genesis would have passed the default, and `slotProps` **wins** over genesis's own value:
+Rung 2 is the one that keeps you on the ladder. `ResourceView` draws through `ResourcePage`, which names every part it composes in a slot map (`ResourcePageSlotMap`), your replacement receives exactly the props genesis would have passed the default, and `slotProps` **wins** over genesis's own value:
 
 ```tsx
 <ResourcePage
@@ -129,23 +144,25 @@ Details, config and the plugin API: [`packages/genesis-cli`](./packages/genesis-
 
 ## Packages
 
-| Package                                                            | What it is                                                                                                                                                                                                                                                                               |
-| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`@marktiderman/genesis-ui`](./packages/ui)                        | Shadcn/Radix-based web components — primitives, forms, overlays, layout, and a `/data` subpath (`ResourcePage`, `ResourceForm`, `DetailPanel`, `DataGrid`, ...) that turns a `DataProvider` into a working CRUD page in a few lines of config.                                           |
-| [`@marktiderman/genesis-core`](./packages/core)                    | Platform-agnostic foundation: the `DataProvider` contract, `GenesisProvider`/context, `useResource`/`useOne`/`useResourceForm`/`useWizard` hooks, a Supabase provider, a mock provider for tests.                                                                                        |
-| [`@marktiderman/genesis-design-system`](./packages/design-system)  | Brand-agnostic design tokens (DTCG-style), a `CanonicalBrand` schema, and factories (`tailwindFromBrand`, `themeFromBrand`) that turn your brand into a Tailwind preset or a NativeWind theme.                                                                                           |
-| [`@marktiderman/genesis-ui-native`](./packages/ui-native)          | The React Native (NativeWind v5) counterpart to `genesis-ui` — same component vocabulary, native primitives.                                                                                                                                                                             |
-| [`@marktiderman/genesis-switchboard`](./packages/data-switchboard) | A `DataProvider` implementation for the case where a resource's backend is migrating — bind a resource to two backends at once during a cutover, verify they agree (`driftReport`), then bind it fully to the new one. Ships adapters for Supabase, Airtable, and Notion out of the box. |
-| [`@marktiderman/genesis-extension`](./packages/extension)          | Build Chrome extensions (Manifest V3) with Genesis: checked messaging, settings storage, the main page as a floating panel, top bar or Chrome side panel, an in-page bar, native-helper jobs, a tabbed options page and lazy lists on Genesis UI, and a `chrome.*` fake for tests.       |
-| [`@marktiderman/genesis-cli`](./packages/genesis-cli)              | `genesis init` scaffolds a consumer (brand package, Tailwind/NativeWind config, token imports); `genesis doctor` checks an app against the installed Genesis, in CI and as a Vite plugin. |
-| [`@marktiderman/genesis`](./packages/genesis)                      | One-install umbrella — re-exports everything above under one version coordinate, via subpath exports. Holds no code of its own.                                                                                                                                                          |
+All published packages, with their entry points and exports, are listed at
+[genesisone.dev/packages](https://genesisone.dev/packages) (generated from this repository on every
+deploy) and in [docs/component-reference.md](./docs/component-reference.md).
+
+| Group | Packages |
+| --- | --- |
+| Foundation | [`genesis-core`](./packages/core) (data contract, providers, hooks, views, workspaces) · [`genesis-ui`](./packages/ui) (web components, layouts, `ResourceView`, `RecordView`, `AppShell`) · [`genesis-ui-native`](./packages/ui-native) (React Native components, `NativeResourceView`) · [`genesis-design-system`](./packages/design-system) (tokens, brand schema, themes) · [`genesis-features`](./packages/features) (feature registry, flags, the gate) |
+| App shells | [`genesis-native`](./packages/native) (the Expo app shell) · [`genesis-extension`](./packages/extension) (Chrome extensions) |
+| Platform services | [`genesis-supabase`](./packages/supabase) · [`genesis-ai`](./packages/ai) · [`genesis-notifications`](./packages/notifications) · [`genesis-connect`](./packages/connect) · [`genesis-collab`](./packages/collab) · [`genesis-switchboard`](./packages/data-switchboard) |
+| Domain blocks | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) · [`genesis-chat`](./packages/chat) · [`genesis-sites`](./packages/sites) · [`genesis-support`](./packages/support) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) |
+| Tooling | [`genesis-cli`](./packages/genesis-cli) (`init`, `doctor`, `introspect`, `features`, codemods) · [`genesis-product`](./packages/product) (Now/Next/Later board from `features.ts`) |
+| Umbrella | [`genesis`](./packages/genesis): one version coordinate for the foundation, the native shell, switchboard and forms. It holds no code of its own. |
 
 ## Reference apps
 
-- [`apps/sample`](./apps/sample) — a web app consuming every package, including a live sandbox for `ResourcePage` configuration.
-- [`apps/genesis-rn-starter`](./apps/genesis-rn-starter) — the Expo starter: a new native app with sign-in, settings, account deletion and notifications on day one, each turned off in one line.
-
-Start here if you want to see the packages used together before wiring them into your own app.
+- [`apps/sample`](./apps/sample) — the site at [genesisone.dev](https://genesisone.dev): the landing page, the
+  demo app, the building blocks one by one, the design system and the generated package pages.
+- [`apps/genesis-rn-starter`](./apps/genesis-rn-starter) — the Expo starter `genesis init --template native`
+  copies: sign-in, settings, account deletion and notifications on day one, each turned off in one line.
 
 ## Contributing
 

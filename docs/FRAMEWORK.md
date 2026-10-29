@@ -265,31 +265,21 @@ database", and the framework stops being adoptable.
 
 ## Current state, measured
 
-Counted from the tree, not estimated. **Packages (7):** `genesis-design-system`, `genesis-ui`, `genesis-ui-native`, `genesis-core`,
-`genesis-switchboard`, `genesis-cli`, `genesis` (umbrella).
+**Packages:** 28 published packages plus the private agent rules, grouped as foundation, app
+shells, platform services, domain blocks and tooling ([README](../README.md#packages); the full
+list with every entry point and export is generated at [genesisone.dev/packages](https://genesisone.dev/packages)
+and in [component-reference.md](./component-reference.md)).
 
-**`genesis-design-system` has zero dependencies.** Pure values. That layer is already exactly
-right and needs nothing.
+**`genesis-design-system` has zero dependencies.** Pure values. That layer is exactly right.
 
-**`genesis-ui` — 58 components in the primitive and pattern tiers** (since step 3: 51 in
-`ui/`, 7 in `patterns/`, which `ViewToggle`/`ViewSettings` then joined from `data/`):
+**`genesis-ui`:** 56 primitives in `ui/` and 13 patterns in `patterns/`, the page layouts in
+`layout/`, and the data-bound tier in `data/` (`ResourceView`, `RecordView`, `ResourcePage`,
+`ResourceForm`). Radix comes through the one `radix-ui` peer. The generated
+[primitive pages](https://genesisone.dev/showcase/primitives) list every web and native component.
 
-| Backing | Count | Notes |
-|---|---:|---|
-| Radix | 23 | all 21 declared Radix peers are genuinely imported — zero waste |
-| Focused third-party | 8 | recharts, embla, vaul, react-day-picker, date-fns, input-otp, react-resizable-panels, sonner |
-| Own code | 27 | mostly presentational, correctly so — plus three that shouldn't be |
-
-**Known gaps, to be closed:**
-
-1. ~~**Four layers live in two folders.**~~ Closed by step 3.
-2. **Three own-code primitives carry behavior Radix already solves**: `tooltip`, `tabs`,
-   `scroll-area`.
-3. **Five declared peers are never imported** by `genesis-ui`: `@hookform/resolvers`,
-   `@tanstack/react-query`, `@tanstack/react-table`, `react-dom`, `zod`. Three of the five are
-   already correctly declared by `genesis-core`. Consumers install all five for nothing.
-4. **No layout primitives.** No `Stack`, `Split`, `Section`, `Container` — so every
-   consumer re-derives page scaffolding in app code.
+The gaps this section used to list are closed: the folders are split, `tooltip`, `tabs` and
+`scroll-area` are on Radix, the unimported peers are gone, and `Stack`, `Grid`, `Split`,
+`Section` and `Container` ship.
 
 ---
 
@@ -400,7 +390,8 @@ structure*: the layers table wins over the prose.
 | `FormPage` | no — positions header, fields, summary and an action bar | layout | `genesis-ui/layout` |
 | `DashboardPage` | no — tiles and regions arrive as props | layout | `genesis-ui/layout` |
 | `SettingsPage` | no — rows and their persistence are the app's | layout | `genesis-ui/layout` |
-| `ListPage`, as `ResourcePage` | **yes** — lists a resource | data-bound | `genesis-ui/data` |
+| `ResourceView` (over `ResourcePage`) | **yes** — lists a resource from its view | data-bound | `genesis-ui/data` |
+| `RecordView` | **yes** — one record from its record view | data-bound | `genesis-ui/data` |
 | `ResourceDetailPage` | **yes** — fetches a record by id | data-bound | `genesis-ui/data` |
 
 Where a template has both a structure job and a binding job, it is **split** rather than
@@ -438,23 +429,22 @@ shippable.
 
 ## Migration sequence
 
-Ordered so that each step is independently shippable and none blocks on a decision that
-hasn't been made.
+The sequence this document set out, and where each step stands. Each was independently
+shippable.
 
-1. **Dependency truth** — drop the five unimported peers from `genesis-ui`. Zero risk, and it
-   makes rule 6 true before it is enforced.
-2. **Unified Radix** — swap 21 granular peers for `radix-ui`. Mechanical, one range.
-3. **Folder split** — `patterns/` and `layout/` become real; `AppShell`/`PageHeader` leave
-   `data/`. Old subpaths stay as deprecated aliases per rule 5.
-4. **Enforce layering** — extend the existing import-boundary script so rule 2 fails the
-   build.
-5. **Behavioral Radix adoption** — `tooltip`, `tabs`, `scroll-area`.
-6. **New Radix capability** — `toolbar`, `visually-hidden`, `accessible-icon`,
-   `password-toggle-field`.
-7. **Layout primitives** — `Stack`, `Grid`, `Split`, `Section`, `Container`.
-8. **Page templates** — `DetailPage`, `FormPage`, `DashboardPage`, `SettingsPage` as
-   layouts, plus `ResourceDetailPage` as the data-bound half of the first. See the Layout
-   tier table above for which template lands in which layer and why.
+1. **Dependency truth**: done. `genesis-ui` declares only the peers it imports.
+2. **Unified Radix**: done. One `radix-ui` peer replaces the granular ones.
+3. **Folder split**: done. `patterns/` and `layout/` are real; `AppShell` and `PageHeader`
+   from `/data` remain as deprecated aliases per rule 5.
+4. **Enforce layering**: open. Rule 2 is kept by review and the doctor's rules, not yet by a
+   script that fails the build on an upward import.
+5. **Behavioral Radix adoption**: done (`tooltip`, `tabs`, `scroll-area`).
+6. **New Radix capability**: done (`toolbar`, `visually-hidden`, `accessible-icon`,
+   `password-toggle-field`, the last experimental).
+7. **Layout primitives**: done (`Stack`, `Grid`, `Split`, `Section`, `Container`).
+8. **Page templates**: done (`DetailPage`, `FormPage`, `DashboardPage`, `SettingsPage`, and
+   `ResourceDetailPage`). The data-bound tier has since moved on to `ResourceView` and
+   `RecordView` ([RESOURCE-VIEW.md](./RESOURCE-VIEW.md)).
 
 Steps 1–4 are structural and carry no visual change. Steps 5–6 are behavior changes. Steps
 7–8 add public API. **Every step that changes a released package needs a changeset** with the
