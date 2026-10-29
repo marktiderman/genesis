@@ -7,7 +7,7 @@ React Native, from one design system. Row-level security keeps each tenant's dat
 
 **See it running: [genesisone.dev](https://genesisone.dev)** — a [live demo app](https://genesisone.dev/demo)
 with three tenants and three roles, every [package](https://genesisone.dev/packages) and
-[component](https://genesisone.dev/showcase/primitives), [Storybook](https://genesisone.dev/storybook/),
+[component](https://genesisone.dev/showcase/elements), [Storybook](https://genesisone.dev/storybook/),
 and [llms.txt](https://genesisone.dev/llms.txt) for agents.
 
 ```bash

@@ -56,8 +56,11 @@ export default [
     route("showcase", "routes/showcase._index.tsx"),
     route("showcase/tokens", "routes/showcase.tokens._index.tsx"),
     route("showcase/tokens/:category", "routes/showcase.tokens.$category.tsx"),
-    route("showcase/primitives", "routes/showcase.primitives._index.tsx"),
-    route("showcase/primitives/:slug", "routes/showcase.primitives.$slug.tsx"),
+    route("showcase/elements", "routes/showcase.elements._index.tsx"),
+    route("showcase/elements/:slug", "routes/showcase.elements.$slug.tsx"),
+    // The old /showcase/primitives addresses: "primitive" is a package layer now (ADR 0005).
+    route("showcase/primitives", "routes/showcase.primitives-redirect.tsx", { id: "showcase-primitives-redirect" }),
+    route("showcase/primitives/:slug", "routes/showcase.primitives-redirect.tsx", { id: "showcase-primitive-redirect" }),
     route("showcase/layouts", "routes/showcase.layouts._index.tsx"),
     route("showcase/layouts/:slug", "routes/showcase.layouts.$slug.tsx"),
     route("showcase/standards", "routes/showcase.standards.tsx"),

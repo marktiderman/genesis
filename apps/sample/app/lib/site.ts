@@ -57,14 +57,14 @@ export const SITE_PAGES: SitePage[] = [
   { path: "/packages", title: "Packages", description: "Every published Genesis package: entry points, components, hooks and exports, read from the source at build." },
   { path: "/showcase", title: "Components", description: "Tokens, primitives and page layouts from the Genesis design system." },
   { path: "/showcase/tokens", title: "Design tokens", description: "Colors, typography, spacing, radii, motion and shadows from genesis-design-system." },
-  { path: "/showcase/primitives", title: "Primitives", description: "Every Genesis web and native component, with props and examples." },
+  { path: "/showcase/elements", title: "Elements", description: "Every Genesis web and native component, with props and examples." },
   { path: "/showcase/layouts", title: "Page layouts", description: "DashboardPage, SettingsPage, FormPage and DetailPage, rendered live." },
   { path: "/showcase/standards", title: "Standards", description: "How Genesis apps are built: reuse, then extend, then invent." },
 ];
 
 const PATTERNS: Array<[RegExp, (m: RegExpMatchArray) => SitePage]> = [
   [/^\/packages\/([^/]+)$/, (m) => ({ path: m[0], title: `genesis-${m[1]} package`.replace("genesis-genesis", "genesis"), description: `The @marktiderman/genesis ${m[1]} package: entry points, components, hooks and exports.` })],
-  [/^\/showcase\/primitives\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} component`, description: `The ${words(m[1]!)} component: what it's for, its props and examples.` })],
+  [/^\/showcase\/elements\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} component`, description: `The ${words(m[1]!)} component: what it's for, its props and examples.` })],
   [/^\/showcase\/tokens\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} tokens`, description: `The ${m[1]} tokens of the Genesis design system.` })],
   [/^\/showcase\/layouts\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} layout`, description: "A Genesis page layout, rendered live." })],
   [/^\/forms\/([^/]+)$/, (m) => ({ path: m[0], title: `${words(m[1]!)} form`, description: "A Genesis Forms scenario in the playground." })],

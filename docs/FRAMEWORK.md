@@ -326,7 +326,7 @@ and in [component-reference.md](./component-reference.md)).
 **`genesis-ui`:** 56 elements in `ui/` and 13 patterns in `patterns/`, the page layouts in
 `layout/`, and the data-bound tier in `data/` (`ResourceView`, `RecordView`, `ResourcePage`,
 `ResourceForm`). Radix comes through the one `radix-ui` peer. The generated
-[component pages](https://genesisone.dev/showcase/primitives) list every web and native component.
+[component pages](https://genesisone.dev/showcase/elements) list every web and native component.
 
 The gaps this section used to list are closed: the folders are split, `tooltip`, `tabs` and
 `scroll-area` are on Radix, the unimported peers are gone, and `Stack`, `Grid`, `Split`,
