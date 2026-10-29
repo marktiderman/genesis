@@ -1,0 +1,89 @@
+packages/forms-native/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 79
+packages/product/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 107
+packages/ui-native/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 173
+packages/sites/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 143
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_0fa42dc7351719 73-76
+packages/notifications/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 164
+packages/connect/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 78
+packages/support/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 143
+.github/CODEOWNERS
+  s_36f3212387dbf7::t_bcd604f78cad36 1-2,4-32
+.changeset/package-owners.md
+  s_36f3212387dbf7::t_bcd604f78cad36 1-5
+packages/forms-builder/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 88
+packages/ui/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 499
+packages/features/src/packages.ts
+  s_36f3212387dbf7::t_87c334b82df4e8 83-84,126-129
+packages/collab/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 61
+packages/core/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 136
+packages/forms-web/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 79
+packages/genesis/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 169
+packages/switchboard/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 86
+scripts/gen-codeowners.mjs
+  s_36f3212387dbf7::t_837f592e7121c0 1-60
+packages/extension/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 84
+packages/ai/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 119
+packages/forms-devtools/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 83
+packages/native/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 172
+package.json
+  s_36f3212387dbf7::t_0fa42dc7351719 13-14
+packages/forms-react/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 68
+packages/chat/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 208
+packages/forms-studio/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 97
+packages/studio-server/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 96
+packages/studio/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 92
+packages/supabase/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 102
+scripts/__tests__/gen-codeowners.test.mjs
+  s_36f3212387dbf7::t_6944738a113af4 1-18
+packages/forms/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 112
+packages/features/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 110
+packages/genesis-cli/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 113
+packages/features/src/__tests__/packages.test.ts
+  s_36f3212387dbf7::t_bcd604f78cad36 97-102
+packages/design-system/package.json
+  s_36f3212387dbf7::t_87c334b82df4e8 98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f9a11f242d4dfdaeb6ca5a4a38926a929bd0f51c",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
