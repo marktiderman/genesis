@@ -136,6 +136,7 @@ describe("createBundleHandler", () => {
     expect(res.headers.get("content-disposition")).toBe(`attachment; filename="Selected files.zip"; filename*=UTF-8''Selected%20files.zip`);
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
+    expect(res.headers.get("content-security-policy")).toBe("sandbox; default-src 'none'");
     const zip = new Uint8Array(await res.arrayBuffer());
     expect(res.headers.get("content-length")).toBe(String(zip.byteLength));
     const entries = readZip(zip);

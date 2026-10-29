@@ -14,6 +14,11 @@ const objects = {
   "media/videos/v1/web-1080.mp4": { body: VIDEO, contentType: "video/mp4", lastModified: new Date("2026-01-02T03:04:05Z") },
   "media/videos/v1/original.mov": { body: "original", contentType: "video/quicktime" },
   "media/photos/p1/800.jpg": { body: "small", contentType: "image/jpeg" },
+  "media/photos/p2/800.jpg": { body: "<script>alert(1)</script>", contentType: "text/html; charset=utf-8" },
+  "media/photos/p3/800.jpg": { body: "<svg onload=alert(1)/>", contentType: "image/svg+xml" },
+  "media/photos/p4/800.jpg": { body: "?" },
+  "media/photos/p5/800.jpg": { body: "%PDF", contentType: "application/pdf" },
+  "media/photos/p6/800.jpg": { body: "ID3", contentType: "audio/mpeg" },
 };
 
 /** The app's routes: `<collection>/<id>/<variant>.<ext>`. Photos' preview sizes open with an item link; video files each need their own. */
@@ -179,6 +184,42 @@ describe("createSignedMediaHandler", () => {
     const res = await setup()(new Request(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")), { method: "POST" }));
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("GET, HEAD");
+  });
+});
+
+describe("the sandbox for stored files", () => {
+  const CSP = "sandbox; default-src 'none'";
+
+  it("sends HTML, SVG and untyped files as attachments, and shows images, video, audio and PDF inline", async () => {
+    const handle = setup();
+    const disposition = async (id: string) => (await handle(new Request(await signed(`photos/${id}/800.jpg`, mediaScope.item("photos", id))))).headers.get("content-disposition");
+    expect(await disposition("p2")).toBe("attachment");
+    expect(await disposition("p3")).toBe("attachment");
+    expect(await disposition("p4")).toBe("attachment");
+    expect(await disposition("p1")).toBeNull();
+    expect(await disposition("p5")).toBeNull();
+    expect(await disposition("p6")).toBeNull();
+    const video = await handle(new Request(await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"))));
+    expect(video.headers.get("content-disposition")).toBeNull();
+  });
+
+  it("sends the CSP sandbox on every response: 200, 206, HEAD, 403, 404, 405 and 416", async () => {
+    const handle = setup();
+    const ok = await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"));
+    const responses = [
+      await handle(new Request(ok)),
+      await handle(new Request(ok, { headers: { range: "bytes=0-1" } })),
+      await handle(new Request(ok, { method: "HEAD" })),
+      await handle(new Request(ok, { headers: { range: "bytes=99-" } })),
+      await handle(new Request(ok, { method: "PUT" })),
+      await handle(new Request(`${BASE}/videos/v1/web-1080.mp4`)),
+      await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9")))),
+    ];
+    expect(responses.map((r) => r.status)).toEqual([200, 206, 200, 416, 405, 403, 404]);
+    for (const r of responses) {
+      expect(r.headers.get("content-security-policy"), String(r.status)).toBe(CSP);
+      expect(r.headers.get("x-content-type-options"), String(r.status)).toBe("nosniff");
+    }
   });
 });
 

@@ -2,7 +2,7 @@
  * The edge verifier: checks a signed link, then streams the file from
  * storage, with HEAD and single byte ranges.
  */
-import { attachment, baseHeaders, forbidden, methodNotAllowed, notFound, pathSegments, plain } from "./http";
+import { attachment, baseHeaders, forbidden, isInlineSafe, methodNotAllowed, notFound, pathSegments, plain } from "./http";
 import { scopeFilename, type MediaScope } from "./scope";
 import type { MediaSigner } from "./signer";
 import type { MediaRange, MediaStorage } from "./storage";
@@ -72,7 +72,10 @@ export function parseRange(header: string | null, size: number): MediaRange | "u
  * exists), then streams the file: `GET` and `HEAD`, one byte range (206, or
  * 416 when it can't be met), the stored content type, length and ETag, a
  * download name per RFC 6266 for `download` scopes, and `x-robots-tag:
- * noindex`. A bad or expired signature is 403; an unknown path or a missing
+ * noindex`. Every response carries `content-security-policy: sandbox;
+ * default-src 'none'`, and a file whose type isn't safe to show inline
+ * (anything but non-SVG images, video, audio and PDF) is sent as an
+ * attachment, so a stored HTML or SVG file can't run on the media origin. A bad or expired signature is 403; an unknown path or a missing
  * file is 404. It never lists anything.
  *
  * ```ts
@@ -111,14 +114,16 @@ export function createSignedMediaHandler(options: SignedMediaHandlerOptions): (r
     const meta = object ?? info!;
 
     const headers = baseHeaders();
-    headers.set("content-type", meta.contentType || "application/octet-stream");
+    const contentType = meta.contentType || "application/octet-stream";
+    headers.set("content-type", contentType);
     headers.set("accept-ranges", "bytes");
     if (meta.etag) headers.set("etag", meta.etag);
     if (meta.lastModified) headers.set("last-modified", meta.lastModified.toUTCString());
     const remaining = Math.max(0, Math.floor(Number(e) - now()));
     headers.set("cache-control", options.cacheControl ?? `private, max-age=${Math.min(remaining, 3600)}`);
     const filename = scopeFilename(target.scope);
-    if (filename !== undefined) headers.set("content-disposition", attachment(filename));
+    // A download always; otherwise only a type safe to show inline is shown (no HTML, no SVG).
+    if (filename !== undefined || !isInlineSafe(contentType)) headers.set("content-disposition", attachment(filename));
     if (range) {
       headers.set("content-range", `bytes ${range.offset}-${range.offset + range.length - 1}/${meta.size}`);
       headers.set("content-length", String(range.length));

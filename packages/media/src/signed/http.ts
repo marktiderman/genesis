@@ -4,15 +4,36 @@
  * A `content-disposition: attachment` value per RFC 6266: a plain-ASCII
  * `filename` for old clients and the exact name as `filename*` (RFC 8187).
  */
-export function attachment(filename: string): string {
+export function attachment(filename?: string): string {
+  if (filename === undefined) return "attachment";
   const fallback = filename.replace(/[^\x20-\x7e]|["\\%/]/g, "_").trim() || "download";
   const exact = encodeURIComponent(filename).replace(/['()*!]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
   return `attachment; filename="${fallback}"; filename*=UTF-8''${exact}`;
 }
 
-/** Headers every media response carries. */
+/**
+ * Headers every media response carries. The CSP sandbox means a stored file
+ * that is really HTML or SVG can't run script on the media origin, even when
+ * someone opens it directly.
+ */
 export function baseHeaders(): Headers {
-  return new Headers({ "x-robots-tag": "noindex", "x-content-type-options": "nosniff" });
+  return new Headers({
+    "x-robots-tag": "noindex",
+    "x-content-type-options": "nosniff",
+    "content-security-policy": "sandbox; default-src 'none'",
+  });
+}
+
+/**
+ * Whether a content type may be shown in the browser rather than downloaded:
+ * images other than SVG, video, audio and PDF. Anything else (HTML, SVG,
+ * XML, text, unknown) is sent as an attachment.
+ */
+export function isInlineSafe(contentType: string): boolean {
+  const type = contentType.split(";")[0]!.trim().toLowerCase();
+  if (type === "application/pdf") return true;
+  if (type.startsWith("image/")) return type !== "image/svg+xml" && !type.includes("svg");
+  return /^(video|audio)\/[a-z0-9.+-]+$/.test(type);
 }
 
 /** A short plain-text answer that is never cached. */

@@ -189,6 +189,11 @@ otherwise) and:
 - passes the stored content type, length, ETag and last-modified through, and
   sets `accept-ranges: bytes`, `x-robots-tag: noindex` and
   `x-content-type-options: nosniff`;
+- sandboxes every response (`content-security-policy: sandbox; default-src
+  'none'`) and shows a file inline only when its type is safe to: images
+  other than SVG, video, audio and PDF. Anything else (HTML, SVG, XML, text,
+  no type) goes out as `content-disposition: attachment`, so a stored file
+  that is really a page can't run script on the media origin;
 - names a download per RFC 6266 (`attachment; filename="…"` in plain ASCII
   plus `filename*=UTF-8''…`), always with the filename the signature binds;
 - caches as `private, max-age=` the link's remaining life, at most an hour,
