@@ -10,7 +10,9 @@
  * - `sniff(bytes)`: what a file is by its bytes, and an image's size.
  *
  * The server side (the fetch guarded against request forgery) is
- * `@marktiderman/genesis-media/server`.
+ * `@marktiderman/genesis-media/server`. Signed links to private media and
+ * ZIP bundles are `@marktiderman/genesis-media/signed` (server and edge
+ * only: the signer's secret never reaches a browser).
  *
  * @packageDocumentation
  */

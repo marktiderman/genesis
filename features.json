@@ -1683,6 +1683,108 @@
       "flags": []
     },
     {
+      "id": "media-signed-links",
+      "name": "Signed media links",
+      "summary": "@marktiderman/genesis-media/signed: createMediaSigner makes short-lived links to private files for a scope (one item's previews, one file of an item, a download with its filename bound in, or a bundle), with key ids for rotation, a versioned format, and a TTL per scope from a minute to 30 days, optionally hour-aligned. createSignedMediaHandler serves them from any storage behind a small head/get interface: HEAD, byte ranges, RFC 6266 downloads, noindex, 403 before storage is read. Server and edge only (ADR 0012).",
+      "category": "Platform",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "service",
+      "keywords": [
+        "signed url",
+        "signed link",
+        "private media",
+        "presigned",
+        "range requests",
+        "r2",
+        "s3",
+        "media"
+      ],
+      "platforms": {
+        "server": "building"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-media/signed"
+      },
+      "requires": [
+        "media-images"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A link signed for one file of an item never opens another file of it, and a download link never serves another filename.",
+        "A bad, expired or other-scope link is answered 403 before storage is read; a missing file is 404; nothing is ever listed.",
+        "A link signed with a retiring key, or in an older format, still verifies until it expires."
+      ],
+      "reviewedAt": "2026-10-29",
+      "links": {
+        "code": [
+          "packages/media/src/signed"
+        ],
+        "docs": [
+          "packages/media/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "media-zip-stream",
+      "name": "ZIP bundles",
+      "summary": "@marktiderman/genesis-media/signed: createZipManifest (a stored list of files, with its own filename and expiry) and createBundleHandler, which streams them as one store-only ZIP, a file at a time with flat memory, ZIP64 past 4 GB, behind a bundle-scoped signed link. Exports, submissions, collections (ADR 0012).",
+      "category": "Platform",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "service",
+      "keywords": [
+        "zip",
+        "bundle",
+        "download all",
+        "zip64",
+        "streaming download",
+        "media"
+      ],
+      "platforms": {
+        "server": "building"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-media/signed"
+      },
+      "requires": [
+        "media-signed-links"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A bundle of mixed sizes downloads as a valid ZIP whose content-length is exact when every size is known.",
+        "A missing file or a changed size fails the download instead of sending an incomplete ZIP.",
+        "An entry name that would unzip outside its folder is refused when the manifest is made."
+      ],
+      "reviewedAt": "2026-10-29",
+      "links": {
+        "code": [
+          "packages/media/src/signed/bundle.ts"
+        ],
+        "docs": [
+          "packages/media/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "sites-landing",
       "name": "One-click landing page",
       "summary": "landingPage(brand, message) builds a whole landing page (nav, hero, features, testimonials, call to action, form embed, footer); starterSite makes a home, about and contact site; onePageSite seeds a site from just a name, logo, message and brand colours and fonts. Copy a template can't know is marked placeholder and blocks publish until it is replaced. The sample app's /sites page shows both through handleSiteRequest.",

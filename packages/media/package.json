@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "sideEffects": false,
-  "description": "Images and files for Genesis apps: one image value (alt or decorative, size, focal point, phone crop, blur placeholder), responsive images (srcset, sizes, loading and priority) through a host's image URL builder, with Supabase Storage transform and pass-through adapters, byte sniffing, and a server-side fetch guarded against request forgery. Part of the Genesis framework.",
+  "description": "Images and files for Genesis apps: one image value (alt or decorative, size, focal point, phone crop, blur placeholder), responsive images (srcset, sizes, loading and priority) through a host's image URL builder, with Supabase Storage transform and pass-through adapters, byte sniffing, a server-side fetch guarded against request forgery, and signed links to private media with a verifier (HEAD, ranges) and streaming ZIP bundles, on fetch and WebCrypto for Node and Workers. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
@@ -12,7 +12,9 @@
     "responsive-images",
     "srcset",
     "media",
-    "ssrf"
+    "ssrf",
+    "signed-urls",
+    "zip"
   ],
   "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/media#readme",
   "bugs": {
@@ -42,6 +44,17 @@
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js",
       "default": "./dist/server.js"
+    },
+    "./signed": {
+      "types": "./dist/signed.d.ts",
+      "workerd": "./dist/signed.js",
+      "worker": "./dist/signed.js",
+      "edge-light": "./dist/signed.js",
+      "node": "./dist/signed.js",
+      "deno": "./dist/signed.js",
+      "browser": null,
+      "import": "./dist/signed.js",
+      "default": "./dist/signed.js"
     }
   },
   "files": [
@@ -70,8 +83,17 @@
           "use": "responsiveImage with the host's image URL builder; fetchGuarded from /server",
           "import": "@marktiderman/genesis-media",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md"
+        },
+        {
+          "need": "a short-lived link to a private file, or many files as one ZIP download",
+          "use": "createMediaSigner and createSignedMediaHandler; createZipManifest and createBundleHandler",
+          "import": "@marktiderman/genesis-media/signed",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md#signed-links-marktidermangenesis-mediasigned-server-and-edge"
         }
       ]
     }
+  },
+  "dependencies": {
+    "client-zip": "^2.5.1"
   }
 }
