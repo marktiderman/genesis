@@ -72,6 +72,7 @@ export {
   type PostsContext,
   type RegisterSectionOptions,
   type RenderContext,
+  type RenderMedia,
   type SectionCategory,
   type SectionDefinition,
   type SectionManifest,

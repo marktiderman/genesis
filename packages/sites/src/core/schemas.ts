@@ -8,6 +8,7 @@
  * reads and writes these documents unchanged. A section's `props` are
  * checked by that section's own schema (see `defineSection`), not here.
  */
+import { MAX_PLACEHOLDER, isSafePlaceholder } from "@marktiderman/genesis-media";
 import { z } from "zod";
 import { FONT_IDS } from "@marktiderman/genesis-design-system/fonts";
 import { MAX_URL_LENGTH, PAGE_PATH, isSafeHref, isSafeImageSrc } from "./urls";
@@ -82,6 +83,8 @@ export const FileRef = z
   .meta({ title: "File", "x-genesis-kind": "file" });
 export type FileRef = z.infer<typeof FileRef>;
 
+const Focal = z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) });
+
 /**
  * An image. `alt` describes it for someone who can't see it; an image that
  * adds nothing (a texture) is `decorative: true` and gets an empty alt. The
@@ -98,7 +101,21 @@ export const Image = z
     width: z.number().int().positive().max(10000).optional(),
     height: z.number().int().positive().max(10000).optional(),
     /** Where the subject is, for cropping: 0–100 from the left and top. */
-    focal: z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) }).optional(),
+    focal: Focal.optional(),
+    /** A crop for phones (narrow screens), shown instead under 640px wide. It shares the image's alt. */
+    phone: z
+      .object({
+        src: z
+          .string()
+          .max(MAX_URL_LENGTH)
+          .refine(isSafeImageSrc, { message: "An image loads from a site path or an https URL." }),
+        width: z.number().int().positive().max(10000).optional(),
+        height: z.number().int().positive().max(10000).optional(),
+        focal: Focal.optional(),
+      })
+      .optional(),
+    /** A tiny blurred preview shown while the image loads: a base64 PNG, JPEG, WebP or GIF `data:` URI. */
+    placeholder: z.string().max(MAX_PLACEHOLDER).refine(isSafePlaceholder, { message: "A placeholder is a small base64 PNG, JPEG, WebP or GIF data: URI." }).optional(),
   })
   .meta({ title: "Image", "x-genesis-kind": "image" });
 export type Image = z.infer<typeof Image>;

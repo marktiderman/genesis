@@ -53,7 +53,8 @@ function images(value: unknown, path: string[] = []): { path: string; image: { s
   const found = typeof record.src === "string" && !("mime" in record) && ("alt" in record || "decorative" in record || /\.(png|jpe?g|webp|avif|gif|svg)(\?|$)/i.test(record.src))
     ? [{ path: path.join("."), image: record as { src: unknown; alt?: unknown; decorative?: unknown } }]
     : [];
-  return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" ? [] : images(v, [...path, k])))];
+  // An image's phone crop shares its alt: it isn't an image of its own.
+  return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" || (found.length && k === "phone") ? [] : images(v, [...path, k])))];
 }
 
 /** Every object in a props tree with a string `src` (an image or a file to download), with its path. */

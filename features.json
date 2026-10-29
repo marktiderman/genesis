@@ -1619,10 +1619,64 @@
       "reviewedAt": "2026-10-25",
       "links": {
         "code": [
-          "packages/sites/src/import"
+          "packages/sites/src/import",
+          "packages/media/src/server"
         ],
         "docs": [
-          "packages/sites/README.md"
+          "packages/sites/README.md",
+          "packages/media/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "media-images",
+      "name": "Responsive images",
+      "summary": "@marktiderman/genesis-media: one image value (alt or decorative, size, focal point, a phone crop, a blur placeholder) and responsiveImage(value, { imageUrl, sizes, widths, priority }), which returns src, srcset, sizes, size, loading, fetchpriority and decoding through a host's image URL builder (supabaseImageUrl for Supabase Storage transforms, or pass-through). It also holds byte sniffing and the fetch guarded against server-side request forgery (/server), moved out of genesis-sites. Sites render every image through it, and only a page's first large image loads at high priority.",
+      "category": "Sites",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "service",
+      "keywords": [
+        "images",
+        "srcset",
+        "responsive images",
+        "image transforms",
+        "focal point",
+        "lazy loading",
+        "media"
+      ],
+      "platforms": {
+        "web": "building",
+        "server": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-media",
+        "server": "@marktiderman/genesis-media/server"
+      },
+      "owner": "mark",
+      "apps": [
+        "web",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "With the default pass-through builder a site's images load from their own URLs, as before.",
+        "With supabaseImageUrl, an image in the project's public storage gets a srcset no wider than the file, and every other image keeps its own URL.",
+        "Only the first large image on a page loads eagerly at high priority; every other image loads lazily."
+      ],
+      "reviewedAt": "2026-10-29",
+      "links": {
+        "code": [
+          "packages/media",
+          "packages/sites/src/sections/shared.tsx"
+        ],
+        "docs": [
+          "packages/media/README.md"
         ]
       },
       "access": "all",

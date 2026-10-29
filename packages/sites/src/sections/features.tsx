@@ -118,7 +118,7 @@ export const featuresSection = defineSection({
                 <span aria-hidden="true" className="font-display text-4xl font-bold leading-none">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                {item.image ? <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 1024px) 33vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
+                {item.image ? <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 1280px) 400px, (min-width: 1024px) 33vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
                 <ItemTitle ctx={ctx} className="text-2xl">
                   {item.title}
                 </ItemTitle>
@@ -149,7 +149,7 @@ export const featuresSection = defineSection({
                   {extras(item)}
                 </div>
                 {item.image ? (
-                  <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-xl object-cover" />
+                  <SiteImage image={item.image} ctx={ctx} large sizes="(min-width: 1280px) 640px, (min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-xl object-cover" />
                 ) : (
                   <div aria-hidden="true" className="hidden aspect-[4/3] w-full rounded-xl bg-muted md:block" />
                 )}
@@ -186,7 +186,7 @@ export const featuresSection = defineSection({
         <List className={cn("mt-12 grid gap-6", COLUMNS[props.columns])}>
           {props.items.map((item, i) => (
             <li key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-6 text-foreground">
-              {item.image ? <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
+              {item.image ? <SiteImage image={item.image} ctx={ctx} sizes="(min-width: 1280px) 400px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
               {props.numbered ? numberBadge(i) : item.image ? null : Icon(item.icon)}
               <ItemTitle ctx={ctx}>{item.title}</ItemTitle>
               <p className="text-muted-foreground">{item.body}</p>

@@ -56,7 +56,7 @@ export const heroSection = defineSection({
     if (variant === "image-bg" && props.image) {
       return (
         <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface="inverse" spacing="lg" className="isolate overflow-hidden">
-          <SiteImage image={{ ...props.image, decorative: true }} ctx={ctx} priority sizes="100vw" className="absolute inset-0 -z-10 h-full w-full object-cover" />
+          <SiteImage image={{ ...props.image, decorative: true }} ctx={ctx} large sizes="100vw" className="absolute inset-0 -z-10 h-full w-full object-cover" />
           {/* A scrim in the inverse band's own colour keeps the text at the band's contrast whatever the image. */}
           <div aria-hidden="true" data-gs-scrim="" className="absolute inset-0 -z-10 bg-foreground/80" />
           {intro("center", "inherit")}
@@ -69,7 +69,7 @@ export const heroSection = defineSection({
           <div className="grid items-center gap-10 md:grid-cols-2 md:gap-12">
             {intro("left")}
             {props.image ? (
-              <SiteImage image={props.image} ctx={ctx} priority sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-xl object-cover" />
+              <SiteImage image={props.image} ctx={ctx} large sizes="(min-width: 1280px) 640px, (min-width: 768px) 50vw, 100vw" className="aspect-[4/3] w-full rounded-xl object-cover" />
             ) : (
               <div aria-hidden="true" className="hidden aspect-[4/3] w-full rounded-xl bg-muted md:block" />
             )}

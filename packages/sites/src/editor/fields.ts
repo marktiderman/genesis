@@ -237,7 +237,7 @@ function imageItemFields(schema: JsonSchema, ctx: FieldContext): Record<string, 
   };
   const required = new Set(schema.required ?? []);
   for (const [key, prop] of Object.entries(schema.properties ?? {})) {
-    if (["src", "alt", "decorative", "width", "height", "focal"].includes(key)) continue;
+    if (["src", "alt", "decorative", "width", "height", "focal", "phone", "placeholder"].includes(key)) continue;
     out[key] = fieldFor(key, prop, required.has(key), ctx);
   }
   return out;
