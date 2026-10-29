@@ -143,7 +143,8 @@ export async function importAssets(store: Pick<SiteStore, "putAsset">, siteId: s
       };
     } catch (err) {
       const reason = err instanceof ImportRefused || err instanceof FetchRefusedError ? err.message : `${(err as Error)?.message ?? String(err)}`;
-      if (err && typeof err === "object" && "address" in err) console.warn(`[genesis-sites] import refused ${url}: it resolves to ${(err as { address: string }).address}.`);
+      const address = err && typeof err === "object" && "address" in err ? (err as { address?: unknown }).address : undefined;
+      if (typeof address === "string") console.warn(`[genesis-sites] import refused ${url}: it resolves to ${address}.`);
       result.failed.push({ url, reason });
     }
   }

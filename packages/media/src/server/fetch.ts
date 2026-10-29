@@ -8,7 +8,7 @@
  */
 import { Agent as HttpAgent, request as httpRequest, type IncomingMessage } from "node:http";
 import { Agent as HttpsAgent, request as httpsRequest } from "node:https";
-import { guardedLookup, urlProblems } from "./guard";
+import { BlockedAddressError, guardedLookup, urlProblems } from "./guard";
 
 /** One HTTP response, unfollowed. */
 export interface FetchedResponse {
@@ -74,9 +74,12 @@ export const guardedTransport: Transport = createGuardedTransport();
  * name resolved to.
  */
 export class FetchRefusedError extends Error {
-  constructor(message: string) {
+  /** When a host name resolved to an address that isn't public: that address, for the server's log only. */
+  readonly address?: string;
+  constructor(message: string, address?: string) {
     super(message);
     this.name = "FetchRefusedError";
+    if (address) this.address = address;
   }
 }
 
@@ -155,7 +158,14 @@ export async function fetchGuarded(start: string, options: GuardedFetchOptions =
   for (let hop = 0; ; hop++) {
     const problems = urlProblems(url, allowedPorts);
     if (problems.length) throw new FetchRefusedError(hop ? `it redirects to ${url.host}: ${problems.join(" ")}` : problems.join(" "));
-    const res = await transport(url, signal);
+    let res: FetchedResponse;
+    try {
+      res = await transport(url, signal);
+    } catch (err) {
+      // The guard refused the address a name resolved to, when the socket connected.
+      if (err instanceof BlockedAddressError) throw new FetchRefusedError(hop ? `it redirects to ${url.host}: ${err.message}` : err.message, err.address);
+      throw err;
+    }
     if (REDIRECTS.has(res.status)) {
       res.cancel();
       const location = res.headers.location;
