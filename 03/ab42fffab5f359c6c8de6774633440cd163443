@@ -1,0 +1,39 @@
+.changeset/workspace-switcher-parts.md
+  s_e2cf1ec4fac133::t_5c3d5defb52d28 10-11,13
+apps/sample/app/data/primitives.json
+  s_e2cf1ec4fac133::t_0c888ee9bd3b71 23553,23556,23591,23640
+apps/sample/stories/WorkspaceSwitcher.stories.tsx
+  s_e2cf1ec4fac133::t_6208c1cd858975 118-124,147-148,157-158,160-161,164
+docs/adr/0004-workspaces.md
+  s_e2cf1ec4fac133::t_09da7539ba4ad0 112-114,116-121
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_e2cf1ec4fac133::t_a79f356ec73550 13,202,414,486,488,494-525,538-589
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_f2749d65575000::t_0d1d6ff7843bf9 28-29,206-209,239,320-325,345-348,368-373,538,540-541,562-564,566,568,587-588,630,632-638,664-677,684,721-723,725,727,747-751,754,904,1003,1020,1054,1064,1135,1138,1142
+packages/ui/src/navigation.tsx
+  s_e2cf1ec4fac133::t_3ae7fa406fbd30 59-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "03ab42fffab5f359c6c8de6774633440cd163443",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f2749d65575000": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "561dabc4-8eef-43a3-b218-d94e2b6476ed",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
