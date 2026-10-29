@@ -203,4 +203,4 @@ export {
   type FeatureRegistryDocument,
   type SyncFeatureRegistryOptions,
 } from "./feature-registry";
-export { accountBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";
+export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";

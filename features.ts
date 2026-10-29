@@ -2702,7 +2702,7 @@ export const features = defineFeatures({
   },
   "product-analytics": {
     name: "Product analytics",
-    summary: "A PostHog sink for observability's typed analytics events as the default sink, with Genesis flags staying the source of truth; usage flows back into the product board.",
+    summary: "An optional analytics vendor sink (PostHog, Amplitude) fed from the app's own product events (product-events, ADR 0010) for funnels, retention and replay; Genesis events and flags stay the source of truth.",
     category: "Platform",
     extends: "observability",
     status: "idea",
@@ -3179,6 +3179,24 @@ export const features = defineFeatures({
     audience: ["developer"],
     visibility: "internal",
     links: { code: ["packages/notifications/src/server/inbound.ts"] },
+  },
+  "product-events": {
+    name: "Product events",
+    summary: "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
+    category: "Data",
+    status: "building",
+    horizon: "now",
+    claimedBy: "mark",
+    kind: "service",
+    keywords: ["analytics", "events", "usage", "telemetry", "activation", "track"],
+    owner: "mark",
+    apps: ["web", "native", "server"],
+    audience: ["developer", "admin"],
+    visibility: "internal",
+    links: {
+      code: ["packages/supabase/migrations/0018_genesis_events.sql", "packages/supabase/src/events.ts"],
+      docs: ["docs/adr/0010-own-product-events.md"],
+    },
   },
 });
 
