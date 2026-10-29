@@ -159,3 +159,23 @@ export const webHandoffBlock = defineBlock({
   },
 });
 
+
+/**
+ * The product events block: the app's own events table and its tracking functions (ADR 0010).
+ * The client is `createEventTracker` from `/events`; on native, `eventsSink` plugs it into the
+ * observability sinks.
+ *
+ * @stability Beta
+ */
+export const eventsBlock = defineBlock({
+  id: "events",
+  platforms: ["web", "native"],
+  contributes: {
+    migrations: [{ package: PACKAGE, file: "migrations/0018_genesis_events.sql", test: "migrations/tests/0018_genesis_events.test.sql" }],
+    privacy: {
+      notes: [
+        "Stores product events: the login, the person record and tenant, the feature, an event name, small properties (labels and counts, never typed content or personal data), the flags that were on, the platform and the time. Only the service role reads them; delete old ones with genesis_prune_events (default 400 days).",
+      ],
+    },
+  },
+});

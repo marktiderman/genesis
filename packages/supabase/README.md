@@ -857,6 +857,31 @@ The page must send `Referrer-Policy: no-referrer`, `Cache-Control: no-store` and
 - **No email, no handoff.** Supabase's link sign-in is by email. A phone-only account gets a
   409 `no_email` with a `fallbackUrl` (the page, signed out), and `openOnWeb` opens that instead.
 
+## Product events (the events block)
+
+The app's own product events, in its own Postgres (ADR 0010): who used which feature, in which
+tenant, when, with the flags that were on. `genesis add events` copies
+`migrations/0018_genesis_events.sql` and its pgTAP test.
+
+```ts
+import { createEventTracker } from "@marktiderman/genesis-supabase/events";
+
+const events = createEventTracker({ client: supabase, platform: "web", appVersion, flags: () => currentFlags() });
+events.track("task.completed", { feature: "tasks", tenantId, properties: { count: 3 } });
+```
+
+- A signed-in person's events go through `genesis_track_events` (at most 100 per call). One that
+  names a tenant the person has no record in is dropped, and the person record is filled in from
+  the tenant, through the `private.genesis_viewer_people` hook (0016).
+- Server code tracks with a service-role client and `server: true` (`genesis_track_server_events`).
+- On native, `eventsSink(tracker, { feature, tenantId })` is an observability sink beside Sentry.
+- Properties are labels and counts: never typed content or personal data.
+- Only the service role reads the table. `genesis_feature_usage(tenant, since)` gives events and
+  people per feature for the product hub; `genesis_prune_events(older_than)` (default 400 days) is
+  for a schedule.
+- A vendor (PostHog, Amplitude) is a later sink fed from these events; Genesis flags stay the
+  source of truth.
+
 ## Testing your schema's data contract (genesis_testing)
 
 `sql/testing/genesis_testing.sql` is a pgTAP kit that checks your own tables and functions keep the
