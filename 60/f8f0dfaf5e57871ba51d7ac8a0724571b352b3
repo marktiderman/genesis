@@ -1,0 +1,23 @@
+.changeset/media-onerror-throws.md
+  s_ba8cb54dbea75a::t_ef7218e6a969aa 1-5
+packages/media/src/signed/handler.test.ts
+  s_ba8cb54dbea75a::t_30a149185a8841 219-240
+packages/media/src/signed/handler.ts
+  s_ba8cb54dbea75a::t_e57ee9a46d207f 10-25,67-68,146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "60f8f0dfaf5e57871ba51d7ac8a0724571b352b3",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
