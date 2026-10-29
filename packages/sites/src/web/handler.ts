@@ -24,10 +24,10 @@ import { getSection, type PostsContext } from "../core/registry";
 import { ReleaseSnapshot, parseSnapshot, type Release, type ReleasePage } from "../core/schemas";
 import { matchRedirect, postDescription, robotsTxt, rssXml, sitemapXml } from "../core/seo";
 import { formCacheTag, siteCacheTag, type SiteStore } from "../core/store";
-import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo, type SiteTheme } from "../core/theme";
+import { brandDisplayName, siteTheme, type BrandSource, type SiteTheme } from "../core/theme";
 import { DEFAULT_RESERVED_PATHS, isReservedPath, normalizeRequestPath, type ReservedPaths } from "../core/urls";
-import { ASSETS } from "./assets.generated";
-import { SiteRenderer, collectFormSlugs, googleFontHref } from "./document";
+import { ASSETS, FONT_FILES } from "./assets.generated";
+import { SiteRenderer, collectFormSlugs, pageStyleText } from "./document";
 
 /** Where this package serves its own files, under the site's base path. Reserved for pages. */
 export const ASSETS_PREFIX = "/_gs";
@@ -38,7 +38,7 @@ export interface SiteRequestOptions {
    * `getLivePost`); preview needs the draft reads too (`listPosts` and
    * `getPost` for posts).
    */
-  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft" | "listLivePosts" | "getLivePost" | "listPosts" | "getPost">>;
+  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft" | "listLivePosts" | "getLivePost" | "listPosts" | "getPost" | "assetOrigin">>;
   brand: BrandSource;
   /** The site this request is for, resolved by the host from the Host header (or a path). */
   siteId: string;
@@ -73,8 +73,12 @@ export interface SiteRequestOptions {
   onPublishedTags?: (tags: string[], info: { siteId: string; releaseId: string | null; path: string; status: number }) => void;
   /** An unknown path: `fall-through` (default) returns null; `not-found` serves the site's 404 page. */
   unknownPath?: "fall-through" | "not-found";
-  /** Font stylesheets: Google Fonts by default, `false` for none, or a function returning a URL per font. */
-  fonts?: false | ((font: FontInfo) => string | null);
+  /**
+   * The site's font files, served by this package under `/_gs/` (default
+   * true). `false` loads none: a visitor sees an installed font or the
+   * stack's fallback. Fonts never load from a third party.
+   */
+  fonts?: boolean;
   /** A Content-Security-Policy header (default true). */
   csp?: boolean;
 }
@@ -102,7 +106,17 @@ function originOf(url: string): string | null {
   }
 }
 
-async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, fonts: boolean, sectionFrames: readonly string[] = []): Promise<string> {
+/**
+ * Where a page's images may load from. A site on `images: "own"` loads only
+ * from itself and the store's asset origin; any other site from any https host.
+ */
+function imageSources(snapshot: ReleaseSnapshot, assetOrigin: string | undefined): string {
+  if (snapshot.site.images !== "own") return "'self' https: data:";
+  const own = assetOrigin ? originOf(assetOrigin) : null;
+  return own ? `'self' data: ${own}` : "'self' data:";
+}
+
+async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, imgSrc: string, sectionFrames: readonly string[] = []): Promise<string> {
   const connect = new Set(["'self'"]);
   // A light form posts natively when script is off, so its endpoint is a form target too.
   const formTargets = new Set(["'self'"]);
@@ -127,11 +141,11 @@ async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<strin
   return [
     "default-src 'self'",
     "script-src 'self'",
-    `style-src 'self' 'sha256-${await sha256Base64(styleText)}'${fonts ? " https://fonts.googleapis.com" : ""}`,
+    `style-src 'self' 'sha256-${await sha256Base64(styleText)}'`,
     // Inline style attributes: an image's focal point, a frame's height, the form's own.
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' https: data:",
-    `font-src 'self'${fonts ? " https://fonts.gstatic.com" : ""}`,
+    `img-src ${imgSrc}`,
+    "font-src 'self'",
     `connect-src ${[...connect].join(" ")}`,
     `frame-src ${frames.size ? [...frames].join(" ") : "'none'"}`,
     `form-action ${[...formTargets].join(" ")}`,
@@ -143,6 +157,26 @@ async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<strin
 
 function textResponse(body: string, status: number, type: string, headers: Record<string, string>, head: boolean): Response {
   return new Response(head ? null : body, { status, headers: { "content-type": type, "x-content-type-options": "nosniff", ...headers } });
+}
+
+const FONT_NAMES = new Set(Object.values(FONT_FILES));
+const fontCache = new Map<string, Uint8Array<ArrayBuffer>>();
+
+/** A font file's bytes. The bodies (about 1 MB of base64) load on the first font request, never for a page. */
+async function fontBody(name: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const cached = fontCache.get(name);
+  if (cached) return cached;
+  const { FONT_BODIES } = await import("./fonts.generated");
+  const base64 = FONT_BODIES[name];
+  if (!base64) {
+    console.error(`[genesis-sites] the font file ${name} is listed but has no body; rebuild the assets.`);
+    return null;
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  fontCache.set(name, bytes);
+  return bytes;
 }
 
 /** The drafts as a snapshot, for preview: migrated, unchecked. */
@@ -269,6 +303,10 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   // This package's own files: content-hashed, immutable.
   if (rawPath.startsWith(`${ASSETS_PREFIX}/`)) {
     const name = rawPath.slice(ASSETS_PREFIX.length + 1);
+    if (FONT_NAMES.has(name)) {
+      const body = await fontBody(name);
+      if (body) return new Response(head ? null : body, { status: 200, headers: { "content-type": "font/woff2", "x-content-type-options": "nosniff", "cache-control": ASSET_CACHE, "access-control-allow-origin": "*" } });
+    }
     const asset = Object.values(ASSETS).find((a) => a.name === name);
     if (!asset) return textResponse("Not found\n", 404, "text/plain; charset=utf-8", { "cache-control": "no-store" }, head);
     return textResponse(asset.body, 200, asset.type, { "cache-control": ASSET_CACHE, "access-control-allow-origin": "*" }, head);
@@ -414,7 +452,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   }
   const logo = brand && "logo" in brand && brand.logo ? { src: brand.logo.src, alt: brand.logo.alt?.trim() || brandDisplayName(brand) } : undefined;
   const assetUrl = (name: string) => `${basePath}${ASSETS_PREFIX}/${name}`;
-  const fontHref = options.fonts === false ? false : (options.fonts ?? googleFontHref);
+  const fontUrl = options.fonts === false ? undefined : (key: string) => (FONT_FILES[key] ? assetUrl(FONT_FILES[key]) : null);
 
   const element = createElement(SiteRenderer, {
     snapshot,
@@ -425,8 +463,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     mode,
     ...(logo ? { logo } : {}),
     forms,
-    assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name) },
-    fontHref,
+    assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name), ...(fontUrl ? { font: fontUrl } : {}) },
     ...(posts ? { posts } : {}),
   });
   let failed: unknown = null;
@@ -446,7 +483,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     "referrer-policy": "strict-origin-when-cross-origin",
     ...cacheHeaders(status, page && !brandChanged ? LIVE_CACHE : MISS_CACHE),
   };
-  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(themeCss(theme), forms, fontHref !== false && theme.fonts.some((f) => f.google), sectionFrames);
+  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(pageStyleText(theme, fontUrl), forms, imageSources(snapshot, options.store.assetOrigin), sectionFrames);
   return new Response(head ? null : stream, { status, headers });
 }
 
