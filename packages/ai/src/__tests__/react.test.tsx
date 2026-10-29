@@ -48,6 +48,23 @@ describe("useAiStream", () => {
     expect(result.current.pending).toBe(false);
   });
 
+  it("reads run events (AG-UI names) the same way", async () => {
+    const result_ = { ok: true, output: { text: "Rough night." }, model: "m", taskVersion: 1, usageId: "u", labelled: true };
+    const fetch = async () =>
+      events(
+        { type: "RUN_STARTED", threadId: "r", runId: "r" },
+        { type: "TEXT_MESSAGE_START", messageId: "m", role: "assistant" },
+        { type: "TEXT_MESSAGE_CONTENT", messageId: "m", delta: "Rough " },
+        { type: "TEXT_MESSAGE_CONTENT", messageId: "m", delta: "night." },
+        { type: "TEXT_MESSAGE_END", messageId: "m" },
+        { type: "RUN_FINISHED", threadId: "r", runId: "r", result: result_ },
+      );
+    const { result } = renderHook(() => useAiStream("notes.recap", { fetch: fetch as typeof globalThis.fetch }));
+    await act(() => result.current.run({ noteId: "n1" }));
+    expect(result.current.text).toBe("Rough night.");
+    expect(result.current.result).toMatchObject({ ok: true });
+  });
+
   it("drops partial text when the stream ends in a refusal, and passes a stop before the model through", async () => {
     const refused = async () => events({ type: "text", text: "Partial" }, { type: "done", result: { ok: false, outcome: "refused", message: "Declined." } });
     const { result } = renderHook(() => useAiStream("notes.recap", { fetch: refused as typeof globalThis.fetch }));
