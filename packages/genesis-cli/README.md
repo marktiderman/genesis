@@ -754,23 +754,6 @@ them. A `### rule-id` heading starts a rule, the `- key: value` lines under it s
 and `exclude` are comma-separated), and a `#`/`##` heading ends it:
 
 ```md
-## genesis upstream
-
-What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md`, one table:
-
-| id | kind | status | feature | package | local | need |
-| --- | --- | --- | --- | --- | --- | --- |
-| kanban-swimlanes | extension | candidate | data-views | @marktiderman/genesis-ui | src/components/lanes.tsx | Swimlanes on KanbanBoard |
-
-`kind` is `gap` (nothing in Genesis), `extension` (a part with no prop, variant or slot for it)
-or `invention` (the app built it). `status` is `candidate`, `proposed`, `promoted` or `declined`.
-
-- `genesis upstream check` validates it, and warns when a promoted entry's local code is still
-  there (delete your copy and use the Genesis one).
-- `genesis upstream export <id>` prints the link to Genesis's gap issue form, filled in from the
-  entry (never the local path). It sends nothing; check the text names no app or customer, file
-  it, and set the entry to `proposed`.
-
 ## Layout
 
 ### pages-use-layouts
@@ -842,3 +825,20 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+## genesis upstream
+
+What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md`, one table:
+
+| id | kind | status | feature | package | local | need |
+| --- | --- | --- | --- | --- | --- | --- |
+| kanban-swimlanes | extension | candidate | data-views | @marktiderman/genesis-ui | src/components/lanes.tsx | Swimlanes on KanbanBoard |
+
+`kind` is `gap` (nothing in Genesis), `extension` (a part with no prop, variant or slot for it)
+or `invention` (the app built it). `status` is `candidate`, `proposed`, `promoted` or `declined`.
+
+- `genesis upstream check` validates it, and warns when a promoted entry's local code is still
+  there (delete your copy and use the Genesis one).
+- `genesis upstream export <id>` prints the link to Genesis's gap issue form, filled in from the
+  entry (never the local path). It sends nothing; check the text names no app or customer, file
+  it, and set the entry to `proposed`.
+

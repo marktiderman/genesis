@@ -24,6 +24,29 @@ export const REGISTER_PATH = "docs/genesis-upstream.md";
 const COLUMNS = ["id", "kind", "status", "feature", "package", "local", "need"] as const;
 const ISSUE_FORM = "https://github.com/marktiderman/genesis/issues/new";
 
+/** A table row's cells: split on pipes outside inline code and not escaped (`\\|`). */
+export function cells(line: string): string[] {
+  const out: string[] = [];
+  let cell = "";
+  let code = false;
+  const text = line.trim().replace(/^\|/, "").replace(/\|$/, "");
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+    if (ch === "\\" && text[i + 1] === "|") {
+      cell += "|";
+      i++;
+    } else if (ch === "`") {
+      code = !code;
+      cell += ch;
+    } else if (ch === "|" && !code) {
+      out.push(cell);
+      cell = "";
+    } else cell += ch;
+  }
+  out.push(cell);
+  return out.map((c) => c.trim()).map((c) => (/^`[^`]*`$/.test(c) ? c.slice(1, -1) : c));
+}
+
 export interface UpstreamEntry {
   id: string;
   kind: (typeof UPSTREAM_KINDS)[number];
@@ -38,12 +61,16 @@ export interface UpstreamEntry {
 export function readRegister(markdown: string): { entries: UpstreamEntry[]; problems: string[] } {
   const problems: string[] = [];
   const entries: UpstreamEntry[] = [];
-  const rows = markdown.split("\n").filter((l) => l.trim().startsWith("|"));
-  const cells = (l: string) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim().replace(/^`|`$/g, ""));
-  if (!rows.length) return { entries, problems: ["no table: add one with the columns " + COLUMNS.join(", ")] };
+  const lines = markdown.split("\n");
+  const isRow = (l: string) => l.trim().startsWith("|");
+  // The register is the first table whose header has every column; it ends at the first line that isn't a row.
+  const start = lines.findIndex((l) => isRow(l) && COLUMNS.every((c) => cells(l).map((h) => h.toLowerCase()).includes(c)));
+  if (start < 0) {
+    return { entries, problems: [lines.some(isRow) ? `no table has the columns ${COLUMNS.join(", ")}` : `no table: add one with the columns ${COLUMNS.join(", ")}`] };
+  }
+  const after = lines.slice(start + 1).findIndex((l) => !isRow(l));
+  const rows = lines.slice(start, after < 0 ? undefined : start + 1 + after);
   const header = cells(rows[0]!).map((h) => h.toLowerCase());
-  const missing = COLUMNS.filter((c) => !header.includes(c));
-  if (missing.length) return { entries, problems: [`the table needs the columns ${missing.join(", ")}`] };
   const at = (row: string[], c: (typeof COLUMNS)[number]) => row[header.indexOf(c)] ?? "";
   const ids = new Set<string>();
   for (const line of rows.slice(1)) {
@@ -59,7 +86,11 @@ export function readRegister(markdown: string): { entries: UpstreamEntry[]; prob
     if (!(UPSTREAM_KINDS as readonly string[]).includes(kind)) problems.push(`${where}: kind must be ${UPSTREAM_KINDS.join(", ")}`);
     if (!(UPSTREAM_STATUSES as readonly string[]).includes(status)) problems.push(`${where}: status must be ${UPSTREAM_STATUSES.join(", ")}`);
     const need = at(row, "need");
-    if (!need) problems.push(`${where}: say the need in one line`);
+    if (!need || need === "-") problems.push(`${where}: say the need in one line`);
+    const local = at(row, "local");
+    if (local && local !== "-" && (path.isAbsolute(local) || /^[A-Za-z]:[\\/]/.test(local) || local.split(/[\\/]/).includes(".."))) {
+      problems.push(`${where}: local must be a path inside the app, relative to its root`);
+    }
     const opt = (c: (typeof COLUMNS)[number]) => (at(row, c) && at(row, c) !== "-" ? at(row, c) : undefined);
     entries.push({ id, kind: kind as UpstreamEntry["kind"], status: status as UpstreamEntry["status"], need, ...(opt("feature") ? { feature: opt("feature") } : {}), ...(opt("package") ? { package: opt("package") } : {}), ...(opt("local") ? { local: opt("local") } : {}) });
   }
@@ -67,9 +98,9 @@ export function readRegister(markdown: string): { entries: UpstreamEntry[]; prob
 }
 
 /** `genesis upstream check`: the register's problems, with a promoted entry whose local copy remains. */
-export function checkUpstream(root: string): { entries: UpstreamEntry[]; problems: string[]; warnings: string[] } {
+export function checkUpstream(root: string): { entries: UpstreamEntry[]; problems: string[]; warnings: string[]; missing?: true } {
   const file = path.join(root, REGISTER_PATH);
-  if (!existsSync(file)) return { entries: [], problems: [], warnings: [`no ${REGISTER_PATH}: nothing to check (add it when the app first needs something Genesis lacks)`] };
+  if (!existsSync(file)) return { entries: [], problems: [], warnings: [`no ${REGISTER_PATH}: nothing to check (add it when the app first needs something Genesis lacks)`], missing: true };
   const { entries, problems } = readRegister(readFileSync(file, "utf8"));
   const warnings: string[] = [];
   for (const e of entries) {
@@ -85,7 +116,9 @@ export function checkUpstream(root: string): { entries: UpstreamEntry[]; problem
 /** `genesis upstream export <id>`: the gap form's link, filled in from the entry. */
 export function exportIssueUrl(entry: UpstreamEntry): string {
   const kindOption = { gap: "gap (Genesis has nothing for it)", extension: "extension (a Genesis part is close but has no prop, variant or slot for it)", invention: "invention (the app built it; it may belong in Genesis)" }[entry.kind];
-  const params = new URLSearchParams({ template: "gap.yml", title: `[Gap] ${entry.need}`, kind: kindOption, need: entry.need, register: entry.id });
+  // The kind goes in the title too: GitHub fills text fields from the link, not always dropdowns.
+  const title = `[Gap: ${entry.kind}] ${entry.need}`;
+  const params = new URLSearchParams({ template: "gap.yml", title: title.length > 120 ? `${title.slice(0, 117)}…` : title, kind: kindOption, need: entry.need, register: entry.id });
   if (entry.feature) params.set("feature", entry.feature);
   if (entry.package) params.set("package", entry.package);
   return `${ISSUE_FORM}?${params.toString()}`;

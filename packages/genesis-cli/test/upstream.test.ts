@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkUpstream, exportIssueUrl, readRegister } from "../src/upstream";
+import { cells, checkUpstream, exportIssueUrl, readRegister } from "../src/upstream";
 
 const table = (...rows: string[]) => ["# Genesis upstream", "", "| id | kind | status | feature | package | local | need |", "| --- | --- | --- | --- | --- | --- | --- |", ...rows].join("\n");
 
@@ -23,6 +23,19 @@ describe("genesis upstream", () => {
     expect(readRegister("no table").problems[0]).toMatch(/no table/);
   });
 
+  it("finds the register among other tables and keeps escaped and code pipes in a cell", () => {
+    const md = ["| status | means |", "| --- | --- |", "| candidate | not filed |", "", table("| pipes | gap | candidate | | | - | Rows \\| columns in `a|b` |"), "", "| other | table |"].join("\n");
+    const { entries, problems } = readRegister(md);
+    expect(problems).toEqual([]);
+    expect(entries.map((e) => e.need)).toEqual(["Rows | columns in `a|b`"]);
+    expect(cells("| `x` | a \\| b |")).toEqual(["x", "a | b"]);
+    expect(readRegister(table("| abs | gap | candidate | | | /etc/x | Need |", "| up | gap | candidate | | | ../x | - |")).problems).toEqual([
+      "abs: local must be a path inside the app, relative to its root",
+      "up: say the need in one line",
+      "up: local must be a path inside the app, relative to its root",
+    ]);
+  });
+
   it("checks local paths, and tells a promoted entry to delete its copy", () => {
     const root = mkdtempSync(path.join(tmpdir(), "genesis-upstream-"));
     mkdirSync(path.join(root, "docs"));
@@ -38,7 +51,7 @@ describe("genesis upstream", () => {
   it("builds the gap form link without the app's local paths", () => {
     const url = new URL(exportIssueUrl({ id: "lanes", kind: "extension", status: "candidate", package: "@marktiderman/genesis-ui", local: "src/lanes.tsx", need: "Swimlanes on KanbanBoard" }));
     expect(url.searchParams.get("template")).toBe("gap.yml");
-    expect(url.searchParams.get("title")).toBe("[Gap] Swimlanes on KanbanBoard");
+    expect(url.searchParams.get("title")).toBe("[Gap: extension] Swimlanes on KanbanBoard");
     expect(url.searchParams.get("register")).toBe("lanes");
     expect(url.toString()).not.toContain("lanes.tsx");
   });

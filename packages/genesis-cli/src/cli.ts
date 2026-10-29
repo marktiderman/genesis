@@ -380,7 +380,7 @@ upstream
     for (const w of result.warnings) console.warn(`! ${w}`);
     for (const p of result.problems) console.error(`✗ ${p}`);
     if (result.problems.length) process.exitCode = 1;
-    else if (result.entries.length) console.log(`✔ ${result.entries.length} register entr${result.entries.length === 1 ? "y" : "ies"} check out.`);
+    else if (!result.missing) console.log(`✔ ${result.entries.length} register entr${result.entries.length === 1 ? "y" : "ies"} check out.`);
   });
 
 upstream
@@ -390,9 +390,12 @@ upstream
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .action(async (id: string, opts: { dir: string }) => {
     const { checkUpstream, exportIssueUrl } = await import("./upstream.js");
-    const { entries } = checkUpstream(path.resolve(opts.dir));
-    const entry = entries.find((e) => e.id === id);
+    const register = checkUpstream(path.resolve(opts.dir));
+    if (register.missing) return program.error("There is no docs/genesis-upstream.md here; add the register first (see genesis upstream check).");
+    const entry = register.entries.find((e) => e.id === id);
     if (!entry) return program.error(`No register entry "${id}" in docs/genesis-upstream.md.`);
+    const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
+    if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
     console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);
   });
 
