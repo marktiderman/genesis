@@ -82,7 +82,7 @@
   ],
   "scripts": {
     "assets": "node scripts/build-assets.mjs",
-    "build": "node scripts/build-assets.mjs && tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "node scripts/build-assets.mjs && tsup && node scripts/drop-fonts-sourcemap.mjs && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist src/web/assets.generated.ts src/web/fonts.generated.ts",
     "typecheck": "node scripts/build-assets.mjs --if-missing && tsc --noEmit",
     "test": "node scripts/build-assets.mjs --if-missing && vitest run"
