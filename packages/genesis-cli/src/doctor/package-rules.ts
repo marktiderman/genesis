@@ -530,7 +530,7 @@ export function unknownPackageRuleSettings(config: DoctorContext["config"], pack
       level: "warn",
       file: "genesis config",
       subject: id,
-      message: `packageRules names ${id}, which no installed package declares; check the id (genesis catalogives lists them) or remove it`,
+      message: `packageRules names ${id}, which no installed package declares; check the id (genesis catalog lists them) or remove it`,
     }));
 }
 

@@ -166,7 +166,7 @@ describe("package rules in the doctor", () => {
     expect(message).toContain("use <WidgetView> (@marktiderman/genesis-widgets)");
     expect(message).toContain("https://example.com/widgets");
     expect(result.primitives).toEqual({ rules: 1, packages: 1 });
-    expect(formatReport(result)).toContain("Primitives: 1 rules from 1 packages; see genesis primitives");
+    expect(formatReport(result)).toContain("Primitives: 1 rules from 1 packages; see genesis catalog");
   });
 
   it("leaves a file that renders the primitive alone, and files outside the rule's globs", async () => {
