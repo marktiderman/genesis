@@ -128,3 +128,16 @@ describe("readPackageMeta", () => {
     ]);
   });
 });
+
+describe("the deprecated feature layer", () => {
+  it("finds an element by either name", async () => {
+    const { defineFeatures, findFeatures } = await import("../model");
+    const features = defineFeatures({
+      button: { name: "Button", summary: "A button.", status: "live", owner: "x", apps: ["web"], audience: ["developer"], layer: "primitive", acceptance: ["It clicks."] },
+      card: { name: "Card", summary: "A card.", status: "live", owner: "x", apps: ["web"], audience: ["developer"], layer: "element", acceptance: ["It holds."] },
+    });
+    const ids = (layer: "element" | "primitive") => findFeatures(features, "", undefined, { layer }).map((r) => r.id).sort();
+    expect(ids("element")).toEqual(["button", "card"]);
+    expect(ids("primitive")).toEqual(["button", "card"]);
+  });
+});

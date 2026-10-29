@@ -3,7 +3,7 @@
 "@marktiderman/genesis-sites": minor
 "@marktiderman/genesis-support": minor
 "@marktiderman/genesis-product": minor
-"@marktiderman/genesis-cli": patch
+"@marktiderman/genesis-cli": minor
 "@marktiderman/genesis-ai": patch
 "@marktiderman/genesis-chat": patch
 "@marktiderman/genesis-collab": patch

@@ -464,7 +464,8 @@ export function toRecords(features: Features, flags?: Flags): FeatureRecord[] {
  */
 export interface FindOptions {
   platform?: FeaturePlatform;
-  layer?: FeatureLayer;
+  /** `"primitive"` (deprecated) is read as `"element"`. */
+  layer?: FeatureLayer | DeprecatedFeatureLayer;
   status?: FeatureStatus;
 }
 
@@ -485,7 +486,7 @@ export function findFeatures(features: Features, term: string, flags?: Flags, op
   if (!needle && !filtered) return [];
   const keep = (r: FeatureRecord) =>
     (!options.platform || statusOn(r, options.platform) !== undefined) &&
-    (!options.layer || featureLayer(r.layer) === options.layer) &&
+    (!options.layer || featureLayer(r.layer) === featureLayer(options.layer)) &&
     (!options.status || r.status === options.status);
   const score = (r: FeatureRecord) => {
     if (!needle) return 0;
