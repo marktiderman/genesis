@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
+    "check:adr-required": "node scripts/check-adr-required.mjs",
     "check:error-reporting": "node scripts/check-error-reporting.mjs",
     "check:glossary": "node scripts/check-glossary.mjs",
     "check:forbidden-imports": "node scripts/check-forbidden-imports.mjs",

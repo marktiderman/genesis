@@ -117,6 +117,16 @@ jobs:
       - name: Glossary (warn mode)
         run: pnpm check:glossary
 
+      # A pull request that adds a package links an ADR (docs/adr/TEMPLATE.md).
+      - name: ADR for new packages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          node scripts/check-adr-required.mjs --base "origin/$BASE_REF"
+
       # The rules of engagement a script can check (docs/agents/RULES.md): a new package starts
       # at 0.1.0 with patch changesets; a workflow on PRs into main also runs on the batches.
       - name: Agent rules
