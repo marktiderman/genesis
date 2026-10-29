@@ -3,12 +3,16 @@
  * surface has a stable URL.
  */
 
+import { STORYBOOK_URL } from "./storybook";
+
 export interface PortfolioSection {
   id: string;
   title: string;
   href: string;
   description: string;
   status: "stable" | "beta" | "planned";
+  /** Served outside the app (a full page load, not a client-side route). */
+  external?: boolean;
 }
 
 export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
@@ -47,7 +51,8 @@ export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
   {
     id: "storybook",
     title: "Storybook",
-    href: "/storybook/",
+    href: STORYBOOK_URL,
+    external: true,
     description:
       "Per-component stories with controls. Each story renders a deterministic state for Chromatic visual regression.",
     status: "stable",
