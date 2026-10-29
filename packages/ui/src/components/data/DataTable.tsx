@@ -1431,7 +1431,7 @@ export function DataTable<T>({
                 value={String(currentPageSize)}
                 onValueChange={(v) => setCurrentPageSize(Number(v))}
               >
-                <SelectTrigger className="h-7 w-16 text-xs">
+                <SelectTrigger className="h-7 w-16 text-xs" aria-label={m.view.pageSize}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover z-50">
@@ -1449,6 +1449,7 @@ export function DataTable<T>({
                 size="icon"
                 className="h-7 w-7"
                 disabled={currentPage === 0}
+                aria-label={m.page.previous}
                 onClick={() => setCurrentPage((p) => p - 1)}
               >
                 <ChevronLeft className="h-3.5 w-3.5" />
@@ -1461,6 +1462,7 @@ export function DataTable<T>({
                 size="icon"
                 className="h-7 w-7"
                 disabled={currentPage >= totalPages - 1}
+                aria-label={m.page.next}
                 onClick={() => setCurrentPage((p) => p + 1)}
               >
                 <ChevronRight className="h-3.5 w-3.5" />
