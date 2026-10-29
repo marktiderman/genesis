@@ -9,7 +9,7 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-const uiNative = path.resolve(__dirname, "../ui-native");
+const uiNative = path.resolve(import.meta.dirname, "../ui-native");
 
 export default defineConfig({
   test: {

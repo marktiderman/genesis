@@ -23,6 +23,34 @@ which commit shipped.
 If a publish fails transiently, re-run it from Actions → Release →
 **Run workflow** on `main` (it publishes any version not yet on npm).
 
+The tooling is Changesets CLI v3 with `changesets/action` v2. The action writes the version PR's
+commit, the package tags and their GitHub releases through the GitHub API with the job's
+`GITHUB_TOKEN`; it learns what was published from the file `changeset publish` writes to
+`CHANGESETS_OUTPUT`, so the publish script stays `pnpm changeset publish`. Two v3 changes to
+know when running it by hand: `changeset version` exits 1 when there are no changesets, and
+`changeset tag` is now `changeset git-tag`.
+
+### Tags are created through the API, never pushed
+
+Release never runs `git push`. A push with the workflow's `GITHUB_TOKEN` is refused when the ref
+it creates brings in commits that change a file under `.github/workflows/` ("refusing to allow
+a GitHub App to create or update workflow … without `workflows` permission"), and that token
+can't be given the `workflows` permission. A `release/*` tag on a `main` commit hit this on
+2026-10-29. So every tag (the package tags of the "Publish versions already on main" step, and
+the `release/*` tag) is created with `scripts/create-tag-ref.sh`, a `POST
+repos/{owner}/{repo}/git/refs`, which creates the ref without pushing commits and needs only
+`contents: write`. It is idempotent: a tag already at that commit counts as done, so re-runs are
+safe. The checkouts keep no git credentials (`persist-credentials: false`).
+
+If GitHub ever refuses the API call with the same `workflows` message, the script prints it and
+the job fails. Fix it without a code change: create a fine-grained personal access token for
+`marktiderman/genesis` only, with **Contents: read and write** and **Workflows: read and write**,
+and save it as the repository secret `RELEASE_TAG_TOKEN`. Release uses it for the tags it makes
+itself (`scripts/create-tag-ref.sh`: the `release/*` tag and "Publish versions already on main"),
+and `GITHUB_TOKEN` when it isn't set. The package tags and GitHub releases of a normal publish are
+made by changesets/action with `GITHUB_TOKEN`; if those are refused, tag them by hand (below). Then use **Re-run failed jobs**. The secret is not
+set today.
+
 ## Release notes
 
 Release notes are for people, not developers: what reached beta or live in `features.ts`, written
@@ -52,7 +80,7 @@ reports nothing published. To finish by hand, from a clone with every tag:
 ```bash
 sha=<the publish commit>                                                   # the version packages merge
 prev=$(git describe --tags --match 'release/*' --abbrev=0 "$sha^")        # first release ever: the version packages merge before it
-git tag release/2026-10-26 "$sha" && git push origin release/2026-10-26
+GITHUB_REPOSITORY=marktiderman/genesis scripts/create-tag-ref.sh release/2026-10-26 "$sha"   # or: git tag … && git push origin …
 pnpm product release --from "$prev" --to "$sha" --name 2026-10-26 > notes.md   # then: gh release create release/2026-10-26 --verify-tag --notes-file notes.md
 pnpm product release --from "$prev" --to "$sha" --name 2026-10-26 --notify     # lists the issues; add --yes to close them (GITHUB_TOKEN)
 ```

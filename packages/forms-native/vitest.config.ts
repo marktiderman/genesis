@@ -8,7 +8,7 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-const uiNative = path.resolve(__dirname, "../ui-native");
+const uiNative = path.resolve(import.meta.dirname, "../ui-native");
 
 export default defineConfig({
   test: {
@@ -21,7 +21,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "react-native": path.resolve(__dirname, "test-utils/rn-mock.tsx"),
+      "react-native": path.resolve(import.meta.dirname, "test-utils/rn-mock.tsx"),
       "react-native-safe-area-context": path.join(uiNative, "test-utils/safe-area-mock.tsx"),
       nativewind: path.join(uiNative, "test-utils/nativewind-mock.ts"),
       "@marktiderman/genesis-ui-native/hooks": path.join(uiNative, "src/hooks/index.ts"),
