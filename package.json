@@ -5,7 +5,7 @@
   "description": "Genesis — a shadcn-based, brand-agnostic design system and data-provider layer for building React apps fast.",
   "packageManager": "pnpm@11.26.0",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.22.0"
   },
   "scripts": {
     "build:packages": "pnpm -r --filter \"./packages/*\" build",
