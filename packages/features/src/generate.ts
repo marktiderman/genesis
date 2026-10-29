@@ -227,7 +227,7 @@ description: Find, add, change and retire this repo's features in ${source}, and
    - \`visibility\` (internal, customer, public, client:<name>) and \`access\` ("all" or { plan }).
      Paid access is \`access\`, never a flag. The id is the billing entitlement's lookup key.
    - For a public page: \`tagline\` (the customer benefit), \`category\`, \`media\`, \`highlight\`.
-   - For reuse: \`layer\` (token, primitive, pattern, layout, hook, provider, block, service, tool),
+   - For reuse: \`layer\` (token, element, pattern, layout, hook, provider, block, service, tool),
      \`platforms\` (status per platform when it differs), \`entry\` (what to import, per platform),
      \`keywords\`, \`slots\`, \`extends\` (the feature this is a variant of), \`requires\` (a beta or
      live feature can't require an idea, a planned or a retired one) and \`contributes\`.

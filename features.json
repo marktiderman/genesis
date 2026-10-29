@@ -48,12 +48,12 @@
     },
     {
       "id": "ui-primitives",
-      "name": "UI primitives",
+      "name": "UI elements",
       "summary": "Shadcn and Radix based web components: buttons, inputs, overlays, menus, tables, badges and the rest.",
       "tagline": "Accessible, themeable components you don't have to hand-roll.",
       "category": "Design system",
       "status": "live",
-      "layer": "primitive",
+      "layer": "element",
       "keywords": [
         "button",
         "input",
@@ -74,7 +74,7 @@
       ],
       "visibility": "public",
       "acceptance": [
-        "Every primitive renders with Genesis tokens and passes its accessibility tests."
+        "Every element renders with Genesis tokens and passes its accessibility tests."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -339,7 +339,7 @@
       "tagline": "The same components on iOS and Android.",
       "category": "Design system",
       "status": "live",
-      "layer": "primitive",
+      "layer": "element",
       "keywords": [
         "react native",
         "expo",
@@ -2623,7 +2623,7 @@
       "tagline": "Native lists, images, motion, glass and symbols when the app has them.",
       "category": "Design system",
       "status": "beta",
-      "layer": "primitive",
+      "layer": "element",
       "keywords": [
         "flashlist",
         "expo-image",
@@ -4198,7 +4198,7 @@
       "category": "Data",
       "status": "building",
       "horizon": "now",
-      "layer": "primitive",
+      "layer": "element",
       "keywords": [
         "time zone",
         "timezone",
@@ -4948,17 +4948,61 @@
     },
     {
       "id": "package-layering",
-      "name": "Package groups and layering check",
-      "summary": "Five package groups (Foundation, App shells, Platform services, Domain blocks, Tooling) recorded in package.json, and a doctor check that dependencies only point down, with declared domain seams.",
+      "name": "Package layers and the layering check",
+      "summary": "Every package declares its layer (foundation, primitive, module or tooling) and group in package.json, and CI fails when a dependency points up, a module uses an undeclared module, a runtime package uses tooling, or packages form a cycle.",
       "category": "Tooling",
-      "status": "planned",
-      "horizon": "next",
+      "status": "beta",
       "layer": "tool",
       "keywords": [
         "layering",
         "dependency direction",
         "package groups",
+        "package layers",
+        "modules",
         "architecture check"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A foundation package that imports a primitive, a primitive that imports a module, or a module that imports a module it doesn't list in requiresModules fails CI.",
+        "A runtime package that imports tooling, or a tooling entry point such as genesis-product/node, fails CI.",
+        "Every module names its blocks, docs and skill, and its install line resolves with genesis add --dry-run."
+      ],
+      "reviewedAt": "2026-10-29",
+      "links": {
+        "code": [
+          "packages/features/src/packages.ts",
+          "scripts/check-package-layers.mjs",
+          "packages/genesis-cli/test/blocks-modules.test.ts"
+        ],
+        "docs": [
+          "docs/PACKAGE-STRATEGY.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "package-schema-ownership",
+      "name": "Modules own their schema",
+      "summary": "A check that a module's migrations create objects only in its genesis.module.schema, and that no other package's migration writes there.",
+      "category": "Tooling",
+      "status": "planned",
+      "horizon": "next",
+      "layer": "tool",
+      "keywords": [
+        "schema ownership",
+        "module isolation",
+        "migrations"
+      ],
+      "requires": [
+        "package-layering"
       ],
       "owner": "mark",
       "apps": [
@@ -5239,7 +5283,7 @@
       "summary": "Springs, pressable feedback, glass surfaces, celebrations, animated numbers and scroll haptics for native screens.",
       "category": "Design system",
       "status": "idea",
-      "layer": "primitive",
+      "layer": "element",
       "keywords": [
         "animation",
         "haptics",

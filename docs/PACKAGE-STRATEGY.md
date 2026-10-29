@@ -1,6 +1,7 @@
 # Package strategy: how Genesis is organised, and what to build next
 
-v0.2, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (section 5). The inventory
+v0.3, 2026-10-29. Status: **accepted by the maintainer, 2026-10-28**, with the five groups
+replaced by package layers on 2026-10-29 (section 5, and [Layers](#layers) below). The inventory
 is the baseline of 2026-10-28. Since then the AI core's first phase has been built (see "P1
 progress" in [AI.md](AI.md)); every other move is still to come, each as its own pull request,
 tracked in `features.ts`. v0.2 folds in three adversarial
@@ -8,7 +9,8 @@ reviews; what changed from v0.1 is listed at the end.
 
 ## Recommendation
 
-Keep the package list nearly as it is, name the five groups it already falls into, and make
+Keep the package list nearly as it is, put each package in a layer (foundation, primitives,
+modules, tooling) that decides what it may depend on, and make
 most of the next work **extensions of what exists** rather than new packages:
 
 - error reporting grows into observability inside `core`;
@@ -24,7 +26,9 @@ order, coach-side first.
 
 ## 1. What Genesis has today
 
-Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests.
+Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests. The
+groups in this table are the 2026-10-28 baseline; [Layers](#layers) has where each package sits
+now.
 
 | Group | Package | Lines | What it is |
 |---|---|---:|---|
@@ -107,37 +111,94 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 
 ## 2. Proposed organisation
 
-### Five groups, matching the dependencies that exist
+### Layers
 
-Name the five groups in the table above in `FRAMEWORK.md` Part 2 and the README, and record each
-package's group in its `package.json` (`genesis.group`). The groups sit *above* Part 2's layers:
-tokens, primitives, patterns, layouts and data-bound describe what is inside the Foundation
-packages; the groups describe how packages depend on each other.
+Decided on 2026-10-29; it replaces the five groups accepted on 2026-10-28. Every package records
+its layer and group in its package.json, and `pnpm check:package-layers` fails CI on a violation
+(feature `package-layering`). Presented simply: **level 1 is the foundation and the primitives;
+level 2 is the modules built from them.**
 
 ```
-Tooling           genesis-cli · agents
-Domain blocks     chat · forms* · sites · support · collab · studio · product
-Platform services supabase · connect · notifications · switchboard · (ai)
-App shells        native · extension
-Foundation        design-system · core · ui · ui-native · features
+Tooling      genesis-cli · agents                                 (beside the layers; may use anything)
+Modules      sites · support · product                            (mini apps, installed with genesis add)
+Primitives   data · ai · forms · collaboration · shells · umbrella
+Foundation   design-system · core · ui · ui-native · features     (essential: every app starts with them)
 ```
 
-A package may depend on its own group or any group below it. I checked every `package.json`
-dependency on `main`:
+| Layer | May depend on |
+|---|---|
+| foundation | foundation |
+| primitive | foundation, primitive (no cycles) |
+| module | foundation, primitive, and a module only when its `genesis.module.requiresModules` lists it |
+| tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
-- today's graph already follows this order;
-- `notifications → native` is a platform service depending on an app shell, which is below it,
-  so it is allowed;
-- `features → ui` stays inside Foundation;
-- `cli → studio-server` is Tooling depending downward;
-- two dependencies run between domain blocks: `support → chat` (support threads) and
-  `sites → forms`. They must be declared as block requirements (`requires` in the block), and
-  the check allows only declared ones.
+"Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
+its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
+if another package or app embeds it as a part, it is a **primitive**; if someone installs it and
+gets a working product surface to switch on for tenants, it is a **module**.
 
-A layering check in `genesis doctor`'s repo rules then turns rule 2 of Part 2 ("Downward
-dependencies only") from an opinion into a gate. The new packages and moves below are placed so
-the check keeps passing. `FRAMEWORK.md`'s "Current state, measured" still says "Packages (7)" and
-should be refreshed in the same change.
+| Package | Layer | Group | Note |
+|---|---|---|---|
+| design-system, core, ui, ui-native, features | foundation | core | essential |
+| genesis (umbrella) | primitive | core | bundles primitives, never modules |
+| supabase, data-switchboard, studio, studio-server, connect | primitive | data | |
+| ai | primitive | ai | |
+| forms, forms-react, forms-web, forms-native, forms-builder, forms-studio, forms-devtools | primitive | forms | |
+| collab, chat, notifications | primitive | collaboration | chat is embedded by support and apps, so a primitive |
+| native, extension | primitive | shells | |
+| sites | module | modules | owns `genesis_sites`; `genesis add sites` |
+| support | module | modules | `genesis add support-feedback`; threads through the chat primitive |
+| product | module | modules | the roadmap, idea board and release notes; `genesis add product-board` |
+| genesis-cli, agents | tooling | core | |
+
+**The metadata.** Each package's `genesis` key in package.json:
+
+```jsonc
+"genesis": {
+  "layer": "module",               // foundation | primitive | module | tooling
+  "group": "modules",              // core | data | ai | forms | collaboration | shells | modules
+  "essential": true,               // optional; foundation or tooling only
+  "module": {                      // modules only
+    "name": "Sites",
+    "summary": "Multi-page sites, landing pages and a blog, …",
+    "blocks": ["sites"],           // ids in genesis.blocks: migrations, routes, nav and settings live there
+    "requiresModules": [],         // the only module-to-module dependencies allowed
+    "schema": "genesis_sites",     // the Postgres schema it owns, when it has tables
+    "install": "genesis add sites",
+    "docs": "https://github.com/marktiderman/genesis/blob/main/docs/SITES.md",
+    "skill": "SKILL.md"
+  },
+  "toolingEntries": ["./node"],    // optional: entry points that are tooling inside a runtime package
+  "blocks": { … }, "doctor": { … } // unchanged
+}
+```
+
+The type is `PackageMeta` in `@marktiderman/genesis-features` (with `readPackageMeta` and
+`packageLayerProblems`). Package dependencies are already the record of which primitives a
+module is built from, so they are not declared again. Plans and entitlements are left out on
+purpose: which plan unlocks a module is the app's decision, in its own `features.ts`
+(`access: { plan }`).
+
+**What the check enforces.** Every package has a valid layer and group, a `module` block only and
+always on a module, every block it lists exists, and its install line names one of them; the
+dependency direction above; no cycles; every module's docs and `SKILL.md` exist and the skill
+ships; `essential` only on foundation or tooling. A genesis-cli test runs each module's install
+line through `genesis add --dry-run`. **Not yet:** that a module's migrations create objects only
+in its schema and no other package writes there (`package-schema-ownership`, planned; support's
+tables are still in genesis-supabase's migration 0006).
+
+**Product's two halves.** The board, idea board, roadmap and release notes for an app's own
+people are the module (`.`, `/native`, `/server`, block `product-board`). The repo-maintenance
+CLI (the `genesis-product` bin and `/node`, which reads git and GitHub issues) is tooling,
+declared as `toolingEntries: ["./node"]` in the same package rather than a new package: the two
+halves already have separate entry points with no imports between them in that direction, the
+release and board workflows keep running unchanged, and no published entry point moves. The
+check refuses any runtime package that imports `genesis-product/node`. If the CLI grows, it moves
+into `genesis-cli` as `genesis product`.
+
+**On the site and in Storybook** the packages appear in the same bands, grouped by `group`:
+Foundation, Primitives (Core, Data, AI, Forms, Collaboration, Shells), Modules, and Tooling.
+Storybook titles start with the layer and group: `Foundation/UI/Button`, `Primitives/Forms/Form`.
 
 ### Moves, extending before inventing
 
@@ -234,10 +295,30 @@ Not recommended as Genesis packages yet: multiplayer editing and A2A. No app is 
 
 ## 5. Decisions
 
+Decided by the maintainer on 2026-10-29 (the package-layers research, nine decisions):
+
+1. **Layers:** foundation, primitives and modules, with tooling beside them. The UI tier
+   FRAMEWORK called "primitives" is now "elements" (and `features.ts` layer `element`), so
+   "primitives" means the package layer.
+2. **Three layers,** presented as level 1 (foundation and primitives) and level 2 (modules).
+3. **Block** stays the install unit at every layer; a module is a package of blocks forming a
+   mini app.
+4. **Plans and entitlements** live in each app's `features.ts`, never in package metadata.
+5. **support and product are modules;** product's repo CLI is tooling (`toolingEntries`).
+6. **cli and agents** are tooling, in the `core` group.
+7. **The umbrella** is a primitive that may bundle primitives, never modules.
+8. **The layering check fails CI from day one.**
+9. **Schema ownership** is a follow-up (`package-schema-ownership`).
+
+Groups on the site and in Storybook: core, data, ai, forms, collaboration, shells and modules,
+with no "start here" group: an `essential` badge and the `genesis init` line instead. This
+replaces decision 1 of 2026-10-28 below; the declared domain seams (`sites → forms`,
+`support → chat`) are now a module depending on a primitive, which the rule allows.
+
 Decided by the maintainer on 2026-10-28:
 
-1. **Accepted:** the five groups, the declared domain seams and a layering check in doctor
-   (`package-layering`).
+1. **Accepted, then replaced on 2026-10-29:** the five groups, the declared domain seams and a
+   layering check in doctor (`package-layering`).
 2. **Accepted:** M1 is observability in `core`, with spans, not a new package
    (`core-observability`).
 3. **Accepted:** `genesis-ai` P0–P2 ([AI.md](./AI.md)) is the next build; retrieval, MCP and

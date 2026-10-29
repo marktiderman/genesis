@@ -30,7 +30,7 @@ const eventFeedback = defineForm({
 });
 
 const meta: Meta<typeof Form> = {
-  title: "Forms/Form",
+  title: "Primitives/Forms/Form",
   component: Form,
   parameters: { layout: "padded" },
   args: { form: eventFeedback, options: { hidden: { owner: "Sam" } } },

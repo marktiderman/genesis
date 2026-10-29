@@ -4,7 +4,7 @@ import { EmptyState, Button } from "@marktiderman/genesis-ui";
 import { Inbox, Search, AlertTriangle } from "lucide-react";
 
 const meta: Meta<typeof EmptyState> = {
-  title: "UI/EmptyState",
+  title: "Foundation/UI/EmptyState",
   component: EmptyState,
 };
 export default meta;

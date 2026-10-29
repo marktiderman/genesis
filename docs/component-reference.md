@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3765 other exports · 2955 standalone types across 176 entry points in 28 packages.
+**Totals:** 589 components · 3781 other exports · 2980 standalone types across 176 entry points in 28 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1640,22 +1640,24 @@ export type { ResolvedNavigation };
 
 **Barrel:** [`packages/core/src/workspaces.ts`](../packages/core/src/workspaces.ts)
 
-### Other exports (8)
+### Other exports (10)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`defaultWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The workspace to open when the URL names none (the app's front door): the remembered one if the viewer still has it, else the first tenant, else the first workspace. |
+| [`filterWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces whose label or second line contains every word of `query`, ignoring case and accents, in the order given. An empty query keeps them all. For the switcher's search box, on the web and on the phone. |
 | [`groupWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces grouped by kind, in `order` (default {@link WORKSPACE_KIND_ORDER}, then any kind an app added), each group in the order given. Empty groups are left out. |
 | [`keepSection`](../packages/core/src/workspaces.ts) | function | — | The default `keep`: the same kind keeps the section (the first segment), never a record. |
+| [`orderedWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces in the order the switcher lists them (grouped by kind, in `order`): the order its keyboard jump numbers them, 1 to 9. |
 | [`pathInWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The path inside a workspace: `/o/acme/clients/42` in `/o/acme` is `/clients/42`; the workspace's own landing page is `/`. |
 | [`WORKSPACE_KIND_ORDER`](../packages/core/src/workspaces.ts) | const | — | The kinds in their default order: personal, roll-up, then each tenant. |
 | [`workspaceAt`](../packages/core/src/workspaces.ts) | function | Beta | The workspace a URL is in: the one whose `path` is the longest prefix of `pathname`, or undefined when the URL is in none (a sign-in page, the app's front door). |
 | [`workspaceHref`](../packages/core/src/workspaces.ts) | function | Beta | Where switching to `to` goes from `pathname`. The URL moves with the viewer: it lands in the same section of the new workspace when that makes sense (see `keep`), else on its landing page. |
 | [`workspaceInitials`](../packages/core/src/workspaces.ts) | function | Beta | Initials for a workspace with no image: the first letters of its first two words. |
 
-### Types (5)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1665,6 +1667,7 @@ export type { Workspace };
 export type { WorkspaceGroup };
 export type { WorkspaceHrefOptions };
 export type { WorkspaceKind };
+export type { WorkspaceTheme };
 ```
 
 ---
@@ -2410,7 +2413,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (48)
+### Other exports (53)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2432,9 +2435,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A feature layer with its deprecated name mapped to the current one. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
@@ -2450,7 +2454,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -2465,7 +2473,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (57)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2489,6 +2497,7 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
@@ -2517,6 +2526,11 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -5932,7 +5946,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (48)
+### Other exports (53)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5954,9 +5968,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A feature layer with its deprecated name mapped to the current one. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
@@ -5972,7 +5987,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -5987,7 +6006,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (57)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6011,6 +6030,7 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
@@ -6039,6 +6059,11 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -9398,7 +9423,7 @@ export type { ViewMode };
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
 
-### Other exports (23)
+### Other exports (27)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9427,8 +9452,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`toHslTriplet`](../packages/ui/src/components/layout/brand-theme.ts) | function | — | The Genesis token shape: `"160 84% 39%"`, for `hsl(var(--x))`. |
 | [`useAppShellSubNav`](../packages/ui/src/components/layout/sub-nav.tsx) | function | Beta | Give the shell this page's child items (sub-navigation) while the page is mounted. They replace the current `NavigationNode`'s `items`; pass `null` / `undefined` to fall back to them (a `mode` still applies). When several components call... |
+| [`WORKSPACE_SWITCHER_PARTS`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | Every part, in document order; see {@link WorkspaceSwitcherPart}. |
+| [`WORKSPACE_SWITCHER_SCOPE`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | The value of every part's `data-scope`. |
+| [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
+| [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (23)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9455,6 +9484,18 @@ export type { SplitRatio };
 export type { SubNavItem };
 export type { SubNavMode };
 export type { UseAppShellSubNavOptions };
+export type { WorkspaceSwitcherAction };
+export type { WorkspaceSwitcherBadgeProps };
+export type { WorkspaceSwitcherClassNames };
+export type { WorkspaceSwitcherEmptyProps };
+export type { WorkspaceSwitcherImageProps };
+export type { WorkspaceSwitcherItemProps };
+export type { WorkspaceSwitcherPart };
+export type { WorkspaceSwitcherSearchProps };
+export type { WorkspaceSwitcherShortcuts };
+export type { WorkspaceSwitcherSlotMap };
+export type { WorkspaceSwitcherSlotProps };
+export type { WorkspaceSwitcherSlots };
 export type { WorkspaceSwitcherVariant };
 ```
 

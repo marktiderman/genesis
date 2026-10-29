@@ -27,7 +27,7 @@ const checkIn = (): FormDefinition => ({
 });
 
 const meta: Meta<typeof FormBuilder> = {
-  title: "Forms/FormBuilder",
+  title: "Primitives/Forms/FormBuilder",
   component: FormBuilder,
   parameters: { layout: "fullscreen" },
   args: { defaultValue: checkIn(), brand: { name: "Hilltop Fitness" } },

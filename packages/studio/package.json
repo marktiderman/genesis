@@ -87,6 +87,8 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
     "doctor": {
       "prefer": [
         {

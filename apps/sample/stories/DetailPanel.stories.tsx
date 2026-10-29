@@ -4,7 +4,7 @@ import { DetailPanel } from "@marktiderman/genesis-ui/data";
 import { Button } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof DetailPanel> = {
-  title: "Data/DetailPanel",
+  title: "Foundation/Data/DetailPanel",
   component: DetailPanel,
   parameters: { layout: "centered" },
 };

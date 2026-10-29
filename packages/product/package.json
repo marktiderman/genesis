@@ -55,7 +55,8 @@
   "files": [
     "dist",
     "src",
-    "README.md"
+    "README.md",
+    "SKILL.md"
   ],
   "scripts": {
     "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
@@ -101,9 +102,51 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "module",
+    "group": "modules",
+    "module": {
+      "name": "Product",
+      "summary": "A Now / Next / Later roadmap, an idea board with votes and what's new, for the app's own people.",
+      "blocks": [
+        "product-board"
+      ],
+      "install": "genesis add product-board",
+      "docs": "README.md",
+      "skill": "SKILL.md"
+    },
+    "toolingEntries": [
+      "./node"
+    ],
     "doctor": {
       "enforce": false,
-      "reason": "Repository tooling (the product board, triage and release notes), not app screens."
+      "reason": "The board, idea board and release notes are screens and data an app adds whole; the repo CLI (bin genesis-product, ./node) is tooling."
+    },
+    "blocks": {
+      "product-board": {
+        "feature": {
+          "name": "Product board",
+          "summary": "A Now / Next / Later roadmap from features.ts, an idea board with votes, and what's new, on the phone for the app's own people.",
+          "keywords": [
+            "roadmap",
+            "idea board",
+            "votes",
+            "what's new",
+            "release notes"
+          ],
+          "audience": [
+            "person"
+          ]
+        },
+        "platforms": [
+          "native",
+          "server"
+        ],
+        "steps": [
+          "Give the screens a ProductSource (ideas, votes, roadmap, what's new); there is no database source yet (genesis-product README, Native screens).",
+          "Render IdeaBoardScreen and RoadmapScreen from @marktiderman/genesis-product/native on routes of your own, with a vote queue made once by createVoteQueue.",
+          "To tell people when their idea shipped, spread productNotifications from @marktiderman/genesis-product/server into your genesis-notifications registry and run syncNotificationTypes on deploy."
+        ]
+      }
     }
   }
 }

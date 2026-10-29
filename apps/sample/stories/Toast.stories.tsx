@@ -13,7 +13,7 @@ import { Button, Toaster, toast } from "@marktiderman/genesis-ui";
  * toast stays visible for the snapshot frame.
  */
 const meta: Meta = {
-  title: "UI/Toast",
+  title: "Foundation/UI/Toast",
 };
 
 export default meta;

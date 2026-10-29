@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Tabs> = {
-  title: "UI/Tabs",
+  title: "Foundation/UI/Tabs",
   component: Tabs,
 };
 export default meta;

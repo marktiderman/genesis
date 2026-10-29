@@ -49,18 +49,34 @@ export { FEATURE_PLATFORMS, type FeaturePlatform };
 
 /**
  * What kind of thing a feature is, from smallest to largest, so an agent
- * looking for a building block can tell a primitive from a whole block:
- * `token`, `primitive` (one component), `pattern` (a composed component with
+ * looking for a building block can tell an element from a whole block:
+ * `token`, `element` (one component), `pattern` (a composed component with
  * slots), `layout` (a page or screen shell), `hook`, `provider` (data or
  * context), `block` (a feature an app adds whole: UI, data and server),
  * `service` (server code) and `tool` (CLI, CI, devtools).
  *
+ * `"primitive"` is the old name for `"element"` (primitives are now a package
+ * layer, see `PACKAGE_LAYERS`): still accepted, and found by `--layer element`,
+ * until the next major.
+ *
  * @stability Beta
  */
-export const FEATURE_LAYERS = ["token", "primitive", "pattern", "layout", "hook", "provider", "block", "service", "tool"] as const;
+export const FEATURE_LAYERS = ["token", "element", "pattern", "layout", "hook", "provider", "block", "service", "tool"] as const;
 
 /** @stability Beta */
 export type FeatureLayer = (typeof FEATURE_LAYERS)[number];
+
+/** @deprecated Use `"element"`. Accepted until the next major. */
+export type DeprecatedFeatureLayer = "primitive";
+
+/**
+ * A feature layer with its deprecated name mapped to the current one.
+ *
+ * @stability Beta
+ */
+export function featureLayer(layer: FeatureLayer | DeprecatedFeatureLayer | undefined): FeatureLayer | undefined {
+  return layer === "primitive" ? "element" : layer;
+}
 
 /** A picture or video for a marketing page. @stability Beta */
 export interface FeatureMedia {
@@ -110,8 +126,8 @@ export interface FeatureDef {
   media?: FeatureMedia;
   /** A hero item on a marketing page. */
   highlight?: boolean;
-  /** What kind of thing it is. */
-  layer?: FeatureLayer;
+  /** What kind of thing it is (`"primitive"` is the deprecated name of `"element"`). */
+  layer?: FeatureLayer | DeprecatedFeatureLayer;
   /**
    * Status per platform, when it differs from `status`: `{ web: "live", native: "planned" }`.
    * A platform left out doesn't have it.
@@ -227,7 +243,7 @@ export const featureSchema = z
       .strict()
       .optional(),
     highlight: z.boolean().optional(),
-    layer: z.enum(FEATURE_LAYERS).optional(),
+    layer: z.enum([...FEATURE_LAYERS, "primitive"]).optional(),
     platforms: perPlatform(z.enum(FEATURE_STATUSES)).optional(),
     entry: perPlatform(text).optional(),
     keywords: z.array(text).optional(),
@@ -469,7 +485,7 @@ export function findFeatures(features: Features, term: string, flags?: Flags, op
   if (!needle && !filtered) return [];
   const keep = (r: FeatureRecord) =>
     (!options.platform || statusOn(r, options.platform) !== undefined) &&
-    (!options.layer || r.layer === options.layer) &&
+    (!options.layer || featureLayer(r.layer) === options.layer) &&
     (!options.status || r.status === options.status);
   const score = (r: FeatureRecord) => {
     if (!needle) return 0;

@@ -163,6 +163,8 @@
     "typescript": "~6.0.3"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "core",
     "doctor": {
       "enforce": false,
       "reason": "An umbrella that re-exports other Genesis packages, whose own declarations carry the rules."

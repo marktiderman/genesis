@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Tooltip, Button } from "@marktiderman/genesis-ui";
 import { Info } from "lucide-react";
 
-const meta: Meta<typeof Tooltip> = { title: "UI/Tooltip", component: Tooltip };
+const meta: Meta<typeof Tooltip> = { title: "Foundation/UI/Tooltip", component: Tooltip };
 export default meta;
 type Story = StoryObj<typeof Tooltip>;
 

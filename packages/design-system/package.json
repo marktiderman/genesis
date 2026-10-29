@@ -92,6 +92,9 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "essential": true,
     "doctor": {
       "enforce": false,
       "reason": "Its rules are built in to the doctor: raw-color, palette-color, arbitrary-color and undefined-token read its tokens.",
