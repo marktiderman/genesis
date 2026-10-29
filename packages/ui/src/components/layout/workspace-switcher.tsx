@@ -198,8 +198,10 @@ export interface WorkspaceSwitcherAction {
 export interface WorkspaceSwitcherShortcuts {
   /**
    * Opens and closes the menu, as `mod+shift+o`: modifiers `mod` (⌘ on a Mac, Ctrl elsewhere),
-   * `meta`/`cmd`, `ctrl`, `alt`/`option` and `shift`, joined by `+`, then the key. A key with no
-   * modifier is ignored while the viewer is typing.
+   * `meta`/`cmd`, `ctrl`, `alt`/`option` and `shift`, joined by `+`, then the key: a letter, a
+   * digit or a named key (`k`, `1`, `escape`, `f2`). Not a symbol, which Shift changes (`shift+/`
+   * types `?`); a spec that doesn't parse warns in development. A key with no modifier is ignored
+   * while the viewer is typing.
    */
   open?: string | false;
   /**
@@ -355,6 +357,8 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
   /**
    * A search box over the list, which then becomes a combobox (see the module comment). Default
    * `false`. `"auto"` turns it on past {@link WORKSPACE_SWITCHER_SEARCH_THRESHOLD} workspaces.
+   * The highlight starts on the first match, not the current workspace (as in cmdk), so opening and
+   * pressing Enter goes to the first one.
    */
   search?: boolean | "auto";
   /** The search box's placeholder and accessible name. Default "Find a workspace". */
@@ -393,6 +397,7 @@ const part = (name: WorkspaceSwitcherPart) => ({ "data-scope": WORKSPACE_SWITCHE
 const flag = (on: boolean) => (on ? "" : undefined);
 
 function hasBadge(value: Workspace["badge"]): value is string | number {
+  // `null` is allowed for API data that sends it for "nothing".
   return value !== undefined && value !== null && value !== "" && value !== 0;
 }
 
@@ -522,7 +527,8 @@ function parseShortcut(spec: string): ParsedShortcut | undefined {
     .split("+")
     .map((t) => t.trim());
   const key = tokens.pop();
-  if (!key) return undefined;
+  // A letter, a digit or a named key ("escape", "f2"); never a symbol, which Shift changes.
+  if (!key || !/^[a-z0-9]+$/.test(key)) return undefined;
   const has = (...names: string[]) => tokens.some((t) => names.includes(t));
   return {
     key,
@@ -535,10 +541,12 @@ function parseShortcut(spec: string): ParsedShortcut | undefined {
 }
 
 function matchesShortcut(e: KeyboardEvent, s: ParsedShortcut): boolean {
-  // `code` too, so Alt+O on a Mac (which types "ø") and Shift+1 (which types "!") still match.
-  const key = e.key?.toLowerCase();
+  // The physical key only when the typed one isn't a plain letter or digit: Alt+O on a Mac types
+  // "ø" and Shift+1 types "!", but on Dvorak the KeyO position types "r" and must stay ⌘⇧R.
+  const key = e.key?.toLowerCase() ?? "";
   const code = e.code?.toLowerCase();
-  if (key !== s.key && code !== `key${s.key}` && code !== `digit${s.key}`) return false;
+  const matched = /^[a-z0-9]$/.test(key) ? key === s.key : key === s.key || code === `key${s.key}` || code === `digit${s.key}`;
+  if (!matched) return false;
   const modifiers = s.mod ? e.metaKey || e.ctrlKey : e.metaKey === s.meta && e.ctrlKey === s.ctrl;
   return modifiers && e.altKey === s.alt && e.shiftKey === s.shift;
 }
@@ -684,6 +692,15 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
   const jumpMode = shortcuts?.jump === true ? "alt" : shortcuts?.jump || undefined;
   const openSpec = shortcuts?.open || undefined;
   const openShortcut = useMemo(() => (openSpec ? parseShortcut(openSpec) : undefined), [openSpec]);
+  const badSpec = Boolean(openSpec) && !openShortcut;
+  useEffect(() => {
+    if (badSpec && isDevelopment()) {
+      // genesis-allow-console: a development set-up hint (a shortcut that can't match), not an error.
+      console.warn(
+        `WorkspaceSwitcher: shortcuts.open "${openSpec}" doesn't parse, so it does nothing. End it with a letter, a digit or a named key, as "mod+shift+o".`,
+      );
+    }
+  }, [badSpec, openSpec]);
   const jumpHint = (index: number) =>
     jumpMode && index >= 0 && index < 9
       ? `${jumpMode === "alt" ? (isMac ? "⌥" : "Alt+") : isMac ? "⌘" : "Ctrl+"}${index + 1}`

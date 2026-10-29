@@ -183,6 +183,13 @@ describe("WorkspaceSwitcher", () => {
     expect(within(menu).getByText("1. Personal")).toBeTruthy();
   });
 
+  it("shows nothing for a null badge from API data", async () => {
+    render(<WorkspaceSwitcher workspaces={[{ ...workspaces[0]!, badge: null }]} current={workspaces[0]} />);
+    openMenu();
+    await screen.findByRole("menu");
+    expect(screen.getByTestId("workspace-switcher-item-acme").querySelector('[data-part="badge"]')).toBeNull();
+  });
+
   it("shows each workspace's badge, and nothing for zero", async () => {
     const withBadges: Workspace[] = [
       { ...workspaces[0]!, badge: 3 },
@@ -496,6 +503,27 @@ describe("WorkspaceSwitcher", () => {
       render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+shift+1" }} />);
       fireEvent.keyDown(window, { key: "!", code: "Digit1", ctrlKey: true, shiftKey: true });
       expect(await screen.findByRole("menu")).toBeTruthy();
+    });
+
+    it("matches the typed letter, not its position, on other layouts", () => {
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: "mod+shift+o" }} />);
+      // Dvorak: the KeyO position types "r", so this is ⌘⇧R (reload) and must pass through.
+      const reload = fireEvent.keyDown(window, { key: "R", code: "KeyO", metaKey: true, shiftKey: true });
+      expect(reload).toBe(true);
+      expect(screen.getByTestId("workspace-switcher").getAttribute("data-state")).toBe("closed");
+      // Dvorak's "o" sits on KeyS.
+      fireEvent.keyDown(window, { key: "O", code: "KeyS", metaKey: true, shiftKey: true });
+      expect(screen.getByTestId("workspace-switcher").getAttribute("data-state")).toBe("open");
+    });
+
+    it.each([["mod++"], ["shift+/"]])("warns in development when the open shortcut %s doesn't parse", (spec) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      try {
+        render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} shortcuts={{ open: spec }} />);
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining(spec));
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it("answers while its own menu is open, though the open menu hides the rest of the page", async () => {
