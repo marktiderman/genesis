@@ -119,19 +119,27 @@ last section and leaves this file once the check exists.
 1. A public framework holds no client or app names. **Agreed**
 2. Never write the former project's name in any doc, comment, commit or pull request. **Reported**
 
+## Checked rules
+
+`genesis agents --rules` (genesis-cli, `src/agent-rules.ts`) checks these from the repository
+alone and exits 1 on a break; Genesis's CI runs it.
+
+- **first-version**: a public package that has never been released (no CHANGELOG.md) is at its
+  hand-set first version, `0.1.0`, and its changesets are patches, so the owner's hand publish
+  and `npm trust` come before the version pull request.
+- **batch-ci**: a workflow that runs on pull requests into main also runs on pull requests into
+  the staging batches (`--batch`, default `staging/**`).
+
 ## Proposed checks (not rules)
 
-Each becomes a script (`genesis agents check`, kept to a few rules read from the settings above),
-after which the matching line above is deleted.
+Each becomes a check in `genesis agents --rules`, after which the matching line above is deleted.
+These need GitHub, not just the repository:
 
 - An open pull request with no handoff in its body.
 - A lease with no push past the lease length.
 - A pull request outside its area's paths.
 - A feature set to `live` outside a release pull request; two open pull requests for the same
   feature.
-- A new package not at its hand-set first version (`0.1.0` with a patch changeset), so the
-  owner's hand publish and `npm trust` come before the version pull request.
-- CI runs on pull requests into staging branches, not only into main.
 
 ## Changing these rules
 

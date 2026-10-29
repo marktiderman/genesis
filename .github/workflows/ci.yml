@@ -117,6 +117,11 @@ jobs:
       - name: Glossary (warn mode)
         run: pnpm check:glossary
 
+      # The rules of engagement a script can check (docs/agents/RULES.md): a new package starts
+      # at 0.1.0 with patch changesets; a workflow on PRs into main also runs on the batches.
+      - name: Agent rules
+        run: pnpm exec genesis agents --rules
+
       # A workflow file GitHub can't parse fails with no jobs and no CI signal (an empty `env:`
       # once stopped Release outright), so every workflow is linted here. Pinned by checksum.
       - name: Lint workflows (actionlint)
