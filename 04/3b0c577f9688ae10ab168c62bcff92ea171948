@@ -1,0 +1,29 @@
+features.ts
+  s_36f3212387dbf7::t_1e788ceeb49966 850
+packages/genesis-cli/test/agent-rules.test.ts
+  s_36f3212387dbf7::t_1e788ceeb49966 7,56,66-74
+  s_36f3212387dbf7::t_2369576a9f114c 75
+packages/genesis-cli/src/agent-rules.ts
+  s_36f3212387dbf7::t_1e788ceeb49966 90-94,103,121-152,159-162
+features.json
+  s_36f3212387dbf7::t_58a6a5a7037262 1931-1933
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_58a6a5a7037262 23
+  s_36f3212387dbf7::t_1e788ceeb49966 246-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "043b0c577f9688ae10ab168c62bcff92ea171948",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
