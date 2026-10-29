@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams } from "react-router";
 import {
   Card,
   CardHeader,
@@ -33,7 +34,14 @@ const STABILITY_VARIANT: Record<
 export default function PrimitiveDetail() {
   const { slug = "" } = useParams<{ slug: string }>();
   const card = PRIMITIVE_CARDS.find((x) => x.slug === slug);
-  const doc = findPrimitive(slug);
+  // Read after hydration: the prerendered page is the web one, so reading the query on the
+  // first render would mismatch it.
+  const [surface, setSurface] = useState<"web" | "native">("web");
+  const { search } = useLocation();
+  useEffect(() => {
+    setSurface(new URLSearchParams(search).get("surface") === "native" ? "native" : "web");
+  }, [search]);
+  const doc = findPrimitive(slug, surface);
 
   // Prefer the generated stability tag when present — it reflects the
   // @stability JSDoc in source. Fall back to the hand-curated card.

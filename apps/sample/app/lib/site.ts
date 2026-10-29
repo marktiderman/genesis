@@ -14,8 +14,21 @@ export const REPO_URL = "https://github.com/marktiderman/genesis";
 export const NPM_URL = "https://www.npmjs.com/org/marktiderman";
 export const INIT_COMMAND = "npx @marktiderman/genesis-cli init my-app";
 
-/** The deployed origin, for canonical links and the sitemap. Any host can set SITE_URL at build. */
-export const SITE_URL: string = (import.meta.env?.VITE_SITE_URL as string | undefined) ?? "https://genesisone.dev";
+// `import.meta.env` is missing when a build script (tsx) imports this file; `process` is missing in the browser.
+const env: Partial<ImportMetaEnv> = import.meta.env ?? {};
+const nodeEnv: Record<string, string | undefined> = typeof process === "undefined" ? {} : process.env;
+
+/**
+ * The deployed origin, for canonical links and the sitemap. Any host can set SITE_URL (or
+ * VITE_SITE_URL) at build; vite.config.ts passes SITE_URL to the app, so the page tags and
+ * scripts/generate-site-files.ts always agree.
+ */
+export const SITE_URL: string = (
+  (env.VITE_SITE_URL as string | undefined) ?? nodeEnv.SITE_URL ?? nodeEnv.VITE_SITE_URL ?? "https://genesisone.dev"
+).replace(/\/+$/, "");
+
+/** The build's base path without its trailing slash ("" at the root): PAGES_BASE / Vite's `base`. */
+export const SITE_BASE: string = (env.BASE_URL ?? nodeEnv.PAGES_BASE ?? "/").replace(/\/+$/, "");
 
 export interface SitePage {
   path: string;
@@ -82,7 +95,7 @@ export function metaFor(pathname: string) {
   const page = pageFor(path);
   const title = page ? (path === "/" ? page.title : `${page.title} · Genesis`) : "Genesis";
   const description = page?.description ?? SITE_DESCRIPTION;
-  const url = `${SITE_URL}${path === "/" ? "/" : path}`;
+  const url = `${SITE_URL}${SITE_BASE}${path === "/" ? "/" : path}`;
   return [
     { title },
     { name: "description", content: description },
@@ -91,7 +104,7 @@ export function metaFor(pathname: string) {
     { property: "og:title", content: title },
     { property: "og:description", content: description },
     { property: "og:url", content: url },
-    { property: "og:image", content: `${SITE_URL}/og.png` },
+    { property: "og:image", content: `${SITE_URL}${SITE_BASE}/og.png` },
     { name: "twitter:card", content: "summary_large_image" },
     { tagName: "link", rel: "canonical", href: url },
   ];

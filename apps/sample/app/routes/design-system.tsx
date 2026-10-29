@@ -343,13 +343,13 @@ export default function DesignSystem() {
       <Section id="inputs" title="7. Inputs & Forms">
         <div className="max-w-md space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Text Input</label>
-            <Input aria-label="Text Input" placeholder="Enter your name..." />
+            <label htmlFor="ds-text-input" className="text-sm font-medium mb-1.5 block">Text Input</label>
+            <Input id="ds-text-input" placeholder="Enter your name..." />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Select</label>
+            <label htmlFor="ds-select" className="text-sm font-medium mb-1.5 block">Select</label>
             <Select defaultValue="option1">
-              <SelectTrigger aria-label="Select">
+              <SelectTrigger id="ds-select">
                 <SelectValue placeholder="Choose an option" />
               </SelectTrigger>
               <SelectContent>

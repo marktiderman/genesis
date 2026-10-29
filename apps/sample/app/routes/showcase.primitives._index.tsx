@@ -83,7 +83,7 @@ export default function PrimitivesIndex() {
         {filtered.map((p) => (
           <Link
             key={p.key}
-            to={`/showcase/primitives/${p.slug}`}
+            to={`/showcase/primitives/${p.slug}${p.surface === "native" ? "?surface=native" : ""}`}
             className="block hover:opacity-90 transition"
           >
             <Card data-testid={`primitive-${p.slug}`} className="h-full">
