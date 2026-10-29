@@ -204,6 +204,16 @@ before the job settles still finds it.
 The provider is chosen per job (`email.providerFor`), so a tenant-owned Resend key kept in
 Vault can be added later without changing the runner. It isn't built.
 
+## Receiving email
+
+`createInboundEmailHandler` (`/server`) is the way in: it verifies Resend's `email.received`
+webhook (signed like its other webhooks), fetches the full message (`GET /emails/receiving/{id}`)
+and hands an `InboundEmail` (Message-ID, In-Reply-To, References, from, to, subject, text, SPF,
+DKIM and DMARC results, attachment names) to the first route that returns true. Routes are
+plain functions: genesis-support's `supportEmailRoute` files tickets; an agent's inbox, an
+onboarding address or a forward are routes of your own. A route that throws answers 502 so
+Resend retries; an email no route takes goes to `onUnrouted`.
+
 ## Push
 
 The device side stays in genesis-native's push block: registration, the permission, routing, the
