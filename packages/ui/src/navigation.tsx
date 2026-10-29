@@ -56,6 +56,11 @@ export interface GenesisLinkProps {
 /**
  * A component that renders a navigable link from {@link GenesisLinkProps}.
  *
+ * Pass every other prop through to the `<a>`, as {@link DefaultLink} does: menus and lists that
+ * make the link their row (WorkspaceSwitcher's items, through Radix `asChild`) merge `ref`, `id`,
+ * `role`, `aria-*`, `tabIndex`, `onClick`, `onMouseMove`, `onKeyDown`, `style` and `data-*` onto
+ * it, and dropping them breaks keyboard focus, highlighting and screen-reader roles.
+ *
  * @stability Beta
  */
 export type LinkComponent = ComponentType<GenesisLinkProps>;

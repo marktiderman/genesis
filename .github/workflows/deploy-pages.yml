@@ -58,6 +58,11 @@ jobs:
         working-directory: apps/sample
         run: pnpm build
 
+      # The sites demo is written into the client build by a Vite plugin; if a toolchain change
+      # stops it, /sites shows 404 frames while the deploy stays green. Fail here instead.
+      - name: Check the sites demo was built
+        run: test -f apps/sample/build/client/sites-demo/landing/index.html || { echo "::error::The sites demo wasn't prerendered (apps/sample/sites-demo/vite-plugin.ts)."; exit 1; }
+
       # Storybook's Vite builder already emits relative asset paths
       # (base: './'), so it needs no subpath configuration of its own —
       # it works unmodified at any deploy depth.

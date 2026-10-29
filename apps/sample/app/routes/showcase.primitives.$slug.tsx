@@ -10,6 +10,7 @@ import {
 } from "@marktiderman/genesis-ui";
 import { ExternalLink } from "lucide-react";
 import { PRIMITIVE_CARDS } from "../lib/portfolio-data";
+import { storyUrl } from "../lib/storybook";
 import {
   findPrimitive,
   type PrimitiveDoc,
@@ -38,6 +39,9 @@ export default function PrimitiveDetail() {
   // @stability JSDoc in source. Fall back to the hand-curated card.
   const stability = doc?.stability ?? card?.stability;
   const label = card?.label ?? doc?.primaryComponent ?? slug;
+  // Stories cover the web primitives; a native-only page gets no link.
+  const storybook =
+    doc?.surface === "native" ? undefined : storyUrl(slug, doc?.primaryComponent);
   const blurb = card?.blurb ?? doc?.summary ?? "";
 
   return (
@@ -70,7 +74,7 @@ export default function PrimitiveDetail() {
 
           {doc ? <ComponentsCard doc={doc} /> : null}
 
-          <StorybookCard slug={slug} />
+          {storybook ? <StorybookCard href={storybook} /> : null}
         </>
       ) : (
         <Card>
@@ -210,19 +214,7 @@ function PropsTable({ props }: { props: PrimitiveProp[] }) {
   );
 }
 
-// Storybook host. Defaults to the local dev server; override at build/run
-// time via VITE_STORYBOOK_URL when pointing at a deployed Storybook (e.g.
-// Chromatic preview, GitHub Pages).
-const STORYBOOK_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_STORYBOOK_URL) ||
-  "http://localhost:6006";
-
-function storybookUrl(slug: string): string {
-  const storyId = `ui-${slug.replace(/-/g, "")}--default`;
-  return `${STORYBOOK_BASE_URL.replace(/\/$/, "")}/?path=/story/${storyId}`;
-}
-
-function StorybookCard({ slug }: { slug: string }) {
+function StorybookCard({ href }: { href: string }) {
   return (
     <Card>
       <CardHeader>
@@ -234,7 +226,7 @@ function StorybookCard({ slug }: { slug: string }) {
       </CardHeader>
       <CardContent>
         <a
-          href={storybookUrl(slug)}
+          href={href}
           target="_blank"
           rel="noreferrer"
           className="inline-flex"

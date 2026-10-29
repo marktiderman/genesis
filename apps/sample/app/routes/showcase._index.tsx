@@ -41,7 +41,7 @@ export default function ShowcaseIndex() {
 
       <section className="grid gap-4 md:grid-cols-2">
         {PORTFOLIO_SECTIONS.map((s) => {
-          const isExternal = s.href.startsWith("http");
+          const isExternal = s.external || s.href.startsWith("http");
           const Wrapper = isExternal
             ? ({ children }: { children: React.ReactNode }) => (
                 <a
