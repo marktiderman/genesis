@@ -76,6 +76,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "forms",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "A renderer for Genesis Forms; the rule that forms go through Genesis Forms is genesis-forms-react's.",

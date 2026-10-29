@@ -110,6 +110,7 @@
   "genesis": {
     "layer": "tooling",
     "group": "core",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "The doctor itself: its rules are the built-ins."

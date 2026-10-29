@@ -104,6 +104,7 @@
   "genesis": {
     "layer": "module",
     "group": "modules",
+    "owner": "@marktiderman",
     "module": {
       "name": "Product",
       "summary": "A Now / Next / Later roadmap, an idea board with votes and what's new, for the app's own people.",
