@@ -44,6 +44,7 @@ const schedule: SectionPreset[] = [
     variant: "grid",
     props: {
       heading: "Class times",
+      labels: { items: "classes", types: "Class types" },
       types: [
         { id: "strength", name: "Strength", description: "Barbell work in a coached group.", tone: "primary" },
         { id: "conditioning", name: "Conditioning", description: "Intervals for every level.", tone: "soft" },

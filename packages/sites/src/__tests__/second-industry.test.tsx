@@ -66,6 +66,14 @@ describe("a conference's talks", () => {
     expect([...table.querySelectorAll('thead th[scope="col"]')].map((th) => th.textContent)).toEqual(["Time", "Day one", "Day two"]);
     expect(table.textContent).toContain("with Priya Shah · Main hall");
     expect(body.querySelector('[aria-label="Session types"]')?.textContent).toContain("Bring a laptop.");
+    expect(body.querySelector("fieldset legend")?.textContent).toBe("Show the sessions on");
+  });
+
+  it("names what's on in its own words, and keeps the default for a label it leaves out", () => {
+    const body = render("schedule", "grid", { ...props, labels: { items: "talks" } });
+    expect(body.querySelector("caption")?.textContent).toBe("Programme: talks by time and day");
+    expect(body.querySelector("fieldset legend")?.textContent).toBe("Show the talks on");
+    expect(body.querySelector('[aria-label="Session types"]')).not.toBeNull();
   });
 
   it("reads day by day too", () => {

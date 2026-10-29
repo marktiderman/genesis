@@ -223,7 +223,8 @@ item without an image is a text badge.
 - **`schedule`**: the week's sessions by time and day, with a host ("with …";
   documents saved before version 2 keep an older key for it, which still
   renders and moves into `host`), place, a note and a booking link per
-  session, and chips per session type in the brand's colours (`types`, with a legend). On
+  session, the nouns a visitor hears (`labels`: `items`, default "sessions",
+  and `types`, default "Session types"), and chips per session type in the brand's colours (`types`, with a legend). On
   wider screens it is a table (a caption, a header cell per day and per time,
   an empty slot said as `emptyText`, default "Nothing scheduled"); on a phone a day picker: radio buttons and the stylesheet's
   `:has()` show one day's sessions, with no script (every day shows where

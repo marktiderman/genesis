@@ -30,3 +30,14 @@ describe.each(Object.values(industryTemplates))("the $id template", (template) =
 });
 
 it("lists fitness under its id", () => expect(industryTemplates.fitness).toBe(fitness));
+
+it("reads as classes on a fitness timetable", () => {
+  const preset = fitness.presets.schedule![0]!;
+  const def = getSection("schedule") as AnySectionDefinition;
+  const parsed = def.schema.parse(preset.props);
+  const node: SectionNode = { id: "s", type: "schedule", v: def.version, variant: "grid", props: parsed as Record<string, unknown> };
+  const html = renderToStaticMarkup(<>{def.render({ props: parsed, variant: "grid", node, ctx: testCtx({ idPrefix: "gs-s" }) })}</>);
+  expect(html).toContain("<caption class=\"sr-only\">Class times: classes by time and day</caption>");
+  expect(html).toContain('aria-label="Class types"');
+  expect(html).toContain("Show the classes on</legend>");
+});

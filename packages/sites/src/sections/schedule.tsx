@@ -75,6 +75,17 @@ const schema = z.object({
   sessions: z.array(Session).max(200),
   /** What an empty slot or day says. */
   emptyText: Line(60).default("Nothing scheduled"),
+  /**
+   * The nouns a visitor hears for what's on: `items` in the table's caption
+   * ("…: sessions by time and day") and the phone day picker ("Show the
+   * sessions on"), `types` as the legend's name. A template sets its own.
+   */
+  labels: z
+    .object({
+      items: Line(40).default("sessions"),
+      types: Line(60).default("Session types"),
+    })
+    .default({ items: "sessions", types: "Session types" }),
   footnote: Copy(300).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
@@ -197,7 +208,7 @@ function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
   if (!shown.length) return null;
   return (
     // A list, not a <dl>: a type with no description has nothing to pair with.
-    <ul aria-label="Session types" className="mt-8 grid gap-4 sm:grid-cols-2">
+    <ul aria-label={props.labels.types} className="mt-8 grid gap-4 sm:grid-cols-2">
       {shown.map((t) => (
         <li key={t.id} className="flex flex-col items-start gap-1">
           <span className={cn("inline-flex rounded-md px-2 py-1 text-sm font-semibold", TONE[t.tone])}>{t.name}</span>
@@ -284,7 +295,7 @@ export const scheduleSection = defineSection({
 
     const times = [...new Set(props.sessions.filter((s) => days.includes(s.day)).map((s) => s.start))].sort();
     const name = (day: Weekday) => props.dayNames?.[day] ?? DAY_NAMES[day];
-    const caption = `${props.heading}: sessions by time and day`;
+    const caption = `${props.heading}: ${props.labels.items} by time and day`;
     return (
       <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface={props.surface}>
         {intro}
@@ -340,7 +351,7 @@ export const scheduleSection = defineSection({
         {/* A phone: pick a day. Radios and the stylesheet's :has() rules, no script. */}
         <div data-gs-schedule="" className={cn("mt-8 md:hidden", card)}>
           <fieldset className="min-w-0">
-            <legend className="sr-only">Show the sessions on</legend>
+            <legend className="sr-only">{`Show the ${props.labels.items} on`}</legend>
             <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
               {days.map((day, i) => (
                 <label key={day} className="relative shrink-0">
