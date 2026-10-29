@@ -119,10 +119,14 @@ async function check(path) {
   } catch (e) {
     errors.push(`didn't load: ${e.message.split("\n")[0]}`);
   }
-  if (status !== 200) errors.push(`answered ${status}`);
   if (path in KNOWN_BROKEN) {
-    if (!errors.length) failures.push({ path, errors: ["renders now: remove it from KNOWN_BROKEN in scripts/smoke-site.mjs"] });
-  } else if (errors.length) failures.push({ path, errors: [...new Set(errors)] });
+    // Only its rendering may fail: the page itself must still be served.
+    if (status !== 200) failures.push({ path, errors: [`answered ${status} (known broken pages must still be served)`] });
+    else if (!errors.length) failures.push({ path, errors: ["renders now: remove it from KNOWN_BROKEN in scripts/smoke-site.mjs"] });
+  } else {
+    if (status !== 200) errors.push(`answered ${status}`);
+    if (errors.length) failures.push({ path, errors: [...new Set(errors)] });
+  }
   await page.close();
   if (++done % 50 === 0) console.log(`  ${done}/${paths.length}`);
 }

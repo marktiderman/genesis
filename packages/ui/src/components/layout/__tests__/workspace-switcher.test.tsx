@@ -376,6 +376,18 @@ describe("WorkspaceSwitcher", () => {
       expect(onSelect).toHaveBeenCalledWith(many[1]);
     });
 
+    it("empties the search box on Escape before closing", async () => {
+      render(<WorkspaceSwitcher workspaces={workspaces} current={workspaces[0]} search />);
+      openMenu();
+      const box = (await screen.findByRole("combobox")) as HTMLInputElement;
+      fireEvent.change(box, { target: { value: "glo" } });
+      fireEvent.keyDown(box, { key: "Escape" });
+      await waitFor(() => expect(box.value).toBe(""));
+      expect(screen.getByRole("combobox")).toBeTruthy();
+      fireEvent.keyDown(box, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("combobox")).toBeNull());
+    });
+
     it("starts clean after a parent closes it", async () => {
       const props = { workspaces: many, current: many[0], search: true } as const;
       const { rerender } = render(<WorkspaceSwitcher {...props} open />);

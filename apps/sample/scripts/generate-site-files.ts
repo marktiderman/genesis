@@ -14,15 +14,14 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { sitePages } from "../app/lib/site-paths";
-import { SITE_DESCRIPTION, SITE_PAGES, SITE_TAGLINE } from "../app/lib/site";
+import { SITE_BASE, SITE_DESCRIPTION, SITE_PAGES, SITE_TAGLINE, SITE_URL } from "../app/lib/site";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SAMPLE = resolve(here, "..");
 const ROOT = resolve(SAMPLE, "..", "..");
 const OUT = resolve(SAMPLE, "build", "client");
-const SITE_URL = (process.env.SITE_URL ?? process.env.VITE_SITE_URL ?? "https://genesisone.dev").replace(/\/$/, "");
-const BASE = (process.env.PAGES_BASE ?? "/").replace(/\/$/, "");
-const url = (path: string) => `${SITE_URL}${BASE}${path}`;
+// One origin and base for the page tags (app/lib/site.ts) and these files.
+const url = (path: string) => `${SITE_URL}${SITE_BASE}${path}`;
 
 if (!existsSync(OUT)) throw new Error(`No client build at ${OUT}; run react-router build first.`);
 
@@ -130,7 +129,8 @@ const llms = [
   "## Packages",
   "",
   ...packages.flatMap((p) => [
-    `- [${p.name}](${url(`/packages/${p.dir}.md`)}) ${p.version}: ${oneLine(p.description)}`,
+    // The README's copy when there is one, else the package's page.
+    `- [${p.name}](${url(p.readme ? `/packages/${p.dir}.md` : `/packages/${p.dir}`)}) ${p.version}: ${oneLine(p.description)}`,
     ...(p.skill ? [`- [${p.name} skill](${url(`/packages/${p.dir}.SKILL.md`)}): what to use for each need, for coding agents`] : []),
   ]),
   "",

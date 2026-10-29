@@ -289,11 +289,11 @@ export default function Sandbox() {
         <CardContent className="space-y-4">
           {/* Dataset */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <label htmlFor="sandbox-dataset" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Dataset
             </label>
             <Select value={dataset} onValueChange={(v) => handleDatasetChange(v as DatasetKey)}>
-              <SelectTrigger aria-label="Dataset">
+              <SelectTrigger id="sandbox-dataset">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -307,18 +307,18 @@ export default function Sandbox() {
 
           {/* Title */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <label htmlFor="sandbox-title" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Title
             </label>
-            <Input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+            <Input id="sandbox-title" value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
 
           {/* Subtitle */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <label htmlFor="sandbox-subtitle" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Subtitle
             </label>
-            <Input aria-label="Subtitle"
+            <Input id="sandbox-subtitle"
               value={subtitle}
               onChange={(e) => setSubtitle(e.target.value)}
             />
@@ -326,11 +326,11 @@ export default function Sandbox() {
 
           {/* Icon */}
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <label htmlFor="sandbox-icon" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Icon
             </label>
             <Select value={iconName} onValueChange={setIconName}>
-              <SelectTrigger aria-label="Icon">
+              <SelectTrigger id="sandbox-icon">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -360,11 +360,11 @@ export default function Sandbox() {
           {/* Detail width — only when panel */}
           {detail === "panel" && (
             <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <label htmlFor="sandbox-detail-width" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Detail Width
               </label>
               <Select value={detailWidth} onValueChange={(v) => setDetailWidth(v as DetailWidth)}>
-                <SelectTrigger aria-label="Detail Width">
+                <SelectTrigger id="sandbox-detail-width">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -403,7 +403,7 @@ export default function Sandbox() {
                 value={gridCols}
                 onValueChange={(v) => setGridCols(v as GridColsPreset)}
               >
-                <SelectTrigger aria-label="Default View" id="sandbox-grid-cols" data-testid="sandbox-grid-cols">
+                <SelectTrigger id="sandbox-grid-cols" data-testid="sandbox-grid-cols">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -434,10 +434,10 @@ export default function Sandbox() {
 
           {showCreate && (
             <div className="space-y-1 pl-6">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              <label htmlFor="sandbox-create-label" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Create Label
               </label>
-              <Input aria-label="Create Label"
+              <Input id="sandbox-create-label"
                 value={createLabel}
                 onChange={(e) => setCreateLabel(e.target.value)}
               />

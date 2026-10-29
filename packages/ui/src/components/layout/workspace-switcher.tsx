@@ -915,6 +915,11 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
 
   if (showSearch) {
     // A combobox: a text box can't live inside role="menu", so the list is a listbox it controls.
+    // Not genesis-ui's Command (cmdk), deliberately (G5 exception): the public `search` and `item`
+    // slots hand a replacement plain props (the value, onKeyDown, the combobox's ARIA, the
+    // highlight), which cmdk keeps inside its own store; matching is core's filterWorkspaces, which
+    // the phone shares, not cmdk's scorer; and Enter follows the row's link (the app's
+    // LinkComponent) rather than calling onSelect. So the keys and ARIA are written here.
     const searchExtra = slotProps?.search;
     const emptyExtra = slotProps?.empty;
     const hasActions = Boolean(actions?.length);
@@ -930,6 +935,13 @@ export function WorkspaceSwitcher<W extends Workspace = Workspace>({
           onOpenAutoFocus={(e) => {
             e.preventDefault();
             searchRef.current?.focus();
+          }}
+          // Escape empties a search box that has text first, as cmdk and Radix Select do; then closes.
+          onEscapeKeyDown={(e) => {
+            if (!query) return;
+            e.preventDefault();
+            setQuery("");
+            setActive(0);
           }}
         >
           {renderSlot(

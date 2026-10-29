@@ -99,9 +99,17 @@ function preferSupported(
  * casing/whitespace variants still match — primitive slugs are
  * kebab-case-lowercase by generator contract.
  */
-export function findPrimitive(slug: string): PrimitiveDoc | undefined {
+export function findPrimitive(slug: string, surface: "web" | "native" = "web"): PrimitiveDoc | undefined {
   const key = slug.trim().toLowerCase();
   if (!key) return undefined;
+
+  // A native card links with ?surface=native, so a slug both surfaces share opens the native one.
+  if (surface === "native") {
+    const exactNativeFirst = preferSupported(
+      PRIMITIVE_DOCS.filter((p) => p.surface === "native" && p.slug.toLowerCase() === key)
+    );
+    if (exactNativeFirst) return exactNativeFirst;
+  }
 
   const exactWeb = preferSupported(
     PRIMITIVE_DOCS.filter(

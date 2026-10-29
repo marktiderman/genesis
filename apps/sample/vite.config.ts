@@ -24,7 +24,13 @@ function buildInfo() {
 }
 
 export default defineConfig(({ mode }) => ({
-  define: { __GENESIS_BUILD__: JSON.stringify(buildInfo()) },
+  define: {
+    __GENESIS_BUILD__: JSON.stringify(buildInfo()),
+    // The page tags' origin (app/lib/site.ts) from the same SITE_URL the sitemap uses.
+    ...(process.env.SITE_URL && !process.env.VITE_SITE_URL
+      ? { "import.meta.env.VITE_SITE_URL": JSON.stringify(process.env.SITE_URL) }
+      : {}),
+  },
   // react-router.config.ts's `basename` only prefixes routes; asset URLs
   // come from Vite's `base`. Keep the two in step. The Pages site is served
   // at the root of https://genesisone.dev, so both default to "/"; set
