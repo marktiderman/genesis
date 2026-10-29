@@ -95,4 +95,17 @@ describe("run events (AG-UI names)", () => {
     expect(events[0]).toEqual({ type: "RUN_STARTED", threadId: "conv-9", runId: "run-9" });
     expect(events.filter((e) => e.type === "TEXT_MESSAGE_CONTENT").map((e) => e.delta).join("")).toBe("Rough night.");
   });
+
+  it("names a run it starts, on the stream and on the span alike", async () => {
+    const s = setup();
+    s.reply(streamOf(["Hi."]));
+    const handle = createAiHandler({ ai: s.ai, tasks: [echo], context: () => ctx });
+    const res = await handle(new Request("https://app.test/api/ai", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ task: "echo", args: { id: "x" }, stream: "events" }) }));
+    const events = (await res.text()).split("\n\n").filter(Boolean).map((e) => JSON.parse(e.replace(/^data: /, "")));
+    const runId = events[0].runId as string;
+    expect(runId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(events.at(-1)).toMatchObject({ type: "RUN_FINISHED", runId });
+    expect(s.spans[0]!.attributes["genesis.ai.run_id"]).toBe(runId);
+    expect(s.begun[0]).toMatchObject({ runId });
+  });
 });

@@ -178,7 +178,8 @@ With `stream: "events"` the same stream comes as **run events**, named after the
 [AG-UI](https://docs.ag-ui.com) protocol's: `RUN_STARTED`, `TEXT_MESSAGE_START`,
 `TEXT_MESSAGE_CONTENT` (`delta`), `TEXT_MESSAGE_END`, then `RUN_FINISHED` or `RUN_ERROR`
 (both carry the result; `RUN_ERROR`'s `code` is the outcome). `useAiStream` reads both formats.
-`RunEvent` also names the tool-call, `STATE_DELTA` and `INTERRUPT` events agent runs will send.
+`RunEvent` also names the tool-call and `STATE_DELTA` events agent runs will send, and a run paused
+for approval as a `CUSTOM` event named `genesis.interrupt`.
 `textStreamToRunEvents` converts the text stream.
 
 ## The contract

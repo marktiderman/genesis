@@ -8,7 +8,8 @@ import type { AiOutcome, AiResult } from "./types";
  * events are the contract the first agent runs will use.
  *
  * Genesis's own fields: `RUN_FINISHED` and `RUN_ERROR` carry the call's {@link AiResult}, and
- * `RUN_ERROR`'s `code` is its outcome. `INTERRUPT` is a run paused for a person's approval.
+ * `RUN_ERROR`'s `code` is its outcome. A run paused for a person's approval is AG-UI's `CUSTOM`
+ * event named `genesis.interrupt` (AG-UI 1.0 has no interrupt event of its own yet).
  */
 export type RunEvent =
   | { type: "RUN_STARTED"; threadId: string; runId: string }
@@ -20,7 +21,7 @@ export type RunEvent =
   | { type: "TOOL_CALL_END"; toolCallId: string }
   | { type: "TOOL_CALL_RESULT"; messageId: string; toolCallId: string; content: string }
   | { type: "STATE_DELTA"; delta: readonly JsonPatchOperation[] }
-  | { type: "INTERRUPT"; runId: string; reason: string; approvalId?: string | undefined }
+  | { type: "CUSTOM"; name: "genesis.interrupt"; value: { runId: string; reason: string; approvalId?: string | undefined } }
   | { type: "RUN_FINISHED"; threadId: string; runId: string; result: AiResult<{ text: string }> }
   | { type: "RUN_ERROR"; message: string; code: Exclude<AiOutcome, "ok">; result: AiResult<{ text: string }> };
 
@@ -43,7 +44,7 @@ export const RUN_EVENT_TYPES = [
   "TOOL_CALL_END",
   "TOOL_CALL_RESULT",
   "STATE_DELTA",
-  "INTERRUPT",
+  "CUSTOM",
   "RUN_FINISHED",
   "RUN_ERROR",
 ] as const satisfies readonly RunEvent["type"][];

@@ -63,6 +63,16 @@ describe("useAiStream", () => {
     await act(() => result.current.run({ noteId: "n1" }));
     expect(result.current.text).toBe("Rough night.");
     expect(result.current.result).toMatchObject({ ok: true });
+
+    const refused = async () =>
+      events(
+        { type: "TEXT_MESSAGE_CONTENT", messageId: "m", delta: "Partial" },
+        { type: "RUN_ERROR", message: "Declined.", code: "refused", result: { ok: false, outcome: "refused", message: "Declined." } },
+      );
+    const second = renderHook(() => useAiStream("notes.recap", { fetch: refused as typeof globalThis.fetch }));
+    await act(() => second.result.current.run({}));
+    expect(second.result.current.text).toBe("");
+    expect(second.result.current.result).toMatchObject({ outcome: "refused" });
   });
 
   it("drops partial text when the stream ends in a refusal, and passes a stop before the model through", async () => {

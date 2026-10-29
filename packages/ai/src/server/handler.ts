@@ -122,9 +122,11 @@ export function createAiHandler<Db>(options: AiHandlerOptions<Db>): (request: Re
       try {
         const cancelled = new AbortController();
         const abortSignal = AbortSignal.any([request.signal, cancelled.signal]);
-        const started = await streamTask(options.ai, task, args ?? {}, ctx, { abortSignal });
+        // A run-events stream names its run, so the span and the store get the same id.
+        const runCtx = stream === "events" && !ctx.runId ? { ...ctx, runId: crypto.randomUUID() } : ctx;
+        const started = await streamTask(options.ai, task, args ?? {}, runCtx, { abortSignal });
         if (!started.ok) return json(started, STATUS[started.outcome]);
-        const runEvents = stream === "events" ? textStreamToRunEvents({ runId: ctx.runId ?? crypto.randomUUID(), threadId: ctx.conversationId }) : undefined;
+        const runEvents = stream === "events" ? textStreamToRunEvents({ runId: runCtx.runId!, threadId: runCtx.conversationId }) : undefined;
         return new Response(sse(started, () => cancelled.abort(), runEvents), { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
       } catch (thrown) {
         options.onError?.(thrown, request);
