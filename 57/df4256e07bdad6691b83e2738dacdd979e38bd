@@ -1,0 +1,31 @@
+docs/component-reference.md
+  s_36f3212387dbf7::t_e6bd1ff4bef3b4 7,26,32,41-42,44,50,58,66,69,73,75,81,86-87
+packages/ai/src/server/handler.ts
+  s_36f3212387dbf7::t_0828b3137fdb22 125-127,129
+packages/ai/src/__tests__/react.test.tsx
+  s_36f3212387dbf7::t_0828b3137fdb22 66-75
+.changeset/ai-contract-now.md
+  s_36f3212387dbf7::t_0828b3137fdb22 5
+packages/ai/src/__tests__/contract.test.ts
+  s_36f3212387dbf7::t_0828b3137fdb22 98-110
+packages/ai/README.md
+  s_36f3212387dbf7::t_0828b3137fdb22 181-182
+packages/ai/src/run-events.ts
+  s_36f3212387dbf7::t_0828b3137fdb22 11-12,24,47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "57df4256e07bdad6691b83e2738dacdd979e38bd",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
