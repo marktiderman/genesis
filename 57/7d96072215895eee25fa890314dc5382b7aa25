@@ -1,0 +1,29 @@
+apps/sample/stories/PublishableResource.stories.tsx
+  s_8b8f6102383114::t_6038f253ba8623 18
+packages/core/src/__tests__/record-view.test.ts
+  s_8b8f6102383114::t_84a9dfe93662e7 294-296
+packages/core/src/resource-view/record-view.ts
+  s_8b8f6102383114::t_e936127662474d 208,235,248
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_8b8f6102383114::t_0ecfd48319e7d4 545-550
+packages/ui-native/src/data/resource-view/index.ts
+  s_8b8f6102383114::t_acb28a2624e2b4 67-68
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_8b8f6102383114::t_eb5d528999b771 408,411
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "577d96072215895eee25fa890314dc5382b7aa25",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
