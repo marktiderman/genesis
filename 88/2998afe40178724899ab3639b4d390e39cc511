@@ -1,0 +1,23 @@
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_275bb752eb754e 125-129,132-133
+scripts/__tests__/check-adr-required.test.mjs
+  s_36f3212387dbf7::t_14b327adf1ec9f 2,17-22
+scripts/check-adr-required.mjs
+  s_36f3212387dbf7::t_3ecf806c2252b7 31-33,36-39,45-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "882998afe40178724899ab3639b4d390e39cc511",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
