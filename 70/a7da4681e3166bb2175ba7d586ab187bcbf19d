@@ -1,0 +1,43 @@
+.changeset/ui-filter-labels.md
+  s_f2749d65575000::t_054b65cc535834 1-5
+.github/workflows/ci.yml
+  s_f2749d65575000::t_8e7894a9d007cd 165-170
+apps/sample/app/data/primitives.json
+  s_f2749d65575000::t_aea9a714e0a770 14228
+apps/sample/app/routes/design-system.tsx
+  s_f2749d65575000::t_2753b997299f6a 265,347,352
+apps/sample/app/routes/sandbox.tsx
+  s_f2749d65575000::t_cdcd8f2d7826ba 296,313,321,333,367,406,440,468
+apps/sample/app/routes/settings.tsx
+  s_f2749d65575000::t_d76e7dbff058d9 1-2,12-14,18-64
+packages/ui/src/components/data/DataFilters.tsx
+  s_e2cf1ec4fac133::t_8760369be6544c 213,215,225
+packages/ui/src/components/data/DataTable.tsx
+  s_e2cf1ec4fac133::t_96ac3057191551 1434,1452,1465
+packages/ui/src/messages-en.ts
+  s_e2cf1ec4fac133::t_67590012585533 97-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "70a7da4681e3166bb2175ba7d586ab187bcbf19d",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f2749d65575000": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "561dabc4-8eef-43a3-b218-d94e2b6476ed",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
