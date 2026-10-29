@@ -5,7 +5,7 @@ Plan v2.1, 2026-10-18. Status: **built**: the `data-studio` feature is live, in
 (`studio-init`) turns it on in an app. This page is the design it was built from; `features.ts`
 tracks what is still to come.
 
-An Airtable-style workspace for any Supabase or Postgres project. It ships in Genesis, and each app
+An Airtable-style data editor for any Supabase or Postgres project. It ships in Genesis, and each app
 hosts it either as a route of its own or as a second app in its monorepo.
 
 This plan comes from three sources:

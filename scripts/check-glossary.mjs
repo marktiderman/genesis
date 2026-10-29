@@ -12,7 +12,7 @@
  *
  * Only plain synonyms are checked. One with a qualifier in parentheses ("service (as a kind)",
  * "primitive (for UI)", "primitive" for UI atoms) depends on context, so it is left to review;
- * a quoted one on its own is checked as the quoted phrase.
+ * a quoted name is checked as the quoted phrase; an entry longer than three words is prose.
  *
  * Usage: node scripts/check-glossary.mjs [--strict] [--root <dir>]
  */
@@ -21,7 +21,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-/** Splits a "Don't use" cell on commas outside parentheses and quotes. */
+/** Splits a "Don't use" cell into entries: on commas and sentence ends outside parentheses and quotes. */
 function splitCell(cell) {
   const parts = [];
   let depth = 0;
@@ -31,7 +31,7 @@ function splitCell(cell) {
     if (ch === '"') quoted = !quoted;
     if (!quoted && ch === "(") depth++;
     if (!quoted && ch === ")") depth = Math.max(0, depth - 1);
-    if (ch === "," && depth === 0 && !quoted) {
+    if ((ch === "," || ch === ";" || ch === ".") && depth === 0 && !quoted) {
       parts.push(current);
       current = "";
     } else current += ch;
@@ -49,7 +49,8 @@ export function bannedTerms(markdown) {
       dontUse = -1;
       continue;
     }
-    const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+    // An escaped pipe (`a \| b`) is cell text, not a column.
+    const cells = line.split(/(?<!\\)\|/).slice(1, -1).map((c) => c.trim());
     const header = cells.findIndex((c) => /^don['’]t use$/i.test(c));
     if (header >= 0) {
       dontUse = header;
@@ -58,9 +59,10 @@ export function bannedTerms(markdown) {
     if (dontUse < 0 || /^-+$/.test(cells[0] ?? "")) continue;
     const term = (cells[0] ?? "").replace(/\*\*/g, "").replace(/`/g, "").trim();
     for (const raw of splitCell(cells[dontUse] ?? "")) {
-      const quote = raw.match(/^"([^"]+)"$/);
+      // A quoted name is checked as is, whatever note follows it in parentheses.
+      const quote = raw.match(/^"([^"]+)"(\s*\([^)]*\))?$/);
       if (quote) banned.push({ word: quote[1].toLowerCase(), term });
-      else if (!raw.includes("(") && !raw.includes("`") && /^[a-z][a-z -]*$/i.test(raw)) banned.push({ word: raw.toLowerCase(), term });
+      else if (!raw.includes("(") && !raw.includes("`") && /^[a-z][a-z -]*$/i.test(raw) && raw.split(" ").length <= 3) banned.push({ word: raw.toLowerCase(), term });
     }
   }
   return banned;
@@ -96,7 +98,8 @@ function main(argv) {
       readFileSync(join(root, file), "utf8")
         .split("\n")
         .forEach((line, i) => {
-          if (!/^#{1,6} /.test(line)) return;
+          // A README's "License" section is about the software licence, not an entitlement.
+          if (!/^#{1,6} /.test(line) || /^#{1,6} Licen[cs]e\s*$/i.test(line)) return;
           for (const b of findBanned(line.replace(/^#+ /, ""), banned)) findings.push(`${file}:${i + 1} heading: "${b.word}" (use ${b.term})`);
         });
     }

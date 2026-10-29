@@ -10,6 +10,9 @@ const glossary = `
 | **group** | a catalog category. | "Domain blocks", "Platform services", and \`category\` (as a package field). |
 | **primitive** | a reusable capability. | service (as a kind), capability (as a layer), and "primitive" for UI atoms. |
 | **foundation** | the layer every app needs. |  |
+| **layer** | \`foundation \\| primitive\`. | tier (for packages), level. |
+| **view** | a list's description. | list config, table config. Data Studio's saved grids are **saved views**. |
+| **shells** | the app shells group. | "App shells" (the retired group name), or for a pnpm workspace in public api docs. |
 
 Prose with | a pipe | is not a table row.
 `;
@@ -23,6 +26,10 @@ describe("check-glossary", () => {
       { word: "kit", term: "package" },
       { word: "domain blocks", term: "group" },
       { word: "platform services", term: "group" },
+      { word: "level", term: "layer" },
+      { word: "list config", term: "view" },
+      { word: "table config", term: "view" },
+      { word: "app shells", term: "shells" },
     ]);
   });
 

@@ -43,12 +43,12 @@ row shows the package's layer and group from [Layers](#layers).
 | primitive · collaboration | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
 | primitive · data | `switchboard` | 4.1k | Move a resource between backends |
 | primitive · collaboration | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
-| primitive · forms | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, workspace, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
-| module | `sites` | 12.2k | Sites, landing pages, blog, editor |
-| module | `support` | 3.5k | Feedback, reports, idea board |
+| primitive · forms | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, form management screens, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
+| module · modules | `sites` | 12.2k | Sites, landing pages, blog, editor |
+| module · modules | `support` | 3.5k | Feedback, reports, idea board |
 | primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
 | primitive · data | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
-| module | `product` | 2.1k | Product board, triage, release notes |
+| module · modules | `product` | 2.1k | Product board, triage, release notes |
 | tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
 | tooling · core | `agents` | docs | Rules of engagement for agent sessions |
 | primitive · core | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
