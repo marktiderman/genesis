@@ -110,6 +110,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      # docs/GLOSSARY.md's banned synonyms in package descriptions and doc headings. Warn mode:
+      # it reports and passes until the glossary is settled (then --strict).
+      - name: Glossary (warn mode)
+        run: pnpm check:glossary
+
       # A workflow file GitHub can't parse fails with no jobs and no CI signal (an empty `env:`
       # once stopped Release outright), so every workflow is linted here. Pinned by checksum.
       - name: Lint workflows (actionlint)

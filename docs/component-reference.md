@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3781 other exports · 2980 standalone types across 176 entry points in 28 packages.
+**Totals:** 589 components · 3787 other exports · 2984 standalone types across 176 entry points in 28 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1933,142 +1933,6 @@ export type { ErrorReporter };
 
 ---
 
-## @marktiderman/genesis-switchboard
-
-Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/data-switchboard/README.md + SWITCHBOARD.md.
-
-**Barrel:** [`packages/data-switchboard/src/index.ts`](../packages/data-switchboard/src/index.ts)
-
-### Other exports (30)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
-
-### Types (43)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Adapter };
-export type { AirtableAdapterConfig };
-export type { AirtableResourceMap };
-export type { Binding };
-export type { CodeAdapterOptions };
-export type { DataRow };
-export type { DescribeResult };
-export type { DriftReport };
-export type { EnvironmentBinding };
-export type { FeatureRow };
-export type { FetchLike };
-export type { FieldBinding };
-export type { FieldDrift };
-export type { FieldSchema };
-export type { FieldType };
-export type { Level };
-export type { MergeBinding };
-export type { ModelReconcileReport };
-export type { ModelReconcileSummary };
-export type { NotionAdapterConfig };
-export type { NotionPropertyMap };
-export type { NotionPropertyType };
-export type { NotionResourceMap };
-export type { PromoteOptions };
-export type { PromoteResult };
-export type { ProviderKind };
-export type { QueryOptions };
-export type { ReconcileModelOptions };
-export type { ResolvedPlan };
-export type { ResourceBinding };
-export type { ResourceClient };
-export type { ResourceContract };
-export type { ResourceReconcile };
-export type { RowDrift };
-export type { StaleReadInfo };
-export type { SupabaseAdapterConfig };
-export type { SupabaseClientLike };
-export type { SupabaseQueryBuilder };
-export type { SupabaseResourceMap };
-export type { SwitchboardContract };
-export type { TicketRow };
-export type { Tier };
-export type { ValueDrift };
-```
-
----
-
-## @marktiderman/genesis-switchboard/gitdata
-
-**Barrel:** [`packages/data-switchboard/src/gitdata.ts`](../packages/data-switchboard/src/gitdata.ts)
-
-### Other exports (4)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-
-### Types (3)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { AttachGitdataOptions };
-export type { GitdataAdapterConfig };
-export type { GitdataResourceMap };
-```
-
----
-
-## @marktiderman/genesis-switchboard/data-provider
-
-**Barrel:** [`packages/data-switchboard/src/data-provider.ts`](../packages/data-switchboard/src/data-provider.ts)
-
-### Other exports (1)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
-
----
-
 ## @marktiderman/genesis-design-system
 
 DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer brand packages satisfy the canonical schema.
@@ -2413,7 +2277,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (53)
+### Other exports (56)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2435,12 +2299,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
-| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A feature layer with its deprecated name mapped to the current one. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -2473,7 +2340,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (57)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2503,9 +2370,11 @@ export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -3705,7 +3574,7 @@ export type { UseSubmitOutboxOptions };
 
 ## @marktiderman/genesis-forms-studio
 
-The form workspace around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
+The form management screens around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
 
 **Barrel:** [`packages/forms-studio/src/index.ts`](../packages/forms-studio/src/index.ts)
 
@@ -4834,36 +4703,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
 
 ### Types (43)
 
@@ -4927,10 +4796,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
 
 ### Types (3)
 
@@ -4954,7 +4823,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
@@ -5946,7 +5815,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (53)
+### Other exports (56)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5968,12 +5837,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
-| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A feature layer with its deprecated name mapped to the current one. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -6006,7 +5878,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (57)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6036,9 +5908,11 @@ export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -8858,6 +8732,142 @@ export type { SupportBlock };
 export type { SupportOptions };
 export type { ViewShotLike };
 ```
+
+---
+
+## @marktiderman/genesis-switchboard
+
+Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/switchboard/README.md + SWITCHBOARD.md.
+
+**Barrel:** [`packages/switchboard/src/index.ts`](../packages/switchboard/src/index.ts)
+
+### Other exports (30)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+
+### Types (43)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { Adapter };
+export type { AirtableAdapterConfig };
+export type { AirtableResourceMap };
+export type { Binding };
+export type { CodeAdapterOptions };
+export type { DataRow };
+export type { DescribeResult };
+export type { DriftReport };
+export type { EnvironmentBinding };
+export type { FeatureRow };
+export type { FetchLike };
+export type { FieldBinding };
+export type { FieldDrift };
+export type { FieldSchema };
+export type { FieldType };
+export type { Level };
+export type { MergeBinding };
+export type { ModelReconcileReport };
+export type { ModelReconcileSummary };
+export type { NotionAdapterConfig };
+export type { NotionPropertyMap };
+export type { NotionPropertyType };
+export type { NotionResourceMap };
+export type { PromoteOptions };
+export type { PromoteResult };
+export type { ProviderKind };
+export type { QueryOptions };
+export type { ReconcileModelOptions };
+export type { ResolvedPlan };
+export type { ResourceBinding };
+export type { ResourceClient };
+export type { ResourceContract };
+export type { ResourceReconcile };
+export type { RowDrift };
+export type { StaleReadInfo };
+export type { SupabaseAdapterConfig };
+export type { SupabaseClientLike };
+export type { SupabaseQueryBuilder };
+export type { SupabaseResourceMap };
+export type { SwitchboardContract };
+export type { TicketRow };
+export type { Tier };
+export type { ValueDrift };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/gitdata
+
+**Barrel:** [`packages/switchboard/src/gitdata.ts`](../packages/switchboard/src/gitdata.ts)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+
+### Types (3)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AttachGitdataOptions };
+export type { GitdataAdapterConfig };
+export type { GitdataResourceMap };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/data-provider
+
+**Barrel:** [`packages/switchboard/src/data-provider.ts`](../packages/switchboard/src/data-provider.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
