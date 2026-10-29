@@ -64,4 +64,6 @@ export {
   getNativeResourceWorkspaceStackOptions,
   defaultNativeResourceWorkspaceMessages,
   type NativeResourceWorkspaceProps,
+  type NativeResourceWorkspaceHeaderProps,
+  type NativeResourceWorkspaceMessages,
 } from "./NativeRecordView";

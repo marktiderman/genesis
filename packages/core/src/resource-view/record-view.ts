@@ -205,7 +205,7 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
   view: ResourceView<C, Row>,
   definition: RecordViewDefinition<C, Row>,
 ): RecordView<C, Row> {
-  const where = `${view.resource} workspace`;
+  const where = `${view.resource} record view`;
   const problems: string[] = [];
   const writable = new Set(view.writable("edit"));
   const actionNames = new Set(view.actions().map((a) => a.name));
@@ -232,7 +232,7 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
     const label = `sections.${name ?? i}`;
     if (typeof s.label !== "string" || !s.label.trim()) problems.push(`${label} has no label`);
     if (isRecordView(s) || "sections" in s || "workspace" in s) {
-      problems.push(`${label} holds a workspace; sections don't nest`);
+      problems.push(`${label} holds a record view; sections don't nest`);
       return;
     }
     const unknown = Object.keys(s).filter((k) => !SECTION_KEYS.has(k));
@@ -245,7 +245,7 @@ export function defineRecordView<C extends ResourceContract, Row extends DataRow
     }
     if (hasList) {
       const list = s.list as { view?: unknown; filter?: unknown };
-      if (isRecordView(list?.view)) problems.push(`${label}.list.view is a workspace; sections don't nest`);
+      if (isRecordView(list?.view)) problems.push(`${label}.list.view is a record view; sections don't nest`);
       else if (!isView(list?.view)) problems.push(`${label}.list.view isn't a view`);
       if (typeof list?.filter !== "function") problems.push(`${label}.list.filter isn't a function`);
       if (name && isView(list?.view) && !isRecordView(list.view) && typeof list.filter === "function") {

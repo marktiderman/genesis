@@ -542,6 +542,12 @@ export function getNativeResourceWorkspaceStackOptions<T extends Row>({
   return getNativeRecordViewStackOptions<T>({ ...props, view: workspace });
 }
 
+/** @deprecated Renamed `NativeRecordViewHeaderProps`; its `workspace` prop is now `view`. */
+export type NativeResourceWorkspaceHeaderProps<T extends Row = Row> = OldPage<NativeRecordViewHeaderProps<T>>;
+
+/** @deprecated Renamed `NativeRecordViewMessages`. */
+export type NativeResourceWorkspaceMessages = NativeRecordViewMessages;
+
 /** @deprecated Renamed `defaultNativeRecordViewMessages`. */
 export const defaultNativeResourceWorkspaceMessages = defaultNativeRecordViewMessages;
 
