@@ -14,6 +14,11 @@ const objects = {
   "media/videos/v1/web-1080.mp4": { body: VIDEO, contentType: "video/mp4", lastModified: new Date("2026-01-02T03:04:05Z") },
   "media/videos/v1/original.mov": { body: "original", contentType: "video/quicktime" },
   "media/photos/p1/800.jpg": { body: "small", contentType: "image/jpeg" },
+  "media/photos/p2/800.jpg": { body: "<script>alert(1)</script>", contentType: "text/html; charset=utf-8" },
+  "media/photos/p3/800.jpg": { body: "<svg onload=alert(1)/>", contentType: "image/svg+xml" },
+  "media/photos/p4/800.jpg": { body: "?" },
+  "media/photos/p5/800.jpg": { body: "%PDF", contentType: "application/pdf" },
+  "media/photos/p6/800.jpg": { body: "ID3", contentType: "audio/mpeg" },
 };
 
 /** The app's routes: `<collection>/<id>/<variant>.<ext>`. Photos' preview sizes open with an item link; video files each need their own. */
@@ -140,7 +145,7 @@ describe("createSignedMediaHandler", () => {
     expect((await handle(new Request(renamed))).status).toBe(403);
     const dropped = new URL(url);
     dropped.searchParams.delete("d");
-    expect((await handle(new Request(dropped))).status).toBe(404); // the original has no view route
+    expect((await handle(new Request(dropped))).status).toBe(403); // the original has no view route
   });
 
   it("checks the signature before touching storage: 403 for a bad or expired link, and nothing read", async () => {
@@ -161,24 +166,199 @@ describe("createSignedMediaHandler", () => {
     expect(calls).toEqual([]);
   });
 
-  it("is 404 for a missing file, an unknown path and a path that tries to climb, and never lists", async () => {
+  it("is 404 only for a missing file behind a valid link; an unknown or climbing path is the same 403 as a bad link", async () => {
     const handle = setup();
     expect((await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9"))))).status).toBe(404);
     expect((await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9")), { method: "HEAD" }))).status).toBe(404);
     const seen: string[] = [];
     const spy = createSignedMediaHandler({ storage: createMemoryStorage(objects), signer, now, route: (p, c) => (seen.push(p), route(p, c)) });
-    for (const path of ["/", "/photos/", "/photos/p1/", "/photos/%2e%2e/p1/800.jpg", "/photos/..%2Fx/800.jpg", "/photos/a%5Cb/800.jpg", "/photos/%00/800.jpg", "/photos/%E0%A4%A/800.jpg"]) {
-      expect((await spy(new Request(`${BASE}${path}`))).status, path).toBe(404);
+    for (const path of ["/", "/photos/", "/photos/p1/", "/photos/%2e%2e/p1/800.jpg", "/photos/..%2Fx/800.jpg", "/photos/a%5Cb/800.jpg", "/photos/%00/800.jpg", "/photos/%E0%A4%A/800.jpg", "/photos/%252e%252e/800.jpg", "/photos/p1%2525/800.jpg"]) {
+      expect((await spy(new Request(`${BASE}${path}`))).status, path).toBe(403);
     }
     // The URL parser resolves a dot segment, even encoded, before the handler sees it ("/photos/%2e%2e/p1/…" is "/p1/…");
-    // a segment that decodes to a slash, a backslash or NUL, or doesn't decode, never reaches the route.
+    // a segment that decodes to a slash, a backslash, NUL or "%" (double encoding), or doesn't decode, never reaches the route.
     expect(seen).toEqual(["photos", "photos/p1", "p1/800.jpg"]);
+  });
+
+  it("serves a filename with a plain % in it (100% done.jpg) round trip, while escapes stay refused", async () => {
+    const storage = createMemoryStorage({ "files/100% done.jpg": { body: "done", contentType: "image/jpeg" } });
+    const seen: string[] = [];
+    const handle = createSignedMediaHandler({
+      storage,
+      signer,
+      now,
+      route: (path) => (seen.push(path), path.startsWith("files/") ? { key: path, scope: mediaScope.item("files", path.slice(6)) } : undefined),
+    });
+    const url = await signer.signMediaUrl(BASE, "files/100% done.jpg", mediaScope.item("files", "100% done.jpg"), { ttl: "2h" });
+    expect(new URL(url).pathname).toBe("/files/100%25%20done.jpg");
+    const res = await handle(new Request(url));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("done");
+    for (const path of ["/files/%252e%252e", "/files/a%252Fb.jpg", "/files/%2525"]) expect((await handle(new Request(`${BASE}${path}`))).status, path).toBe(403);
+    expect(seen).toEqual(["files/100% done.jpg"]);
+  });
+
+  it("hands an error route threw to onError, and still answers the same 403", async () => {
+    const errors: [unknown, string][] = [];
+    const failure = new Error("database down");
+    const handle = createSignedMediaHandler({
+      storage: createMemoryStorage(objects),
+      signer,
+      now,
+      route: () => {
+        throw failure;
+      },
+      onError: (error, request) => errors.push([error, request.url]),
+    });
+    const res = await handle(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe("This link is invalid or has expired.");
+    expect(errors).toEqual([[failure, `${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`]]);
+  });
+
+  it("checks the link before saying whether a path is routable: same answer, same HMAC, route throws included", async () => {
+    let verifies = 0;
+    const counted = { ...signer, verify: (...args: Parameters<typeof signer.verify>) => (verifies++, signer.verify(...args)) };
+    const handle = createSignedMediaHandler({
+      storage: createMemoryStorage(objects),
+      signer: counted,
+      now,
+      route: (p, c) => {
+        if (p.startsWith("boom")) throw new Error("route failed");
+        return route(p, c);
+      },
+    });
+    const routable = await handle(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    const unknown = await handle(new Request(`${BASE}/nothing/here.jpg?e=${H + 60}&s=v1.x`));
+    const thrown = await handle(new Request(`${BASE}/boom?e=${H + 60}&s=v1.x`));
+    for (const r of [routable, unknown, thrown]) {
+      expect(r.status).toBe(403);
+      expect(await r.text()).toBe("This link is invalid or has expired.");
+    }
+    expect(verifies).toBe(3);
+    // A valid link for one path, replayed on a path with no route, is refused too.
+    const valid = new URL(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")));
+    valid.pathname = "/photos/p1/9999.jpg";
+    expect((await handle(new Request(valid))).status).toBe(403);
+  });
+
+  it("answers 403, not 500, when a route hands back a malformed download scope or a d the scope can't hold", async () => {
+    const malformed = createSignedMediaHandler({ storage: createMemoryStorage(objects), signer, now, route: () => ({ key: "media/photos/p1/800.jpg", scope: "download:a/%C3" as never }) });
+    const res = await malformed(new Request(`${BASE}/photos/p1/800.jpg?e=${H + 60}&s=v1.x`));
+    expect(res.status).toBe(403);
+    // An empty d is no download; a lone surrogate can't reach mediaScope through a URL (it decodes to U+FFFD).
+    const url = new URL(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")));
+    url.searchParams.set("d", "");
+    expect((await setup()(new Request(url))).status).toBe(200);
   });
 
   it("allows GET and HEAD only", async () => {
     const res = await setup()(new Request(await signed("photos/p1/800.jpg", mediaScope.item("photos", "p1")), { method: "POST" }));
     expect(res.status).toBe(405);
     expect(res.headers.get("allow")).toBe("GET, HEAD");
+  });
+});
+
+describe("If-Range", () => {
+  const url = () => signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"));
+
+  it("sends the range while the strong ETag or the date still matches, else the whole file", async () => {
+    const storage = createMemoryStorage(objects);
+    const handle = setup(storage);
+    const etag = (await storage.head("media/videos/v1/web-1080.mp4"))!.etag!;
+    const get = async (ifRange: string) => handle(new Request(await url(), { headers: { range: "bytes=0-3", "if-range": ifRange } }));
+    const same = await get(etag);
+    expect(same.status).toBe(206);
+    expect(await same.text()).toBe("0123");
+    for (const stale of ['"other"', `W/${etag}`, "Thu, 01 Jan 2026 00:00:00 GMT", "not a date"]) {
+      const res = await get(stale);
+      expect(res.status, stale).toBe(200);
+      expect(await res.text(), stale).toBe(VIDEO);
+    }
+    expect((await get("Fri, 02 Jan 2026 03:04:05 GMT")).status).toBe(206);
+    // A stale If-Range wins over an unsatisfiable range: the whole file, not 416.
+    expect((await handle(new Request(await url(), { headers: { range: "bytes=99-", "if-range": '"other"' } }))).status).toBe(200);
+  });
+
+  it("sends the new file whole when it changes between the size check and the read", async () => {
+    const changing: MediaStorage = {
+      head: async () => ({ size: 20, etag: '"old"', contentType: "video/mp4" }),
+      get: async (_key, options) => ({
+        size: 24,
+        etag: '"new"',
+        contentType: "video/mp4",
+        body: new Response(options?.range ? "partial" : "the new file, 24 bytes!!").body!,
+      }),
+    };
+    const res = await setup(changing)(new Request(await url(), { headers: { range: "bytes=0-3" } }));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-range")).toBeNull();
+    expect(res.headers.get("etag")).toBe('"new"');
+    expect(res.headers.get("content-length")).toBe("24");
+    expect(await res.text()).toBe("the new file, 24 bytes!!");
+  });
+
+  it("reads the range unit case-insensitively", async () => {
+    const res = await setup()(new Request(await url(), { headers: { range: "BYTES=0-1" } }));
+    expect(res.status).toBe(206);
+    expect(await res.text()).toBe("01");
+  });
+});
+
+describe("the sandbox for stored files", () => {
+  const CSP = "sandbox; default-src 'none'";
+
+  it("sends HTML, SVG and untyped files as attachments, and shows images, video, audio and PDF inline", async () => {
+    const handle = setup();
+    const disposition = async (id: string) => (await handle(new Request(await signed(`photos/${id}/800.jpg`, mediaScope.item("photos", id))))).headers.get("content-disposition");
+    expect(await disposition("p2")).toBe("attachment");
+    expect(await disposition("p3")).toBe("attachment");
+    expect(await disposition("p4")).toBe("attachment");
+    expect(await disposition("p1")).toBeNull();
+    expect(await disposition("p5")).toBeNull();
+    expect(await disposition("p6")).toBeNull();
+    const video = await handle(new Request(await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"))));
+    expect(video.headers.get("content-disposition")).toBeNull();
+  });
+
+  it("sends a PDF without the CSP (Chromium's viewer is blank under it), and every other type with it", async () => {
+    const handle = setup();
+    const get = async (id: string, method = "GET") => handle(new Request(await signed(`photos/${id}/800.jpg`, mediaScope.item("photos", id)), { method }));
+    for (const method of ["GET", "HEAD"]) {
+      const pdf = await get("p5", method);
+      expect(pdf.status).toBe(200);
+      expect(pdf.headers.get("content-type")).toBe("application/pdf");
+      expect(pdf.headers.get("content-security-policy"), method).toBeNull();
+      expect(pdf.headers.get("x-content-type-options")).toBe("nosniff");
+    }
+    const ranged = await handle(new Request(await signed("photos/p5/800.jpg", mediaScope.item("photos", "p5")), { headers: { range: "bytes=0-1" } }));
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-security-policy")).toBeNull();
+    // JPEG, HTML, SVG, untyped and audio all keep the sandbox, and so does video.
+    for (const id of ["p1", "p2", "p3", "p4", "p6"]) expect((await get(id)).headers.get("content-security-policy"), id).toBe(CSP);
+    const video = await handle(new Request(await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"))));
+    expect(video.headers.get("content-security-policy")).toBe(CSP);
+    // An error answer about a PDF path keeps it too.
+    expect((await handle(new Request(`${BASE}/photos/p5/800.jpg`))).headers.get("content-security-policy")).toBe(CSP);
+  });
+
+  it("sends the CSP sandbox on every response: 200, 206, HEAD, 403, 404, 405 and 416", async () => {
+    const handle = setup();
+    const ok = await signed("videos/v1/web-1080.mp4", mediaScope.file("videos", "v1", "web-1080"));
+    const responses = [
+      await handle(new Request(ok)),
+      await handle(new Request(ok, { headers: { range: "bytes=0-1" } })),
+      await handle(new Request(ok, { method: "HEAD" })),
+      await handle(new Request(ok, { headers: { range: "bytes=99-" } })),
+      await handle(new Request(ok, { method: "PUT" })),
+      await handle(new Request(`${BASE}/videos/v1/web-1080.mp4`)),
+      await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9")))),
+    ];
+    expect(responses.map((r) => r.status)).toEqual([200, 206, 200, 416, 405, 403, 404]);
+    for (const r of responses) {
+      expect(r.headers.get("content-security-policy"), String(r.status)).toBe(CSP);
+      expect(r.headers.get("x-content-type-options"), String(r.status)).toBe("nosniff");
+    }
   });
 });
 

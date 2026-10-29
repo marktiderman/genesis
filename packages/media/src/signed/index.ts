@@ -31,12 +31,14 @@ export {
 } from "./signer";
 export {
   createSignedMediaHandler,
+  ifRangeMatches,
   parseRange,
   type MediaRoute,
   type MediaRouteContext,
   type SignedMediaHandlerOptions,
 } from "./handler";
 export {
+  MAX_ZIP_ENTRIES,
   createBundleHandler,
   createZipManifest,
   type BundleHandlerOptions,

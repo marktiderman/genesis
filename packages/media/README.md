@@ -90,7 +90,14 @@ reach a browser: a browser only ever receives finished signed URLs. The
 `/signed` entry resolves to nothing under the `browser` export condition, so a
 page bundle that imports it fails to build (Workers bundlers match `workerd`
 or `worker` first and resolve it), and `createMediaSigner` throws where there
-is a `document`.
+is a `document`. Neither guard is airtight, and neither replaces keeping the
+secret out of client code:
+
+- a webpack build with `target: "webworker"` (a service worker or web worker
+  in the page's own bundle) matches the `worker` condition and has no
+  `document`, so it gets past both;
+- tests of server code that run under jsdom (or happy-dom) have a `document`,
+  so `createMediaSigner` throws there: run them in the `node` environment.
 
 The signer never decides access. The app's own rules (RLS, roles) decide who
 may see what; the signer only proves "the app said yes, recently". Uploading
@@ -136,9 +143,13 @@ const original = await signer.signMediaUrl(MEDIA_BASE, "videos/v1/original.mov",
   (`"30m"`, `"2h"`, `"7d"`, or seconds); anything else throws a `RangeError`.
   Hours suit viewing; days suit a lab or a video provider fetching an
   original. `align: "hour"` ends the link at the end of the hour `now + ttl`
-  falls in, so every link to the same thing within one hour is the same URL
-  and caches as one; it lasts between `ttl` and `ttl` plus an hour. Hiding an
-  item takes effect when its links expire, so keep viewing links short.
+  falls in; it lasts between `ttl` and `ttl` plus an hour. With a whole-hour
+  TTL (`"2h"`, `"7d"`), every link to the same thing signed within one clock
+  hour is the same URL and caches as one; with any other TTL (`"90m"`) the
+  URL changes partway through the hour. An aligned link can outlive
+  `MAX_MEDIA_TTL` by up to that hour: a `"30d"` link may last 30 days and
+  one hour. Hiding an item takes effect when its links expire, so keep
+  viewing links short.
 - **Key rotation:** `createMediaSigner({ keys: { current: "k2", secrets: { k1, k2 } } })`
   signs with `current` and puts its id in the link (`k`); a link verifies
   with the key its id names. A link without an id (from the single-secret
@@ -176,18 +187,35 @@ export default { fetch: (request: Request) => handle(request) };
 `(request) => Promise<Response>`. It answers `GET` and `HEAD` (405
 otherwise) and:
 
-- checks the link **before storage is read**, so an unsigned request can't
-  learn what exists: a bad, expired or other-scope link is 403; an unknown
-  path or a missing file is 404; it never lists anything;
+- checks the link **before storage is read**, and keeps `route`'s answer to
+  itself until the link checks out, so an unsigned request can't learn what
+  exists: a bad, expired or other-scope link and a path `route` doesn't know
+  are the same 403 (after the same HMAC); only a valid link to a missing file
+  is 404; it never lists anything. `route` runs before the check (its scope
+  is what gets checked), so keep it pure and cheap: no storage or database
+  reads. A `route` that throws is answered the same 403; pass
+  `onError(error, request)` to log it;
 - never hands `route` a path with `.` or `..` segments, or a segment that
-  decodes to a slash, backslash or NUL;
+  decodes to a slash, backslash or NUL, or still holds a percent-escape (so
+  a double-encoded `%252e%252e` can't become `..` in a storage URL built from
+  the path; a plain `%`, as in `100% done.jpg`, is fine);
 - serves one byte `Range` as 206 (`bytes=0-99`, `bytes=100-`, `bytes=-500`;
   an end past the file is cut to it), a start past the end as 416 with
   `content-range: bytes */size`, and several ranges or a malformed header as
-  the whole file;
+  the whole file. `If-Range` is honoured (RFC 9110 §13.1.5): the range is
+  sent only while the strong ETag (or the last-modified date) still matches,
+  else the whole file as 200. If the ETag changes between the size check
+  and the read, the new file is sent whole;
 - passes the stored content type, length, ETag and last-modified through, and
   sets `accept-ranges: bytes`, `x-robots-tag: noindex` and
   `x-content-type-options: nosniff`;
+- sandboxes every response but a PDF (`content-security-policy: sandbox;
+  default-src 'none'`; Chromium's PDF viewer is blank under it, and
+  `nosniff` with the declared PDF type can't run as HTML) and shows a file
+  inline only when its type is safe to: images
+  other than SVG, video, audio and PDF. Anything else (HTML, SVG, XML, text,
+  no type) goes out as `content-disposition: attachment`, so a stored file
+  that is really a page can't run script on the media origin;
 - names a download per RFC 6266 (`attachment; filename="…"` in plain ASCII
   plus `filename*=UTF-8''…`), always with the filename the signature binds;
 - caches as `private, max-age=` the link's remaining life, at most an hour,
@@ -200,8 +228,8 @@ import { createBundleHandler, createZipManifest, mediaScope } from "@marktiderma
 
 // When the person asks for the download (after the app has checked them):
 const manifest = createZipManifest({
-  name: "Selected files",       // the download name; .zip is added
-  entries: [{ key: "media/photos/p1/original.jpg", name: "photos/p1.jpg", size: 4_812_330 }],
+  filename: "Selected files",   // the download name; .zip is added
+  entries: [{ key: "media/photos/p1/original.jpg", path: "photos/p1.jpg", size: 4_812_330 }],
   expiresAt: new Date(Date.now() + 86_400_000),
 });
 await env.BUCKET.put(`bundles/${manifest.id}.json`, JSON.stringify(manifest));
@@ -215,15 +243,30 @@ const bundles = createBundleHandler({
 // bundles(request) reads the id from the path's last segment, or bundles(request, id).
 ```
 
-- The manifest has a random 128-bit id, its own filename and its own expiry
-  (Unix seconds), which wins over a longer link. Entry names that would unzip
-  outside their folder (`..`, absolute, backslashes, control characters) and
-  duplicates are refused.
+- The manifest (JSON, format version 1) has a random 128-bit id, its own
+  `filename` and its own expiry (Unix seconds), which wins over a longer
+  link. Each entry is `{ key, path, size? }`. Paths that would unzip outside
+  their folder, or fail to unzip on Windows, are refused: absolute, `.`,
+  `..` or empty segments, any of `\ : < > | ? * "`, control characters and
+  DEL, a segment ending in a dot or a space, device names (`CON`, `nul.txt`,
+  `COM1`…). So are duplicates ignoring case (after NFC normalisation), a path
+  that is both a file and a folder (`a` beside `a/b`), and more than
+  `MAX_ZIP_ENTRIES` (65,535) entries.
 - The ZIP is store-only (media is already compressed) and built on the fly
   with [`client-zip`](https://github.com/Touffy/client-zip): one file at a
-  time as the download is read, so memory stays flat, and ZIP64 past 4 GB or
-  65,535 files. When every entry has a `size`, the response carries the exact
-  `content-length`, so the browser shows progress.
+  time as the download is read, so memory stays flat, and ZIP64 past 4 GB.
+  At most 65,535 files: `client-zip` 2.5.1 (pinned) writes the count in 16
+  bits. When every entry has a `size`, the response carries the exact
+  `content-length`, so the browser shows progress; that number comes from
+  `client-zip`'s `predictLength`, which must match its writer byte for byte,
+  so upgrade the pin only with the bundle tests passing.
+- An abandoned download cancels the storage read in progress and opens no
+  further file.
+- **On Workers**, mind two limits. CPU: the CRC-32 every ZIP entry needs is
+  computed in JavaScript, about 10 s of CPU per 4 GB, so a 30 s CPU limit
+  tops out near 12 GB per bundle (raise the Worker's `cpu_ms` limit, or split
+  the set). Subrequests: each entry is one storage read, a subrequest, so the
+  plan's subrequest limit per request caps the files in one bundle.
 - A file that has gone missing, or whose size no longer matches, ends the
   stream with an error: the download fails rather than arriving incomplete.
 - 403 for a bad link (before the manifest is read), 404 for a missing,
@@ -287,7 +330,8 @@ const storage: MediaStorage = {
 
 **Supabase Storage** (a private bucket) is the same fetch wrapper with plain
 `fetch`, `authorization: Bearer <service role key>`, and
-``at = (key) => `${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${key}` ``.
+``at = (key) => `${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}` ``
+(encode every segment, as the S3 example does, so a key can never add a path step).
 For `head`, send a `GET` with `range: bytes=0-0`, read the size from
 `content-range`, and cancel the body. The service role key stays in the
 Worker, like the signing secret.
