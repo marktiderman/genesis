@@ -1,7 +1,7 @@
 name: Deploy Pages
 
 # Publishes the sample app + Storybook to GitHub Pages on every push to main:
-#   /            → apps/sample (React Router v7, SPA mode)
+#   /            → apps/sample (React Router, every page prerendered)
 #   /storybook/  → apps/sample's Storybook, built against the same
 #                  @marktiderman/genesis-ui the sample app consumes
 #
@@ -50,13 +50,19 @@ jobs:
       - name: Build packages
         run: pnpm build:packages
 
-      # SPA mode (ssr: false) pre-renders one static index.html shell.
+      # SPA mode (ssr: false) with every page prerendered (app/lib/site-paths.ts),
+      # then sitemap.xml, robots.txt and llms.txt (scripts/generate-site-files.ts).
       # The site is served at the root of its custom domain
       # (https://genesisone.dev, set in the repo's Pages settings), so it
       # builds at "/". Set PAGES_BASE here to build for a subpath instead.
       - name: Build sample app
         working-directory: apps/sample
         run: pnpm build
+
+      # The sites demo is written into the client build by a Vite plugin; if a toolchain change
+      # stops it, /sites shows 404 frames while the deploy stays green. Fail here instead.
+      - name: Check the sites demo was built
+        run: test -f apps/sample/build/client/sites-demo/landing/index.html || { echo "::error::The sites demo wasn't prerendered (apps/sample/sites-demo/vite-plugin.ts)."; exit 1; }
 
       # Storybook's Vite builder already emits relative asset paths
       # (base: './'), so it needs no subpath configuration of its own —
@@ -70,11 +76,11 @@ jobs:
           set -euo pipefail
           mkdir -p dist
           cp -r apps/sample/build/client/. dist/
-          # GitHub Pages has no SPA rewrite rule: an unknown path 404s and
-          # Pages serves the repo's own 404.html for it. Copying the SPA
-          # shell there hands control back to react-router's client router
-          # for any deep link (e.g. /items).
-          cp dist/index.html dist/404.html
+          # Every page is prerendered to its own index.html, so deep links
+          # answer 200. Any other path gets Pages' 404.html: the SPA shell,
+          # which hands control to react-router's client router. (index.html
+          # is now the prerendered home page, not the shell.)
+          cp dist/__spa-fallback.html dist/404.html
           mkdir -p dist/storybook
           cp -r apps/sample/storybook-static/. dist/storybook/
 

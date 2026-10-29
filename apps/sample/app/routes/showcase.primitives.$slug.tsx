@@ -1,4 +1,5 @@
-import { Link, useParams } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useParams } from "react-router";
 import {
   Card,
   CardHeader,
@@ -10,6 +11,7 @@ import {
 } from "@marktiderman/genesis-ui";
 import { ExternalLink } from "lucide-react";
 import { PRIMITIVE_CARDS } from "../lib/portfolio-data";
+import { storyUrl } from "../lib/storybook";
 import {
   findPrimitive,
   type PrimitiveDoc,
@@ -32,12 +34,22 @@ const STABILITY_VARIANT: Record<
 export default function PrimitiveDetail() {
   const { slug = "" } = useParams<{ slug: string }>();
   const card = PRIMITIVE_CARDS.find((x) => x.slug === slug);
-  const doc = findPrimitive(slug);
+  // Read after hydration: the prerendered page is the web one, so reading the query on the
+  // first render would mismatch it.
+  const [surface, setSurface] = useState<"web" | "native">("web");
+  const { search } = useLocation();
+  useEffect(() => {
+    setSurface(new URLSearchParams(search).get("surface") === "native" ? "native" : "web");
+  }, [search]);
+  const doc = findPrimitive(slug, surface);
 
   // Prefer the generated stability tag when present — it reflects the
   // @stability JSDoc in source. Fall back to the hand-curated card.
   const stability = doc?.stability ?? card?.stability;
   const label = card?.label ?? doc?.primaryComponent ?? slug;
+  // Stories cover the web primitives; a native-only page gets no link.
+  const storybook =
+    doc?.surface === "native" ? undefined : storyUrl(slug, doc?.primaryComponent);
   const blurb = card?.blurb ?? doc?.summary ?? "";
 
   return (
@@ -70,7 +82,7 @@ export default function PrimitiveDetail() {
 
           {doc ? <ComponentsCard doc={doc} /> : null}
 
-          <StorybookCard slug={slug} />
+          {storybook ? <StorybookCard href={storybook} /> : null}
         </>
       ) : (
         <Card>
@@ -210,19 +222,7 @@ function PropsTable({ props }: { props: PrimitiveProp[] }) {
   );
 }
 
-// Storybook host. Defaults to the local dev server; override at build/run
-// time via VITE_STORYBOOK_URL when pointing at a deployed Storybook (e.g.
-// Chromatic preview, GitHub Pages).
-const STORYBOOK_BASE_URL =
-  (typeof import.meta !== "undefined" && import.meta.env?.VITE_STORYBOOK_URL) ||
-  "http://localhost:6006";
-
-function storybookUrl(slug: string): string {
-  const storyId = `ui-${slug.replace(/-/g, "")}--default`;
-  return `${STORYBOOK_BASE_URL.replace(/\/$/, "")}/?path=/story/${storyId}`;
-}
-
-function StorybookCard({ slug }: { slug: string }) {
+function StorybookCard({ href }: { href: string }) {
   return (
     <Card>
       <CardHeader>
@@ -234,7 +234,7 @@ function StorybookCard({ slug }: { slug: string }) {
       </CardHeader>
       <CardContent>
         <a
-          href={storybookUrl(slug)}
+          href={href}
           target="_blank"
           rel="noreferrer"
           className="inline-flex"

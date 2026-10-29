@@ -11,6 +11,33 @@ This file is appended to (never rewritten) at every release. Newest version on t
 
 ---
 
+## Record pages are record views; workspaces — `@marktiderman/genesis-core` 2.2, `@marktiderman/genesis-ui` 2.24 (deprecation; **minor**)
+
+🟡 **Action recommended.** A record's page is now a **record view**, so "workspace" can mean
+where the viewer is working ([ADR 0004](./adr/0004-workspaces.md)). The old names work for one
+more minor release, marked deprecated, then go.
+
+| Before | After |
+| --- | --- |
+| `defineWorkspace(view, …)` | `defineRecordView(view, …)` (`genesis-core/resource-view`) |
+| `<ResourceWorkspace workspace={…} />` | `<RecordView view={…} />` (`genesis-ui/data`) |
+| `<NativeResourceWorkspace workspace={…} />` | `<NativeRecordView view={…} />` (`genesis-ui-native/data`) |
+| `getNativeResourceWorkspaceStackOptions` | `getNativeRecordViewStackOptions` |
+| `Workspace…` types (`WorkspaceDefinition`, …) | `RecordView…` types |
+| doctor rule `ui/record-pages-use-resource-workspace` | `ui/records-use-record-view` |
+
+The props are otherwise the same: `row`, `section`, `sectionHref`, `can`, `onAction`, `slots`,
+`lists`. Message keys (`messages.workspace`) and default test ids (`resource-workspace`) are
+unchanged. A hand-built record page with tabs (the doctor's `ui/records-use-record-view`) moves to
+`defineRecordView` + `<RecordView>`; see [RESOURCE-VIEW.md](./RESOURCE-VIEW.md#recordview).
+
+🟢 **New, nothing to change:** `Workspace` now means where the viewer works: a tenant, a roll-up
+or personal (`genesis-core/workspaces`). An app with organizations wraps its routes in
+`<WorkspaceScope workspaces pathname>` (`genesis-core/hooks`) in place of `ViewerScope`, and puts
+`<WorkspaceSwitcher>` (`genesis-ui/layout`) in `AppShell`'s `headerSlot`. Views with
+`scope: ["org_id"]` follow the switcher with no change. A working example is the demo app at
+[genesisone.dev/demo](https://genesisone.dev/demo) (`apps/sample/app/routes/demo.tsx`).
+
 ## Scope-neutral names — `@marktiderman/genesis-core` 2.0, `@marktiderman/genesis-ui-native` 3.0 (breaking; **major**)
 
 🔴 **Action required** for apps that use a practice clock or `practiceTimeZone`. Run the codemod:

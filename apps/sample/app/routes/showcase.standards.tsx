@@ -4,7 +4,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  Badge,
   Alert,
   AlertTitle,
   AlertDescription,
@@ -19,11 +18,8 @@ export default function Standards() {
       <header>
         <h1 className="text-3xl font-bold tracking-tight">Standards</h1>
         <p className="text-muted-foreground mt-1">
-          The four standards every Genesis consumer follows. Sourced from{" "}
-          <code className="text-xs bg-muted px-1 rounded">
-            docs/prds/PRD-07-genesis-consumption-architecture/standards/
-          </code>
-          .
+          How Genesis apps are built. The doctor (<code className="text-xs bg-muted px-1 rounded">genesis doctor</code>)
+          enforces these in CI.
         </p>
       </header>
 
@@ -41,7 +37,6 @@ export default function Standards() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>{s.title}</CardTitle>
-              <Badge variant="outline">@stable</Badge>
             </div>
             <CardDescription>{s.summary}</CardDescription>
           </CardHeader>

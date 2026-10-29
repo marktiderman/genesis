@@ -94,6 +94,10 @@ export const uiMessages = {
     search: "Search...",
     status: "Status",
     sortBy: "Sort by...",
+    /** The sort menu's accessible name. */
+    sort: "Sort",
+    /** The button that empties the search box. */
+    clearSearch: "Clear search",
     views: "Views",
     /** `{count}`: saved views. */
     viewCount: "({count})",

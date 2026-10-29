@@ -210,7 +210,9 @@ export function DataFilters({
           />
           {search && (
             <button
+              type="button"
               onClick={() => onSearchChange("")}
+              aria-label={m.filters.clearSearch}
               className="absolute right-3 top-1/2 -translate-y-1/2"
             >
               <X className="h-3.5 w-3.5 text-muted-foreground" />
@@ -220,7 +222,7 @@ export function DataFilters({
         )}
         {showSort && (
         <Select value={sort} onValueChange={onSortChange}>
-          <SelectTrigger className="w-full sm:w-[180px] shrink-0">
+          <SelectTrigger className="w-full sm:w-[180px] shrink-0" aria-label={m.filters.sort}>
             <ArrowUpDown className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
             <SelectValue placeholder={m.filters.sortBy} />
           </SelectTrigger>

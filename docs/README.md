@@ -5,8 +5,18 @@
   invention moves up into Genesis). Part 2: the layered contract (tokens → primitives →
   patterns → layouts → data-bound) that decides what belongs in Genesis and what doesn't.
   Read this before building anything.
+- [`RESOURCE-VIEW.md`](./RESOURCE-VIEW.md): one description per resource. `defineView` and
+  `<ResourceView>` for lists, `defineRecordView` and `<RecordView>` for one record, the same view on
+  the phone, scope, guards and the security model. Read this before building a data screen.
 - [`component-reference.md`](./component-reference.md) — auto-generated catalogue of every
-  export across every package. Regenerate with `pnpm gen:component-reference`.
+  export of every entry point of every published package. Regenerate with
+  `pnpm gen:component-reference`. The same data drives the package pages at
+  [genesisone.dev/packages](https://genesisone.dev/packages).
+- [`adr/`](./adr/): the architecture decisions:
+  [0001 one feature gate](./adr/0001-one-feature-gate.md),
+  [0002 the product system](./adr/0002-product-system.md),
+  [0003 navigation zones](./adr/0003-navigation-zones.md),
+  [0004 workspaces](./adr/0004-workspaces.md).
 - [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): proposal for how the packages are grouped
   (foundation, app shells, platform services, domain blocks, tooling), what the apps on Genesis
   use today, what Linear, Cursor and the leading starter kits build once, and a ranked, sized list
@@ -29,6 +39,13 @@
 - [`../packages/extension/README.md`](../packages/extension/README.md): building Chrome extensions
   with Genesis (messaging, settings, panel / top bar / side panel, an in-page bar, native helpers,
   React pages on Genesis UI, a `chrome.*` fake for tests).
+- [`SITES.md`](./SITES.md): Genesis Sites, landing pages and small sites from a section
+  registry, the visual editor, publishing and the Supabase schema.
+- [`NOTIFICATIONS.md`](./NOTIFICATIONS.md): `genesis-notifications`, the one notifier (in-app,
+  push, email) and its contract with the domains that use it.
+  [`NOTIFICATIONS-V1.1.md`](./NOTIFICATIONS-V1.1.md) is the next version's design, in review.
+- [`COLLABORATION.md`](./COLLABORATION.md): sharing spaces and visibility rules (`genesis-collab`),
+  proposal and build order.
 - [`APP-CI.md`](./APP-CI.md): the reusable workflows an app's CI calls (`app-ci`, `supabase-ci`,
   `genesis-upgrade`), the caller templates in `templates/ci/`, and which Genesis ref to call.
 - [`NATIVE-RELEASE.md`](./NATIVE-RELEASE.md): a native app's release path on EAS Workflows (pull

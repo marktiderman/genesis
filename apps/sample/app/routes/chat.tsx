@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { MessagesSquare } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Button, Toaster, toast } from "@marktiderman/genesis-ui";
-import { PageHeader } from "@marktiderman/genesis-ui/data";
+import { PageHeader } from "@marktiderman/genesis-ui/layout";
 import { ChatProvider } from "@marktiderman/genesis-chat/react";
 import { ChatPanel, createMemoryChatClient } from "@marktiderman/genesis-chat/web";
 

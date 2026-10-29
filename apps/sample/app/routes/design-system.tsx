@@ -262,7 +262,7 @@ export default function DesignSystem() {
               <Button size="sm" testID="ds-button-size-sm">Small</Button>
               <Button size="default" testID="ds-button-size-default">Default</Button>
               <Button size="lg" testID="ds-button-size-lg">Large</Button>
-              <Button size="icon" testID="ds-button-size-icon"><Plus className="h-4 w-4" /></Button>
+              <Button size="icon" testID="ds-button-size-icon" aria-label="Add"><Plus className="h-4 w-4" /></Button>
             </div>
           </div>
           <div>
@@ -343,13 +343,13 @@ export default function DesignSystem() {
       <Section id="inputs" title="7. Inputs & Forms">
         <div className="max-w-md space-y-4">
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Text Input</label>
-            <Input placeholder="Enter your name..." />
+            <label htmlFor="ds-text-input" className="text-sm font-medium mb-1.5 block">Text Input</label>
+            <Input id="ds-text-input" placeholder="Enter your name..." />
           </div>
           <div>
-            <label className="text-sm font-medium mb-1.5 block">Select</label>
+            <label htmlFor="ds-select" className="text-sm font-medium mb-1.5 block">Select</label>
             <Select defaultValue="option1">
-              <SelectTrigger>
+              <SelectTrigger id="ds-select">
                 <SelectValue placeholder="Choose an option" />
               </SelectTrigger>
               <SelectContent>
@@ -385,7 +385,7 @@ export default function DesignSystem() {
               <DialogDescription>Make changes to your profile here. Click save when done.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <Input placeholder="Name" defaultValue="Mark Tiderman" />
+              <Input placeholder="Name" defaultValue="Alex Rivera" />
               <Input placeholder="Email" defaultValue="mark@example.com" />
             </div>
             <DialogFooter>

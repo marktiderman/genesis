@@ -157,3 +157,14 @@ jobs:
       # with an axe a11y check; see apps/sample/vitest.config.ts.
       - name: Run Storybook browser tests
         run: pnpm --filter sample test:storybook
+
+      # The public site (genesisone.dev): every page prerenders and the
+      # sitemap, robots.txt and llms.txt are written, as the deploy does.
+      - name: Build the site
+        run: pnpm --filter sample build
+
+      # Opens every page of the built site in headless Chromium: it fails when
+      # a page throws, logs an error, shows the error screen, answers non-200,
+      # or (one page per route) breaks an axe rule. See scripts/smoke-site.mjs.
+      - name: Smoke-test every page
+        run: pnpm --filter sample smoke
