@@ -202,19 +202,22 @@ Storybook titles start with the layer and group: `Foundation/UI/Button`, `Primit
 ### What ships as a package, and what is copied in
 
 Accepted by the maintainer, 2026-10-29 (R6). Code ships as npm packages; an app never holds a
-copy of a Genesis component, hook or server function. What an app must own, because it runs or
-lives in the app's own project, is copied in by `genesis add` (and kept current by `genesis
-migrate` and `genesis upgrade`):
+copy of a Genesis component, hook or server handler. What an app must own, because it runs or
+lives in the app's own project, is copied in by `genesis add`: new migrations later arrive with
+`genesis migrate`, and `genesis upgrade` refreshes the files Genesis owns (pgTAP tests, skills,
+the AGENTS.md block). Route stubs are written once, on Expo Router apps; elsewhere `genesis add`
+prints the step.
 
 | Ships in the package (the app imports it) | Copied into the app (the app owns the file) |
 | --- | --- |
-| Components, hooks, providers, server handlers, the doctor's rules | Migrations and their pgTAP tests (new timestamped files; an applied one is never rewritten) |
-| Types, contracts, views, blocks' declarations | Route stubs, Edge Functions and config the app's platform runs |
+| Components, hooks, providers, server handlers, the doctor's rules | Migrations (new timestamped files; an applied one is never rewritten) and their pgTAP tests |
+| Types, contracts, views, blocks' declarations | Route stubs, Edge Functions and the config the app's platform runs (`supabase/config.toml`) |
 | | Agent skills (`SKILL.md`) and the AGENTS.md block |
 
 There is no eject. An app that needs a component to behave differently uses its props, variants
-and slots (FRAMEWORK G2); when no extension point fits, it writes a gap in its
-`genesis-upstream.md` and works around it locally, and Genesis adds the extension point. A fix
+and slots (FRAMEWORK G2); when no extension point fits, it writes the gap up for Genesis and
+works around it locally, and Genesis adds the extension point (`genesis upstream`, an idea, will
+make that a register and an issue form). A fix
 in a package then reaches every app with `genesis upgrade`, which a copied component never would.
 Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
 
