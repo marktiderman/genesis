@@ -476,7 +476,7 @@ jobs:
           branch=${BRANCH_INPUT:-genesis-upgrade/$BASE}
           git check-ref-format --branch "$branch" > /dev/null || fail "branch '$branch' is not a valid branch name"
           default=$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)
-          [ "$branch" != "$BASE" ] && [ "$branch" != "$default" ] || fail "branch '$branch' is the base or default branch; pick a branch of its own"
+          if [ "$branch" = "$BASE" ] || [ "$branch" = "$default" ]; then fail "branch '$branch' is the base or default branch; pick a branch of its own"; fi
 
           mapfile -t files < "$dir/files"
           git add -- "${files[@]}" "$LOCKFILE"

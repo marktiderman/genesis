@@ -8,8 +8,8 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-const uiNative = path.resolve(__dirname, "../ui-native");
-const native = path.resolve(__dirname, "../native");
+const uiNative = path.resolve(import.meta.dirname, "../ui-native");
+const native = path.resolve(import.meta.dirname, "../native");
 
 export default defineConfig({
   test: {

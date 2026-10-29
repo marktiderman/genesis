@@ -4,15 +4,16 @@
  * TypeScript (type annotations included) to prove the loader strips types;
  * it doesn't import genesis-features, so the test needs no built dist.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { removeTempDir } from "./temp.js";
 import { formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind, type GhRunner } from "../src/features";
 
 const created: string[] = [];
 afterEach(() => {
-  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true });
+  for (const dir of created.splice(0)) removeTempDir(dir);
 });
 
 function repo(files: Record<string, string>): string {

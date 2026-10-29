@@ -4,10 +4,11 @@
  * into its node_modules (the fake declarations live unbuilt in
  * test/fixtures/doctor/_genesis because dist/ is gitignored).
  */
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { removeTempDir } from "./temp.js";
 
 const FIXTURES = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "doctor");
 const GENESIS = path.join(FIXTURES, "_genesis");
@@ -43,5 +44,5 @@ export function makeApp(fixture: string | null, extra: Record<string, string> = 
 }
 
 export function cleanupApps(): void {
-  for (const dir of created.splice(0)) rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
+  for (const dir of created.splice(0)) removeTempDir(dir);
 }

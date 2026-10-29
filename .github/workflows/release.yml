@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+# Each job asks for what it needs.
+permissions: {}
+
 jobs:
   release:
     name: Release
@@ -32,16 +35,23 @@ jobs:
     # For the release-notes job below.
     outputs:
       published: ${{ steps.changesets.outputs.published }}
-      hasChangesets: ${{ steps.changesets.outputs.hasChangesets }}
-      pullRequestNumber: ${{ steps.changesets.outputs.pullRequestNumber }}
+      hasChangesets: ${{ steps.changesets.outputs.has-changesets }}
+      pullRequestNumber: ${{ steps.changesets.outputs.pr-number }}
     permissions:
+      # The version PR's branch and commit, and the package tags and GitHub releases, all
+      # written through the GitHub API (changesets/action v2, scripts/create-tag-ref.sh).
       contents: write
       pull-requests: write
-      packages: write
+      # The npm Trusted Publishing token.
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Nothing here pushes with git: changesets/action v2 writes the version commit and the
+          # tags through the GitHub API with its github-token input, and so does
+          # scripts/create-tag-ref.sh. So the token isn't left in .git/config while the install
+          # and the build run dependency code.
+          persist-credentials: false
           # changesets needs history to work out what to version.
           fetch-depth: 0
           # ...but not every blob ever committed. This workflow fires on EVERY
@@ -69,7 +79,7 @@ jobs:
       # The lockfile format version is unchanged across pnpm 9, 10 and 11, so
       # `--frozen-lockfile` reads the existing `pnpm-lock.yaml` (lockfileVersion
       # 9.0) without a regeneration.
-      - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 11.26.0
 
@@ -97,7 +107,7 @@ jobs:
       # even though the Trusted Publisher for @marktiderman/genesis-core is
       # correctly configured (marktiderman / genesis / release.yml).
       # With no `.npmrc` and no token, npm performs the OIDC exchange itself.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22.22.1
           cache: pnpm
@@ -199,18 +209,14 @@ jobs:
         run: node scripts/verify-no-workspace-protocol.mjs --skip-build
 
       # KEEP `pnpm changeset publish`, do NOT switch to a raw `pnpm publish`:
-      # changesets/action's own runPublish (src/run.ts) scans this script's
-      # STDOUT for lines matching `New tag: <pkg>@<version>` to decide what
-      # was published and whether to cut GitHub releases — and that exact
-      # string is printed ONLY by `changeset publish` itself (MEASURED:
-      # `grep -n "New tag" node_modules/@changesets/cli/dist/*.js` — three
-      # hits, all inside changesets-cli, none in pnpm or npm). A bare
-      # `pnpm publish -r` would never print it, so `steps.changesets.outputs.
-      # published` would go permanently false and GitHub Releases would stop
-      # being created — a second silent breakage on top of the one this PR
-      # fixes. `changeset publish` already resolves to `pnpm publish`
-      # per-package here (see the block above), so this line was never the
-      # defect; the guard above is what actually protects the registry.
+      # changesets/action v2 learns what was published from the NDJSON file
+      # named by the CHANGESETS_OUTPUT environment variable it sets for the
+      # publish script, and only `changeset publish` (CLI v3) writes that file.
+      # A bare `pnpm publish -r` would write nothing, so `steps.changesets.
+      # outputs.published` would go permanently false, and no package tags or
+      # GitHub Releases would be created. `changeset publish` already resolves
+      # to `pnpm publish` per-package here (see the block above); the guard
+      # above is what actually protects the registry.
       # Fails loud, BEFORE any PUT, when npm will not trust this workflow for
       # a package about to be published. Without it, pnpm logs "Skipped OIDC"
       # (hidden by changesets), publishes unauthenticated, and the only
@@ -282,9 +288,14 @@ jobs:
       # carries versions npm doesn't have, publish those first. `changeset
       # publish` publishes exactly the local versions missing from npm and
       # ignores pending changeset files. GitHub Releases are not created on
-      # this path (only changesets/action does that); tags are pushed.
+      # this path (only changesets/action does that); the package tags
+      # `changeset publish` makes on HEAD are created on GitHub through the API
+      # (scripts/create-tag-ref.sh says why not `git push`).
       - name: Publish versions already on main
         if: steps.verify.outputs.unpublished == 'true'
+        env:
+          # RELEASE_TAG_TOKEN is optional and unset by default (docs/RELEASING.md).
+          GH_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           if ! find .changeset -maxdepth 1 -name '*.md' ! -name README.md | grep -q .; then
@@ -293,24 +304,25 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           pnpm changeset publish
-          git push origin --tags
+          sha=$(git rev-parse HEAD)
+          for tag in $(git tag --points-at HEAD); do
+            case "$tag" in release/*) continue ;; esac
+            scripts/create-tag-ref.sh "$tag" "$sha"
+          done
 
       - name: Create Release PR or Publish
         id: changesets
-        # Held at v1: v2 needs Changesets CLI v3 (this repo is on 2.30) and renames
-        # publish/version/commit/title and the outputs used below.
-        uses: changesets/action@v1
+        # v2 (with Changesets CLI v3): pushes the version commit and the tags through
+        # the GitHub API with `github-token` (default: this job's GITHUB_TOKEN).
+        uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
-          publish: pnpm changeset publish
-          version: pnpm run version:packages
-          commit: "chore: version packages"
-          title: "chore: version packages"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # NPM_TOKEN intentionally omitted — OIDC Trusted Publishing handles auth.
-          # id-token: write above is for the OIDC publish token. npm still adds
-          # an SLSA provenance attestation to trusted publishes, despite
-          # publishConfig.provenance: false (see docs/RELEASING.md).
+          publish-script: pnpm changeset publish
+          version-script: pnpm run version:packages
+          commit-message: "chore: version packages"
+          pr-title: "chore: version packages"
+        # No env: NPM_TOKEN is intentionally omitted, since OIDC Trusted Publishing handles auth
+        # (id-token: write above). npm still adds an SLSA provenance attestation to trusted
+        # publishes, despite publishConfig.provenance: false (see docs/RELEASING.md).
 
 
   # Release notes (genesis-product; docs/RELEASING.md, "Release notes"): what reached beta or live
@@ -338,6 +350,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # The release/* tag is created through the API, not pushed (scripts/create-tag-ref.sh),
+          # and the public repository's lazy blob fetches need no token.
+          persist-credentials: false
           # Every tag and commit: the notes diff from the previous release/* tag. Blob contents
           # stay lazy (catalogAt throws if one can't be fetched, never reads it as empty).
           fetch-depth: 0
@@ -393,7 +408,9 @@ jobs:
       # version packages merge) and make them that tag's GitHub release. The tag is pushed even
       # when no feature changed, so the next release diffs from here; the GitHub release is made
       # only when there is something to say, and never marked latest over the package releases.
-      # A re-run on a commit that already has its tag reuses it.
+      # A re-run on a commit that already has its tag reuses it. The tag is created through the
+      # GitHub API, not `git push`: a pushed tag is refused when its commits touch a workflow
+      # file (run 40875804950; scripts/create-tag-ref.sh).
       - name: Tag the release and publish its notes
         id: product_release
         if: needs.release.outputs.published == 'true'
@@ -401,6 +418,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Only for the tag (scripts/create-tag-ref.sh); optional and unset by default.
+          TAG_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           trap 'echo "::error::The packages are published, but the release tag or notes failed. Re-run this job, or follow docs/RELEASING.md (Release notes) by hand."' ERR
@@ -416,8 +435,7 @@ jobs:
             while git rev-parse -q --verify "refs/tags/$tag" >/dev/null || git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; do
               n=$((n + 1)); tag="$base-$n"
             done
-            git tag "$tag" HEAD
-            git push origin "refs/tags/$tag"
+            GH_TOKEN=$TAG_TOKEN scripts/create-tag-ref.sh "$tag" "$(git rev-parse HEAD)"
           fi
           name=${tag#release/}
           pnpm exec genesis-product release --from "$prev" --name "$name" --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/notes.md" 2> "$RUNNER_TEMP/notes.err"
