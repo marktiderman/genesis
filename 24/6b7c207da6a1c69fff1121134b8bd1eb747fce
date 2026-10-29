@@ -1,0 +1,21 @@
+packages/core/src/hooks/__tests__/resource-form-schema.test.tsx
+  s_8b8f6102383114::t_5aa86c26d0599a 1-76
+packages/core/vitest.config.ts
+  s_8b8f6102383114::t_2c619313234cbe 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "246b7c207da6a1c69fff1121134b8bd1eb747fce",
+  "prompts": {},
+  "sessions": {
+    "s_8b8f6102383114": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "74834b24-dde3-4897-bf3c-8480838599d7",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
