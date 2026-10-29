@@ -1,0 +1,153 @@
+.changeset/sites-editor-sections.md
+  s_e2cf1ec4fac133::t_cd9f5b1f7afe48 1-5
+.changeset/studio-no-nested-main.md
+  s_e2cf1ec4fac133::t_2528d33b1f1143 1-5
+.changeset/workspace-switcher-parts.md
+  s_e2cf1ec4fac133::t_f35d3e8caac1de 6,9,11
+README.md
+  s_e2cf1ec4fac133::t_565e5abb975bc9 3-11,14-15,18-21,23,25-26,29-49,52-56,104,106,109,147-149,151-158,160,162-165
+apps/sample/.react-router/types/+routes.ts
+  s_e2cf1ec4fac133::t_ce3e637ab35bc5 28-77,116,118,176,194-237,240,294-296,362-372,387
+apps/sample/.react-router/types/app/routes/+types/demo.$ws._index.ts
+  s_e2cf1ec4fac133::t_7bc1b3e5274d9a 5,8,16-17,19-20
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.assistant.ts
+  s_e2cf1ec4fac133::t_605e764e20ae6a 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.bookings.ts
+  s_e2cf1ec4fac133::t_3864cbe8672022 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.chat.ts
+  s_e2cf1ec4fac133::t_a01c9818895293 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.clients.$id.ts
+  s_e2cf1ec4fac133::t_7be1ed8d02c2d0 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.clients.ts
+  s_e2cf1ec4fac133::t_6a38383fb1a617 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.data.ts
+  s_e2cf1ec4fac133::t_58ac712810217b 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.intake.ts
+  s_e2cf1ec4fac133::t_cb63a839e7d0b2 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.$ws.settings.ts
+  s_e2cf1ec4fac133::t_3ac1cd05102901 1-74
+apps/sample/.react-router/types/app/routes/+types/demo._index.ts
+  s_e2cf1ec4fac133::t_0726acc2b1ba4b 1-74
+apps/sample/.react-router/types/app/routes/+types/demo.ts
+  s_e2cf1ec4fac133::t_2d6d3f3ebe3f3b 1-71
+apps/sample/.react-router/types/app/routes/+types/projects.ts
+  s_e2cf1ec4fac133::t_6e1743909c21d9 5,8,19-20
+apps/sample/README.md
+  s_e2cf1ec4fac133::t_744484daa261bf 1,3-6,8,11-14,17-60
+apps/sample/app/components/layout-examples.tsx
+  s_e2cf1ec4fac133::t_900d40d656cac0 26,77-78,101
+apps/sample/app/data/primitives.json
+  s_e2cf1ec4fac133::t_7f9befebb9adb6 23661
+apps/sample/app/demo/ai.ts
+  s_e2cf1ec4fac133::t_e6d143fde300e3 1-42
+apps/sample/app/demo/context.tsx
+  s_e2cf1ec4fac133::t_838d6a2aa4a054 1-27
+apps/sample/app/demo/data.ts
+  s_e2cf1ec4fac133::t_aad2a3632b2ffe 1-26
+apps/sample/app/demo/features.ts
+  s_e2cf1ec4fac133::t_5c811ede6f6f85 1-62
+apps/sample/app/demo/intake.form.ts
+  s_e2cf1ec4fac133::t_dc395a7fb11e39 1-23
+apps/sample/app/demo/provider.ts
+  s_e2cf1ec4fac133::t_a2bc0b32b78d8f 1-42
+apps/sample/app/demo/seed.ts
+  s_e2cf1ec4fac133::t_9d9c83b00961a4 1-70
+apps/sample/app/demo/source.tsx
+  s_e2cf1ec4fac133::t_973261b37ffefa 1-50
+apps/sample/app/demo/tenants.ts
+  s_e2cf1ec4fac133::t_49cff84f2df5b3 1-21,24-30,33-42,44-72
+apps/sample/app/demo/views/bookings.view.ts
+  s_e2cf1ec4fac133::t_f304c7d6520faa 1-32
+apps/sample/app/demo/views/client.record.ts
+  s_e2cf1ec4fac133::t_5d4392f377b2d2 1-17
+apps/sample/app/demo/views/clients.view.ts
+  s_e2cf1ec4fac133::t_931cc15a6d28c2 1-40
+apps/sample/app/lib/site-paths.ts
+  s_e2cf1ec4fac133::t_107f007ca6b63d 10,15,35-36
+apps/sample/app/lib/site.ts
+  s_e2cf1ec4fac133::t_b8e875c50a194a 51,72,75-80
+apps/sample/app/routes.ts
+  s_e2cf1ec4fac133::t_2aae1a73259939 16-28,44-45
+apps/sample/app/routes/_index.tsx
+  s_e2cf1ec4fac133::t_35d6d78674b89f 19,33,73,133-134,138,141
+apps/sample/app/routes/_layout.tsx
+  s_e2cf1ec4fac133::t_9c688c6a344bb8 8,15,19,60
+apps/sample/app/routes/chat.tsx
+  s_e2cf1ec4fac133::t_0d80ec5b1c2ea2 10
+apps/sample/app/routes/dashboard.tsx
+  s_e2cf1ec4fac133::t_87a936c478cec5 9-10
+apps/sample/app/routes/demo.$ws._index.tsx
+  s_e2cf1ec4fac133::t_a66caaba13d42d 1-9,11-18,20,22-27,29-49,51-59,61,64
+apps/sample/app/routes/demo.$ws.assistant.tsx
+  s_e2cf1ec4fac133::t_19d29a19940297 1-72
+apps/sample/app/routes/demo.$ws.bookings.tsx
+  s_e2cf1ec4fac133::t_f3076bb87fa826 1-24
+apps/sample/app/routes/demo.$ws.chat.tsx
+  s_e2cf1ec4fac133::t_247312fe8911b9 1-69
+apps/sample/app/routes/demo.$ws.clients.$id.tsx
+  s_e2cf1ec4fac133::t_ebd9e9f9f00467 1-61
+apps/sample/app/routes/demo.$ws.clients.tsx
+  s_e2cf1ec4fac133::t_e3016b0009fe05 1-29
+apps/sample/app/routes/demo.$ws.data.tsx
+  s_e2cf1ec4fac133::t_971942203006e6 1-39
+apps/sample/app/routes/demo.$ws.intake.tsx
+  s_e2cf1ec4fac133::t_fa1de850cdeade 1-80
+apps/sample/app/routes/demo.$ws.settings.tsx
+  s_e2cf1ec4fac133::t_93e4c191826c06 1-81
+apps/sample/app/routes/demo._index.tsx
+  s_e2cf1ec4fac133::t_7f80a26b9e7e12 1-5,7,9-20,22-29,32
+apps/sample/app/routes/demo.tsx
+  s_e2cf1ec4fac133::t_130ba679b4b93f 1-141
+apps/sample/app/routes/items.tsx
+  s_e2cf1ec4fac133::t_82e0135403865b 1-6,10-11,13,15
+apps/sample/app/routes/projects.tsx
+  s_e2cf1ec4fac133::t_1c68ac76dae751 1-6
+apps/sample/app/routes/settings.tsx
+  s_e2cf1ec4fac133::t_a937409b2292c3 21
+apps/sample/app/routes/showcase.primitives._index.tsx
+  s_e2cf1ec4fac133::t_13e45307267d57 68
+apps/sample/app/routes/sites.tsx
+  s_e2cf1ec4fac133::t_cccf2580d48cf7 8
+apps/sample/app/routes/studio.tsx
+  s_e2cf1ec4fac133::t_53d801d6e227bd 5,41-43,45-49
+apps/sample/package.json
+  s_e2cf1ec4fac133::t_03f446f178eef7 27
+apps/sample/scripts/generate-site-files.ts
+  s_e2cf1ec4fac133::t_1ed3f9bfa28c0f 32
+docs/FRAMEWORK.md
+  s_e2cf1ec4fac133::t_5d8cdcff8f4758 268-271,273,275-278,280-282,393-394,432-447
+docs/MIGRATION.md
+  s_e2cf1ec4fac133::t_8bb024643be0eb 14-40
+docs/README.md
+  s_e2cf1ec4fac133::t_d0ad38523e6fc8 8-10,12-19,42-48
+docs/adr/0004-workspaces.md
+  s_e2cf1ec4fac133::t_d0f14184f9eeca 3,30
+packages/core/src/workspaces.ts
+  s_e2cf1ec4fac133::t_ad38bf03910b55 67
+packages/sites/package.json
+  s_e2cf1ec4fac133::t_996a33c5921979 9
+packages/studio/src/DataStudio.tsx
+  s_e2cf1ec4fac133::t_91059a58cb8255 336-337,363
+packages/ui/src/components/layout/__tests__/workspace-switcher.test.tsx
+  s_e2cf1ec4fac133::t_2b46aa81c7695e 186-192,520,522,525-528,531,533-538
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_e2cf1ec4fac133::t_0400ffe4dfef16 202-204,360-361,400,529-531,544-546,548-549,698-701
+pnpm-lock.yaml
+  s_e2cf1ec4fac133::t_3ed2f87dd8efc3 291-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f50c467a0cfec6dd14d368e7cad257d8901c9de4",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
