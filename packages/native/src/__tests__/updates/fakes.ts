@@ -1,4 +1,4 @@
-import { vi } from "vitest";
+import { type Mock, vi } from "vitest";
 import type { UpdatesModuleLike, UpdatesStorageLike } from "../../updates/modules";
 
 export interface FakeUpdatesOptions {
@@ -11,8 +11,10 @@ export interface FakeUpdatesOptions {
   checkError?: Error;
 }
 
+type Spied<T> = { [K in keyof T]: T[K] extends (...args: never[]) => unknown ? Mock<T[K]> & T[K] : T[K] };
+
 /** An expo-updates stand-in whose calls are spies. */
-export function fakeUpdates(options: FakeUpdatesOptions = {}) {
+export function fakeUpdates(options: FakeUpdatesOptions = {}): Spied<UpdatesModuleLike> {
   const { isEnabled = true, next = null, runtimeVersion = "1.0.0", updateId = "running-0000", channel = "production", checkError } = options;
   const manifest = next ? { id: next.id, runtimeVersion: next.runtimeVersion ?? runtimeVersion } : undefined;
   const updates = {

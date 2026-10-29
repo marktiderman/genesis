@@ -36,7 +36,7 @@
     "@marktiderman/genesis-cli": "workspace:*",
     "@marktiderman/genesis-features": "workspace:*",
     "@marktiderman/genesis-product": "workspace:*",
-    "vitest": "^4.1.12",
+    "vitest": "^5.0.5",
     "yaml": "^2.6.0"
   },
   "genesisFeatures": {

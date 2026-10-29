@@ -13,16 +13,16 @@ export const focused: unknown[] = [];
 
 export const AccessibilityInfo = {
   ...BaseAccessibilityInfo,
-  announceForAccessibility: vi.fn((message: string) => {
+  announceForAccessibility: vi.fn<(message: string) => void>((message: string) => {
     announcements.push(message);
   }),
-  sendAccessibilityEvent: vi.fn((node: unknown, event: string) => {
+  sendAccessibilityEvent: vi.fn<(node: unknown, event: string) => void>((node: unknown, event: string) => {
     if (event === "focus") focused.push(node);
   }),
-  setAccessibilityFocus: vi.fn(),
+  setAccessibilityFocus: vi.fn<(node: unknown) => void>(),
 };
 
-export const Keyboard = { dismiss: vi.fn() };
+export const Keyboard = { dismiss: vi.fn<() => void>() };
 
 /** Drawn in place, so tests can find the bar above a keyboard. */
 export const InputAccessoryView = ({ nativeID, children }: { nativeID?: string; children?: React.ReactNode }) =>

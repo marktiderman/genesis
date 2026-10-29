@@ -126,7 +126,7 @@
     "react-hook-form": "^7.56.4",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.12",
+    "vitest": "^5.0.5",
     "zod": "^4.6.7"
   },
   "genesis": {

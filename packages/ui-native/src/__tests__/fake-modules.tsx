@@ -2,7 +2,7 @@
 // GenesisModulesProvider. Each records how Genesis called it, so a test can
 // assert the opt-in path, and renders plain DOM so the tree stays testable.
 import * as React from "react";
-import { vi } from "vitest";
+import { type Mock, vi } from "vitest";
 import type {
   GenesisDatePickerProps,
   GenesisGlassModule,
@@ -14,7 +14,14 @@ import type {
 
 type AnyProps = Record<string, unknown> & { children?: React.ReactNode; testID?: string };
 
-export function fakeReanimated() {
+type FakeReanimated = Omit<GenesisReanimatedModule, "useAnimatedStyle" | "withTiming" | "withRepeat" | "cancelAnimation"> & {
+  useAnimatedStyle: Mock<(updater: () => Record<string, unknown>) => Record<string, unknown>>;
+  withTiming: Mock<(toValue: number) => number>;
+  withRepeat: Mock<(animation: number) => number>;
+  cancelAnimation: Mock<() => void>;
+};
+
+export function fakeReanimated(): FakeReanimated {
   const AnimatedView = React.forwardRef<HTMLDivElement, AnyProps>(function AnimatedView({ children, testID, style, className, accessibilityLabel, accessibilityRole }, ref) {
     return (
       <div
@@ -40,7 +47,7 @@ export function fakeReanimated() {
     Easing: { inOut: (e: unknown) => e, ease: "ease", out: (e: unknown) => e, cubic: "cubic" },
     ReduceMotion: { System: "system", Always: "always", Never: "never" },
   };
-  return mod satisfies GenesisReanimatedModule;
+  return mod satisfies GenesisReanimatedModule as FakeReanimated;
 }
 
 export function fakeGlass({ liquid = true, api = true, throws = false } = {}) {
