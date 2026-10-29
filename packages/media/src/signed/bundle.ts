@@ -1,8 +1,9 @@
 /**
- * ZIP bundles: a manifest the app stores (which files, under which names),
+ * ZIP bundles: a manifest the app stores (which files, under which paths),
  * and a handler that streams them as one store-only ZIP, built on the fly
- * with `client-zip` (ZIP64 past 4 GB or 65,535 files). It reads one file at
- * a time as the download is read, so memory stays flat however big the set.
+ * with `client-zip` (ZIP64 past 4 GB). It reads one file at a time as the
+ * download is read, so memory stays flat however big the set. A bundle
+ * holds at most 65,535 files.
  */
 import { makeZip, predictLength } from "client-zip";
 import { attachment, baseHeaders, forbidden, methodNotAllowed, notFound, pathSegments, plain } from "./http";
@@ -14,15 +15,21 @@ import type { MediaStorage } from "./storage";
 export interface ZipManifestEntry {
   /** The storage key. */
   key: string;
-  /** Its path inside the ZIP (`photos/a1.jpg`): relative, no `.` or `..` segments, no backslash. */
-  name: string;
+  /**
+   * Its path inside the ZIP (`photos/a1.jpg`), safe to unzip on any system:
+   * relative; no `.`, `..` or empty segments; none of `\ : < > | ? * "`, no
+   * control character or DEL; no segment ending in a dot or a space, or named
+   * like a Windows device (`CON`, `nul.txt`, `COM1`…). Unique ignoring case
+   * (after NFC), and never both a file and a folder (`a` and `a/b`).
+   */
+  path: string;
   /** Its size in bytes. When every entry has one, the ZIP is sent with a `content-length`. */
   size?: number;
 }
 
 /**
- * A bundle as the app stores it (JSON), beside the media. Sign its link
- * with `mediaScope.bundle(manifest.id)`.
+ * A bundle as the app stores it (JSON, format version 1), beside the media.
+ * Sign its link with `mediaScope.bundle(manifest.id)`.
  *
  * @stability Experimental
  */
@@ -30,8 +37,9 @@ export interface ZipManifest {
   version: 1;
   /** Random and unguessable (128 bits, base64url). */
   id: string;
-  /** The ZIP's download name; `.zip` is added when missing. */
-  name: string;
+  /** The ZIP's download filename; `.zip` is added when missing. */
+  filename: string;
+  /** At most `MAX_ZIP_ENTRIES`. */
   entries: ZipManifestEntry[];
   /** When the bundle stops downloading, in Unix seconds, whatever its links say. */
   expiresAt: number;
@@ -39,21 +47,33 @@ export interface ZipManifest {
 
 /** @stability Experimental */
 export interface CreateZipManifestInput {
-  name: string;
+  filename: string;
   entries: ZipManifestEntry[];
   /** A Date, or Unix seconds. */
   expiresAt: Date | number;
 }
 
-const ID = /^[A-Za-z0-9_-]{16,128}$/;
+/**
+ * The most files a bundle holds. `client-zip` 2.5.1 writes the entry count
+ * into 16 bits without a ZIP64 count, so more would make a broken ZIP.
+ */
+export const MAX_ZIP_ENTRIES = 65_535;
 
-/** What is wrong with an entry name, or undefined. Unsafe names would write outside the folder they're unzipped into. */
-function nameProblem(name: unknown): string | undefined {
-  if (typeof name !== "string" || name === "") return "is empty";
-  if (name.length > 1024) return "is longer than 1024 characters";
-  if (/[\\\0]/.test(name) || /[\x00-\x1f]/.test(name)) return "holds a backslash or a control character";
-  if (name.startsWith("/") || /^[A-Za-z]:/.test(name)) return "is absolute";
-  if (name.split("/").some((s) => s === "" || s === "." || s === "..")) return "has an empty, . or .. segment";
+const ID = /^[A-Za-z0-9_-]{16,128}$/;
+const DEVICE = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+
+/** What is wrong with an entry path, or undefined. Unsafe paths would write outside the folder they're unzipped into, or fail to unzip on Windows. */
+function pathProblem(path: unknown): string | undefined {
+  if (typeof path !== "string" || path === "") return "is empty";
+  if (path.length > 1024) return "is longer than 1024 characters";
+  if (/[\x00-\x1f\x7f]/.test(path)) return "holds a control character";
+  if (/[\\:<>|?*"]/.test(path)) return 'holds one of \\ : < > | ? * "';
+  if (path.startsWith("/")) return "is absolute";
+  for (const segment of path.split("/")) {
+    if (segment === "" || segment === "." || segment === "..") return "has an empty, . or .. segment";
+    if (/[. ]$/.test(segment)) return "has a segment ending in a dot or a space";
+    if (DEVICE.test(segment)) return `has a segment named like a Windows device (${segment})`;
+  }
   return undefined;
 }
 
@@ -66,16 +86,28 @@ function checkManifest(value: unknown): ZipManifest {
   if (!m || typeof m !== "object") fail("not an object");
   if (m!.version !== 1) fail("unknown version");
   if (typeof m!.id !== "string" || !ID.test(m!.id)) fail("the id must be 16 to 128 base64url characters");
-  if (typeof m!.name !== "string" || !m!.name.trim()) fail("the name is empty");
+  if (typeof m!.filename !== "string" || !m!.filename.trim()) fail("the filename is empty");
   if (typeof m!.expiresAt !== "number" || !Number.isFinite(m!.expiresAt)) fail("expiresAt must be Unix seconds");
   if (!Array.isArray(m!.entries) || m!.entries.length === 0) fail("there are no entries");
-  const seen = new Set<string>();
+  if (m!.entries!.length > MAX_ZIP_ENTRIES) fail(`there are ${m!.entries!.length} entries; a bundle holds at most ${MAX_ZIP_ENTRIES}`);
+  // Folded as an unzip tool on a case-insensitive disk would see them.
+  const fold = (p: string) => p.normalize("NFC").toLowerCase();
+  const files = new Set<string>();
+  const folders = new Set<string>();
   for (const [i, entry] of m!.entries!.entries()) {
     if (!entry || typeof entry.key !== "string" || entry.key === "") fail(`entry ${i} has no key`);
-    const problem = nameProblem(entry.name);
-    if (problem) fail(`entry ${i}'s name ${problem}`);
-    if (seen.has(entry.name)) fail(`two entries are named ${JSON.stringify(entry.name)}`);
-    seen.add(entry.name);
+    const problem = pathProblem(entry.path);
+    if (problem) fail(`entry ${i}'s path ${problem}`);
+    const folded = fold(entry.path);
+    if (files.has(folded)) fail(`two entries have the path ${JSON.stringify(entry.path)} (ignoring case)`);
+    if (folders.has(folded)) fail(`${JSON.stringify(entry.path)} is both a file and a folder`);
+    const parts = folded.split("/");
+    for (let n = 1; n < parts.length; n++) {
+      const folder = parts.slice(0, n).join("/");
+      if (files.has(folder)) fail(`${JSON.stringify(folder)} is both a file and a folder`);
+      folders.add(folder);
+    }
+    files.add(folded);
     if (entry.size !== undefined && (!Number.isSafeInteger(entry.size) || entry.size < 0)) fail(`entry ${i}'s size isn't a whole number of bytes`);
   }
   return m as ZipManifest;
@@ -91,7 +123,8 @@ function randomId(): string {
 /**
  * A new bundle manifest with a random id. Store it as JSON where
  * `readManifest` finds it, then sign `mediaScope.bundle(manifest.id)`.
- * Throws a TypeError for an unsafe or duplicate entry name.
+ * Throws a TypeError for an unsafe or duplicate entry path, or more than
+ * `MAX_ZIP_ENTRIES` entries.
  *
  * @stability Experimental
  */
@@ -100,8 +133,8 @@ export function createZipManifest(input: CreateZipManifestInput): ZipManifest {
   return checkManifest({
     version: 1,
     id: randomId(),
-    name: input.name,
-    entries: input.entries.map((e) => (e.size === undefined ? { key: e.key, name: e.name } : { key: e.key, name: e.name, size: e.size })),
+    filename: input.filename,
+    entries: input.entries.map((e) => (e.size === undefined ? { key: e.key, path: e.path } : { key: e.key, path: e.path, size: e.size })),
     expiresAt,
   });
 }
@@ -119,7 +152,7 @@ export interface BundleHandlerOptions {
 /**
  * A request handler that streams a bundle as a ZIP. The manifest id is the
  * `id` argument, or else the path's last segment; the link must be signed
- * for `mediaScope.bundle(id)` (403 otherwise), and the manifest must exist
+ * for `mediaScope.bundle(id)` (403 otherwise, a malformed id included), and the manifest must exist
  * and not have expired (404). A file that has gone missing, or whose size
  * no longer matches the manifest, ends the stream with an error, so the
  * download fails rather than arriving incomplete.
@@ -138,7 +171,7 @@ export function createBundleHandler(options: BundleHandlerOptions): (request: Re
     if (request.method !== "GET" && request.method !== "HEAD") return methodNotAllowed();
     const url = new URL(request.url);
     const id = given ?? pathSegments(url)?.at(-1);
-    if (!id || !ID.test(id)) return notFound();
+    if (!id || !ID.test(id)) return forbidden();
     const token = { e: url.searchParams.get("e"), s: url.searchParams.get("s"), k: url.searchParams.get("k") };
     if (!(await signer.verify(mediaScope.bundle(id), token))) return forbidden();
 
@@ -154,12 +187,35 @@ export function createBundleHandler(options: BundleHandlerOptions): (request: Re
 
     const headers = baseHeaders();
     headers.set("content-type", "application/zip");
-    headers.set("content-disposition", attachment(/\.zip$/i.test(manifest.name) ? manifest.name : `${manifest.name}.zip`));
+    headers.set("content-disposition", attachment(/\.zip$/i.test(manifest.filename) ? manifest.filename : `${manifest.filename}.zip`));
     headers.set("cache-control", "no-store");
+    headers.set("accept-ranges", "none");
+    // The exact length, when every size is known. It holds only while predictLength and makeZip agree
+    // byte for byte on the same input (same names, sizes and options), which is why client-zip is pinned
+    // to one version and both are given the same `path` strings; the bundle test compares the two.
     const sized = manifest.entries.every((e) => e.size !== undefined);
-    if (sized) headers.set("content-length", String(predictLength(manifest.entries.map((e) => ({ name: e.name, size: e.size! })))));
+    if (sized) headers.set("content-length", String(predictLength(manifest.entries.map((e) => ({ name: e.path, size: e.size! })))));
     if (request.method === "HEAD") return new Response(null, { headers });
 
+    // The file being read, so a cancelled download also cancels its read from storage.
+    let reading: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    const handOver = (body: ReadableStream<Uint8Array>) => {
+      const reader = body.getReader();
+      reading = reader;
+      return new ReadableStream<Uint8Array>(
+        {
+          async pull(controller) {
+            const { done, value } = await reader.read();
+            if (done) {
+              if (reading === reader) reading = undefined;
+              controller.close();
+            } else controller.enqueue(value);
+          },
+          cancel: (reason) => reader.cancel(reason),
+        },
+        { highWaterMark: 0 },
+      );
+    };
     async function* files() {
       for (const entry of manifest.entries) {
         const object = await storage.get(entry.key);
@@ -168,18 +224,23 @@ export function createBundleHandler(options: BundleHandlerOptions): (request: Re
           await object.body.cancel();
           throw new Error(`bundle ${id}: ${entry.key} is ${object.size} bytes, not ${entry.size}.`);
         }
-        yield { name: entry.name, input: object.body, size: object.size, lastModified: object.lastModified ?? new Date(manifest.expiresAt * 1000) };
+        yield { name: entry.path, input: handOver(object.body), size: object.size, lastModified: object.lastModified ?? new Date(manifest.expiresAt * 1000) };
       }
     }
-    // client-zip passes a cancel (the download was abandoned) into the source with `throw`; end the
-    // source quietly instead, so cancelling resolves and no further file is opened.
+    // client-zip passes a cancel (the download was abandoned) into the source with `throw`. Cancel the
+    // read in progress, then end the source quietly, so cancelling resolves and no further file is opened.
     const source = files();
     const quiet = {
       [Symbol.asyncIterator]() {
         return this;
       },
       next: () => source.next(),
-      throw: () => source.return(undefined),
+      throw: async (reason?: unknown) => {
+        const current = reading;
+        reading = undefined;
+        await current?.cancel(reason).catch(() => {});
+        return source.return(undefined);
+      },
     };
     return new Response(makeZip(quiet, { buffersAreUTF8: true }), { headers });
   };

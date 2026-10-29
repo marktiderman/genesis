@@ -213,8 +213,8 @@ import { createBundleHandler, createZipManifest, mediaScope } from "@marktiderma
 
 // When the person asks for the download (after the app has checked them):
 const manifest = createZipManifest({
-  name: "Selected files",       // the download name; .zip is added
-  entries: [{ key: "media/photos/p1/original.jpg", name: "photos/p1.jpg", size: 4_812_330 }],
+  filename: "Selected files",   // the download name; .zip is added
+  entries: [{ key: "media/photos/p1/original.jpg", path: "photos/p1.jpg", size: 4_812_330 }],
   expiresAt: new Date(Date.now() + 86_400_000),
 });
 await env.BUCKET.put(`bundles/${manifest.id}.json`, JSON.stringify(manifest));
@@ -228,15 +228,25 @@ const bundles = createBundleHandler({
 // bundles(request) reads the id from the path's last segment, or bundles(request, id).
 ```
 
-- The manifest has a random 128-bit id, its own filename and its own expiry
-  (Unix seconds), which wins over a longer link. Entry names that would unzip
-  outside their folder (`..`, absolute, backslashes, control characters) and
-  duplicates are refused.
+- The manifest (JSON, format version 1) has a random 128-bit id, its own
+  `filename` and its own expiry (Unix seconds), which wins over a longer
+  link. Each entry is `{ key, path, size? }`. Paths that would unzip outside
+  their folder, or fail to unzip on Windows, are refused: absolute, `.`,
+  `..` or empty segments, any of `\ : < > | ? * "`, control characters and
+  DEL, a segment ending in a dot or a space, device names (`CON`, `nul.txt`,
+  `COM1`…). So are duplicates ignoring case (after NFC normalisation), a path
+  that is both a file and a folder (`a` beside `a/b`), and more than
+  `MAX_ZIP_ENTRIES` (65,535) entries.
 - The ZIP is store-only (media is already compressed) and built on the fly
   with [`client-zip`](https://github.com/Touffy/client-zip): one file at a
-  time as the download is read, so memory stays flat, and ZIP64 past 4 GB or
-  65,535 files. When every entry has a `size`, the response carries the exact
-  `content-length`, so the browser shows progress.
+  time as the download is read, so memory stays flat, and ZIP64 past 4 GB.
+  At most 65,535 files: `client-zip` 2.5.1 (pinned) writes the count in 16
+  bits. When every entry has a `size`, the response carries the exact
+  `content-length`, so the browser shows progress; that number comes from
+  `client-zip`'s `predictLength`, which must match its writer byte for byte,
+  so upgrade the pin only with the bundle tests passing.
+- An abandoned download cancels the storage read in progress and opens no
+  further file.
 - A file that has gone missing, or whose size no longer matches, ends the
   stream with an error: the download fails rather than arriving incomplete.
 - 403 for a bad link (before the manifest is read), 404 for a missing,

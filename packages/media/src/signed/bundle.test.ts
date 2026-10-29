@@ -1,6 +1,10 @@
 // @feat:media-zip-stream
 import { describe, expect, it } from "vitest";
-import { createBundleHandler, createMemoryStorage, createMediaSigner, createZipManifest, mediaScope, type MediaStorage, type ZipManifest } from "./index";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { MAX_ZIP_ENTRIES, createBundleHandler, createMemoryStorage, createMediaSigner, createZipManifest, mediaScope, type MediaStorage, type ZipManifest } from "./index";
 
 const SECRET = "a-test-secret-that-is-at-least-32-bytes-long";
 const H = Math.floor(1_800_000_000 / 3600) * 3600;
@@ -95,12 +99,12 @@ const link = (id: string) => signer.signMediaUrl(BASE, `bundles/${id}`, mediaSco
 
 const manifest = (over: Partial<Parameters<typeof createZipManifest>[0]> = {}) =>
   createZipManifest({
-    name: "Selected files",
+    filename: "Selected files",
     entries: [
-      { key: "media/a.jpg", name: "photos/a.jpg", size: 10 },
-      { key: "media/b.mov", name: "videos/b — final.mov", size: 70_000 },
-      { key: "media/c.txt", name: "notes/c.txt", size: 0 },
-      { key: "media/d.pdf", name: "d.pdf", size: 1 },
+      { key: "media/a.jpg", path: "photos/a.jpg", size: 10 },
+      { key: "media/b.mov", path: "videos/b — final.mov", size: 70_000 },
+      { key: "media/c.txt", path: "notes/c.txt", size: 0 },
+      { key: "media/d.pdf", path: "d.pdf", size: 1 },
     ],
     expiresAt: new Date((H + 86_400) * 1000),
     ...over,
@@ -112,18 +116,40 @@ describe("createZipManifest", () => {
     const b = manifest();
     expect(a.id).toMatch(/^[A-Za-z0-9_-]{22}$/);
     expect(a.id).not.toBe(b.id);
-    expect(a).toMatchObject({ version: 1, name: "Selected files", expiresAt: H + 86_400 });
-    expect(createZipManifest({ name: "x", entries: [{ key: "k", name: "n" }], expiresAt: 123 }).expiresAt).toBe(123);
+    expect(a).toMatchObject({ version: 1, filename: "Selected files", expiresAt: H + 86_400 });
+    expect(createZipManifest({ filename: "x", entries: [{ key: "k", path: "n" }], expiresAt: 123 }).expiresAt).toBe(123);
   });
 
-  it("refuses entry names that would unzip outside their folder, duplicates and bad sizes", () => {
-    const one = (name: string, size?: number) => () => createZipManifest({ name: "x", entries: [{ key: "k", name, ...(size === undefined ? {} : { size }) }], expiresAt: H });
-    for (const bad of ["../x", "a/../../x", "/etc/x", "C:/x", "a\\b", "a//b", "./a", "a/", "", "a\u0000b", "a\nb"]) expect(one(bad), JSON.stringify(bad)).toThrow(TypeError);
+  it("refuses paths that would unzip outside their folder or fail on Windows, and bad sizes", () => {
+    const one = (path: string, size?: number) => () => createZipManifest({ filename: "x", entries: [{ key: "k", path, ...(size === undefined ? {} : { size }) }], expiresAt: H });
+    const bad = [
+      "../x", "a/../../x", "/etc/x", "C:/x", "a:b", "a\\b", "a//b", "./a", "a/", "",
+      "a\u0000b", "a\nb", "a\u007fb", "a<b", "a>b", "a|b", "a?b", "a*b", 'a"b',
+      "CON", "con", "nul.txt", "folder/PRN.tar.gz", "AUX", "COM1", "com9.log", "LPT1", "lpt9",
+      "trailing.", "trailing ", "dir./x", "dir /x",
+    ];
+    for (const path of bad) expect(one(path), JSON.stringify(path)).toThrow(TypeError);
+    for (const path of ["console.txt", "com10", "lpt", "a.b/c d.jpg", "Ünïcode/naïve.jpg", "photos/a1.jpg"]) expect(one(path), path).not.toThrow();
     expect(one("ok.txt", -1)).toThrow(/size/);
     expect(one("ok.txt", 1.5)).toThrow(/size/);
-    expect(() => createZipManifest({ name: "x", entries: [{ key: "a", name: "same" }, { key: "b", name: "same" }], expiresAt: H })).toThrow(/two entries/);
-    expect(() => createZipManifest({ name: "x", entries: [], expiresAt: H })).toThrow(/no entries/);
-    expect(() => createZipManifest({ name: " ", entries: [{ key: "a", name: "a" }], expiresAt: H })).toThrow(/name/);
+    expect(() => createZipManifest({ filename: "x", entries: [], expiresAt: H })).toThrow(/no entries/);
+    expect(() => createZipManifest({ filename: " ", entries: [{ key: "a", path: "a" }], expiresAt: H })).toThrow(/filename/);
+  });
+
+  it("refuses duplicates ignoring case after NFC, and a path that is both a file and a folder", () => {
+    const two = (a: string, b: string) => () => createZipManifest({ filename: "x", entries: [{ key: "1", path: a }, { key: "2", path: b }], expiresAt: H });
+    expect(two("same", "same")).toThrow(/two entries/);
+    expect(two("Photo.JPG", "photo.jpg")).toThrow(/two entries/);
+    expect(two("caf\u00e9.jpg", "cafe\u0301.jpg")).toThrow(/two entries/); // é precomposed, and e plus a combining accent
+    expect(two("a", "a/b")).toThrow(/both a file and a folder/);
+    expect(two("A/b", "a")).toThrow(/both a file and a folder/);
+    expect(two("a/b", "a/c")).not.toThrow();
+  });
+
+  it(`holds at most ${MAX_ZIP_ENTRIES} files`, () => {
+    const entries = (n: number) => Array.from({ length: n }, (_, i) => ({ key: `k${i}`, path: `f${i}`, size: 1 }));
+    expect(createZipManifest({ filename: "x", entries: entries(MAX_ZIP_ENTRIES), expiresAt: H }).entries).toHaveLength(MAX_ZIP_ENTRIES);
+    expect(() => createZipManifest({ filename: "x", entries: entries(MAX_ZIP_ENTRIES + 1), expiresAt: H })).toThrow(/at most 65535/);
   });
 });
 
@@ -157,15 +183,15 @@ describe("createBundleHandler", () => {
     expect(head.status).toBe(200);
     expect(Number(head.headers.get("content-length"))).toBeGreaterThan(70_011);
     expect(await head.text()).toBe("");
-    const unsized = manifest({ entries: [{ key: "media/a.jpg", name: "a.jpg" }] });
+    const unsized = manifest({ entries: [{ key: "media/a.jpg", path: "a.jpg" }] });
     const res = await bundle(unsized)(new Request(await link(unsized.id)));
     expect(res.headers.get("content-length")).toBeNull();
     expect(readZip(new Uint8Array(await res.arrayBuffer())).map((e) => e.size)).toEqual([10]);
   });
 
   it("uses ZIP64 for a set past 4 GB (by its declared sizes)", async () => {
-    const big = manifest({ entries: [{ key: "x", name: "a.bin", size: 3 * 2 ** 30 }, { key: "y", name: "b.bin", size: 2 * 2 ** 30 }] });
-    const small = manifest({ entries: [{ key: "x", name: "a.bin", size: 3 }, { key: "y", name: "b.bin", size: 2 }] });
+    const big = manifest({ entries: [{ key: "x", path: "a.bin", size: 3 * 2 ** 30 }, { key: "y", path: "b.bin", size: 2 * 2 ** 30 }] });
+    const small = manifest({ entries: [{ key: "x", path: "a.bin", size: 3 }, { key: "y", path: "b.bin", size: 2 }] });
     const length = async (m: ZipManifest) => Number((await bundle(m)(new Request(await link(m.id), { method: "HEAD" }))).headers.get("content-length"));
     const overhead = (await length(big)) - 5 * 2 ** 30;
     const smallOverhead = (await length(small)) - 5;
@@ -176,7 +202,7 @@ describe("createBundleHandler", () => {
   it("reads one file at a time as the download is read, never the whole set up front", async () => {
     const many = Object.fromEntries(Array.from({ length: 50 }, (_, i) => [`f${i}`, { body: bytes(1000, i) }]));
     const storage = createMemoryStorage(many);
-    const m = manifest({ entries: Object.keys(many).map((key) => ({ key, name: `${key}.bin`, size: 1000 })) });
+    const m = manifest({ entries: Object.keys(many).map((key) => ({ key, path: `${key}.bin`, size: 1000 })) });
     const res = await bundle(m, storage)(new Request(await link(m.id)));
     // A stream may fetch its first chunk before anyone reads; never more.
     expect(storage.reads.length).toBeLessThanOrEqual(1);
@@ -185,6 +211,72 @@ describe("createBundleHandler", () => {
     expect(storage.reads.length).toBeLessThanOrEqual(3);
     await reader.cancel();
     expect(storage.reads.length).toBeLessThan(50);
+  });
+
+  it("cancels the storage read in progress when the download is abandoned, and opens no further file", async () => {
+    let cancelled: unknown = "not cancelled";
+    let opened = 0;
+    const slow: MediaStorage = {
+      head: async () => ({ size: 1 << 20 }),
+      get: async () => {
+        opened++;
+        let sent = 0;
+        return {
+          size: 1 << 20,
+          body: new ReadableStream<Uint8Array>({
+            pull(c) {
+              if (sent >= 1 << 20) return c.close();
+              c.enqueue(new Uint8Array(1 << 14));
+              sent += 1 << 14;
+            },
+            cancel(reason) {
+              cancelled = reason;
+            },
+          }),
+        };
+      },
+    };
+    const m = manifest({ entries: [{ key: "a", path: "a.bin", size: 1 << 20 }, { key: "b", path: "b.bin", size: 1 << 20 }] });
+    const res = await bundle(m, slow)(new Request(await link(m.id)));
+    const reader = res.body!.getReader();
+    for (let i = 0; i < 4; i++) await reader.read();
+    await reader.cancel("gone");
+    expect(cancelled).toBe("gone");
+    expect(opened).toBe(1);
+  });
+
+  const python = (() => {
+    try {
+      execFileSync("python3", ["-c", "import zipfile"], { stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+  it.runIf(python)("writes a ZIP that an independent reader (Python's zipfile) opens and checks", async () => {
+    const m = manifest();
+    const zip = new Uint8Array(await (await bundle(m)(new Request(await link(m.id)))).arrayBuffer());
+    const dir = mkdtempSync(join(tmpdir(), "genesis-media-zip-"));
+    try {
+      const file = join(dir, "bundle.zip");
+      writeFileSync(file, zip);
+      const script = [
+        "import json, sys, zipfile",
+        "z = zipfile.ZipFile(sys.argv[1])",
+        "bad = z.testzip()",
+        "print(json.dumps({'bad': bad, 'files': [[i.filename, i.file_size, i.compress_type] for i in z.infolist()]}))",
+      ].join("\n");
+      const out = JSON.parse(execFileSync("python3", ["-I", "-c", script, file], { encoding: "utf8" }));
+      expect(out.bad).toBeNull();
+      expect(out.files).toEqual([
+        ["photos/a.jpg", 10, 0],
+        ["videos/b — final.mov", 70_000, 0],
+        ["notes/c.txt", 0, 0],
+        ["d.pdf", 1, 0],
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("refuses a bad signature (403) before reading the manifest, and another scope's link", async () => {
@@ -213,7 +305,7 @@ describe("createBundleHandler", () => {
     const other = manifest();
     const wrong = createBundleHandler({ storage: createMemoryStorage(files), signer, now, readManifest: async () => other });
     expect((await wrong(new Request(await link(m.id)))).status).toBe(404);
-    const invalid = createBundleHandler({ storage: createMemoryStorage(files), signer, now, readManifest: async () => ({ ...m, entries: [{ key: "a", name: "../x" }] }) });
+    const invalid = createBundleHandler({ storage: createMemoryStorage(files), signer, now, readManifest: async () => ({ ...m, entries: [{ key: "a", path: "../x" }] }) });
     expect((await invalid(new Request(await link(m.id)))).status).toBe(500);
   });
 
@@ -226,8 +318,8 @@ describe("createBundleHandler", () => {
 
   it("fails the download, rather than sending an incomplete ZIP, when a file is missing or changed size", async () => {
     for (const entries of [
-      [{ key: "media/a.jpg", name: "a.jpg", size: 10 }, { key: "media/gone", name: "gone", size: 5 }],
-      [{ key: "media/a.jpg", name: "a.jpg", size: 11 }],
+      [{ key: "media/a.jpg", path: "a.jpg", size: 10 }, { key: "media/gone", path: "gone", size: 5 }],
+      [{ key: "media/a.jpg", path: "a.jpg", size: 11 }],
     ]) {
       const m = manifest({ entries });
       const res = await bundle(m)(new Request(await link(m.id)));
@@ -266,7 +358,7 @@ describe.runIf(process.env.GENESIS_MEDIA_ZIP64 === "1")("a ZIP past 4 GB, stream
         };
       },
     };
-    const m = manifest({ entries: [{ key: "big", name: "big.bin", size: SIZE }, { key: "small", name: "after.bin", size: 1024 }] });
+    const m = manifest({ entries: [{ key: "big", path: "big.bin", size: SIZE }, { key: "small", path: "after.bin", size: 1024 }] });
     const res = await bundle(m, zeros)(new Request(await link(m.id)));
     const reader = res.body!.getReader();
     const before = process.memoryUsage().rss;

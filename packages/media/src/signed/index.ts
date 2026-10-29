@@ -38,6 +38,7 @@ export {
   type SignedMediaHandlerOptions,
 } from "./handler";
 export {
+  MAX_ZIP_ENTRIES,
   createBundleHandler,
   createZipManifest,
   type BundleHandlerOptions,
