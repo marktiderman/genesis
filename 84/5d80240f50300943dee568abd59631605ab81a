@@ -1,0 +1,41 @@
+.changeset/cli-starter-sentry.md
+  s_e2cf1ec4fac133::t_0ca8f178b960eb 1-5
+.github/dependabot.yml
+  s_e2cf1ec4fac133::t_40530c16b08e99 39,49-50
+apps/sample/app/lib/primitive-docs.ts
+  s_e2cf1ec4fac133::t_b656e556515f9e 102,106-113
+apps/sample/app/lib/site.ts
+  s_e2cf1ec4fac133::t_54c315d38e4e15 17-31,98,107
+apps/sample/app/routes/design-system.tsx
+  s_e2cf1ec4fac133::t_70d2c086b97f01 346-347,350,352
+apps/sample/app/routes/sandbox.tsx
+  s_e2cf1ec4fac133::t_fc6c2a0f9bdf25 292,296,310,313,318,321,329,333,363,367,406,437,440
+apps/sample/app/routes/showcase.primitives.$slug.tsx
+  s_e2cf1ec4fac133::t_e995a83554d65a 1-2,37-44
+apps/sample/app/routes/showcase.primitives._index.tsx
+  s_e2cf1ec4fac133::t_0c662391e91c5e 86
+apps/sample/scripts/generate-site-files.ts
+  s_e2cf1ec4fac133::t_6f61865c77d315 17,23-24,132-133
+apps/sample/scripts/smoke-site.mjs
+  s_e2cf1ec4fac133::t_3ca22b441bd702 125-131
+apps/sample/vite.config.ts
+  s_e2cf1ec4fac133::t_0e3daad15805a6 27-33
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_e2cf1ec4fac133::t_33f9979c41980b 915-919
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "845d80240f50300943dee568abd59631605ab81a",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
