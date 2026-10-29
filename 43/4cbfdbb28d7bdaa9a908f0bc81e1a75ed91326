@@ -1,0 +1,34 @@
+packages/supabase/migrations/tests/0018_genesis_events.test.sql
+  s_36f3212387dbf7::t_d03b3bacfd0973 45-49,70-77,79-82,95,97,101-118,125-126,128,139-144
+  s_36f3212387dbf7::t_5e0a61d72673ff 8
+packages/supabase/src/__tests__/events.test.ts
+  s_36f3212387dbf7::t_a3e49876450779 40-41,49-51,54-74,78
+packages/supabase/migrations/0018_genesis_events.sql
+  s_36f3212387dbf7::t_7eab6e399552a3 6-9,16-17,31-34,42,50,52-53,64,69,98,100,142-147,155,184,235
+  s_36f3212387dbf7::t_d03b3bacfd0973 190-193
+packages/supabase/src/events.ts
+  s_36f3212387dbf7::t_d821f5359d6518 218
+  s_36f3212387dbf7::t_a3e49876450779 7-9,18-19,76-78,113-115,125-134,136-137,139,141-146,148-159,164,168-170,182,197-198,209-213,215,219,248-252
+.changeset/product-events.md
+  s_36f3212387dbf7::t_78ef2bf98bf42d 5
+docs/adr/0010-own-product-events.md
+  s_36f3212387dbf7::t_c67f0ec9d93b32 25,29
+packages/supabase/README.md
+  s_36f3212387dbf7::t_c073ac1a11c28a 878-881
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "434cbfdbb28d7bdaa9a908f0bc81e1a75ed91326",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
