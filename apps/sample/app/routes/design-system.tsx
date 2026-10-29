@@ -385,7 +385,7 @@ export default function DesignSystem() {
               <DialogDescription>Make changes to your profile here. Click save when done.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2">
-              <Input placeholder="Name" defaultValue="Mark Tiderman" />
+              <Input placeholder="Name" defaultValue="Alex Rivera" />
               <Input placeholder="Email" defaultValue="mark@example.com" />
             </div>
             <DialogFooter>

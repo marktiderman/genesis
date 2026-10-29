@@ -291,6 +291,9 @@ importers:
       '@marktiderman/genesis-chat':
         specifier: workspace:^
         version: link:../../packages/chat
+      '@marktiderman/genesis-core':
+        specifier: workspace:^
+        version: link:../../packages/core
       '@marktiderman/genesis-design-system':
         specifier: workspace:^
         version: link:../../packages/design-system

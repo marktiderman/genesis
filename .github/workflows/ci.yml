@@ -145,3 +145,8 @@ jobs:
       # with an axe a11y check; see apps/sample/vitest.config.ts.
       - name: Run Storybook browser tests
         run: pnpm --filter sample test:storybook
+
+      # The public site (genesisone.dev): every page prerenders and the
+      # sitemap, robots.txt and llms.txt are written, as the deploy does.
+      - name: Build the site
+        run: pnpm --filter sample build

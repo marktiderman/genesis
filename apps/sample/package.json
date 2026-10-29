@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "react-router dev",
     "prebuild": "pnpm docs:generate",
-    "build": "react-router build",
+    "build": "react-router build && tsx scripts/generate-site-files.ts",
     "typecheck": "react-router typegen && tsc",
     "docs:generate": "tsx scripts/generate-primitive-docs.ts",
     "docs:check": "tsx scripts/generate-primitive-docs.ts --check",
@@ -23,6 +23,7 @@
   "dependencies": {
     "@hookform/resolvers": "^6.0.0",
     "@marktiderman/genesis-chat": "workspace:^",
+    "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-features": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",

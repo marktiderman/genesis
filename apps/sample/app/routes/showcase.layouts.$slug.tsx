@@ -1,100 +1,34 @@
-import { useParams } from "react-router";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  CardDescription,
-  Badge,
-  Alert,
-  AlertTitle,
-  AlertDescription,
-} from "@marktiderman/genesis-ui";
+import { Link, useParams } from "react-router";
+import { Card, CardHeader, CardTitle, CardDescription } from "@marktiderman/genesis-ui";
 import { LAYOUTS } from "../lib/portfolio-data";
-
-const SPEC_BULLETS: Record<string, string[]> = {
-  settings: [
-    "Sectioned ListItem rows",
-    "Stack.Screen large title with scroll-edge appearance",
-    "Dangerous-action footer with destructive variant",
-  ],
-  "settings-sub": [
-    "Form fields composed from Genesis primitives",
-    "Save action surfaced in nav bar; disabled until dirty",
-    "Dirty-form leave warning",
-    "Optimistic save with rollback on error",
-  ],
-  notifications: [
-    "Grouped by relative date (Today / Yesterday / Earlier)",
-    "Swipe-to-mark-read",
-    "Empty-state slot",
-    "Pull-to-refresh",
-    "Mark-all-read action in nav overflow",
-  ],
-  "empty-state": [
-    "Variant: first-run",
-    "Variant: no-results",
-    "Variant: error",
-    "Action slot for primary CTA",
-  ],
-  auth: [
-    "<AuthBranding /> — logo + headline + tagline",
-    "<SocialAuthRow /> — provider buttons in stable layout",
-    "<AuthForm /> — email + password with react-hook-form",
-    "Sign-in / sign-up shipped as composition recipes (not variants)",
-  ],
-};
+import { LAYOUT_EXAMPLES } from "../components/layout-examples";
 
 export default function LayoutDetail() {
   const { slug = "" } = useParams<{ slug: string }>();
   const meta = LAYOUTS.find((l) => l.slug === slug);
-  const bullets = SPEC_BULLETS[slug] ?? [];
+  const Example = LAYOUT_EXAMPLES[slug];
 
-  return (
-    <div className="mx-auto max-w-3xl p-6 space-y-6" data-testid={`layout-detail-${slug}`}>
-      {meta ? (
-        <>
-          <header className="space-y-2">
-            <Badge variant="outline">{meta.spec}</Badge>
-            <h1 className="text-3xl font-bold tracking-tight">{meta.label}</h1>
-            <p className="text-muted-foreground">{meta.summary}</p>
-          </header>
-
-          <Alert>
-            <AlertTitle>Coming with G-MEGA-2</AlertTitle>
-            <AlertDescription>
-              This route is reserved so the portfolio IA stays stable.
-              The placeholder swaps for the real implementation when
-              G-MEGA-2 lands, with no route changes.
-            </AlertDescription>
-          </Alert>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>What this will ship</CardTitle>
-              <CardDescription>
-                Spec sourced from PRD-07 phase {meta.spec}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-1.5">
-                {bullets.map((b, i) => (
-                  <li key={i} className="text-sm">
-                    &middot; {b}
-                  </li>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
-        </>
-      ) : (
+  if (!meta || !Example) {
+    return (
+      <div className="mx-auto max-w-3xl p-6">
         <Card>
           <CardHeader>
             <CardTitle>Unknown layout</CardTitle>
-            <CardDescription>Slug: {slug}</CardDescription>
+            <CardDescription>
+              There's no layout called "{slug}". <Link className="underline" to="/showcase/layouts">See them all</Link>.
+            </CardDescription>
           </CardHeader>
         </Card>
-      )}
+      </div>
+    );
+  }
+  return (
+    <div data-testid={`layout-detail-${slug}`}>
+      <p className="px-6 pt-4 text-sm text-muted-foreground">
+        <code className="text-xs bg-muted px-1 rounded">{meta.label}</code>: {meta.summary}{" "}
+        <Link className="underline" to={`/showcase/primitives/${meta.label.replace(/Page$/, "-page").toLowerCase()}`}>Props</Link>
+      </p>
+      <Example />
     </div>
   );
 }

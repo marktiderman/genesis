@@ -13,16 +13,21 @@ import {
   genesisBrand,
 } from "@marktiderman/genesis-design-system";
 import { items, tasks, orders } from "./lib/data";
+import { metaFor } from "./lib/site";
 import type { Route } from "./+types/root";
 import "./app.css";
 
-// PRD-07 A2b: opt-in unified theme provider.
+// Opt-in unified theme provider.
 // Set `VITE_GENESIS_THEME_V2=true` (or `GENESIS_THEME_V2=true` for
 // non-Vite env hosts) to wrap the app in <GenesisThemeProvider>. Default
 // OFF preserves the existing CSS-vars-only flow. The brand palette is the
 // single source of truth in the design system (`genesisBrand`), not inlined.
 
+// One title, description and set of sharing tags per page, from app/lib/site.ts.
+export const meta: Route.MetaFunction = ({ location }) => metaFor(location.pathname);
+
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: `${import.meta.env.BASE_URL}favicon.svg`, type: "image/svg+xml" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
