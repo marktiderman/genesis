@@ -37,6 +37,12 @@ export interface InboundEmail {
   authentication: Record<string, unknown> | null;
   attachments: Array<{ id: string; filename: string; contentType: string; size: number }>;
   receivedAt: string;
+  /**
+   * Sent by a machine: Auto-Submitted other than "no", Precedence bulk/junk/list/auto_reply, or an
+   * X-Autoreply/X-Autorespond header (out-of-office answers, bounces, lists). Routes should not
+   * answer or open work for these.
+   */
+  autoSubmitted: boolean;
 }
 
 /**
@@ -99,8 +105,16 @@ export function inboundEmailOf(raw: Record<string, unknown>): InboundEmail | nul
       size: Number(a.size ?? 0),
     })),
     receivedAt: typeof raw.created_at === "string" ? raw.created_at : new Date().toISOString(),
+    autoSubmitted:
+      (header(raw.headers, "auto-submitted") ?? "no").toLowerCase() !== "no" ||
+      /^(bulk|junk|list|auto_reply)$/i.test(header(raw.headers, "precedence") ?? "") ||
+      header(raw.headers, "x-autoreply") !== null ||
+      header(raw.headers, "x-autorespond") !== null,
   };
 }
+
+/** The webhook body is a small event; anything bigger is refused before its signature is checked. */
+const MAX_WEBHOOK_BYTES = 256_000;
 
 /**
  * The receiving webhook as a web-standard handler: 401 for an unsigned or stale request, 200 for
@@ -112,7 +126,9 @@ export function inboundEmailOf(raw: Record<string, unknown>): InboundEmail | nul
 export function createInboundEmailHandler(options: InboundEmailHandlerOptions): (request: Request) => Promise<Response> {
   const endpoint = options.endpoint ?? RESEND_RECEIVING_API;
   return async (request) => {
+    if (Number(request.headers.get("content-length") ?? 0) > MAX_WEBHOOK_BYTES) return new Response("too large", { status: 413 });
     const body = await request.text();
+    if (body.length > MAX_WEBHOOK_BYTES) return new Response("too large", { status: 413 });
     if (!(await verifyResendWebhook(options.webhookSecret, request.headers, body, options.now?.() ?? Date.now()))) {
       return new Response("unsigned", { status: 401 });
     }

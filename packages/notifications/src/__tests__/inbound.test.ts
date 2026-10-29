@@ -41,7 +41,11 @@ describe("inbound email", () => {
       from: { email: "pat@example.test", name: "Pat" },
       to: ["support@acme.test"],
       attachments: [{ id: "att_1", filename: "shot.png", contentType: "image/png", size: 1200 }],
+      autoSubmitted: false,
     });
+    expect(inboundEmailOf({ ...received, headers: { "Auto-Submitted": "auto-replied" } })!.autoSubmitted).toBe(true);
+    expect(inboundEmailOf({ ...received, headers: { Precedence: "bulk" } })!.autoSubmitted).toBe(true);
+    expect(inboundEmailOf({ ...received, headers: { "X-Autoreply": "yes" } })!.autoSubmitted).toBe(true);
   });
 
   it("verifies, fetches and hands the email to the first route that takes it", async () => {
@@ -74,5 +78,7 @@ describe("inbound email", () => {
     expect(await (await createInboundEmailHandler({ ...base, routes: [() => false], onUnrouted })(await signed(body))).text()).toBe("unrouted");
     expect(onUnrouted).toHaveBeenCalledOnce();
     expect((await createInboundEmailHandler({ ...base, routes: [() => { throw new Error("db down"); }] })(await signed(body))).status).toBe(502);
+    const huge = new Request("https://x.test", { method: "POST", body: "x".repeat(300_000) });
+    expect((await createInboundEmailHandler({ ...base, routes: [] })(huge)).status).toBe(413);
   });
 });

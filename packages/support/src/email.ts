@@ -45,6 +45,9 @@ export interface ReceivedEmail {
   text: string;
   authentication: Record<string, unknown> | null;
   attachments: ReadonlyArray<{ id: string; filename: string; contentType: string; size: number }>;
+  html?: string | null;
+  /** Sent by a machine (an out-of-office, a bounce): recorded nowhere, answered never. */
+  autoSubmitted?: boolean;
 }
 
 export interface SupportEmailRouteOptions {
@@ -70,6 +73,9 @@ export function supportEmailRoute(client: SupportEmailClient, options: SupportEm
   const threads = options.threads ?? true;
   return async (email: ReceivedEmail): Promise<boolean> => {
     const recipients = [...email.to, ...(email.cc ?? [])].map((a) => a.toLowerCase());
+    const sender = email.from.email.toLowerCase();
+    // Our own addresses never open a ticket (a forged From, or our reply coming back).
+    if (addresses.has(sender) || (replyDomain !== undefined && sender.endsWith(`@${replyDomain}`))) return false;
     const addressed = recipients.some((a) => addresses.has(a) || (replyDomain !== undefined && TOKEN.test(a) && a.endsWith(`@${replyDomain}`)));
     const answering = threads && (email.inReplyTo !== null || email.references.length > 0);
     if (!addressed && !answering) return false;
@@ -82,6 +88,8 @@ export function supportEmailRoute(client: SupportEmailClient, options: SupportEm
         to: recipients,
         subject: email.subject,
         text: email.text,
+        html: email.html ?? null,
+        autoSubmitted: email.autoSubmitted ?? false,
         providerId: email.providerId,
         authentication: email.authentication,
         attachments: email.attachments,
@@ -166,7 +174,8 @@ export async function runSupportEmail(client: SupportEmailClient, options: RunSu
         headers,
         idempotencyKey: `genesis-support-email-${m.id}`,
       });
-      await client.rpc("support_settle_outbound_email", { message: m.id, provider_id: result.id, error: null, sent_message_id: messageId });
+      const settled = await client.rpc("support_settle_outbound_email", { message: m.id, provider_id: result.id, error: null, sent_message_id: messageId });
+      if (settled.error) throw new Error(`settle: ${settled.error.message}`);
       sent++;
     } catch (thrown) {
       await client.rpc("support_settle_outbound_email", { message: m.id, provider_id: null, error: thrown instanceof Error ? thrown.message : String(thrown), sent_message_id: null });

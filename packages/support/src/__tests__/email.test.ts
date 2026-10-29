@@ -36,6 +36,9 @@ describe("supportEmailRoute", () => {
     expect(calls[0]).toMatchObject({ fn: "support_receive_email", args: { email: { messageId: "m1@x.test", from: { email: "pat@example.test" }, to: ["support@acme.test"], onlyExisting: false } } });
     expect(await route(email({ to: ["support+0123456789abcdef0123456789abcdef@reply.acme.test"] }))).toBe(true);
     expect(await route(email({ to: ["agent@acme.test"] }))).toBe(false);
+    // Mail from our own addresses (a forged From, our reply coming back) never opens a ticket.
+    expect(await route(email({ from: { email: "support@acme.test", name: null } }))).toBe(false);
+    expect(await route(email({ from: { email: "bot@reply.acme.test", name: null } }))).toBe(false);
     expect(calls).toHaveLength(2);
   });
 

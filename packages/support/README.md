@@ -196,6 +196,13 @@ await runSupportEmail(admin, { email: resendProvider({ apiKey: env.RESEND_API_KE
 Point the reply domain's MX record at Resend so replies come back. Inbound attachments are
 listed (name, type, size) but not stored yet.
 
+- Staff link an email ticket to a login with `support_link_requester(report, person)` (with
+  support-chat, the person joins the conversation), and mark it read as usual.
+- Automatic mail (out-of-office, bounces, lists) and mail from your own addresses never open or
+  reopen a ticket; a sender past 20 emails an hour is dropped.
+- A reply keeps its text and thread ids when it is queued (a retry sends the same email); one
+  deleted before it goes out is cancelled.
+
 ## Access, in the database
 
 A person sees, edits (while open) and deletes their own reports, replies on them and sees their

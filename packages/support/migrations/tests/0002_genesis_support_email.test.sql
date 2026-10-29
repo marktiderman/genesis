@@ -5,7 +5,7 @@
 -- already has the staff hook, it is dropped and replaced inside this transaction only.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(34);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000020' || n)::uuid, 'authenticated', 'authenticated', 'genesis-email-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -98,6 +98,48 @@ insert into public.support_reports (user_id, message) values (pg_temp.login('a1'
 set local role service_role;
 select throws_ok($$insert into public.support_replies (report_id, body) select id, 'x' from public.support_reports where channel = 'app'$$, '42501', null, 'server code can''t write on an app ticket');
 reset role;
+
+-- Review fixes ----------------------------------------------------------------------------------
+-- No Message-ID, delivered twice: filed once, by Resend's id.
+set local role service_role;
+select public.support_receive_email('{"providerId": "re_dup", "from": {"email": "lee@example.test"}, "to": ["support@acme.test"], "subject": "No id", "text": "x"}'::jsonb);
+select public.support_receive_email('{"providerId": "re_dup", "from": {"email": "lee@example.test"}, "to": ["support@acme.test"], "subject": "No id", "text": "x"}'::jsonb);
+reset role;
+select is((select count(*)::int from public.support_reports where requester_email = 'lee@example.test'), 1, 'an email without a Message-ID delivered twice opens one ticket');
+
+-- Automatic mail and bounces are dropped.
+set local role service_role;
+select is(public.support_receive_email('{"messageId": "ooo@x.test", "autoSubmitted": true, "from": {"email": "pat@example.test"}, "to": ["support@acme.test"], "text": "I am away"}'::jsonb), null, 'an out-of-office is dropped');
+select is(public.support_receive_email('{"messageId": "bounce@x.test", "from": {"email": "MAILER-DAEMON@mx.example.test"}, "to": ["support@acme.test"], "text": "Undeliverable"}'::jsonb), null, '... and a bounce');
+reset role;
+
+-- A sender's 21st email in an hour is dropped.
+set local role service_role;
+select public.support_receive_email(jsonb_build_object('messageId', 'flood' || n || '@x.test', 'from', jsonb_build_object('email', 'flood@example.test'), 'to', jsonb_build_array('support@acme.test'), 'text', 'spam')) from generate_series(1, 20) n;
+select is(public.support_receive_email('{"messageId": "flood21@x.test", "from": {"email": "flood@example.test"}, "to": ["support@acme.test"], "text": "spam"}'::jsonb), null, 'a sender past 20 emails an hour is dropped');
+reset role;
+
+-- HTML-only mail keeps its words.
+set local role service_role;
+select public.support_receive_email('{"messageId": "html@x.test", "from": {"email": "kim@example.test"}, "to": ["support@acme.test"], "html": "<p>Only <b>HTML</b></p>"}'::jsonb);
+reset role;
+select is((select message from public.support_reports where requester_email = 'kim@example.test'), 'Only  HTML', 'an HTML-only email becomes text');
+
+-- Staff mark a ticket with no login read; staff link it to a login.
+select pg_temp.as_login('b1');
+select lives_ok($$select public.support_mark_read((select id from public.support_reports where requester_email = 'kim@example.test'))$$, 'staff mark a ticket with no login read');
+select lives_ok($$select public.support_link_requester((select id from public.support_reports where requester_email = 'kim@example.test'), '00000000-0000-4000-8000-0000000020a1')$$, 'staff link an email ticket to a login');
+select pg_temp.as_owner();
+
+-- A reply deleted before it is sent is cancelled; the queued text is what goes out.
+select pg_temp.as_login('b1');
+insert into public.support_replies (report_id, body) select id, 'Draft answer' from public.support_reports where requester_email = 'lee@example.test';
+select pg_temp.as_owner();
+delete from public.support_replies where body = 'Draft answer';
+set local role service_role;
+select is((select count(*)::int from public.support_claim_outbound_emails(10) x where x ->> 'text' = 'Draft answer'), 0, 'a deleted reply is not sent');
+reset role;
+select is((select status from public.support_email_messages where direction = 'out' and to_addresses[1] = 'lee@example.test'), 'cancelled', '... it is cancelled');
 
 select * from finish();
 rollback;

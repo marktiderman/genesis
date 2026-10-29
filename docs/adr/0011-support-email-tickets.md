@@ -34,10 +34,15 @@ Inboxes product (threads, drafts, assignment) is in private beta.
    notifications `EmailProvider` (Resend), threaded, with the ticket's reply address and an
    idempotency key so a retry sends once.
 4. **No login is linked from an email address**: a From header can be forged. Staff link a ticket
-   to a person by hand; authentication results (SPF, DKIM, DMARC) are kept for them to judge.
-5. **AI drafts, people send**: the support assistant may draft a reply; only a staff member sends
+   to a person with `support_link_requester`, judging by the kept SPF, DKIM and DMARC results; with
+   support-chat the person then joins the conversation.
+5. **No loops, no floods**: automatic mail (Auto-Submitted, Precedence bulk/auto_reply, bounces,
+   out-of-office) and mail from the app's own addresses never open or reopen a ticket, and a
+   sender's 21st email in an hour is dropped. A queued reply keeps its text and thread ids, so a
+   retry sends the same email; one deleted before it goes out is cancelled.
+6. **AI drafts, people send**: the support assistant may draft a reply; only a staff member sends
    it, the same rule as Resend's own drafts.
-6. **Resend Inboxes is a later adapter**, once it is generally available, behind the same tables.
+7. **Resend Inboxes is a later adapter**, once it is generally available, behind the same tables.
 
 ## Consequences
 
