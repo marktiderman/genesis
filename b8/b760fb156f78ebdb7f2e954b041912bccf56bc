@@ -1,0 +1,51 @@
+apps/sample/app/routes/demo.tsx
+  s_e2cf1ec4fac133::t_5d3d7060625a45 1-141
+apps/sample/.react-router/types/+routes.ts
+  s_e2cf1ec4fac133::t_e6417a44faba41 28-77,116,118,176,194-237,240,294-296,362-372,387
+apps/sample/app/lib/site-paths.ts
+  s_e2cf1ec4fac133::t_8e672926f85c6c 10,15,35-36
+apps/sample/app/lib/site.ts
+  s_e2cf1ec4fac133::t_5c1ff3daa7bf2d 38,59,62-67
+apps/sample/app/routes.ts
+  s_e2cf1ec4fac133::t_65cf8251aea7a5 16-28,44-45
+apps/sample/app/routes/_index.tsx
+  s_e2cf1ec4fac133::t_d3e980ebe6c580 19,33,134
+apps/sample/app/routes/_layout.tsx
+  s_e2cf1ec4fac133::t_a459586990a548 8,15,19,60
+apps/sample/app/routes/chat.tsx
+  s_e2cf1ec4fac133::t_6b77b735ec9b0b 10
+apps/sample/app/routes/dashboard.tsx
+  s_e2cf1ec4fac133::t_0783166c1ea172 9-10
+apps/sample/app/routes/items.tsx
+  s_e2cf1ec4fac133::t_8fa7ce38c5e1cd 1-6,10-11,13,15
+apps/sample/app/routes/sites.tsx
+  s_e2cf1ec4fac133::t_f3b18771e317e8 8
+apps/sample/app/routes/studio.tsx
+  s_e2cf1ec4fac133::t_78d89731e8796b 5,41-43,45-49
+apps/sample/package.json
+  s_e2cf1ec4fac133::t_908e4279086628 27
+apps/sample/scripts/generate-site-files.ts
+  s_e2cf1ec4fac133::t_c8a33ecf748d7a 33
+packages/sites/package.json
+  s_e2cf1ec4fac133::t_454b24e3a6e1ce 9
+packages/studio/src/DataStudio.tsx
+  s_e2cf1ec4fac133::t_a40878225cc099 336-337,363
+pnpm-lock.yaml
+  s_e2cf1ec4fac133::t_8156cf9a691e5d 291-293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b8b760fb156f78ebdb7f2e954b041912bccf56bc",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
