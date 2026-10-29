@@ -1,0 +1,19 @@
+apps/sample/scripts/smoke-site.mjs
+  s_e2cf1ec4fac133::t_5cee01d07dfb45 16,32-39,41-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "010822bf7fa0743d3322634e5329a3d8bbfa4e5b",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
