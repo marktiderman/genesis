@@ -90,7 +90,14 @@ reach a browser: a browser only ever receives finished signed URLs. The
 `/signed` entry resolves to nothing under the `browser` export condition, so a
 page bundle that imports it fails to build (Workers bundlers match `workerd`
 or `worker` first and resolve it), and `createMediaSigner` throws where there
-is a `document`.
+is a `document`. Neither guard is airtight, and neither replaces keeping the
+secret out of client code:
+
+- a webpack build with `target: "webworker"` (a service worker or web worker
+  in the page's own bundle) matches the `worker` condition and has no
+  `document`, so it gets past both;
+- tests of server code that run under jsdom (or happy-dom) have a `document`,
+  so `createMediaSigner` throws there: run them in the `node` environment.
 
 The signer never decides access. The app's own rules (RLS, roles) decide who
 may see what; the signer only proves "the app said yes, recently". Uploading
@@ -136,9 +143,13 @@ const original = await signer.signMediaUrl(MEDIA_BASE, "videos/v1/original.mov",
   (`"30m"`, `"2h"`, `"7d"`, or seconds); anything else throws a `RangeError`.
   Hours suit viewing; days suit a lab or a video provider fetching an
   original. `align: "hour"` ends the link at the end of the hour `now + ttl`
-  falls in, so every link to the same thing within one hour is the same URL
-  and caches as one; it lasts between `ttl` and `ttl` plus an hour. Hiding an
-  item takes effect when its links expire, so keep viewing links short.
+  falls in; it lasts between `ttl` and `ttl` plus an hour. With a whole-hour
+  TTL (`"2h"`, `"7d"`), every link to the same thing signed within one clock
+  hour is the same URL and caches as one; with any other TTL (`"90m"`) the
+  URL changes partway through the hour. An aligned link can outlive
+  `MAX_MEDIA_TTL` by up to that hour: a `"30d"` link may last 30 days and
+  one hour. Hiding an item takes effect when its links expire, so keep
+  viewing links short.
 - **Key rotation:** `createMediaSigner({ keys: { current: "k2", secrets: { k1, k2 } } })`
   signs with `current` and puts its id in the link (`k`); a link verifies
   with the key its id names. A link without an id (from the single-secret
@@ -247,6 +258,11 @@ const bundles = createBundleHandler({
   so upgrade the pin only with the bundle tests passing.
 - An abandoned download cancels the storage read in progress and opens no
   further file.
+- **On Workers**, mind two limits. CPU: the CRC-32 every ZIP entry needs is
+  computed in JavaScript, about 10 s of CPU per 4 GB, so a 30 s CPU limit
+  tops out near 12 GB per bundle (raise the Worker's `cpu_ms` limit, or split
+  the set). Subrequests: each entry is one storage read, a subrequest, so the
+  plan's subrequest limit per request caps the files in one bundle.
 - A file that has gone missing, or whose size no longer matches, ends the
   stream with an error: the download fails rather than arriving incomplete.
 - 403 for a bad link (before the manifest is read), 404 for a missing,

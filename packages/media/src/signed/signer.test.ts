@@ -46,6 +46,11 @@ describe("createMediaSigner: sign and verify", () => {
     const next = await sign(H + HOUR);
     expect(next.e).toBe(H + 4 * HOUR);
     expect(next.s).not.toBe(first.s);
+    // Only a whole-hour TTL is stable all hour: a 90-minute link changes at half past.
+    const odd = (t: number) => createMediaSigner({ secret: SECRET, now: at(t) }).sign(scope, { ttl: "90m", align: "hour" });
+    expect((await odd(H)).e).toBe(H + 2 * HOUR);
+    expect((await odd(H + 1799)).e).toBe(H + 2 * HOUR);
+    expect((await odd(H + 1800)).e).toBe(H + 3 * HOUR);
   });
 
   it("refuses a tampered, truncated, padded or missing signature, and a malformed expiry", async () => {

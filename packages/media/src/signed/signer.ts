@@ -29,8 +29,10 @@ export interface MediaSignOptions {
    * `"hour"`: expire at the end of the hour that `now + ttl` falls in, so
    * every link signed for the same scope within one hour is the same URL
    * (and caches as one). The link then lasts between `ttl` and `ttl` plus an
-   * hour. Without it the link expires exactly `ttl` from now. Default the
-   * signer's `align`.
+   * hour. Only a whole-hour TTL keeps one URL for the whole clock hour (a
+   * `"90m"` link changes partway through), and an aligned link can outlive
+   * `MAX_MEDIA_TTL` by up to an hour. Without it the link expires exactly
+   * `ttl` from now. Default the signer's `align`.
    */
   align?: "hour" | "none" | undefined;
 }
