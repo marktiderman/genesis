@@ -1,0 +1,248 @@
+packages/features/src/packages.ts
+  s_e2cf1ec4fac133::t_ce6d2613b3c52b 1-245,247-248
+  s_e2cf1ec4fac133::t_24e67108eb4427 246,249-256
+scripts/check-package-layers.mjs
+  s_e2cf1ec4fac133::t_db1763635c0e3b 1-109
+apps/sample/app/lib/packages.ts
+  s_e2cf1ec4fac133::t_50792d17233159 3-4,6-7,14-16,21-30,41-44,47-48,52-76,81-106
+packages/features/src/__tests__/packages.test.ts
+  s_e2cf1ec4fac133::t_33199df827a91e 1-130
+scripts/__tests__/check-package-layers.test.mjs
+  s_e2cf1ec4fac133::t_8c44016db680a0 1-84
+packages/genesis-cli/test/blocks-modules.test.ts
+  s_e2cf1ec4fac133::t_e8b78930e30296 1-32
+.changeset/package-layers.md
+  s_e2cf1ec4fac133::t_bc805a052af253 1-46
+.claude/skills/features/SKILL.md
+  s_e2cf1ec4fac133::t_2aa1908b305711 33
+.github/workflows/ci.yml
+  s_e2cf1ec4fac133::t_b77f344d716ce6 66-70
+AGENTS.md
+  s_e2cf1ec4fac133::t_bb2f3ad6c2453a 62
+README.md
+  s_e2cf1ec4fac133::t_8a3a3d4f90e868 67,151-166
+apps/sample/app/data/story-ids.json
+  s_e2cf1ec4fac133::t_d4f497ac9431ed 2-59
+apps/sample/app/routes/_index.tsx
+  s_e2cf1ec4fac133::t_5fb90f9859c2b6 11,90-139,241-243,245-293
+apps/sample/app/routes/packages.$name.tsx
+  s_e2cf1ec4fac133::t_03b55696463ed1 7,19,22,36-37,48-54,60
+apps/sample/stories/Accordion.stories.tsx
+  s_e2cf1ec4fac133::t_2c9c13fdb5a17b 9
+apps/sample/stories/Alert.stories.tsx
+  s_e2cf1ec4fac133::t_7626c39f9af3b3 6
+apps/sample/stories/AlertDialog.stories.tsx
+  s_e2cf1ec4fac133::t_d556a170f41a86 16
+apps/sample/stories/AppShell.stories.tsx
+  s_e2cf1ec4fac133::t_f14d5e76020044 27
+apps/sample/stories/AspectRatio.stories.tsx
+  s_e2cf1ec4fac133::t_fa83453f403491 5
+apps/sample/stories/AuthPage.stories.tsx
+  s_e2cf1ec4fac133::t_aaecd9bebbfbca 8
+apps/sample/stories/Avatar.stories.tsx
+  s_e2cf1ec4fac133::t_0fc45780590287 5
+apps/sample/stories/Badge.stories.tsx
+  s_e2cf1ec4fac133::t_bbde1ef6d22415 16
+apps/sample/stories/Breadcrumb.stories.tsx
+  s_e2cf1ec4fac133::t_dd9c21b364d2c6 12
+apps/sample/stories/BuilderLayout.stories.tsx
+  s_e2cf1ec4fac133::t_9bbcb2b2167c2c 75
+apps/sample/stories/Button.stories.tsx
+  s_e2cf1ec4fac133::t_5959fb43d95bec 12
+apps/sample/stories/ButtonGroup.stories.tsx
+  s_e2cf1ec4fac133::t_680b4aa834f631 5
+apps/sample/stories/Calendar.stories.tsx
+  s_e2cf1ec4fac133::t_fac5fdae62907f 5
+apps/sample/stories/Card.stories.tsx
+  s_e2cf1ec4fac133::t_bf60cb5b3e284c 13
+apps/sample/stories/Checkbox.stories.tsx
+  s_e2cf1ec4fac133::t_213e9e48f92e5b 5
+apps/sample/stories/Collapsible.stories.tsx
+  s_e2cf1ec4fac133::t_428bc838b9a342 10
+apps/sample/stories/DetailPanel.stories.tsx
+  s_e2cf1ec4fac133::t_e0b3f7bb3b9f7e 7
+apps/sample/stories/Dialog.stories.tsx
+  s_e2cf1ec4fac133::t_412983d6b40ded 13
+apps/sample/stories/DropdownMenu.stories.tsx
+  s_e2cf1ec4fac133::t_e7863850390956 13
+apps/sample/stories/EmptyState.stories.tsx
+  s_e2cf1ec4fac133::t_c0ae7f3853fb70 7
+apps/sample/stories/Form.stories.tsx
+  s_e2cf1ec4fac133::t_7021510e42b69d 33
+apps/sample/stories/FormBuilder.stories.tsx
+  s_e2cf1ec4fac133::t_2de9e7e6e4d891 30
+apps/sample/stories/FormsStudio.stories.tsx
+  s_e2cf1ec4fac133::t_794218a3cea54c 39
+apps/sample/stories/HoverCard.stories.tsx
+  s_e2cf1ec4fac133::t_10ebb0b5153d22 12
+apps/sample/stories/Input.stories.tsx
+  s_e2cf1ec4fac133::t_b900fda037e351 5
+apps/sample/stories/InputOTP.stories.tsx
+  s_e2cf1ec4fac133::t_ff6da3dfd16984 9
+apps/sample/stories/Kbd.stories.tsx
+  s_e2cf1ec4fac133::t_1b2791b2ec0f39 4
+apps/sample/stories/PageHeader.stories.tsx
+  s_e2cf1ec4fac133::t_6f7ee06983a02b 7
+apps/sample/stories/PageLoading.stories.tsx
+  s_e2cf1ec4fac133::t_3190715cd8b017 5
+apps/sample/stories/Pagination.stories.tsx
+  s_e2cf1ec4fac133::t_18d6faaacd42e1 13
+apps/sample/stories/Popover.stories.tsx
+  s_e2cf1ec4fac133::t_c1c0139469fdaa 9
+apps/sample/stories/Progress.stories.tsx
+  s_e2cf1ec4fac133::t_b55047476dc4dd 5
+apps/sample/stories/PublicPage.stories.tsx
+  s_e2cf1ec4fac133::t_96852686580e77 10
+apps/sample/stories/PublishableResource.stories.tsx
+  s_e2cf1ec4fac133::t_eb97de6ab41ecb 18
+apps/sample/stories/RadioGroup.stories.tsx
+  s_e2cf1ec4fac133::t_e4bf2126a95070 5
+apps/sample/stories/ResourcePage.stories.tsx
+  s_e2cf1ec4fac133::t_ab75ea269c53a5 34
+apps/sample/stories/RichTextEditor.stories.tsx
+  s_e2cf1ec4fac133::t_762af59ea9f1f3 83
+apps/sample/stories/ScrollArea.stories.tsx
+  s_e2cf1ec4fac133::t_d263e9d1539fc3 5
+apps/sample/stories/Select.stories.tsx
+  s_e2cf1ec4fac133::t_3db1fe709e972f 12
+apps/sample/stories/Separator.stories.tsx
+  s_e2cf1ec4fac133::t_54f5fd679845b9 4
+apps/sample/stories/SettingsRow.stories.tsx
+  s_e2cf1ec4fac133::t_78a217ec9dec59 5
+apps/sample/stories/Sheet.stories.tsx
+  s_e2cf1ec4fac133::t_9800916b78ab9d 12
+apps/sample/stories/Skeleton.stories.tsx
+  s_e2cf1ec4fac133::t_649c1f58994e7c 4
+apps/sample/stories/Slider.stories.tsx
+  s_e2cf1ec4fac133::t_c007b542dbc6f1 5
+apps/sample/stories/SortableList.stories.tsx
+  s_e2cf1ec4fac133::t_c093111867d014 52
+apps/sample/stories/Spinner.stories.tsx
+  s_e2cf1ec4fac133::t_027339a1d0f361 5
+apps/sample/stories/StatusBadge.stories.tsx
+  s_e2cf1ec4fac133::t_bfd82e7409514e 23
+apps/sample/stories/Switch.stories.tsx
+  s_e2cf1ec4fac133::t_7247083e81aac1 5
+apps/sample/stories/Table.stories.tsx
+  s_e2cf1ec4fac133::t_4ccce6e8f87ee7 12
+apps/sample/stories/Tabs.stories.tsx
+  s_e2cf1ec4fac133::t_8052996e7b5e82 5
+apps/sample/stories/Textarea.stories.tsx
+  s_e2cf1ec4fac133::t_3a35920c9f8555 4
+apps/sample/stories/Toast.stories.tsx
+  s_e2cf1ec4fac133::t_a08fd9e3b245aa 16
+apps/sample/stories/Toggle.stories.tsx
+  s_e2cf1ec4fac133::t_6f5bd3b42ffc06 5
+apps/sample/stories/ToggleRow.stories.tsx
+  s_e2cf1ec4fac133::t_2baec72e3b71c6 5
+apps/sample/stories/Tooltip.stories.tsx
+  s_e2cf1ec4fac133::t_d5a9434cb44de9 5
+apps/sample/stories/Typography.stories.tsx
+  s_e2cf1ec4fac133::t_83f9e39ef3d627 4
+apps/sample/stories/UserAvatar.stories.tsx
+  s_e2cf1ec4fac133::t_675d9c47d87cd2 5
+apps/sample/stories/WorkspaceSwitcher.stories.tsx
+  s_e2cf1ec4fac133::t_5d41b8f41f28b3 39
+docs/FRAMEWORK.md
+  s_e2cf1ec4fac133::t_71d53dcd94ff04 8-9,139-141,165,173,175-200,203-205,210-211,230-236,297-299,305,308,322,338,346-353,371,387,400,402,441,456,470-472,476
+docs/PACKAGE-STRATEGY.md
+  s_e2cf1ec4fac133::t_c290c926ef63fd 3-4,12-13,29-31,114,116-119,122-125,128-133,135-138,140-201,298-317,320-321
+docs/component-reference.md
+  s_e2cf1ec4fac133::t_418129a8927bb3 7,1643,1650,1653,1660,1670,2416,2438,2441,2457-2459,2461,2476,2500,2529-2533,5949,5971,5974,5990-5992,5994,6009,6033,6062-6066,9426,9455-9458,9460,9487-9498
+features.json
+  s_e2cf1ec4fac133::t_a25446b5cc8031 51,56,77,342,2626,4201,4951-4952,4954,4960-4961,4972-5014,5286
+features.ts
+  s_e2cf1ec4fac133::t_a6b19f2c5eee37 39,44,51,167,1161,1833,2163-2186,2191-2192,2321
+package.json
+  s_e2cf1ec4fac133::t_66f4cc218c01c1 16,28
+packages/agents/package.json
+  s_e2cf1ec4fac133::t_71cc0eb14bbd17 15-19
+packages/ai/package.json
+  s_e2cf1ec4fac133::t_37eb8eeb5bce10 117-118
+packages/chat/package.json
+  s_e2cf1ec4fac133::t_ba63ef5b071c92 206-207
+packages/collab/package.json
+  s_e2cf1ec4fac133::t_8c981a81404791 59-60
+packages/connect/package.json
+  s_e2cf1ec4fac133::t_84f0c08878e6a2 76-77
+packages/core/package.json
+  s_e2cf1ec4fac133::t_c7239be34da270 133-135
+packages/data-switchboard/package.json
+  s_e2cf1ec4fac133::t_097c49fb2b88d0 84-85
+packages/design-system/package.json
+  s_e2cf1ec4fac133::t_5b517ea68b647a 95-97
+packages/extension/package.json
+  s_e2cf1ec4fac133::t_924e9090d11850 82-83
+packages/features/package.json
+  s_e2cf1ec4fac133::t_1183a70b939abb 108-110
+packages/features/src/blocks-entry.ts
+  s_e2cf1ec4fac133::t_cf061884aa1a78 10
+packages/features/src/generate.ts
+  s_e2cf1ec4fac133::t_205ff1ba7ca255 230
+packages/features/src/index.ts
+  s_e2cf1ec4fac133::t_c9a189440e6535 4,22,107-117
+packages/features/src/model.ts
+  s_e2cf1ec4fac133::t_33414d91e081a6 52-53,58-61,64,69-80,129-130,246,488
+packages/forms-builder/package.json
+  s_e2cf1ec4fac133::t_747e58f59dc591 86-87
+packages/forms-devtools/package.json
+  s_e2cf1ec4fac133::t_476458732c5183 81-82
+packages/forms-native/package.json
+  s_e2cf1ec4fac133::t_e71e1a4c270f49 77-78
+packages/forms-react/package.json
+  s_e2cf1ec4fac133::t_2eed189556b264 66-67
+packages/forms-studio/package.json
+  s_e2cf1ec4fac133::t_b8998477a96cbe 95-96
+packages/forms-web/package.json
+  s_e2cf1ec4fac133::t_6ddb5b8a62aa04 77-78
+packages/forms/package.json
+  s_e2cf1ec4fac133::t_f4ab8a496b2b7f 110-111
+packages/genesis-cli/package.json
+  s_e2cf1ec4fac133::t_33045ee823d26c 110-111
+packages/genesis-cli/src/cli.ts
+  s_e2cf1ec4fac133::t_cbf5108190c00f 314,327-328
+packages/genesis/package.json
+  s_e2cf1ec4fac133::t_78b3b6c493a90c 166-167
+packages/native/package.json
+  s_e2cf1ec4fac133::t_e46520efe11f25 170-171
+packages/notifications/package.json
+  s_e2cf1ec4fac133::t_0fa20d39144d11 162-163
+packages/product/SKILL.md
+  s_e2cf1ec4fac133::t_0b24e57d0c7368 1-38
+packages/product/package.json
+  s_e2cf1ec4fac133::t_a0f48095038644 58-59,105-119,122-149
+packages/sites/SKILL.md
+  s_e2cf1ec4fac133::t_5bbd269bb03994 1-46
+packages/sites/package.json
+  s_e2cf1ec4fac133::t_3f8cbe1346d499 82-83,141-153
+packages/studio-server/package.json
+  s_e2cf1ec4fac133::t_fc563206054669 94-95
+packages/studio/package.json
+  s_e2cf1ec4fac133::t_55c7eac897d749 90-91
+packages/supabase/package.json
+  s_e2cf1ec4fac133::t_c17d0c1cceda58 100-101
+packages/support/SKILL.md
+  s_e2cf1ec4fac133::t_1367b2a759a85e 1-39
+packages/support/package.json
+  s_e2cf1ec4fac133::t_b60391c6c18591 64-65,141-153
+packages/ui-native/package.json
+  s_e2cf1ec4fac133::t_112e9c560d3c9c 170-172
+packages/ui/package.json
+  s_e2cf1ec4fac133::t_11e4767c5c912e 496-498
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1ed0cbae41201088e38d0192635e103ba33100c3",
+  "prompts": {},
+  "sessions": {
+    "s_e2cf1ec4fac133": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d7be3906-34a4-46e5-997d-ceac3038f4d2",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
