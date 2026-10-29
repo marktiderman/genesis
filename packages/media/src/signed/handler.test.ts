@@ -167,11 +167,11 @@ describe("createSignedMediaHandler", () => {
     expect((await handle(new Request(await signed("photos/p9/800.jpg", mediaScope.item("photos", "p9")), { method: "HEAD" }))).status).toBe(404);
     const seen: string[] = [];
     const spy = createSignedMediaHandler({ storage: createMemoryStorage(objects), signer, now, route: (p, c) => (seen.push(p), route(p, c)) });
-    for (const path of ["/", "/photos/", "/photos/p1/", "/photos/%2e%2e/p1/800.jpg", "/photos/..%2Fx/800.jpg", "/photos/a%5Cb/800.jpg", "/photos/%00/800.jpg", "/photos/%E0%A4%A/800.jpg"]) {
+    for (const path of ["/", "/photos/", "/photos/p1/", "/photos/%2e%2e/p1/800.jpg", "/photos/..%2Fx/800.jpg", "/photos/a%5Cb/800.jpg", "/photos/%00/800.jpg", "/photos/%E0%A4%A/800.jpg", "/photos/%252e%252e/800.jpg", "/photos/p1%2525/800.jpg"]) {
       expect((await spy(new Request(`${BASE}${path}`))).status, path).toBe(404);
     }
     // The URL parser resolves a dot segment, even encoded, before the handler sees it ("/photos/%2e%2e/p1/…" is "/p1/…");
-    // a segment that decodes to a slash, a backslash or NUL, or doesn't decode, never reaches the route.
+    // a segment that decodes to a slash, a backslash, NUL or "%" (double encoding), or doesn't decode, never reaches the route.
     expect(seen).toEqual(["photos", "photos/p1", "p1/800.jpg"]);
   });
 

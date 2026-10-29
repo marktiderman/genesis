@@ -30,7 +30,10 @@ export const methodNotAllowed = () => plain(405, "Use GET or HEAD.", { allow: "G
 
 /**
  * A request's path as decoded segments, or null when a segment can't be
- * decoded or is `.`, `..`, or holds a slash, backslash or NUL once decoded.
+ * decoded, or once decoded is `.` or `..`, or holds a slash, a backslash,
+ * NUL or `%`. Refusing `%` refuses double encoding (`%252e%252e`), which
+ * would decode once here to `%2e%2e` and become `..` in a storage URL built
+ * from it.
  */
 export function pathSegments(url: URL): string[] | null {
   const segments: string[] = [];
@@ -42,7 +45,7 @@ export function pathSegments(url: URL): string[] | null {
     } catch {
       return null;
     }
-    if (part === "." || part === ".." || /[/\\\0]/.test(part)) return null;
+    if (part === "." || part === ".." || /[/\\\0%]/.test(part)) return null;
     segments.push(part);
   }
   return segments;

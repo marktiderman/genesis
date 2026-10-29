@@ -180,7 +180,8 @@ otherwise) and:
   learn what exists: a bad, expired or other-scope link is 403; an unknown
   path or a missing file is 404; it never lists anything;
 - never hands `route` a path with `.` or `..` segments, or a segment that
-  decodes to a slash, backslash or NUL;
+  decodes to a slash, backslash, NUL or `%` (so a double-encoded
+  `%252e%252e` can't become `..` in a storage URL built from the path);
 - serves one byte `Range` as 206 (`bytes=0-99`, `bytes=100-`, `bytes=-500`;
   an end past the file is cut to it), a start past the end as 416 with
   `content-range: bytes */size`, and several ranges or a malformed header as
@@ -287,7 +288,8 @@ const storage: MediaStorage = {
 
 **Supabase Storage** (a private bucket) is the same fetch wrapper with plain
 `fetch`, `authorization: Bearer <service role key>`, and
-``at = (key) => `${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${key}` ``.
+``at = (key) => `${SUPABASE_URL}/storage/v1/object/authenticated/${bucket}/${key.split("/").map(encodeURIComponent).join("/")}` ``
+(encode every segment, as the S3 example does, so a key can never add a path step).
 For `head`, send a `GET` with `range: bytes=0-0`, read the size from
 `content-range`, and cancel the body. The service role key stays in the
 Worker, like the signing secret.
