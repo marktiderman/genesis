@@ -25,7 +25,7 @@ and they disagreed on the column name.
 | **tenant** | The isolation boundary that owns rows and that the feature gate, entitlements and budgets scope to. | Code, SQL (`tenant_id`), the gate, docs. |
 | **organization** | What a tenant is, as people say it. | User-facing copy, an app's labels. Never a Genesis type or column. |
 | **location** | A place a tenant runs (a site, a campus, a studio). | A workspace kind and a table; see 2. |
-| **person** | Someone in a tenant: staff, a client, a member, with roles there. | `person_id`, `genesis_people`. |
+| **person** | Someone in a tenant: staff, a client, a member, with roles there. | `person_id`; the app's people table, read through `private.genesis_viewer_people`. |
 | **workspace** | Where the viewer is working: one tenant, a location, a roll-up, personal (ADR 0004). | The switcher and the URL. |
 | **scope** | The row filter a workspace gives views (`ResourceScope`). | Views, providers. |
 
@@ -39,9 +39,10 @@ company. An app keeps its own word in its copy and maps it in its CONTEXT doc (t
 - A **location** belongs to one tenant (`tenant_id`, `location_id`). It is optional: a tenant
   with one place never sees the word. A location is also a workspace kind, so the switcher can
   show "Acme · Downtown" and views scope to `{ tenantId, locationId }`.
-- A **person** belongs to tenants through memberships (`tenant_id`, `person_id`, roles,
-  optionally `location_id`), never by a column on the person. One login can be a person in many
-  tenants, which is what the roll-up workspace reads.
+- A **person** is a record in one tenant (`tenant_id`, `person_id`, roles, optionally
+  `location_id`), as genesis-supabase already models it: the app's people table, which Genesis
+  reads through `private.genesis_viewer_people(viewer)` (one row per tenant the login is in). One
+  login can be a person in many tenants, which is what the roll-up workspace reads.
 - Every Genesis-owned table that holds tenant data carries `tenant_id` from its first migration,
   with row-level security through one function per check (`genesis_*.is_member(tenant_id)`),
   pgTAP-tested with a NULL user and a NULL role.
@@ -60,8 +61,8 @@ first release, and `orgId` is deprecated in the next major, with a codemod.
   words in Genesis's own descriptions and headings.
 - Apps already on another noun change their copy only if they want to; their columns stay.
 - Building it is new work, tracked as `tenant-model` in features.ts, in this order:
-  1. `genesis_tenants`, memberships and `is_member` in genesis-supabase, with pgTAP, adoptable by
-     pointing at an existing organizations table;
+  1. `genesis_tenants` and `is_member` (over `genesis_viewer_people`) in genesis-supabase, with
+     pgTAP, adoptable by pointing at an existing organizations table;
   2. locations as a workspace kind and a scope key;
   3. `genesis init` starting every new app on it, with the `tenantId` scope alias.
 - Rejected: "organization" everywhere (renames 123 Genesis uses for a word apps already show
