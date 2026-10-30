@@ -22,8 +22,8 @@ export default function Integrations() {
           <h2 className="text-lg font-semibold">{category}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {INTEGRATIONS.filter((i) => i.category === category).map((i) => {
-              const feature = (features as Record<string, { name: string; links?: FeatureLinks }>)[i.feature]!;
-              const code = feature.links?.code?.[0];
+              const feature = i.feature ? (features as Record<string, { name: string; links?: FeatureLinks }>)[i.feature] : undefined;
+              const code = feature?.links?.code?.[0];
               return (
                 <Card key={i.name} className="h-full" data-testid={`integration-${i.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}>
                   <CardHeader>
@@ -34,9 +34,11 @@ export default function Integrations() {
                       <Badge variant={i.status === "available" ? "default" : "outline"}>{i.status}</Badge>
                     </div>
                     <CardDescription>{i.what}</CardDescription>
-                    <p className="text-xs text-muted-foreground">
-                      {code ? <a className="underline" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
-                    </p>
+                    {feature && (
+                      <p className="text-xs text-muted-foreground">
+                        {code ? <a className="underline" href={`${REPO}/${code}`}>{feature.name}</a> : feature.name}
+                      </p>
+                    )}
                   </CardHeader>
                 </Card>
               );
