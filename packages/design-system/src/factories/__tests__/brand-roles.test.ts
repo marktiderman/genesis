@@ -63,6 +63,17 @@ describe("brandRoleVariables", () => {
     expect(roles.light["--primary"]).toBe(themeVariables(GENESIS_THEME_BRAND).light["--primary"]);
   });
 
+  it("applies the brand's native overrides first, so it agrees with themeFromBrand; web overrides with platform: web", () => {
+    const overridden: CanonicalBrand = {
+      ...teal,
+      platformOverrides: { native: { accent: { DEFAULT: "#b45309", light: "#b45309" } }, web: { accent: { DEFAULT: "#1d4ed8", light: "#1d4ed8" } } },
+    };
+    const roles = brandRoleVariables(overridden);
+    expect(roles.light["--primary"]).toBe("26 90.5% 37.1%"); // #b45309
+    expect(themeFromBrand(overridden).variables.light["--primary"]).toBe(roles.light["--primary"]);
+    expect(brandRoleVariables(overridden, { platform: "web" }).light["--primary"]).toBe("224.3 76.3% 48%"); // #1d4ed8
+  });
+
   it("is part of themeFromBrand's variables, beside the --color-* scales", () => {
     const native = themeFromBrand(teal);
     expect(native.variables.light["--primary"]).toBe("175.3 77.4% 26.1%");

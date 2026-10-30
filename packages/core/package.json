@@ -173,6 +173,8 @@
               "react-native",
               "react-native/*",
               "react-native-*",
+              "lucide-react-native",
+              "lucide-react",
               "react-router",
               "react-router/*",
               "react-router-dom",

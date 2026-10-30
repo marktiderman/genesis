@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3804 other exports · 3013 standalone types across 178 entry points in 28 packages.
+**Totals:** 589 components · 3804 other exports · 3015 standalone types across 178 entry points in 28 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1993,7 +1993,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (20)
+### Types (21)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2001,6 +2001,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -4612,7 +4613,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (20)
+### Types (21)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4620,6 +4621,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };

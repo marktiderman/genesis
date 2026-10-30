@@ -406,6 +406,7 @@ describe("the real package declarations", () => {
         'import { Platform } from "react-native";',
         'import { Badge } from "@marktiderman/genesis-ui";',
         'import { useRouter } from "expo-router";',
+        'import { Star } from "lucide-react-native";',
         "export const studioView = defineView(studio, {});",
         "",
       ].join("\n"),
@@ -418,6 +419,7 @@ describe("the real package declarations", () => {
       "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:4 react-native",
       "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:5 @marktiderman/genesis-ui",
       "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:6 expo-router",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:7 lucide-react-native",
     ]);
   });
 

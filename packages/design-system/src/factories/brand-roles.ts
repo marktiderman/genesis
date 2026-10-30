@@ -30,6 +30,7 @@
 
 import type { CanonicalBrand, ColorScale } from "../schema/brand";
 import { GENESIS_THEME_BRAND, themeVariables } from "../tokens/theme-css";
+import { applyOverrides } from "./overrides";
 
 type Mode = "light" | "dark";
 
@@ -39,7 +40,13 @@ export interface BrandRoleVariables {
   dark: Record<string, string>;
 }
 
-const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+/** @stability Beta */
+export interface BrandRoleVariablesOptions {
+  /** Whose `brand.platformOverrides` apply. Default `"native"` (the app shell and the NativeWind preset). */
+  platform?: "native" | "web";
+}
+
+const HEX =/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
 function parseHex(hex: string): [number, number, number] | null {
   if (!HEX.test(hex)) return null;
@@ -134,11 +141,14 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
  *
  * @stability Beta
  */
-export function brandRoleVariables(brand: CanonicalBrand): BrandRoleVariables {
+export function brandRoleVariables(brand: CanonicalBrand, options: BrandRoleVariablesOptions = {}): BrandRoleVariables {
+  const platform = options.platform ?? "native";
+  // The platform's overrides first, as themeFromBrand / tailwindFromBrand apply them.
+  const merged = applyOverrides(brand, brand.platformOverrides?.[platform]);
   const base = themeVariables(GENESIS_THEME_BRAND);
   const light = { ...base.light };
   const dark = { ...base.dark };
-  overlay(brand, "light", light);
-  overlay(brand, "dark", dark);
+  overlay(merged, "light", light);
+  overlay(merged, "dark", dark);
   return { light, dark };
 }

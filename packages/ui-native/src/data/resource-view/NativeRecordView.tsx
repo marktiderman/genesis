@@ -279,8 +279,13 @@ export interface NativeRecordViewProps<T extends Row = Row> {
   onSaved?: (row: T) => void;
   /** Above the sections: a switcher between records. */
   switcher?: ReactNode;
-  /** The screen's own sections, by id. */
-  slots?: Partial<Record<string, ReactNode>>;
+  /**
+   * The screen's own sections, by id. A node is laid out in the screen's scroll view. A section
+   * that scrolls itself (a long FlatList) passes a function instead: it gets the screen's top
+   * (switcher, readiness, sections) to render as its list's header, and owns the scroll view, so
+   * set `contentInsetAdjustmentBehavior="automatic"` on it.
+   */
+  slots?: Partial<Record<string, ReactNode | ((top: ReactNode) => ReactNode)>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
   messages?: Partial<NativeRecordViewMessages>;
@@ -377,11 +382,12 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
   // One scroll view holds the whole screen, so iOS insets it below the navigation bar
   // (`contentInsetAdjustmentBehavior`): the header is translucent and the first rows would sit
   // behind it otherwise. A list section is its own scroll view, with the top as its header.
-  const scroll = (content: ReactNode, persistTaps = false) => (
+  const scroll = (content: ReactNode) => (
     <ScrollView
       testID={`${testID}-scroll`}
       contentInsetAdjustmentBehavior="automatic"
-      keyboardShouldPersistTaps={persistTaps ? "handled" : undefined}
+      // A field and its button in one section: the first tap presses the button.
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
     >
       {top}
@@ -439,12 +445,22 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
           testID={`${testID}-settings`}
         />
       </View>,
-      true,
     );
   } else {
-    // The screen's own section, laid out in the screen's scroll view (a section that is a list
-    // belongs in the record view as a list section).
-    screen = scroll(active ? (slots?.[active.id] ?? null) : null);
+    // The screen's own section: in the screen's scroll view, or its own (a function slot) with the
+    // top as its header.
+    const slot = active ? slots?.[active.id] : undefined;
+    screen =
+      typeof slot === "function" ? (
+        slot(
+          <>
+            {top}
+            {back}
+          </>,
+        )
+      ) : (
+        scroll(slot ?? null)
+      );
   }
 
   return (
