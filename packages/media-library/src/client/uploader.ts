@@ -23,7 +23,7 @@ import type { HashFile } from "./worker-hasher";
 
 /** A refusal or failure the client won't retry on its own. */
 export class UploadClientError extends Error {
-  readonly code: UploadErrorCode | "network" | "cancelled";
+  readonly code: UploadErrorCode | "network" | "cancelled" | "no_random_source";
   readonly status: number;
   constructor(message: string, code: UploadClientError["code"], status = 0) {
     super(message);
@@ -93,6 +93,12 @@ export interface UploaderOptions {
   sleep?: ((ms: number, signal?: AbortSignal) => Promise<void>) | undefined;
   /** For tests: the jitter in back-off, 0 to 1. Default `Math.random`. */
   random?: (() => number) | undefined;
+  /**
+   * A new upload's id: 22 characters of `A-Z a-z 0-9 _ -`, from a secure random source. Default
+   * 16 bytes of `crypto.getRandomValues`. Pass one where the runtime has none (a React Native
+   * app without a `getRandomValues` polyfill, such as expo-crypto's `getRandomBytes`).
+   */
+  randomId?: (() => string) | undefined;
 }
 
 /** What to upload a file as. */
@@ -134,8 +140,18 @@ const sleepDefault = (ms: number, signal?: AbortSignal) =>
 const transient = (status: number) => status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
 const cancelledError = () => new UploadClientError("The upload was cancelled.", "cancelled");
 
+const UPLOAD_ID = /^[A-Za-z0-9_-]{22}$/;
+
+/** 16 secure random bytes as a URL-safe id, or a clear error where the runtime has no source of them. */
 function randomUploadId(): string {
-  return toBase64(crypto.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const source = (globalThis as { crypto?: { getRandomValues?: <T extends Uint8Array>(bytes: T) => T } }).crypto;
+  if (typeof source?.getRandomValues !== "function") {
+    throw new UploadClientError(
+      "This runtime has no crypto.getRandomValues, so an upload id can't be made. Pass `randomId` to createUploader (on React Native, from expo-crypto), or install a getRandomValues polyfill.",
+      "no_random_source",
+    );
+  }
+  return toBase64(source.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
@@ -175,6 +191,11 @@ export function createUploader(options: UploaderOptions) {
   const store = options.resumeStore ?? createMemoryResumeStore();
   const sleep = options.sleep ?? sleepDefault;
   const random = options.random ?? Math.random;
+  const newUploadId = () => {
+    const id = (options.randomId ?? randomUploadId)();
+    if (!UPLOAD_ID.test(id)) throw new UploadClientError("randomId must give 22 characters of A-Z, a-z, 0-9, _ and -.", "bad_request");
+    return id;
+  };
   const retries = options.retries ?? 6;
   const partsAtOnce = Math.max(1, options.partsAtOnce ?? 4);
   const filesAtOnce = Math.max(1, options.filesAtOnce ?? 2);
@@ -348,7 +369,7 @@ export function createUploader(options: UploaderOptions) {
           "",
           {
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId: randomUploadId(), ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
+            body: JSON.stringify({ name: o.name, contentType: o.contentType, size: source.size, purpose: o.purpose, uploadId: newUploadId(), ...(sha256 ? { sha256 } : {}), ...(o.targets ? { targets: o.targets } : {}) }),
           },
           signal,
         );

@@ -153,11 +153,16 @@ export function choosePartSize(size: number, limits: { min: number; max: number 
 
 export const SHA256_HEX = /^[0-9a-f]{64}$/;
 
-/** Bytes as standard base64. */
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/** Bytes as standard base64. Written out rather than `btoa`, which not every Hermes build has. */
 export function toBase64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]!);
-  return btoa(s);
+  let out = "";
+  for (let i = 0; i < bytes.length; i += 3) {
+    const n = (bytes[i]! << 16) | ((bytes[i + 1] ?? 0) << 8) | (bytes[i + 2] ?? 0);
+    out += B64[(n >> 18) & 63]! + B64[(n >> 12) & 63]! + (i + 1 < bytes.length ? B64[(n >> 6) & 63]! : "=") + (i + 2 < bytes.length ? B64[n & 63]! : "=");
+  }
+  return out;
 }
 
 /** Bytes as lowercase hex. */

@@ -135,8 +135,8 @@ export function createSpeedLimiter(rate: () => number, sleep: (ms: number, signa
         allowance += bytes;
         return;
       }
-      allowance = 0;
-      last = clock();
+      // The debt stays: other parts waiting now took theirs after this one, and the next take
+      // refills from `last`, so several parts in flight still average the rate.
     }
   };
 }
