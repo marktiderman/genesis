@@ -1,0 +1,28 @@
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_2d0bbac86cc673 127,131-133,135,137-142,161-162,177,180,184
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_0e737c9afc8623 52-57
+packages/genesis-cli/src/introspect/settings.ts
+  s_36f3212387dbf7::t_eebbcfd9d1ef77 1-5,7-31,33-42
+  s_36f3212387dbf7::t_9bbef28a219862 6,32
+packages/genesis-cli/test/introspect-settings.test.ts
+  s_36f3212387dbf7::t_da1bcb684cd8df 1-36
+.changeset/introspect-contracts-config.md
+  s_36f3212387dbf7::t_f1cfdfa2186f6c 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b61bdd98be598b78f63466d81416c4e81c6ad373",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
