@@ -106,11 +106,20 @@ describe("build and check", () => {
   it("lets an idea or planned id go for good, since it never shipped", () => {
     for (const status of ["idea", "planned"] as const) {
       const root = repo();
-      const withBacklog = { ...features, someday: { ...features.billing, status, aliases: ["later"] } };
+      const withBacklog = { ...features, someday: { ...features.billing, status } };
       buildFeatureOutputs(opts(root, { features: withBacklog }));
       expect(checkFeatureOutputs(opts(root, { features })).errors.filter((e) => e.includes("was removed"))).toEqual([]);
       expect(buildFeatureOutputs(opts(root, { features }))).toContain("features.json");
     }
+  });
+
+  it("keeps an alias of a planned feature, so a built id can't be laundered away", () => {
+    const root = repo();
+    const { wins: _w, ...rest } = features;
+    const parked = { ...rest, someday: { ...features.billing, status: "planned" as const, aliases: ["wins"] } };
+    buildFeatureOutputs(opts(root, { features: parked }));
+    const { someday: _s, ...gone } = parked;
+    expect(checkFeatureOutputs(opts(root, { features: gone })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
   });
 
   it("fails on a missing code path; warns on missing docs, reviews due and untested live features", () => {

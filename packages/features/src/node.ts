@@ -355,8 +355,8 @@ function removedIds(options: FeatureProjectOptions): string[] {
   try {
     previous =
       (JSON.parse(doc) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
-        ?.filter((f) => f.status !== "idea" && f.status !== "planned")
-        .flatMap((f) => [f.id, ...(f.aliases ?? [])]) ?? [];
+        // An alias is always kept: it may name a built feature that was renamed onto this one.
+        ?.flatMap((f) => [...(f.status === "idea" || f.status === "planned" ? [] : [f.id]), ...(f.aliases ?? [])]) ?? [];
   } catch {
     return [];
   }

@@ -2681,7 +2681,7 @@ export const features = defineFeatures({
     apps: ["cli"],
     audience: ["developer"],
     visibility: "internal",
-    acceptance: ["CI fails when a new export in packages/*/src uses a prefix outside FRAMEWORK rule 7."],
+    acceptance: ["CI fails when a new export in packages/*/src starts with build, new or make (FRAMEWORK rule 7)."],
     links: { code: ["scripts/check-export-prefixes.mjs"] },
   },
   "genesis-upstream": {
