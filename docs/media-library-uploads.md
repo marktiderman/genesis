@@ -1,6 +1,6 @@
 # media-library uploads: design
 
-Status: **v0.2, approved** (Mason, with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
+Status: **v0.2, approved** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
 
 This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
 in #542): resumable, checksummed uploads with one contract for browser, native and
