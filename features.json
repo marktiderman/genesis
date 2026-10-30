@@ -6313,6 +6313,200 @@
       "flags": []
     },
     {
+      "id": "video-sources",
+      "name": "Video sources",
+      "summary": "Video vendors behind one adapter with declared capabilities (ADR 0014): Mux first and premium (hosting, signed playback, instant clips, captions, storyboards, Mux Data), then YouTube and Vimeo embeds, Bunny Stream and plain HLS or MP4 URLs.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "service",
+      "keywords": [
+        "mux",
+        "youtube",
+        "vimeo",
+        "bunny",
+        "video hosting",
+        "adapter"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-player",
+      "name": "Video player",
+      "summary": "One player for web and native (ADR 0014): adaptive playback, speed, captions and a transcript panel, chapters, storyboard scrubbing, resume, picture-in-picture, offline on the phone; plays a sequence as one video and renders cues as layers.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "element",
+      "keywords": [
+        "player",
+        "video",
+        "captions",
+        "transcript",
+        "chapters",
+        "hls"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-timeline",
+      "name": "Clips, sequences and cues",
+      "summary": "The timeline model (ADR 0014): clips by reference into any video, sequences that play clips from many videos as one, and cues (questions, Genesis forms, hotspots, timers) at moments. Remixed lessons, workouts and interactive videos.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "service",
+      "keywords": [
+        "clip",
+        "remix",
+        "sequence",
+        "playlist",
+        "interactive video",
+        "cue",
+        "quiz"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-paths",
+      "name": "Interactive paths",
+      "summary": "Choose-your-own-adventure video (ADR 0014): a graph of sequences joined by choices, with variables, scores, default choices and timeouts, and path analytics.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "service",
+      "keywords": [
+        "branching",
+        "choose your own adventure",
+        "interactive video",
+        "scenario"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-studio",
+      "name": "Video studio (module)",
+      "summary": "The remix editor (ADR 0014): search a library's transcripts, pick clips from words, arrange sequences, place cues and preview.",
+      "category": "Modules",
+      "status": "idea",
+      "kind": "block",
+      "keywords": [
+        "video editor",
+        "remix",
+        "clips",
+        "transcript editing"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "workouts",
+      "name": "Workouts (module)",
+      "summary": "An exercise library and workout builder (ADR 0014): an exercise is a clip plus metadata; a workout is blocks of steps (reps, time, rest, tempo) that play as a sequence with timer cues.",
+      "category": "Modules",
+      "status": "idea",
+      "kind": "block",
+      "keywords": [
+        "workout",
+        "exercise library",
+        "fitness",
+        "coaching",
+        "training plan"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "galleries",
       "name": "Galleries and proofing (module)",
       "summary": "Client galleries with favourites, comments, download rules and watermarks, built on media, collab and billing.",
