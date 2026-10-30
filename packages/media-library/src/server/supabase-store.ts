@@ -1,9 +1,9 @@
 /**
  * Upload sessions in the app's own Supabase (migration
  * 0001_genesis_media_library: the genesis_media_library schema, row level
- * security on the owner). Pass the service-role client, as the upload
- * handler binds every operation to its owner itself; with a person's own
- * client, RLS lets them touch only their own sessions as well.
+ * security on the owner). Pass the service-role client: only it may write,
+ * and the upload handler binds every operation to its owner itself. A
+ * person's own client may only read their sessions.
  */
 import type { FailedTarget, UploadCopy } from "../protocol";
 import type { StoredPart, UploadSession, UploadSessionStore } from "./store";

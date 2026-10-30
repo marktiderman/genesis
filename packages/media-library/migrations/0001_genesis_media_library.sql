@@ -9,13 +9,13 @@
 --                 the first target's multipart id, its state, and what verification found
 --   upload_parts  the parts received: number, size, digest (RFC 9530) and the target's etag
 --
--- Every row belongs to an owner (owner_kind, owner_id). Row level security lets a signed-in
--- person read and change only their own sessions (owner_kind 'person', owner_id their
--- auth.uid()); anon gets nothing. The upload handler normally runs with the service role,
--- which bypasses RLS and binds every operation to its owner itself; the policies are the
--- second wall, for a handler run with the person's own client.
+-- Every row belongs to an owner (owner_kind, owner_id). Only the service role writes: the
+-- upload handler runs with it and binds every operation to its owner itself. A signed-in
+-- person may only read their own sessions (owner_kind 'person', owner_id their auth.uid()),
+-- never write them: a session records what verification found (state, copies), which a
+-- person must not be able to claim. anon gets nothing.
 --
--- add_part and update_upload are security invoker, so they act under the caller's RLS too.
+-- add_part and update_upload are for the service role only.
 --
 -- Expose `genesis_media_library` in the project's API schemas only if the handler uses the
 -- Data API (it does through createSupabaseSessionStore). Grants are by name, never in bulk.
@@ -65,52 +65,45 @@ alter table genesis_media_library.upload_parts enable row level security;
 
 create policy "owners read their uploads" on genesis_media_library.uploads
   for select to authenticated using (owner_kind = 'person' and owner_id = (select auth.uid())::text);
-create policy "owners start their uploads" on genesis_media_library.uploads
-  for insert to authenticated with check (owner_kind = 'person' and owner_id = (select auth.uid())::text);
-create policy "owners change their uploads" on genesis_media_library.uploads
-  for update to authenticated
-  using (owner_kind = 'person' and owner_id = (select auth.uid())::text)
-  with check (owner_kind = 'person' and owner_id = (select auth.uid())::text);
-create policy "owners remove their uploads" on genesis_media_library.uploads
-  for delete to authenticated using (owner_kind = 'person' and owner_id = (select auth.uid())::text);
 
 create policy "owners read their parts" on genesis_media_library.upload_parts
   for select to authenticated using (
     exists (select 1 from genesis_media_library.uploads u where u.id = upload_id)
   );
-create policy "owners add parts to their open uploads" on genesis_media_library.upload_parts
-  for insert to authenticated with check (
-    exists (select 1 from genesis_media_library.uploads u where u.id = upload_id and u.state = 'open')
-  );
 
 revoke all on table genesis_media_library.uploads from public, anon, authenticated;
 revoke all on table genesis_media_library.upload_parts from public, anon, authenticated;
-grant select, insert, update, delete on table genesis_media_library.uploads to authenticated, service_role;
-grant select, insert on table genesis_media_library.upload_parts to authenticated, service_role;
-grant delete on table genesis_media_library.upload_parts to service_role;
+grant select on table genesis_media_library.uploads to authenticated;
+grant select on table genesis_media_library.upload_parts to authenticated;
+grant select, insert, update, delete on table genesis_media_library.uploads to service_role;
+grant select, insert, update, delete on table genesis_media_library.upload_parts to service_role;
 
--- Records a part atomically: 'added', 'same' (already there with this digest) or 'conflict'
--- (already there with another digest; the first stands). Only for a session in 'open'.
+-- Records a part atomically: 'added'; 'same' (already there with this digest: its etag becomes
+-- this one, the target's latest write); or 'conflict' (already there with another digest; the
+-- first stands). Only for a session in 'open' (the row is locked meanwhile, so a finalize waits).
 create function genesis_media_library.add_part(p_upload text, p_n integer, p_size bigint, p_digest text, p_etag text)
 returns text
 language plpgsql
 security invoker
 set search_path = ''
 as $$
-declare
-  had text;
 begin
+  perform 1 from genesis_media_library.uploads where id = p_upload and state = 'open' for update;
+  if not found then
+    raise exception 'no open upload %', p_upload using errcode = 'P0002';
+  end if;
   insert into genesis_media_library.upload_parts (upload_id, n, size, digest, etag)
   values (p_upload, p_n, p_size, p_digest, p_etag)
   on conflict (upload_id, n) do nothing;
   if found then
     return 'added';
   end if;
-  select digest into had from genesis_media_library.upload_parts where upload_id = p_upload and n = p_n;
-  if had is null then
-    raise exception 'no such upload' using errcode = 'P0002';
+  update genesis_media_library.upload_parts set etag = p_etag
+  where upload_id = p_upload and n = p_n and digest = p_digest;
+  if found then
+    return 'same';
   end if;
-  return case when had = p_digest then 'same' else 'conflict' end;
+  return 'conflict';
 end
 $$;
 
@@ -134,7 +127,7 @@ begin
 end
 $$;
 
-revoke execute on function genesis_media_library.add_part(text, integer, bigint, text, text) from public, anon;
-revoke execute on function genesis_media_library.update_upload(text, jsonb, text[]) from public, anon;
-grant execute on function genesis_media_library.add_part(text, integer, bigint, text, text) to authenticated, service_role;
-grant execute on function genesis_media_library.update_upload(text, jsonb, text[]) to authenticated, service_role;
+revoke execute on function genesis_media_library.add_part(text, integer, bigint, text, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.update_upload(text, jsonb, text[]) from public, anon, authenticated;
+grant execute on function genesis_media_library.add_part(text, integer, bigint, text, text) to service_role;
+grant execute on function genesis_media_library.update_upload(text, jsonb, text[]) to service_role;

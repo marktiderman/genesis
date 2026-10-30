@@ -110,6 +110,8 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
   const now = options.now ?? Date.now;
   const root = options.endpoint.replace(/\/+$/, "");
   const urlFor = (key: string, query: Record<string, string> = {}) => {
+    // URL parsing would resolve these segments and address another object.
+    if (key.split("/").some((seg) => seg === "" || seg === "." || seg === "..")) throw new S3Error(`S3 key ${JSON.stringify(key)} has an empty, "." or ".." segment.`, 400, "InvalidKey");
     const url = new URL(`${root}/${enc(options.bucket)}/${key.split("/").map(enc).join("/")}`);
     for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
     return url;

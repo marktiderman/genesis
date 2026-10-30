@@ -1,6 +1,7 @@
 // @feat:media-resumable-uploads
 import { describe, expect, it } from "vitest";
 import type { UploadStatus } from "../../protocol";
+import { isSafeKey, safeName } from "../handler";
 import { sweepExpiredUploads } from "../verify";
 import { BASE, bytesOf, digestOf, partsOf, sendAll, setup, sha256Hex } from "./helpers";
 
@@ -356,6 +357,56 @@ describe("the failure and resume table", () => {
     const { id } = await sendAll(s, bytesOf(40));
     await s.alice.finalize(id);
     expect((await s.alice.abort(id)).status).toBe(409);
+  });
+});
+
+describe("recovery", () => {
+  it("finalize on a session stuck verifying queues it again (a queue call that failed must not strand it)", async () => {
+    const s = setup();
+    const { id } = await sendAll(s, bytesOf(40));
+    // As if finalize assembled it and set verifying, then the queue call failed.
+    const session = s.store.sessions.get(id)!;
+    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    await s.store.update(id, { state: "verifying" });
+    expect((await s.alice.finalize(id)).status).toBe(202);
+    expect(s.queued).toEqual([id]);
+    await s.verifyJob({ payload: { uploadId: id } });
+    expect((await json(await s.alice.resume(id))).state).toBe("done");
+  });
+
+  it("finalize after an assembly whose answer was lost goes on to verify the object that is there", async () => {
+    const s = setup();
+    const bytes = bytesOf(10);
+    const { id } = await sendAll(s, bytes);
+    const session = s.store.sessions.get(id)!;
+    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    const res = await s.alice.finalize(id);
+    expect(res.status).toBe(200);
+    expect((await json(res)).state).toBe("done");
+  });
+
+  it("refuses a storage key a URL would rewrite, and safeName keeps a client's name to one segment", async () => {
+    const seen: unknown[] = [];
+    const s = setup({ keyFor: ({ name }) => `media/${name}`, onError: (e) => void seen.push(e) });
+    expect((await s.alice.create({ name: "../../escape", contentType: "a/b", size: 1, purpose: "media" })).status).toBe(503);
+    expect(String(seen[0])).toMatch(/unsafe storage key/);
+    expect(s.working.calls).toEqual([]);
+    expect(safeName("../../etc/passwd")).toBe("passwd");
+    expect(safeName("C:\\photos\\a.jpg")).toBe("a.jpg");
+    expect(safeName("..")).toBe("file");
+    expect(isSafeKey("media/a/b.jpg")).toBe(true);
+    for (const bad of ["", "/abs", "a//b", "a/./b", "a/../b", "a/b/", "a\u0000b"]) expect(isSafeKey(bad), JSON.stringify(bad)).toBe(false);
+  });
+
+  it("a part sent twice at once with the same bytes keeps the target's latest etag", async () => {
+    const s = setup();
+    const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
+    const digest = await digestOf(bytesOf(4));
+    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest, etag: "first" })).toBe("added");
+    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest, etag: "second" })).toBe("same");
+    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("second");
+    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest: await digestOf(bytesOf(4, 5)), etag: "third" })).toBe("conflict");
+    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("second");
   });
 });
 

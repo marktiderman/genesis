@@ -1,9 +1,9 @@
-# media-library uploads: design for review
+# media-library uploads: design
 
-Status: **v0.2, approved** (Mason, with the changes listed below), building, for review before anyone builds. No code yet.
+Status: **v0.2, approved** (Mason, with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
 
-This is primitive 4 of [ADR 0012 (media primitives)](https://github.com/marktiderman/genesis/blob/staging/2026-10-29/c/docs/adr/0012-media-primitives.md),
-as amended in #542: resumable, checksummed uploads with one contract for browser, native and
+This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
+in #542): resumable, checksummed uploads with one contract for browser, native and
 server, storage targets as adapters, fan-out with a read-back check, and skip-if-identical. It
 folds two existing upload paths into one and leaves video providers alone. Feature:
 `media-resumable-uploads` (the `upload-protocol` entry folds into it, see Merge).

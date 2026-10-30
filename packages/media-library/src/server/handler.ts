@@ -66,7 +66,11 @@ export interface UploadHandlerOptions extends UploadVerifyOptions {
   owner: (request: Request) => UploadOwner | null | Promise<UploadOwner | null>;
   /** The app's rules, asked for every operation. */
   authorize: (context: UploadAuthorizeContext) => UploadDecision | Promise<UploadDecision>;
-  /** The storage key for a new upload. The client never names one. */
+  /**
+   * The storage key for a new upload. The client never names one: pass its
+   * `name` through `safeName` if it goes in. A key with an empty, `.` or `..`
+   * segment is refused.
+   */
   keyFor: (context: { owner: UploadOwner; uploadId: string; purpose: string; name: string; contentType: string; size: number; sha256?: string | undefined }) => string | Promise<string>;
   /**
    * Objects with this identity the owner may already read, for
@@ -199,6 +203,18 @@ function statusOf(s: UploadSession, extra: Partial<UploadStatus> = {}): UploadSt
 
 const sameOwner = (a: UploadOwner, b: UploadOwner) => a.kind === b.kind && a.id === b.id;
 
+/** A storage key every store keeps as it is: no empty, `.` or `..` segment, no control character. */
+export function isSafeKey(key: string): boolean {
+  return key.length > 0 && key.length <= 1024 && !/[\x00-\x1f\x7f]/.test(key) && key.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
+}
+
+/** A file name made safe for a storage key: one segment, no path, no control characters. For `keyFor`. */
+export function safeName(name: string): string {
+  const base = name.split(/[\\/]/).pop() ?? "";
+  const cleaned = base.replace(/[\x00-\x1f\x7f]/g, "").trim();
+  return cleaned === "" || cleaned === "." || cleaned === ".." ? "file" : cleaned.slice(0, 200);
+}
+
 /**
  * The upload route: `(request) => Promise<Response>`. Every operation is
  * bound to the owner that created the upload and asked of `authorize` again;
@@ -211,7 +227,7 @@ const sameOwner = (a: UploadOwner, b: UploadOwner) => a.kind === b.kind && a.id 
  *   targets: { working: createR2Target(env.BUCKET), archive: createS3Target({ …, objectLock: { mode: "COMPLIANCE", days: 3650 } }) },
  *   owner: async (request) => { const user = await userFrom(request); return user && { kind: "person", id: user.id }; },
  *   authorize: ({ op, owner, purpose, size }) => ({ allow: purpose === "media" && size <= 100 * 2 ** 30, targets: ["working", "archive"] }),
- *   keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${name}`,
+ *   keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${safeName(name)}`,
  *   readable: ({ owner, sha256, size }) => findMyMediaWithIdentity(owner, sha256, size),
  *   enqueueVerify: (uploadId) => enqueueJob(admin, UPLOAD_VERIFY_JOB, { uploadId }).then(() => {}),
  * });
@@ -267,6 +283,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
 
     const id = randomId();
     const key = await options.keyFor({ owner, uploadId: id, purpose: body.purpose, name: body.name, contentType: body.contentType, size: body.size, sha256: body.sha256 });
+    // A key a URL would rewrite (an empty, "." or ".." segment) would store the object somewhere else.
+    if (!isSafeKey(key)) throw new Error(`keyFor returned an unsafe storage key (${JSON.stringify(key)}): no empty, "." or ".." segments, no leading slash.`);
     const targetUploadId = await primary.start(key, { contentType: body.contentType });
     const session: UploadSession = {
       id,
@@ -313,6 +331,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (toBase64(await sha256Bytes(bytes)) !== digest) return refuse(422, "digest_mismatch");
     const receipt = await targets[s.targets[0]!]!.part(s.key, s.targetUploadId, n, bytes);
     const stored = { n, size: bytes.byteLength, digest: formatContentDigestB64(digest), etag: receipt.etag };
+    // "same" (another request sent these bytes meanwhile) also takes this write's etag: the target
+    // keeps the last write of a part, and finish must name it.
     const result = await store.addPart(s.id, stored);
     if (result === "conflict") return refuse(409, "part_conflict");
     await store.update(s.id, { expiresAt: expiresAt() }, ["open"]);
@@ -332,7 +352,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
   }
 
   async function finalize(request: Request, s: UploadSession): Promise<Response> {
-    if (s.state === "verifying") return json(202, statusOf(s));
+    // Verifying already: queue (or run) it again. The job is safe to run twice, and a queue
+    // call that failed after the state changed would otherwise leave it verifying forever.
+    if (s.state === "verifying") return verify(s);
     if (s.state === "done") return json(200, statusOf(s));
     if (s.state === "identity_mismatch") return refuse(422, "identity_mismatch");
     if (s.state === "partial") {
@@ -351,7 +373,14 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     const missing: number[] = [];
     for (let n = 1; n <= plan.count; n++) if (!s.parts.some((p) => p.n === n)) missing.push(n);
     if (missing.length) return refuse(409, "missing_parts", { parts: missing.slice(0, 1000) });
-    await targets[s.targets[0]!]!.finish(s.key, s.targetUploadId, s.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    const primary = targets[s.targets[0]!]!;
+    try {
+      await primary.finish(s.key, s.targetUploadId, s.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    } catch (error) {
+      // An earlier finalize may have assembled it and then failed to record that: the multipart
+      // upload is gone but the object is there. Carry on to verification, which checks it whole.
+      if (!(await primary.head(s.key).catch(() => null))) throw error;
+    }
     if (!(await store.update(s.id, { state: "verifying", sha256 }, ["open"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
     return verify({ ...s, state: "verifying", sha256 });
   }
