@@ -6,7 +6,8 @@
  * person's own client may only read their sessions.
  */
 import type { FailedTarget, UploadCopy } from "../protocol";
-import type { StoredPart, UploadSession, UploadSessionStore } from "./store";
+import type { AssembledObject } from "../targets/target";
+import { SessionConflictError, SessionNotOpenError, type StoredPart, type UploadSession, type UploadSessionStore } from "./store";
 
 type Result<T> = PromiseLike<{ data: T | null; error: { message: string; code?: string } | null }>;
 
@@ -36,6 +37,10 @@ interface Row {
   state: UploadSession["state"];
   copies: UploadCopy[];
   failed: FailedTarget[];
+  assembled: Record<string, AssembledObject>;
+  pending_copies: Record<string, string>;
+  verifying_since: string | null;
+  lease_until: string | null;
   created_at: string;
   expires_at: string;
   upload_parts?: StoredPart[];
@@ -57,6 +62,10 @@ const toSession = (r: Row): UploadSession => ({
   parts: (r.upload_parts ?? []).map((p) => ({ n: p.n, size: Number(p.size), digest: p.digest, etag: p.etag })).sort((a, b) => a.n - b.n),
   copies: r.copies ?? [],
   failed: r.failed ?? [],
+  assembled: r.assembled ?? {},
+  pendingCopies: r.pending_copies ?? {},
+  ...(r.verifying_since ? { verifyingSince: new Date(r.verifying_since).toISOString() } : {}),
+  ...(r.lease_until ? { leaseUntil: new Date(r.lease_until).toISOString() } : {}),
   createdAt: new Date(r.created_at).toISOString(),
   expiresAt: new Date(r.expires_at).toISOString(),
 });
@@ -72,6 +81,8 @@ export class SessionStoreError extends Error {
 }
 
 function check<T>(what: string, r: { data: unknown; error: { message: string; code?: string } | null }): T | null {
+  // A unique index said no: another session holds the key, or this owner's open session for this file.
+  if (r.error?.code === "23505") throw new SessionConflictError(`genesis_media_library ${what}: ${r.error.message}`);
   if (r.error) throw new SessionStoreError(`genesis_media_library ${what}: ${r.error.message}`, r.error.code);
   return r.data as T | null;
 }
@@ -102,6 +113,8 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
           state: s.state,
           copies: s.copies,
           failed: s.failed,
+          assembled: s.assembled,
+          pending_copies: s.pendingCopies,
           created_at: s.createdAt,
           expires_at: s.expiresAt,
         }),
@@ -130,10 +143,25 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
       const match = rows.find((r) => sameTargets(r.targets, q.targets));
       return match ? toSession(match) : null;
     },
-    async addPart(id, part) {
-      const result = check<string>("addPart", await db().rpc("add_part", { p_upload: id, p_n: part.n, p_size: part.size, p_digest: part.digest, p_etag: part.etag }));
-      if (result !== "added" && result !== "same" && result !== "conflict") throw new SessionStoreError(`genesis_media_library addPart: unexpected ${String(result)}`);
-      return result;
+    async reservePart(id, part) {
+      try {
+        const result = check<string>("reservePart", await db().rpc("reserve_part", { p_upload: id, p_n: part.n, p_size: part.size, p_digest: part.digest }));
+        if (result !== "reserved" && result !== "same" && result !== "received" && result !== "conflict") throw new SessionStoreError(`genesis_media_library reservePart: unexpected ${String(result)}`);
+        return result;
+      } catch (error) {
+        // The session isn't open (finalized or aborted meanwhile): the handler answers 410.
+        if (error instanceof SessionStoreError && error.code === "P0002") throw new SessionNotOpenError(id);
+        throw error;
+      }
+    },
+    async completePart(id, n, digest, etag) {
+      return check<boolean>("completePart", await db().rpc("complete_part", { p_upload: id, p_n: n, p_digest: digest, p_etag: etag })) === true;
+    },
+    async releasePart(id, n, digest) {
+      check("releasePart", await db().rpc("release_part", { p_upload: id, p_n: n, p_digest: digest }));
+    },
+    async claimVerify(id, until, now) {
+      return check<boolean>("claimVerify", await db().rpc("claim_verify", { p_id: id, p_until: until, p_now: now })) === true;
     },
     async update(id, patch, when) {
       const body: Record<string, unknown> = {};
@@ -142,13 +170,17 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
       if (patch.copies) body.copies = patch.copies;
       if (patch.failed) body.failed = patch.failed;
       if (patch.expiresAt) body.expires_at = patch.expiresAt;
+      if (patch.assembled) body.assembled = patch.assembled;
+      if (patch.pendingCopies) body.pending_copies = patch.pendingCopies;
+      if (patch.verifyingSince !== undefined) body.verifying_since = patch.verifyingSince;
+      if (patch.leaseUntil !== undefined) body.lease_until = patch.leaseUntil;
       return check<boolean>("update", await db().rpc("update_upload", { p_id: id, p_patch: body, p_when: when ?? null })) === true;
     },
-    async remove(id) {
-      check("remove", await db().from("uploads").delete().eq("id", id));
+    async remove(id, when) {
+      return check<boolean>("remove", await db().rpc("remove_upload", { p_id: id, p_when: when })) === true;
     },
-    async expired(now, limit) {
-      const rows = check<Row[]>("expired", await db().from("uploads").select(withParts).eq("state", "open").lte("expires_at", now.toISOString()).limit(limit)) ?? [];
+    async stale(now, limit, verifyingBefore) {
+      const rows = check<Row[]>("stale", await db().rpc("stale_uploads", { p_now: now.toISOString(), p_limit: limit, p_verifying_before: verifyingBefore.toISOString() })) ?? [];
       return rows.map(toSession);
     },
   };

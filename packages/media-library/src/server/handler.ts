@@ -8,13 +8,14 @@
  *   POST   /uploads/:id/finalize      assemble, copy to the other targets, read back
  *   DELETE /uploads/:id               abort
  */
-import { sha256Bytes } from "../hash";
+import { createSha256 } from "../hash";
 import {
   SHA256_HEX,
   choosePartSize,
   parseContentDigest,
   partPlan,
   toBase64,
+  toHex,
   type CreateUploadBody,
   type UploadCopy,
   type UploadError,
@@ -23,8 +24,8 @@ import {
   type UploadSkipped,
   type UploadStatus,
 } from "../protocol";
-import type { UploadSession } from "./store";
-import { verifyUpload, type UploadVerifyOptions } from "./verify";
+import { SessionConflictError, SessionNotOpenError, type UploadSession } from "./store";
+import { discardUnverified, isStuckVerifying, verifyUpload, type UploadVerifyOptions } from "./verify";
 
 /** The operation the app's rules are asked about. Every one of them is asked, every time. */
 export type UploadOperation = "create" | "resume" | "part" | "finalize" | "abort";
@@ -203,6 +204,14 @@ function statusOf(s: UploadSession, extra: Partial<UploadStatus> = {}): UploadSt
 
 const sameOwner = (a: UploadOwner, b: UploadOwner) => a.kind === b.kind && a.id === b.id;
 
+/** What the session table stores for an owner: checked here, so a bad `owner` hook fails loudly, not in the database. */
+const OWNER_KIND = /^[a-z][a-z0-9_-]{0,31}$/;
+function checkOwner(owner: UploadOwner): UploadOwner {
+  if (typeof owner.kind !== "string" || !OWNER_KIND.test(owner.kind)) throw new Error(`owner returned an owner kind the session table can't store (${JSON.stringify(owner.kind)}): lowercase letters, digits, "_" and "-", 1 to 32, starting with a letter.`);
+  if (typeof owner.id !== "string" || owner.id.length < 1 || owner.id.length > 200) throw new Error("owner returned an owner id that isn't 1 to 200 characters.");
+  return owner;
+}
+
 /** A storage key every store keeps as it is: no empty, `.` or `..` segment, no control character. */
 export function isSafeKey(key: string): boolean {
   return key.length > 0 && key.length <= 1024 && !/[\x00-\x1f\x7f]/.test(key) && key.split("/").every((seg) => seg !== "" && seg !== "." && seg !== "..");
@@ -282,9 +291,12 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     }
 
     const id = randomId();
-    const key = await options.keyFor({ owner, uploadId: id, purpose: body.purpose, name: body.name, contentType: body.contentType, size: body.size, sha256: body.sha256 });
+    const appKey = await options.keyFor({ owner, uploadId: id, purpose: body.purpose, name: body.name, contentType: body.contentType, size: body.size, sha256: body.sha256 });
     // A key a URL would rewrite (an empty, "." or ".." segment) would store the object somewhere else.
-    if (!isSafeKey(key)) throw new Error(`keyFor returned an unsafe storage key (${JSON.stringify(key)}): no empty, "." or ".." segments, no leading slash.`);
+    if (!isSafeKey(appKey)) throw new Error(`keyFor returned an unsafe storage key (${JSON.stringify(appKey)}): no empty, "." or ".." segments, no leading slash.`);
+    // Every upload writes only its own key: one that doesn't name the upload gets its id appended,
+    // so a key built from a hash (anyone can declare) never reaches another upload's object.
+    const key = appKey.split("/").includes(id) ? appKey : `${appKey}/${id}`;
     const targetUploadId = await primary.start(key, { contentType: body.contentType });
     const session: UploadSession = {
       id,
@@ -303,9 +315,21 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       copies: [],
       failed: [],
       createdAt: new Date(now()).toISOString(),
+      assembled: {},
+      pendingCopies: {},
       expiresAt: expiresAt(),
     };
-    await store.insert(session);
+    try {
+      await store.insert(session);
+    } catch (error) {
+      await primary.abort(key, targetUploadId).catch(() => {});
+      // Another tab made the same session a moment ago: carry on with that one.
+      if (error instanceof SessionConflictError && body.sha256) {
+        const open = await store.findOpen({ owner, purpose: body.purpose, size: body.size, sha256: body.sha256, targets: set });
+        if (open) return json(200, statusOf(open, { resumed: true }));
+      }
+      throw error;
+    }
     return json(201, statusOf(session));
   }
 
@@ -319,24 +343,64 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (declared !== null && Number(declared) !== expected) return Number(declared) > s.partSize ? refuse(413, "too_large") : refuse(409, "part_size");
     const digest = parseContentDigest(request.headers.get("content-digest"));
     if (!digest) return refuse(400, "digest_required");
-    const had = s.parts.find((p) => p.n === n);
-    if (had) {
-      await request.body?.cancel().catch(() => {});
-      // The same bytes again: nothing to do. Other bytes: refused, the first part stands.
-      return had.digest === formatContentDigestB64(digest) ? json(200, { n, size: had.size, digest: had.digest }) : refuse(409, "part_conflict");
+    const stored = formatContentDigestB64(digest);
+    // Reserve the part number for these bytes first, atomically: other bytes are refused before
+    // anything is written, so the target never holds a part the session didn't record.
+    let reservation;
+    try {
+      reservation = await store.reservePart(s.id, { n, size: expected, digest: stored });
+    } catch (error) {
+      if (error instanceof SessionNotOpenError) return refuse(410, "finalized");
+      throw error;
     }
-    const bytes = await readCapped(request, expected);
-    if (!bytes) return refuse(413, "too_large");
-    if (bytes.byteLength !== expected) return refuse(409, "part_size");
-    if (toBase64(await sha256Bytes(bytes)) !== digest) return refuse(422, "digest_mismatch");
-    const receipt = await targets[s.targets[0]!]!.part(s.key, s.targetUploadId, n, bytes);
-    const stored = { n, size: bytes.byteLength, digest: formatContentDigestB64(digest), etag: receipt.etag };
-    // "same" (another request sent these bytes meanwhile) also takes this write's etag: the target
-    // keeps the last write of a part, and finish must name it.
-    const result = await store.addPart(s.id, stored);
-    if (result === "conflict") return refuse(409, "part_conflict");
+    if (reservation === "conflict") {
+      await request.body?.cancel().catch(() => {});
+      return refuse(409, "part_conflict");
+    }
+    if (reservation === "received") {
+      await request.body?.cancel().catch(() => {});
+      return json(200, { n, size: expected, digest: stored });
+    }
+    // Streamed to the target as it arrives, hashed and counted on the way: never held whole.
+    const hash = createSha256();
+    let size = 0;
+    let over = false;
+    const counted = (request.body ?? new ReadableStream<Uint8Array>({ start: (c) => c.close() })).pipeThrough(
+      new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, c) {
+          size += chunk.byteLength;
+          if (size > expected) {
+            over = true;
+            c.error(new Error("part too large"));
+            return;
+          }
+          hash.update(chunk);
+          c.enqueue(chunk);
+        },
+      }),
+    );
+    let receipt;
+    try {
+      receipt = await targets[s.targets[0]!]!.part(s.key, s.targetUploadId, n, counted, { size: expected, sha256: toHex(base64ToBytes(digest)) });
+    } catch (error) {
+      await store.releasePart(s.id, n, stored);
+      if (over) return refuse(413, "too_large");
+      // The bytes didn't match their digest, and the store checked (S3): the same answer as below.
+      if (size === expected && toBase64(hash.digest()) !== digest) return refuse(422, "digest_mismatch");
+      throw error;
+    }
+    if (size !== expected) {
+      await store.releasePart(s.id, n, stored);
+      return refuse(409, "part_size");
+    }
+    if (toBase64(hash.digest()) !== digest) {
+      // Written, but not recorded: the next send of this part replaces it in the target.
+      await store.releasePart(s.id, n, stored);
+      return refuse(422, "digest_mismatch");
+    }
+    if (!(await store.completePart(s.id, n, stored, receipt.etag))) return refuse(410, "finalized");
     await store.update(s.id, { expiresAt: expiresAt() }, ["open"]);
-    return json(200, { n, size: stored.size, digest: stored.digest });
+    return json(200, { n, size: expected, digest: stored });
   }
 
   /** Verifies inline (small, or no queue) or queues it (202), and answers with what that gives. */
@@ -345,7 +409,10 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       await options.enqueueVerify(s.id);
       return json(202, statusOf({ ...s, state: "verifying" }));
     }
-    const after = await verifyUpload(s.id, { store, targets, now });
+    const run = await verifyUpload(s.id, { ...options, store, targets, now });
+    // Another run holds the lease: it is being verified; poll Resume.
+    if (run.busy) return json(202, statusOf({ ...s, state: "verifying" }));
+    const after = run.session;
     if (!after) return refuse(404, "not_found");
     if (after.state === "identity_mismatch") return refuse(422, "identity_mismatch");
     return json(200, statusOf(after));
@@ -359,8 +426,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (s.state === "identity_mismatch") return refuse(422, "identity_mismatch");
     if (s.state === "partial") {
       // Retry only the targets that failed; the verified copies stand.
-      if (!(await store.update(s.id, { state: "verifying", failed: [] }, ["partial"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
-      return verify({ ...s, state: "verifying", failed: [] });
+      const since = new Date(now()).toISOString();
+      if (!(await store.update(s.id, { state: "verifying", failed: [], verifyingSince: since }, ["partial"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
+      return verify({ ...s, state: "verifying", failed: [], verifyingSince: since });
     }
     const body = await readJson(request);
     if (!body) return refuse(422, "bad_request");
@@ -371,25 +439,36 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (!sha256) return refuse(422, "sha256_required");
     const plan = partPlan(s.size, s.partSize);
     const missing: number[] = [];
-    for (let n = 1; n <= plan.count; n++) if (!s.parts.some((p) => p.n === n)) missing.push(n);
+    // A reserved part still being written (no etag yet) hasn't arrived.
+    for (let n = 1; n <= plan.count; n++) if (!s.parts.some((p) => p.n === n && p.etag !== null)) missing.push(n);
     if (missing.length) return refuse(409, "missing_parts", { parts: missing.slice(0, 1000) });
     const primary = targets[s.targets[0]!]!;
+    const receipts = s.parts.map((p) => ({ n: p.n, etag: p.etag! }));
+    let made;
     try {
-      await primary.finish(s.key, s.targetUploadId, s.parts.map((p) => ({ n: p.n, etag: p.etag })));
+      made = (await primary.finish(s.key, s.targetUploadId, receipts)) ?? {};
     } catch (error) {
-      // An earlier finalize may have assembled it and then failed to record that: the multipart
-      // upload is gone but the object is there. Carry on to verification, which checks it whole.
-      if (!(await primary.head(s.key).catch(() => null))) throw error;
+      // An earlier finalize may have assembled it and then failed to record that. Go on only when
+      // the target can tell the object at this key is the one these parts of this upload made.
+      const ours = await primary.assembled?.(s.key, s.targetUploadId, receipts).catch(() => undefined);
+      if (!ours) throw error;
+      made = ours;
     }
-    if (!(await store.update(s.id, { state: "verifying", sha256 }, ["open"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
-    return verify({ ...s, state: "verifying", sha256 });
+    const assembled = { [s.targets[0]!]: made };
+    const since = new Date(now()).toISOString();
+    if (!(await store.update(s.id, { state: "verifying", sha256, assembled, verifyingSince: since }, ["open"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
+    return verify({ ...s, state: "verifying", sha256, assembled, verifyingSince: since });
   }
 
   async function abort(s: UploadSession): Promise<Response> {
-    if (s.state === "verifying") return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
-    if (s.state === "open") await targets[s.targets[0]!]?.abort(s.key, s.targetUploadId).catch(() => {});
+    // Being checked, by a live run or a job still to come: not now. Stuck (no lease for long): yes.
+    if (s.state === "verifying" && !isStuckVerifying(s, { ...options, store, targets, now })) {
+      return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
+    }
+    // Only if it is still in the state it was loaded in: a finalize that won meanwhile stands.
+    if (!(await store.remove(s.id, [s.state]))) return refuse(409, "finalized", {}, "This upload changed meanwhile; it wasn't cancelled.");
     // Verified copies stay: removing them is deleting the media, under the app's retention policy.
-    await store.remove(s.id);
+    await discardUnverified(s, targets);
     return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });
   }
 
@@ -398,8 +477,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       const url = new URL(request.url);
       if (url.pathname !== base && !url.pathname.startsWith(`${base}/`)) return refuse(404, "not_found");
       const rest = url.pathname.slice(base.length).split("/").filter(Boolean);
-      const owner = await options.owner(request);
-      if (!owner) return refuse(401, "unauthenticated");
+      const found = await options.owner(request);
+      if (!found) return refuse(401, "unauthenticated");
+      const owner = checkOwner(found);
       const method = request.method;
       if (rest.length === 0) return method === "POST" ? await create(request, owner) : refuse(405, "method_not_allowed");
       const [id, kind, n] = rest as [string, string | undefined, string | undefined];
@@ -425,6 +505,13 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       return refuse(503, "server_error");
     }
   };
+}
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 /** A part's digest as stored: the full `content-digest` value from its base64. */

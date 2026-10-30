@@ -1,7 +1,7 @@
 // @feat:media-resumable-uploads
 import { describe, expect, it } from "vitest";
 import { createSupabaseSessionStore, SessionStoreError, type SessionStoreClient } from "../supabase-store";
-import type { UploadSession } from "../store";
+import { SessionConflictError, SessionNotOpenError, type UploadSession } from "../store";
 
 /** Records the PostgREST calls the store makes, and answers from `answers` in order. */
 function fakeClient(answers: { data: unknown; error: { message: string } | null }[]) {
@@ -41,6 +41,8 @@ const session: UploadSession = {
   parts: [],
   copies: [],
   failed: [],
+  assembled: {},
+  pendingCopies: {},
   createdAt: "2026-11-01T00:00:00.000Z",
   expiresAt: "2026-11-08T00:00:00.000Z",
 };
@@ -76,15 +78,27 @@ describe("createSupabaseSessionStore", () => {
     expect(got).toEqual({ ...session, parts: [{ n: 1, size: 4, digest: "d1", etag: "e1" }, { n: 2, size: 4, digest: "d2", etag: "e2" }] });
   });
 
-  it("goes through add_part and update_upload, so both act under RLS and atomically", async () => {
-    const { client, calls } = fakeClient([{ data: "conflict", error: null }, { data: true, error: null }]);
+  it("goes through reserve_part, complete_part and update_upload, each one atomic in the database", async () => {
+    const { client, calls } = fakeClient([{ data: "conflict", error: null }, { data: true, error: null }, { data: true, error: null }]);
     const store = createSupabaseSessionStore(client);
-    expect(await store.addPart(session.id, { n: 1, size: 4, digest: "d", etag: "e" })).toBe("conflict");
-    expect(await store.update(session.id, { state: "verifying", sha256: "a".repeat(64) }, ["open"])).toBe(true);
+    expect(await store.reservePart(session.id, { n: 1, size: 4, digest: "d" })).toBe("conflict");
+    expect(await store.completePart(session.id, 1, "d", "e")).toBe(true);
+    expect(await store.update(session.id, { state: "verifying", sha256: "a".repeat(64), leaseUntil: null }, ["open"])).toBe(true);
     expect(calls.filter((c) => c.startsWith("rpc"))).toEqual([
-      `rpc add_part {"p_upload":"${session.id}","p_n":1,"p_size":4,"p_digest":"d","p_etag":"e"}`,
-      `rpc update_upload {"p_id":"${session.id}","p_patch":{"state":"verifying","sha256":"${"a".repeat(64)}"},"p_when":["open"]}`,
+      `rpc reserve_part {"p_upload":"${session.id}","p_n":1,"p_size":4,"p_digest":"d"}`,
+      `rpc complete_part {"p_upload":"${session.id}","p_n":1,"p_digest":"d","p_etag":"e"}`,
+      `rpc update_upload {"p_id":"${session.id}","p_patch":{"state":"verifying","sha256":"${"a".repeat(64)}","lease_until":null},"p_when":["open"]}`,
     ]);
+  });
+
+  it("turns the database's answers into the store's: not open is SessionNotOpenError, a unique violation SessionConflictError", async () => {
+    const { client } = fakeClient([
+      { data: null, error: { message: "no open upload", code: "P0002" } as never },
+      { data: null, error: { message: "duplicate key", code: "23505" } as never },
+    ]);
+    const store = createSupabaseSessionStore(client);
+    await expect(store.reservePart(session.id, { n: 1, size: 4, digest: "d" })).rejects.toBeInstanceOf(SessionNotOpenError);
+    await expect(store.insert(session)).rejects.toBeInstanceOf(SessionConflictError);
   });
 
   it("matches findOpen on the target set too, and turns a database error into SessionStoreError", async () => {
