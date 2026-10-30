@@ -51,6 +51,8 @@
     },
     "./client": {
       "types": "./dist/client.d.ts",
+      "react-native": "./dist/client.js",
+      "browser": "./dist/client-web.js",
       "import": "./dist/client.js",
       "default": "./dist/client.js"
     },
@@ -63,6 +65,11 @@
       "types": "./dist/compat.d.ts",
       "import": "./dist/compat.js",
       "default": "./dist/compat.js"
+    },
+    "./tus": {
+      "types": "./dist/tus.d.ts",
+      "import": "./dist/tus.js",
+      "default": "./dist/tus.js"
     }
   },
   "files": [

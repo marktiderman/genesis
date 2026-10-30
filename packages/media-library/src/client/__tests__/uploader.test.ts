@@ -195,6 +195,79 @@ describe("createUploader", () => {
   });
 });
 
+describe("cancel and failures that must not stop an upload", () => {
+  it("a cancel while still queued: it never starts, and the next one runs", async () => {
+    const s = setup();
+    const { uploader, log } = client(s, { filesAtOnce: 1 });
+    const first = uploader.upload(fromBytes(bytesOf(4)), { name: "first", contentType: "a/b", purpose: "media" });
+    const second = uploader.upload(fromBytes(bytesOf(4, 2)), { name: "second", contentType: "a/b", purpose: "media" });
+    const third = uploader.upload(fromBytes(bytesOf(4, 3)), { name: "third", contentType: "a/b", purpose: "media" });
+    await second.cancel();
+    await expect(second.done).rejects.toMatchObject({ code: "cancelled" });
+    expect((await first.done).state).toBe("done");
+    expect((await third.done).state).toBe("done");
+    expect(log.filter((l) => l === "POST /")).toHaveLength(2);
+  });
+
+  it("a cancel during hashing stops before any session is made", async () => {
+    const s = setup();
+    const { uploader, log } = client(s);
+    let handle!: ReturnType<typeof uploader.upload>;
+    const big = { ...fromBytes(new Uint8Array(9 * 1024 * 1024)) };
+    handle = uploader.upload(big, { name: "a", contentType: "a/b", purpose: "media", onProgress: (p) => p.phase === "hashing" && void handle.cancel() });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+    expect(log).toEqual([]);
+  });
+
+  it("a cancel while everything is paused still stops, and removes the session", async () => {
+    const s = setup();
+    const { uploader } = client(s, { partsAtOnce: 1 });
+    let handle!: ReturnType<typeof uploader.upload>;
+    handle = uploader.upload(fromBytes(bytesOf(12)), {
+      name: "a",
+      contentType: "a/b",
+      purpose: "media",
+      onProgress: (p) => {
+        if (p.phase === "sending") {
+          uploader.pauseAll();
+          setTimeout(() => void handle.cancel(), 5);
+        }
+      },
+    });
+    await expect(handle.done).rejects.toMatchObject({ code: "cancelled" });
+    expect([...s.store.sessions.values()]).toHaveLength(0);
+  });
+
+  it("a resume store that fails never stops the upload", async () => {
+    const s = setup();
+    const broken = { get: () => Promise.reject(new Error("blocked")), set: () => Promise.reject(new Error("blocked")), delete: () => Promise.reject(new Error("blocked")) };
+    const { uploader } = client(s, { resumeStore: broken });
+    expect((await uploader.upload(fromBytes(bytesOf(10), "k"), { name: "a", contentType: "a/b", purpose: "media" }).done).state).toBe("done");
+  });
+
+  it("a hashing worker that fails: its jobs are hashed in this thread, and so is everything after", async () => {
+    const bytes = bytesOf(1000);
+    let started = 0;
+    const worker = {
+      onmessage: null as ((e: { data: HashReply }) => void) | null,
+      onerror: null as ((e: unknown) => void) | null,
+      terminated: false,
+      terminate() {
+        this.terminated = true;
+      },
+      postMessage() {
+        queueMicrotask(() => this.onerror?.(new Error("worker crashed")));
+      },
+    };
+    const hashFile = createWorkerFileHasher(() => (started++, worker));
+    const want = await sha256Hex(bytes);
+    expect(await hashFile(fromBlob(new Blob([bytes])), () => {})).toBe(want);
+    expect(worker.terminated).toBe(true);
+    expect(await hashFile(fromBlob(new Blob([bytes])), () => {})).toBe(want);
+    expect(started).toBe(1);
+  });
+});
+
 describe("speed cap", () => {
   it("holds parts to the rate, across uploads", async () => {
     let clock = 0;

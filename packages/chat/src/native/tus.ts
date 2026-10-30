@@ -20,7 +20,7 @@
  * (`createSupabaseTusTransport`); this keeps chat's paths, file checks and
  * errors on top of it, with exactly the guarantees it had.
  */
-import { createSupabaseTusTransport, TUS_CHUNK_BYTES as MEDIA_TUS_CHUNK_BYTES, base64Utf8 as mediaBase64Utf8, type TusRecord } from "@marktiderman/genesis-media-library/client";
+import { createSupabaseTusTransport, TUS_CHUNK_BYTES as MEDIA_TUS_CHUNK_BYTES, base64Utf8 as mediaBase64Utf8, type TusRecord } from "@marktiderman/genesis-media-library/tus";
 import { CHAT_BUCKET, ChatError } from "../core/client";
 import { fileExtension, isAllowedExtension, randomId } from "../core/media";
 import type { LocalFile } from "../core/outbox";
@@ -89,7 +89,7 @@ export const base64Utf8 = mediaBase64Utf8;
 
 /**
  * @deprecated For new uploads, use genesis-media-library: `createUploader` (the resumable
- * protocol, through the app's upload route) or `createSupabaseTusTransport` (straight to
+ * protocol, through the app's upload route) or `createSupabaseTusTransport` from `/tus` (straight to
  * Supabase Storage). This stays, unchanged in behaviour, until the next major.
  */
 export function createTusUpload(options: TusUploadOptions): (conversationId: string, file: LocalFile) => Promise<string> {

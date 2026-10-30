@@ -8,7 +8,8 @@ import { toHex } from "../protocol";
 import type { HashReply } from "./hash-core";
 import type { UploadSource } from "./sources";
 
-type WorkerLike = {
+/** What `createWorkerFileHasher` needs of a `Worker`. */
+export type WorkerLike = {
   postMessage(message: unknown): void;
   onmessage: ((e: { data: HashReply }) => void) | null;
   onerror: ((e: unknown) => void) | null;
@@ -26,29 +27,30 @@ async function inThread(source: UploadSource, onBytes: (n: number) => void): Pro
   return toHex(h.digest());
 }
 
-/** The package's own worker, next to this module. Undefined where there are no module workers. */
-function defaultWorker(): WorkerLike | undefined {
-  const W = (globalThis as { Worker?: new (url: URL, o: { type: "module" }) => WorkerLike }).Worker;
-  if (!W) return undefined;
-  try {
-    return new W(new URL("./hash-worker.js", import.meta.url), { type: "module" });
-  } catch {
-    return undefined;
-  }
-}
-
 /**
  * A `hashFile` for `createUploader` that hashes blobs in a Web Worker (one
- * worker for every file, started on first use). `createWorker` overrides how
- * it starts; without workers it hashes in this thread.
+ * worker for every file, started on first use by `createWorker`). Anything
+ * that isn't a blob, or a page where the worker can't start, is hashed in
+ * this thread; so is everything after the worker fails once (its jobs are
+ * hashed again here).
+ *
+ * The browser entry (`@marktiderman/genesis-media-library/client` under the
+ * `browser` condition) passes the package's own worker.
  */
-export function createWorkerFileHasher(createWorker: () => WorkerLike | undefined = defaultWorker) {
+export function createWorkerFileHasher(createWorker: () => WorkerLike | undefined) {
   let worker: WorkerLike | undefined | null = null;
+  let broken = false;
   let next = 1;
-  const pending = new Map<number, { resolve(v: string): void; reject(e: Error): void; onBytes(n: number): void }>();
+  type Job = { source: UploadSource; resolve(v: string): void; reject(e: unknown): void; onBytes(n: number): void };
+  const pending = new Map<number, Job>();
   const start = () => {
+    if (broken) return undefined;
     if (worker !== null) return worker;
-    worker = createWorker();
+    try {
+      worker = createWorker();
+    } catch {
+      worker = undefined;
+    }
     if (worker) {
       worker.onmessage = (e) => {
         const job = pending.get(e.data.id);
@@ -61,8 +63,17 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
         }
       };
       worker.onerror = () => {
-        for (const job of pending.values()) job.reject(new Error("The hashing worker failed."));
+        // The worker is gone: stop using it, and hash what it had here instead.
+        broken = true;
+        try {
+          worker?.terminate();
+        } catch {
+          // Already gone.
+        }
+        worker = undefined;
+        const jobs = [...pending.values()];
         pending.clear();
+        for (const job of jobs) inThread(job.source, job.onBytes).then(job.resolve, job.reject);
       };
     }
     return worker;
@@ -72,7 +83,7 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
     if (!w || !source.blob) return inThread(source, onBytes);
     const id = next++;
     return new Promise<string>((resolve, reject) => {
-      pending.set(id, { resolve, reject, onBytes });
+      pending.set(id, { source, resolve, reject, onBytes });
       w.postMessage({ id, blob: source.blob });
     });
   };

@@ -18,7 +18,6 @@ import {
 } from "../protocol";
 import { createMemoryResumeStore, createSpeedLimiter, type ResumeStore } from "./config";
 import type { UploadSource } from "./sources";
-import { createWorkerFileHasher, isBrowserPage } from "./worker-hasher";
 
 /** A refusal or failure the client won't retry on its own. */
 export class UploadClientError extends Error {
@@ -62,7 +61,10 @@ export interface UploaderOptions {
   headers?: (() => Record<string, string> | Promise<Record<string, string>>) | undefined;
   /** The incremental SHA-256 for the whole file. Default `@noble/hashes`; pass hash-wasm's in a browser app that wants the speed. */
   hash?: CreateSha256 | undefined;
-  /** Hashes a whole file off the main thread (a Web Worker): `createWorkerFileHasher`. Default: in this thread with `hash`. */
+  /**
+   * Hashes a whole file off the main thread (a Web Worker): `createWorkerFileHasher`. The
+   * browser entry does that by default; elsewhere it runs in this thread with `hash`.
+   */
   hashFile?: ((source: UploadSource, onBytes: (n: number) => void) => Promise<string>) | undefined;
   /** Remembers each file's upload id (`createIndexedDbResumeStore` in a browser). Default memory. */
   resumeStore?: ResumeStore | undefined;
@@ -110,6 +112,30 @@ export interface UploadHandle {
 const sleepDefault = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const transient = (status: number) => status === 0 || status === 408 || status === 425 || status === 429 || status >= 500;
 
+/** A cancel that reaches every wait: set once, with a promise that settles when it is. */
+interface Cancel {
+  value: boolean;
+  id?: string | undefined;
+  readonly signal: Promise<void>;
+  fire(): void;
+}
+
+function cancelToken(): Cancel {
+  let fire!: () => void;
+  const signal = new Promise<void>((r) => (fire = r));
+  const c: Cancel = {
+    value: false,
+    signal,
+    fire() {
+      c.value = true;
+      fire();
+    },
+  };
+  return c;
+}
+
+const cancelledError = () => new UploadClientError("The upload was cancelled.", "cancelled");
+
 /** A gate a paused upload waits at. */
 function gate() {
   let open = true;
@@ -134,9 +160,32 @@ export function createUploader(options: UploaderOptions) {
   const doFetch = options.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
   const endpoint = options.endpoint.replace(/\/+$/, "");
   const hash = options.hash ?? createNobleSha256;
-  // Browsers hash in a Web Worker by default (unless the app chose another hash), so the page stays responsive.
-  const hashFile = options.hashFile ?? (!options.hash && isBrowserPage() ? createWorkerFileHasher() : undefined);
-  const resumeStore = options.resumeStore ?? createMemoryResumeStore();
+  const hashFile = options.hashFile;
+  const store = options.resumeStore ?? createMemoryResumeStore();
+  // Remembering an id is a convenience: a store that fails (private browsing, a full disk) never stops an upload.
+  const resumeStore = {
+    get: async (k: string) => {
+      try {
+        return await store.get(k);
+      } catch {
+        return null;
+      }
+    },
+    set: async (k: string, v: string) => {
+      try {
+        await store.set(k, v);
+      } catch {
+        // Not remembered: a reload starts over.
+      }
+    },
+    delete: async (k: string) => {
+      try {
+        await store.delete(k);
+      } catch {
+        // Left behind: the next Resume finds it lapsed or done.
+      }
+    },
+  };
   const sleep = options.sleep ?? sleepDefault;
   const retries = options.retries ?? 6;
   const partsAtOnce = Math.max(1, options.partsAtOnce ?? 4);
@@ -188,11 +237,12 @@ export function createUploader(options: UploaderOptions) {
     throw new UploadClientError(e.error ?? `The upload failed (${status}).`, e.code ?? (transient(status) ? "server_error" : "bad_request"), status);
   };
 
-  async function hashWhole(source: UploadSource, onBytes: (n: number) => void): Promise<string> {
-    if (hashFile) return hashFile(source, onBytes);
+  async function hashWhole(source: UploadSource, onBytes: (n: number) => void, cancelled: Cancel): Promise<string> {
+    if (hashFile) return Promise.race([hashFile(source, onBytes), cancelled.signal.then(() => Promise.reject(cancelledError()))]);
     const h = hash();
     const chunk = 4 * 1024 * 1024;
     for (let at = 0; at < source.size; at += chunk) {
+      if (cancelled.value) throw cancelledError();
       const bytes = await source.read(at, Math.min(chunk, source.size - at));
       h.update(bytes);
       onBytes(at + bytes.byteLength);
@@ -201,14 +251,15 @@ export function createUploader(options: UploaderOptions) {
   }
 
   /** Waits out a big upload's read-back by polling Resume. */
-  async function poll(id: string, progress: (p: UploadProgress) => void, size: number): Promise<UploadStatus> {
+  async function poll(id: string, progress: (p: UploadProgress) => void, size: number, cancelled?: Cancel): Promise<UploadStatus> {
     for (;;) {
+      if (cancelled?.value) throw cancelledError();
       const r = await call("GET", `/${id}`);
       if (r.status !== 200) fail(r.status, r.body);
       const s = r.body as UploadStatus;
       if (s.state !== "verifying") return s;
       progress({ phase: "verifying", bytesDone: size, size });
-      await sleep(pollMs);
+      await (cancelled ? Promise.race([sleep(pollMs), cancelled.signal]) : sleep(pollMs));
     }
   }
 
@@ -217,19 +268,20 @@ export function createUploader(options: UploaderOptions) {
     return { state: s.state === "partial" ? "partial" : "done", uploadId: s.uploadId, copies: s.copies ?? [], ...(s.failed?.length ? { failed: s.failed } : {}) };
   };
 
-  async function finalize(id: string, sha256: string | undefined, progress: (p: UploadProgress) => void, size: number): Promise<UploadResult | number[]> {
+  async function finalize(id: string, sha256: string | undefined, progress: (p: UploadProgress) => void, size: number, cancelled?: Cancel): Promise<UploadResult | number[]> {
     const r = await call("POST", `/${id}/finalize`, { headers: { "content-type": "application/json" }, body: JSON.stringify(sha256 ? { sha256 } : {}) });
     if (r.status === 409 && (r.body as UploadError)?.code === "missing_parts") return (r.body as UploadError).parts ?? [];
-    if (r.status === 202) return resultOf(await poll(id, progress, size));
+    if (r.status === 202) return resultOf(await poll(id, progress, size, cancelled));
     if (r.status !== 200) fail(r.status, r.body);
     return resultOf(r.body as UploadStatus);
   }
 
-  async function run(source: UploadSource, o: UploadOptions, pause: ReturnType<typeof gate>, cancelled: { value: boolean; id?: string }): Promise<UploadResult> {
+  async function run(source: UploadSource, o: UploadOptions, pause: ReturnType<typeof gate>, cancelled: Cancel): Promise<UploadResult> {
+    if (cancelled.value) throw cancelledError();
     const progress = (p: UploadProgress) => o.onProgress?.(p);
     const memo = source.key ? `${o.purpose}:${source.key}` : undefined;
     const hashFirst = o.hashFirst ?? true;
-    const sha256 = hashFirst ? await hashWhole(source, (n) => progress({ phase: "hashing", bytesDone: n, size: source.size })) : undefined;
+    const sha256 = hashFirst ? await hashWhole(source, (n) => progress({ phase: "hashing", bytesDone: n, size: source.size }), cancelled) : undefined;
 
     for (let restart = 0; ; restart++) {
       let status: UploadStatus | undefined;
@@ -256,9 +308,11 @@ export function createUploader(options: UploaderOptions) {
       const id = status.uploadId;
       cancelled.id = id;
       try {
-        if (status.state === "verifying") return resultOf(await poll(id, progress, source.size));
+        // Cancelled while the session was being made: it goes too.
+        if (cancelled.value) throw cancelledError();
+        if (status.state === "verifying") return resultOf(await poll(id, progress, source.size, cancelled));
         if (status.state === "done" || status.state === "partial" || status.state === "identity_mismatch") {
-          const result = status.state === "partial" ? await finalize(id, undefined, progress, source.size) : resultOf(status);
+          const result = status.state === "partial" ? await finalize(id, undefined, progress, source.size, cancelled) : resultOf(status);
           if (memo) await resumeStore.delete(memo);
           return result as UploadResult;
         }
@@ -273,6 +327,10 @@ export function createUploader(options: UploaderOptions) {
           continue;
         }
         if (e instanceof UploadClientError && e.code === "identity_mismatch" && memo) await resumeStore.delete(memo);
+        if (e instanceof UploadClientError && e.code === "cancelled") {
+          await call("DELETE", `/${id}`).catch(() => {});
+          if (memo) await resumeStore.delete(memo);
+        }
         throw e;
       }
     }
@@ -284,7 +342,7 @@ export function createUploader(options: UploaderOptions) {
     declared: string | undefined,
     o: UploadOptions,
     pause: ReturnType<typeof gate>,
-    cancelled: { value: boolean },
+    cancelled: Cancel,
     progress: (p: UploadProgress) => void,
   ): Promise<UploadResult> {
     const id = status.uploadId;
@@ -313,8 +371,9 @@ export function createUploader(options: UploaderOptions) {
 
     for (let n = 1; n <= plan.count; n++) {
       if (failure) break;
-      await Promise.all([pause.wait(), allPaused.wait()]);
-      if (cancelled.value) throw new UploadClientError("The upload was cancelled.", "cancelled");
+      // Paused (this upload or all): wait, unless it is cancelled meanwhile.
+      await Promise.race([Promise.all([pause.wait(), allPaused.wait()]), cancelled.signal]);
+      if (cancelled.value) throw cancelledError();
       if (have.has(n) && !running) continue;
       const bytes = await source.read((n - 1) * status.partSize, plan.sizeOf(n));
       running?.update(bytes);
@@ -336,7 +395,7 @@ export function createUploader(options: UploaderOptions) {
     // Finalize; send anything it says is missing (a part that never landed), a few times.
     for (let round = 0; round < 3; round++) {
       // The SHA-256 goes with finalize when the session doesn't have it from create.
-      const result = await finalize(id, status.sha256 ? undefined : sha256, progress, status.size);
+      const result = await finalize(id, status.sha256 ? undefined : sha256, progress, status.size, cancelled);
       if (!Array.isArray(result)) return result;
       for (const n of result) await put(n, await source.read((n - 1) * status.partSize, plan.sizeOf(n)));
     }
@@ -347,20 +406,27 @@ export function createUploader(options: UploaderOptions) {
     /** Queues a file. It starts when a slot is free, by priority. */
     upload(source: UploadSource, o: UploadOptions): UploadHandle {
       const pause = gate();
-      const cancelled: { value: boolean; id?: string } = { value: false };
+      const cancelled = cancelToken();
+      let started = false;
+      let rejectQueued: ((e: unknown) => void) | undefined;
+      const entry = {
+        rank: RANK[o.priority ?? "normal"],
+        seq: seq++,
+        start: () => {},
+      };
       const done = new Promise<UploadResult>((resolve, reject) => {
-        waiting.push({
-          rank: RANK[o.priority ?? "normal"],
-          seq: seq++,
-          start: () =>
-            run(source, o, pause, cancelled)
-              .then(resolve, reject)
-              .finally(() => {
-                running--;
-                void source.close?.();
-                pump();
-              }),
-        });
+        rejectQueued = reject;
+        entry.start = () => {
+          started = true;
+          run(source, o, pause, cancelled)
+            .then(resolve, reject)
+            .finally(() => {
+              running--;
+              void source.close?.();
+              pump();
+            });
+        };
+        waiting.push(entry);
         pump();
       });
       return {
@@ -368,8 +434,17 @@ export function createUploader(options: UploaderOptions) {
         pause: () => pause.close(),
         resume: () => pause.release(),
         async cancel() {
-          cancelled.value = true;
-          pause.release();
+          if (cancelled.value) return;
+          cancelled.fire();
+          if (!started) {
+            // Still queued: it never starts.
+            const at = waiting.indexOf(entry);
+            if (at >= 0) waiting.splice(at, 1);
+            rejectQueued?.(cancelledError());
+            void source.close?.();
+            return;
+          }
+          // Running: it stops at its next step and removes its session; this makes sure of it.
           if (cancelled.id) await call("DELETE", `/${cancelled.id}`).catch(() => {});
         },
       };
@@ -385,7 +460,7 @@ export function createUploader(options: UploaderOptions) {
     },
     /** Finalizes again: retries the targets of a `partial` upload, or waits out a `verifying` one. */
     async finalize(uploadId: string): Promise<UploadResult> {
-      const result = await finalize(uploadId, undefined, () => {}, 0);
+      const result = await finalize(uploadId, undefined, () => {}, 0, undefined);
       if (Array.isArray(result)) throw new UploadClientError("Some parts of the file haven't arrived yet.", "missing_parts", 409);
       return result;
     },

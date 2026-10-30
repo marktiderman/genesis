@@ -6,8 +6,8 @@
  *   `upload(source, { name, contentType, purpose, hashFirst?, priority?, onProgress? })` gives a
  *   handle with `done`, `pause`, `resume` and `cancel`.
  * - Sources: `fromBlob` (a browser `File`), `fromFileHandle` (expo-file-system, `node:fs`), `fromBytes`.
- * - `createIndexedDbResumeStore`, `createMemoryResumeStore`; `createWorkerFileHasher` (the
- *   browser default).
+ * - `createIndexedDbResumeStore`, `createMemoryResumeStore`; `createWorkerFileHasher`. Under
+ *   the `browser` condition this entry hashes in the package's own Web Worker by default.
  * - `createSupabaseTusTransport`: Supabase Storage's TUS endpoint, a separate in-order transport.
  *
  * @packageDocumentation
@@ -25,7 +25,7 @@ export {
 } from "./uploader";
 export { fromBlob, fromBytes, fromFileHandle, type ReadableFileHandle, type UploadSource } from "./sources";
 export { createIndexedDbResumeStore, createMemoryResumeStore, createSpeedLimiter, type ResumeStore } from "./config";
-export { createWorkerFileHasher, isBrowserPage } from "./worker-hasher";
+export { createWorkerFileHasher, isBrowserPage, type WorkerLike } from "./worker-hasher";
 export { hashBlob, type HashReply, type HashRequest } from "./hash-core";
 export {
   TUS_CHUNK_BYTES,

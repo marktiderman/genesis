@@ -18,7 +18,8 @@ pnpm add @marktiderman/genesis-media-library
 | `.` | anywhere | the protocol's shapes, the part plan, `content-digest`, incremental SHA-256 |
 | `/server` | Node 20+, Workers | `createUploadHandler`, the verify and sweep jobs, the session stores |
 | `/targets` | Node 20+, Workers | `createMemoryTarget`, `createR2Target`, `createS3Target` |
-| `/client` | browser, React Native (Hermes), Node | `createUploader`, the sources, resume stores, the Web Worker hasher, `createSupabaseTusTransport` |
+| `/client` | browser, React Native (Hermes), Node | `createUploader`, the sources, resume stores, the Web Worker hasher, `createSupabaseTusTransport`; under the `browser` condition, hashing in the package's worker by default |
+| `/tus` | anywhere | `createSupabaseTusTransport` on its own (what genesis-chat imports) |
 | `/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
 | `/compat` | anywhere | the signed single-upload JSON genesis-forms has used, deprecated |
 
@@ -112,7 +113,8 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   `slice()`), `fromFileHandle` (expo-file-system's `File.open()` on a phone, a wrapped `node:fs`
   handle on a server), `fromBytes`.
 - **Hashing.** `hashFirst` (default true) hashes the whole file before create, so it can be
-  skipped. Browsers do that in a **Web Worker** by default (`createWorkerFileHasher`); elsewhere
+  skipped. Browsers do that in a **Web Worker** by default (the `browser` build of `/client` uses
+  the package's worker; it falls back to this thread if the worker fails); elsewhere
   it runs with `@noble/hashes` (plain JS, fine on Hermes). Pass `hash` for another incremental
   SHA-256 (hash-wasm in a browser app). `hashFirst: false` reads the file once, hashing as it
   sends, and declares the SHA-256 at finalize: no skip, half the reading (a phone with a big file).
@@ -126,6 +128,8 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
 - **Client configuration, never protocol:** `priority`, `pause`/`resume`, `filesAtOnce`,
   `partsAtOnce`, `bytesPerSecond`, `retries`.
 - Failures the client won't retry reject with an `UploadClientError` carrying the server's `code`.
+- `cancel()` stops at once: a queued upload never starts, a running one stops (even while paused)
+  and its session is removed. A resume store that fails (private browsing) never stops an upload.
 
 ### Supabase Storage's TUS endpoint
 

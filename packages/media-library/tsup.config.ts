@@ -6,7 +6,10 @@ export default defineConfig({
     server: "src/server/index.ts",
     targets: "src/targets/index.ts",
     client: "src/client/index.ts",
-    // Next to client.js: the uploader starts it with new URL("./hash-worker.js", import.meta.url).
+    // The browser condition of ./client: the same API, hashing in the worker below by default.
+    "client-web": "src/client/web.ts",
+    tus: "src/client/tus-entry.ts",
+    // Next to client-web.js: started with new URL("./hash-worker.js", import.meta.url).
     "hash-worker": "src/client/hash-worker.ts",
     compat: "src/compat/index.ts",
   },

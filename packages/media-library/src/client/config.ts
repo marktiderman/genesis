@@ -53,6 +53,10 @@ export function createIndexedDbResumeStore(name = "genesis-media-library"): Resu
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+    }).catch((e: unknown) => {
+      // Not opened (private browsing, blocked): let a later call try again.
+      db = undefined;
+      throw e;
     }));
   const run = async <T>(mode: "readonly" | "readwrite", act: (s: ReturnType<ReturnType<IdbDatabase["transaction"]>["objectStore"]>) => IdbRequest<T>) => {
     const store = (await open()).transaction(STORE, mode).objectStore(STORE);
