@@ -11,6 +11,8 @@
  * - `mediaScope.item | file | download | bundle`: what a link opens.
  * - `createSignedMediaHandler({ storage, signer, route })`: serves the links.
  * - `createZipManifest` and `createBundleHandler`: a streaming ZIP of many files.
+ * - `createSignedImageUrls(signer, { base, derivatives, items })`: an
+ *   `ImageUrlBuilder` of signed derivatives, for `responsiveImage`.
  * - `MediaStorage`, with `createMemoryStorage` for tests.
  *
  * @packageDocumentation
@@ -46,6 +48,17 @@ export {
   type ZipManifest,
   type ZipManifestEntry,
 } from "./bundle";
+export {
+  createSignedImageUrls,
+  DEFAULT_MAX_SIGNED_ITEMS,
+  finishSizes,
+  mediaSrc,
+  parseSignedImagePath,
+  type ImageDerivative,
+  type MediaItemRef,
+  type SignedImageUrls,
+  type SignedImageUrlsOptions,
+} from "./images";
 export {
   createMemoryStorage,
   type MediaObject,
