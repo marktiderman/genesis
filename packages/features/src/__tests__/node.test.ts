@@ -92,15 +92,25 @@ describe("build and check", () => {
     expect(checkFeatureOutputs(opts(root, { marketing: "README.md" })).ok).toBe(true);
   });
 
-  it("refuses to drop an id, and accepts the rename through aliases", () => {
+  it("refuses to drop a built id, and accepts the rename through aliases", () => {
     const root = repo();
     buildFeatureOutputs(opts(root));
-    const { billing: _gone, ...rest } = features;
-    const message = 'the feature id "billing" was removed. Ids are permanent: keep the entry with status "retired", or list "billing" in the new entry\'s aliases';
+    const { wins: _gone, ...rest } = features;
+    const message = 'the feature id "wins" was removed. Ids are permanent once a feature is being built: keep the entry with status "retired", or list "wins" in the new entry\'s aliases';
     expect(checkFeatureOutputs(opts(root, { features: rest })).errors).toContain(message);
     expect(() => buildFeatureOutputs(opts(root, { features: rest }))).toThrow(message);
-    const renamed = { ...rest, payments: { ...features.billing, aliases: ["billing"] } };
+    const renamed = { ...rest, victories: { ...features.wins, aliases: ["wins"] } };
     expect(buildFeatureOutputs(opts(root, { features: renamed }))).toContain("features.json");
+  });
+
+  it("lets an idea or planned id go for good, since it never shipped", () => {
+    for (const status of ["idea", "planned"] as const) {
+      const root = repo();
+      const withBacklog = { ...features, someday: { ...features.billing, status, aliases: ["later"] } };
+      buildFeatureOutputs(opts(root, { features: withBacklog }));
+      expect(checkFeatureOutputs(opts(root, { features })).errors.filter((e) => e.includes("was removed"))).toEqual([]);
+      expect(buildFeatureOutputs(opts(root, { features }))).toContain("features.json");
+    }
   });
 
   it("fails on a missing code path; warns on missing docs, reviews due and untested live features", () => {
