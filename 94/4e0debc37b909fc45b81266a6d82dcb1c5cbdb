@@ -1,0 +1,23 @@
+.changeset/media-library-server.md
+  s_ba8cb54dbea75a::t_0035fec5c45ede 7,9
+packages/media-library/README.md
+  s_ba8cb54dbea75a::t_b0c3dd0db05c24 43,70,80-91,94-103,111-115,133-134,142-148,150-152
+packages/media-library/package.json
+  s_ba8cb54dbea75a::t_98f7acc4f323d9 76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "944e0debc37b909fc45b81266a6d82dcb1c5cbdb",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
