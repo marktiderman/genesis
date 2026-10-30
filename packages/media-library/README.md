@@ -19,9 +19,9 @@ pnpm add @marktiderman/genesis-media-library
 | `/server` | Node 20+, Workers | `createUploadHandler`, the verify and sweep jobs, the session stores |
 | `/targets` | Node 20+, Workers | `createMemoryTarget`, `createR2Target`, `createS3Target` |
 | `/client` | browser, React Native (Hermes), Node | `createUploader`, the sources, resume stores, the Web Worker hasher, `createSupabaseTusTransport`; under the `browser` condition, hashing in the package's worker by default |
-| `/tus` | anywhere | `createSupabaseTusTransport` on its own (what genesis-chat imports) |
 | `/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
-| `/compat` | anywhere | the signed single-upload JSON genesis-forms has used, deprecated |
+| `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
+| `/chat` | anywhere | `createChatTusTransport`, for genesis-chat's upload port; never loads the uploader |
 
 ## The route
 
@@ -174,17 +174,28 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
 `createSupabaseTusTransport({ supabaseUrl, bucket, headers })` sends straight to Supabase
 Storage's resumable endpoint with the person's own token, so storage's RLS judges each file. It
 is its own transport, not the part protocol: chunks go in order, a fixed 6 MiB, and resume holds
-only within Supabase's 24-hour upload URL. genesis-chat's `createTusUpload` is built on it.
+only within Supabase's 24-hour upload URL.
 
-### forms and chat
+### forms and chat: their upload ports
 
-- genesis-forms' upload JSON (`UploadRequest`, `SignedUpload`, `UploadGrant`, `UploadRefusal`,
-  `MAX_UPLOAD_REQUEST_BYTES`) now comes from `/compat` (the types; the constant stays a value in forms) and is re-exported there under its old
-  names, deprecated. forms' `createUploadHandler` and forms-web's `signedUploadHost` are
-  deprecated in favour of this package's handler and client; they work as before until the next
-  major.
-- genesis-chat's `createTusUpload` keeps its API and guarantees and is deprecated; its TUS
-  protocol is `createSupabaseTusTransport`.
+forms and chat never depend on this package. Each has its own upload built in behind a small
+port, and this package plugs in when an app passes its adapter:
+
+```ts
+import { createFormsUploadAdapter } from "@marktiderman/genesis-media-library/forms";
+<Form uploads={createFormsUploadAdapter({ uploader, readUrl })} … />
+
+import { createChatTusTransport } from "@marktiderman/genesis-media-library/chat";
+createTusUpload({ supabaseUrl, userId, getAccessToken, transport: createChatTusTransport({ supabaseUrl }) });
+```
+
+- **forms** (`UploadAdapter`, from genesis-forms): the adapter uploads each file through
+  `uploader` (`purpose` default `"forms"`) and resolves to the `PhotoRef` the answer keeps: the
+  upload id, or the app's own `ref` for a file it already holds. The route's `owner` and
+  `authorize` take forms' respondent (attempt id or edit link) and checks. A `partial` store is
+  a failed upload.
+- **chat** (`createTusUpload`'s `transport`): the adapter sends to the path, bucket and headers
+  chat gives, through `createSupabaseTusTransport`. chat keeps its paths, checks and errors.
 
 ## Jobs
 
@@ -240,7 +251,7 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 | **Configure** | purposes, size and type limits (`authorize`), targets per purpose, part size (`maxPartBytes`), `verifyInlineBytes`, `sessionTtlSeconds`, lock mode and retention per target; on the client, priority, pause, files and parts at once, the speed cap, `hashFirst` |
 | **Brand** | none: the protocol has no UI |
 | **Compose** | none yet: upload UI parts (a drop zone, a progress row) come later in genesis-ui |
-| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object), the client's source, hash and resume store, the Supabase TUS transport |
+| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object), the client's source, hash and resume store, the Supabase TUS transport, the forms and chat adapters |
 | **Own** (stays in the app) | who may upload what (`owner`, `authorize`, `readable`), where it goes (`keyFor`), scheduling, the desktop or capture app |
 
 ## Not in this release

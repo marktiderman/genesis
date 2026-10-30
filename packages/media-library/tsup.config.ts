@@ -9,8 +9,9 @@ export default defineConfig([
       client: "src/client/index.ts",
       // The browser condition of ./client: the same API, hashing in the worker below by default.
       "client-web": "src/client/web.ts",
-      tus: "src/client/tus-entry.ts",
-      compat: "src/compat/index.ts",
+      // Adapters for genesis-forms' and genesis-chat's upload ports.
+      forms: "src/adapters/forms.ts",
+      chat: "src/adapters/chat.ts",
     },
     format: ["esm"],
     dts: true,

@@ -167,11 +167,6 @@ async function readCapped(request: Request, max: number): Promise<string | null>
  * The upload endpoint: `(request, params) => Response`, for a POST route. `params` is
  * whatever the route has (a form slug, say), passed to `resolveForm`. See the README's
  * "Uploads" for the JSON and every status.
- *
- * @deprecated For new uploads use genesis-media-library's `createUploadHandler`
- * (`@marktiderman/genesis-media-library/server`), the resumable protocol, with these
- * checks in its `authorize` and the attempt id or edit link as the respondent owner.
- * This stays, unchanged in behaviour, until the next major.
  */
 export function createUploadHandler<P = void>(
   options: UploadHandlerOptions<P>,

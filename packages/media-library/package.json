@@ -60,15 +60,15 @@
       "import": "./dist/hash-worker.js",
       "default": "./dist/hash-worker.js"
     },
-    "./compat": {
-      "types": "./dist/compat.d.ts",
-      "import": "./dist/compat.js",
-      "default": "./dist/compat.js"
+    "./forms": {
+      "types": "./dist/forms.d.ts",
+      "import": "./dist/forms.js",
+      "default": "./dist/forms.js"
     },
-    "./tus": {
-      "types": "./dist/tus.d.ts",
-      "import": "./dist/tus.js",
-      "default": "./dist/tus.js"
+    "./chat": {
+      "types": "./dist/chat.d.ts",
+      "import": "./dist/chat.js",
+      "default": "./dist/chat.js"
     }
   },
   "files": [
@@ -86,6 +86,7 @@
     "@noble/hashes": "^2.4.0"
   },
   "devDependencies": {
+    "@marktiderman/genesis-forms": "workspace:*",
     "@types/node": "^22.9.0",
     "playwright": "~1.64.1",
     "tsup": "^8.3.0",
@@ -99,7 +100,7 @@
     "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
-      "reason": "New: forms' and chat's uploads move onto it through deprecated re-exports; a hand-rolled upload loop isn't reliably detectable yet.",
+      "reason": "New, and optional: forms and chat keep their own uploads and take this package through their upload ports (`/forms`, `/chat`); a hand-rolled upload loop isn't reliably detectable yet.",
       "primitives": [
         {
           "need": "a file upload: resumable, checksummed, to one or more storage targets",

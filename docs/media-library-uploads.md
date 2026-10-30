@@ -1,11 +1,11 @@
 # media-library uploads: design
 
-Status: **v0.3, approved in review** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
+Status: **v0.3, approved in review** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and the adapters for forms' and chat's upload ports follow (#551).
 
 This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
 in #542): resumable, checksummed uploads with one contract for browser, native and
 server, storage targets as adapters, fan-out with a read-back check, and skip-if-identical. It
-folds two existing upload paths into one and leaves video providers alone. Feature:
+plugs into forms and chat through their upload ports, and leaves video providers alone. Feature:
 `media-resumable-uploads` (the `upload-protocol` entry folds into it, see Merge).
 
 ## What it is, and what it isn't
@@ -305,28 +305,32 @@ the app's.
 | Another owner guesses the id | — | 404 on every operation |
 | The store loses or corrupts a copy | — | Finalize's read-back refuses it; later checks are the app's (re-verify jobs) |
 
-## Merge: one upload path
+## Merge: forms and chat plug in through their upload ports
+
+forms and chat never depend on media-library. Each keeps its own upload, built in, behind a
+small port; media-library ships an adapter for each port, and an app opts in by passing it.
 
 - **forms' upload protocol** (`packages/forms/src/upload-protocol.ts`, `upload-handler.ts`): a
   single signed PUT per answer file, with forms' own checks (the form takes answers, the field
-  takes files, the attempt or edit link, the rate limit). It becomes a one-part upload in this
-  contract: forms' checks move into its `authorize`, its attempt id or edit link becomes the
-  respondent owner (no sign-in needed, see The protocol), and its JSON (`UploadRequest`,
-  `UploadGrant`) stays as a thin adapter for browsers already in use. `createUploadHandler` and
-  `signedUploadHost` stay exported from forms as **deprecated re-exports** over media-library
-  until the next major. Forms' tests run unchanged against the adapter.
+  takes files, the attempt or edit link, the rate limit). It stays, undeprecated, as the
+  built-in implementation of forms' port, `UploadAdapter` (`upload(file, field)` resolving to
+  the `PhotoRef` the answer keeps, and `url?`), which genesis-forms-web's `<Form uploads>` and
+  `UploadContext` take; `signedUploadHost` is the built-in adapter.
+  `@marktiderman/genesis-media-library/forms`'s `createFormsUploadAdapter({ uploader })` fits the
+  port: a form's files then go through this contract, with forms' checks in the route's
+  `authorize` and the attempt id or edit link as the respondent owner (see The protocol).
 - **chat's resumable uploads** (`packages/chat/src/native/tus.ts`, `createTusUpload`): Supabase
   Storage's TUS endpoint with the person's own token, so storage RLS judges each file. TUS is a
   **different transport**, not a target that speaks the part protocol: offsets are sequential
   (one `PATCH` at a time, in order, never parallel or out-of-order parts), chunks are a fixed
-  6 MiB, and Supabase's upload URL expires after 24 hours. So it becomes a transport adapter
-  (`supabaseTusTransport`) the uploader drives as a single in-order stream: Resume is TUS's
-  `HEAD` for the offset, a "part" is the next chunk, there is no `listParts`, no fan-out, and
-  resume holds only within the 24 hours (after that, create again). Identity is still declared
-  at create and checked at finalize by reading the object back. `createTusUpload` stays as a
-  **deprecated re-export** with exactly today's guarantees (resume within the session, the same
-  path on retry), not the full contract's. The chat outbox's ordering (upload, then send) is
-  unchanged.
+  6 MiB, and Supabase's upload URL expires after 24 hours. `createTusUpload` stays, undeprecated, with its own TUS client
+  built in, behind a port: its `transport` option (`TusTransport`: send a file's bytes to chat's
+  path in chat's bucket). `@marktiderman/genesis-media-library/chat`'s `createChatTusTransport`
+  fits it, on this package's `createSupabaseTusTransport`, with today's guarantees (resume within
+  the session, the same path on retry), not the full contract's. chat keeps its paths, file
+  checks and errors either way, and the outbox's ordering (upload, then send) is unchanged. The
+  part protocol itself can't sit behind this port: chat's contract is an object at a path chat
+  names, in Supabase Storage, and the protocol's server chooses the key and the targets.
 - **The `upload-protocol` feature** folds into `media-resumable-uploads`: renamed, with
   `upload-protocol` kept in `aliases`, so ADR 0012's and PACKAGE-STRATEGY's references still
   resolve.
@@ -386,8 +390,8 @@ with its own transport. Either is media-video-value's decision.
   - a browser run (Playwright) with a reload mid-upload;
   - React Native through the existing chat outbox tests, unchanged.
 - **Never delete the source**: no client API moves or deletes a source (a type test).
-- **Merge**: forms' and chat's existing upload tests pass unchanged through the deprecated
-  re-exports.
+- **Merge**: forms' and chat's existing upload tests pass unchanged; each adapter is tested
+  against its port.
 - **Large files**: a 5 GB upload through the in-memory target with flat memory; part counts at
   the 10,000 limit.
 

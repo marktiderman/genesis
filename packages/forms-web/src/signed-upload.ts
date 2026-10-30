@@ -46,10 +46,6 @@ async function putToUrl(file: File, upload: SignedUpload, contentType: string, f
  * the bytes with `send`, and resolves to the reference the server handed back, which is
  * all the answer keeps. A refusal rejects with the server's words. Pass it as `<Form
  * onUpload={host.upload}>` or in an `UploadContext`.
- *
- * @deprecated For new uploads use genesis-media-library's `createUploader`
- * (`@marktiderman/genesis-media-library/client`). This stays, unchanged in behaviour,
- * until the next major.
  */
 export function signedUploadHost(options: SignedUploadHostOptions): SignedUploadHost {
   const fetcher = (...args: Parameters<typeof fetch>) => (options.fetch ?? fetch)(...args);

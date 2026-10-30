@@ -93,7 +93,6 @@
   },
   "dependencies": {
     "@marktiderman/genesis-features": "workspace:^",
-    "@marktiderman/genesis-media-library": "workspace:^",
     "frimousse": "0.4.0"
   },
   "peerDependencies": {
