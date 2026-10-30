@@ -69,7 +69,8 @@ describe("createUploader", () => {
     const resumeStore = createMemoryResumeStore();
     const bytes = bytesOf(10);
     const source = () => fromBytes(bytes, "a.bin:10:1");
-    const first = client(s, { resumeStore, failAfterParts: 1 });
+    // One part at a time, so exactly part 1 lands before the network goes.
+    const first = client(s, { resumeStore, failAfterParts: 1, partsAtOnce: 1 });
     await expect(first.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done).rejects.toBeInstanceOf(UploadClientError);
     const second = client(s, { resumeStore });
     const result = await second.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done;
