@@ -86,8 +86,11 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
 - **Parts** stream through: each is hashed and counted on its way to the target, never held
   whole. A part number is reserved for its bytes (a compare-and-set on the part row) before
   anything is written, so other bytes for it are refused with 409 `part_conflict` before they
-  reach the target (abort and create again); the same bytes again are a no-op. A part whose
-  bytes don't match their `content-digest` (RFC 9530) isn't recorded (422).
+  reach the target (abort and create again); the same bytes again are a no-op. Only the request
+  that reserved a part gives it back when its write fails; a request writing the same bytes
+  alongside it leaves it alone, and if the reservation goes from under it, answers 409
+  `part_conflict` rather than recording a part the target may not hold. A part whose bytes
+  don't match their `content-digest` (RFC 9530) isn't recorded (422).
 - **Two tabs, one session.** An owner has at most one open session per identity, purpose and
   target set (a unique index); a create that loses that race resumes the winner's.
 - **Fan-out.** The parts go to the first target. At finalize the object is copied server-side to
@@ -99,7 +102,10 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
   copies anything; a second finalize, or a redelivered job, answers 202 and leaves it alone. A
   copy's multipart upload is recorded before it starts, so one that died is aborted next time.
 - **Abort and the sweep** remove a session only while it is still in the state they found: a
-  finalize that wins the race stands. A session stuck in `verifying` (no live lease for
+  finalize that wins the race stands. Finalize moves the session out of `open` (a
+  compare-and-set to `verifying`) before anything is assembled, and the verify run assembles it
+  under its lease, so an abort that races a finalize either came first (nothing was assembled)
+  or is refused: an object never outlives its session. A session stuck in `verifying` (no live lease for
   `staleVerifyingSeconds`, 1 hour) can be aborted and is swept, with the objects it assembled
   that never verified.
 - **Never delete the source.** Nothing here deletes or moves the original a client reads from.
