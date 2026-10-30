@@ -1,6 +1,6 @@
 # media-library uploads: design for review
 
-Status: **v0.1.1, proposed**, for review before anyone builds. No code yet.
+Status: **v0.2, approved** (Mason, with the changes listed below), building, for review before anyone builds. No code yet.
 
 This is primitive 4 of [ADR 0012 (media primitives)](https://github.com/marktiderman/genesis/blob/staging/2026-10-29/c/docs/adr/0012-media-primitives.md),
 as amended in #542: resumable, checksummed uploads with one contract for browser, native and
@@ -28,11 +28,10 @@ set of verified copies, which the media value (ADR 0012, primitive 3) records in
 
 ## Where it lives
 
-A new package, `@marktiderman/genesis-media-library`, as ADR 0012 creates it: a primitive in the
-data layer that `genesis-media` (images, signed links) sits beside. When code comes, its
-`package.json` sets `genesis.layer` (`data`), `genesis.group` (Platform services, per
-PACKAGE-STRATEGY) and `genesis.owner`, and declares its doctor rule ("a file upload: use
-media-library's client, never a hand-rolled PUT or TUS loop").
+A new package, `@marktiderman/genesis-media-library`, as ADR 0012 creates it ("media-library,
+primitive, data"). On ADR 0005's two axes its `package.json` sets `genesis.layer: "primitive"`
+and `genesis.group: "data"`, plus `genesis.owner`, and declares its doctor rule ("a file upload:
+use media-library's client, never a hand-rolled PUT or TUS loop").
 
 Subpaths, so each runtime takes only what it runs:
 
@@ -83,8 +82,10 @@ anything else.
 }
 ```
 
-- `size` and `sha256` are the whole object's, worked out by the client before it creates (see
-  Digests). They are the object's identity from here on.
+- `size` and `sha256` are the whole object's (see Digests). They are the object's identity from
+  here on. `sha256` is **optional at create**: without it there is no skip check, and the client
+  declares it at finalize instead, where it is checked against the stored object the same way.
+  A client that can't hash before sending (a phone with a big file) so reads the file once.
 - `purpose` is the app's word for what this is for (an avatar, a form answer, a media value); the
   app's `authorize` reads it to decide, and to choose the key and the targets it allows.
 - `targets` names targets the app configured, by name. The app may refuse or narrow them; it
@@ -125,8 +126,9 @@ The parts the server has are the truth; a client never trusts its own memory of 
   is the rest.
 - **413** over `partSize`. **404** as for Resume. **410** `{ "code": "finalized" }` once the
   upload is done.
-- A part sent again with the same digest is a no-op **200**; with a different digest it replaces
-  the first (the client knows best what the bytes are, and finalize checks the whole).
+- A part sent again with the same digest is a no-op **200**; with a different digest it is
+  refused, **409** `{ "code": "part_conflict" }`. A client that sees it is confused about its
+  file: it aborts and creates again.
 
 Direct mode: for a target that can verify a part itself (S3's `x-amz-checksum-sha256` on
 `UploadPart`), the handler may answer Create with `"mode": "direct"` and each part request with
@@ -137,10 +139,19 @@ the same answers.
 
 ### Finalize
 
-`POST /uploads/:id/finalize` → completes the multipart upload in every target, then **reads each
-copy back** and hashes it. The upload is done only when every target's copy has the declared size
-and SHA-256.
+`POST /uploads/:id/finalize` (body `{ "sha256"? }`, required when create had none) → completes
+the multipart upload in the first target, copies it server-side to the others (in direct mode
+and proxied alike: the client sends once), then **reads each copy back** and hashes it. The
+upload is done only when every target's copy has the declared size and SHA-256.
 
+Reading back is **asynchronous** for anything big: a 50 GB file in two targets is 100 GB to read,
+past any request's time and a Worker's subrequest limits.
+
+- **202** `{ "state": "verifying" }`: the copies are assembled and a `genesis_jobs` job
+  (`media-library.verify`) is reading each one back. The client polls Resume until the state is
+  `done`, `partial` or `identity_mismatch`.
+- Objects under a threshold (`verifyInlineBytes`, default 64 MB) are read back inline and answer
+  at once:
 - **200** `{ "state": "done", "copies": [{ "target", "key", "size", "sha256", "lockedUntil"?, "lockMode"?, "verifiedAt" }] }`.
 - **409** `{ "code": "missing_parts", "parts": [..] }`: send these first.
 - **422** `{ "code": "identity_mismatch" }`: the assembled object isn't the SHA-256 or size
@@ -152,6 +163,10 @@ and SHA-256.
   one that verified.
 - **200** `{ "state": "partial", "copies": [...], "failed": [{ "target", "code" }] }` when some
   targets verified and others didn't. Finalize again retries only the failed targets.
+- The lock is set only after a copy verifies, inline or in the job.
+
+Resume reports the same states (`verifying`, `done`, `partial`, `identity_mismatch`) with the
+same fields, so a client that lost the finalize answer just polls.
 
 ### Abort
 
@@ -166,7 +181,7 @@ upload, and checked again by the app's rules on each call, not only at create:
 
 ```ts
 createUploadHandler({
-  store,                       // where sessions live (the app's table, a Durable Object, KV)
+  store,                       // where sessions live: the Supabase table by default, or a Durable Object
   targets: { working: r2Target(env.BUCKET), archive: s3Target({ ... }) },
   owner: (request) => …,       // who is asking, or null (401)
   authorize: ({ owner, op, purpose, size, contentType }) => …, // the app's rules: allow, narrow, refuse
@@ -245,13 +260,14 @@ until the lock ends; the policy then purges it, and the purge is recorded on the
 
 ## Digests
 
-- The whole object's SHA-256 must be known **before create**, so a client reads the file twice:
-  once to hash, once to send. Hashing a 50 GB file takes minutes on a laptop; clients show it as
-  "Checking".
-- WebCrypto's `digest` isn't incremental. Browser and React Native clients need an incremental
-  SHA-256: a small dependency (for example `hash-wasm`, or `@noble/hashes` in plain JS). Workers
-  hash streams with `crypto.DigestStream`; Node with `node:crypto`. **For the reviewer:** which
-  dependency, and whether the browser hashes in a Web Worker by default.
+- To be skipped, a file's SHA-256 must be known **before create**, so the client reads the file
+  twice: once to hash, once to send. Hashing a 50 GB file takes minutes on a laptop; clients show
+  it as "Checking". A client may instead hash while it sends and declare the SHA-256 at
+  finalize: one read, no skip.
+- WebCrypto's `digest` isn't incremental. The default incremental SHA-256 is **`@noble/hashes`**
+  (audited, plain JS, runs on Hermes, no wasm). The `hash` option takes another (hash-wasm in a
+  browser app that wants the speed). Browsers hash in a **Web Worker** by default. The server
+  side hashes streams with `crypto.DigestStream` on Workers and `node:crypto` on Node.
 - Parts carry `content-digest` (RFC 9530, `sha-256`, base64). Part size: at least 8 MB (S3's
   minimum is 5 MiB), at most the smallest `maxPart` of the targets, and large enough that the
   part count stays under 10,000.
@@ -280,9 +296,11 @@ the app's.
 | The tab closes, the app is killed | On return, find the upload id, Resume | The session lives until it expires |
 | A part arrives changed | 422: send it again | Never stored as received |
 | The same part is sent twice | Nothing | Same digest: no-op |
-| The file changed on disk after create | Its parts no longer add up: finalize answers 422 `identity_mismatch` | No copy is recorded; the client abandons and creates again |
+| The file changed on disk after create | Its parts no longer add up: finalize (or the verify job) reports `identity_mismatch` | No copy is recorded, nothing is locked; the client abandons and creates again |
 | Another tab uploads the same file | Create answers `resumed`; both share one session | One session per owner, identity, purpose and target set |
 | One target fails at finalize | Finalize again later | `partial` with the copies that did verify |
+| A big file is being read back | Poll Resume until `done`, `partial` or `identity_mismatch` | 202 `verifying`; a job reads each copy, then locks it |
+| A part is re-sent with other bytes | Abort and create again | 409 `part_conflict`; the first part stands |
 | The session expires | Create again (and maybe skip) | A sweep aborts it in every target |
 | Another owner guesses the id | — | 404 on every operation |
 | The store loses or corrupts a copy | — | Finalize's read-back refuses it; later checks are the app's (re-verify jobs) |
@@ -373,14 +391,18 @@ with its own transport. Either is media-video-value's decision.
 - **Large files**: a 5 GB upload through the in-memory target with flat memory; part counts at
   the 10,000 limit.
 
-## For the reviewer
+## Decided in review (v0.2)
 
-1. The incremental SHA-256 dependency for browser and native, and hashing in a Web Worker by
-   default.
-2. Fan-out in direct mode as a server-side copy at finalize, rather than the client sending to
-   every target.
-3. Where sessions live by default: a table through the app's provider, or a Durable Object when
-   the handler is a Worker.
-4. A replaced part with a different digest: allowed (finalize checks the whole), or refused
-   (409) as a sign of a confused client.
-5. The package name `genesis-media-library` and its group, against ADR 0005.
+- **Layers:** `genesis.layer: "primitive"`, `genesis.group: "data"` (ADR 0005, ADR 0012).
+- **Asynchronous read-back:** finalize answers 202 `verifying` and a `genesis_jobs` job reads the
+  copies back; under `verifyInlineBytes` (64 MB) it verifies inline and answers 200. The lock
+  follows verification.
+- **`sha256` optional at create:** no skip check without it; declared at finalize and checked
+  the same way.
+- **Hashing:** `@noble/hashes` by default, a `hash` option for hash-wasm, a Web Worker in
+  browsers.
+- **Fan-out in direct mode:** a server-side copy at finalize; every copy is read back.
+- **Sessions:** a table by default, through the app's provider (a Supabase migration with RLS on
+  the owner, and pgTAP), behind the store interface so a Durable Object store can replace it.
+- **A re-sent part with a different digest:** refused, 409 `part_conflict`; abort and create again.
+- **The package:** `@marktiderman/genesis-media-library`.
