@@ -357,30 +357,62 @@ const imageUrl = await createSignedImageUrls(signer, {
 
 const img = responsiveImage(
   { src: mediaSrc("photos", photo.id), alt: photo.alt, width: photo.width, height: photo.height },
-  { imageUrl, widths: imageUrl.widths, sizes: "(min-width: 768px) 50vw, 100vw" },
+  { imageUrl, sizes: "(min-width: 768px) 50vw, 100vw" },
 );
+
+// The HTML holds links that expire: never cache it past imageUrl.expires
+// (less ten minutes, for a page left open while its lazy images load).
+const now = Math.floor(Date.now() / 1000);
+const maxAge = imageUrl.expires === undefined ? 3600 : Math.max(0, Math.min(3600, imageUrl.expires - now - 600));
+response.headers.set("cache-control", `private, max-age=${maxAge}`);
 ```
 
 - **It signs; it never decides access.** Pass only the items the person may
   already see. Any other `src` gets `null` from the builder, so
   `responsiveImage` leaves it at its own URL with no `srcset`, and nothing
   unchecked is signed.
+- **Render only the items you signed.** For a `mediaSrc`, "its own URL" is
+  the relative storage key (`photos/a1`), which loads nothing. Don't render
+  an item you didn't pass in `items`, or render a placeholder in its place.
+- **One page at a time.** Sign the items being rendered, not the whole
+  collection. A call signs at most `maxItems` items (default
+  `DEFAULT_MAX_SIGNED_ITEMS`, 1,000) and throws a `RangeError` past it:
+  10,000 items take about 400 ms and 150 MB, past a Worker's limits.
 - **Derivatives** follow ADR 0012's names: finish × size (`color/800`,
   `bw/2400`, made with `finishSizes`), renditions (`web-1080`, `web-720`) and
   `poster`, each `{ name, width }`. For each width a `srcset` asks for, the
   builder serves the smallest derivative at least that wide, or the widest
-  there is. Pass `imageUrl.widths` as `responsiveImage`'s `widths`, so every
-  `w` in the `srcset` is the derivative's own width. `format` and `quality`
-  are ignored: derivatives are fixed files.
+  there is. The builder carries the derivative widths (`imageUrl.widths`),
+  and `responsiveImage` offers those only, ignoring its own `widths` option,
+  so every `w` in the `srcset` is the derivative's own width. It never adds
+  the original's width between them (a 1000 px photo gets `color/800 800w`,
+  not `color/1600` labelled `1000w`); a photo narrower than every
+  derivative gets the smallest. Each width has one derivative: two at the
+  same width (`poster` and `color/1920`) are refused, so declare one finish
+  at a time. `original` is never a derivative. `format` and `quality` are
+  ignored: derivatives are fixed files.
 - **One link per derivative.** Each URL is signed for
   `mediaScope.file(collection, id, derivative)`, so a link to `color/800`
   can't open `color/2400`, another item, or the original.
-- **Hour-aligned by default** (`sign: { align: "hour" }`, with the signer's
-  `file` TTL), so every `srcset` URL stays the same, and caches, for the
-  clock hour when the TTL is whole hours. Pass `sign` to change it.
+- **Hour-aligned by default** (`align: "hour"`, with the signer's `file`
+  TTL), so every `srcset` URL stays the same, and caches, for the clock hour
+  when the TTL is whole hours. `sign` is laid over that default:
+  `sign: { ttl: "3h" }` stays aligned, `sign: { align: "none" }` drops it.
+- **Cached HTML outlives nothing.** The links are signed when the page is
+  built and last two to three hours (a two-hour TTL to the end of the hour).
+  A page cached longer than that, by ISR, a CDN or the browser, serves links
+  that are 403. `imageUrl.expires` is the earliest expiry (Unix seconds):
+  keep the page's `cache-control` `max-age` and `s-maxage`, and an ISR
+  `revalidate`, below `expires - now`, with a margin for how long a visitor
+  keeps the page open (lazy images load late). Cache the image responses
+  freely: the handler caches each one for the life of its link.
 - **Async.** WebCrypto signs asynchronously, so the links are made when the
   promise resolves and the builder only looks them up. Make one builder per
   response, for that response's items.
+- **Ids** go through `mediaSrc(collection, id)`, which refuses what the
+  handler would refuse in a path segment (a slash, a backslash, NUL, a
+  percent-escape such as `%2e`, `.` or `..`) with a `TypeError`, rather than
+  signing a link that is always 403.
 - **Paths** default to `<collection>/<id>/<derivative>` under `base`
   (`photos/a1/color/800`); `path(item, derivative)` changes that. The
   handler's `route` reads the default back with `parseSignedImagePath`, and
