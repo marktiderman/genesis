@@ -46,7 +46,9 @@ description: Find, add, change and retire this repo's features in features.ts, a
 - Move `status` as it ships: idea, planned, building, beta, live, deprecated, retired. `check` warns
   when an idea or a planned feature already has shipped work tagged with it (a changeset, or with `--prs` a merged PR).
 - Set `reviewedAt` (today) whenever you check an entry against the product; `check` warns after 90 days.
-- Rename by giving the feature a new id and putting the old one in `aliases`. Never delete an id.
+- Rename by giving the feature a new id and putting the old one in `aliases`. Never delete an id once a
+  feature is being built; an `idea` or `planned` entry (never shipped) may be removed outright, for
+  example when a backlog moves to a planning repo. Aliases are never removed.
 
 ## Retire
 1. Remove the code first: the UI, routes, server functions and tests.

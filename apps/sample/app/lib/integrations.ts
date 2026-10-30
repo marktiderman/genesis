@@ -12,7 +12,8 @@ export interface Integration {
   what: string;
   category: "Data and auth" | "Messaging" | "AI" | "Observability" | "Content" | "Payments" | "Media" | "Analytics" | "Scheduling";
   status: IntegrationStatus;
-  feature: keyof typeof features;
+  /** The feature that holds its code; none for a planned integration with no public feature yet. */
+  feature?: keyof typeof features;
 }
 
 export const INTEGRATIONS: Integration[] = [
@@ -33,11 +34,11 @@ export const INTEGRATIONS: Integration[] = [
   { name: "Notion", what: "Bring pages and databases into an app.", category: "Content", status: "available", feature: "switchboard" },
   { name: "Google Sheets", what: "Form responses appended as rows.", category: "Content", status: "available", feature: "forms-destinations" },
   { name: "Stripe", what: "Plans, checkout and invoices for an app's customers.", category: "Payments", status: "planned", feature: "entitlements" },
-  { name: "Stripe Connect", what: "Payments taken by an app's tenants, paid out to them.", category: "Payments", status: "planned", feature: "tenant-payments" },
-  { name: "RevenueCat", what: "In-app purchases and subscriptions on iPhone and Android.", category: "Payments", status: "planned", feature: "tenant-payments" },
+  { name: "Stripe Connect", what: "Payments taken by an app's tenants, paid out to them.", category: "Payments", status: "planned" },
+  { name: "RevenueCat", what: "In-app purchases and subscriptions on iPhone and Android.", category: "Payments", status: "planned" },
   { name: "Mux", what: "Video upload, encoding, captions and playback in chat; a media library for every app is next.", category: "Media", status: "available", feature: "chat" },
-  { name: "Cloudflare R2", what: "Object storage for media, with copies and retention.", category: "Media", status: "planned", feature: "media-library" },
-  { name: "Documenso", what: "Documents sent for signature.", category: "Content", status: "planned", feature: "e-sign" },
-  { name: "Cal.com", what: "Booking pages and calendar sync for sessions.", category: "Scheduling", status: "planned", feature: "calendar-sessions" },
-  { name: "PostHog", what: "Product analytics fed from Genesis's own events, which stay the source of truth.", category: "Analytics", status: "planned", feature: "product-analytics" },
+  { name: "Cloudflare R2", what: "Object storage for media, with copies and retention.", category: "Media", status: "planned" },
+  { name: "Documenso", what: "Documents sent for signature.", category: "Content", status: "planned" },
+  { name: "Cal.com", what: "Booking pages and calendar sync for sessions.", category: "Scheduling", status: "planned" },
+  { name: "PostHog", what: "Product analytics fed from Genesis's own events, which stay the source of truth.", category: "Analytics", status: "planned" },
 ];
