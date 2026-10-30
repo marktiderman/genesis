@@ -1,0 +1,25 @@
+.changeset/media-library-clients.md
+  s_ba8cb54dbea75a::t_8c03991abd271d 16-21
+.changeset/media-package-layers.md
+  s_ba8cb54dbea75a::t_2519bf5ea16616 1-5
+packages/media-library/README.md
+  s_ba8cb54dbea75a::t_76e95f510ab944 116,135-139,144-150,158-161
+packages/media/package.json
+  s_ba8cb54dbea75a::t_370eee5dcbc435 77-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "83bdfbcc78539ebd7321b9a79d161ba5d27ecd86",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
