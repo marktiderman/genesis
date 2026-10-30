@@ -1,0 +1,26 @@
+features.json
+  s_36f3212387dbf7::t_c3ffe3e95b35aa 6315-6508
+features.ts
+  s_36f3212387dbf7::t_c3ffe3e95b35aa 2777-2854
+docs/adr/0014-video-learning.md
+  s_36f3212387dbf7::t_ece26db6652cab 1-2,4-59,66-142,145-151,160-164,167-168
+  s_36f3212387dbf7::t_bd24972c06cb74 3,60-65,143-144,152-159,165-166
+AGENTS.md
+  s_36f3212387dbf7::t_c3ffe3e95b35aa 62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7c3970b2e11fa0a3579007da70fa4d6f45a4d123",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
