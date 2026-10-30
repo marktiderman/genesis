@@ -1,0 +1,49 @@
+packages/chat/src/native/tus.ts
+  s_ba8cb54dbea75a::t_73d86dcfc20c1b 23,92
+packages/media-library/package.json
+  s_ba8cb54dbea75a::t_121fc6b92f2c27 54-55,68-72
+packages/media-library/src/client/__tests__/uploader.test.ts
+  s_ba8cb54dbea75a::t_b03c8747df71a0 198-270
+packages/media-library/src/client/browser-worker.ts
+  s_ba8cb54dbea75a::t_db8d09289934eb 1-11
+packages/media-library/src/client/config.ts
+  s_ba8cb54dbea75a::t_3046c4209e548d 56-59
+packages/media-library/src/client/index.ts
+  s_ba8cb54dbea75a::t_b5c4819eb8f9a0 9-10,28
+packages/media-library/src/client/tus-entry.ts
+  s_ba8cb54dbea75a::t_7e758821b66c4f 1-17
+packages/media-library/src/client/uploader.ts
+  s_ba8cb54dbea75a::t_9e9aa37a91e9f8 64-67,115-138,163-188,240-241,245,254,256,262,271,274,279-280,284,311-313,315,330-333,345,374-376,398,409-416,418-429,437-447,463
+packages/media-library/src/client/web.ts
+  s_ba8cb54dbea75a::t_16384b8e78a749 1-19
+packages/media-library/src/client/worker-hasher.ts
+  s_ba8cb54dbea75a::t_99128951e6e2a0 11-12,32-38,40,42,44-45,47,49-53,66-74,76,86
+packages/media-library/tsup.config.ts
+  s_ba8cb54dbea75a::t_d918779d916d50 9-12
+packages/media-library/README.md
+  s_36f3212387dbf7::t_33b36f902f6c17 21-22,116-117,131-132
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6aaa6d609eb18073963d26141e1f15620a775f6a",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
