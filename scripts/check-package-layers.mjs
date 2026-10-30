@@ -58,6 +58,7 @@ export function readWorkspace(root) {
           genesis: json.genesis,
           exports: json.exports && typeof json.exports === "object" ? Object.keys(json.exports) : undefined,
           uses: [...new Set([...declared, ...imported])].sort(),
+          optionalPeers: Object.entries(json.peerDependenciesMeta ?? {}).filter(([, m]) => m && m.optional === true).map(([n]) => n).sort(),
         },
       };
     });

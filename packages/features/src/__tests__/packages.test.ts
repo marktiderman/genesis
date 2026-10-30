@@ -82,6 +82,20 @@ describe("packageLayerProblems", () => {
     expect(problems).toEqual(["dependency cycle: @x/forms → @x/chat → @x/forms"]);
   });
 
+  it("keeps primitives and foundation off optional packages, except as optional peers", () => {
+    const media = { name: "@x/media", genesis: { layer: "primitive", group: "data", optional: true }, uses: ["@x/ui"] };
+    const forms = (over: Partial<LayerPackage>): LayerPackage => ({ name: "@x/forms", genesis: { layer: "primitive", group: "forms" }, uses: ["@x/ui/data", "@x/media"], ...over });
+    const base = workspace().filter((p) => p.name !== "@x/forms");
+    expect(packageLayerProblems([...base, media, forms({})])).toEqual([
+      "@x/forms (primitive) uses @x/media, which is optional: define a port in @x/forms and let @x/media ship the adapter (or list it as an optional peer dependency)",
+    ]);
+    expect(packageLayerProblems([...base, media, forms({ optionalPeers: ["@x/media"] })])).toEqual([]);
+    // The optional package may use primitives (it ships their adapters), and a module may use it.
+    const adapter = { ...media, uses: ["@x/ui", "@x/forms"] };
+    const sites = workspace().find((p) => p.name === "@x/sites")!;
+    expect(packageLayerProblems([...base, adapter, forms({ uses: ["@x/ui/data"] }), { ...sites, uses: [...sites.uses, "@x/media"] }])).toEqual([]);
+  });
+
   it("ignores packages outside the set and a package's own subpaths", () => {
     expect(packageLayerProblems(plant("@x/forms", using("left-pad", "@x/forms/react")))).toEqual([]);
   });
@@ -126,6 +140,17 @@ describe("readPackageMeta", () => {
       '@x/p genesis.module.docs: a path in the package or an https URL, not "http://x"',
       '@x/p genesis.module.skill: a SKILL.md path in the package, not "../SKILL.md"',
     ]);
+  });
+
+  it("keeps optional to primitives and modules", () => {
+    const problems: string[] = [];
+    readPackageMeta("@x/a", { layer: "foundation", group: "core", optional: true }, problems);
+    readPackageMeta("@x/b", { layer: "primitive", group: "data", optional: "yes" }, problems);
+    expect(problems).toEqual([
+      "@x/a genesis.optional: a foundation package can't be optional; only a primitive or module is an upgrade apps opt into",
+      "@x/b genesis.optional: must be true or false",
+    ]);
+    expect(readPackageMeta("@x/c", { layer: "primitive", group: "data", optional: true })).not.toBeNull();
   });
 
   it("needs tooling entries to be exports of the package", () => {
