@@ -1,0 +1,71 @@
+packages/media-library/src/index.ts
+  s_ba8cb54dbea75a::t_1b2f0806442c6b 1-32
+packages/media-library/src/targets/target.ts
+  s_ba8cb54dbea75a::t_0c75960e95957d 1-89
+packages/media-library/src/server/supabase-store.ts
+  s_ba8cb54dbea75a::t_91e095466298b4 1-155
+packages/media-library/src/server/index.ts
+  s_ba8cb54dbea75a::t_4ffd7637b5455b 1-33
+packages/media-library/src/server/__tests__/helpers.ts
+  s_ba8cb54dbea75a::t_64444208524ff6 1-100
+packages/media-library/src/server/store.ts
+  s_ba8cb54dbea75a::t_f1380495377158 1-118
+packages/media-library/src/protocol.ts
+  s_ba8cb54dbea75a::t_fcfe23d06b368b 1-175
+packages/media-library/src/server/handler.ts
+  s_ba8cb54dbea75a::t_983a7790cb256c 1-404
+packages/media-library/src/targets/s3.ts
+  s_ba8cb54dbea75a::t_cb8ec7b8b0185a 1-212
+packages/media-library/src/hash.ts
+  s_ba8cb54dbea75a::t_be628dab05ba4f 1-83
+packages/media-library/migrations/tests/0001_genesis_media_library.test.sql
+  s_ba8cb54dbea75a::t_3985a82c5fe015 1-93
+packages/media-library/src/server/verify.ts
+  s_ba8cb54dbea75a::t_82aa9f7792db74 1-121
+packages/media-library/migrations/0001_genesis_media_library.sql
+  s_ba8cb54dbea75a::t_cfccf4835099c0 1-140
+packages/media-library/src/targets/memory.ts
+  s_ba8cb54dbea75a::t_60135be7fe1246 1-126
+packages/media-library/src/targets/index.ts
+  s_ba8cb54dbea75a::t_123255e50b963c 1-15
+packages/media-library/src/targets/r2.ts
+  s_ba8cb54dbea75a::t_a96195eb1d10c2 1-56
+packages/media-library/src/server/__tests__/handler.test.ts
+  s_ba8cb54dbea75a::t_6349c43689e1e6 1-379
+packages/media-library/src/targets/__tests__/targets.test.ts
+  s_ba8cb54dbea75a::t_1fa3ee1ba1cd96 1-181
+pnpm-lock.yaml
+  s_ba8cb54dbea75a::t_66b70044b3371a 1302-1320,3819-3822,14105-14106
+packages/media-library/LICENSE
+  s_ba8cb54dbea75a::t_6a718017a907be 1-21
+packages/media-library/package.json
+  s_ba8cb54dbea75a::t_5539855b0cd906 1-90
+packages/media-library/src/__tests__/protocol.test.ts
+  s_ba8cb54dbea75a::t_1e97d232966fed 1-49
+packages/media-library/src/server/__tests__/supabase-store.test.ts
+  s_ba8cb54dbea75a::t_65a3121ac4f8df 1-96
+packages/media-library/src/targets/__tests__/sigv4.test.ts
+  s_ba8cb54dbea75a::t_bf69b26c4a50da 1-22
+packages/media-library/tsconfig.json
+  s_ba8cb54dbea75a::t_7cc7abeba543c1 1-17
+packages/media-library/tsup.config.ts
+  s_ba8cb54dbea75a::t_10a6d47f1f0e5c 1-11
+packages/media-library/vitest.config.ts
+  s_ba8cb54dbea75a::t_9cbc979d193657 1-8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4398b7a435cd1036c123a90bc6fb126d49152c01",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
