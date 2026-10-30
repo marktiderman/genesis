@@ -8,12 +8,17 @@
  */
 import { packageHashWorker } from "./browser-worker";
 import { createUploader as createUploaderCore, type UploaderOptions } from "./uploader";
-import { createWorkerFileHasher, isBrowserPage } from "./worker-hasher";
+import { createWorkerFileHasher, isBrowserPage, type WorkerFileHasherOptions } from "./worker-hasher";
 
 export * from "./index";
+
+/** A `hashFile` that hashes in the package's own Web Worker (what `createUploader` here uses by default). */
+export function createBrowserFileHasher(options?: WorkerFileHasherOptions) {
+  return createWorkerFileHasher(packageHashWorker, options);
+}
 
 /** `createUploader`, hashing in a Web Worker by default (unless `hash` or `hashFile` is given). */
 export function createUploader(options: UploaderOptions) {
   const inWorker = !options.hash && !options.hashFile && isBrowserPage();
-  return createUploaderCore(inWorker ? { ...options, hashFile: createWorkerFileHasher(packageHashWorker) } : options);
+  return createUploaderCore(inWorker ? { ...options, hashFile: createBrowserFileHasher() } : options);
 }

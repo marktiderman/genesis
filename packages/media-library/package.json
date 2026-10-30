@@ -57,7 +57,6 @@
       "default": "./dist/client.js"
     },
     "./client/hash-worker": {
-      "types": "./dist/hash-worker.d.ts",
       "import": "./dist/hash-worker.js",
       "default": "./dist/hash-worker.js"
     },
@@ -78,7 +77,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
     "clean": "rm -rf dist",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
@@ -88,8 +87,10 @@
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
+    "playwright": "~1.64.1",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
+    "vite": "^8.2.4",
     "vitest": "^5.0.5"
   },
   "genesis": {
