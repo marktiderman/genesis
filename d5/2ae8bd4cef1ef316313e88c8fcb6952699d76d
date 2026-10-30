@@ -1,0 +1,19 @@
+docs/media-library-uploads.md
+  s_ba8cb54dbea75a::t_69a2bc507db736 3,31-34,85-88,129-131,142-145,147-154,166-169,184,263-270,299,302-303,394-408
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d52ae8bd4cef1ef316313e88c8fcb6952699d76d",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
