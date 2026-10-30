@@ -419,6 +419,8 @@ response.headers.set("cache-control", `private, max-age=${maxAge}`);
   must check the derivative is one you declared:
 
 ```ts
+import { createSignedMediaHandler, mediaScope, parseSignedImagePath } from "@marktiderman/genesis-media/signed";
+
 // The same `derivatives` as above: only declared ones are served.
 const names = new Set(derivatives.map((d) => d.name));
 const handle = createSignedMediaHandler({
