@@ -1,0 +1,29 @@
+packages/media-library/src/server/__tests__/races.test.ts
+  s_ba8cb54dbea75a::t_bad3fc5743db59 1-178
+.changeset/media-library-server.md
+  s_ba8cb54dbea75a::t_ec36049d83c1b2 7
+docs/media-library-uploads.md
+  s_ba8cb54dbea75a::t_d2b422c23077d9 150-151,418-422
+packages/media-library/README.md
+  s_ba8cb54dbea75a::t_3689b040ed226d 88-92,104-107
+packages/media-library/src/server/handler.ts
+  s_ba8cb54dbea75a::t_faca98546bc845 390-392,397,404,409,412-417,461-463,465-469
+packages/media-library/src/server/verify.ts
+  s_ba8cb54dbea75a::t_61896558d8baf9 2-7,43-44,57-61,78-101,185-208,232-234,237-244
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e2e69d7dd728962e186655367576bc30d1ee9c09",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
