@@ -48,7 +48,7 @@ const handle = createUploadHandler({
   authorize: ({ op, owner, purpose, size, contentType }) =>
     purpose === "media" && contentType.startsWith("image/") ? { allow: true, targets: ["working", "archive"] } : { allow: false },
   // Where the object goes. The client never names a key.
-  keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${name}`,
+  keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${safeName(name)}`,
   // Objects with this identity the owner may already read: the only ones a skip compares against.
   readable: ({ owner, sha256, size }) => findMyMediaWithIdentity(owner, sha256, size),
   // Big uploads are read back in a job.
@@ -102,12 +102,13 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 
 - `createSupabaseSessionStore(client)`, the default: migration `0001_genesis_media_library.sql`
   (in `migrations/`) makes the `genesis_media_library` schema, `uploads` and `upload_parts`, with
-  row level security (a signed-in person reads and changes only their own sessions; anon gets
-  nothing), and `add_part` and `update_upload`, which record a part and change a state atomically.
-  Its pgTAP test is in `migrations/tests/`: copy both into the app's `supabase/` and run
-  `supabase test db`. Add `genesis_media_library` to the project's exposed schemas, and pass the
-  service-role client (the handler binds every operation to its owner itself; RLS is the second
-  wall).
+  row level security (only the service role writes; a signed-in person may read their own
+  sessions and change nothing, so no one can claim a state or a copy verification didn't find;
+  anon gets nothing), and `add_part` and `update_upload`, which record a part and change a state
+  atomically, for the service role only. Its pgTAP test is in `migrations/tests/`: copy both into
+  the app's `supabase/` and run `supabase test db`. Add `genesis_media_library` to the project's
+  exposed schemas, and pass the service-role client: the handler binds every operation to its
+  owner itself.
 - `createMemorySessionStore()`, for tests.
 - `UploadSessionStore`: implement it for a Durable Object when the handler runs in a Worker.
 

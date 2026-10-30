@@ -51,8 +51,9 @@ export interface UploadSessionStore {
   /** The owner's open session for this identity, purpose and target set, if any. */
   findOpen(query: { owner: UploadOwner; purpose: string; size: number; sha256: string; targets: string[] }): Promise<UploadSession | null>;
   /**
-   * Records a part, atomically: `added`, `same` (already there with this
-   * digest) or `conflict` (already there with another digest; nothing changes).
+   * Records a part, atomically: `added`; `same` (already there with this
+   * digest: its etag becomes this one, the target's latest write); or
+   * `conflict` (already there with another digest; nothing changes).
    */
   addPart(id: string, part: StoredPart): Promise<"added" | "same" | "conflict">;
   /** Applies `patch` when the session is still in one of `when` states (all states when omitted). True when it applied. */
@@ -97,7 +98,11 @@ export function createMemorySessionStore(): UploadSessionStore & { readonly sess
       const s = sessions.get(id);
       if (!s) throw new Error(`no session ${id}`);
       const had = s.parts.find((p) => p.n === part.n);
-      if (had) return had.digest === part.digest ? "same" : "conflict";
+      if (had) {
+        if (had.digest !== part.digest) return "conflict";
+        had.etag = part.etag;
+        return "same";
+      }
       s.parts.push({ ...part });
       s.parts.sort((a, b) => a.n - b.n);
       return "added";

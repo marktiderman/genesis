@@ -15,6 +15,8 @@
  */
 export {
   createUploadHandler,
+  isSafeKey,
+  safeName,
   type ReadableObject,
   type UploadAuthorizeContext,
   type UploadDecision,

@@ -103,6 +103,11 @@ describe("createS3Target", () => {
     await expect(target.delete("media/a 1/x.bin")).rejects.toThrow(/403/);
   });
 
+  it("refuses a key with an empty, . or .. segment (URL parsing would address another object)", async () => {
+    const target = s3(fakeS3({ lockEnabled: false }), false);
+    for (const key of ["a/../b", "a/./b", "a//b", "/a"]) await expect(target.read(key), key).rejects.toThrow(/segment/);
+  });
+
   it("refuses to start when the bucket has no Object Lock but the target is meant to lock", async () => {
     const target = s3(fakeS3({ lockEnabled: false }));
     await expect(target.start("k", { contentType: "a/b" })).rejects.toThrow(/Object Lock/);
