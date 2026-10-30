@@ -155,8 +155,8 @@ past any request's time and a Worker's subrequest limits.
 - **200** `{ "state": "done", "copies": [{ "target", "key", "size", "sha256", "lockedUntil"?, "lockMode"?, "verifiedAt" }] }`.
 - **409** `{ "code": "missing_parts", "parts": [..] }`: send these first.
 - **422** `{ "code": "identity_mismatch" }`: the assembled object isn't the SHA-256 or size
-  declared at create. The upload goes back to open with no parts, and the assembled object is
-  removed (it was never a copy). The client starts the file over. That removal is always
+  declared. The upload ends in `identity_mismatch`, and the assembled object is removed (it was
+  never a copy). The client aborts it and creates again. That removal is always
   possible because **no lock is applied before verification**: a target with Object Lock
   assembles the object unlocked, reads it back, and only then sets its retention
   (`PutObjectRetention`, or a copy into the retained key). An object under retention is always
@@ -234,13 +234,13 @@ interface UploadTarget {
   fetch from elsewhere. Each part is hashed on arrival before `uploadPart`.
 - **Any S3-compatible store** (S3, B2, MinIO), SigV4 over fetch, with `x-amz-checksum-sha256`
   per part, and **Object Lock** per object: `lockMode` (`GOVERNANCE` or `COMPLIANCE`) and
-  `retainUntil` from the target's config or the app's (`lockFor({ purpose })`), set only after the
+  `retainUntil` from the target's config, set only after the
   read-back check passes. The bucket must have Object Lock enabled; the adapter refuses at start
   when it hasn't.
-- **Fan-out**: one upload, several targets. Proxied, each received part is written to every
-  target before it is acknowledged (a part is received once, written N times). Direct, the client
-  sends to the first target and finalize copies server-side to the rest. Either way finalize reads
-  back **each** target's copy and records a copy only for those that verify.
+- **Fan-out**: one upload, several targets. The parts go to the first target only (proxied or
+  direct); finalize copies the assembled object server-side to the rest, a part at a time, then
+  reads back **each** target's copy and records a copy only for those that verify. The client
+  sends once. For a big object the copies are made in the verify job, with the read-back.
 - **Read-back**: the server streams the stored object and hashes it. That is the only proof the
   copy is right; a store's ETag isn't a content hash for multipart objects.
 
