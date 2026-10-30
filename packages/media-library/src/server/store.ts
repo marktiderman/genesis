@@ -47,6 +47,8 @@ export interface UploadSession {
   verifyingSince?: string | undefined;
   /** ISO 8601: a worker holds the verification until then. */
   leaseUntil?: string | undefined;
+  /** Which worker holds it (a random token per run): only it may renew, save or finish. */
+  leaseHolder?: string | undefined;
   /** ISO 8601. */
   createdAt: string;
   /** ISO 8601: an open session lapses then, without another part. */
@@ -64,6 +66,7 @@ export type UploadSessionPatch = Partial<{
   pendingCopies: Record<string, string>;
   verifyingSince: string | null;
   leaseUntil: string | null;
+  leaseHolder: string | null;
 }>;
 
 /** The session isn't open any more (it was finalized or aborted meanwhile). */
@@ -114,15 +117,22 @@ export interface UploadSessionStore {
   completePart(id: string, n: number, digest: string, etag: string): Promise<boolean>;
   /** Drops a reservation with this digest that never received an etag (the write failed). */
   releasePart(id: string, n: number, digest: string): Promise<void>;
-  /** Applies `patch` when the session is still in one of `when` states (all states when omitted). True when it applied. */
-  update(id: string, patch: UploadSessionPatch, when?: UploadState[]): Promise<boolean>;
   /**
-   * Takes the verification lease until `until`, when the session is
-   * `verifying` and no lease is live at `now`. True when this caller holds it.
+   * Applies `patch` when the session is still in one of `when` states (all
+   * states when omitted) and, when `holder` is given, while that worker still
+   * holds the lease. True when it applied.
    */
-  claimVerify(id: string, until: string, now: string): Promise<boolean>;
-  /** Removes the session when it is still in one of `when` states. True when it was removed. */
-  remove(id: string, when: UploadState[]): Promise<boolean>;
+  update(id: string, patch: UploadSessionPatch, when?: UploadState[], holder?: string): Promise<boolean>;
+  /**
+   * Takes the verification lease for `holder` until `until`, when the
+   * session is `verifying` and no lease is live at `now`. True when it does.
+   */
+  claimVerify(id: string, until: string, now: string, holder: string): Promise<boolean>;
+  /**
+   * Removes the session when it is still in one of `when` states and, with
+   * `leaseFreeAt`, when no verification lease is live then. True when removed.
+   */
+  remove(id: string, when: UploadState[], leaseFreeAt?: string): Promise<boolean>;
   /**
    * Sessions for the sweep: open ones past `expiresAt`, and verifying ones
    * that entered `verifying` before `verifyingBefore` with no live lease.
@@ -187,24 +197,26 @@ export function createMemorySessionStore(): UploadSessionStore & { readonly sess
       const s = sessions.get(id);
       if (s) s.parts = s.parts.filter((p) => !(p.n === n && p.digest === digest && p.etag === null));
     },
-    async update(id, patch, when) {
+    async update(id, patch, when, holder) {
       const s = sessions.get(id);
-      if (!s || (when && !when.includes(s.state))) return false;
+      if (!s || (when && !when.includes(s.state)) || (holder !== undefined && s.leaseHolder !== holder)) return false;
       for (const [k, v] of Object.entries(structuredClone(patch))) {
         if (v === null) delete (s as unknown as Record<string, unknown>)[k];
         else (s as unknown as Record<string, unknown>)[k] = v;
       }
       return true;
     },
-    async claimVerify(id, until, now) {
+    async claimVerify(id, until, now, holder) {
       const s = sessions.get(id);
       if (!s || s.state !== "verifying" || (s.leaseUntil && Date.parse(s.leaseUntil) > Date.parse(now))) return false;
       s.leaseUntil = until;
+      s.leaseHolder = holder;
       return true;
     },
-    async remove(id, when) {
+    async remove(id, when, leaseFreeAt) {
       const s = sessions.get(id);
       if (!s || !when.includes(s.state)) return false;
+      if (leaseFreeAt && s.leaseUntil && Date.parse(s.leaseUntil) > Date.parse(leaseFreeAt)) return false;
       sessions.delete(id);
       return true;
     },

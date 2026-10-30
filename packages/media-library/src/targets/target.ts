@@ -76,7 +76,7 @@ export async function copyBetweenTargets(
   from: UploadTarget,
   to: UploadTarget,
   key: string,
-  options: { partSize: number; uploadId: string; versionId?: string | undefined },
+  options: { partSize: number; uploadId: string; versionId?: string | undefined; onPart?: (() => Promise<unknown>) | undefined },
 ): Promise<AssembledObject | void> {
   const uploadId = options.uploadId;
   const source = await from.read(key, options.versionId);
@@ -91,6 +91,7 @@ export async function copyBetweenTargets(
     const flush = async () => {
       const bytes = buffer.subarray(0, filled);
       receipts.push(await to.part(key, uploadId, n, bytes, { size: filled, sha256: toHex(await sha256Bytes(bytes)) }));
+      await options.onPart?.();
       n++;
       buffer = new Uint8Array(partSize);
       filled = 0;

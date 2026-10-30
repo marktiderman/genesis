@@ -187,9 +187,12 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
       return id;
     },
     async part(key, uploadId, n, body, info) {
+      // A Worker sends a stream with its length only through a FixedLengthStream (else it goes chunked).
+      const FLS = (globalThis as { FixedLengthStream?: new (length: number) => TransformStream<Uint8Array, Uint8Array> }).FixedLengthStream;
+      const sized = body instanceof ReadableStream && FLS ? body.pipeThrough(new FLS(info.size)) : body;
       const res = await send("PUT", urlFor(key, { partNumber: String(n), uploadId }), {
         headers: { "content-length": String(info.size) },
-        body,
+        body: sized,
         payloadSha256: info.sha256,
       });
       const etag = res.headers.get("etag");

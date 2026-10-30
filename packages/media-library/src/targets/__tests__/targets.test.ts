@@ -171,6 +171,25 @@ describe("createS3Target", () => {
     expect(await target.assembled!("nothing-here", mine.id, mine.receipts)).toBeUndefined();
   });
 
+  it("sends a streamed part through a FixedLengthStream where there is one (Workers)", async () => {
+    const lengths: number[] = [];
+    const g = globalThis as { FixedLengthStream?: unknown };
+    g.FixedLengthStream = class extends TransformStream<Uint8Array, Uint8Array> {
+      constructor(n: number) {
+        super();
+        lengths.push(n);
+      }
+    };
+    try {
+      const target = s3(fakeS3({ lockEnabled: false }), false);
+      const got = await roundTrip(target, "k", bytesOf(9), 5);
+      expect(got.size).toBe(9);
+      expect(lengths).toEqual([5, 4]);
+    } finally {
+      delete g.FixedLengthStream;
+    }
+  });
+
   it("refuses a part whose bytes don't match the SHA-256 it was signed with", async () => {
     const target = s3(fakeS3({ lockEnabled: false }), false);
     const id = await target.start("k", { contentType: "a/b" });

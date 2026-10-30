@@ -14,7 +14,7 @@
 import { sha256Stream } from "../hash";
 import type { FailedTarget, UploadCopy } from "../protocol";
 import { copyBetweenTargets, type AssembledObject, type UploadTarget } from "../targets/target";
-import type { UploadSession, UploadSessionStore } from "./store";
+import type { UploadSession, UploadSessionPatch, UploadSessionStore } from "./store";
 
 /** The job kind that reads an upload's copies back. Payload `{ uploadId }`. */
 export const UPLOAD_VERIFY_JOB = "media-library.verify";
@@ -52,8 +52,13 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
   const iso = (ms: number) => new Date(ms).toISOString();
   const first = await store.get(uploadId);
   if (!first || first.state !== "verifying") return { session: first, busy: false };
-  if (!(await store.claimVerify(uploadId, iso(now() + leaseMs), iso(now())))) return { session: first, busy: true };
-  const renew = () => store.update(uploadId, { leaseUntil: iso(now() + leaseMs) }, ["verifying"]);
+  const holder = randomToken();
+  if (!(await store.claimVerify(uploadId, iso(now() + leaseMs), iso(now()), holder))) return { session: first, busy: true };
+  // Every write this run makes names its lease; once another run holds it, this one stops at once.
+  const held = async (patch: UploadSessionPatch) => {
+    if (!(await store.update(uploadId, patch, ["verifying"], holder))) throw new LeaseLostError(uploadId);
+  };
+  const renew = () => held({ leaseUntil: iso(now() + leaseMs) });
   const s = (await store.get(uploadId))!;
 
   const primaryName = s.targets[0]!;
@@ -63,7 +68,7 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
   const assembled: Record<string, AssembledObject> = { ...s.assembled };
   const pendingCopies: Record<string, string> = { ...s.pendingCopies };
   const pending = s.targets.filter((t) => !copies.some((c) => c.target === t));
-  const save = () => store.update(uploadId, { assembled, pendingCopies, leaseUntil: iso(now() + leaseMs) }, ["verifying"]);
+  const save = () => held({ assembled, pendingCopies, leaseUntil: iso(now() + leaseMs) });
 
   for (const [i, name] of pending.entries()) {
     const target = targets[name];
@@ -77,7 +82,7 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
         if (pendingCopies[name]) await target.abort(s.key, pendingCopies[name]!).catch(() => {});
         pendingCopies[name] = await target.start(s.key, { contentType: s.contentType });
         await save();
-        const made = await copyBetweenTargets(primary, target, s.key, { partSize: s.partSize, uploadId: pendingCopies[name]!, versionId: assembled[primaryName]?.versionId });
+        const made = await copyBetweenTargets(primary, target, s.key, { partSize: s.partSize, uploadId: pendingCopies[name]!, versionId: assembled[primaryName]?.versionId, onPart: renew });
         assembled[name] = made ?? {};
         delete pendingCopies[name];
         await save();
@@ -106,8 +111,9 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
         if (name === primaryName) {
           // What the client sent isn't what it declared: no copy, nothing locked, and this
           // upload's own assembly (its own key, its own version) removed.
+          await renew();
           await primary.delete(s.key, version).catch(() => {});
-          await store.update(uploadId, { state: "identity_mismatch", copies: [], failed: [], assembled: {}, pendingCopies, leaseUntil: null }, ["verifying"]);
+          await held({ state: "identity_mismatch", copies: [], failed: [], assembled: {}, pendingCopies, leaseUntil: null, leaseHolder: null });
           return { session: await store.get(uploadId), busy: false };
         }
         // The copy came out wrong in that store: remove that copy and report it; the others stand.
@@ -116,6 +122,8 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
         failed.push({ target: name, code: "readback_mismatch" });
         continue;
       }
+      // Still ours before anything is locked: a run that lost its lease never locks.
+      await renew();
       const lock = target.lock ? await target.lock(s.key, version) : undefined;
       copies.push({
         target: name,
@@ -126,7 +134,8 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
         ...(lock ? { lockMode: lock.mode, lockedUntil: lock.retainUntil } : {}),
         verifiedAt: iso(now()),
       });
-    } catch {
+    } catch (error) {
+      if (error instanceof LeaseLostError) return { session: await store.get(uploadId), busy: true };
       failed.push({ target: name, code: "target_error" });
       // Without a verified first copy there is nothing to copy from: the rest wait for a retry.
       if (name === primaryName) {
@@ -135,8 +144,26 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
       }
     }
   }
-  await store.update(uploadId, { state: failed.length ? "partial" : "done", copies, failed, assembled, pendingCopies, leaseUntil: null }, ["verifying"]);
+  try {
+    await held({ state: failed.length ? "partial" : "done", copies, failed, assembled, pendingCopies, leaseUntil: null, leaseHolder: null });
+  } catch (error) {
+    if (error instanceof LeaseLostError) return { session: await store.get(uploadId), busy: true };
+    throw error;
+  }
   return { session: await store.get(uploadId), busy: false };
+}
+
+/** This run's lease was taken by another (it ran too long without renewing): it stops. */
+class LeaseLostError extends Error {
+  constructor(id: string) {
+    super(`upload ${id}: the verification lease was lost`);
+    this.name = "LeaseLostError";
+  }
+}
+
+function randomToken(): string {
+  const b = crypto.getRandomValues(new Uint8Array(12));
+  return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
 }
 
 /** Whether a `verifying` session is stuck: no live lease, and verifying for longer than `staleVerifyingSeconds`. */
@@ -196,7 +223,8 @@ export async function sweepExpiredUploads(options: UploadVerifyOptions & { limit
     const still = await options.store.get(s.id);
     if (!still || still.state !== s.state) continue;
     if (still.state === "verifying" && !isStuckVerifying(still, options)) continue;
-    if (!(await options.store.remove(s.id, [s.state]))) continue;
+    // The lease is checked in the same step as the state: a job that claimed it meanwhile keeps it.
+    if (!(await options.store.remove(s.id, [s.state], new Date(now).toISOString()))) continue;
     await discardUnverified(still, options.targets);
     removed++;
   }

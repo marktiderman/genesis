@@ -7,7 +7,7 @@
 -- the service role, which is the only writer.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(47);
+select plan(49);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000ab0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-media-library-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -33,10 +33,10 @@ begin
   perform set_config('role', 'service_role', true);
 end $$;
 create function pg_temp.upload_row(id text, kind text, owner text) returns genesis_media_library.uploads language sql as $$
-  select (id, kind, owner, 'media', 'a.jpg', 'image/jpeg', 10, null, 5, 'k/' || id, array['working'], 'mpu-1', 'open', '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, null, null, now(), now() + interval '7 days')::genesis_media_library.uploads
+  select (id, kind, owner, 'media', 'a.jpg', 'image/jpeg', 10, null, 5, 'k/' || id, array['working'], 'mpu-1', 'open', '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, null, null, null, now(), now() + interval '7 days')::genesis_media_library.uploads
 $$;
 create function pg_temp.upload_with(id text, key text, sha text, targets text[]) returns genesis_media_library.uploads language sql as $$
-  select (id, 'person', 'x', 'media', 'a.jpg', 'image/jpeg', 10, sha, 5, key, targets, 'mpu-1', 'open', '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, null, null, now(), now() + interval '7 days')::genesis_media_library.uploads
+  select (id, 'person', 'x', 'media', 'a.jpg', 'image/jpeg', 10, sha, 5, key, targets, 'mpu-1', 'open', '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, null, null, null, now(), now() + interval '7 days')::genesis_media_library.uploads
 $$;
 create function pg_temp.d(c text) returns text language sql immutable as $$ select 'sha-256=:' || repeat(c, 43) || '=:' $$;
 grant execute on function pg_temp.person(text), pg_temp.sign_in(text), pg_temp.as_anon(), pg_temp.as_server(), pg_temp.upload_row(text, text, text), pg_temp.upload_with(text, text, text, text[]), pg_temp.d(text) to anon, authenticated, service_role;
@@ -47,11 +47,11 @@ select has_table('genesis_media_library', 'upload_parts', 'upload_parts exists')
 select ok((select relrowsecurity from pg_class where oid = 'genesis_media_library.uploads'::regclass), 'uploads has RLS on');
 select ok((select relrowsecurity from pg_class where oid = 'genesis_media_library.upload_parts'::regclass), 'upload_parts has RLS on');
 select ok(not has_function_privilege('authenticated', 'genesis_media_library.reserve_part(text, integer, bigint, text)', 'execute'), 'a person cannot call reserve_part');
-select ok(not has_function_privilege('authenticated', 'genesis_media_library.update_upload(text, jsonb, text[])', 'execute'), 'a person cannot call update_upload');
-select ok(not has_function_privilege('authenticated', 'genesis_media_library.claim_verify(text, timestamptz, timestamptz)', 'execute'), 'a person cannot call claim_verify');
-select ok(not has_function_privilege('authenticated', 'genesis_media_library.remove_upload(text, text[])', 'execute'), 'a person cannot call remove_upload');
+select ok(not has_function_privilege('authenticated', 'genesis_media_library.update_upload(text, jsonb, text[], text)', 'execute'), 'a person cannot call update_upload');
+select ok(not has_function_privilege('authenticated', 'genesis_media_library.claim_verify(text, timestamptz, timestamptz, text)', 'execute'), 'a person cannot call claim_verify');
+select ok(not has_function_privilege('authenticated', 'genesis_media_library.remove_upload(text, text[], timestamptz)', 'execute'), 'a person cannot call remove_upload');
 select ok(not has_function_privilege('anon', 'genesis_media_library.reserve_part(text, integer, bigint, text)', 'execute'), 'anon cannot call reserve_part');
-select ok(not has_function_privilege('anon', 'genesis_media_library.update_upload(text, jsonb, text[])', 'execute'), 'anon cannot call update_upload');
+select ok(not has_function_privilege('anon', 'genesis_media_library.update_upload(text, jsonb, text[], text)', 'execute'), 'anon cannot call update_upload');
 select ok(not has_table_privilege('anon', 'genesis_media_library.upload_parts', 'select'), 'anon cannot read upload_parts');
 select ok(not has_table_privilege('authenticated', 'genesis_media_library.uploads', 'insert, update, delete'), 'a person cannot write uploads');
 select ok(not has_table_privilege('authenticated', 'genesis_media_library.upload_parts', 'insert, update, delete'), 'a person cannot write parts');
@@ -73,9 +73,11 @@ select is((select count(*)::int from genesis_media_library.upload_parts where up
 select is(genesis_media_library.update_upload('AAAAAAAAAAAAAAAAAAAAA1', ('{"state":"verifying","sha256":"' || repeat('0', 64) || '","verifying_since":"2026-11-01T00:00:00Z"}')::jsonb, array['open']), true, 'the upload moves to verifying');
 select is(genesis_media_library.update_upload('AAAAAAAAAAAAAAAAAAAAA1', '{"state":"done"}'::jsonb, array['open']), false, 'a guarded update that no longer matches does nothing');
 select throws_ok($$ select genesis_media_library.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 5, pg_temp.d('A')) $$, 'P0002', null, 'no part is reserved once it is verifying');
-select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now()), true, 'one run takes the lease');
-select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now()), false, 'a second run can''t while it is live');
-select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '30 minutes', now() + interval '20 minutes'), true, 'it can once the lease lapsed');
+select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now(), 'run-1'), true, 'one run takes the lease');
+select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now(), 'run-2'), false, 'a second run can''t while it is live');
+select is(genesis_media_library.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '30 minutes', now() + interval '20 minutes', 'run-2'), true, 'it can once the lease lapsed');
+select is(genesis_media_library.update_upload('AAAAAAAAAAAAAAAAAAAAA1', '{"state":"done"}'::jsonb, array['verifying'], 'run-1'), false, 'the run that lost the lease can''t finish it');
+select is(genesis_media_library.remove_upload('AAAAAAAAAAAAAAAAAAAAA1', array['verifying'], now()), false, 'a stuck-session remove waits while a lease is live');
 select is(genesis_media_library.update_upload('AAAAAAAAAAAAAAAAAAAAA1', '{"lease_until":null}'::jsonb), true, 'a null in the patch clears the lease');
 select is((select lease_until from genesis_media_library.uploads where id = 'AAAAAAAAAAAAAAAAAAAAA1'), null, 'the lease is cleared');
 select is(genesis_media_library.remove_upload('AAAAAAAAAAAAAAAAAAAAA1', array['open']), false, 'a remove for the state it no longer has removes nothing');

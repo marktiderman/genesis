@@ -41,6 +41,7 @@ interface Row {
   pending_copies: Record<string, string>;
   verifying_since: string | null;
   lease_until: string | null;
+  lease_holder: string | null;
   created_at: string;
   expires_at: string;
   upload_parts?: StoredPart[];
@@ -66,6 +67,7 @@ const toSession = (r: Row): UploadSession => ({
   pendingCopies: r.pending_copies ?? {},
   ...(r.verifying_since ? { verifyingSince: new Date(r.verifying_since).toISOString() } : {}),
   ...(r.lease_until ? { leaseUntil: new Date(r.lease_until).toISOString() } : {}),
+  ...(r.lease_holder ? { leaseHolder: r.lease_holder } : {}),
   createdAt: new Date(r.created_at).toISOString(),
   expiresAt: new Date(r.expires_at).toISOString(),
 });
@@ -160,10 +162,10 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
     async releasePart(id, n, digest) {
       check("releasePart", await db().rpc("release_part", { p_upload: id, p_n: n, p_digest: digest }));
     },
-    async claimVerify(id, until, now) {
-      return check<boolean>("claimVerify", await db().rpc("claim_verify", { p_id: id, p_until: until, p_now: now })) === true;
+    async claimVerify(id, until, now, holder) {
+      return check<boolean>("claimVerify", await db().rpc("claim_verify", { p_id: id, p_until: until, p_now: now, p_holder: holder })) === true;
     },
-    async update(id, patch, when) {
+    async update(id, patch, when, holder) {
       const body: Record<string, unknown> = {};
       if (patch.state) body.state = patch.state;
       if (patch.sha256) body.sha256 = patch.sha256;
@@ -174,10 +176,11 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
       if (patch.pendingCopies) body.pending_copies = patch.pendingCopies;
       if (patch.verifyingSince !== undefined) body.verifying_since = patch.verifyingSince;
       if (patch.leaseUntil !== undefined) body.lease_until = patch.leaseUntil;
-      return check<boolean>("update", await db().rpc("update_upload", { p_id: id, p_patch: body, p_when: when ?? null })) === true;
+      if (patch.leaseHolder !== undefined) body.lease_holder = patch.leaseHolder;
+      return check<boolean>("update", await db().rpc("update_upload", { p_id: id, p_patch: body, p_when: when ?? null, ...(holder !== undefined ? { p_holder: holder } : {}) })) === true;
     },
-    async remove(id, when) {
-      return check<boolean>("remove", await db().rpc("remove_upload", { p_id: id, p_when: when })) === true;
+    async remove(id, when, leaseFreeAt) {
+      return check<boolean>("remove", await db().rpc("remove_upload", { p_id: id, p_when: when, ...(leaseFreeAt ? { p_lease_free_at: leaseFreeAt } : {}) })) === true;
     },
     async stale(now, limit, verifyingBefore) {
       const rows = check<Row[]>("stale", await db().rpc("stale_uploads", { p_now: now.toISOString(), p_limit: limit, p_verifying_before: verifyingBefore.toISOString() })) ?? [];

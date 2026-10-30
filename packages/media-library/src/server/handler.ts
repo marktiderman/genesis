@@ -262,6 +262,11 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     return s;
   }
 
+  /** Removes a lapsed open session (only while it is still open) and aborts what it left. */
+  async function clearLapsed(s: UploadSession): Promise<void> {
+    if (await store.remove(s.id, ["open"])) await discardUnverified(s, targets);
+  }
+
   async function create(request: Request, owner: UploadOwner): Promise<Response> {
     const body = parseCreate(await readJson(request));
     if (!body) return refuse(422, "bad_request");
@@ -288,6 +293,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       }
       const open = await store.findOpen({ owner, purpose: body.purpose, size: body.size, sha256, targets: set });
       if (open && Date.parse(open.expiresAt) > now()) return json(200, statusOf(open, { resumed: true }));
+      // A lapsed one holds the identity's one open slot: clear it (and what it left) first.
+      if (open) await clearLapsed(open);
     }
 
     const id = randomId();
@@ -326,7 +333,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       // Another tab made the same session a moment ago: carry on with that one.
       if (error instanceof SessionConflictError && body.sha256) {
         const open = await store.findOpen({ owner, purpose: body.purpose, size: body.size, sha256: body.sha256, targets: set });
-        if (open) return json(200, statusOf(open, { resumed: true }));
+        // Resume only a live one; a lapsed one is never handed back.
+        if (open && Date.parse(open.expiresAt) > now()) return json(200, statusOf(open, { resumed: true }));
       }
       throw error;
     }
@@ -465,8 +473,11 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (s.state === "verifying" && !isStuckVerifying(s, { ...options, store, targets, now })) {
       return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
     }
-    // Only if it is still in the state it was loaded in: a finalize that won meanwhile stands.
-    if (!(await store.remove(s.id, [s.state]))) return refuse(409, "finalized", {}, "This upload changed meanwhile; it wasn't cancelled.");
+    // Only if it is still in the state it was loaded in, and (for a stuck verification) still with
+    // no live lease, in one step: a finalize or a verify job that won meanwhile stands.
+    if (!(await store.remove(s.id, [s.state], s.state === "verifying" ? new Date(now()).toISOString() : undefined))) {
+      return refuse(409, "finalized", {}, "This upload changed meanwhile; it wasn't cancelled.");
+    }
     // Verified copies stay: removing them is deleting the media, under the app's retention policy.
     await discardUnverified(s, targets);
     return new Response(null, { status: 204, headers: { "cache-control": "no-store" } });

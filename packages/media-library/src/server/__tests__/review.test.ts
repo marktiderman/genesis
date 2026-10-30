@@ -40,10 +40,52 @@ describe("2. one verification at a time (a lease)", () => {
     const s = setup();
     const { id } = await sendAll(s, bytesOf(40));
     await s.alice.finalize(id);
-    expect(await s.store.claimVerify(id, new Date(s.now() + 60_000).toISOString(), new Date(s.now()).toISOString())).toBe(true);
+    expect(await s.store.claimVerify(id, new Date(s.now() + 60_000).toISOString(), new Date(s.now()).toISOString(), "another-run")).toBe(true);
     const outcome = await s.verifyJob({ payload: { uploadId: id } });
     expect(outcome).toMatchObject({ retryAfterSeconds: expect.any(Number) });
     expect(s.archive.calls.some((c) => c.startsWith("start"))).toBe(false);
+  });
+});
+
+describe("2b. a run that loses its lease stops (CodeRabbit)", () => {
+  it("once another run takes the lease, the first neither copies on, nor locks, nor finishes", async () => {
+    const s = setup();
+    const { id } = await sendAll(s, bytesOf(10));
+    // While the first run copies to the archive, its lease lapses and another run takes it.
+    const part = s.archive.part;
+    s.archive.part = async (...args) => {
+      s.store.sessions.get(id)!.leaseHolder = "someone-else";
+      return part(...args);
+    };
+    const res = await s.alice.finalize(id);
+    expect(res.status).toBe(202);
+    expect(s.archive.calls.some((c) => c.startsWith("lock"))).toBe(false);
+    expect(s.store.sessions.get(id)!.state).toBe("verifying");
+  });
+});
+
+describe("3b. a lapsed open session never blocks or comes back (CodeRabbit)", () => {
+  it("a create for a file whose open session lapsed clears it and starts afresh", async () => {
+    const s = setup({ sessionTtlSeconds: 60 });
+    const bytes = bytesOf(10);
+    const body = { name: "a", contentType: "a/b", size: 10, sha256: await sha256Hex(bytes), purpose: "media" };
+    const first = await json<UploadStatus>(await s.alice.create(body));
+    s.tick(61_000);
+    const second = await s.alice.create(body);
+    expect(second.status).toBe(201);
+    expect((await json<UploadStatus>(second)).uploadId).not.toBe(first.uploadId);
+    expect(s.store.sessions.has(first.uploadId)).toBe(false);
+    expect(s.working.openUploads.size).toBe(1);
+  });
+
+  it("removing a stuck verification waits while a lease is live, in the same step", async () => {
+    const s = setup();
+    const { id } = await sendAll(s, bytesOf(40));
+    await s.alice.finalize(id);
+    s.tick(2 * 3600_000);
+    await s.store.claimVerify(id, new Date(s.now() + 60_000).toISOString(), new Date(s.now()).toISOString(), "job");
+    expect(await s.store.remove(id, ["verifying"], new Date(s.now()).toISOString())).toBe(false);
+    expect((await s.alice.abort(id)).status).toBe(409);
   });
 });
 

@@ -59,6 +59,7 @@ create table genesis_media_library.uploads (
   pending_copies jsonb not null default '{}'::jsonb,
   verifying_since timestamptz,
   lease_until timestamptz,
+  lease_holder text,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null
 );
@@ -159,9 +160,10 @@ as $$
   delete from genesis_media_library.upload_parts where upload_id = p_upload and n = p_n and digest = p_digest and etag is null
 $$;
 
--- Applies a patch when the session is still in one of p_when (any state when null). A key in
--- the patch with a null value clears that field. True when it applied.
-create function genesis_media_library.update_upload(p_id text, p_patch jsonb, p_when text[] default null)
+-- Applies a patch when the session is still in one of p_when (any state when null) and, with
+-- p_holder, while that worker holds the lease. A key in the patch with a null value clears that
+-- field. True when it applied.
+create function genesis_media_library.update_upload(p_id text, p_patch jsonb, p_when text[] default null, p_holder text default null)
 returns boolean
 language plpgsql
 security invoker
@@ -177,36 +179,39 @@ begin
     pending_copies = coalesce(p_patch->'pending_copies', pending_copies),
     expires_at = coalesce((p_patch->>'expires_at')::timestamptz, expires_at),
     verifying_since = case when p_patch ? 'verifying_since' then (p_patch->>'verifying_since')::timestamptz else verifying_since end,
-    lease_until = case when p_patch ? 'lease_until' then (p_patch->>'lease_until')::timestamptz else lease_until end
-  where id = p_id and (p_when is null or state = any (p_when));
+    lease_until = case when p_patch ? 'lease_until' then (p_patch->>'lease_until')::timestamptz else lease_until end,
+    lease_holder = case when p_patch ? 'lease_holder' then p_patch->>'lease_holder' else lease_holder end
+  where id = p_id and (p_when is null or state = any (p_when)) and (p_holder is null or lease_holder = p_holder);
   return found;
 end
 $$;
 
--- Takes the verification lease until p_until, when the session is verifying and no lease is
--- live at p_now. True when the caller holds it.
-create function genesis_media_library.claim_verify(p_id text, p_until timestamptz, p_now timestamptz)
+-- Takes the verification lease for p_holder until p_until, when the session is verifying and no
+-- lease is live at p_now. True when the caller holds it.
+create function genesis_media_library.claim_verify(p_id text, p_until timestamptz, p_now timestamptz, p_holder text)
 returns boolean
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 begin
-  update genesis_media_library.uploads set lease_until = p_until
+  update genesis_media_library.uploads set lease_until = p_until, lease_holder = p_holder
   where id = p_id and state = 'verifying' and (lease_until is null or lease_until <= p_now);
   return found;
 end
 $$;
 
--- Removes the session when it is still in one of p_when. True when it was removed.
-create function genesis_media_library.remove_upload(p_id text, p_when text[])
+-- Removes the session when it is still in one of p_when and, with p_lease_free_at, when no
+-- verification lease is live then. True when it was removed.
+create function genesis_media_library.remove_upload(p_id text, p_when text[], p_lease_free_at timestamptz default null)
 returns boolean
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 begin
-  delete from genesis_media_library.uploads where id = p_id and state = any (p_when);
+  delete from genesis_media_library.uploads where id = p_id and state = any (p_when)
+    and (p_lease_free_at is null or lease_until is null or lease_until <= p_lease_free_at);
   return found;
 end
 $$;
@@ -230,14 +235,14 @@ $$;
 revoke execute on function genesis_media_library.reserve_part(text, integer, bigint, text) from public, anon, authenticated;
 revoke execute on function genesis_media_library.complete_part(text, integer, text, text) from public, anon, authenticated;
 revoke execute on function genesis_media_library.release_part(text, integer, text) from public, anon, authenticated;
-revoke execute on function genesis_media_library.update_upload(text, jsonb, text[]) from public, anon, authenticated;
-revoke execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz) from public, anon, authenticated;
-revoke execute on function genesis_media_library.remove_upload(text, text[]) from public, anon, authenticated;
+revoke execute on function genesis_media_library.update_upload(text, jsonb, text[], text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.remove_upload(text, text[], timestamptz) from public, anon, authenticated;
 revoke execute on function genesis_media_library.stale_uploads(timestamptz, integer, timestamptz) from public, anon, authenticated;
 grant execute on function genesis_media_library.reserve_part(text, integer, bigint, text) to service_role;
 grant execute on function genesis_media_library.complete_part(text, integer, text, text) to service_role;
 grant execute on function genesis_media_library.release_part(text, integer, text) to service_role;
-grant execute on function genesis_media_library.update_upload(text, jsonb, text[]) to service_role;
-grant execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz) to service_role;
-grant execute on function genesis_media_library.remove_upload(text, text[]) to service_role;
+grant execute on function genesis_media_library.update_upload(text, jsonb, text[], text) to service_role;
+grant execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz, text) to service_role;
+grant execute on function genesis_media_library.remove_upload(text, text[], timestamptz) to service_role;
 grant execute on function genesis_media_library.stale_uploads(timestamptz, integer, timestamptz) to service_role;
