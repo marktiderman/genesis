@@ -59,6 +59,8 @@ be replaced, when this check was skipped.
 Ideas and planned work are kept by the maintainers outside this repository. `features.ts` here
 holds work from `building` on, plus the planned features shipped ones depend on: don't add `idea`
 entries to it.
+New design decisions (ADRs) and new primitives also start outside this repository; a public ADR
+is written here when a contract ships. Don't open a PR here that only proposes a new design.
 
 <!-- genesis-features:start -->
 ## Features
