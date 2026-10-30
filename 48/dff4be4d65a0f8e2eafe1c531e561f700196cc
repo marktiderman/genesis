@@ -1,0 +1,51 @@
+packages/media-library/src/server/verify.ts
+  s_ba8cb54dbea75a::t_719a66aa4c6d07 7-12,16,30-33,36-40,45-46,48,51-58,63-64,66,75-86,91-104,107-111,113-115,119,122,127,138-161,167-168,172,176-177,182-186,191-201,203
+packages/media-library/src/server/store.ts
+  s_ba8cb54dbea75a::t_0a4757266a340b 5-7,10,12,18-19,32,42-49,56-94,98-102,108-110,112-116,119-130,139-155,159-160,168-169,171,173,175-176,178-188,193-196,199-207,209,211-220
+packages/media-library/src/targets/memory.ts
+  s_ba8cb54dbea75a::t_8aed06e467fa65 1-2,10,17,19-21,30-56,62-63,66,68,82-84,88,90,93,101,106-108,128,130-131,133-141,146,148,150,167,169-175,178,182
+packages/media-library/src/server/__tests__/review.test.ts
+  s_ba8cb54dbea75a::t_050e6352db75fc 1-228
+packages/media-library/src/protocol.ts
+  s_ba8cb54dbea75a::t_aafe9e22af5fa6 55-56
+packages/media-library/src/server/__tests__/handler.test.ts
+  s_ba8cb54dbea75a::t_50826b43fdaf6b 47-48,128-129,369,382,401,405-410
+packages/media-library/src/server/__tests__/helpers.ts
+  s_ba8cb54dbea75a::t_0fbdf9ef38d7ae 25
+packages/media-library/src/server/__tests__/security.test.ts
+  s_ba8cb54dbea75a::t_dc551d877ad975 1-49
+packages/media-library/src/server/__tests__/supabase-store.test.ts
+  s_ba8cb54dbea75a::t_e7c49490b846ef 4,44-45,81-82,84-86,88-90,94-103
+packages/media-library/src/server/handler.ts
+  s_ba8cb54dbea75a::t_06fdd2c286917e 11,18,27-28,207-214,294,296-299,318-319,322-332,346-360,362-394,396-401,403,412-415,429-431,442-443,446-447,449,451-455,457-460,464-469,471,480-482,510-516
+packages/media-library/src/server/index.ts
+  s_ba8cb54dbea75a::t_a032ef617b8aae 30-31,35,37-46
+packages/media-library/src/server/supabase-store.ts
+  s_ba8cb54dbea75a::t_14acb5a86bdf52 9-10,40-43,65-68,84-85,116-117,146-164,173-176,179-180,182-183
+packages/media-library/src/targets/__tests__/targets.test.ts
+  s_ba8cb54dbea75a::t_e8fe45af625f72 4,14-22,24,27-31,36,42,44-48,56,59-60,67-76,81,84-86,88-92,97,112,115-125,129,134-137,140-141,143-177,193,197-198,213,231-232,241,245-247,249,256,259
+packages/media-library/src/targets/index.ts
+  s_ba8cb54dbea75a::t_75ebd4bfb5affb 12
+packages/media-library/src/targets/r2.ts
+  s_ba8cb54dbea75a::t_9f96b4c7d5d42f 15-16,26-27,29,31,38-42,46-47
+packages/media-library/src/targets/s3.ts
+  s_ba8cb54dbea75a::t_00d28f9dde3423 7-12,14,16,30-31,128-132,138-139,145,162-165,173-174,179,189-194,209-225,230-231,238-239,241,247
+packages/media-library/src/targets/target.ts
+  s_ba8cb54dbea75a::t_2da7ac8dcfd7d9 1-3,15-21,35-36,39-47,49-56,58-59,61-63,65,69-73,79-82,92-93,111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "48dff4be4d65a0f8e2eafe1c531e561f700196cc",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
