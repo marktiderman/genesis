@@ -7,10 +7,7 @@ read-back check on each; and upload sessions in the app's own Supabase, with row
 on the owner. Fetch and WebCrypto: Node 20+ and Workers.
 
 The design, the protocol messages and the failure cases are in
-[docs/media-library-uploads.md](../../docs/media-library-uploads.md). This release is the server
-half (the protocol, the handler, the session store and the targets). The browser, native and
-server clients, and the deprecated re-exports for forms' upload protocol and chat's TUS uploads,
-come next.
+[docs/media-library-uploads.md](../../docs/media-library-uploads.md).
 
 ```bash
 pnpm add @marktiderman/genesis-media-library
@@ -21,6 +18,9 @@ pnpm add @marktiderman/genesis-media-library
 | `.` | anywhere | the protocol's shapes, the part plan, `content-digest`, incremental SHA-256 |
 | `/server` | Node 20+, Workers | `createUploadHandler`, the verify and sweep jobs, the session stores |
 | `/targets` | Node 20+, Workers | `createMemoryTarget`, `createR2Target`, `createS3Target` |
+| `/client` | browser, React Native (Hermes), Node | `createUploader`, the sources, resume stores, the Web Worker hasher, `createSupabaseTusTransport` |
+| `/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
+| `/compat` | anywhere | the signed single-upload JSON genesis-forms has used, deprecated |
 
 ## The route
 
@@ -86,6 +86,64 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
 - **Never delete the source.** Nothing here deletes or moves the original a client reads from.
   Copies follow the app's retention policy.
 
+## The client
+
+```ts
+import { createIndexedDbResumeStore, createUploader, fromBlob } from "@marktiderman/genesis-media-library/client";
+
+const uploader = createUploader({
+  endpoint: "/uploads",
+  resumeStore: createIndexedDbResumeStore(), // a reload resumes the upload
+  filesAtOnce: 2,
+  partsAtOnce: 4,
+  bytesPerSecond: () => (workingHours() ? 2_000_000 : 0), // a speed cap that follows a schedule
+});
+
+const upload = uploader.upload(fromBlob(file), {
+  name: file.name, contentType: file.type, purpose: "media",
+  priority: "now", // "now" | "normal" | "background"
+  onProgress: ({ phase, bytesDone, size }) => show(phase, bytesDone / size), // hashing, sending, verifying
+});
+upload.pause(); upload.resume(); // or uploader.pauseAll()
+const result = await upload.done; // { state: "done" | "partial" | "skipped", copies, … }
+```
+
+- **One core everywhere.** What differs is the source: `fromBlob` (a browser `File`, read with
+  `slice()`), `fromFileHandle` (expo-file-system's `File.open()` on a phone, a wrapped `node:fs`
+  handle on a server), `fromBytes`.
+- **Hashing.** `hashFirst` (default true) hashes the whole file before create, so it can be
+  skipped. Browsers do that in a **Web Worker** by default (`createWorkerFileHasher`); elsewhere
+  it runs with `@noble/hashes` (plain JS, fine on Hermes). Pass `hash` for another incremental
+  SHA-256 (hash-wasm in a browser app). `hashFirst: false` reads the file once, hashing as it
+  sends, and declares the SHA-256 at finalize: no skip, half the reading (a phone with a big file).
+- **Resume.** The server's part list is the truth: after any failure, a reload or a relaunch,
+  the client asks Resume and sends only what's missing. A file's upload id is remembered by its
+  `key` (name, size, last modified) in the `resumeStore`.
+- **Parts in parallel**, each with its `content-digest`; one that arrived changed goes again. A
+  409 `part_conflict` or a lapsed session: the client aborts and creates again, once.
+- **The read-back.** A 202 `verifying` is polled (`pollMs`) until `done`, `partial` or
+  `identity_mismatch`. `uploader.finalize(id)` retries a `partial` upload's failed targets.
+- **Client configuration, never protocol:** `priority`, `pause`/`resume`, `filesAtOnce`,
+  `partsAtOnce`, `bytesPerSecond`, `retries`.
+- Failures the client won't retry reject with an `UploadClientError` carrying the server's `code`.
+
+### Supabase Storage's TUS endpoint
+
+`createSupabaseTusTransport({ supabaseUrl, bucket, headers })` sends straight to Supabase
+Storage's resumable endpoint with the person's own token, so storage's RLS judges each file. It
+is its own transport, not the part protocol: chunks go in order, a fixed 6 MiB, and resume holds
+only within Supabase's 24-hour upload URL. genesis-chat's `createTusUpload` is built on it.
+
+### forms and chat
+
+- genesis-forms' upload JSON (`UploadRequest`, `SignedUpload`, `UploadGrant`, `UploadRefusal`,
+  `MAX_UPLOAD_REQUEST_BYTES`) now comes from `/compat` (the types; the constant stays a value in forms) and is re-exported there under its old
+  names, deprecated. forms' `createUploadHandler` and forms-web's `signedUploadHost` are
+  deprecated in favour of this package's handler and client; they work as before until the next
+  major.
+- genesis-chat's `createTusUpload` keeps its API and guarantees and is deprecated; its TUS
+  protocol is `createSupabaseTusTransport`.
+
 ## Jobs
 
 - `UPLOAD_VERIFY_JOB` (`media-library.verify`, payload `{ uploadId }`): run it with
@@ -129,16 +187,13 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 
 | Level | Uploads |
 | --- | --- |
-| **Configure** | purposes, size and type limits (`authorize`), targets per purpose, part size (`maxPartBytes`), `verifyInlineBytes`, `sessionTtlSeconds`, lock mode and retention per target |
+| **Configure** | purposes, size and type limits (`authorize`), targets per purpose, part size (`maxPartBytes`), `verifyInlineBytes`, `sessionTtlSeconds`, lock mode and retention per target; on the client, priority, pause, files and parts at once, the speed cap, `hashFirst` |
 | **Brand** | none: the protocol has no UI |
-| **Compose** | none yet: upload UI parts come with the clients |
-| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object) |
+| **Compose** | none yet: upload UI parts (a drop zone, a progress row) come later in genesis-ui |
+| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object), the client's source, hash and resume store, the Supabase TUS transport |
 | **Own** (stays in the app) | who may upload what (`owner`, `authorize`, `readable`), where it goes (`keyFor`), scheduling, the desktop or capture app |
 
 ## Not in this release
 
-- The clients (`createUploader` for browser, native and server), with incremental hashing
-  (`@noble/hashes` by default, a Web Worker in browsers), resume, parallel parts, and priority,
-  pause and speed caps as client configuration.
 - Direct mode (presigned S3 part URLs, so the bytes skip the handler).
-- forms' upload protocol and chat's TUS uploads as deprecated re-exports over this package.
+- Background transfers on iOS and Android, and upload UI parts in genesis-ui.

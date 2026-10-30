@@ -5,60 +5,34 @@
  * then sends the bytes straight to storage with it; the answer keeps only the
  * reference the server handed back.
  *
- * Moved up from the host app's feedback photo uploads; the field names and
- * status codes are the ones it used, so its browsers and server keep talking.
+ * These shapes now live in genesis-media-library (`/compat`), the one home for
+ * uploads (ADR 0012); they are re-exported here under their old names so
+ * nothing breaks (types only: the engine doesn't load media-library at run time). New upload
+ * code uses media-library's resumable protocol.
  */
+import type { SignedUploadGrant } from "@marktiderman/genesis-media-library/compat";
 import type { PhotoRef } from "./photo";
 
-/**
- * What the browser POSTs (`content-type: application/json`, at most
- * `MAX_UPLOAD_REQUEST_BYTES`). Exactly one of `attemptId` (a new response: the
- * visit's attempt id, a UUID) and `edit` (an edit link's token, while changing
- * a sent response).
- */
-export interface UploadRequest {
-  /** The upload field's id. */
-  fieldId: string;
-  /** The file's name on the respondent's device. */
-  name: string;
-  /** Its MIME type. */
-  type: string;
-  /** Bytes. */
-  size: number;
-  attemptId?: string | undefined;
-  edit?: string | undefined;
-}
+export type {
+  /** @deprecated Use `SignedUpload` from `@marktiderman/genesis-media-library/compat`. */
+  SignedUpload,
+  /** @deprecated Use `SignedUploadRefusal` from `@marktiderman/genesis-media-library/compat`. */
+  SignedUploadRefusal as UploadRefusal,
+  /** @deprecated Use `SignedUploadRequest` from `@marktiderman/genesis-media-library/compat`. */
+  SignedUploadRequest as UploadRequest,
+} from "@marktiderman/genesis-media-library/compat";
 
 /**
- * Where the browser sends the bytes, as the app's storage signed it. Supabase
- * Storage hands back `path` and `token` (with `bucket`, for
- * `uploadToSignedUrl`); a store that signs a plain URL sets `url`, which
- * `signedUploadHost` PUTs the file to when no `send` is given.
+ * 200: the reference the answer keeps, and where to send the bytes.
+ *
+ * @deprecated Use `SignedUploadGrant<PhotoRef>` from `@marktiderman/genesis-media-library/compat`.
  */
-export interface SignedUpload {
-  path: string;
-  token: string;
-  bucket?: string | undefined;
-  url?: string | undefined;
-}
-
-/** 200: the reference the answer keeps, and where to send the bytes. */
-export interface UploadGrant {
-  ref: PhotoRef;
-  upload: SignedUpload;
-}
+export type UploadGrant = SignedUploadGrant<PhotoRef>;
 
 /**
- * Any other status: words to show the respondent, and for some a `code`:
- * `closed` (409, an edit while the form takes no changes), `bad_link` (403, an
- * edit link that doesn't check out) or `too_many_photos` (429, the attempt or
- * edit has as many uploads as the store allows; the name the host app's
- * browsers already know, kept for every upload field type).
+ * The longest upload request body: a few fields of JSON. Kept here as a value (the shapes above
+ * are types only), so the forms engine still loads with nothing else installed.
+ *
+ * @deprecated Use `MAX_SIGNED_UPLOAD_REQUEST_BYTES` from `@marktiderman/genesis-media-library/compat`.
  */
-export interface UploadRefusal {
-  error: string;
-  code?: string | undefined;
-}
-
-/** The longest upload request body: a few fields of JSON. */
 export const MAX_UPLOAD_REQUEST_BYTES = 4_000;

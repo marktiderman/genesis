@@ -43,9 +43,11 @@ export const createSha256: CreateSha256 = () => {
   return { update: (b) => void h.update(b), digest: () => new Uint8Array(h.digest()) };
 };
 
-/** A digest of bytes already in memory (one part): WebCrypto, everywhere. */
+/** A digest of bytes already in memory (one part): WebCrypto where there is one, else `@noble/hashes` (Hermes has no `crypto.subtle`). */
 export async function sha256Bytes(bytes: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+  const subtle = (globalThis as { crypto?: { subtle?: typeof crypto.subtle } }).crypto?.subtle;
+  if (subtle) return new Uint8Array(await subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>));
+  return nobleSha256(bytes);
 }
 
 type DigestStreamCtor = new (algorithm: string) => WritableStream<Uint8Array> & { digest: Promise<ArrayBuffer> };
@@ -57,7 +59,7 @@ type DigestStreamCtor = new (algorithm: string) => WritableStream<Uint8Array> & 
  */
 export async function sha256Stream(stream: ReadableStream<Uint8Array>, hash: CreateSha256 = createSha256): Promise<{ sha256: string; size: number }> {
   let size = 0;
-  const DigestStream = (crypto as unknown as { DigestStream?: DigestStreamCtor }).DigestStream;
+  const DigestStream = (globalThis as { crypto?: { DigestStream?: DigestStreamCtor } }).crypto?.DigestStream;
   if (DigestStream) {
     const sink = new DigestStream("SHA-256");
     const counted = stream.pipeThrough(

@@ -48,6 +48,21 @@
       "types": "./dist/targets.d.ts",
       "import": "./dist/targets.js",
       "default": "./dist/targets.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "default": "./dist/client.js"
+    },
+    "./client/hash-worker": {
+      "types": "./dist/hash-worker.d.ts",
+      "import": "./dist/hash-worker.js",
+      "default": "./dist/hash-worker.js"
+    },
+    "./compat": {
+      "types": "./dist/compat.d.ts",
+      "import": "./dist/compat.js",
+      "default": "./dist/compat.js"
     }
   },
   "files": [
@@ -76,12 +91,18 @@
     "owner": "mark",
     "doctor": {
       "enforce": false,
-      "reason": "New: the upload clients and forms' and chat's re-exports land next; a hand-rolled upload loop isn't reliably detectable yet.",
+      "reason": "New: forms' and chat's uploads move onto it through deprecated re-exports; a hand-rolled upload loop isn't reliably detectable yet.",
       "primitives": [
         {
           "need": "a file upload: resumable, checksummed, to one or more storage targets",
           "use": "createUploadHandler on the server, with a storage target per store; never a hand-rolled PUT or TUS loop",
           "import": "@marktiderman/genesis-media-library/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media-library/README.md"
+        },
+        {
+          "need": "sending a file from a browser, a phone or a server: resumable, hashed, in parallel parts",
+          "use": "createUploader with fromBlob, fromFileHandle or fromBytes",
+          "import": "@marktiderman/genesis-media-library/client",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media-library/README.md"
         }
       ]

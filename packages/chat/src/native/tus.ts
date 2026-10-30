@@ -15,13 +15,22 @@
  *
  * The path is `<conversation>/<uploader>/<uuid>.<ext>`, as `send_message`
  * expects; the upload finishes before the send (the outbox orders that).
+ *
+ * The TUS protocol itself now lives in genesis-media-library
+ * (`createSupabaseTusTransport`); this keeps chat's paths, file checks and
+ * errors on top of it, with exactly the guarantees it had.
  */
+import { createSupabaseTusTransport, TUS_CHUNK_BYTES as MEDIA_TUS_CHUNK_BYTES, base64Utf8 as mediaBase64Utf8, type TusRecord } from "@marktiderman/genesis-media-library/client";
 import { CHAT_BUCKET, ChatError } from "../core/client";
 import { fileExtension, isAllowedExtension, randomId } from "../core/media";
 import type { LocalFile } from "../core/outbox";
 
-/** Supabase requires 6 MB chunks for TUS (every chunk but the last). */
-export const TUS_CHUNK_BYTES = 6 * 1024 * 1024;
+/**
+ * Supabase requires 6 MB chunks for TUS (every chunk but the last).
+ *
+ * @deprecated Use `TUS_CHUNK_BYTES` from `@marktiderman/genesis-media-library/client`.
+ */
+export const TUS_CHUNK_BYTES = MEDIA_TUS_CHUNK_BYTES;
 
 export interface TusUploadOptions {
   /** The project URL (`https://<ref>.supabase.co`, or the local stack's). */
@@ -69,48 +78,49 @@ const exact = (bytes: ArrayBuffer | Uint8Array): ArrayBuffer =>
 
 const inMemory = (buffer: ArrayBuffer): Source => ({ size: buffer.byteLength, read: async (from, to) => buffer.slice(from, to), close: () => undefined });
 
-interface UploadRecord {
-  path: string;
-  location?: string;
-  done?: boolean;
-}
+type UploadRecord = TusRecord;
 
-/** Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). */
-export function base64Utf8(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const n = (bytes[i]! << 16) | ((bytes[i + 1] ?? 0) << 8) | (bytes[i + 2] ?? 0);
-    out += A[(n >> 18) & 63]! + A[(n >> 12) & 63]! + (i + 1 < bytes.length ? A[(n >> 6) & 63]! : "=") + (i + 2 < bytes.length ? A[n & 63]! : "=");
-  }
-  return out;
-}
+/**
+ * Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build).
+ *
+ * @deprecated Use `base64Utf8` from `@marktiderman/genesis-media-library/client`.
+ */
+export const base64Utf8 = mediaBase64Utf8;
 
-const transientStatus = (status: number) => status === 0 || status === 408 || status === 429 || status >= 500;
-
+/**
+ * @deprecated For new uploads, use genesis-media-library: `createUploader` (the resumable
+ * protocol, through the app's upload route) or `createSupabaseTusTransport` (straight to
+ * Supabase Storage). This stays, unchanged in behaviour, until the next major.
+ */
 export function createTusUpload(options: TusUploadOptions): (conversationId: string, file: LocalFile) => Promise<string> {
   const doFetch = options.fetch ?? fetch;
-  const chunk = options.chunkBytes ?? TUS_CHUNK_BYTES;
-  const retries = options.retries ?? 3;
   const bucket = options.bucket ?? CHAT_BUCKET;
-  const endpoint = `${options.supabaseUrl.replace(/\/+$/, "")}/storage/v1/upload/resumable`;
   const newId = options.newId ?? randomId;
   const readFile = options.readFile ?? (async (uri: string) => (await doFetch(uri)).arrayBuffer());
   // By file object: a retry of the same message in this session resumes it. Two messages never
   // share an object, so deleting one never breaks the other.
   const byFile = new WeakMap<LocalFile, UploadRecord>();
 
-  async function headers(extra: Record<string, string> = {}) {
+  async function headers(): Promise<Record<string, string>> {
     const token = await options.getAccessToken();
     if (!token) throw new ChatError("Sign in to send files", "42501", "upload");
     return {
       authorization: `Bearer ${token}`,
       ...(options.apikey ? { apikey: options.apikey } : {}),
-      "tus-resumable": "1.0.0",
-      ...extra,
     };
   }
+
+  const transport = createSupabaseTusTransport({
+    supabaseUrl: options.supabaseUrl,
+    bucket,
+    headers,
+    fetch: doFetch,
+    ...(options.chunkBytes ? { chunkBytes: options.chunkBytes } : {}),
+    retries: options.retries ?? 3,
+    // A network-ish failure is transient (no code); the rest are refusals, as chat has always told them.
+    error: (message, failure, op) => new ChatError(message, failure === "transient" ? undefined : failure === "forbidden" ? "42501" : "22023", op),
+    isPermanent: (e) => e instanceof ChatError && !e.transient,
+  });
 
   async function sourceOf(file: LocalFile): Promise<Source> {
     const data = file.data;
@@ -148,40 +158,6 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
     return { size: data.size, read: (from, to) => data.slice(from, to).arrayBuffer(), close: () => undefined };
   }
 
-  /**
-   * Whether the object is really in the bucket (a 409 on create says so, and may be wrong).
-   * Storage answers a missing object with 400 (or 404); a refusal is a refusal, anything else is
-   * asked again.
-   */
-  async function objectExists(path: string): Promise<boolean> {
-    const base = options.supabaseUrl.replace(/\/+$/, "");
-    const encoded = path.split("/").map(encodeURIComponent).join("/");
-    const res = await doFetch(`${base}/storage/v1/object/authenticated/${bucket}/${encoded}`, { method: "HEAD", headers: await headers() });
-    if (res.ok) return true;
-    if (res.status === 400 || res.status === 404) return false;
-    return refuse(res, "upload");
-  }
-
-  async function withRetry<T>(op: string, run: () => Promise<T>): Promise<T> {
-    let last: unknown;
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        return await run();
-      } catch (e) {
-        last = e;
-        if (e instanceof ChatError && !e.transient) throw e;
-        await new Promise((r) => setTimeout(r, Math.min(4000, 250 * 2 ** attempt)));
-      }
-    }
-    throw last instanceof ChatError ? last : new ChatError(last instanceof Error ? last.message : String(last), undefined, op);
-  }
-
-  const refuse = async (res: Response, op: string): Promise<never> => {
-    const text = await res.text().catch(() => "");
-    // A network-ish status is transient (no code); the rest are refusals.
-    throw new ChatError(text || `Upload failed (${res.status})`, transientStatus(res.status) ? undefined : res.status === 403 || res.status === 401 ? "42501" : "22023", op);
-  };
-
   async function upload(conversationId: string, file: LocalFile): Promise<string> {
     const ext = fileExtension(file.name, file.contentType);
     if (!isAllowedExtension(ext)) throw new ChatError(`Files of type .${ext} can't be sent`, "22023", "upload");
@@ -202,80 +178,9 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
   };
 
   async function send(file: LocalFile, rec: UploadRecord, source: Source): Promise<string> {
-    const length = source.size;
-
-    // Create the upload (once), or find how far an earlier attempt got.
-    let offset = 0;
-    if (rec.location) {
-      offset = await withRetry("upload", async () => {
-        const res = await doFetch(rec.location!, { method: "HEAD", headers: await headers() });
-        if (res.status === 404 || res.status === 410) {
-          rec.location = undefined;
-          return 0;
-        }
-        if (!res.ok) return refuse(res, "upload");
-        return Number(res.headers.get("upload-offset") ?? 0);
-      });
-    }
     // A 409 at a path whose object isn't there (another upload of it never finished): one new path.
-    let fresh = false;
-    while (!rec.location) {
-      const metadata = [
-        `bucketName ${base64Utf8(bucket)}`,
-        `objectName ${base64Utf8(rec.path)}`,
-        `contentType ${base64Utf8(file.contentType)}`,
-        `cacheControl ${base64Utf8("3600")}`,
-      ].join(",");
-      const created = await withRetry("upload", async () => {
-        const res = await doFetch(endpoint, {
-          method: "POST",
-          headers: await headers({ "upload-length": String(length), "upload-metadata": metadata, "x-upsert": "false" }),
-        });
-        // Already there, says the server: an earlier attempt finished but its answer was lost, or
-        // another upload of this path is under way. Only the object itself settles which.
-        if (res.status === 409) return (await objectExists(rec.path)) ? "done" : "conflict";
-        if (res.status !== 201) return refuse(res, "upload");
-        const location = res.headers.get("location");
-        if (!location) throw new ChatError("The upload server gave no location", "22023", "upload");
-        return new URL(location, endpoint).toString();
-      });
-      if (created === "done") {
-        rec.done = true;
-        return rec.path;
-      }
-      if (created === "conflict") {
-        if (fresh) throw new ChatError("The upload is out of step", undefined, "upload");
-        fresh = true;
-        rec.path = `${rec.path.slice(0, rec.path.lastIndexOf("/") + 1)}${newId()}.${rec.path.slice(rec.path.lastIndexOf(".") + 1)}`;
-        continue;
-      }
-      rec.location = created;
-      offset = 0;
-    }
-
-    while (offset < length) {
-      const from = offset;
-      const body = await source.read(from, Math.min(length, from + chunk));
-      offset = await withRetry("upload", async () => {
-        const res = await doFetch(rec.location!, {
-          method: "PATCH",
-          headers: await headers({ "upload-offset": String(from), "content-type": "application/offset+octet-stream" }),
-          body,
-        });
-        if (res.status === 409) {
-          // Out of step (an earlier chunk did land): ask where the server is.
-          const head = await doFetch(rec.location!, { method: "HEAD", headers: await headers() });
-          const at = Number(head.headers.get("upload-offset"));
-          // No answer: a transient failure, so the backoff applies before the next try.
-          if (!head.ok || !Number.isFinite(at) || at === from) throw new ChatError("The upload is out of step", undefined, "upload");
-          return at;
-        }
-        if (res.status !== 204 && !res.ok) return refuse(res, "upload");
-        return Number(res.headers.get("upload-offset") ?? from + body.byteLength);
-      });
-    }
-    rec.done = true;
-    return rec.path;
+    const renamePath = () => `${rec.path.slice(0, rec.path.lastIndexOf("/") + 1)}${newId()}.${rec.path.slice(rec.path.lastIndexOf(".") + 1)}`;
+    return transport.send(rec, source, { contentType: file.contentType, cacheControl: "3600" }, renamePath);
   }
 
   return upload;

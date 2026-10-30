@@ -145,5 +145,8 @@
         }
       ]
     }
+  },
+  "dependencies": {
+    "@marktiderman/genesis-media-library": "workspace:^"
   }
 }

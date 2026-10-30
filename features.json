@@ -5272,11 +5272,13 @@
       ],
       "platforms": {
         "server": "building",
-        "web": "planned",
-        "native": "planned"
+        "web": "building",
+        "native": "building"
       },
       "entry": {
-        "server": "@marktiderman/genesis-media-library/server"
+        "server": "@marktiderman/genesis-media-library/server",
+        "web": "@marktiderman/genesis-media-library/client",
+        "native": "@marktiderman/genesis-media-library/client"
       },
       "owner": "mark",
       "apps": [
