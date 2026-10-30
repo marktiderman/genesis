@@ -9,7 +9,7 @@
  *
  * @packageDocumentation
  */
-export { copyBetweenTargets, type ObjectLock, type PartReceipt, type UploadTarget } from "./target";
+export { copyBetweenTargets, type AssembledObject, type ObjectLock, type PartReceipt, type UploadTarget } from "./target";
 export { createMemoryTarget, type MemoryTarget, type MemoryTargetOptions } from "./memory";
 export { createR2Target, type R2BucketLike } from "./r2";
 export { S3Error, createS3Target, signS3Request, type S3RequestToSign, type S3TargetOptions } from "./s3";

@@ -95,7 +95,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "data",
-    "owner": "mark",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "New: forms' and chat's uploads move onto it through deprecated re-exports; a hand-rolled upload loop isn't reliably detectable yet.",

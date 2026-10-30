@@ -4,11 +4,16 @@
  * SHA-256 (`x-amz-content-sha256`), so the store itself refuses a part that
  * arrived changed. With `objectLock`, each object gets a retention
  * (`PutObjectRetention`) after it verifies, never before; the bucket must
- * have Object Lock enabled, and no default retention (that would lock an
- * object before it is checked).
+ * have Object Lock enabled and no default retention (that would lock an
+ * object before it is checked), and the target refuses one that has either
+ * wrong. An Object Lock bucket is versioned, so every object this target
+ * assembles is addressed by its version id from then on: the read-back, the
+ * lock and a delete name that version (a plain delete would only add a
+ * delete marker, and could reach another upload's version).
  */
+import { md5 } from "@noble/hashes/legacy.js";
 import { toBase64, toHex } from "../protocol";
-import type { ObjectLock, PartReceipt, UploadTarget } from "./target";
+import type { AssembledObject, ObjectLock, PartReceipt, UploadTarget } from "./target";
 
 /** @stability Experimental */
 export interface S3TargetOptions {
@@ -22,6 +27,8 @@ export interface S3TargetOptions {
   objectLock?: { mode: ObjectLock["mode"]; days: number } | undefined;
   /** A storage class (`DEEP_ARCHIVE`), where the store has them. */
   storageClass?: string | undefined;
+  /** The tier its copies are recorded with. Default `archive` with `objectLock`, else `working`. */
+  tier?: UploadTarget["tier"];
   fetch?: typeof fetch;
   /** The time, in ms. Default the clock. */
   now?: () => number;
@@ -118,19 +125,24 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
   };
   let lockChecked: Promise<void> | undefined;
 
-  async function send(method: string, url: URL, init: { headers?: Record<string, string>; body?: Uint8Array | string } = {}): Promise<Response> {
+  async function send(
+    method: string,
+    url: URL,
+    init: { headers?: Record<string, string>; body?: Uint8Array | string | ReadableStream<Uint8Array>; payloadSha256?: string } = {},
+  ): Promise<Response> {
     const body = typeof init.body === "string" ? utf8.encode(init.body) : init.body;
     const headers = await signS3Request({
       method,
       url,
       headers: init.headers ?? {},
-      payloadSha256: body ? await sha256Hex(body) : undefined,
+      // A streamed body is signed with the SHA-256 it must have; S3 refuses it if it arrives otherwise.
+      payloadSha256: init.payloadSha256 ?? (body instanceof Uint8Array ? await sha256Hex(body) : undefined),
       accessKeyId: options.accessKeyId,
       secretAccessKey: options.secretAccessKey,
       region: options.region,
       date: new Date(now()),
     });
-    const res = await doFetch(url, { method, headers, body: body as Uint8Array<ArrayBuffer> | undefined });
+    const res = await doFetch(url, { method, headers, body: body as Uint8Array<ArrayBuffer> | undefined, ...(body instanceof ReadableStream ? { duplex: "half" } : {}) } as RequestInit);
     if (res.ok) return res;
     if (res.status === 404 && (method === "GET" || method === "HEAD")) return res;
     const text = method === "HEAD" ? "" : await res.text();
@@ -147,6 +159,10 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
       if (tag(xml, "ObjectLockEnabled") !== "Enabled") {
         throw new S3Error(`S3 bucket ${options.bucket} doesn't have Object Lock enabled, so this target's objectLock can't be honoured.`, 409, "ObjectLockNotEnabled");
       }
+      // A default retention would lock every assembly the moment it is made, verified or not.
+      if (xml.includes("<DefaultRetention>")) {
+        throw new S3Error(`S3 bucket ${options.bucket} has a default retention, which would lock objects before they are verified; remove it and let this target lock each one after its check.`, 409, "DefaultRetentionSet");
+      }
     })().catch((e) => {
       lockChecked = undefined;
       throw e;
@@ -154,10 +170,13 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
     return lockChecked;
   }
 
+  const versioned = (key: string, versionId: string | undefined, query: Record<string, string> = {}) => urlFor(key, versionId ? { ...query, versionId } : query);
+
   return {
     // S3's limits: 5 MiB to 5 GiB a part.
     minPart: 5 * 1024 * 1024,
     maxPart: 5 * 1024 * 1024 * 1024,
+    tier: options.tier ?? (options.objectLock ? "archive" : "working"),
     async start(key, meta) {
       if (options.objectLock) await checkLock();
       const headers: Record<string, string> = { "content-type": meta.contentType };
@@ -167,8 +186,15 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
       if (!id) throw new S3Error(`S3 start ${key}: no UploadId in the answer`, 502);
       return id;
     },
-    async part(key, uploadId, n, body) {
-      const res = await send("PUT", urlFor(key, { partNumber: String(n), uploadId }), { body });
+    async part(key, uploadId, n, body, info) {
+      // A Worker sends a stream with its length only through a FixedLengthStream (else it goes chunked).
+      const FLS = (globalThis as { FixedLengthStream?: new (length: number) => TransformStream<Uint8Array, Uint8Array> }).FixedLengthStream;
+      const sized = body instanceof ReadableStream && FLS ? body.pipeThrough(new FLS(info.size)) : body;
+      const res = await send("PUT", urlFor(key, { partNumber: String(n), uploadId }), {
+        headers: { "content-length": String(info.size) },
+        body: sized,
+        payloadSha256: info.sha256,
+      });
       const etag = res.headers.get("etag");
       if (!etag) throw new S3Error(`S3 part ${n} of ${key}: no ETag`, 502);
       return { n, etag } satisfies PartReceipt;
@@ -183,28 +209,45 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
       // S3 can answer 200 and put the error in the body.
       const text = await res.text();
       if (text.includes("<Error>")) throw new S3Error(`S3 finish ${key}: ${tag(text, "Message") ?? "error"}`, 500, tag(text, "Code"));
+      return { etag: tag(text, "ETag")?.replace(/&quot;/g, '"'), versionId: res.headers.get("x-amz-version-id") ?? undefined } satisfies AssembledObject;
+    },
+    async assembled(key, _uploadId, parts) {
+      // A multipart object's ETag is the MD5 of its parts' MD5s, then "-<count>": so the object at
+      // this key is these parts' assembly only if its ETag is exactly that.
+      const res = await send("HEAD", urlFor(key));
+      if (res.status === 404) return undefined;
+      const digests = parts
+        .slice()
+        .sort((a, b) => a.n - b.n)
+        .map((p) => p.etag.replace(/"/g, ""));
+      if (!digests.every((d) => /^[0-9a-f]{32}$/.test(d))) return undefined;
+      const joined = new Uint8Array(digests.length * 16);
+      digests.forEach((d, i) => joined.set(Uint8Array.from(d.match(/../g)!.map((h) => parseInt(h, 16))), i * 16));
+      const want = `"${toHex(md5(joined))}-${digests.length}"`;
+      const etag = res.headers.get("etag");
+      return etag === want ? { etag, versionId: res.headers.get("x-amz-version-id") ?? undefined } : undefined;
     },
     async abort(key, uploadId) {
       await send("DELETE", urlFor(key, { uploadId }));
     },
-    async read(key) {
-      const res = await send("GET", urlFor(key));
+    async read(key, versionId) {
+      const res = await send("GET", versioned(key, versionId));
       return res.status === 404 ? null : res.body;
     },
     async head(key) {
       const res = await send("HEAD", urlFor(key));
       return res.status === 404 ? null : { size: Number(res.headers.get("content-length")) };
     },
-    async delete(key) {
-      await send("DELETE", urlFor(key));
+    async delete(key, versionId) {
+      await send("DELETE", versioned(key, versionId));
     },
-    async lock(key) {
+    async lock(key, versionId) {
       if (!options.objectLock) return undefined;
       const lock: ObjectLock = { mode: options.objectLock.mode, retainUntil: new Date(now() + options.objectLock.days * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z") };
       const xml = `<Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Mode>${lock.mode}</Mode><RetainUntilDate>${lock.retainUntil}</RetainUntilDate></Retention>`;
       const checksum = toBase64(new Uint8Array(await crypto.subtle.digest("SHA-256", utf8.encode(xml))));
       // PutObjectRetention needs an integrity checksum; SHA-256 stands in for Content-MD5 (WebCrypto has no MD5).
-      await send("PUT", urlFor(key, { retention: "" }), {
+      await send("PUT", versioned(key, versionId, { retention: "" }), {
         headers: { "content-type": "application/xml", "x-amz-sdk-checksum-algorithm": "SHA256", "x-amz-checksum-sha256": checksum },
         body: xml,
       });

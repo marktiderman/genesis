@@ -22,7 +22,7 @@ export function setup(over: Partial<UploadHandlerOptions> & { lock?: boolean; re
   let clock = Date.parse("2026-11-01T00:00:00Z");
   const now = () => clock;
   const working = createMemoryTarget({ minPart: 4, now });
-  const archive = createMemoryTarget({ minPart: 4, now, ...(over.lock === false ? {} : { lock: { mode: "COMPLIANCE", days: 3650 } }) });
+  const archive = createMemoryTarget({ minPart: 4, now, tier: "archive", ...(over.lock === false ? {} : { lock: { mode: "COMPLIANCE", days: 3650 } }) });
   const targets: Record<string, MemoryTarget> = { working, archive };
   const store = createMemorySessionStore();
   const queued: string[] = [];

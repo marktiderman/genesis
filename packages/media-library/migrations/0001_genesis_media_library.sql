@@ -5,9 +5,16 @@
 -- genesis_media_library schema:
 --
 --   uploads       one session per upload: its owner, purpose, identity (size, and the
---                 whole object's SHA-256 once known), part size, storage key, targets,
---                 the first target's multipart id, its state, and what verification found
---   upload_parts  the parts received: number, size, digest (RFC 9530) and the target's etag
+--                 whole object's SHA-256 once known), part size, storage key (unique: no two
+--                 uploads ever share one), targets, the first target's multipart id, its
+--                 state, what verification found, the objects (and versions) it made, copies
+--                 under way, and the verification lease
+--   upload_parts  the parts, reserved before they are written (etag null) and then received
+--                 (with the target's etag): number, size, digest (RFC 9530)
+--
+-- An owner has at most one open session per identity, purpose and target set (a unique index),
+-- so two tabs sending one file share it. Every change is a compare-and-set in one of the
+-- functions below, so racing requests can't both win.
 --
 -- Every row belongs to an owner (owner_kind, owner_id). Only the service role writes: the
 -- upload handler runs with it and binds every operation to its owner itself. A signed-in
@@ -15,7 +22,7 @@
 -- never write them: a session records what verification found (state, copies), which a
 -- person must not be able to claim. anon gets nothing.
 --
--- add_part and update_upload are for the service role only.
+-- Every function is for the service role only.
 --
 -- Expose `genesis_media_library` in the project's API schemas only if the handler uses the
 -- Data API (it does through createSupabaseSessionStore). Grants are by name, never in bulk.
@@ -23,6 +30,14 @@
 create schema if not exists genesis_media_library;
 revoke all on schema genesis_media_library from public, anon;
 grant usage on schema genesis_media_library to authenticated, service_role;
+
+-- The target set in a fixed order, so the same set always compares equal.
+create function genesis_media_library.targets_key(p_targets text[])
+returns text
+language sql
+immutable
+set search_path = ''
+as $$ select string_agg(t, E'\n' order by t) from unnest(p_targets) t $$;
 
 create table genesis_media_library.uploads (
   id text primary key check (id ~ '^[A-Za-z0-9_-]{22}$'),
@@ -34,29 +49,39 @@ create table genesis_media_library.uploads (
   size bigint not null check (size >= 0),
   sha256 text check (sha256 ~ '^[0-9a-f]{64}$'),
   part_size bigint not null check (part_size > 0),
-  key text not null,
+  key text not null unique check (char_length(key) between 1 and 1024),
   targets text[] not null check (cardinality(targets) between 1 and 8),
   target_upload_id text not null,
   state text not null default 'open' check (state in ('open', 'verifying', 'done', 'partial', 'identity_mismatch')),
   copies jsonb not null default '[]'::jsonb,
   failed jsonb not null default '[]'::jsonb,
+  assembled jsonb not null default '{}'::jsonb,
+  pending_copies jsonb not null default '{}'::jsonb,
+  verifying_since timestamptz,
+  lease_until timestamptz,
+  lease_holder text,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null
 );
 
 comment on table genesis_media_library.uploads is 'Upload sessions of @marktiderman/genesis-media-library: one per upload, bound to its owner.';
 
--- findOpen: an owner's open session for one identity, purpose and target set.
-create index uploads_open_identity on genesis_media_library.uploads (owner_kind, owner_id, purpose, size, sha256) where state = 'open';
--- The sweep: open sessions past their expiry.
+-- One open session per owner, identity, purpose and target set: a second create (another tab)
+-- conflicts here and resumes the first.
+create unique index uploads_one_open_per_identity on genesis_media_library.uploads
+  (owner_kind, owner_id, purpose, size, sha256, genesis_media_library.targets_key(targets))
+  where state = 'open' and sha256 is not null;
+-- The sweep: open sessions past their expiry, and stuck verifications.
 create index uploads_open_expiry on genesis_media_library.uploads (expires_at) where state = 'open';
+create index uploads_verifying on genesis_media_library.uploads (verifying_since) where state = 'verifying';
 
 create table genesis_media_library.upload_parts (
   upload_id text not null references genesis_media_library.uploads (id) on delete cascade,
   n integer not null check (n between 1 and 10000),
   size bigint not null check (size >= 0),
   digest text not null check (digest ~ '^sha-256=:[A-Za-z0-9+/]{43}=:$'),
-  etag text not null,
+  -- Null while reserved and being written.
+  etag text,
   primary key (upload_id, n)
 );
 
@@ -78,38 +103,67 @@ grant select on table genesis_media_library.upload_parts to authenticated;
 grant select, insert, update, delete on table genesis_media_library.uploads to service_role;
 grant select, insert, update, delete on table genesis_media_library.upload_parts to service_role;
 
--- Records a part atomically: 'added'; 'same' (already there with this digest: its etag becomes
--- this one, the target's latest write); or 'conflict' (already there with another digest; the
--- first stands). Only for a session in 'open' (the row is locked meanwhile, so a finalize waits).
-create function genesis_media_library.add_part(p_upload text, p_n integer, p_size bigint, p_digest text, p_etag text)
+-- Reserves part p_n for these bytes before they are written, in one step with the check:
+-- 'reserved' (it's the caller's to write); 'same' (reserved or received with these bytes, not
+-- yet received: write it and complete it); 'received' (already in, nothing to write); or
+-- 'conflict' (other bytes hold it; nothing changes). Only while the session is open: otherwise
+-- P0002. The session row is locked meanwhile, so a finalize waits.
+create function genesis_media_library.reserve_part(p_upload text, p_n integer, p_size bigint, p_digest text)
 returns text
 language plpgsql
 security invoker
 set search_path = ''
 as $$
+declare
+  had record;
 begin
   perform 1 from genesis_media_library.uploads where id = p_upload and state = 'open' for update;
   if not found then
     raise exception 'no open upload %', p_upload using errcode = 'P0002';
   end if;
   insert into genesis_media_library.upload_parts (upload_id, n, size, digest, etag)
-  values (p_upload, p_n, p_size, p_digest, p_etag)
+  values (p_upload, p_n, p_size, p_digest, null)
   on conflict (upload_id, n) do nothing;
   if found then
-    return 'added';
+    return 'reserved';
   end if;
-  update genesis_media_library.upload_parts set etag = p_etag
-  where upload_id = p_upload and n = p_n and digest = p_digest;
-  if found then
-    return 'same';
+  select digest, etag into had from genesis_media_library.upload_parts where upload_id = p_upload and n = p_n;
+  if had.digest <> p_digest then
+    return 'conflict';
   end if;
-  return 'conflict';
+  return case when had.etag is null then 'same' else 'received' end;
 end
 $$;
 
--- Applies a patch (state, sha256, copies, failed, expires_at) when the session is still in
--- one of p_when (any state when null). True when it applied.
-create function genesis_media_library.update_upload(p_id text, p_patch jsonb, p_when text[] default null)
+-- Records the target's etag for a part reserved with this digest. False when it's gone.
+create function genesis_media_library.complete_part(p_upload text, p_n integer, p_digest text, p_etag text)
+returns boolean
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  update genesis_media_library.upload_parts p set etag = p_etag
+  from genesis_media_library.uploads u
+  where p.upload_id = p_upload and p.n = p_n and p.digest = p_digest and u.id = p.upload_id and u.state = 'open';
+  return found;
+end
+$$;
+
+-- Drops a reservation with this digest that never received an etag (its write failed).
+create function genesis_media_library.release_part(p_upload text, p_n integer, p_digest text)
+returns void
+language sql
+security invoker
+set search_path = ''
+as $$
+  delete from genesis_media_library.upload_parts where upload_id = p_upload and n = p_n and digest = p_digest and etag is null
+$$;
+
+-- Applies a patch when the session is still in one of p_when (any state when null) and, with
+-- p_holder, while that worker holds the lease. A key in the patch with a null value clears that
+-- field. True when it applied.
+create function genesis_media_library.update_upload(p_id text, p_patch jsonb, p_when text[] default null, p_holder text default null)
 returns boolean
 language plpgsql
 security invoker
@@ -121,13 +175,74 @@ begin
     sha256 = coalesce(p_patch->>'sha256', sha256),
     copies = coalesce(p_patch->'copies', copies),
     failed = coalesce(p_patch->'failed', failed),
-    expires_at = coalesce((p_patch->>'expires_at')::timestamptz, expires_at)
-  where id = p_id and (p_when is null or state = any (p_when));
+    assembled = coalesce(p_patch->'assembled', assembled),
+    pending_copies = coalesce(p_patch->'pending_copies', pending_copies),
+    expires_at = coalesce((p_patch->>'expires_at')::timestamptz, expires_at),
+    verifying_since = case when p_patch ? 'verifying_since' then (p_patch->>'verifying_since')::timestamptz else verifying_since end,
+    lease_until = case when p_patch ? 'lease_until' then (p_patch->>'lease_until')::timestamptz else lease_until end,
+    lease_holder = case when p_patch ? 'lease_holder' then p_patch->>'lease_holder' else lease_holder end
+  where id = p_id and (p_when is null or state = any (p_when)) and (p_holder is null or lease_holder = p_holder);
   return found;
 end
 $$;
 
-revoke execute on function genesis_media_library.add_part(text, integer, bigint, text, text) from public, anon, authenticated;
-revoke execute on function genesis_media_library.update_upload(text, jsonb, text[]) from public, anon, authenticated;
-grant execute on function genesis_media_library.add_part(text, integer, bigint, text, text) to service_role;
-grant execute on function genesis_media_library.update_upload(text, jsonb, text[]) to service_role;
+-- Takes the verification lease for p_holder until p_until, when the session is verifying and no
+-- lease is live at p_now. True when the caller holds it.
+create function genesis_media_library.claim_verify(p_id text, p_until timestamptz, p_now timestamptz, p_holder text)
+returns boolean
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  update genesis_media_library.uploads set lease_until = p_until, lease_holder = p_holder
+  where id = p_id and state = 'verifying' and (lease_until is null or lease_until <= p_now);
+  return found;
+end
+$$;
+
+-- Removes the session when it is still in one of p_when and, with p_lease_free_at, when no
+-- verification lease is live then. True when it was removed.
+create function genesis_media_library.remove_upload(p_id text, p_when text[], p_lease_free_at timestamptz default null)
+returns boolean
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+begin
+  delete from genesis_media_library.uploads where id = p_id and state = any (p_when)
+    and (p_lease_free_at is null or lease_until is null or lease_until <= p_lease_free_at);
+  return found;
+end
+$$;
+
+-- Sessions for the sweep: open ones past expires_at, and verifying ones that entered verifying
+-- before p_verifying_before with no live lease.
+create function genesis_media_library.stale_uploads(p_now timestamptz, p_limit integer, p_verifying_before timestamptz)
+returns setof genesis_media_library.uploads
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select * from genesis_media_library.uploads
+  where (state = 'open' and expires_at <= p_now)
+     or (state = 'verifying' and coalesce(verifying_since, created_at) <= p_verifying_before and (lease_until is null or lease_until <= p_now))
+  order by created_at
+  limit p_limit
+$$;
+
+revoke execute on function genesis_media_library.reserve_part(text, integer, bigint, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.complete_part(text, integer, text, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.release_part(text, integer, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.update_upload(text, jsonb, text[], text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz, text) from public, anon, authenticated;
+revoke execute on function genesis_media_library.remove_upload(text, text[], timestamptz) from public, anon, authenticated;
+revoke execute on function genesis_media_library.stale_uploads(timestamptz, integer, timestamptz) from public, anon, authenticated;
+grant execute on function genesis_media_library.reserve_part(text, integer, bigint, text) to service_role;
+grant execute on function genesis_media_library.complete_part(text, integer, text, text) to service_role;
+grant execute on function genesis_media_library.release_part(text, integer, text) to service_role;
+grant execute on function genesis_media_library.update_upload(text, jsonb, text[], text) to service_role;
+grant execute on function genesis_media_library.claim_verify(text, timestamptz, timestamptz, text) to service_role;
+grant execute on function genesis_media_library.remove_upload(text, text[], timestamptz) to service_role;
+grant execute on function genesis_media_library.stale_uploads(timestamptz, integer, timestamptz) to service_role;

@@ -52,6 +52,8 @@ export interface UploadPart {
 /** One verified copy: what a media value records in `copies[]`. */
 export interface UploadCopy {
   target: string;
+  /** Its target's tier: `working`, `archive` or `cold`. */
+  tier: "working" | "archive" | "cold";
   key: string;
   size: number;
   sha256: string;

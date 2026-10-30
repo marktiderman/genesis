@@ -44,8 +44,8 @@ describe("create", () => {
 
 describe("skip-if-identical", () => {
   const copiesFor = (sha256: string, size: number) => [
-    { target: "working", key: "media/old", size, sha256, verifiedAt: "2026-10-01T00:00:00.000Z" },
-    { target: "archive", key: "media/old", size, sha256, verifiedAt: "2026-10-01T00:00:00.000Z" },
+    { target: "working", tier: "working" as const, key: "media/old", size, sha256, verifiedAt: "2026-10-01T00:00:00.000Z" },
+    { target: "archive", tier: "archive" as const, key: "media/old", size, sha256, verifiedAt: "2026-10-01T00:00:00.000Z" },
   ];
 
   it("skips only on the whole object's SHA-256 and size, within what the caller can already read", async () => {
@@ -125,8 +125,8 @@ describe("finalize and verification", () => {
     expect(body.state).toBe("done");
     const sha = await sha256Hex(bytes);
     expect(body.copies).toEqual([
-      { target: "working", key: `media/alice/${id}/a.bin`, size: 10, sha256: sha, verifiedAt: "2026-11-01T00:00:00.000Z" },
-      { target: "archive", key: `media/alice/${id}/a.bin`, size: 10, sha256: sha, lockMode: "COMPLIANCE", lockedUntil: "2036-10-29T00:00:00.000Z", verifiedAt: "2026-11-01T00:00:00.000Z" },
+      { target: "working", tier: "working", key: `media/alice/${id}/a.bin`, size: 10, sha256: sha, verifiedAt: "2026-11-01T00:00:00.000Z" },
+      { target: "archive", tier: "archive", key: `media/alice/${id}/a.bin`, size: 10, sha256: sha, lockMode: "COMPLIANCE", lockedUntil: "2036-10-29T00:00:00.000Z", verifiedAt: "2026-11-01T00:00:00.000Z" },
     ]);
     expect([...s.archive.objects.get(`media/alice/${id}/a.bin`)!]).toEqual([...bytes]);
     // Locked only after its read-back.
@@ -366,7 +366,7 @@ describe("recovery", () => {
     const { id } = await sendAll(s, bytesOf(40));
     // As if finalize assembled it and set verifying, then the queue call failed.
     const session = s.store.sessions.get(id)!;
-    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag! })));
     await s.store.update(id, { state: "verifying" });
     expect((await s.alice.finalize(id)).status).toBe(202);
     expect(s.queued).toEqual([id]);
@@ -379,7 +379,7 @@ describe("recovery", () => {
     const bytes = bytesOf(10);
     const { id } = await sendAll(s, bytes);
     const session = s.store.sessions.get(id)!;
-    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag })));
+    await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag! })));
     const res = await s.alice.finalize(id);
     expect(res.status).toBe(200);
     expect((await json(res)).state).toBe("done");
@@ -398,15 +398,16 @@ describe("recovery", () => {
     for (const bad of ["", "/abs", "a//b", "a/./b", "a/../b", "a/b/", "a\u0000b"]) expect(isSafeKey(bad), JSON.stringify(bad)).toBe(false);
   });
 
-  it("a part sent twice at once with the same bytes keeps the target's latest etag", async () => {
+  it("a part reserved with these bytes: the same bytes again write and complete it; other bytes are refused", async () => {
     const s = setup();
     const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
     const digest = await digestOf(bytesOf(4));
-    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest, etag: "first" })).toBe("added");
-    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest, etag: "second" })).toBe("same");
-    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("second");
-    expect(await s.store.addPart(uploadId, { n: 1, size: 4, digest: await digestOf(bytesOf(4, 5)), etag: "third" })).toBe("conflict");
-    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("second");
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("reserved");
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("same");
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest: await digestOf(bytesOf(4, 5)) })).toBe("conflict");
+    expect(await s.store.completePart(uploadId, 1, digest, "e1")).toBe(true);
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("received");
+    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("e1");
   });
 });
 

@@ -27,9 +27,21 @@ export {
   UPLOAD_SWEEP_JOB,
   UPLOAD_VERIFY_JOB,
   createUploadVerifyJob,
+  discardUnverified,
+  isStuckVerifying,
   sweepExpiredUploads,
   verifyUpload,
   type UploadVerifyOptions,
+  type VerifyRun,
 } from "./verify";
-export { createMemorySessionStore, type StoredPart, type UploadSession, type UploadSessionPatch, type UploadSessionStore } from "./store";
+export {
+  SessionConflictError,
+  SessionNotOpenError,
+  createMemorySessionStore,
+  type PartReservation,
+  type StoredPart,
+  type UploadSession,
+  type UploadSessionPatch,
+  type UploadSessionStore,
+} from "./store";
 export { SessionStoreError, createSupabaseSessionStore, type SessionStoreClient } from "./supabase-store";
