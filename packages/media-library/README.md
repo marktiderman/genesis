@@ -113,6 +113,7 @@ import { createIndexedDbResumeStore, createUploader, fromBlob } from "@marktider
 const uploader = createUploader({
   endpoint: "/uploads",
   resumeStore: createIndexedDbResumeStore(), // a reload resumes the upload
+  ownerHint: user.id, // part of every resume key; call uploader.clearResume() at sign-out
   filesAtOnce: 2,
   partsAtOnce: 4,
   bytesPerSecond: () => (workingHours() ? 2_000_000 : 0), // a speed cap that follows a schedule
@@ -131,14 +132,22 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   `slice()`), `fromFileHandle` (expo-file-system's `File.open()` on a phone, a wrapped `node:fs`
   handle on a server), `fromBytes`.
 - **Hashing.** `hashFirst` (default true) hashes the whole file before create, so it can be
-  skipped. Browsers do that in a **Web Worker** by default (the `browser` build of `/client` uses
-  the package's worker; it falls back to this thread if the worker fails); elsewhere
+  skipped. Browsers do that in a **Web Worker** by default: the `browser` build of `/client` starts
+  the package's `hash-worker.js` (one standalone file) with a literal
+  `new Worker(new URL("./hash-worker.js", import.meta.url), { type: "module" })`, which Vite and
+  webpack bundle as a worker; it falls back to this thread if the worker fails or goes silent,
+  and a cancel terminates it. `createBrowserFileHasher()` is that hasher on its own. Elsewhere
   it runs with `@noble/hashes` (plain JS, fine on Hermes). Pass `hash` for another incremental
   SHA-256 (hash-wasm in a browser app). `hashFirst: false` reads the file once, hashing as it
   sends, and declares the SHA-256 at finalize: no skip, half the reading (a phone with a big file).
 - **Resume.** The server's part list is the truth: after any failure, a reload or a relaunch,
-  the client asks Resume and sends only what's missing. A file's upload id is remembered by its
-  `key` (name, size, last modified) in the `resumeStore`.
+  the client asks Resume and sends only what's missing. A file's upload id is remembered in the
+  `resumeStore` under the endpoint, `ownerHint`, purpose and the file's `key` (name, size, last
+  modified), lapses with its session, and `clearResume()` forgets all of them (sign-out). A
+  remembered session is used only while its size, targets and SHA-256 (when known) still match;
+  one whose file changed under the same name ends in `identity_mismatch`, and the client aborts
+  it and sends the file on a new one. A create carries an id the client chose, so a create retried
+  after a lost answer finds the session the first try made.
 - **Parts in parallel**, each with its `content-digest`; one that arrived changed goes again. A
   409 `part_conflict` or a lapsed session: the client aborts and creates again, once.
 - **The read-back.** A 202 `verifying` is polled (`pollMs`) until `done`, `partial` or
@@ -146,8 +155,10 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
 - **Client configuration, never protocol:** `priority`, `pause`/`resume`, `filesAtOnce`,
   `partsAtOnce`, `bytesPerSecond`, `retries`.
 - Failures the client won't retry reject with an `UploadClientError` carrying the server's `code`.
-- `cancel()` stops at once: a queued upload never starts, a running one stops (even while paused)
-  and its session is removed. A resume store that fails (private browsing) never stops an upload.
+- `cancel()` (or the uploader's or the upload's `signal`) stops at once: requests in flight and
+  back-off waits are aborted, a queued upload never starts, and the session is removed. Pause
+  holds before the next hash slice, part or finalize. A resume store that fails (private
+  browsing) never stops an upload. The speed cap is paced by bytes, and back-off has jitter.
 
 ### Supabase Storage's TUS endpoint
 

@@ -74,6 +74,9 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "A library that sections and screens build on; a hand-written srcset or fetch guard isn't reliably detectable yet.",

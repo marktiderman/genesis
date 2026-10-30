@@ -13,6 +13,12 @@ genesis-media-library's clients, and forms' and chat's uploads folded into it.
   - Priority, pause and resume, files and parts at once, and a speed cap are client configuration.
   - Sources are `fromBlob`, `fromFileHandle` and `fromBytes`.
   - `createSupabaseTusTransport` is Supabase Storage's TUS endpoint, moved here from genesis-chat.
+  - Remembered uploads are keyed by endpoint, `ownerHint`, purpose and file, and lapse with their session; `clearResume()` forgets them at sign-out.
+  - A remembered session is resumed only if its targets and SHA-256 still match.
+  - `cancel()` and `signal` stop requests in flight and back-off waits; a session whose file changed (`identity_mismatch`) is aborted and the upload starts again.
+  - A create carries a client-chosen `uploadId`, so a retried create finds its session.
+  - The browser build hashes in a standalone `hash-worker.js` (started with a literal `new Worker(new URL(…))`, so Vite and webpack bundle it), falls back to the main thread if the worker goes silent, and terminates it on cancel.
+  - The speed cap is paced by bytes; back-off has jitter.
 - `@marktiderman/genesis-media-library/compat`: the signed single-upload JSON genesis-forms has used.
 - genesis-forms: `UploadRequest`, `SignedUpload`, `UploadGrant` and `UploadRefusal` are now deprecated type re-exports from media-library's `/compat`, and `MAX_UPLOAD_REQUEST_BYTES` is deprecated. `createUploadHandler` is deprecated in favour of media-library's handler, with unchanged behaviour. forms now depends on genesis-media-library for these types; the engine still loads nothing else at run time.
 - genesis-forms-web: `signedUploadHost` is deprecated in favour of media-library's `createUploader`, with unchanged behaviour.
