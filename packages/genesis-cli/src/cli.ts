@@ -138,7 +138,7 @@ program
     const { loadConfig } = await import("./doctor/config.js");
     const cwd = process.cwd();
     const loaded = loadConfig(cwd, opts.config);
-    const settings = introspectSettings(opts, cwd, loaded.config.contracts, loaded.dir);
+    const settings = introspectSettings(opts, cwd, loaded.config.contracts, (file) => (existsSync(file) ? readFileSync(file, "utf-8") : null));
     const { schemas, target, label } = settings;
     let tables;
     let source: string;

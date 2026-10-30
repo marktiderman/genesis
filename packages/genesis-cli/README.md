@@ -49,10 +49,11 @@ function's secrets, apply the migration. Options: `--host next|supabase-function
 DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 ```
 
-With no flags it follows the app's `doctor.contracts` settings in `genesis.config.json` (`out`
-relative to the config's folder, `schemas`, `databaseEnv`), so it rewrites the same file the
-doctor's `contracts-stale` check reads. `-o`, `-s` and `--database-env` override them, and `-o`
-is relative to where you run the command.
+With no flags it follows the app's `doctor.contracts` settings (`out`, `schemas`,
+`databaseEnv`), so it rewrites the file the doctor's `contracts-stale` check reads, from the same
+schemas: without `contracts.schemas`, the ones the existing contract's `// Source:` line names.
+`-o`, `-s` and `--database-env` override them; paths are relative to the app's root, where you run
+the command. With `--openapi`, only a single configured schema carries over (else `public`).
 
 Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
