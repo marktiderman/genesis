@@ -5253,9 +5253,9 @@
       "name": "Resumable uploads (media-library)",
       "summary": "One upload contract for browser, native and server (ADR 0012, primitive 4): resumable, checksummed multipart uploads bound to their owner, skip-if-identical on the whole object's SHA-256 and size, storage targets as adapters (R2, S3-compatible with Object Lock) with fan-out and a read-back check per target. Forms' signed-upload protocol and chat's TUS uploads fold into it behind deprecated re-exports. Design in docs/media-library-uploads.md, for review.",
       "category": "Platform",
-      "status": "planned",
-      "horizon": "next",
-      "layer": "service",
+      "status": "building",
+      "claimedBy": "mark",
+      "layer": "primitive",
       "keywords": [
         "file upload",
         "signed upload",
@@ -5270,6 +5270,14 @@
       "aliases": [
         "upload-protocol"
       ],
+      "platforms": {
+        "server": "building",
+        "web": "planned",
+        "native": "planned"
+      },
+      "entry": {
+        "server": "@marktiderman/genesis-media-library/server"
+      },
       "owner": "mark",
       "apps": [
         "web",
@@ -5280,9 +5288,20 @@
         "developer"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "Another owner's upload, an unknown id and a lapsed session get the same 404 on every operation.",
+        "An upload is skipped only when an object the caller can already read has the same SHA-256 and size in every target asked for.",
+        "A part re-sent with other bytes is refused with 409 part_conflict, and the first part stands.",
+        "A copy is recorded, and locked, only after it was read back with the declared size and SHA-256; big uploads are read back in a genesis_jobs job."
+      ],
+      "reviewedAt": "2026-10-29",
       "links": {
+        "code": [
+          "packages/media-library"
+        ],
         "docs": [
           "docs/media-library-uploads.md",
+          "packages/media-library/README.md",
           "docs/PACKAGE-STRATEGY.md"
         ]
       },
