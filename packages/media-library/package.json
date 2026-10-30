@@ -1,0 +1,90 @@
+{
+  "name": "@marktiderman/genesis-media-library",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Resumable, checksummed uploads for Genesis apps: one protocol for browser, native and server, bound to its owner, skip-if-identical on the whole object's SHA-256, storage targets as adapters (memory, R2, S3-compatible with Object Lock) with fan-out and read-back verification, and a session table with row level security. Fetch and WebCrypto: Node 20+ and Workers. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "uploads",
+    "resumable-upload",
+    "multipart",
+    "s3",
+    "r2",
+    "object-lock"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/media-library#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/media-library"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
+    "./targets": {
+      "types": "./dist/targets.d.ts",
+      "import": "./dist/targets.js",
+      "default": "./dist/targets.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "mark",
+    "doctor": {
+      "enforce": false,
+      "reason": "New: the upload clients and forms' and chat's re-exports land next; a hand-rolled upload loop isn't reliably detectable yet.",
+      "primitives": [
+        {
+          "need": "a file upload: resumable, checksummed, to one or more storage targets",
+          "use": "createUploadHandler on the server, with a storage target per store; never a hand-rolled PUT or TUS loop",
+          "import": "@marktiderman/genesis-media-library/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media-library/README.md"
+        }
+      ]
+    }
+  }
+}
