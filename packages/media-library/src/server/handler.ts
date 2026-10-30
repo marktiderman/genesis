@@ -171,14 +171,15 @@ async function readJson(request: Request): Promise<Record<string, unknown> | nul
 
 function parseCreate(body: Record<string, unknown> | null): CreateUploadBody | undefined {
   if (!body) return undefined;
-  const { name, contentType, size, sha256, purpose, targets } = body;
+  const { name, contentType, size, sha256, purpose, targets, uploadId } = body;
   if (typeof name !== "string" || name.length === 0 || name.length > 1024) return undefined;
   if (typeof contentType !== "string" || !/^[\w.+-]+\/[\w.+-]+$/.test(contentType)) return undefined;
   if (typeof size !== "number" || !Number.isSafeInteger(size) || size < 0) return undefined;
   if (sha256 !== undefined && (typeof sha256 !== "string" || !SHA256_HEX.test(sha256))) return undefined;
   if (typeof purpose !== "string" || !PURPOSE.test(purpose)) return undefined;
   if (targets !== undefined && (!Array.isArray(targets) || targets.length === 0 || targets.length > 8 || !targets.every((t) => typeof t === "string"))) return undefined;
-  return { name, contentType, size, sha256, purpose, targets: targets as string[] | undefined };
+  if (uploadId !== undefined && (typeof uploadId !== "string" || !ID.test(uploadId))) return undefined;
+  return { name, contentType, size, sha256, purpose, targets: targets as string[] | undefined, uploadId };
 }
 
 function randomId(): string {
@@ -297,7 +298,15 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       if (open) await clearLapsed(open);
     }
 
-    const id = randomId();
+    // A retried create with the id the client chose: the session the first try made, if it did.
+    if (body.uploadId) {
+      const made = await store.get(body.uploadId);
+      if (made) {
+        if (!sameOwner(made.owner, owner)) return refuse(409, "bad_request", {}, "Choose another upload id.");
+        return json(200, statusOf(made, { resumed: true }));
+      }
+    }
+    const id = body.uploadId ?? randomId();
     const appKey = await options.keyFor({ owner, uploadId: id, purpose: body.purpose, name: body.name, contentType: body.contentType, size: body.size, sha256: body.sha256 });
     // A key a URL would rewrite (an empty, "." or ".." segment) would store the object somewhere else.
     if (!isSafeKey(appKey)) throw new Error(`keyFor returned an unsafe storage key (${JSON.stringify(appKey)}): no empty, "." or ".." segments, no leading slash.`);
@@ -331,6 +340,11 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     } catch (error) {
       await primary.abort(key, targetUploadId).catch(() => {});
       // Another tab made the same session a moment ago: carry on with that one.
+      if (error instanceof SessionConflictError && body.uploadId) {
+        const made = await store.get(body.uploadId);
+        if (made && sameOwner(made.owner, owner)) return json(200, statusOf(made, { resumed: true }));
+        if (made) return refuse(409, "bad_request", {}, "Choose another upload id.");
+      }
       if (error instanceof SessionConflictError && body.sha256) {
         const open = await store.findOpen({ owner, purpose: body.purpose, size: body.size, sha256: body.sha256, targets: set });
         // Resume only a live one; a lapsed one is never handed back.

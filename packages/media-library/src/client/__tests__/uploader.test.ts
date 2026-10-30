@@ -43,7 +43,7 @@ describe("createUploader", () => {
   it("is skipped when the server already has an identical object the person can read", async () => {
     const bytes = bytesOf(10);
     const sha = await sha256Hex(bytes);
-    const copies = ["working", "archive"].map((target) => ({ target, key: "old", size: 10, sha256: sha, verifiedAt: "2026-10-01T00:00:00.000Z" }));
+    const copies = (["working", "archive"] as const).map((target) => ({ target, tier: target, key: "old", size: 10, sha256: sha, verifiedAt: "2026-10-01T00:00:00.000Z" }));
     const s = setup({ readableObjects: [{ copies, ref: "m1" }] });
     const { uploader, log } = client(s);
     const result = await uploader.upload(fromBytes(bytes), { name: "a", contentType: "a/b", purpose: "media" }).done;
@@ -78,7 +78,7 @@ describe("createUploader", () => {
     expect(second.log[0]).toMatch(/^GET \//);
     expect(second.log.filter((l) => l.startsWith("PUT"))).toEqual(expect.arrayContaining([expect.stringMatching(/\/parts\/2$/), expect.stringMatching(/\/parts\/3$/)]));
     expect(second.log.some((l) => /\/parts\/1$/.test(l))).toBe(false);
-    expect(await resumeStore.get("media:a.bin:10:1")).toBeNull();
+    expect(await resumeStore.get(JSON.stringify([ENDPOINT, "", "media", "a.bin:10:1"]))).toBeNull();
   });
 
   it("polls a big upload's read-back until the job has run", async () => {
@@ -96,21 +96,23 @@ describe("createUploader", () => {
     expect(log.filter((l) => /^GET \/[^/]+$/.test(l)).length).toBeGreaterThanOrEqual(2);
   });
 
-  it("never makes a wrong copy: a resumed session holding other bytes for a part ends in identity_mismatch", async () => {
+  it("never makes a wrong copy: a resumed session holding other bytes for a part is dropped, and a new one sends the file", async () => {
     const s = setup();
     const bytes = bytesOf(10);
     const resumeStore = createMemoryResumeStore();
     const created = await (await s.alice.create({ name: "a", contentType: "a/b", size: 10, sha256: await sha256Hex(bytes), purpose: "media" })).json() as { uploadId: string };
     // An earlier run (a changed file) left other bytes for part 1; the client trusts the server's part list.
     await s.alice.part(created.uploadId, 1, bytesOf(4, 77));
-    await resumeStore.set("media:k", created.uploadId);
+    await resumeStore.set(JSON.stringify([ENDPOINT, "", "media", "k"]), { uploadId: created.uploadId, expiresAt: "2099-01-01T00:00:00.000Z" });
     const { uploader, log } = client(s, { resumeStore });
-    const result = await uploader.upload(fromBytes(bytes, "k"), { name: "a", contentType: "a/b", purpose: "media" }).done.catch((e: unknown) => e);
-    expect(result).toBeInstanceOf(UploadClientError);
-    expect((result as UploadClientError).code).toBe("identity_mismatch");
+    const result = await uploader.upload(fromBytes(bytes, "k"), { name: "a", contentType: "a/b", purpose: "media" }).done;
+    // The read-back found the wrong identity: that session is gone, nothing of it was locked, and a new one sent the file.
     expect(log[0]).toBe(`GET /${created.uploadId}`);
-    expect(s.archive.locks.size).toBe(0);
-    expect(await resumeStore.get("media:k")).toBeNull();
+    expect(result.state).toBe("done");
+    expect(result.uploadId).not.toBe(created.uploadId);
+    expect(s.store.sessions.has(created.uploadId)).toBe(false);
+    expect(s.archive.locks.size).toBe(1);
+    expect(await resumeStore.get(JSON.stringify([ENDPOINT, "", "media", "k"]))).toBeNull();
   });
 
   it("restarts once when a part is refused as part_conflict", async () => {
@@ -240,7 +242,7 @@ describe("cancel and failures that must not stop an upload", () => {
 
   it("a resume store that fails never stops the upload", async () => {
     const s = setup();
-    const broken = { get: () => Promise.reject(new Error("blocked")), set: () => Promise.reject(new Error("blocked")), delete: () => Promise.reject(new Error("blocked")) };
+    const broken = { get: () => Promise.reject(new Error("blocked")), set: () => Promise.reject(new Error("blocked")), delete: () => Promise.reject(new Error("blocked")), clear: () => Promise.reject(new Error("blocked")) };
     const { uploader } = client(s, { resumeStore: broken });
     expect((await uploader.upload(fromBytes(bytesOf(10), "k"), { name: "a", contentType: "a/b", purpose: "media" }).done).state).toBe("done");
   });

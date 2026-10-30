@@ -33,6 +33,12 @@ export interface CreateUploadBody {
   purpose: string;
   /** Target names the app configured. Default: the app's choice for the purpose. */
   targets?: string[] | undefined;
+  /**
+   * An id the client chose (22 random base64url characters), so a create it
+   * has to retry (the answer was lost) finds the session the first try made
+   * instead of leaving it behind.
+   */
+  uploadId?: string | undefined;
 }
 
 /** `POST /uploads/:id/finalize`. */

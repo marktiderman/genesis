@@ -24,8 +24,8 @@ export {
   type UploaderOptions,
 } from "./uploader";
 export { fromBlob, fromBytes, fromFileHandle, type ReadableFileHandle, type UploadSource } from "./sources";
-export { createIndexedDbResumeStore, createMemoryResumeStore, createSpeedLimiter, type ResumeStore } from "./config";
-export { createWorkerFileHasher, isBrowserPage, type WorkerLike } from "./worker-hasher";
+export { createIndexedDbResumeStore, createMemoryResumeStore, createSpeedLimiter, type IdbFactoryLike, type RememberedUpload, type ResumeStore } from "./config";
+export { createWorkerFileHasher, isBrowserPage, type HashFile, type WorkerFileHasherOptions, type WorkerLike } from "./worker-hasher";
 export { hashBlob, type HashReply, type HashRequest } from "./hash-core";
 export {
   TUS_CHUNK_BYTES,

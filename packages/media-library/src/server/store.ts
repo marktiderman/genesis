@@ -166,6 +166,7 @@ export function createMemorySessionStore(): UploadSessionStore & { readonly sess
   return {
     sessions,
     async insert(s) {
+      if (sessions.has(s.id)) throw new SessionConflictError(`the upload id ${s.id} is taken`);
       if ([...sessions.values()].some((x) => x.key === s.key)) throw new SessionConflictError(`the key ${s.key} is taken`);
       if (openFor(s)) throw new SessionConflictError("an open session for this file exists");
       sessions.set(s.id, copy(s));
