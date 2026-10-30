@@ -1,0 +1,67 @@
+packages/media-library/src/client/uploader.ts
+  s_ba8cb54dbea75a::t_21c6582764078c 1-391
+  s_ba8cb54dbea75a::t_0a8a59309bffb9 392-395
+packages/media-library/src/client/supabase-tus.ts
+  s_ba8cb54dbea75a::t_f61eafbab28757 1-203
+  s_ba8cb54dbea75a::t_d58ce4e26d580e 204-209
+packages/media-library/src/client/config.ts
+  s_ba8cb54dbea75a::t_f449a612256206 1-94
+packages/media-library/src/client/__tests__/uploader.test.ts
+  s_ba8cb54dbea75a::t_8c1910d623b886 1-243
+packages/media-library/src/client/sources.ts
+  s_ba8cb54dbea75a::t_468d28201b87b0 1-64
+.changeset/media-library-clients.md
+  s_ba8cb54dbea75a::t_56448d0ea4aec6 1-19
+features.json
+  s_ba8cb54dbea75a::t_e97bf56ed6b634 5275-5276,5279-5281
+features.ts
+  s_ba8cb54dbea75a::t_12eac658af7c58 2304-2305
+packages/chat/package.json
+  s_ba8cb54dbea75a::t_9269e9d25b1184 96
+packages/chat/src/native/tus.ts
+  s_ba8cb54dbea75a::t_9eacb0dfe931da 18-21,23,28-33,81,83-88,90-94,104,113-124,182-183
+packages/forms-web/src/signed-upload.ts
+  s_ba8cb54dbea75a::t_bcbb0ddf6161dd 49-52
+packages/forms/package.json
+  s_ba8cb54dbea75a::t_5299a00acb69bf 148-150
+packages/forms/src/upload-handler.ts
+  s_ba8cb54dbea75a::t_8bbc523312aa19 170-174
+packages/forms/src/upload-protocol.ts
+  s_ba8cb54dbea75a::t_fda34faa7b0847 8-11,13,16-23,26-28,30,33-36
+packages/media-library/README.md
+  s_ba8cb54dbea75a::t_41cc77910b5bfa 10,21-23,89-146,190,192-193,199
+packages/media-library/package.json
+  s_ba8cb54dbea75a::t_6a91748e79053f 51-65,94,101-106
+packages/media-library/src/client/hash-core.ts
+  s_ba8cb54dbea75a::t_ba251939918ea4 1-26
+packages/media-library/src/client/hash-worker.ts
+  s_ba8cb54dbea75a::t_6cd85aab4d6571 1-10
+packages/media-library/src/client/index.ts
+  s_ba8cb54dbea75a::t_10699fb6fd09cb 1-39
+packages/media-library/src/client/worker-hasher.ts
+  s_ba8cb54dbea75a::t_ae30936d420937 1-82
+packages/media-library/src/compat/index.ts
+  s_ba8cb54dbea75a::t_cd9e7bc627c2bc 1-63
+packages/media-library/src/hash.ts
+  s_ba8cb54dbea75a::t_2e41791cb1fa44 46,48-50,62
+packages/media-library/tsup.config.ts
+  s_ba8cb54dbea75a::t_1f40c209d316f8 4-12
+pnpm-lock.yaml
+  s_ba8cb54dbea75a::t_9e7163508980fc 603-605,880-883
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "43aea1a0fb117ab6e955e91db7560a5c10533018",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
