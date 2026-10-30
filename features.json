@@ -6313,6 +6313,104 @@
       "flags": []
     },
     {
+      "id": "video-sources",
+      "name": "Video sources",
+      "summary": "Video vendors behind one adapter with declared capabilities (ADR 0014): Mux first and premium (hosting, signed playback, instant clips, captions, storyboards, Mux Data), then YouTube and Vimeo embeds, Bunny Stream and plain HLS or MP4 URLs.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "service",
+      "keywords": [
+        "mux",
+        "youtube",
+        "vimeo",
+        "bunny",
+        "video hosting",
+        "adapter"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-player",
+      "name": "Video player",
+      "summary": "One player for web and native (ADR 0014): adaptive playback, speed, captions and a transcript panel, chapters, storyboard scrubbing, resume, picture-in-picture, offline on the phone; plays a sequence as one video, with a layer slot for timed layers.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "element",
+      "keywords": [
+        "player",
+        "video",
+        "captions",
+        "transcript",
+        "chapters",
+        "hls"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "video-timeline",
+      "name": "Clips and sequences",
+      "summary": "The timeline model (ADR 0014): clips by reference into any video, sequences that play clips from many videos as one, and a layer slot for timed layers. Lessons built from moments of existing videos.",
+      "category": "Media",
+      "status": "idea",
+      "kind": "service",
+      "keywords": [
+        "clip",
+        "remix",
+        "sequence",
+        "playlist",
+        "timestamp"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "docs": [
+          "docs/adr/0014-video-learning.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "galleries",
       "name": "Galleries and proofing (module)",
       "summary": "Client galleries with favourites, comments, download rules and watermarks, built on media, collab and billing.",
