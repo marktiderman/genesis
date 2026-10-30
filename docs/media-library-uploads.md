@@ -1,6 +1,6 @@
 # media-library uploads: design for review
 
-Status: **v0.1, proposed**, for review before anyone builds. No code yet.
+Status: **v0.1.1, proposed**, for review before anyone builds. No code yet.
 
 This is primitive 4 of [ADR 0012 (media primitives)](https://github.com/marktiderman/genesis/blob/staging/2026-10-29/c/docs/adr/0012-media-primitives.md),
 as amended in #542: resumable, checksummed uploads with one contract for browser, native and
@@ -59,9 +59,14 @@ Fetch and WebCrypto only, like genesis-connect and `/signed`, except where noted
 
 ## The protocol
 
-JSON over HTTP, one route the app mounts (`/uploads` below). Every request carries the app's
-own authentication (a session cookie, a bearer token). The handler asks the app who the owner is
-and whether it may (`authorize`, below) before it does anything else.
+JSON over HTTP, one route the app mounts (`/uploads` below). Every request carries a credential
+the app's `owner` hook turns into an owner: a session cookie or a bearer token for a signed-in
+person or a service, or a **scoped credential** for someone who isn't signed in. Forms'
+anonymous answers keep working this way: the forms adapter turns the visit's attempt id or a
+valid edit link into a respondent owner (`{ kind: "respondent", id: <attempt or response> }`),
+issued at create and sent with every later operation, so each one is still bound to that owner.
+The handler asks the app who the owner is and whether it may (`authorize`, below) before it does
+anything else.
 
 ### Create
 
@@ -92,8 +97,10 @@ Answers:
   the same SHA-256 and size, and has a verified copy in every target asked for. Nothing to send.
   The app decides what a skip returns (a media value id, say).
 - **200** `{ "uploadId", "state": "open", … "parts": [3, 4] }` with `"resumed": true`: this owner
-  already has an open upload for the same identity and purpose; it carries on (one session per
-  owner, identity and purpose, so two tabs don't race).
+  already has an open upload for the same identity, purpose **and authorized target set**; it
+  carries on (one session per owner, identity, purpose and targets, so two tabs don't race). A
+  create that asks for a different set of targets is a new session; it never widens or narrows
+  an open one.
 - **403** the app's rules refuse; **413** bigger than the purpose allows; **415** a content type
   it doesn't take; **422** a malformed body. Errors are `{ "error", "code" }`, the words safe to
   show the person.
@@ -137,8 +144,12 @@ and SHA-256.
 - **200** `{ "state": "done", "copies": [{ "target", "key", "size", "sha256", "lockedUntil"?, "lockMode"?, "verifiedAt" }] }`.
 - **409** `{ "code": "missing_parts", "parts": [..] }`: send these first.
 - **422** `{ "code": "identity_mismatch" }`: the assembled object isn't the SHA-256 or size
-  declared at create. The upload goes back to open with no parts; the copy is removed (it was
-  never a copy). The client starts the file over.
+  declared at create. The upload goes back to open with no parts, and the assembled object is
+  removed (it was never a copy). The client starts the file over. That removal is always
+  possible because **no lock is applied before verification**: a target with Object Lock
+  assembles the object unlocked, reads it back, and only then sets its retention
+  (`PutObjectRetention`, or a copy into the retained key). An object under retention is always
+  one that verified.
 - **200** `{ "state": "partial", "copies": [...], "failed": [{ "target", "code" }] }` when some
   targets verified and others didn't. Finalize again retries only the failed targets.
 
@@ -208,8 +219,9 @@ interface UploadTarget {
   fetch from elsewhere. Each part is hashed on arrival before `uploadPart`.
 - **Any S3-compatible store** (S3, B2, MinIO), SigV4 over fetch, with `x-amz-checksum-sha256`
   per part, and **Object Lock** per object: `lockMode` (`GOVERNANCE` or `COMPLIANCE`) and
-  `retainUntil` from the target's config or the app's (`lockFor({ purpose })`). The bucket must
-  have Object Lock enabled; the adapter refuses at start when it hasn't.
+  `retainUntil` from the target's config or the app's (`lockFor({ purpose })`), set only after the
+  read-back check passes. The bucket must have Object Lock enabled; the adapter refuses at start
+  when it hasn't.
 - **Fan-out**: one upload, several targets. Proxied, each received part is written to every
   target before it is acknowledged (a part is received once, written N times). Direct, the client
   sends to the first target and finalize copies server-side to the rest. Either way finalize reads
@@ -269,7 +281,7 @@ the app's.
 | A part arrives changed | 422: send it again | Never stored as received |
 | The same part is sent twice | Nothing | Same digest: no-op |
 | The file changed on disk after create | Its parts no longer add up: finalize answers 422 `identity_mismatch` | No copy is recorded; the client abandons and creates again |
-| Another tab uploads the same file | Create answers `resumed`; both share one session | One session per owner, identity and purpose |
+| Another tab uploads the same file | Create answers `resumed`; both share one session | One session per owner, identity, purpose and target set |
 | One target fails at finalize | Finalize again later | `partial` with the copies that did verify |
 | The session expires | Create again (and maybe skip) | A sweep aborts it in every target |
 | Another owner guesses the id | — | 404 on every operation |
@@ -280,15 +292,23 @@ the app's.
 - **forms' upload protocol** (`packages/forms/src/upload-protocol.ts`, `upload-handler.ts`): a
   single signed PUT per answer file, with forms' own checks (the form takes answers, the field
   takes files, the attempt or edit link, the rate limit). It becomes a one-part upload in this
-  contract: forms' checks move into its `authorize`, and its JSON (`UploadRequest`,
+  contract: forms' checks move into its `authorize`, its attempt id or edit link becomes the
+  respondent owner (no sign-in needed, see The protocol), and its JSON (`UploadRequest`,
   `UploadGrant`) stays as a thin adapter for browsers already in use. `createUploadHandler` and
   `signedUploadHost` stay exported from forms as **deprecated re-exports** over media-library
   until the next major. Forms' tests run unchanged against the adapter.
 - **chat's resumable uploads** (`packages/chat/src/native/tus.ts`, `createTusUpload`): Supabase
-  Storage's TUS endpoint with the person's own token, so storage RLS judges each file. It becomes
-  a target-and-transport adapter (`supabaseTusTarget`) under the same client, keeping the
-  person's token and RLS, and `createTusUpload` stays as a **deprecated re-export** that wraps
-  `createUploader`. The chat outbox's ordering (upload, then send) is unchanged.
+  Storage's TUS endpoint with the person's own token, so storage RLS judges each file. TUS is a
+  **different transport**, not a target that speaks the part protocol: offsets are sequential
+  (one `PATCH` at a time, in order, never parallel or out-of-order parts), chunks are a fixed
+  6 MiB, and Supabase's upload URL expires after 24 hours. So it becomes a transport adapter
+  (`supabaseTusTransport`) the uploader drives as a single in-order stream: Resume is TUS's
+  `HEAD` for the offset, a "part" is the next chunk, there is no `listParts`, no fan-out, and
+  resume holds only within the 24 hours (after that, create again). Identity is still declared
+  at create and checked at finalize by reading the object back. `createTusUpload` stays as a
+  **deprecated re-export** with exactly today's guarantees (resume within the session, the same
+  path on retry), not the full contract's. The chat outbox's ordering (upload, then send) is
+  unchanged.
 - **The `upload-protocol` feature** folds into `media-resumable-uploads`: renamed, with
   `upload-protocol` kept in `aliases`, so ADR 0012's and PACKAGE-STRATEGY's references still
   resolve.
@@ -316,7 +336,7 @@ with its own transport. Either is media-video-value's decision.
 | **Configure** | purposes, size and type limits, targets per purpose, part size, session expiry, lock mode and retention |
 | **Brand** | none: the contract has no UI |
 | **Compose** | upload UI parts (a drop zone, a progress row) in genesis-ui, later |
-| **Adapt** | storage targets (R2, S3-compatible, Supabase TUS), the session store |
+| **Adapt** | storage targets (R2, S3-compatible), transports (Supabase TUS), the session store |
 | **Own** | who may upload what (`owner`, `authorize`, `readable`), where it goes (`keyFor`), the desktop or capture app, scheduling |
 
 ## Test plan
@@ -341,7 +361,8 @@ with its own transport. Either is media-video-value's decision.
   - S3 SigV4 requests against recorded fixtures, with Object Lock headers, and a refusal on a
     bucket without Object Lock;
   - R2 against Miniflare;
-  - the Supabase TUS adapter against a local stack, keeping RLS.
+  - the Supabase TUS transport against a local stack: in-order chunks, resume within 24 hours, a
+    create again after, RLS kept.
 - **Clients**:
   - the uploader against the handler in Node;
   - a browser run (Playwright) with a reload mid-upload;
