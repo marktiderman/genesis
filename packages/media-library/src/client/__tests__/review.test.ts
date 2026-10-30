@@ -283,6 +283,32 @@ describe("6. smaller items", () => {
     expect(slept).toBeCloseTo(32_000, -2);
   });
 
+  it("a cancel ends a speed-cap wait at once, and the bucket keeps its bytes (CodeRabbit)", async () => {
+    let clock = 0;
+    const waits: number[] = [];
+    const sleep = (ms: number, signal?: AbortSignal) => new Promise<void>((r) => (waits.push(ms), signal?.aborted ? r() : signal?.addEventListener("abort", () => r(), { once: true })));
+    const take = createSpeedLimiter(() => 1000, sleep, () => clock);
+    const abort = new AbortController();
+    const p = take(5000, abort.signal);
+    abort.abort();
+    await p;
+    expect(waits).toEqual([5000]);
+    // The next 1000 bytes wait 1 s (its own), not 6 s: the cancelled 5000 were given back.
+    void take(1000);
+    expect(waits.at(-1)).toBe(1000);
+  });
+
+  it("a retried create whose session lapsed meanwhile gets a new session, not the lapsed one (CodeRabbit)", async () => {
+    const s = setup({ sessionTtlSeconds: 60 });
+    const id = "AAAAAAAAAAAAAAAAAAAAA1";
+    const body = { name: "a", contentType: "a/b", size: 4, purpose: "media", uploadId: id };
+    expect((await s.alice.create(body)).status).toBe(201);
+    s.tick(61_000);
+    const again = await s.alice.create(body);
+    expect(again.status).toBe(201);
+    expect(s.working.openUploads.size).toBe(1);
+  });
+
   it("pause covers hashing and finalize", async () => {
     const s = setup();
     const { uploader, log } = client(s);

@@ -303,7 +303,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       const made = await store.get(body.uploadId);
       if (made) {
         if (!sameOwner(made.owner, owner)) return refuse(409, "bad_request", {}, "Choose another upload id.");
-        return json(200, statusOf(made, { resumed: true }));
+        // A lapsed one is never handed back: it goes, and this create makes a new session.
+        if (made.state === "open" && Date.parse(made.expiresAt) <= now()) await clearLapsed(made);
+        else return json(200, statusOf(made, { resumed: true }));
       }
     }
     const id = body.uploadId ?? randomId();

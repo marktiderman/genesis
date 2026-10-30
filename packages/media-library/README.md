@@ -158,7 +158,10 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
 - `cancel()` (or the uploader's or the upload's `signal`) stops at once: requests in flight and
   back-off waits are aborted, a queued upload never starts, and the session is removed. Pause
   holds before the next hash slice, part or finalize. A resume store that fails (private
-  browsing) never stops an upload. The speed cap is paced by bytes, and back-off has jitter.
+  browsing) never stops an upload. With the Web Worker hasher, a pause during hashing takes
+  effect once the whole-file hash is done (the worker hashes the file in one go; a cancel stops
+  it at once); with in-thread hashing it holds before the next slice. The speed cap is paced by
+  bytes (a cancel ends its wait), and back-off has jitter.
 
 ### Supabase Storage's TUS endpoint
 

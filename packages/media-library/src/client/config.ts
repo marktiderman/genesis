@@ -111,10 +111,11 @@ export function createIndexedDbResumeStore(name = "genesis-media-library", optio
  * bucket still averages the rate. `rate` is asked every time, so it can
  * follow a schedule.
  */
-export function createSpeedLimiter(rate: () => number, sleep: (ms: number) => Promise<void>, clock: () => number = Date.now) {
+export function createSpeedLimiter(rate: () => number, sleep: (ms: number, signal?: AbortSignal) => Promise<void>, clock: () => number = Date.now) {
   let allowance = 0;
   let last = clock();
-  return async (bytes: number) => {
+  /** Takes `bytes`; a `signal` that fires during the wait ends it and gives the bytes back. */
+  return async (bytes: number, signal?: AbortSignal) => {
     const r = rate();
     if (!r || r <= 0) {
       allowance = 0;
@@ -128,7 +129,12 @@ export function createSpeedLimiter(rate: () => number, sleep: (ms: number) => Pr
     allowance -= bytes;
     if (allowance < 0) {
       const wait = (-allowance / r) * 1000;
-      await sleep(wait);
+      await sleep(wait, signal);
+      if (signal?.aborted) {
+        // Cancelled while waiting: these bytes never go, so the bucket is as it was.
+        allowance += bytes;
+        return;
+      }
       allowance = 0;
       last = clock();
     }

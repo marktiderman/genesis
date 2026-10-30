@@ -179,7 +179,7 @@ export function createUploader(options: UploaderOptions) {
   const partsAtOnce = Math.max(1, options.partsAtOnce ?? 4);
   const filesAtOnce = Math.max(1, options.filesAtOnce ?? 2);
   const pollMs = options.pollMs ?? 2000;
-  const limit = createSpeedLimiter(options.bytesPerSecond ?? (() => 0), (ms) => sleep(ms));
+  const limit = createSpeedLimiter(options.bytesPerSecond ?? (() => 0), (ms, signal) => sleep(ms, signal));
 
   // Remembering an id is a convenience: a store that fails (private browsing, a full disk) never stops an upload.
   const resumeStore = {
@@ -412,7 +412,8 @@ export function createUploader(options: UploaderOptions) {
       const digest = formatContentDigest(await sha256Bytes(bytes));
       for (let attempt = 1; ; attempt++) {
         // The cap is paced by bytes: the part's bytes are taken before it goes.
-        await limit(bytes.byteLength);
+        await limit(bytes.byteLength, signal);
+        if (signal.aborted) throw cancelledError();
         const r = await call("PUT", `/${id}/parts/${n}`, { headers: { "content-digest": digest, "content-length": String(bytes.byteLength) }, body: bytes as Uint8Array<ArrayBuffer> }, signal);
         if (r.status === 200) break;
         // Changed in transit: send it again.
