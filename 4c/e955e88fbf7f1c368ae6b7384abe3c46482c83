@@ -1,0 +1,23 @@
+apps/sample/app/data/primitives.json
+  s_36f3212387dbf7::t_99d15f70f04b72 2
+apps/sample/app/lib/integrations.ts
+  s_36f3212387dbf7::t_99d15f70f04b72 15-16,37-38,40-43
+apps/sample/app/routes/integrations.tsx
+  s_36f3212387dbf7::t_99d15f70f04b72 25-26,37-41
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4ce955e88fbf7f1c368ae6b7384abe3c46482c83",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
