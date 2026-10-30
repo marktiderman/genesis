@@ -124,16 +124,22 @@ program
 program
   .command("introspect")
   .description("Write a checked-in contract (resources.genesis.ts) from the Postgres catalog or a PostgREST/Supabase OpenAPI spec")
-  .option("--database-env <name>", "Environment variable holding the Postgres URL", "DATABASE_URL")
+  .option("--database-env <name>", "Environment variable holding the Postgres URL (default: doctor.contracts.databaseEnv, else DATABASE_URL)")
   .option("--openapi <file-or-url>", "Read a PostgREST OpenAPI document (a Supabase project's /rest/v1/) instead of Postgres")
   .option("--header <header...>", "HTTP header for --openapi URLs, for values that aren't secret (repeatable)")
   .option("--apikey-env <name>", "Environment variable holding the API key for --openapi URLs (sent as apikey and Bearer)")
-  .option("-s, --schema <schemas>", "Comma-separated schemas", "public")
-  .option("-o, --out <file>", "Where to write the contract", "resources.genesis.ts")
+  .option("-s, --schema <schemas>", "Comma-separated schemas (default: doctor.contracts.schemas, else public)")
+  .option("-o, --out <file>", "Where to write the contract (default: doctor.contracts.out in genesis.config.json, else resources.genesis.ts)")
+  .option("--config <path>", "Config file to read doctor.contracts from (default: genesis.config.json or package.json)")
   .option("--check", "Write nothing; exit 1 if the contract on disk is out of date (for CI)", false)
-  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema: string; out: string; check: boolean }) => {
-    const schemas = opts.schema.split(",").map((s) => s.trim()).filter(Boolean);
+  .action(async (opts: { databaseEnv?: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema?: string; out?: string; config?: string; check: boolean }) => {
     const { introspectOpenApi, introspectPostgres, emitContracts } = await import("./introspect/index.js");
+    const { introspectSettings } = await import("./introspect/settings.js");
+    const { loadConfig } = await import("./doctor/config.js");
+    const cwd = process.cwd();
+    const loaded = loadConfig(cwd, opts.config);
+    const settings = introspectSettings(opts, cwd, loaded.config.contracts, loaded.dir);
+    const { schemas, target, label } = settings;
     let tables;
     let source: string;
     if (opts.openapi) {
@@ -152,8 +158,8 @@ program
     } else {
       // The URL comes from the environment, never the command line, so it
       // stays out of shell history and process listings.
-      const url = process.env[opts.databaseEnv];
-      if (!url) throw new Error(`Set ${opts.databaseEnv} to the database URL, or pass --openapi.`);
+      const url = process.env[settings.databaseEnv];
+      if (!url) throw new Error(`Set ${settings.databaseEnv} to the database URL, or pass --openapi.`);
       const { default: postgres } = await import("postgres");
       const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
       try {
@@ -164,19 +170,18 @@ program
       source = (await import("./doctor/contracts.js")).postgresSource(schemas);
     }
     const content = emitContracts(tables, { source });
-    const target = path.resolve(opts.out);
     if (opts.check) {
       const current = await fs.readFile(target, "utf-8").catch(() => null);
       // A checkout with Windows line endings holds the same contract.
       if (current?.replace(/\r\n/g, "\n") !== content) {
-        console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
+        console.error(`✗ ${label} is out of date. Run \`genesis introspect\` and commit the result.`);
         process.exit(1);
       }
-      console.log(`✔ ${opts.out} is up to date (${tables.length} tables).`);
+      console.log(`✔ ${label} is up to date (${tables.length} tables).`);
       return;
     }
     await fs.writeFile(target, content, "utf-8");
-    console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
+    console.log(`✔ Wrote ${label}: ${tables.length} tables.`);
   });
 
 program

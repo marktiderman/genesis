@@ -49,7 +49,12 @@ function's secrets, apply the migration. Options: `--host next|supabase-function
 DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 ```
 
-Writes `resources.genesis.ts`, a checked-in contract for the Data Studio: every table in the
+With no flags it follows the app's `doctor.contracts` settings in `genesis.config.json` (`out`
+relative to the config's folder, `schemas`, `databaseEnv`), so it rewrites the same file the
+doctor's `contracts-stale` check reads. `-o`, `-s` and `--database-env` override them, and `-o`
+is relative to where you run the command.
+
+Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
