@@ -1,6 +1,6 @@
 # media-library uploads: design
 
-Status: **v0.2, approved** (Mason, with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
+Status: **v0.3, approved in review** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
 
 This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
 in #542): resumable, checksummed uploads with one contract for browser, native and
@@ -268,8 +268,8 @@ until the lock ends; the policy then purges it, and the purge is recorded on the
   (audited, plain JS, runs on Hermes, no wasm). The `hash` option takes another (hash-wasm in a
   browser app that wants the speed). Browsers hash in a **Web Worker** by default. The server
   side hashes streams with `crypto.DigestStream` on Workers and `node:crypto` on Node.
-- Parts carry `content-digest` (RFC 9530, `sha-256`, base64). Part size: at least 8 MB (S3's
-  minimum is 5 MiB), at most the smallest `maxPart` of the targets, and large enough that the
+- Parts carry `content-digest` (RFC 9530, `sha-256`, base64). Part size: at least 5 MiB (S3's
+  and R2's real minimum), at most the smallest `maxPart` of the targets, and large enough that the
   part count stays under 10,000.
 
 ## Clients
@@ -406,3 +406,20 @@ with its own transport. Either is media-video-value's decision.
   the owner, and pgTAP), behind the store interface so a Durable Object store can replace it.
 - **A re-sent part with a different digest:** refused, 409 `part_conflict`; abort and create again.
 - **The package:** `@marktiderman/genesis-media-library`.
+
+## Hardened in review (v0.3)
+
+- **Storage keys are one upload's own.** The handler appends the upload id to any key from
+  `keyFor` that lacks it, and the session table refuses two uploads with one key, so a key built
+  from a hash never reaches another upload's object. An upload reads back, locks and deletes
+  only what it assembled, by version where the store keeps versions; after a `finish` whose
+  answer was lost, it goes on only if the target can tell the object is this upload's assembly.
+- **One verification at a time:** a run holds a lease (renewed as it goes) before it copies.
+- **Abort and the sweep** remove a session only in the state they found it in; a session stuck
+  in `verifying` with no live lease can be aborted and is swept, with its unverified objects.
+- **Parts** stream through and are reserved for their bytes before they are written; other bytes
+  are refused (409 `part_conflict`) before they reach the target.
+- **One open session per owner, identity, purpose and target set** (a unique index): a second tab
+  resumes the first.
+- **S3 Object Lock:** a bucket with a default retention is refused.
+- **Part size:** at least 5 MiB. **Copies** record their target's `tier`.
