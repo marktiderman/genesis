@@ -73,7 +73,7 @@
   "genesis": {
     "layer": "primitive",
     "group": "data",
-    "owner": "mark",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "New: the upload clients and forms' and chat's re-exports land next; a hand-rolled upload loop isn't reliably detectable yet.",

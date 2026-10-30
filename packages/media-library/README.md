@@ -40,6 +40,7 @@ const handle = createUploadHandler({
     }),
   },
   // Who is asking, from the request's own credential. A form respondent without an account is an owner too.
+  // The kind is lowercase letters, digits, "_" and "-" (1 to 32); the id 1 to 200 characters.
   owner: async (request) => {
     const user = await userFrom(request);
     return user ? { kind: "person", id: user.id } : null;
@@ -66,7 +67,7 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
 | `GET /uploads/:id` | 200 the state and the parts the server has |
 | `PUT /uploads/:id/parts/:n` with `content-digest: sha-256=:…:` | 200 checked and recorded (or the same part again); 422 `digest_mismatch`; 409 `part_conflict`, `part_size`; 413; 410 `finalized` |
 | `POST /uploads/:id/finalize` `{ sha256? }` | 200 `done` or `partial` (inline, up to `verifyInlineBytes`, 64 MiB); 202 `verifying` (a job reads the copies back: poll `GET`); 409 `missing_parts`; 422 `identity_mismatch`, `sha256_required` |
-| `DELETE /uploads/:id` | 204; 409 while verifying |
+| `DELETE /uploads/:id` | 204; 409 while a verification holds it, or when it changed meanwhile |
 
 - **Owner binding.** Every operation is bound to the owner that created the upload, and
   `authorize` is asked again each time. Another owner's upload, an unknown id and a lapsed
@@ -76,13 +77,30 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
   A part's digest only proves the part arrived intact.
 - **Skip-if-identical** only compares objects from `readable`, and only when each has a verified
   copy with this identity in every target asked for. A file someone else holds is never a match.
-- **Parts** are checked against their `content-digest` (RFC 9530) before they are stored. The
-  same part again is a no-op; other bytes for a part already received are refused with 409
-  `part_conflict` (abort and create again).
+- **Storage keys are one upload's own.** A key from `keyFor` that doesn't contain the upload id
+  gets it appended, and the session table refuses two uploads with one key. So a key built from
+  a hash (which anyone can declare) never reaches another upload's object: an upload only ever
+  writes, reads back, locks or deletes what it assembled itself (by version, where the store
+  keeps versions).
+- **Parts** stream through: each is hashed and counted on its way to the target, never held
+  whole. A part number is reserved for its bytes (a compare-and-set on the part row) before
+  anything is written, so other bytes for it are refused with 409 `part_conflict` before they
+  reach the target (abort and create again); the same bytes again are a no-op. A part whose
+  bytes don't match their `content-digest` (RFC 9530) isn't recorded (422).
+- **Two tabs, one session.** An owner has at most one open session per identity, purpose and
+  target set (a unique index); a create that loses that race resumes the winner's.
 - **Fan-out.** The parts go to the first target. At finalize the object is copied server-side to
   the others, a part at a time; then every copy is read back and hashed. Only a copy with the
-  declared size and SHA-256 is recorded in `copies`, and only then locked. A copy that fails is in
-  `failed`, and finalize again retries just those targets (`partial`).
+  declared size and SHA-256 is recorded in `copies` (with its target's `tier`), and only then
+  locked. A copy that fails is in `failed`, and finalize again retries just those targets
+  (`partial`).
+- **One verification at a time.** A run takes the session's lease (renewed as it goes) before it
+  copies anything; a second finalize, or a redelivered job, answers 202 and leaves it alone. A
+  copy's multipart upload is recorded before it starts, so one that died is aborted next time.
+- **Abort and the sweep** remove a session only while it is still in the state they found: a
+  finalize that wins the race stands. A session stuck in `verifying` (no live lease for
+  `staleVerifyingSeconds`, 1 hour) can be aborted and is swept, with the objects it assembled
+  that never verified.
 - **Never delete the source.** Nothing here deletes or moves the original a client reads from.
   Copies follow the app's retention policy.
 
@@ -90,10 +108,11 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
 
 - `UPLOAD_VERIFY_JOB` (`media-library.verify`, payload `{ uploadId }`): run it with
   genesis-supabase's runner, `runJobs(admin, { handlers: { [UPLOAD_VERIFY_JOB]: createUploadVerifyJob({ store, targets }) } })`.
-  It is safe to run twice.
-- `UPLOAD_SWEEP_JOB` (`media-library.sweep`): `sweepExpiredUploads({ store, targets })` aborts
-  open sessions with no part for `sessionTtlSeconds` (7 days) in their target and forgets them.
-  Schedule it.
+  It is safe to run twice: a run that finds the lease taken asks to run again once it could have
+  lapsed (`{ retryAfterSeconds }`).
+- `UPLOAD_SWEEP_JOB` (`media-library.sweep`): `sweepExpiredUploads({ store, targets })` clears
+  open sessions with no part for `sessionTtlSeconds` (7 days) and stuck verifications, and what
+  they left in their targets. Schedule it.
 
 Without `enqueueVerify` every upload verifies inline, which only suits a server with no time
 limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
@@ -111,6 +130,8 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
   owner itself.
 - `createMemorySessionStore()`, for tests.
 - `UploadSessionStore`: implement it for a Durable Object when the handler runs in a Worker.
+  Every change is a compare-and-set (`reservePart`, `completePart`, `update` with the states it
+  expects, `claimVerify`, `remove` with the states it expects).
 
 ## Targets
 
@@ -118,13 +139,17 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
   any S3-compatible store over fetch, with SigV4 on WebCrypto. Each part is signed with its own
   SHA-256, so the store refuses one that arrived changed. With `objectLock`, each object gets its
   retention (`PutObjectRetention`) after it verified, never before; the bucket must have Object
-  Lock on (the target refuses at start otherwise) and **no default retention**, which would lock
-  an object before it is checked.
-- `createR2Target(env.BUCKET)`: an R2 bucket through its Worker binding. R2 has no per-object
-  retention, so this target locks nothing.
+  Lock on and **no default retention**, which would lock an object before it is checked (the
+  target refuses either at start). An Object Lock bucket is versioned, so every object is
+  addressed by the version id `CompleteMultipartUpload` gave: the read-back, the lock and a
+  delete name that version (a plain delete would only add a delete marker). Its copies are the
+  `archive` tier unless `tier` says otherwise.
+- `createR2Target(env.BUCKET, { tier? })`: an R2 bucket through its Worker binding (parts stream
+  through a `FixedLengthStream`). R2 has no per-object retention, so this target locks nothing.
 - `createMemoryTarget()`, for tests: `objects`, `locks`, `calls`, `corrupt`, `fail`.
-- `UploadTarget`: `start`, `part`, `finish`, `abort`, `read`, `head`, `delete`, and `lock?`, for
-  another store.
+- `UploadTarget`: `start`, `part` (a stream, with its size and SHA-256), `finish` (returning the
+  object it made), `assembled?`, `abort`, `read`, `head`, `delete` and `lock?` (each with an
+  optional version), `tier?`, for another store.
 
 ## Where an app customizes (ADR 0013)
 
