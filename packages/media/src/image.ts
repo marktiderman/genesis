@@ -58,8 +58,15 @@ export interface ImageUrlOptions {
  * The host's image URL builder: the URL that serves `src` at `options`, or
  * null when this builder can't transform `src` (another host's image), which
  * leaves the image at its own URL with no `srcset`.
+ *
+ * A builder that serves fixed files rather than resizing (signed
+ * derivatives) carries their `widths`. `responsiveImage` then offers those
+ * widths only, in place of its `widths` option, and never adds the file's
+ * own width between them, so every `w` in the `srcset` is a file's own.
  */
-export type ImageUrlBuilder = (src: string, options: ImageUrlOptions) => string | null;
+export type ImageUrlBuilder = ((src: string, options: ImageUrlOptions) => string | null) & {
+  readonly widths?: readonly number[] | undefined;
+};
 
 /** Serves every image at its own URL, with no `srcset`. The default. */
 export const passThroughImageUrl: ImageUrlBuilder = () => null;
@@ -125,7 +132,10 @@ export interface ResponsiveImageOptions {
   imageUrl?: ImageUrlBuilder;
   /** How wide the image shows, for the browser's pick (`(min-width: 768px) 50vw, 100vw`). */
   sizes?: string;
-  /** The widths to offer (default `DEFAULT_WIDTHS`), never past the image's own width. */
+  /**
+   * The widths to offer (default `DEFAULT_WIDTHS`), never past the image's
+   * own width. Ignored when `imageUrl` carries its own `widths`.
+   */
   widths?: readonly number[];
   /** The page's first large image: loaded at once, at high priority. */
   priority?: boolean;
@@ -173,11 +183,18 @@ export function focalPosition(focal: FocalPoint | undefined): string | undefined
   return `${clamp(focal.x)}% ${clamp(focal.y)}%`;
 }
 
-/** The widths to offer for a file `width` wide: none past it, and the file's own width when a larger one was dropped. */
-export function srcsetWidths(width: number | undefined, widths: readonly number[] = DEFAULT_WIDTHS): number[] {
+/**
+ * The widths to offer for a file `width` wide: none past it, and the file's
+ * own width when a larger one was dropped. With `fixed` (the widths are
+ * fixed files, not resizes) the file's own width is never added: the
+ * builder would serve the next file up under it, and the `w` would be wrong.
+ * A file narrower than every fixed width gets the smallest one.
+ */
+export function srcsetWidths(width: number | undefined, widths: readonly number[] = DEFAULT_WIDTHS, options: { fixed?: boolean } = {}): number[] {
   const all = [...new Set(widths.filter((w) => Number.isInteger(w) && w > 0))].sort((a, b) => a - b);
   if (!width) return all;
   const kept = all.filter((w) => w <= width);
+  if (options.fixed) return kept.length || !all.length ? kept : [all[0]!];
   if (all.some((w) => w > width) && !kept.includes(width)) kept.push(width);
   return kept;
 }
@@ -188,7 +205,7 @@ function source(src: string, width: number | undefined, height: number | undefin
   if (width) out.width = width;
   if (height) out.height = height;
   const fmt = { ...(o.format ? { format: o.format } : {}), ...(o.quality ? { quality: o.quality } : {}) };
-  const widths = srcsetWidths(width, o.widths);
+  const widths = build.widths ? srcsetWidths(width, build.widths, { fixed: true }) : srcsetWidths(width, o.widths);
   const entries: string[] = [];
   for (const w of widths) {
     const url = build(src, { width: w, ...fmt });

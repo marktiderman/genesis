@@ -50,6 +50,7 @@ export {
 } from "./bundle";
 export {
   createSignedImageUrls,
+  DEFAULT_MAX_SIGNED_ITEMS,
   finishSizes,
   mediaSrc,
   parseSignedImagePath,

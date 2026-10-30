@@ -46,6 +46,15 @@ describe("responsiveImage", () => {
     expect(srcsetWidths(320, [320, 640])).toEqual([320]);
   });
 
+  it("offers a builder's fixed widths only, never the file's own width between them", () => {
+    expect(srcsetWidths(1000, [800, 1600, 2400], { fixed: true })).toEqual([800]);
+    expect(srcsetWidths(500, [800, 1600], { fixed: true })).toEqual([800]);
+    expect(srcsetWidths(undefined, [1600, 800], { fixed: true })).toEqual([800, 1600]);
+    const fixed: ImageUrlBuilder = Object.assign((src: string, o: { width?: number }) => `${src}?f=${o.width}`, { widths: [800, 1600] });
+    const img = responsiveImage({ src: "/a.jpg", width: 1200 }, { imageUrl: fixed, widths: [320, 1200] });
+    expect(img.srcset).toBe("/a.jpg?f=800 800w");
+  });
+
   it("keeps the image's own URL when the builder can't serve it", () => {
     const img = responsiveImage({ src: "https://cdn.example/a.jpg", width: 2000 }, { imageUrl: supabase, sizes: "100vw" });
     expect(img.srcset).toBeUndefined();
