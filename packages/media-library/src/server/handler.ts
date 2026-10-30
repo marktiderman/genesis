@@ -387,26 +387,34 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
         },
       }),
     );
+    // Only the request that reserved the part gives the reservation back when its write fails. A
+    // "same" request shares it with a writer that may still be sending, and leaves it alone.
+    const release = () => (reservation === "reserved" ? store.releasePart(s.id, n, stored) : Promise.resolve());
     let receipt;
     try {
       receipt = await targets[s.targets[0]!]!.part(s.key, s.targetUploadId, n, counted, { size: expected, sha256: toHex(base64ToBytes(digest)) });
     } catch (error) {
-      await store.releasePart(s.id, n, stored);
+      await release();
       if (over) return refuse(413, "too_large");
       // The bytes didn't match their digest, and the store checked (S3): the same answer as below.
       if (size === expected && toBase64(hash.digest()) !== digest) return refuse(422, "digest_mismatch");
       throw error;
     }
     if (size !== expected) {
-      await store.releasePart(s.id, n, stored);
+      await release();
       return refuse(409, "part_size");
     }
     if (toBase64(hash.digest()) !== digest) {
       // Written, but not recorded: the next send of this part replaces it in the target.
-      await store.releasePart(s.id, n, stored);
+      await release();
       return refuse(422, "digest_mismatch");
     }
-    if (!(await store.completePart(s.id, n, stored, receipt.etag))) return refuse(410, "finalized");
+    if (!(await store.completePart(s.id, n, stored, receipt.etag))) {
+      // The reservation went (its writer failed and gave it back) while this request wrote: what
+      // the target holds for this part is unknown, so it isn't recorded. Finished means finished.
+      const after = await store.get(s.id);
+      return after && after.state === "open" ? refuse(409, "part_conflict") : refuse(410, "finalized");
+    }
     await store.update(s.id, { expiresAt: expiresAt() }, ["open"]);
     return json(200, { n, size: expected, digest: stored });
   }
@@ -450,22 +458,15 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     // A reserved part still being written (no etag yet) hasn't arrived.
     for (let n = 1; n <= plan.count; n++) if (!s.parts.some((p) => p.n === n && p.etag !== null)) missing.push(n);
     if (missing.length) return refuse(409, "missing_parts", { parts: missing.slice(0, 1000) });
-    const primary = targets[s.targets[0]!]!;
-    const receipts = s.parts.map((p) => ({ n: p.n, etag: p.etag! }));
-    let made;
-    try {
-      made = (await primary.finish(s.key, s.targetUploadId, receipts)) ?? {};
-    } catch (error) {
-      // An earlier finalize may have assembled it and then failed to record that. Go on only when
-      // the target can tell the object at this key is the one these parts of this upload made.
-      const ours = await primary.assembled?.(s.key, s.targetUploadId, receipts).catch(() => undefined);
-      if (!ours) throw error;
-      made = ours;
-    }
-    const assembled = { [s.targets[0]!]: made };
+    // Out of `open` first, in one compare-and-set, and only then assembled (by the verify run, under
+    // its lease). An abort that races this either removed the session first, and nothing was ever
+    // assembled, or finds it verifying and is refused: an object never outlives its session.
     const since = new Date(now()).toISOString();
-    if (!(await store.update(s.id, { state: "verifying", sha256, assembled, verifyingSince: since }, ["open"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
-    return verify({ ...s, state: "verifying", sha256, assembled, verifyingSince: since });
+    if (!(await store.update(s.id, { state: "verifying", sha256, verifyingSince: since }, ["open"]))) {
+      const after = await store.get(s.id);
+      return after ? json(200, statusOf(after)) : refuse(404, "not_found");
+    }
+    return verify({ ...s, state: "verifying", sha256, verifyingSince: since });
   }
 
   async function abort(s: UploadSession): Promise<Response> {

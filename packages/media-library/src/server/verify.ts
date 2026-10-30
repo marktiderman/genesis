@@ -1,9 +1,10 @@
 /**
- * Fan-out and the read-back check. At finalize the first target holds the
- * assembled object; every other target gets a server-side copy of it; then
- * every copy is read back and hashed, and only a copy with the declared size
- * and SHA-256 is recorded (and then, only then, locked). Big objects do this
- * in a `genesis_jobs` job (`media-library.verify`), small ones inline.
+ * Assembly, fan-out and the read-back check. Finalize marks the session
+ * `verifying` first; a run then assembles the parts in the first target,
+ * gives every other target a server-side copy, reads every copy back and
+ * hashes it, and records (and then, only then, locks) only a copy with the
+ * declared size and SHA-256. Big objects do this in a `genesis_jobs` job
+ * (`media-library.verify`), small ones inline.
  *
  * One worker at a time: a run first takes the session's lease
  * (`claimVerify`) and renews it as it goes, so a second finalize, or a
@@ -39,8 +40,8 @@ export type VerifyRun = { session: UploadSession | null; busy: boolean };
 const RENEW_EVERY_BYTES = 256 * 1024 * 1024;
 
 /**
- * Copies, reads back and locks an upload in `verifying`, and records what it
- * found: `done`, `partial` (some targets failed; finalize again retries them)
+ * Assembles (when finalize hasn't yet), copies, reads back and locks an
+ * upload in `verifying`, and records what it found: `done`, `partial` (some targets failed; finalize again retries them)
  * or `identity_mismatch` (the assembled object isn't what was declared; it is
  * removed, and nothing was locked). A session no longer verifying is left
  * alone; one whose lease another run holds answers `busy`.
@@ -53,7 +54,11 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
   const first = await store.get(uploadId);
   if (!first || first.state !== "verifying") return { session: first, busy: false };
   const holder = randomToken();
-  if (!(await store.claimVerify(uploadId, iso(now() + leaseMs), iso(now()), holder))) return { session: first, busy: true };
+  if (!(await store.claimVerify(uploadId, iso(now() + leaseMs), iso(now()), holder))) {
+    // Removed meanwhile (an abort before any run took it) is gone, not busy.
+    const again = await store.get(uploadId);
+    return { session: again, busy: again !== null };
+  }
   // Every write this run makes names its lease; once another run holds it, this one stops at once.
   const held = async (patch: UploadSessionPatch) => {
     if (!(await store.update(uploadId, patch, ["verifying"], holder))) throw new LeaseLostError(uploadId);
@@ -69,6 +74,30 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
   const pendingCopies: Record<string, string> = { ...s.pendingCopies };
   const pending = s.targets.filter((t) => !copies.some((c) => c.target === t));
   const save = () => held({ assembled, pendingCopies, leaseUntil: iso(now() + leaseMs) });
+
+  // Assembled first, under this run's lease: finalize marks the session verifying before anything
+  // is assembled, so an abort can never remove a session whose object is being made.
+  if (primary && !Object.hasOwn(assembled, primaryName)) {
+    let made: AssembledObject;
+    try {
+      made = await assemble(primary, s);
+    } catch (error) {
+      // Let the next finalize (or the job's retry) try again at once, rather than after the lease.
+      await store.update(uploadId, { leaseUntil: null, leaseHolder: null }, ["verifying"], holder).catch(() => {});
+      throw error;
+    }
+    assembled[primaryName] = made;
+    try {
+      await save();
+    } catch (error) {
+      if (!(error instanceof LeaseLostError)) throw error;
+      // The lease lapsed while it assembled. If the session went meanwhile, nothing points at the
+      // object any more, so it goes too; otherwise the run that holds the lease carries on.
+      const after = await store.get(uploadId);
+      if (!after) await primary.delete(s.key, made.versionId).catch(() => {});
+      return { session: after, busy: after !== null };
+    }
+  }
 
   for (const [i, name] of pending.entries()) {
     const target = targets[name];
@@ -153,6 +182,30 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
   return { session: await store.get(uploadId), busy: false };
 }
 
+/** The parts the session recorded, as the target's receipts. */
+const receiptsOf = (s: UploadSession) => s.parts.filter((p) => p.etag !== null).map((p) => ({ n: p.n, etag: p.etag! }));
+
+/**
+ * Assembles the first target's object from the session's parts. A finish
+ * whose answer was lost goes on only when the target can tell the object at
+ * this key is the one these parts of this upload made.
+ */
+async function assemble(primary: UploadTarget, s: UploadSession): Promise<AssembledObject> {
+  const receipts = receiptsOf(s);
+  try {
+    return (await primary.finish(s.key, s.targetUploadId, receipts)) ?? {};
+  } catch (error) {
+    const ours = await primary.assembled?.(s.key, s.targetUploadId, receipts).catch(() => undefined);
+    if (!ours) throw error;
+    return ours;
+  }
+}
+
+/** Whether a `verifying` session's object is assembled yet (finalize leaves that to the run). */
+export function isAssembled(s: UploadSession): boolean {
+  return Object.hasOwn(s.assembled ?? {}, s.targets[0]!);
+}
+
 /** This run's lease was taken by another (it ran too long without renewing): it stops. */
 class LeaseLostError extends Error {
   constructor(id: string) {
@@ -176,11 +229,19 @@ export function isStuckVerifying(s: UploadSession, options: UploadVerifyOptions)
 
 /**
  * Removes what an abandoned session left in its targets: its open multipart
- * upload, copies under way, and the objects it assembled that never verified
- * (verified copies are media, kept under the app's retention policy).
+ * upload (or one marked verifying and never assembled), copies under way, and
+ * the objects it assembled that never verified (verified copies are media,
+ * kept under the app's retention policy).
  */
 export async function discardUnverified(s: UploadSession, targets: Readonly<Record<string, UploadTarget>>): Promise<void> {
-  if (s.state === "open") await targets[s.targets[0]!]?.abort(s.key, s.targetUploadId).catch(() => {});
+  const primary = targets[s.targets[0]!];
+  if (s.state === "verifying" && !isAssembled(s) && primary) {
+    // Verifying but never recorded as assembled: a run may have assembled it and died before it
+    // said so. That object is this upload's own (its key, its parts), so it goes.
+    const lost = await primary.assembled?.(s.key, s.targetUploadId, receiptsOf(s)).catch(() => undefined);
+    if (lost) await primary.delete(s.key, lost.versionId).catch(() => {});
+  }
+  if (s.state === "open" || (s.state === "verifying" && !isAssembled(s))) await primary?.abort(s.key, s.targetUploadId).catch(() => {});
   for (const [name, mpu] of Object.entries(s.pendingCopies ?? {})) await targets[name]?.abort(s.key, mpu).catch(() => {});
   for (const [name, object] of Object.entries(s.assembled ?? {})) {
     if (s.copies.some((c) => c.target === name)) continue;

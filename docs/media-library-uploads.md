@@ -147,8 +147,8 @@ upload is done only when every target's copy has the declared size and SHA-256.
 Reading back is **asynchronous** for anything big: a 50 GB file in two targets is 100 GB to read,
 past any request's time and a Worker's subrequest limits.
 
-- **202** `{ "state": "verifying" }`: the copies are assembled and a `genesis_jobs` job
-  (`media-library.verify`) is reading each one back. The client polls Resume until the state is
+- **202** `{ "state": "verifying" }`: a `genesis_jobs` job (`media-library.verify`) is
+  assembling the object, copying it and reading each copy back. The client polls Resume until the state is
   `done`, `partial` or `identity_mismatch`.
 - Objects under a threshold (`verifyInlineBytes`, default 64 MB) are read back inline and answer
   at once:
@@ -415,6 +415,11 @@ with its own transport. Either is media-video-value's decision.
   only what it assembled, by version where the store keeps versions; after a `finish` whose
   answer was lost, it goes on only if the target can tell the object is this upload's assembly.
 - **One verification at a time:** a run holds a lease (renewed as it goes) before it copies.
+- **Finalize leaves `open` before anything is assembled** (a compare-and-set to `verifying`);
+  the verify run assembles under its lease. An abort racing a finalize either came first, and
+  nothing was assembled, or is refused, so an object never outlives its session.
+- **Only the request that reserved a part gives it back** when its write fails. Another
+  request writing the same bytes leaves it, and answers 409 `part_conflict` if it went.
 - **Abort and the sweep** remove a session only in the state they found it in; a session stuck
   in `verifying` with no live lease can be aborted and is swept, with its unverified objects.
 - **Parts** stream through and are reserved for their bytes before they are written; other bytes
