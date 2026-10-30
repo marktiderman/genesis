@@ -16,12 +16,15 @@
  * its text. A copy whose text no longer matches its header (edited in the app),
  * or whose package now ships a different text (changed upstream), is reported
  * and left alone; `--forward` writes one forward migration to carry the change
- * instead, and a later run counts that copy as handled. Checksums and
- * comparisons ignore CRLF versus LF.
+ * instead, and a later run counts that copy as handled. A copy the app
+ * deleted (genesis.lock.json's `migrations` remembers where each one went) is
+ * reported the same way and never copied again. Checksums and comparisons
+ * ignore CRLF versus LF.
  */
 import * as path from "node:path";
 import { createApp, listApp, readApp, sha256 } from "./files.js";
 import { MIGRATION_FILE, safeRelative, type ManifestMigration } from "./manifest.js";
+import { migrationKey, type GenesisLock } from "./lock.js";
 
 export const MIGRATIONS_DIR = "supabase/migrations";
 export const TESTS_DIR = "supabase/tests/database";
@@ -84,6 +87,8 @@ export type MigrationState =
   | "changed-upstream"
   /** A file with the same name but other text: the app's own. Never rewritten. */
   | "differs"
+  /** Copied once (genesis.lock.json remembers where), then deleted in the app. Never copied again. */
+  | "deleted"
   /** The package's file can't be read (not installed, or removed). */
   | "unavailable";
 
@@ -103,7 +108,8 @@ export interface MigrationRow {
 
 /** Does this row still need a person? */
 export function needsAttention(row: MigrationRow): boolean {
-  return row.state !== "current" && row.state !== "new" && !row.forward;
+  // A deleted copy is reported, but deleting it was the app's choice: nothing is waiting on a person.
+  return row.state !== "current" && row.state !== "new" && row.state !== "deleted" && !row.forward;
 }
 
 export interface SourceMigration extends ManifestMigration {
@@ -163,7 +169,11 @@ export interface MigrationPlan {
  * migration stub instead of a rewrite. A pgTAP test is copied only with its
  * migration, in the same run.
  */
-export function planMigrations(root: string, sources: SourceMigration[], options: { now: Date; forward?: boolean; tests?: boolean } = { now: new Date() }): MigrationPlan {
+export function planMigrations(
+  root: string,
+  sources: SourceMigration[],
+  options: { now: Date; forward?: boolean; tests?: boolean; copied?: Readonly<Record<string, string>> } = { now: new Date() },
+): MigrationPlan {
   const app = readAppMigrations(root);
   const rows: MigrationRow[] = [];
   const pending: { row: MigrationRow; src: SourceMigration; kind: "migration" | "forward"; copySha?: string }[] = [];
@@ -186,6 +196,11 @@ export function planMigrations(root: string, sources: SourceMigration[], options
     const copy = copies[0];
     if (src.source === null || sourceSha === null) {
       rows.push({ ...base, state: "unavailable", ...(copy ? { copy: copy.path } : {}), detail: `${src.package} isn't installed, or doesn't ship ${src.file}` });
+      continue;
+    }
+    const copiedTo = options.copied?.[migrationKey(src.package, src.file)];
+    if (!copy && copiedTo) {
+      rows.push({ ...base, state: "deleted", copy: copiedTo, detail: "deleted in the app after it was copied; not copied again" });
       continue;
     }
     if (!copy) {
@@ -262,6 +277,22 @@ export function planMigrations(root: string, sources: SourceMigration[], options
   return { rows, creates };
 }
 
+/**
+ * Remember in the lock where each package migration is: the copies the plan
+ * found and the ones it creates. Returns whether the lock changed.
+ */
+export function rememberMigrationCopies(lock: GenesisLock, plan: MigrationPlan): boolean {
+  const before = JSON.stringify(lock.migrations ?? {});
+  const migrations = { ...lock.migrations };
+  for (const row of plan.rows) {
+    if (row.copy && (row.state === "current" || row.state === "edited" || row.state === "changed-upstream")) migrations[migrationKey(row.package, row.file)] = row.copy;
+  }
+  for (const c of plan.creates) if (c.kind === "migration" && c.source) migrations[migrationKey(c.source.package, c.source.file)] = c.path;
+  if (JSON.stringify(migrations) === before) return false;
+  lock.migrations = migrations;
+  return true;
+}
+
 /** Write a plan's new files. Each must not exist: an existing file is never overwritten. */
 export function applyMigrationPlan(root: string, plan: MigrationPlan): string[] {
   for (const file of plan.creates) createApp(root, file.path, file.content);
@@ -275,7 +306,7 @@ export function validHeaderFile(file: string): boolean {
 
 export function formatMigrationRows(rows: MigrationRow[]): string {
   if (!rows.length) return "No package migrations to compare.";
-  const mark: Record<MigrationState, string> = { current: "=", new: "+", edited: "!", "changed-upstream": "!", differs: "!", unavailable: "?" };
+  const mark: Record<MigrationState, string> = { current: "=", new: "+", edited: "!", "changed-upstream": "!", differs: "!", deleted: "!", unavailable: "?" };
   return rows
     .map((r) => {
       const where = r.target ? ` → ${r.target}` : r.copy ? ` (${r.copy})` : "";

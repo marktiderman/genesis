@@ -389,6 +389,38 @@ describe("the real package declarations", () => {
     ]);
   });
 
+  it("core keeps *.view.ts files platform-neutral: no router, react-dom, react-native or UI imports", async () => {
+    const root = makeApp(null, {
+      ...install("core", "genesis-core-rules"),
+      "src/lib/views/goals.view.ts": [
+        'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+        'import { personDay } from "@marktiderman/genesis-core/dates";',
+        'import { goals } from "../resources";',
+        "export const goalsView = defineView(goals, {});",
+        "",
+      ].join("\n"),
+      "src/lib/views/studio.view.ts": [
+        'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+        'import { Link } from "@tanstack/react-router";',
+        'import { createPortal } from "react-dom";',
+        'import { Platform } from "react-native";',
+        'import { Badge } from "@marktiderman/genesis-ui";',
+        'import { useRouter } from "expo-router";',
+        "export const studioView = defineView(studio, {});",
+        "",
+      ].join("\n"),
+      // Not a view file: a screen may import all of these.
+      "src/routes/studio.tsx": 'import { Link } from "@tanstack/react-router";\nexport const S = () => <Link to="/" />;\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "core-rules/views-stay")).toEqual([
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:2 @tanstack/react-router",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:3 react-dom",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:4 react-native",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:5 @marktiderman/genesis-ui",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:6 expo-router",
+    ]);
+  });
+
   it("ui checks record screens named [id] and .jsx routes too, and a list inside a record view doesn't exempt it", async () => {
     const root = makeApp(null, {
       ...install("ui", "genesis-ui-rules"),

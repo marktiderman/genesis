@@ -82,6 +82,7 @@ import type {
   ShadowToken,
   TypographyTokens,
 } from "../schema/brand";
+import { brandRoleVariables } from "./brand-roles";
 
 // ---------------------------------------------------------------------------
 // Output types.
@@ -556,7 +557,10 @@ function emitColorScale(
  *  - `css`: same Tailwind v4 `@theme` body as web. Paste into the
  *    consumer's `apps/<app>/global.css` (NativeWind v5 reads it).
  *  - `variables.{light,dark}`: flat CSS-variable maps for runtime theme
- *    switching via `<VariableContextProvider value={variables.light}>`.
+ *    switching via `<VariableContextProvider value={variables.light}>`:
+ *    the theme role variables (`--primary`, `--background`, … from
+ *    {@link brandRoleVariables}, what the role classes read) and the
+ *    brand's `--color-*` scale variables.
  *  - `theme`: structured native shapes (gradient stops, RN shadow style
  *    objects, px numbers) for non-CSS consumers.
  *
@@ -584,8 +588,12 @@ export function themeFromBrand(
 
   // ---- Flat variables (light + dark) for VariableContextProvider --------
 
-  const lightVars: Record<string, string> = {};
-  const darkVars: Record<string, string> = {};
+  // The theme role variables (`--primary`, `--background`, …) the role
+  // classes read (`bg-primary` is `hsl(var(--primary))`), then the brand's
+  // `--color-*` scale variables.
+  const roles = brandRoleVariables(merged);
+  const lightVars: Record<string, string> = { ...roles.light };
+  const darkVars: Record<string, string> = { ...roles.dark };
 
   // Neutral.
   for (const [stop, hex] of Object.entries(merged.neutral)) {

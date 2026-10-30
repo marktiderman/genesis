@@ -44,6 +44,7 @@ export {
   type NativeBrandOutput,
   type BrandFactoryOptions,
 } from "./factories/from-brand";
+export { brandRoleVariables, type BrandRoleVariables } from "./factories/brand-roles";
 
 // Brand-genesis OOTB fallback. The sibling brand presets that used to live
 // here were stripped in
