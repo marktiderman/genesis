@@ -1,0 +1,34 @@
+packages/media-library/src/client/__tests__/review.test.ts
+  s_ba8cb54dbea75a::t_25bd4f8540b6e0 1-310
+  s_ba8cb54dbea75a::t_9a4798688aa8fd 311-314
+packages/media-library/src/client/__tests__/uploader.test.ts
+  s_ba8cb54dbea75a::t_58c96211a3a6d1 46,81,99,106,108-109,111-115,245
+packages/media-library/src/client/config.ts
+  s_ba8cb54dbea75a::t_22e789b2091b33 7-18,20-21,23-24,27-28,30-41,45-50,54-58,64-65,67-70,86,95-101,103,108-112,118-133
+packages/media-library/src/client/index.ts
+  s_ba8cb54dbea75a::t_d2bbb833fe20b1 27-28
+packages/media-library/src/client/uploader.ts
+  s_ba8cb54dbea75a::t_e0d4c9a42136f0 12,22,42,65-70,77,90-91,93-95,113-114,120,123,127-133,135,137-138,141,162-168,176-183,193,195,204,222-237,239,242,244,246,251,270-279,283,292,294-295,300,309-311,313,318-327,329,332,336-342,345-354,362,365,367-372,374,376,379,381-385,387,394-399,401,414,416,428,430-432,446,453,463-464,467-480,482-485,490,498-501,503,505,508-511,520
+packages/media-library/src/protocol.ts
+  s_ba8cb54dbea75a::t_c9f53570ede16b 36-41
+packages/media-library/src/server/handler.ts
+  s_ba8cb54dbea75a::t_5770f2995f1986 174,181-182,301-309,343-347
+packages/media-library/src/server/store.ts
+  s_ba8cb54dbea75a::t_76341b9aca3b1a 169
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49c831c94742134bf810c2cffa7aeb4bcff6354c",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
