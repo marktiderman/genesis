@@ -71,8 +71,8 @@ export interface GenesisNativewindPresetOptions {
  *   import { myBrand } from "./src/brand";
  *   presets: [nativewindPreset, createGenesisNativewindPreset({ brand: myBrand })],
  *
- * Pass the same brand to `GenesisNativeApp`, which applies these variables
- * at runtime too.
+ * Pass the same brand to `GenesisNativeApp` (its `brandVariables: true` sets
+ * the same variables at runtime too).
  *
  * @stability Beta
  */

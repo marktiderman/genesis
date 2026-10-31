@@ -8,27 +8,35 @@
  * colors, or the role classes stay Genesis purple whatever brand it passes.
  * {@link themeFromBrand} includes them in `variables`, the NativeWind preset
  * declares them (`createGenesisNativewindPreset({ brand })`), and
- * `GenesisNativeApp` applies them at runtime.
+ * `GenesisNativeApp` can apply them at runtime (`brandVariables`).
  *
- * Every variable starts at the Genesis value, and the brand's colors replace
- * the ones it says something about:
+ * A brand's colors are its `DEFAULT`s, as `tailwindFromBrand` emits them for
+ * web (`--color-surface` is `surface.DEFAULT`). A scale's `light` / `dark`
+ * keys are emphasis tints (`--color-surface-light`), never light and dark
+ * mode, so they are never read here.
+ *
+ * Light mode: every variable starts at the Genesis value, and the brand's
+ * colors replace the ones it says something about:
  *
  *   - surface → background, card, popover
  *   - text → foreground and its card and popover pairs
  *   - accent → primary (and the sidebar's), with whichever of white and the
  *     darkest neutral reads better on it as its foreground; the ring is the
  *     primary when it reaches 3:1 on the background, the text color otherwise
- *   - neutral 100/800 → secondary, muted, accent; 500/400 → muted
- *     foreground; 200/800 → border, input (light/dark)
- *   - status → destructive (error), success, warning, info, in the modes the
- *     brand gives them for (a status DEFAULT counts for light only)
+ *   - neutral 100 → secondary, muted, accent; 500 → muted foreground;
+ *     200 → border, input
+ *   - status → destructive (error), success, warning, info
+ *
+ * Dark mode: a brand declares no dark-mode colors, so the Genesis dark values
+ * stay, except the primary, which is the brand's accent when it reaches 4.5:1
+ * on the dark background.
  *
  * Colors that aren't `#rgb`/`#rrggbb` are left at the Genesis value.
  *
  * @stability Beta
  */
 
-import type { CanonicalBrand, ColorScale } from "../schema/brand";
+import type { CanonicalBrand } from "../schema/brand";
 import { GENESIS_THEME_BRAND, themeVariables } from "../tokens/theme-css";
 import { applyOverrides } from "./overrides";
 
@@ -88,9 +96,7 @@ function hslTriplet([r255, g255, b255]: [number, number, number]): string {
   return `${round(h)} ${round(s * 100)}% ${round(l * 100)}%`;
 }
 
-function pick(scale: ColorScale | undefined, mode: Mode, defaultCountsInDark = true): [number, number, number] | null {
-  if (!scale) return null;
-  const value = mode === "light" ? (scale.light ?? scale.DEFAULT) : (scale.dark ?? (defaultCountsInDark ? scale.DEFAULT : undefined));
+function hex(value: string | undefined): [number, number, number] | null {
   return typeof value === "string" ? parseHex(value) : null;
 }
 
@@ -102,36 +108,52 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
     if (!rgb) return;
     for (const name of names) out[`--${name}`] = hslTriplet(rgb);
   };
-  const neutral = (stop: string) => (typeof brand.neutral?.[stop] === "string" ? parseHex(brand.neutral[stop]!) : null);
-  const dark = mode === "dark";
-
-  const background = pick(brand.surface, mode);
-  const foreground = pick(brand.text, mode);
-  set(["background", "card", "popover"], background);
-  set(["foreground", "card-foreground", "popover-foreground"], foreground);
-
-  const primary = pick(brand.accent, mode);
-  if (primary) {
+  const neutral = (stop: string) => hex(brand.neutral?.[stop]);
+  const read = (name: string) => {
+    const [h, sat, l] = (out[`--${name}`] ?? "").split(" ").map((p) => parseFloat(p));
+    return hslToRgb(h ?? 0, sat ?? 0, l ?? 0);
+  };
+  const accent = hex(brand.accent?.DEFAULT);
+  const primaryWith = (primary: [number, number, number], page: [number, number, number], text: [number, number, number]) => {
     set(["primary", "sidebar-primary"], primary);
     const darkest = neutral("900") ?? BLACK;
     let on = contrast(primary, WHITE) >= contrast(primary, darkest) ? WHITE : darkest;
     if (contrast(primary, on) < 4.5) on = contrast(primary, WHITE) >= contrast(primary, BLACK) ? WHITE : BLACK;
     set(["primary-foreground", "sidebar-primary-foreground"], on);
-    const page = background ?? (dark ? BLACK : WHITE);
-    const ring = contrast(primary, page) >= 3 ? primary : foreground;
-    set(["ring", "sidebar-ring"], ring);
+    set(["ring", "sidebar-ring"], contrast(primary, page) >= 3 ? primary : text);
+  };
+
+  if (mode === "dark") {
+    // No dark-mode colors in a brand: the Genesis dark theme, with the brand's accent where it reads.
+    const page = read("background");
+    if (accent && contrast(accent, page) >= 4.5) primaryWith(accent, page, read("foreground"));
+    return;
   }
 
-  set(["secondary", "muted", "accent"], neutral(dark ? "800" : "100"));
-  set(["muted-foreground"], neutral(dark ? "400" : "500"));
-  set(["border", "input"], neutral(dark ? "800" : "200"));
+  const background = hex(brand.surface?.DEFAULT);
+  const foreground = hex(brand.text?.DEFAULT);
+  set(["background", "card", "popover"], background);
+  set(["foreground", "card-foreground", "popover-foreground"], foreground);
+  if (accent) primaryWith(accent, background ?? read("background"), foreground ?? read("foreground"));
 
-  // A status DEFAULT is one color for both modes; the Genesis dark values are tuned for dark
-  // backgrounds, so a brand changes them only with an explicit `dark`.
-  set(["destructive"], pick(brand.status?.error, mode, false));
-  set(["success"], pick(brand.status?.success, mode, false));
-  set(["warning"], pick(brand.status?.warning, mode, false));
-  set(["info"], pick(brand.status?.info, mode, false));
+  set(["secondary", "muted", "accent"], neutral("100"));
+  set(["muted-foreground"], neutral("500"));
+  set(["border", "input"], neutral("200"));
+
+  set(["destructive"], hex(brand.status?.error?.DEFAULT));
+  set(["success"], hex(brand.status?.success?.DEFAULT));
+  set(["warning"], hex(brand.status?.warning?.DEFAULT));
+  set(["info"], hex(brand.status?.info?.DEFAULT));
+}
+
+/** `243 75% 59%` components → [r, g, b] (0–255). */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const sat = s / 100;
+  const light = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sat * Math.min(light, 1 - light);
+  const f = (n: number) => light - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
 }
 
 /**

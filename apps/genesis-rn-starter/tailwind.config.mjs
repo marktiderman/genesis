@@ -5,7 +5,7 @@
 // The Genesis NativeWind preset brings the token classes
 // (role colors and their variables, radius scale, fonts) the ui-native components use. With your
 // own brand, use `createGenesisNativewindPreset({ brand })` instead, with the brand you pass to
-// GenesisNativeApp (which also sets those variables at runtime).
+// GenesisNativeApp.
 import { fileURLToPath } from "node:url";
 import nativewindPreset from "nativewind/preset";
 import { genesisNativewindContent, genesisNativewindPreset } from "@marktiderman/genesis-design-system/presets/nativewind";
