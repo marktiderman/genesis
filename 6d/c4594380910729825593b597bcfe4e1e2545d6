@@ -1,0 +1,25 @@
+.changeset/forms-upload-adapter-docs.md
+  s_d4b9f2a19d9170::t_f778e84ff9eac2 1-5
+packages/media/README.md
+  s_d4b9f2a19d9170::t_aaf018b381f2f6 498-504
+packages/media/src/uploads/targets/__tests__/targets.test.ts
+  s_d4b9f2a19d9170::t_e97d08b8b58b28 279-280
+packages/media/src/uploads/targets/target.ts
+  s_d4b9f2a19d9170::t_0d288290210e7b 84-86,88-90,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6dc4594380910729825593b597bcfe4e1e2545d6",
+  "prompts": {},
+  "sessions": {
+    "s_d4b9f2a19d9170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3542c701-8199-4093-b68c-4e0a1f56807a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
