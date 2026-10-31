@@ -146,6 +146,8 @@ export type ChartTooltipContentProps = Omit<React.ComponentProps<"div">, "color"
   indicator?: "line" | "dot" | "dashed";
   nameKey?: string;
   labelKey?: string;
+  /** Anything else Recharts hands its content (`cursor`, `wrapperStyle`, …): accepted and ignored, as it was before. */
+  [prop: string]: unknown;
 };
 
 function ChartTooltipContent({

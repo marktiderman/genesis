@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 4055 other exports · 3225 standalone types across 189 entry points in 29 packages.
+**Totals:** 591 components · 4053 other exports · 3227 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -4296,7 +4296,7 @@ export type { WriteOutcome };
 
 **Barrel:** [`packages/genesis/src/ui.ts`](../packages/genesis/src/ui.ts)
 
-### Components (43)
+### Components (44)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -4307,6 +4307,7 @@ export type { WriteOutcome };
 | [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
+| [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | `ChartTooltipContentProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
 | [`Container`](../packages/ui/src/components/layout/container.tsx) | `ContainerProps` | Beta | Container — the page gutter: a centered column with a named maximum width and responsive side padding. |
 | [`DashboardPage`](../packages/ui/src/components/layout/dashboard-page.tsx) | `DashboardPageProps` | Beta | DashboardPage — a stat row over a flexible region of charts, tables and sections. |
@@ -4344,7 +4345,7 @@ export type { WriteOutcome };
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (264)
+### Other exports (263)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4399,7 +4400,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartLegendContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartStyle`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
-| [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
 | [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
@@ -4615,7 +4615,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (34)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4624,6 +4624,7 @@ export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
 export type { ChartConfig };
+export type { ChartPayloadItem };
 export type { ChipTone };
 export type { CommandPaletteItem };
 export type { FollowUpEntry };
@@ -9642,7 +9643,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (43)
+### Components (44)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -9653,6 +9654,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`BuilderLayout`](../packages/ui/src/components/layout/builder-layout.tsx) | `BuilderLayoutProps` | Beta | BuilderLayout — the three columns of a builder: an outline of the parts on the left, the editor for the selected part in the centre, a live preview on the right. |
 | [`Button`](../packages/ui/src/components/ui/button.tsx) | `ButtonProps` | Stable | Button — primary interactive control. Variants: default, secondary, outline, ghost, destructive, link. |
 | [`ButtonGroup`](../packages/ui/src/components/ui/button-group.tsx) | `ButtonGroupProps` | — | _(no summary)_ |
+| [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | `ChartTooltipContentProps` | — | _(no summary)_ |
 | [`CommandPalette`](../packages/ui/src/components/ui/command-palette.tsx) | `CommandPaletteProps` | — | Thin action registry over `CommandDialog` / cmdk. Consumers register flat commands; optional `group` buckets them. |
 | [`Container`](../packages/ui/src/components/layout/container.tsx) | `ContainerProps` | Beta | Container — the page gutter: a centered column with a named maximum width and responsive side padding. |
 | [`DashboardPage`](../packages/ui/src/components/layout/dashboard-page.tsx) | `DashboardPageProps` | Beta | DashboardPage — a stat row over a flexible region of charts, tables and sections. |
@@ -9690,7 +9692,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (264)
+### Other exports (263)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9745,7 +9747,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ChartLegendContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartStyle`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`ChartTooltip`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
-| [`ChartTooltipContent`](../packages/ui/src/components/ui/chart.tsx) | value | — | _(no summary)_ |
 | [`Checkbox`](../packages/ui/src/components/ui/checkbox.tsx) | value | — | _(no summary)_ |
 | [`Chip`](../packages/ui/src/components/resource/chip.tsx) | function | — | A small status chip in one of the resource workspace's tones (tinted, AA-safe Genesis badges). |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
@@ -9961,7 +9962,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (34)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9970,6 +9971,7 @@ export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
 export type { ChartConfig };
+export type { ChartPayloadItem };
 export type { ChipTone };
 export type { CommandPaletteItem };
 export type { FollowUpEntry };
