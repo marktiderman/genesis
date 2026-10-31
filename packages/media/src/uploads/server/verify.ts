@@ -4,7 +4,7 @@
  * gives every other target a server-side copy, reads every copy back and
  * hashes it, and records (and then, only then, locks) only a copy with the
  * declared size and SHA-256. Big objects do this in a `genesis_jobs` job
- * (`media-library.verify`), small ones inline.
+ * (`media.verify`), small ones inline.
  *
  * One worker at a time: a run first takes the session's lease
  * (`claimVerify`) and renews it as it goes, so a second finalize, or a
@@ -18,9 +18,9 @@ import { copyBetweenTargets, type AssembledObject, type UploadTarget } from "../
 import type { UploadSession, UploadSessionPatch, UploadSessionStore } from "./store";
 
 /** The job kind that reads an upload's copies back. Payload `{ uploadId }`. */
-export const UPLOAD_VERIFY_JOB = "media-library.verify";
+export const UPLOAD_VERIFY_JOB = "media.verify";
 /** The job kind that aborts lapsed sessions in their targets. */
-export const UPLOAD_SWEEP_JOB = "media-library.sweep";
+export const UPLOAD_SWEEP_JOB = "media.sweep";
 
 /** What verification needs: the same store and targets the handler has. */
 export interface UploadVerifyOptions {
@@ -250,7 +250,7 @@ export async function discardUnverified(s: UploadSession, targets: Readonly<Reco
 }
 
 /**
- * The `media-library.verify` job's handler, for genesis-supabase's
+ * The `media.verify` job's handler, for genesis-supabase's
  * `runJobs({ handlers: { [UPLOAD_VERIFY_JOB]: createUploadVerifyJob({ store, targets }) } })`.
  * When another run holds the lease it asks to run again once the lease could
  * have lapsed, so a run that died is picked up.
@@ -260,7 +260,7 @@ export async function discardUnverified(s: UploadSession, targets: Readonly<Reco
 export function createUploadVerifyJob(options: UploadVerifyOptions): (job: { payload: { uploadId?: unknown } }) => Promise<void | { retryAfterSeconds: number }> {
   return async (job) => {
     const id = job.payload.uploadId;
-    if (typeof id !== "string") throw new Error("media-library.verify: the payload needs an uploadId.");
+    if (typeof id !== "string") throw new Error("media.verify: the payload needs an uploadId.");
     const run = await verifyUpload(id, options);
     if (run.busy) return { retryAfterSeconds: options.leaseSeconds ?? 600 };
   };
@@ -271,7 +271,7 @@ export function createUploadVerifyJob(options: UploadVerifyOptions): (job: { pay
  * `expiresAt`), and verifying ones that are stuck (no live lease, verifying
  * for longer than `staleVerifyingSeconds`). Each is removed only while it is
  * still in the state it was found in, after what it left in its targets is
- * discarded. Returns how many. For the `media-library.sweep` job.
+ * discarded. Returns how many. For the `media.sweep` job.
  *
  * @stability Experimental
  */

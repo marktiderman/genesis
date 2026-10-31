@@ -1,6 +1,6 @@
 /**
  * Where upload sessions live. The default is the app's own table
- * (`createSupabaseSessionStore`, over the genesis_media_library schema with
+ * (`createSupabaseSessionStore`, over the genesis_media schema with
  * row level security on the owner); a Worker can keep them in a Durable
  * Object instead by implementing this interface. Every method that changes
  * a session is a compare-and-set, so two requests racing on one session

@@ -465,8 +465,8 @@ The design, the protocol messages and the failure cases are in
 | `/uploads/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
 | `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
-The session table's migration is `migrations/0001_genesis_media_library.sql` (schema
-`genesis_media_library`), shipped in the package.
+The session table's migration is `migrations/0001_genesis_media.sql` (schema
+`genesis_media`), shipped in the package.
 
 ### The route
 
@@ -643,11 +643,11 @@ import { createFormsUploadAdapter } from "@marktiderman/genesis-media/forms";
 
 ### Jobs
 
-- `UPLOAD_VERIFY_JOB` (`media-library.verify`, payload `{ uploadId }`): run it with
+- `UPLOAD_VERIFY_JOB` (`media.verify`, payload `{ uploadId }`): run it with
   genesis-supabase's runner, `runJobs(admin, { handlers: { [UPLOAD_VERIFY_JOB]: createUploadVerifyJob({ store, targets }) } })`.
   It is safe to run twice: a run that finds the lease taken asks to run again once it could have
   lapsed (`{ retryAfterSeconds }`).
-- `UPLOAD_SWEEP_JOB` (`media-library.sweep`): `sweepExpiredUploads({ store, targets })` clears
+- `UPLOAD_SWEEP_JOB` (`media.sweep`): `sweepExpiredUploads({ store, targets })` clears
   open sessions with no part for `sessionTtlSeconds` (7 days) and stuck verifications, and what
   they left in their targets. Schedule it.
 
@@ -656,13 +656,13 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 
 ### Session store
 
-- `createSupabaseSessionStore(client)`, the default: migration `0001_genesis_media_library.sql`
-  (in `migrations/`) makes the `genesis_media_library` schema, `uploads` and `upload_parts`, with
+- `createSupabaseSessionStore(client)`, the default: migration `0001_genesis_media.sql`
+  (in `migrations/`) makes the `genesis_media` schema, `uploads` and `upload_parts`, with
   row level security (only the service role writes; a signed-in person may read their own
   sessions and change nothing, so no one can claim a state or a copy verification didn't find;
   anon gets nothing), and `add_part` and `update_upload`, which record a part and change a state
   atomically, for the service role only. Its pgTAP test is in `migrations/tests/`: copy both into
-  the app's `supabase/` and run `supabase test db`. Add `genesis_media_library` to the project's
+  the app's `supabase/` and run `supabase test db`. Add `genesis_media` to the project's
   exposed schemas, and pass the service-role client: the handler binds every operation to its
   owner itself.
 - `createMemorySessionStore()`, for tests.
@@ -724,5 +724,5 @@ onto this package:
 - **sites**: `putAsset` and the asset picker, once a shared asset table
   stores alt text once per image.
 
-A media library (an asset table, "where used", a picker in genesis-ui) is
+An asset catalogue (an asset table, "where used", a picker in genesis-ui) is
 later work.

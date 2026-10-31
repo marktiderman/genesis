@@ -150,7 +150,7 @@ upload is done only when every target's copy has the declared size and SHA-256.
 Reading back is **asynchronous** for anything big: a 50 GB file in two targets is 100 GB to read,
 past any request's time and a Worker's subrequest limits.
 
-- **202** `{ "state": "verifying" }`: a `genesis_jobs` job (`media-library.verify`) is
+- **202** `{ "state": "verifying" }`: a `genesis_jobs` job (`media.verify`) is
   assembling the object, copying it and reading each copy back. The client polls Resume until the state is
   `done`, `partial` or `identity_mismatch`.
 - Objects under a threshold (`verifyInlineBytes`, default 64 MB) are read back inline and answer
@@ -412,7 +412,7 @@ with its own transport. Either is media-video-value's decision.
 - **Sessions:** a table by default, through the app's provider (a Supabase migration with RLS on
   the owner, and pgTAP), behind the store interface so a Durable Object store can replace it.
 - **A re-sent part with a different digest:** refused, 409 `part_conflict`; abort and create again.
-- **The package:** `@marktiderman/genesis-media`, under `/uploads` (first planned as its own package, `genesis-media-library`).
+- **The package:** `@marktiderman/genesis-media`, under `/uploads` (first planned as a package of its own).
 
 ## Hardened in review (v0.3)
 

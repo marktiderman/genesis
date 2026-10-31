@@ -64,7 +64,7 @@ export type IdbFactoryLike = {
  * has). Entries lapse with their session; `clear()` forgets them all, for
  * sign-out. Falls back to memory where there is no IndexedDB.
  */
-export function createIndexedDbResumeStore(name = "genesis-media-library", options: { indexedDB?: IdbFactoryLike; now?: () => number } = {}): ResumeStore {
+export function createIndexedDbResumeStore(name = "genesis-media-uploads", options: { indexedDB?: IdbFactoryLike; now?: () => number } = {}): ResumeStore {
   const idb = options.indexedDB ?? (globalThis as { indexedDB?: IdbFactoryLike }).indexedDB;
   const now = options.now ?? Date.now;
   if (!idb) return createMemoryResumeStore(now);

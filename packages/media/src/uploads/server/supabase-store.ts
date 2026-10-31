@@ -1,6 +1,6 @@
 /**
  * Upload sessions in the app's own Supabase (migration
- * 0001_genesis_media_library: the genesis_media_library schema, row level
+ * 0001_genesis_media: the genesis_media schema, row level
  * security on the owner). Pass the service-role client: only it may write,
  * and the upload handler binds every operation to its owner itself. A
  * person's own client may only read their sessions.
@@ -18,7 +18,7 @@ type Result<T> = PromiseLike<{ data: T | null; error: { message: string; code?: 
  */
 export interface SessionStoreClient {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  schema(name: "genesis_media_library"): { from(table: string): any; rpc(fn: string, args: Record<string, unknown>): Result<unknown> };
+  schema(name: "genesis_media"): { from(table: string): any; rpc(fn: string, args: Record<string, unknown>): Result<unknown> };
 }
 
 interface Row {
@@ -84,8 +84,8 @@ export class SessionStoreError extends Error {
 
 function check<T>(what: string, r: { data: unknown; error: { message: string; code?: string } | null }): T | null {
   // A unique index said no: another session holds the key, or this owner's open session for this file.
-  if (r.error?.code === "23505") throw new SessionConflictError(`genesis_media_library ${what}: ${r.error.message}`);
-  if (r.error) throw new SessionStoreError(`genesis_media_library ${what}: ${r.error.message}`, r.error.code);
+  if (r.error?.code === "23505") throw new SessionConflictError(`genesis_media ${what}: ${r.error.message}`);
+  if (r.error) throw new SessionStoreError(`genesis_media ${what}: ${r.error.message}`, r.error.code);
   return r.data as T | null;
 }
 
@@ -93,7 +93,7 @@ const sameTargets = (a: string[], b: string[]) => a.length === b.length && [...a
 
 /** @stability Experimental */
 export function createSupabaseSessionStore(client: SessionStoreClient): UploadSessionStore {
-  const db = () => client.schema("genesis_media_library");
+  const db = () => client.schema("genesis_media");
   const withParts = "*, upload_parts(n, size, digest, etag)";
   return {
     async insert(s) {
@@ -148,7 +148,7 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
     async reservePart(id, part) {
       try {
         const result = check<string>("reservePart", await db().rpc("reserve_part", { p_upload: id, p_n: part.n, p_size: part.size, p_digest: part.digest }));
-        if (result !== "reserved" && result !== "same" && result !== "received" && result !== "conflict") throw new SessionStoreError(`genesis_media_library reservePart: unexpected ${String(result)}`);
+        if (result !== "reserved" && result !== "same" && result !== "received" && result !== "conflict") throw new SessionStoreError(`genesis_media reservePart: unexpected ${String(result)}`);
         return result;
       } catch (error) {
         // The session isn't open (finalized or aborted meanwhile): the handler answers 410.
