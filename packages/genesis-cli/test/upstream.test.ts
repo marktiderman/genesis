@@ -30,9 +30,9 @@ describe("genesis upstream", () => {
     expect(entries.map((e) => e.need)).toEqual(["Rows | columns in `a|b`"]);
     expect(cells("| `x` | a \\| b |")).toEqual(["x", "a | b"]);
     expect(readRegister(table("| abs | gap | candidate | | | /etc/x | Need |", "| up | gap | candidate | | | ../x | - |")).problems).toEqual([
-      "abs: local must be a path inside the app, relative to its root",
+      "abs: local must be paths inside the app, relative to its root",
       "up: say the need in one line",
-      "up: local must be a path inside the app, relative to its root",
+      "up: local must be paths inside the app, relative to its root",
     ]);
   });
 
@@ -46,6 +46,19 @@ describe("genesis upstream", () => {
     expect(r.problems).toEqual(["gone: local src/gone.ts doesn't exist"]);
     expect(r.warnings).toEqual(["lanes: Genesis ships it now; delete src/lanes.tsx and use @marktiderman/genesis-ui"]);
     expect(checkUpstream(mkdtempSync(path.join(tmpdir(), "genesis-upstream-"))).warnings[0]).toMatch(/no docs\/genesis-upstream.md/);
+  });
+
+  it("reads a register at the app's root, and a local cell that lists several paths", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "genesis-upstream-"));
+    mkdirSync(path.join(root, "src"));
+    writeFileSync(path.join(root, "src/a.ts"), "");
+    writeFileSync(path.join(root, "src/b.ts"), "");
+    writeFileSync(path.join(root, "genesis-upstream.md"), table("| two | extension | promoted | | | src/a.ts, src/b.ts | Two files |", "| half | gap | candidate | | | src/a.ts<br>src/c.ts | One gone |"));
+    const r = checkUpstream(root);
+    expect(r.file).toBe("genesis-upstream.md");
+    expect(r.problems).toEqual(["half: local src/c.ts doesn't exist"]);
+    expect(r.warnings).toEqual(["two: Genesis ships it now; delete src/a.ts, src/b.ts and use the Genesis version"]);
+    expect(readRegister(table("| mix | gap | candidate | | | src/a.ts, ../x | Need |")).problems).toEqual(["mix: local must be paths inside the app, relative to its root"]);
   });
 
   it("builds the gap form link without the app's local paths", () => {

@@ -398,7 +398,7 @@ upstream
     const register = checkUpstream(path.resolve(opts.dir));
     if (register.missing) return program.error("There is no docs/genesis-upstream.md here; add the register first (see genesis upstream check).");
     const entry = register.entries.find((e) => e.id === id);
-    if (!entry) return program.error(`No register entry "${id}" in docs/genesis-upstream.md.`);
+    if (!entry) return program.error(`No register entry "${id}" in ${register.file}.`);
     const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
     if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
     console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);

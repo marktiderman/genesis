@@ -8562,10 +8562,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| `ASSET_SIZES` | value | — | _(no summary)_ |
+| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| `FONT_FILES` | value | — | _(no summary)_ |
+| [`FONT_FILES`](../packages/sites/src/web/assets.generated.ts) | const | — | Each self-hosted font file's name under the assets prefix, by its key (`inter-700`). |
 | [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
 | [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |
