@@ -1,0 +1,31 @@
+.changeset/app-overlays-cli.md
+  s_36f3212387dbf7::t_c5a2db37415831 5
+features.json
+  s_36f3212387dbf7::t_5003231619c619 6009
+packages/genesis-cli/src/doctor/overlays.ts
+  s_36f3212387dbf7::t_c5a2db37415831 17-18,38-40,143,146,149
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_c5a2db37415831 201-213,219-221,232,253-257,260
+features.ts
+  s_36f3212387dbf7::t_c5a2db37415831 2627
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_c5a2db37415831 248
+packages/genesis-cli/test/doctor-overlays.test.ts
+  s_36f3212387dbf7::t_c5a2db37415831 53,55-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "045720f061f1b60b005100c047b0b8709d7ee6a7",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
