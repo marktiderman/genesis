@@ -245,7 +245,7 @@ it, ship it, and promote the change upstream. The copy carries a marker in its p
 `upstream` is the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`),
 `since` the day it was made (`YYYY-MM-DD`), `owner` and `reason` who answers for it and why. The
 copy is `private: true` and lives in a package folder of its own; a Genesis package never carries
-the marker (the layering check refuses it). An unmarked copy is an error, and a marker older than 14 days warns (older than 30 fails `--strict`),
+the marker (the layering check refuses it). An unmarked copy is an error, and a marker older than 14 days is reported (info); older than 30 it warns, failing `--strict`,
 so an overlay is a bridge to a release, never an eject. The mechanics are in the
 [genesis-cli README](../packages/genesis-cli/README.md#overlays).
 

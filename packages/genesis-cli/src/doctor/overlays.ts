@@ -14,7 +14,8 @@
  * - overlay-unmarked (error): a local package named like a Genesis package with no marker.
  * - overlay-invalid (error): a marker that doesn't validate, a `since` later than tomorrow, an
  *   overlay that isn't `private: true`, or an overlay folder that holds the app's own source.
- * - overlay-age: a marker older than 14 days warns; older than 30 days is an error under --strict.
+ * - overlay-age: a marker older than 14 days is info (seen, never failing); older than 30 days it
+ *   warns, which fails --strict. An overlay never blocks a release for its first month.
  * - overlay-version (warn): the version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`.
  *
  * A marked overlay (a valid marker, private, in a package folder of its own) IS the package it
@@ -34,9 +35,9 @@ import type { DoctorConfig, DoctorContext, SourceFile } from "./types.js";
 export type { OverlayMarker } from "@marktiderman/genesis-features";
 
 export const GENESIS_PACKAGE_NAME = /^@marktiderman\/genesis(?:-[a-z0-9-]+)?$/;
-/** Days after which an overlay warns, and after which it is an error under --strict. */
-export const OVERLAY_WARN_DAYS = 14;
-export const OVERLAY_ERROR_DAYS = 30;
+/** Days after which an overlay is reported (info), and after which it warns (failing --strict). */
+export const OVERLAY_NOTICE_DAYS = 14;
+export const OVERLAY_WARN_DAYS = 30;
 
 /** What a package.json says about being an overlay. */
 export type OverlayState = { kind: "none" } | { kind: "marked"; marker: OverlayMarker } | { kind: "invalid"; problems: string[] };
@@ -139,14 +140,13 @@ export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void 
     // A day of slack for time zones; a later `since` would keep overlay-age quiet for good.
     if (age < -1) {
       ctx.report({ rule: "overlay-invalid", file, subject: pkg.name, message: `${pkg.name} genesis.overlay.since: ${marker.since} is in the future; use the day the overlay was made` });
-    } else if (age > OVERLAY_WARN_DAYS) {
-      const error = age > OVERLAY_ERROR_DAYS && ctx.strict === true;
+    } else if (age > OVERLAY_NOTICE_DAYS) {
       ctx.report({
         rule: "overlay-age",
-        level: error ? "error" : "warn",
+        level: age > OVERLAY_WARN_DAYS ? "warn" : "info",
         file,
         subject: pkg.name,
-        message: `the overlay of ${marker.upstream} is ${age} days old (since ${marker.since}, owner ${marker.owner}); promote its change to Genesis and adopt the release, or drop it (overlays warn after ${OVERLAY_WARN_DAYS} days and fail --strict after ${OVERLAY_ERROR_DAYS})`,
+        message: `the overlay of ${marker.upstream} is ${age} days old (since ${marker.since}, owner ${marker.owner}); promote its change to Genesis and adopt the release, or drop it (an overlay is reported after ${OVERLAY_NOTICE_DAYS} days, and after ${OVERLAY_WARN_DAYS} it warns, which fails --strict)`,
       });
     }
     const upstream = overlayUpstream(marker).version;

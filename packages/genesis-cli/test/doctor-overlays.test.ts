@@ -50,14 +50,21 @@ describe("overlay marker rules", () => {
     ]);
   });
 
-  it("overlay-age: warns after 14 days, and after 30 days is an error under --strict only", async () => {
+  it("overlay-age: info after 14 days (never failing), a warning after 30 that fails --strict", async () => {
     const at = (days: number) => ({ ...APP, "packages/support/package.json": overlayJson({}, marker(SUPPORT, "0.2.6", daysAgo(days))) });
-    expect(rules((await runDoctor({ root: makeApp(null, at(14)), config: {} })).findings, "overlay-age")).toEqual([]);
-    expect(rules((await runDoctor({ root: makeApp(null, at(20)), config: {}, strict: true })).findings, "overlay-age")).toEqual([`warn overlay-age ${SUPPORT}`]);
-    expect(rules((await runDoctor({ root: makeApp(null, at(40)), config: {} })).findings, "overlay-age")).toEqual([`warn overlay-age ${SUPPORT}`]);
-    const strict = await runDoctor({ root: makeApp(null, at(40)), config: {}, strict: true });
-    expect(rules(strict.findings, "overlay-age")).toEqual([`error overlay-age ${SUPPORT}`]);
-    expect(strict.ok).toBe(false);
+    const age = (findings: Finding[]) => findings.filter((f) => f.rule === "overlay-age").map((f) => f.level);
+    const fresh = await runDoctor({ root: makeApp(null, at(14)), config: {}, strict: true });
+    expect(age(fresh.findings)).toEqual([]);
+    expect(fresh.ok).toBe(true);
+    for (const days of [15, 30]) {
+      const noticed = await runDoctor({ root: makeApp(null, at(days)), config: {}, strict: true });
+      expect(age(noticed.findings)).toEqual(["info"]);
+      expect(noticed.ok).toBe(true);
+    }
+    const stale = await runDoctor({ root: makeApp(null, at(31)), config: {}, strict: true });
+    expect(age(stale.findings)).toEqual(["warn"]);
+    expect(stale.ok).toBe(false);
+    expect((await runDoctor({ root: makeApp(null, at(31)), config: {} })).ok).toBe(true);
     expect(overlayAgeDays("2026-10-01", new Date("2026-10-31T23:00:00Z"))).toBe(30);
   });
 

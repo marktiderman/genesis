@@ -2624,7 +2624,7 @@ export const features = defineFeatures({
     visibility: "internal",
     acceptance: [
       "A genesis.overlay marker validates: upstream is @marktiderman/genesis-*@<semver> naming the package itself, since is a real YYYY-MM-DD day, owner and reason are text.",
-      "The doctor errors on a local package with a Genesis name and no marker, warns on a marker older than 14 days (an error after 30 under --strict), and warns on a version that isn't <upstream>-local.N.",
+      "The doctor errors on a local package with a Genesis name and no marker, reports a marker older than 14 days as info and warns after 30 (failing --strict), and warns on a version other than the upstream version, <upstream>+local.N (recommended) or <upstream>-local.N.",
       "Inside a marked overlay the primitive-copy rules don't flag that package's own names, version-skew and the change gate skip it, a block migration's test is looked up in the package it names, and component exports are read from TypeScript source when no types condition exists.",
     ],
     reviewedAt,
