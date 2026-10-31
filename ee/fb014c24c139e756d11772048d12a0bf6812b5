@@ -1,0 +1,68 @@
+packages/media/src/uploads/client/__tests__/hardening.test.ts
+  s_ba8cb54dbea75a::t_d1813c986a59fa 1-78
+  s_ba8cb54dbea75a::t_073b943855218e 79-80
+packages/media/src/uploads/server/__tests__/hardening.test.ts
+  s_ba8cb54dbea75a::t_2778de036fa336 1-72
+.changeset/media-uploads.md
+  s_ba8cb54dbea75a::t_26f690fb55d242 11,14,17,24
+docs/adr/0012-media-primitives.md
+  s_ba8cb54dbea75a::t_35b8bf6631deba 14-15,82-83,93,160-163
+docs/media-uploads.md
+  s_ba8cb54dbea75a::t_c9b86f811f1b76 396-397,428-438
+packages/forms/src/upload-adapter.ts
+  s_ba8cb54dbea75a::t_091c3e0f1cfe24 27
+packages/media/README.md
+  s_ba8cb54dbea75a::t_247171001aa670 454,457,462-463,465,475,477,496,498-502,540-545,646-657,716
+packages/media/migrations/0001_genesis_media.sql
+  s_ba8cb54dbea75a::t_585d7f52f6c5e8 85-88,110-117,130-131,136,140-147,151-154,161-166,171-172,178,253,260
+packages/media/migrations/tests/0001_genesis_media.test.sql
+  s_ba8cb54dbea75a::t_5fe735cc9c0858 10,49,53,64-75,79,101
+packages/media/package.json
+  s_ba8cb54dbea75a::t_db9eb6aa6f360e 87-91
+packages/media/src/forms/__tests__/forms.test.ts
+  s_ba8cb54dbea75a::t_493d9623391b06 33-42
+packages/media/src/forms/index.ts
+  s_ba8cb54dbea75a::t_6c034ea3e631f1 36-37,58-60,62-63,65
+packages/media/src/uploads/client/supabase-tus.ts
+  s_ba8cb54dbea75a::t_e7143c33b3f00b 8-10
+packages/media/src/uploads/client/uploader.ts
+  s_ba8cb54dbea75a::t_75ef83cf7a9239 99-100,247-259,339-340,351-352,540-543
+packages/media/src/uploads/server/__tests__/handler.test.ts
+  s_ba8cb54dbea75a::t_086bc0b056c580 359-362,364-378,420,424-436
+packages/media/src/uploads/server/__tests__/races.test.ts
+  s_ba8cb54dbea75a::t_26c90ffadecc85 114,123-126,130-133,136-138,141,148,151,156-190
+packages/media/src/uploads/server/__tests__/review.test.ts
+  s_ba8cb54dbea75a::t_3b968c76f28672 218-221
+packages/media/src/uploads/server/__tests__/supabase-store.test.ts
+  s_ba8cb54dbea75a::t_1f354c76e9477a 84-85,88-89,100
+packages/media/src/uploads/server/handler.ts
+  s_ba8cb54dbea75a::t_d1f11324c6dbfd 28,94-99,141-145,266,383-386,389-392,405-410,429-430,450-452,454,484,503,507-513,516-520
+packages/media/src/uploads/server/store.ts
+  s_ba8cb54dbea75a::t_5d140488103555 20-23,94,96-97,115-118,121-125,188,192-201,204-206,211,213
+packages/media/src/uploads/server/supabase-store.ts
+  s_ba8cb54dbea75a::t_8a9b2a669a0921 148,150-154,162-163,165-166
+packages/media/src/uploads/server/verify.ts
+  s_ba8cb54dbea75a::t_20cc68c12637a8 112-119,125-133,182-184
+packages/media/src/uploads/targets/__tests__/targets.test.ts
+  s_ba8cb54dbea75a::t_6998d145917958 256-258
+packages/media/src/uploads/targets/r2.ts
+  s_ba8cb54dbea75a::t_4768af3643c76d 20,52-57
+packages/media/src/uploads/targets/s3.ts
+  s_ba8cb54dbea75a::t_1a63e43346f229 249-250,252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "eefb014c24c139e756d11772048d12a0bf6812b5",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
