@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { PageLoading } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof PageLoading> = {
-  title: "UI/PageLoading",
+  title: "Foundation/UI/PageLoading",
   component: PageLoading,
 };
 export default meta;

@@ -23,7 +23,7 @@ concurrency:
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "staging/**", "prestage/**"]
     paths:
       - 'apps/**'
       - 'packages/**'

@@ -9,7 +9,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof HoverCard> = {
-  title: "UI/HoverCard",
+  title: "Foundation/UI/HoverCard",
   component: HoverCard,
 };
 export default meta;

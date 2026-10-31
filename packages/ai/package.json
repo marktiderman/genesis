@@ -114,6 +114,9 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "ai",
+    "owner": "@marktiderman",
     "blocks": {
       "ai-providers": {
         "feature": {

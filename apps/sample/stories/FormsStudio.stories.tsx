@@ -36,7 +36,7 @@ import { checkIn, items, TODAY } from "./__fixtures__/forms-studio";
 
 const items_ = items;
 
-const meta: Meta = { title: "Forms/Studio" };
+const meta: Meta = { title: "Primitives/Forms/Studio" };
 export default meta;
 type Story = StoryObj;
 

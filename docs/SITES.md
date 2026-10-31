@@ -2,7 +2,7 @@
 
 Status: the landing-page and multi-page MVP is built in `packages/sites`
 (`@marktiderman/genesis-sites`, October 2026), and so is the first part of
-V1: the sections a real multi-page gym site needs (timetable, team, blog,
+V1: the sections a real multi-page small-business site needs (timetable, team, blog,
 map, timeline, downloads, grouped pricing, numbered steps, a trust bar,
 outbound booking links), the blog, a guarded import of an old site's
 files, and the editor (`/editor`, on Puck 0.23).
@@ -114,7 +114,7 @@ Sources: [Puck docs](https://puckeditor.com/docs) (Context7 `/websites/puckedito
 | Templates | **One-click landing page**: brand plus a message produce nav, hero, features, testimonials, CTA, form and footer. A 3-page starter site. A one-page site seeded from a name, logo, message and brand colours and fonts | Template gallery | — |
 | Pages/nav | Pages with clean slugs; nav and footer menus; a 404 page | Nested menus | — |
 | SEO | Title, description, OG/Twitter image, canonical, `noindex`; sitemap.xml; robots.txt; JSON-LD `Organization`/`WebSite`/`BreadcrumbList`; automatic redirect on slug change | **Built:** `Article` and `og:type` article on posts, posts in the sitemap, rss.xml. Still to do: redirect manager; `LocalBusiness`, `Event` | — |
-| Performance | Server-rendered HTML; no hydration; one loader script under 5 KB for the phone menu and plain forms; width/height on images; fonts preconnected | Image CDN transforms (`srcset`, AVIF/WebP); LCP image priority | — |
+| Performance | Server-rendered HTML; no hydration; one loader script under 5 KB for the phone menu and plain forms; width/height on images; fonts self-hosted (latin woff2 under `/_gs/`, `font-display: swap`, the heading font preloaded); nothing loads from a third party | Image CDN transforms (`srcset`, AVIF/WebP); LCP image priority | — |
 | A11y (WCAG 2.2 AA) | Renderer assigns heading levels (one `h1`, from the hero); contrast of brand pairs at 4.5:1 (1.4.3) blocks publish; alt text required; focus visible; 24px targets (2.5.8) | Lint panel in the editor | — |
 | Publishing | Draft, private preview, publish, release history, rollback | Scheduled publish; single-page publish | Approval workflow |
 | Domains | Host app (see §5) | — | — |
@@ -333,12 +333,28 @@ demos and previews with the same rules.
   `<Form>` and loads the form bundle on demand; pages without one never
   download it. The form embed names its form by slug, and the host's `forms`
   resolver says what it is.
-- **Theme.** `themeFromBrand(brand).variables` (from genesis-design-system,
-  `packages/design-system/src/factories/from-brand.ts`) plus the genesis-ui
-  role variables, with foregrounds picked for contrast, are serialised into
-  one `<style>` per site. The section CSS is shared and static, so a single
-  stylesheet serves every brand. A Content-Security-Policy pins the style by
-  hash.
+- **Theme.** One `<style>` per site holds CSS variables: the brand's scales
+  from `themeFromBrand(brand, { designSystem })` (genesis-design-system,
+  `packages/design-system/src/factories/from-brand.ts`), its design system's
+  `--ds-*` tokens, and the genesis-ui role variables. The section CSS is
+  shared and static, so one stylesheet serves every brand and every design
+  system. A Content-Security-Policy pins the style by hash. See "Theme and
+  design systems" below.
+- **Fonts.** The package serves every font choice itself, from `/_gs/`: the
+  latin subset, one woff2 per listed weight, copied from the `@fontsource/*`
+  packages at build time (SIL OFL 1.1; the licences ship in
+  `dist/assets/fonts/LICENSES.txt`). The page's one inline style starts with
+  an `@font-face` per weight (`font-display: swap`), and the page preloads the
+  heading font. No page names a font host, so the policy is `font-src 'self'`
+  and `style-src` names only the site and the style's hash. The files cost
+  about 840 KB, held by the server as a separate chunk it loads on the first
+  font request.
+- **Content-Security-Policy.** `default-src`, `script-src` and `font-src` are
+  `'self'`. `img-src` is `'self' https: data:` by default, so an image hosted
+  elsewhere still shows, and the publish check warns about it. A site with
+  `images: "own"` gets `img-src 'self' data:` plus the store's asset origin,
+  and its publish check makes such an image an error. `importAssets` brings
+  an old site's files onto the store first.
 - **Caching.** Pages carry `Cache-Control: public, max-age=0,
   s-maxage=31536000, stale-while-revalidate=86400` and `Vercel-Cache-Tag:
   site:<id>`. A store wrapped in `withCacheInvalidation` purges the tag after
@@ -368,6 +384,56 @@ demos and previews with the same rules.
 - **Native.** The renderer is web-only. The native app previews sites in a
   WebView.
 
+## Theme and design systems
+
+A brand is identity: name, logo, colours (one primary, one optional
+secondary) and fonts. A **design system** is the look rules attached to the
+brand, defined in code with `defineDesignSystem` and versioned (`crisp@1`):
+
+| Group | What it sets | Tokens |
+|---|---|---|
+| `type` | A fluid ramp, a `clamp()` per step from a 360px to a 1440px viewport (never on the root, so zoom works): eyebrow, sm, body, lead, h4, h3, h2, h1, display. Line heights. Weight, tracking and case per font class (grotesk, geometric, condensed, serif, mono), read from the heading font. The eyebrow's weight, tracking and case | `--ds-text-*`, `--ds-leading-*`, `--ds-display-*`, `--ds-heading-*`, `--ds-eyebrow-*` |
+| `space` | Section padding by density (compact, normal, generous), a 4px space scale, the gutter, and the same-surface collapse | `--ds-section-y-{sm,md,lg}`, `--ds-space-1…11`, `--ds-gutter`, `--ds-collapse-top` |
+| `shape` | Corners (square, crisp, soft, round, friendly), border width, shadows (flat, soft, lifted; tinted with ink; none on a dark ground) | `--ds-radius-*`, `--radius`, `--ds-border-width`, `--ds-shadow-1…3` |
+| `surfaces` | The colour engine's ground: `paper` (warm), `chalk` (cool), `pure`, `night` | `--ds-ground*`, `--ds-ink*`, `--ds-accent-*`, `--ds-on-*`, `--ds-focus`, `--ds-scrim-full`, and genesis-ui's `--background`, `--primary`, … |
+| `image` | One filter for every photo (none, warm, crisp, mono), grain, where a scrim sits | `--ds-image-filter`, `--ds-image-grain` |
+| `motion` | none, calm, lively or bold; CSS only | `--ds-ease-*`, `--ds-dur-*`, `--ds-reveal*`, `--ds-hover-lift` |
+
+- **The brand chooses** one design system plus up to three settings from fixed
+  lists: `density`, `corners` and `motion` (`brand.designSystem`, on
+  `CanonicalBrand` and `SiteBrand`). Swapping it changes only the variables in
+  that one `<style>`; the HTML is the same, and a test proves it.
+- **Every group is optional.** A group left out emits nothing and the
+  stylesheet keeps its own value: every rule in `sites.css` reads its token
+  with today's value as the fallback. `classic@1`, the default, has no groups,
+  so it renders exactly as before.
+- **The colour engine** (OKLCH, sRGB out). Each brand colour gets an 11-step
+  ramp at fixed lightness, chroma capped to the gamut and eased at both ends,
+  with the brand's own hex on its nearest step. Neutrals take the ground's hue
+  at a very low chroma; ink is never black and the ground never white (except
+  `pure`, at L 0.995). The accent has a fill form (the brand colour as given)
+  and a text form (walked down the ramp until it reads at 4.5:1 on the page,
+  a card and a sunk band). Text on a fill is the tinted ink or ground when it
+  reads at 4.5:1, else white or black. Quiet text, the focus ring (3:1 on
+  every surface), a form field's edge (3:1) and the wash over a photo (the
+  least opacity that keeps text over a white or a black photo at 4.5:1) are
+  solved too. Dark mode is its own solve on `night`, with the fill's chroma
+  cut 12%. The solver aims slightly above each minimum, so the printed HSL
+  values still pass. A test sweeps 24 hues × 5 lightnesses × 3 chromas × 4
+  grounds, light and dark.
+- **Where design systems live.** Neutral ones ship in genesis-design-system
+  (`classic@1`, `crisp@1`, `soft@1`). Industry ones are template content in
+  genesis-sites' `src/templates/` (`forge@1`, `studio@1`), exempt from the
+  industry-words check. An app may define private ones. All are registered
+  by id (`registerDesignSystem`); an unknown id is logged and themes as
+  `classic@1`.
+- **The torture test** renders six made-up brands (a neon, a near-white and a
+  near-black colour among them), light and dark, under every shipped design
+  system: no contrast pair fails, and the variables are snapshotted.
+- **Not yet:** sections adopting shadows, border width, grain and the space
+  scale; mono, variable and modern serif fonts; motion on hover; a native
+  reading of the design system (native gets the clamp's minimum).
+
 ## Package layout
 
 ```
@@ -384,7 +450,17 @@ packages/sites/                  @marktiderman/genesis-sites
   migrations/    0001_genesis_sites.sql, 0002_genesis_sites_posts.sql (+ their pgTAP tests in tests/)
   src/editor/    SiteEditor: the Puck config from the registry, Genesis-styled overrides, the canvas,
                  autosave (Autosaver), the Pages and Publish panels, the image picker
+  src/templates/ industry template content (`/templates`): presets and sample data, plain data only
 ```
+
+The core is neutral: the engine, sections, schemas, defaults, examples, docs
+and tests never name an industry, so every section reads naturally for any
+business. Industry templates live in `src/templates/` as data on the neutral
+sections (presets in the sections' own shape and sample data), never as code
+paths, and use made-up businesses. `scripts/check-industry-words.mjs` fails CI
+on industry words outside that folder; its word list is
+`scripts/industry-words.mjs`. The full template format (content packs) comes
+later.
 
 ## Phased build plan
 
@@ -415,7 +491,9 @@ packages/sites/                  @marktiderman/genesis-sites
   `themeFromBrand` variables itself.
 - **The brand schema has no logo field.** The logo comes from the host's
   `BrandSource`. Fonts exist as `typography.fontFamily`; a site's fonts are a
-  fixed list of choices (`FONT_CHOICES`).
+  fixed list of choices (`FONT_CHOICES`), each served by the package. A
+  one-weight display face (Bebas Neue) is a heading choice only
+  (`BodyFontChoice`).
 - **genesis-ui `Section` is an app-page section** (heading `text-xl`). Marketing
   bands needed a display type scale and a full-bleed surface primitive, added
   to genesis-ui as `Band`, `BandLead` and `Display`

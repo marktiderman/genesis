@@ -31,7 +31,7 @@ function WithPractices({ children }: { children: ReactNode }) {
 }
 
 const meta: Meta<typeof ResourcePage> = {
-  title: "Data/ResourcePage",
+  title: "Foundation/Data/ResourcePage",
   component: ResourcePage,
   parameters: { layout: "fullscreen" },
 };

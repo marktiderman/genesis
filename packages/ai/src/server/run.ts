@@ -9,6 +9,7 @@ import {
   type AiResult,
   type AiSchema,
   type AiUsage,
+  type BeginInput,
   type ContextLayerRecord,
   type Guardrail,
   type KeySource,
@@ -45,6 +46,8 @@ interface Prepared<L extends Loaded> {
   manifest: ContextLayerRecord[];
   callId: string;
   startedAt: number;
+  /** Who, which run and which conversation: on the span. */
+  trace: Record<string, string>;
 }
 
 /** What one call used and cost, and which model answered it. */
@@ -175,9 +178,10 @@ async function prepare<Args, L extends Loaded, Out, Db>(
     estimateUsd: estimateCost(first.record, promptChars, task.maxTokens),
     budgetExempt: false,
     keySource,
+    ...traceIds(ctx),
   });
   if (!began) return fail("over_budget", "The AI budget for this period is used up.");
-  return { alias, targets, keySource, loaded, prompt, promptChars, manifest, callId: began.callId, startedAt };
+  return { alias, targets, keySource, loaded, prompt, promptChars, manifest, callId: began.callId, startedAt, trace: traceAttributes(ctx) };
 }
 
 /**
@@ -287,6 +291,20 @@ const keyRefused = (error: unknown, target: Target) =>
 
 const httpDetail = (error: unknown) => (APICallError.isInstance(error) ? `HTTP ${error.statusCode ?? "?"}` : "error");
 
+/** The context's actor, run and conversation, as the store takes them. */
+export function traceIds(ctx: AiContext): Pick<BeginInput, "actor" | "runId" | "conversationId"> {
+  return { actor: ctx.actor ?? "person", ...(ctx.runId ? { runId: ctx.runId } : {}), ...(ctx.conversationId ? { conversationId: ctx.conversationId } : {}) };
+}
+
+/** The same as span attributes: `gen_ai.conversation.id` from OpenTelemetry's GenAI conventions, the rest Genesis's. */
+export function traceAttributes(ctx: AiContext): Record<string, string> {
+  return {
+    "genesis.ai.actor": ctx.actor ?? "person",
+    ...(ctx.runId ? { "genesis.ai.run_id": ctx.runId } : {}),
+    ...(ctx.conversationId ? { "gen_ai.conversation.id": ctx.conversationId } : {}),
+  };
+}
+
 /** Records the call and emits its span. Returns the usage row's id. */
 async function settle(
   ai: Ai,
@@ -332,6 +350,7 @@ async function settle(
       "genesis.ai.key_source": prep.keySource,
       "genesis.ai.cost_usd": costUsd,
       "genesis.ai.usage_id": usageId,
+      ...prep.trace,
     },
   });
   return usageId;

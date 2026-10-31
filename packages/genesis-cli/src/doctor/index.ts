@@ -33,6 +33,7 @@ import { checkDuplicatePackages, checkPeerRanges } from "./installs.js";
 import { checkHandRolledSubNav, checkLocalGenesisCopies, checkPageLayouts, checkRecordViews } from "./structure.js";
 import { checkIsoDateSlices } from "./dates.js";
 import { checkRemovedScopeNames, checkStudioServerImports, checkTreeViews } from "./api-usage.js";
+import { checkStabilityImports } from "./stability.js";
 import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unknownPackageRuleSettings } from "./package-rules.js";
 import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
@@ -227,6 +228,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "resource-view-trees", check: checkTreeViews },
     { name: "studio-server-imports", check: checkStudioServerImports },
     { name: "removed-scope-names", check: checkRemovedScopeNames },
+    { name: "stability-imports", check: checkStabilityImports },
     { name: "agent-guide", check: checkAgentGuide },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
@@ -300,7 +302,7 @@ export function formatReport(result: DoctorResult): string {
     lines.push(`${f.level.toUpperCase().padEnd(5)} ${f.file}${f.line ? `:${f.line}` : ""}  [${f.rule}] ${f.message}`);
   }
   lines.push(`Available but unused (${result.unused.length}): ${result.unused.join(", ") || "none"}`);
-  lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis primitives`);
+  lines.push(`Primitives: ${result.primitives.rules} rules from ${result.primitives.packages} packages; see genesis catalog`);
   const info = result.infos ? `, ${result.infos} info` : "";
   lines.push(result.ok ? `PASS (${result.warnings} warnings${info})` : `FAIL (${result.errors} errors, ${result.warnings} warnings${info})`);
   return lines.join("\n");

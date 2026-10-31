@@ -36,7 +36,7 @@ const many: Workspace[] = [
 const hrefFor = (w: Workspace) => `#${w.path}`;
 
 const meta: Meta<typeof WorkspaceSwitcher> = {
-  title: "Layout/WorkspaceSwitcher",
+  title: "Foundation/Layout/WorkspaceSwitcher",
   component: WorkspaceSwitcher,
   args: { workspaces, current: workspaces[2], hrefFor },
   decorators: [

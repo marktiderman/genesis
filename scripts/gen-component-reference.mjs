@@ -117,10 +117,10 @@ const DESCRIPTIONS = [
   },
   {
     name: "@marktiderman/genesis-switchboard",
-    dir: "packages/data-switchboard",
-    barrel: "packages/data-switchboard/src/index.ts",
+    dir: "packages/switchboard",
+    barrel: "packages/switchboard/src/index.ts",
     description:
-      "Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/data-switchboard/README.md + SWITCHBOARD.md.",
+      "Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/switchboard/README.md + SWITCHBOARD.md.",
   },
   {
     name: "@marktiderman/genesis-studio",

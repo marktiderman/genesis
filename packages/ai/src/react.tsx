@@ -1,5 +1,6 @@
 // @feat:ai-providers
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { RunEvent, TextStreamEvent } from "./run-events";
 import type { AiResult } from "./types";
 
 export interface UseAiTaskOptions {
@@ -152,11 +153,11 @@ export function useAiStream(task: string, options: UseAiTaskOptions = {}): AiStr
             while ((cut = buffer.indexOf("\n\n")) >= 0) {
               const line = buffer.slice(0, cut).replace(/^data: /, "");
               buffer = buffer.slice(cut + 2);
-              const event = JSON.parse(line) as { type: "text"; text: string } | { type: "done"; result: AiResult<{ text: string }> };
-              if (event.type === "text") {
-                streamed += event.text;
+              const event = JSON.parse(line) as TextStreamEvent | RunEvent;
+              if (event.type === "text" || event.type === "TEXT_MESSAGE_CONTENT") {
+                streamed += event.type === "text" ? event.text : event.delta;
                 if (mine()) setText(streamed);
-              } else final = event.result;
+              } else if (event.type === "done" || event.type === "RUN_FINISHED" || event.type === "RUN_ERROR") final = event.result;
             }
           }
         }

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Avatar, AvatarFallback, AvatarImage } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Avatar> = {
-  title: "UI/Avatar",
+  title: "Foundation/UI/Avatar",
   component: Avatar,
 };
 export default meta;

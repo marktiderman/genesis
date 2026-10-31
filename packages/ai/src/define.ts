@@ -1,5 +1,5 @@
 import { MODEL_RECORDS, type CacheTtl, type ModelRecord } from "./models";
-import type { AiContext, AiStore, AiVendor, AliasFallbacks, Capability, Loaded, SafetyProtocol, TaskDefinition, TelemetrySink } from "./types";
+import { AI_SPEC, type AiContext, type AiStore, type AiVendor, type AliasFallbacks, type Capability, type Loaded, type SafetyProtocol, type TaskDefinition, type TelemetrySink } from "./types";
 
 /** An AI SDK language model, structurally (so `.` doesn't import the SDK). */
 export interface ModelLike {
@@ -131,7 +131,8 @@ export function defineTask<Args, L extends Loaded, Out = { text: string }, Db = 
   if (!TASK_ID.test(task.id)) throw new Error(`defineTask: "${task.id}" is not a valid task id (lowercase, dots or dashes).`);
   if (!Number.isInteger(task.version) || task.version < 1) throw new Error(`defineTask ${task.id}: version must be a positive integer.`);
   if (!Number.isInteger(task.maxTokens) || task.maxTokens < 1) throw new Error(`defineTask ${task.id}: maxTokens must be a positive integer.`);
-  return Object.freeze(task);
+  if (task.spec !== undefined && task.spec !== AI_SPEC) throw new Error(`defineTask ${task.id}: spec ${String(task.spec)} isn't supported (this genesis-ai reads spec ${AI_SPEC}).`);
+  return Object.freeze({ ...task, spec: AI_SPEC });
 }
 
 /**

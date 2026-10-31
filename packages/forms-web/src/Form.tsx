@@ -39,7 +39,7 @@ import {
 import { FormPresentationProvider, useFormPresentation, type FormPresentation } from "./presentation";
 import { defaultRegistry } from "./renderers";
 import { themeCss, type FormTheme } from "./theme";
-import { createPendingUploads, PendingUploadsContext, UPLOAD_WAIT_MESSAGE, UploadContext, type PendingUploads } from "./upload";
+import { createPendingUploads, PendingUploadsContext, UPLOAD_WAIT_MESSAGE, UploadContext, type PendingUploads, type UploadHost } from "./upload";
 
 // ── Slots (the Genesis extension ladder, EXTENDING.md) ──────────────────────
 
@@ -556,6 +556,12 @@ export interface FormProps {
    * above the form), photo fields say photos can't be added.
    */
   onUpload?: ((file: File, field: FieldBlock) => Promise<PhotoRef>) | undefined;
+  /**
+   * The upload adapter (genesis-forms' `UploadAdapter`): `signedUploadHost`, or any object of
+   * that shape, such as genesis-media's `/forms` adapter. Unlike `onUpload` it brings
+   * `url` too, for thumbnails. It wins over `onUpload` and an `UploadContext` above the form.
+   */
+  uploads?: UploadHost | undefined;
   slots?: { [K in keyof FormSlotMap]?: SlotOverride<FormSlotMap[K]> } | undefined;
   slotProps?: { [K in keyof FormSlotMap]?: Partial<FormSlotMap[K]> } | undefined;
   className?: string | undefined;
@@ -589,10 +595,10 @@ function OwnedForm(props: FormProps) {
 }
 
 function FormWithEngine(props: FormProps & { engine: FormEngine }) {
-  const { onUpload } = props;
-  // `onUpload` wins; otherwise a host's own UploadContext above the form is kept.
+  const { onUpload, uploads } = props;
+  // `uploads` wins, then `onUpload`; otherwise a host's own UploadContext above the form is kept.
   const outer = useContext(UploadContext);
-  const host = useMemo(() => (onUpload ? { upload: onUpload } : outer), [onUpload, outer]);
+  const host = useMemo(() => uploads ?? (onUpload ? { upload: onUpload } : outer), [uploads, onUpload, outer]);
   const [pending] = useState(createPendingUploads);
   return (
     <UploadContext.Provider value={host}>

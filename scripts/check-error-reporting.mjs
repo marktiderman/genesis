@@ -93,7 +93,7 @@ export const ALLOW = [
   { path: 'packages/ui/src/components/data/use-resource-table.ts', max: 2, reason: 'development hints: table set-up' },
   { path: 'packages/chat/src/web/emoji-picker.tsx', max: 1, reason: 'development hint: `emojibaseUrl` missing' },
   { path: 'packages/sites/src/editor/fields.ts', max: 1, reason: 'development hint: a section prop with no editor field' },
-  { path: 'packages/data-switchboard/src/resolver.ts', max: 1, reason: 'development hint: resolver set-up' },
+  { path: 'packages/switchboard/src/resolver.ts', max: 1, reason: 'development hint: resolver set-up' },
 
   // Caught errors still written to the console on the web, where hosts register no reporter yet.
   // Move each to `reportError` once web apps register one (a web observability block).
@@ -105,9 +105,9 @@ export const ALLOW = [
   { path: 'packages/core/src/hooks/use-write.ts', max: 1, reason: 'web and native hook: move to reportError' },
   { path: 'packages/core/src/provider/supabase-provider.ts', max: 4, reason: 'web and native provider: move to reportError' },
   { path: 'packages/core/src/storage/adapters.ts', max: 3, reason: 'web storage adapter: move to reportError' },
-  { path: 'packages/data-switchboard/src/data-provider.ts', max: 1, reason: 'web data provider: move to reportError' },
-  { path: 'packages/data-switchboard/src/adapters/airtable.ts', max: 1, reason: 'server adapter: move to reportError' },
-  { path: 'packages/data-switchboard/src/adapters/notion.ts', max: 1, reason: 'server adapter: move to reportError' },
+  { path: 'packages/switchboard/src/data-provider.ts', max: 1, reason: 'web data provider: move to reportError' },
+  { path: 'packages/switchboard/src/adapters/airtable.ts', max: 1, reason: 'server adapter: move to reportError' },
+  { path: 'packages/switchboard/src/adapters/notion.ts', max: 1, reason: 'server adapter: move to reportError' },
   { path: 'packages/forms-react/src/outbox.ts', max: 1, reason: 'web and native hook (no genesis-core dependency yet): move to reportError' },
   { path: 'packages/chat/src/web/attachments.tsx', max: 1, reason: 'web UI: move to reportError' },
   { path: 'packages/chat/src/web/cards.tsx', max: 1, reason: 'web UI: move to reportError' },

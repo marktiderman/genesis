@@ -49,7 +49,7 @@ export function isExternalHref(href: string): boolean {
 
 /**
  * A page's path: `/`, or lowercase segments of letters, digits and hyphens
- * (`/about`, `/classes/strength`). No trailing slash, no dots, at most 8
+ * (`/about`, `/services/repairs`). No trailing slash, no dots, at most 8
  * segments and 200 characters. The database checks the same pattern.
  */
 export const PAGE_PATH = /^\/(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*){0,7})?$/;

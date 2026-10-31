@@ -71,7 +71,7 @@ export const timelineSection = defineSection({
           <ol className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {props.steps.map((step, i) => (
               <li key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-background p-6 text-foreground">
-                {step.image ? <SiteImage image={step.image} ctx={ctx} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
+                {step.image ? <SiteImage image={step.image} ctx={ctx} sizes="(min-width: 1280px) 400px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" className="aspect-video w-full rounded-lg object-cover" /> : null}
                 <p className="flex items-baseline gap-3 text-sm font-semibold">
                   {props.numbered ? (
                     <span aria-hidden="true" className="font-display text-2xl">

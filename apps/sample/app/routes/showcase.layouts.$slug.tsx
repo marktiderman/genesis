@@ -26,7 +26,7 @@ export default function LayoutDetail() {
     <div data-testid={`layout-detail-${slug}`}>
       <p className="px-6 pt-4 text-sm text-muted-foreground">
         <code className="text-xs bg-muted px-1 rounded">{meta.label}</code>: {meta.summary}{" "}
-        <Link className="underline" to={`/showcase/primitives/${meta.label.replace(/Page$/, "-page").toLowerCase()}`}>Props</Link>
+        <Link className="underline" to={`/showcase/elements/${meta.label.replace(/Page$/, "-page").toLowerCase()}`}>Props</Link>
       </p>
       <Example />
     </div>

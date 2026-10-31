@@ -19,10 +19,10 @@ import { allBlocks, findBlock, packageDir, packageVersion, type FoundBlock } fro
 import { createApp, readApp, readPackageDir, readPackageFile, replaceApp, sha256 } from "./files.js";
 import { LOCK_FILE, readLock, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, rememberMigrationCopies, type MigrationPlan, type SourceMigration } from "./migrations.js";
 import { copyOwned, type OwnedWrite } from "./owned.js";
 import { addCommand, detectPackageManager, pinnedVersion, run, shellLine } from "./pm.js";
-import { addFeatureEntry, featureSnippet } from "./registry-edit.js";
+import { addFeatureEntry, featureKindField, featureSnippet } from "./registry-edit.js";
 import { planRouteStubs, routeStub } from "./routes.js";
 
 export interface Logger {
@@ -109,6 +109,25 @@ export function sourceMigrations(root: string, manifest: BlockManifest): SourceM
 }
 
 /** The owned files a block brings: Edge Functions and skills. */
+const NPM_GENESIS_IMPORT = /\bnpm:(@marktiderman\/genesis-[a-z0-9-]+)@([^/"'`\s]+)/g;
+
+/**
+ * An Edge Function imports Genesis packages from npm (`npm:@marktiderman/genesis-notifications@^0.3.0`):
+ * each is pinned to the version the app has installed, so the deployed function runs the same
+ * code as the app. A package that isn't installed keeps the range its file names.
+ */
+export function pinGenesisImports(root: string, text: string): string {
+  const versions = new Map<string, string | undefined>();
+  return text.replace(NPM_GENESIS_IMPORT, (whole, name: string) => {
+    if (!versions.has(name)) {
+      const dir = packageDir(root, name);
+      versions.set(name, dir ? packageVersion(dir) : undefined);
+    }
+    const version = versions.get(name);
+    return version ? `npm:${name}@^${version}` : whole;
+  });
+}
+
 export function ownedWrites(root: string, manifest: BlockManifest, warnings: string[]): OwnedWrite[] {
   const out: OwnedWrite[] = [];
   for (const fn of manifest.functions) {
@@ -122,7 +141,7 @@ export function ownedWrites(root: string, manifest: BlockManifest, warnings: str
       continue;
     }
     const version = packageVersion(dir!);
-    for (const f of files) out.push({ path: `supabase/functions/${name}/${f.name}`, source: `${fn.package}:${fn.dir}/${f.name}`, content: f.content, ...(version ? { version } : {}) });
+    for (const f of files) out.push({ path: `supabase/functions/${name}/${f.name}`, source: `${fn.package}:${fn.dir}/${f.name}`, content: pinGenesisImports(root, f.content), ...(version ? { version } : {}) });
   }
   for (const skill of manifest.skills) {
     const dir = packageDir(root, skill.package);
@@ -213,7 +232,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   /** Everything the run will write, from what can be read now; printed before anything happens. */
   const makePlan = (manifest: BlockManifest, from: FoundBlock["from"]) => {
     const planWarnings: string[] = [];
-    const migrations = planMigrations(root, sourceMigrations(root, manifest), { now });
+    const migrations = planMigrations(root, sourceMigrations(root, manifest), { now, ...(lock.migrations ? { copied: lock.migrations } : {}) });
     // Owned files carry the app's renames, the same way upgrade refreshes them.
     const owned = ownedWrites(root, manifest, planWarnings).map((w) => ({ ...w, content: substitute(w.content, lock.substitutions) }));
     const fragment = agentsFragment(root, manifest);
@@ -224,7 +243,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     let registryEdit: string | null = null;
     if (!ids?.has(manifest.id)) {
       const owner = (JSON.parse(readApp(root, "package.json") ?? "{}") as { name?: string }).name ?? "app";
-      snippet = featureSnippet(manifest, owner);
+      snippet = featureSnippet(manifest, owner, featureKindField(root));
       if (registry) registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
     }
     const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
@@ -281,6 +300,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   // 5. Write.
   created.push(...applyMigrationPlan(root, migrations));
   for (const c of migrations.creates) if (c.kind === "test" && c.source) recordOwned(lock, c.path, `${c.source.package}:${c.source.file}`, c.content, root, c.source.package);
+  rememberMigrationCopies(lock, migrations);
   for (const w of owned) {
     const outcome = copyOwned(root, lock, w);
     if (outcome === "created") created.push(w.path);

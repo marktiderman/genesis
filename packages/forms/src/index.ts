@@ -112,6 +112,7 @@ export {
   type PhotoLimits,
   type PhotoRef,
 } from "./photo";
+export type { UploadAdapter, UploadFile } from "./upload-adapter";
 export {
   MAX_UPLOAD_REQUEST_BYTES,
   type SignedUpload,

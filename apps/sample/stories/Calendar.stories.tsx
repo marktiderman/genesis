@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Calendar } from "@marktiderman/genesis-ui";
 import { useState } from "react";
 
-const meta: Meta<typeof Calendar> = { title: "UI/Calendar", component: Calendar };
+const meta: Meta<typeof Calendar> = { title: "Foundation/UI/Calendar", component: Calendar };
 export default meta;
 type Story = StoryObj<typeof Calendar>;
 

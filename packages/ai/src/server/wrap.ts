@@ -1,5 +1,6 @@
 import type { Ai } from "../define";
 import type { AiContext, AiOutcome, AiVendor } from "../types";
+import { traceAttributes, traceIds } from "./run";
 
 /** A processor call the pipeline stopped before it ran. */
 export class AiCallError extends Error {
@@ -62,6 +63,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
       estimateUsd: options.estimateUsd?.(...args) ?? 0,
       budgetExempt: options.budget === "exempt",
       keySource: "platform",
+      ...traceIds(ctx),
     });
     if (!began) throw new AiCallError("over_budget", "The AI budget for this period is used up.");
 
@@ -79,7 +81,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
         ...(detail ? { detail } : {}),
       });
       config.telemetry?.({
-        name: `${options.id} ${options.vendor}`,
+        name: `${options.operation ?? "execute_tool"} ${options.id}`,
         startTime: startedAt,
         endTime: endedAt,
         attributes: {
@@ -89,6 +91,7 @@ export function wrap<A extends unknown[], R>(ai: Ai, impl: (...args: A) => Promi
           "genesis.ai.outcome": outcome,
           "genesis.ai.cost_usd": costUsd,
           "genesis.ai.usage_id": usageId,
+          ...traceAttributes(ctx),
         },
       });
     };

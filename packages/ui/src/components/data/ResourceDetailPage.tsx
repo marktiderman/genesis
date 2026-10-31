@@ -60,7 +60,7 @@ function pick(record: BaseRecord, field: string | undefined): string {
  *   `code` onto the thrown Error.
  * - `packages/core/src/provider/mock-provider.ts` — throws
  *   `[MockProvider] Record not found: <resource>#<id>`.
- * - `packages/data-switchboard/src/data-provider.ts` — throws
+ * - `packages/switchboard/src/data-provider.ts` — throws
  *   `switchboard-data-provider: no "<resource>" row with id "<id>".`
  *
  * Deliberately narrow: anything it does not recognise falls through to the

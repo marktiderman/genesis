@@ -233,7 +233,7 @@ describe("ResourceDetailPage", () => {
   });
 
   it("reports the switchboard provider's missing-row error as not found", async () => {
-    // Verbatim from packages/data-switchboard/src/data-provider.ts.
+    // Verbatim from packages/switchboard/src/data-provider.ts.
     renderBound(
       <ResourceDetailPage resource="people" id="404">
         {() => <p>body</p>}

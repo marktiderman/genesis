@@ -22,7 +22,7 @@ import {
   expoPushProvider,
   resendProvider,
   supabaseNotificationStore,
-} from "npm:@marktiderman/genesis-notifications@^0.1.0/server";
+} from "npm:@marktiderman/genesis-notifications@^0.3.0/server";
 import { notifications, emailTemplates, secretLinks } from "./notifications.ts";
 
 const env = (name: string) => Deno.env.get(name) ?? "";

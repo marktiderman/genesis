@@ -3,8 +3,10 @@ name: CI
 on:
   push:
     branches: [main]
+  # PRs into a batch run the full CI too, so a failure shows on the PR that caused it rather
+  # than on the release PR into main.
   pull_request:
-    branches: [main]
+    branches: [main, "staging/**", "prestage/**"]
   workflow_dispatch:
 
 permissions:
@@ -48,6 +50,10 @@ jobs:
       - name: No private names
         run: node scripts/check-private-names.mjs
 
+      # The site builder's core names no industry; industry wording lives in its templates folder.
+      - name: No industry words in the sites core
+        run: node scripts/check-industry-words.mjs
+
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
         with:
           version: 11.26.0
@@ -62,6 +68,15 @@ jobs:
 
       - name: Build packages
         run: pnpm build:packages
+
+      # Every package's genesis layer and group, and dependencies pointing down: foundation,
+      # primitives, modules, with tooling on the side (docs/PACKAGE-STRATEGY.md, "Layers").
+      - name: Package layers
+        run: pnpm check:package-layers
+
+      # .github/CODEOWNERS is generated from each package's genesis.owner.
+      - name: Code owners
+        run: pnpm check:codeowners
 
       - name: Typecheck
         run: pnpm typecheck
@@ -104,6 +119,40 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      # docs/GLOSSARY.md's banned synonyms in package descriptions and doc headings. Warn mode:
+      # it reports and passes until the glossary is settled (then --strict).
+      - name: Glossary (warn mode)
+        run: pnpm check:glossary
+
+      # A pull request that adds a package links an ADR (docs/adr/TEMPLATE.md).
+      - name: ADR for new packages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        # The description is read now, not from the event, so editing it and re-running the job
+        # is enough after adding an ADR link.
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          PR_BODY="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" --jq '.body // ""')" \
+            node scripts/check-adr-required.mjs --base "origin/$BASE_REF"
+
+      # New exports follow the prefix rules (docs/FRAMEWORK.md, rule 7); existing names stay.
+      - name: Export prefixes on new exports
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          node scripts/check-export-prefixes.mjs --base "origin/$BASE_REF"
+
+      # The rules of engagement a script can check (docs/agents/RULES.md): a new package starts
+      # at 0.1.0 with patch changesets; a workflow on PRs into main also runs on the batches.
+      - name: Agent rules
+        run: pnpm exec genesis agents --rules
 
       # A workflow file GitHub can't parse fails with no jobs and no CI signal (an empty `env:`
       # once stopped Release outright), so every workflow is linted here. Pinned by checksum.

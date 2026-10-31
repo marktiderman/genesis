@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Toggle, ToggleGroup, ToggleGroupItem } from "@marktiderman/genesis-ui";
 import { Bold, Italic, Underline } from "lucide-react";
 
-const meta: Meta<typeof Toggle> = { title: "UI/Toggle", component: Toggle };
+const meta: Meta<typeof Toggle> = { title: "Foundation/UI/Toggle", component: Toggle };
 export default meta;
 type Story = StoryObj<typeof Toggle>;
 

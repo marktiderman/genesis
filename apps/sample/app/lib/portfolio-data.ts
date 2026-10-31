@@ -26,8 +26,8 @@ export const PORTFOLIO_SECTIONS: PortfolioSection[] = [
   },
   {
     id: "primitives",
-    title: "Primitives",
-    href: "/showcase/primitives",
+    title: "Elements",
+    href: "/showcase/elements",
     description:
       "Every web and native component, generated from the packages' source: props, stability and examples.",
     status: "stable",

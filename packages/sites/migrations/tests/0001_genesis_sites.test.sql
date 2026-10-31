@@ -38,8 +38,8 @@ grant execute on function pg_temp.person(text), pg_temp.sign_in(text), pg_temp.a
 create temp table t (k text primary key, v uuid);
 grant select on t to anon, authenticated;
 grant insert on t to authenticated;
-insert into t select 'a', genesis_sites.create_site('Riverside Gym', 'riverside-test',
-  '{"schemaVersion":1,"name":"Riverside Gym","redirects":[]}'::jsonb,
+insert into t select 'a', genesis_sites.create_site('Riverside Works', 'riverside-test',
+  '{"schemaVersion":1,"name":"Riverside Works","redirects":[]}'::jsonb,
   jsonb_build_array(jsonb_build_object('path', '/', 'doc', pg_temp.page('Home')), jsonb_build_object('path', '/about', 'doc', pg_temp.page('About'))));
 insert into t select 'home', id from genesis_sites.site_pages where site_id = (select v from t where k = 'a') and path = '/';
 insert into t select 'about', id from genesis_sites.site_pages where site_id = (select v from t where k = 'a') and path = '/about';
@@ -291,7 +291,7 @@ reset role;
 -- Assets -----------------------------------------------------------------------------
 select pg_temp.sign_in('e1');
 select lives_ok(
-  format('insert into genesis_sites.site_assets (site_id, path, mime, alt) values (%L, %L, %L, %L)', pg_temp.id('a'), 'sites/' || pg_temp.id('a') || '/hero.jpg', 'image/jpeg', 'The gym floor'),
+  format('insert into genesis_sites.site_assets (site_id, path, mime, alt) values (%L, %L, %L, %L)', pg_temp.id('a'), 'sites/' || pg_temp.id('a') || '/hero.jpg', 'image/jpeg', 'The studio floor'),
   'an editor records an upload under sites/<site_id>/'
 );
 select throws_ok(
@@ -320,7 +320,7 @@ reset role;
 select pg_temp.sign_in('e1');
 -- A redirect can't start on one of the app's paths: it would take over the app's own route.
 create function pg_temp.site_with_redirect(from_path text) returns jsonb language sql immutable as $$
-  select jsonb_build_object('schemaVersion', 1, 'name', 'Riverside Gym', 'redirects', jsonb_build_array(jsonb_build_object('from', from_path, 'to', '/', 'status', 301)))
+  select jsonb_build_object('schemaVersion', 1, 'name', 'Riverside Works', 'redirects', jsonb_build_array(jsonb_build_object('from', from_path, 'to', '/', 'status', 301)))
 $$;
 grant execute on function pg_temp.site_with_redirect(text) to authenticated;
 select throws_like(

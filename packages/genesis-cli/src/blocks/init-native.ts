@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import * as path from "node:path";
 import { catalogBlocks, CLI_PACKAGE } from "./discover.js";
 import { sha256 } from "./files.js";
-import { emptyLock, substitute, writeLock, type GenesisLock } from "./lock.js";
+import { emptyLock, migrationKey, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
 import { stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
 import { pinnedVersion } from "./pm.js";
@@ -187,7 +187,9 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
       lock.blocks[block.id] = { package: block.package, ...(block.version ? { version: block.version } : {}) };
       // The copies stay byte for byte the package's (the starter's own tests check that);
       // `genesis migrate` recognizes them by name and text.
-      block.migrations.forEach((m) => {
+      block.migrations.forEach((m, i) => {
+        // Where it went, so a copy the app deletes is reported rather than copied again.
+        lock.migrations = { ...lock.migrations, [migrationKey(m.package, m.file)]: copies[i]! };
         if (m.test) {
           const test = `${TESTS_DIR}/${path.posix.basename(m.test).replace(/^\d{4}_/, "")}`;
           if (files.has(test)) lock.files[test] = { source: `${m.package}:${m.test}`, sha256: sha256(files.get(test)!) };

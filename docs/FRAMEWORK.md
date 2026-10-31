@@ -5,7 +5,8 @@ belongs in Genesis at all. Read this before you build anything, in Genesis or in
 
 - **Part 1, the Genesis way:** the purpose, the decision rule (reuse, extend, invent), what
   counts as config and what counts as custom code, and how an invention moves up into Genesis.
-- **Part 2, the layered contract:** the layers, the rules, and what is explicitly out.
+- **Part 2, the layered contract:** the package layers, the UI tiers inside the foundation, the
+  rules, and what is explicitly out.
 
 `docs/component-reference.md` is the inventory. This document is the rule that decides whether
 the next thing added to that inventory belongs there at all.
@@ -95,7 +96,7 @@ primitives it owns and the doctor enforces them in every app that installs it: d
 that hand-build a list instead of a view rendered by `ResourceView` (and the app wrappers around
 those tables), record views that assemble their own header instead of `RecordView`, and
 direct data access (`supabase.from`, `.rpc`) in screens instead of the view and the resource's
-provider. `genesis primitives` lists every such rule. To hold new code to them while old code
+provider. `genesis catalog` lists every such rule. To hold new code to them while old code
 moves screen by screen, list them in `doctor.ratchet` and run the doctor with `--base` (a rule
 its package declares `newOnly` ratchets without the list); otherwise existing findings stay
 warnings, which `--strict` fails.
@@ -135,8 +136,9 @@ What Genesis is, what belongs in it, and — just as importantly — what does n
 
 ## What it is, in one sentence
 
-**A layered contract stack — tokens → primitives → patterns → layouts → data-bound — where
-each layer may only depend downward, and every concept has exactly one home.**
+**Packages in layers (foundation → primitives → modules, with tooling beside them), and inside
+the foundation's UI a tier stack (tokens → elements → patterns → layouts → data-bound), where
+each may only depend downward, and every concept has exactly one home.**
 
 The goal is not "more components." It is **the least custom code per application**, across
 many applications, without every application inheriting our maintenance burden.
@@ -160,7 +162,7 @@ of commitment:
 | I want… | I take | I commit to |
 |---|---|---|
 | your look | tokens | nothing |
-| your components | + primitives | React + Tailwind |
+| your components | + elements | React + Tailwind |
 | your page structure | + patterns, layouts | our composition opinions |
 | your whole app skeleton | + data-bound | our resource contract |
 
@@ -168,20 +170,45 @@ A consumer can stop at any rung. That is the product.
 
 ---
 
-## The layers
+## Package layers
 
-| Layer | Job | Admission test | Leans on | Banned from it |
+Every package says where it sits in its package.json (`genesis.layer`, `genesis.group`), and CI
+fails when a dependency points the wrong way (`pnpm check:package-layers`;
+[PACKAGE-STRATEGY.md](./PACKAGE-STRATEGY.md#layers) has the full placement).
+
+| Layer | What it is | May depend on |
+|---|---|---|
+| **Foundation** | What every app needs: design-system, core, ui, ui-native, features | foundation only |
+| **Primitives** | A capability an app or a module composes: data, AI, forms, collaboration, the native and extension shells, the umbrella | foundation and other primitives |
+| **Modules** | A mini app with its own tables, screens, nav entries and settings, installed with `genesis add` and switched on per tenant: sites, support, product | foundation, primitives, and only the modules it lists in `genesis.module.requiresModules` |
+| **Tooling** | The CLI and agent rules | anything; no runtime package imports it |
+
+Presented simply: **level 1 is the foundation and the primitives; level 2 is the modules built
+from them.** The test for where a package goes: if another package or app embeds it as a part,
+it is a primitive; if someone installs it and gets a working product surface to switch on for
+tenants, it is a module. A **block** stays the install unit at every layer (primitives ship
+blocks too: push, notifications, ai-providers); a module is a package of blocks that together
+form a mini app. Which plan unlocks a module is the app's decision, in its own `features.ts`,
+never the package's.
+
+## The UI tiers
+
+Inside the foundation's UI packages (`genesis-design-system`, `genesis-ui`, `genesis-ui-native`),
+components sit in tiers. *Elements* is the tier this document called "primitives" before
+2026-10-29; the word "primitives" now means the package layer above.
+
+| Tier | Job | Admission test | Leans on | Banned from it |
 |---|---|---|---|---|
 | **Tokens** | Values | Is it a value, not a component? | **nothing** | React, JSX, behavior |
-| **Primitives** | One interaction | Does it do exactly one thing, with no domain vocabulary? | Radix · CVA · a focused third-party lib | Domain words, data fetching, layout opinions |
-| **Patterns** | Compose primitives | Does it combine 2+ primitives into a recurring shape? | primitives only | Data fetching, routing |
-| **Layouts** | Page structure | Does it position things without knowing what they are? | primitives, patterns | Domain, data |
+| **Elements** | One interaction | Does it do exactly one thing, with no domain vocabulary? | Radix · CVA · a focused third-party lib | Domain words, data fetching, layout opinions |
+| **Patterns** | Compose elements | Does it combine 2+ elements into a recurring shape? | elements only | Data fetching, routing |
+| **Layouts** | Page structure | Does it position things without knowing what they are? | elements, patterns | Domain, data |
 | **Data-bound** | Bind to a resource | Does it need a resource contract to be useful? | TanStack Query · RHF + zod · adapters | Direct DB/HTTP outside an adapter |
 
 ### The test that does the most work
 
-**Domain vocabulary.** A primitive that knows the words `onTrack`, `atRisk`, `engagement` or
-`quarterlyGoal` is not a primitive — it is a pattern. This is the test that most often catches a
+**Domain vocabulary.** An element that knows the words `onTrack`, `atRisk`, `engagement` or
+`quarterlyGoal` is not an element — it is a pattern. This is the test that most often catches a
 component filed one layer too low, and a component filed too low is how a second
 implementation gets born: the next person needing that shape doesn't find it where they
 look, so they write another.
@@ -200,11 +227,13 @@ one had to become a deprecated alias of the other.
 
 ### 2. Downward dependencies only
 
-A primitive importing a pattern is a build error, not a review comment — the rule that stops
-the layers fusing into mud. It is **not machine-checked today**:
-`scripts/check-forbidden-imports.mjs` enforces a different rule (app code must not import raw
-`react-native` primitives Genesis re-exports), and nothing inspects primitive→pattern or
-pattern→layout direction. Step 4 turns this from an opinion into a gate.
+An element importing a pattern is a build error, not a review comment — the rule that stops
+the tiers fusing into mud. Between packages it is **machine-checked**: `pnpm
+check:package-layers` fails CI when a foundation package uses a primitive, a primitive uses a
+module, a module uses a module it doesn't declare, a runtime package uses tooling, or packages
+form a cycle. Inside `genesis-ui` the element→pattern→layout direction is **not machine-checked
+yet** (`scripts/check-forbidden-imports.mjs` enforces a different rule: app code must not import
+raw `react-native` components Genesis re-exports). Step 4 below tracks that half.
 
 ### 3. Behavior belongs to Radix
 
@@ -243,6 +272,27 @@ If `genesis-ui` doesn't import it, `genesis-ui` doesn't declare it. Duplicate de
 across packages are the same overlap problem one level up, and they make every consumer
 install things they never use.
 
+### 7. A name says what kind of thing it is
+
+Accepted 2026-10-29 (R5). An export's prefix tells a reader, and an agent, what it does before
+they open it:
+
+| Prefix | Means | Example |
+| --- | --- | --- |
+| `define*` | A checked, frozen declaration, made once at module scope | `defineView`, `defineTask`, `defineBlock` |
+| `create*` | A runtime instance: a client, a store, a handler, a provider | `createSupabaseProvider`, `createAiHandler` |
+| `use*` | A React hook | `useResourceForm`, `useWorkspace` |
+| `with*` | A wrapper that returns the same kind of thing it takes | `withGenesis` |
+| `is*`, `has*`, `to*`, `parse*` | A pure check or conversion | `isColorScale`, `toRecords` |
+| `resolve*` | A pure computation over a registry or config | `resolveBlocks`, `resolveThemeRoles` |
+| `register*` | A side effect that registers into a registry | `registerSection` |
+
+`build*`, `new*` and `make*` are not used for new exports: a declaration is `define*`, an
+instance `create*`, a pure result `to*` or `resolve*`. Factory suffixes follow the same idea:
+`…Handler` (Request → Response), `…Provider`, `…Adapter`, `…Store`, `…Client`, `…Runner`,
+`…Sink`. The check (`pnpm check:export-prefixes`, CI on pull requests) reads only exports a pull
+request adds, so nothing existing is renamed; an old name moves only through a deprecated alias.
+
 ---
 
 ## What is explicitly OUT
@@ -265,17 +315,18 @@ database", and the framework stops being adoptable.
 
 ## Current state, measured
 
-**Packages:** 28 published packages plus the private agent rules, grouped as foundation, app
-shells, platform services, domain blocks and tooling ([README](../README.md#packages); the full
+**Packages:** 28 published packages plus the private agent rules, in four layers: foundation,
+primitives (grouped as core, data, AI, forms, collaboration and shells), modules and tooling
+([README](../README.md#packages); the full
 list with every entry point and export is generated at [genesisone.dev/packages](https://genesisone.dev/packages)
 and in [component-reference.md](./component-reference.md)).
 
 **`genesis-design-system` has zero dependencies.** Pure values. That layer is exactly right.
 
-**`genesis-ui`:** 56 primitives in `ui/` and 13 patterns in `patterns/`, the page layouts in
+**`genesis-ui`:** 56 elements in `ui/` and 13 patterns in `patterns/`, the page layouts in
 `layout/`, and the data-bound tier in `data/` (`ResourceView`, `RecordView`, `ResourcePage`,
 `ResourceForm`). Radix comes through the one `radix-ui` peer. The generated
-[primitive pages](https://genesisone.dev/showcase/primitives) list every web and native component.
+[component pages](https://genesisone.dev/showcase/elements) list every web and native component.
 
 The gaps this section used to list are closed: the folders are split, `tooltip`, `tabs` and
 `scroll-area` are on Radix, the unimported peers are gone, and `Stack`, `Grid`, `Split`,
@@ -289,7 +340,7 @@ The gaps this section used to list are closed: the folders are split, `tooltip`,
 genesis-design-system     tokens          (unchanged — already clean)
 
 genesis-ui
-  ui/                     primitives      one interaction, no domain
+  ui/                     elements        one interaction, no domain
   patterns/               patterns        compositions, no data
   layout/                 layouts         structure, no domain, no data
   data/                   data-bound      resource contract required
@@ -305,7 +356,7 @@ not cosmetic — it is what makes rules 1 and 2 enforceable by a script instead 
 Two notes from executing this section against the actual source:
 
 - **`ViewToggle`/`ViewSettings` were missing from the list**, and had to move. Neither touches
-  a resource. `ViewSettings` composes three primitives; `ViewToggle` composes only `Button`,
+  a resource. `ViewSettings` composes three elements; `ViewToggle` composes only `Button`,
   so the admission test alone would not have caught it. The binding reason is rule 2:
   `PageHeader` imports both, so leaving them in `data/` made the Layout tier depend on the
   data-bound tier — the exact violation this split exists to prevent.
@@ -313,13 +364,14 @@ Two notes from executing this section against the actual source:
   not.** Recorded rather than quietly reverted, because editing the contract to match the
   implementation is the failure mode this document exists to prevent. The argument for keeping
   it consulted only the **Leans on** column and skipped **Banned from it**, which bans domain
-  words from primitives — and the emphasized test below the layers table settles it: *"A
-  primitive that knows the words `onTrack`, `atRisk`, `engagement` or `quarterlyGoal` is not a
-  primitive — it is a pattern."* `status-badge.tsx` is typed as `"onTrack" | "atRisk" |
-  "offTrack" | ...`, the only domain-carrying file among the 51 left in `ui/`. Failing the
-  Patterns admission test does not make a component a primitive when the Primitives row bans
-  what it carries. Domain vocabulary is banned from *primitives*, not from patterns (which ban
-  data fetching and routing) — carrying it is part of what makes something a pattern.
+  words from elements (then called primitives) — and the emphasized test below the tiers table
+  settles it: *"An element that knows the words `onTrack`, `atRisk`, `engagement` or
+  `quarterlyGoal` is not an element — it is a pattern."* `status-badge.tsx` is typed as
+  `"onTrack" | "atRisk" | "offTrack" | ...`, the only domain-carrying file among the 51 left in
+  `ui/`. Failing the Patterns admission test does not make a component an element when the
+  Elements row bans what it carries. Domain vocabulary is banned from *elements*, not from
+  patterns (which ban data fetching and routing) — carrying it is part of what makes something
+  a pattern.
 
 ---
 
@@ -337,7 +389,7 @@ Available and not yet used (13). The ones worth taking:
 | `tooltip` | replaces own-code missing portal, collision detection, delay, dismissal |
 | `tabs` | replaces own-code missing roving tabindex, arrow/Home/End, `aria-controls` |
 | `scroll-area` | replaces own-code; cross-browser scrollbar styling is genuinely miserable |
-| `toolbar` | **new** — note this is a *primitive*, not a layout: Radix Toolbar owns roving tabindex and arrow/Home/End navigation, so it fails the layout test ("positions things without knowing what they are") and passes the primitive one |
+| `toolbar` | **new** — note this is an *element*, not a layout: Radix Toolbar owns roving tabindex and arrow/Home/End navigation, so it fails the layout test ("positions things without knowing what they are") and passes the element one |
 | `visually-hidden` | **new** — screen-reader-only text, needed by every icon-only control |
 | `accessible-icon` | **new** — the correct pattern for icon buttons |
 | `password-toggle-field` | **new** — but Radix exports it as `unstable_PasswordToggleField` and calls the API subject to change. Adopt as `@stability Experimental` behind that name, or wait; do **not** ship it as Stable |
@@ -353,7 +405,7 @@ established doctrine), `menu` (low-level; `dropdown-menu`/`context-menu` already
   but a misconfigured bundler gets more than it uses; granular packages give a harder
   guarantee. Mitigated by keeping subpath exports so consumers import narrowly.
 - **Migration.** 23 files change import path. Mechanical, but not free.
-- **Version coupling.** One range means no pinning a single primitive back — in practice a
+- **Version coupling.** One range means no pinning a single Radix primitive back — in practice a
   benefit, but a real loss of granularity.
 - **Maturity.** The unified package is younger than the granular ones it wraps. Low risk, not
   zero.
@@ -366,9 +418,9 @@ None of these outweighs collapsing 21 peers into 1 and closing three behavioral 
 
 Two sub-tiers, and keeping them apart is what prevents the next overlap.
 
-**Layout primitives** — unopinionated bones. No data, no domain, infinite reuse, zero
+**Layout elements** — unopinionated bones. No data, no domain, infinite reuse, zero
 lock-in: `Stack`, `Grid`, `Split` (master-detail), `Section`, `Container`. Radix `Toolbar`
-is **not** in this list — it carries keyboard behavior, so it belongs with the primitives; a
+is **not** in this list — it carries keyboard behavior, so it belongs with the elements; a
 `Toolbar` *layout* that only handles spacing would be a separate, data-free composition.
 
 **Page templates** — where the leverage is. Note the split: `AppShell` is a true layout
@@ -407,7 +459,7 @@ policy: `FormPage`'s already exists as `ResourceForm` (rule 1 — one home per c
 `SettingsPage`'s persistence is not a resource contract at all.
 
 **No `AuthPage`** — auth is out of scope above, and a template that knows how you
-authenticate would contradict that; Genesis provides the shell and the form primitives, the
+authenticate would contradict that; Genesis provides the shell and the form elements, the
 app owns the flow.
 
 **The target: a new app is shell + templates + a resource config.** Not dozens of
@@ -422,7 +474,7 @@ real consuming app.
 
 Two different axes, worth not conflating. **Within the data-bound layer** the order is
 contract → templates: a template is unusable until its contract exists. **Across the package**
-the sequence below runs hygiene → primitives → layouts → templates, each step independently
+the sequence below runs hygiene → elements → layouts → templates, each step independently
 shippable.
 
 ---
@@ -436,12 +488,13 @@ shippable.
 2. **Unified Radix**: done. One `radix-ui` peer replaces the granular ones.
 3. **Folder split**: done. `patterns/` and `layout/` are real; `AppShell` and `PageHeader`
    from `/data` remain as deprecated aliases per rule 5.
-4. **Enforce layering**: open. Rule 2 is kept by review and the doctor's rules, not yet by a
-   script that fails the build on an upward import.
+4. **Enforce layering**: half done. Between packages, `pnpm check:package-layers` fails CI on
+   an upward dependency (2026-10-29). Inside `genesis-ui`, element→pattern→layout direction is
+   still kept by review.
 5. **Behavioral Radix adoption**: done (`tooltip`, `tabs`, `scroll-area`).
 6. **New Radix capability**: done (`toolbar`, `visually-hidden`, `accessible-icon`,
    `password-toggle-field`, the last experimental).
-7. **Layout primitives**: done (`Stack`, `Grid`, `Split`, `Section`, `Container`).
+7. **Layout elements**: done (`Stack`, `Grid`, `Split`, `Section`, `Container`).
 8. **Page templates**: done (`DetailPage`, `FormPage`, `DashboardPage`, `SettingsPage`, and
    `ResourceDetailPage`). The data-bound tier has since moved on to `ResourceView` and
    `RecordView` ([RESOURCE-VIEW.md](./RESOURCE-VIEW.md)).
