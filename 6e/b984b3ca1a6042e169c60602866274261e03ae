@@ -1,0 +1,69 @@
+packages/features/src/__tests__/overlay.test.ts
+  s_36f3212387dbf7::t_a1009389a9a246 1-45
+packages/features/src/index.ts
+  s_36f3212387dbf7::t_6049ffdc992a08 123
+packages/genesis-cli/src/doctor/index.ts
+  s_36f3212387dbf7::t_21aa62a0f36037 41,135,234
+packages/genesis-cli/src/doctor/packages.ts
+  s_36f3212387dbf7::t_0c8ec599544dc7 179,190
+  s_36f3212387dbf7::t_f79a9df1f83dd9 17-18,35-36,174-178,180-184,187,189,191-193,195-197,425,429-432
+.changeset/app-overlays-cli.md
+  s_36f3212387dbf7::t_3991fdca793825 1-7
+packages/genesis-cli/test/doctor-overlays.test.ts
+  s_36f3212387dbf7::t_eb1363bd0c2b23 1-184
+packages/genesis-cli/src/doctor/structure.ts
+  s_36f3212387dbf7::t_3319ca614e57ac 8,118,130-131
+packages/genesis-cli/src/doctor/types.ts
+  s_36f3212387dbf7::t_21aa62a0f36037 249-250,359
+  s_36f3212387dbf7::t_fe18d0fade5bb7 4
+  s_36f3212387dbf7::t_46649dd7e73901 360
+AGENTS.md
+  s_36f3212387dbf7::t_6ef7025c327936 68
+features.json
+  s_36f3212387dbf7::t_6ef7025c327936 5684-5737
+  s_36f3212387dbf7::t_fe4298e3710b98 5683
+packages/genesis-cli/src/doctor/overlays.ts
+  s_36f3212387dbf7::t_5984783b2e6411 1-141
+packages/genesis-cli/src/doctor/native.ts
+  s_36f3212387dbf7::t_3319ca614e57ac 57-58,72
+  s_36f3212387dbf7::t_f79a9df1f83dd9 19
+packages/genesis-cli/src/doctor/genesis.ts
+  s_36f3212387dbf7::t_e9934ae75b761a 124-129,131,133-134,140-143,145-147,150-158,160-161,164,169,213-215,217-256
+  s_36f3212387dbf7::t_a47a4450d0d55c 216
+  s_36f3212387dbf7::t_53611586909bb4 257
+packages/genesis-cli/src/doctor/package-rules.ts
+  s_36f3212387dbf7::t_21aa62a0f36037 40,221,255-258
+packages/features/src/overlay.ts
+  s_36f3212387dbf7::t_01776dcb2fcc88 1-88
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_ae60705676be0e 224-240
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_ba76c29c6aeebc 169-239
+packages/features/src/packages.ts
+  s_36f3212387dbf7::t_6049ffdc992a08 21,86-87,129-130
+packages/genesis-cli/src/doctor/rules.ts
+  s_36f3212387dbf7::t_3319ca614e57ac 10,147-148,150,234-235,238
+  s_36f3212387dbf7::t_21aa62a0f36037 67-71
+features.ts
+  s_36f3212387dbf7::t_3f2710ea2b53ca 2486-2512
+.changeset/app-overlays-features.md
+  s_36f3212387dbf7::t_3991fdca793825 1-7
+packages/genesis-cli/src/doctor/versions.ts
+  s_36f3212387dbf7::t_f79a9df1f83dd9 10,29,36-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6eb984b3ca1a6042e169c60602866274261e03ae",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
