@@ -94,3 +94,20 @@ describe("checkStabilityImports", () => {
     expect(second.map((f) => f.rule)).toEqual(["deprecated-import"]);
   });
 });
+
+describe("deprecated-import under --base", () => {
+  it("ratchets by default: warns in changed files, info in untouched ones", async () => {
+    const { runDoctor } = await import("../src/doctor/index.js");
+    const { makeApp } = await import("./doctor-helpers.js");
+    const root = makeApp(null, {
+      "package.json": JSON.stringify({ name: "app", dependencies: { "@marktiderman/genesis-widgets": "1.0.0" } }),
+      "node_modules/@marktiderman/genesis-widgets/package.json": JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "1.0.0" }),
+      "node_modules/@marktiderman/genesis-widgets/dist/index.d.ts": "/** @deprecated Use `NewList`. */\ndeclare function OldList(): void;\n",
+      "src/changed.tsx": 'import { OldList } from "@marktiderman/genesis-widgets";\nexport const A = OldList;\n',
+      "src/untouched.tsx": 'import { OldList } from "@marktiderman/genesis-widgets";\nexport const B = OldList;\n',
+    });
+    const result = await runDoctor({ root, config: {}, base: "origin/main", changedFiles: ["src/changed.tsx"] });
+    const levels = result.findings.filter((f) => f.rule === "deprecated-import").map((f) => `${f.level} ${f.file}`).sort();
+    expect(levels).toEqual(["info src/untouched.tsx", "warn src/changed.tsx"]);
+  });
+});

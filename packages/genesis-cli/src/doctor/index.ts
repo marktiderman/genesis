@@ -41,6 +41,9 @@ import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
+/** Built-in rules ratcheted under --base without config (a deprecation lands on existing code). */
+const RATCHETED_BY_DEFAULT = ["deprecated-import"] as const;
+
 export type * from "./types.js";
 export {
   DoctorConfigError,
@@ -151,7 +154,9 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   // Under --base: the ratchet's changed files, and the config's allow, rules and packageRules against
   // the base's. When git can't compare, one ratchet-skipped notice: a warning when only the ratchet
   // was skipped (every rule ran at its full level), an error when the config went uncompared.
-  const newOnly = new Set([...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
+  // Built-in rules that land on existing code ratchet by default, so a Genesis upgrade never fails an
+  // app's strict CI on files nobody touched: deprecations are moved file by file.
+  const newOnly = new Set([...RATCHETED_BY_DEFAULT, ...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
   let changed: Set<string> | null = null;
   let skipped = false;
   if (options.base && (newOnly.size > 0 || config.ratchet)) {
