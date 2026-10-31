@@ -1,11 +1,11 @@
-# media-library uploads: design
+# genesis-media uploads: design
 
-Status: **v0.2, approved** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and forms' and chat's re-exports follow (#551).
+Status: **v0.3, approved in review** (with the changes in "Decided in review"). It lives in `@marktiderman/genesis-media` under `/uploads` (the server half from #550 and the clients from #551, folded into one package), with the adapter for forms' upload port at `/forms`.
 
 This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
 in #542): resumable, checksummed uploads with one contract for browser, native and
 server, storage targets as adapters, fan-out with a read-back check, and skip-if-identical. It
-folds two existing upload paths into one and leaves video providers alone. Feature:
+plugs into forms and chat through their upload ports, and leaves video providers alone. Feature:
 `media-resumable-uploads` (the `upload-protocol` entry folds into it, see Merge).
 
 ## What it is, and what it isn't
@@ -28,19 +28,22 @@ set of verified copies, which the media value (ADR 0012, primitive 3) records in
 
 ## Where it lives
 
-A new package, `@marktiderman/genesis-media-library`, as ADR 0012 creates it ("media-library,
-primitive, data"). On ADR 0005's two axes its `package.json` sets `genesis.layer: "primitive"`
-and `genesis.group: "data"`, plus `genesis.owner`, and declares its doctor rule ("a file upload:
-use media-library's client, never a hand-rolled PUT or TUS loop").
+In `@marktiderman/genesis-media`, beside the media value, responsive images and signed links
+(ADR 0012's primitives 3 and 4 in one package). On ADR 0005's two axes its `package.json` sets
+`genesis.layer: "primitive"` and `genesis.group: "data"`, plus `genesis.owner`, and
+`genesis.optional: true`: it is an upgrade apps opt into, and no primitive imports it (forms
+takes it through its own port). Its doctor rule: "a file upload: use createUploadHandler and
+createUploader, never a hand-rolled PUT or TUS loop".
 
 Subpaths, so each runtime takes only what it runs:
 
 | Entry | Runs on | Holds |
 | --- | --- | --- |
-| `.` | anywhere | the protocol types, the part plan, digest helpers, errors |
-| `/client` | browser, React Native, Node | `createUploader` (create, parts, resume, finalize) |
-| `/server` | Node 20+, Workers | `createUploadHandler` (the protocol over `Request`/`Response`), the session store interface |
-| `/targets` | Node 20+, Workers | `r2Target` (a binding, or a Worker over fetch), `s3Target` (SigV4) |
+| `/uploads` | anywhere | the protocol types, the part plan, digest helpers, errors |
+| `/uploads/client` | browser, React Native, Node | `createUploader` (create, parts, resume, finalize), sources, resume stores, the hashing worker |
+| `/uploads/server` | Node 20+, Workers | `createUploadHandler` (the protocol over `Request`/`Response`), the session stores, the verify and sweep jobs |
+| `/uploads/targets` | Node 20+, Workers | `createR2Target` (a binding), `createS3Target` (SigV4), `createMemoryTarget` |
+| `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
 Fetch and WebCrypto only, like genesis-connect and `/signed`, except where noted under Digests.
 
@@ -147,8 +150,8 @@ upload is done only when every target's copy has the declared size and SHA-256.
 Reading back is **asynchronous** for anything big: a 50 GB file in two targets is 100 GB to read,
 past any request's time and a Worker's subrequest limits.
 
-- **202** `{ "state": "verifying" }`: the copies are assembled and a `genesis_jobs` job
-  (`media-library.verify`) is reading each one back. The client polls Resume until the state is
+- **202** `{ "state": "verifying" }`: a `genesis_jobs` job (`media.verify`) is
+  assembling the object, copying it and reading each copy back. The client polls Resume until the state is
   `done`, `partial` or `identity_mismatch`.
 - Objects under a threshold (`verifyInlineBytes`, default 64 MB) are read back inline and answer
   at once:
@@ -268,8 +271,8 @@ until the lock ends; the policy then purges it, and the purge is recorded on the
   (audited, plain JS, runs on Hermes, no wasm). The `hash` option takes another (hash-wasm in a
   browser app that wants the speed). Browsers hash in a **Web Worker** by default. The server
   side hashes streams with `crypto.DigestStream` on Workers and `node:crypto` on Node.
-- Parts carry `content-digest` (RFC 9530, `sha-256`, base64). Part size: at least 8 MB (S3's
-  minimum is 5 MiB), at most the smallest `maxPart` of the targets, and large enough that the
+- Parts carry `content-digest` (RFC 9530, `sha-256`, base64). Part size: at least 5 MiB (S3's
+  and R2's real minimum), at most the smallest `maxPart` of the targets, and large enough that the
   part count stays under 10,000.
 
 ## Clients
@@ -305,37 +308,41 @@ the app's.
 | Another owner guesses the id | — | 404 on every operation |
 | The store loses or corrupts a copy | — | Finalize's read-back refuses it; later checks are the app's (re-verify jobs) |
 
-## Merge: one upload path
+## Merge: forms and chat plug in through their upload ports
+
+forms and chat never depend on genesis-media. Each keeps its own upload, built in, behind a
+small port. genesis-media ships the adapter for forms' port, and an app opts in by passing it;
+chat keeps its own TUS client.
 
 - **forms' upload protocol** (`packages/forms/src/upload-protocol.ts`, `upload-handler.ts`): a
   single signed PUT per answer file, with forms' own checks (the form takes answers, the field
-  takes files, the attempt or edit link, the rate limit). It becomes a one-part upload in this
-  contract: forms' checks move into its `authorize`, its attempt id or edit link becomes the
-  respondent owner (no sign-in needed, see The protocol), and its JSON (`UploadRequest`,
-  `UploadGrant`) stays as a thin adapter for browsers already in use. `createUploadHandler` and
-  `signedUploadHost` stay exported from forms as **deprecated re-exports** over media-library
-  until the next major. Forms' tests run unchanged against the adapter.
+  takes files, the attempt or edit link, the rate limit). It stays, undeprecated, as the
+  built-in implementation of forms' port, `UploadAdapter` (`upload(file, field)` resolving to
+  the `PhotoRef` the answer keeps, and `url?`), which genesis-forms-web's `<Form uploads>` and
+  `UploadContext` take; `signedUploadHost` is the built-in adapter.
+  `@marktiderman/genesis-media/forms`'s `createFormsUploadAdapter({ uploader })` fits the
+  port: a form's files then go through this contract, with forms' checks in the route's
+  `authorize` and the attempt id or edit link as the respondent owner (see The protocol).
 - **chat's resumable uploads** (`packages/chat/src/native/tus.ts`, `createTusUpload`): Supabase
   Storage's TUS endpoint with the person's own token, so storage RLS judges each file. TUS is a
   **different transport**, not a target that speaks the part protocol: offsets are sequential
   (one `PATCH` at a time, in order, never parallel or out-of-order parts), chunks are a fixed
-  6 MiB, and Supabase's upload URL expires after 24 hours. So it becomes a transport adapter
-  (`supabaseTusTransport`) the uploader drives as a single in-order stream: Resume is TUS's
-  `HEAD` for the offset, a "part" is the next chunk, there is no `listParts`, no fan-out, and
-  resume holds only within the 24 hours (after that, create again). Identity is still declared
-  at create and checked at finalize by reading the object back. `createTusUpload` stays as a
-  **deprecated re-export** with exactly today's guarantees (resume within the session, the same
-  path on retry), not the full contract's. The chat outbox's ordering (upload, then send) is
-  unchanged.
+  6 MiB, and Supabase's upload URL expires after 24 hours. `createTusUpload` stays, undeprecated, with its own TUS client
+  built in, behind a port: its `transport` option (`TusTransport`: send a file's bytes to chat's
+  path in chat's bucket), for an app that wants another one. genesis-media ships no adapter for
+  it: its own `createSupabaseTusTransport` is the same TUS protocol, so it would add nothing.
+  chat keeps its paths, file checks and errors either way, and the outbox's ordering (upload,
+  then send) is unchanged. The part protocol itself can't sit behind this port: chat's contract is an object at a path chat
+  names, in Supabase Storage, and the protocol's server chooses the key and the targets.
 - **The `upload-protocol` feature** folds into `media-resumable-uploads`: renamed, with
   `upload-protocol` kept in `aliases`, so ADR 0012's and PACKAGE-STRATEGY's references still
   resolve.
 - support's screenshots and sites' `putAsset` move onto it afterwards, each in its own change.
 - PACKAGE-STRATEGY's move M4 put the shared protocol in `core` (types) and `supabase` (the
-  handler). ADR 0012 gives it media-library instead; M4's line should point here when this lands.
+  handler). ADR 0012 gives it genesis-media (`/uploads`) instead; M4's line points here.
 
-Nothing breaks: every existing export keeps its name and behaviour for a deprecation window;
-the doctor points new code at media-library.
+Nothing breaks: forms' and chat's exports keep their names and behaviour, undeprecated; the
+doctor points new upload code at genesis-media's `/uploads`.
 
 ## Video providers
 
@@ -386,8 +393,8 @@ with its own transport. Either is media-video-value's decision.
   - a browser run (Playwright) with a reload mid-upload;
   - React Native through the existing chat outbox tests, unchanged.
 - **Never delete the source**: no client API moves or deletes a source (a type test).
-- **Merge**: forms' and chat's existing upload tests pass unchanged through the deprecated
-  re-exports.
+- **Merge**: forms' and chat's existing upload tests pass unchanged; each adapter is tested
+  against its port.
 - **Large files**: a 5 GB upload through the in-memory target with flat memory; part counts at
   the 10,000 limit.
 
@@ -405,4 +412,26 @@ with its own transport. Either is media-video-value's decision.
 - **Sessions:** a table by default, through the app's provider (a Supabase migration with RLS on
   the owner, and pgTAP), behind the store interface so a Durable Object store can replace it.
 - **A re-sent part with a different digest:** refused, 409 `part_conflict`; abort and create again.
-- **The package:** `@marktiderman/genesis-media-library`.
+- **The package:** `@marktiderman/genesis-media`, under `/uploads` (first planned as a package of its own).
+
+## Hardened in review (v0.3)
+
+- **Storage keys are one upload's own.** The handler appends the upload id to any key from
+  `keyFor` that lacks it, and the session table refuses two uploads with one key, so a key built
+  from a hash never reaches another upload's object. An upload reads back, locks and deletes
+  only what it assembled, by version where the store keeps versions; after a `finish` whose
+  answer was lost, it goes on only if the target can tell the object is this upload's assembly.
+- **One verification at a time:** a run holds a lease (renewed as it goes) before it copies.
+- **Finalize leaves `open` before anything is assembled** (a compare-and-set to `verifying`);
+  the verify run assembles under its lease. An abort racing a finalize either came first, and
+  nothing was assembled, or is refused, so an object never outlives its session.
+- **Only the request that reserved a part gives it back** when its write fails. Another
+  request writing the same bytes leaves it, and answers 409 `part_conflict` if it went.
+- **Abort and the sweep** remove a session only in the state they found it in; a session stuck
+  in `verifying` with no live lease can be aborted and is swept, with its unverified objects.
+- **Parts** stream through and are reserved for their bytes before they are written; other bytes
+  are refused (409 `part_conflict`) before they reach the target.
+- **One open session per owner, identity, purpose and target set** (a unique index): a second tab
+  resumes the first.
+- **S3 Object Lock:** a bucket with a default retention is refused.
+- **Part size:** at least 5 MiB. **Copies** record their target's `tier`.

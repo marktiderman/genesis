@@ -135,7 +135,7 @@ export {
 export { useVoiceRecorder, voiceNoteFile, type UseVoiceRecorderOptions } from "./use-voice-recorder";
 export { invertedRows, buildThreadRows, rowKey, type ThreadRow, type BuildRowsOptions } from "./rows";
 export { messageActionsFor, canReactTo, QUICK_REACTIONS, type MessageActionId, type MessageActionContext } from "./actions";
-export { createTusUpload, base64Utf8, TUS_CHUNK_BYTES, type TusUploadOptions } from "./tus";
+export { createTusUpload, base64Utf8, TUS_CHUNK_BYTES, type TusUploadOptions, type TusTransport, type TusUploadRecord, type TusUploadSource, type TusSendInfo } from "./tus";
 export {
   CHAT_PUSH_CATEGORY,
   CHAT_REPLY_ACTION,

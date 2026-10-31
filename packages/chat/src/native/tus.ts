@@ -15,6 +15,10 @@
  *
  * The path is `<conversation>/<uploader>/<uuid>.<ext>`, as `send_message`
  * expects; the upload finishes before the send (the outbox orders that).
+ *
+ * What moves the bytes is a port (`transport`): this file's own TUS client by
+ * default, or any `TusTransport` an app passes. chat's paths, file checks and
+ * errors stay here either way.
  */
 import { CHAT_BUCKET, ChatError } from "../core/client";
 import { fileExtension, isAllowedExtension, randomId } from "../core/media";
@@ -46,6 +50,49 @@ export interface TusUploadOptions {
   /** A uuid for each file's name. Default core's `randomId` (crypto.randomUUID where there is one, else getRandomValues). */
   newId?: () => string;
   bucket?: string;
+  /**
+   * What sends the bytes. Default: Supabase Storage's TUS endpoint, built in (with `fetch`,
+   * `chunkBytes` and `retries` above). An app opts into another by passing it here.
+   */
+  transport?: TusTransport;
+}
+
+/**
+ * Where one file's upload stands: its path and, once the TUS upload is made,
+ * where it lives. A transport keeps it current, so a retry of the same file
+ * resumes rather than starting again.
+ */
+export interface TusUploadRecord {
+  path: string;
+  location?: string | undefined;
+  done?: boolean | undefined;
+}
+
+/** What a transport reads a file's bytes from: exactly `from` to `to`. */
+export interface TusUploadSource {
+  size: number;
+  read(from: number, to: number): Promise<ArrayBuffer>;
+}
+
+/** What a transport is told about the file it sends. */
+export interface TusSendInfo {
+  bucket: string;
+  contentType: string;
+  cacheControl: string;
+  /** The person's headers (`authorization`, and `apikey` when given). Rejects when they're signed out. */
+  headers: () => Promise<Record<string, string>>;
+}
+
+/**
+ * The upload port: what moves a file's bytes to `record.path` in `info.bucket`.
+ * It resolves to the path the object ended at; `renamePath()` gives a fresh
+ * one (ask it at most once) when the path is taken by a send that never
+ * finished. A rejection whose `failure` is `"forbidden"` or `"invalid"`, or a
+ * `ChatError` that isn't transient, is a refusal; anything else is worth
+ * trying again.
+ */
+export interface TusTransport {
+  send(record: TusUploadRecord, source: TusUploadSource, info: TusSendInfo, renamePath: () => string): Promise<string>;
 }
 
 /** An open file, read a chunk at a time. */
@@ -69,11 +116,7 @@ const exact = (bytes: ArrayBuffer | Uint8Array): ArrayBuffer =>
 
 const inMemory = (buffer: ArrayBuffer): Source => ({ size: buffer.byteLength, read: async (from, to) => buffer.slice(from, to), close: () => undefined });
 
-interface UploadRecord {
-  path: string;
-  location?: string;
-  done?: boolean;
-}
+type UploadRecord = TusUploadRecord;
 
 /** Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). */
 export function base64Utf8(text: string): string {
@@ -101,15 +144,34 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
   // share an object, so deleting one never breaks the other.
   const byFile = new WeakMap<LocalFile, UploadRecord>();
 
-  async function headers(extra: Record<string, string> = {}) {
+  async function auth(): Promise<Record<string, string>> {
     const token = await options.getAccessToken();
     if (!token) throw new ChatError("Sign in to send files", "42501", "upload");
     return {
       authorization: `Bearer ${token}`,
       ...(options.apikey ? { apikey: options.apikey } : {}),
-      "tus-resumable": "1.0.0",
-      ...extra,
     };
+  }
+
+  async function headers(extra: Record<string, string> = {}) {
+    return { ...(await auth()), "tus-resumable": "1.0.0", ...extra };
+  }
+
+  const renamePath = (rec: UploadRecord) => `${rec.path.slice(0, rec.path.lastIndexOf("/") + 1)}${newId()}.${rec.path.slice(rec.path.lastIndexOf(".") + 1)}`;
+
+  /** Sends through the app's own transport, with chat's errors whatever it throws. */
+  async function sendThrough(transport: TusTransport, file: LocalFile, rec: UploadRecord, source: Source): Promise<string> {
+    try {
+      const path = await transport.send(rec, source, { bucket, contentType: file.contentType, cacheControl: "3600", headers: auth }, () => renamePath(rec));
+      rec.path = path;
+      rec.done = true;
+      return path;
+    } catch (e) {
+      if (e instanceof ChatError) throw e;
+      const failure = typeof e === "object" && e !== null ? (e as { failure?: unknown }).failure : undefined;
+      // A refusal keeps its kind; anything else (the network) is transient, so the outbox retries it.
+      throw new ChatError(e instanceof Error ? e.message : String(e), failure === "forbidden" ? "42501" : failure === "invalid" ? "22023" : undefined, "upload");
+    }
   }
 
   async function sourceOf(file: LocalFile): Promise<Source> {
@@ -195,7 +257,7 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
 
     const source = await sourceOf(file);
     try {
-      return await send(file, record, source);
+      return await (options.transport ? sendThrough(options.transport, file, record, source) : send(file, record, source));
     } finally {
       source.close();
     }
@@ -246,7 +308,7 @@ export function createTusUpload(options: TusUploadOptions): (conversationId: str
       if (created === "conflict") {
         if (fresh) throw new ChatError("The upload is out of step", undefined, "upload");
         fresh = true;
-        rec.path = `${rec.path.slice(0, rec.path.lastIndexOf("/") + 1)}${newId()}.${rec.path.slice(rec.path.lastIndexOf(".") + 1)}`;
+        rec.path = renamePath(rec);
         continue;
       }
       rec.location = created;
