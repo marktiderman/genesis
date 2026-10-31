@@ -1,0 +1,29 @@
+.changeset/media-upload-client-followups.md
+  s_c922289064746d::t_bc623b42df5e70 7-8
+.changeset/ui-chart-recharts-3.md
+  s_c922289064746d::t_fae8be96d2d981 5
+packages/genesis-cli/src/doctor/supabase.ts
+  s_c922289064746d::t_e19a0ea5cd284a 328-331
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_c922289064746d::t_0e0bdcf5e7a530 460,463-468,472
+packages/media/src/uploads/client/worker-hasher.ts
+  s_c922289064746d::t_0dd301ef553c3a 133
+packages/ui/src/components/ui/chart.tsx
+  s_c922289064746d::t_ea613ca5875d67 123-124
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "afcdfe0b9e34896a3d5a5165808985223a2c49b9",
+  "prompts": {},
+  "sessions": {
+    "s_c922289064746d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6102c78-ed0e-4421-af2c-b595ca84c900",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
