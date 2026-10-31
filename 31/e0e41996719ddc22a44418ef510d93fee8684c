@@ -1,0 +1,28 @@
+.changeset/native-brand-role-variables.md
+  s_36f3212387dbf7::t_7d0ee152616252 9
+packages/genesis-cli/src/doctor/index.ts
+  s_36f3212387dbf7::t_e56e53e7d8a33c 165
+  s_36f3212387dbf7::t_7d0ee152616252 163-164,166
+packages/switchboard/src/adapters/gitdata.ts
+  s_36f3212387dbf7::t_7d0ee152616252 82
+apps/sample/scripts/generate-primitive-docs.ts
+  s_36f3212387dbf7::t_af3df297f79473 105-106
+.changeset/switchboard-single-quote-fallback.md
+  s_36f3212387dbf7::t_54574ef7497ef1 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "31e0e41996719ddc22a44418ef510d93fee8684c",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
