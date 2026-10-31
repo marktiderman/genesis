@@ -15,6 +15,7 @@
  * unknown path is null (or the site's 404 page, with `unknownPath:
  * "not-found"`). Pages render to HTML with no hydration.
  */
+import type { ImageUrlBuilder } from "@marktiderman/genesis-media";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import type { FormsResolver, ResolvedForm } from "../core/forms";
@@ -24,10 +25,10 @@ import { getSection, type PostsContext } from "../core/registry";
 import { ReleaseSnapshot, parseSnapshot, type Release, type ReleasePage } from "../core/schemas";
 import { matchRedirect, postDescription, robotsTxt, rssXml, sitemapXml } from "../core/seo";
 import { formCacheTag, siteCacheTag, type SiteStore } from "../core/store";
-import { brandDisplayName, siteTheme, themeCss, type BrandSource, type FontInfo, type SiteTheme } from "../core/theme";
+import { brandDisplayName, siteTheme, type BrandSource, type SiteTheme } from "../core/theme";
 import { DEFAULT_RESERVED_PATHS, isReservedPath, normalizeRequestPath, type ReservedPaths } from "../core/urls";
-import { ASSETS } from "./assets.generated";
-import { SiteRenderer, collectFormSlugs, googleFontHref } from "./document";
+import { ASSETS, FONT_FILES } from "./assets.generated";
+import { SiteRenderer, collectFormSlugs, pageStyleText } from "./document";
 
 /** Where this package serves its own files, under the site's base path. Reserved for pages. */
 export const ASSETS_PREFIX = "/_gs";
@@ -38,7 +39,7 @@ export interface SiteRequestOptions {
    * `getLivePost`); preview needs the draft reads too (`listPosts` and
    * `getPost` for posts).
    */
-  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft" | "listLivePosts" | "getLivePost" | "listPosts" | "getPost">>;
+  store: Pick<SiteStore, "getLive"> & Partial<Pick<SiteStore, "getDraft" | "listPages" | "getPageDraft" | "listLivePosts" | "getLivePost" | "listPosts" | "getPost" | "assetOrigin">>;
   brand: BrandSource;
   /** The site this request is for, resolved by the host from the Host header (or a path). */
   siteId: string;
@@ -73,10 +74,27 @@ export interface SiteRequestOptions {
   onPublishedTags?: (tags: string[], info: { siteId: string; releaseId: string | null; path: string; status: number }) => void;
   /** An unknown path: `fall-through` (default) returns null; `not-found` serves the site's 404 page. */
   unknownPath?: "fall-through" | "not-found";
-  /** Font stylesheets: Google Fonts by default, `false` for none, or a function returning a URL per font. */
-  fonts?: false | ((font: FontInfo) => string | null);
+  /**
+   * The site's font files, served by this package under `/_gs/` (default
+   * true). `false` loads none: a visitor sees an installed font or the
+   * stack's fallback. Fonts never load from a third party.
+   */
+  fonts?: boolean;
   /** A Content-Security-Policy header (default true). */
   csp?: boolean;
+  /**
+   * Origins a site on `images: "own"` may load images from, besides itself
+   * and the store's `assetOrigin`. Pass the same origins as the publish's
+   * `assetOrigins`, so what the check allowed the page can load.
+   */
+  assetOrigins?: readonly string[];
+  /**
+   * Builds each image's `srcset`, such as genesis-media's
+   * `supabaseImageUrl({ url })` for images in Supabase Storage. Default
+   * pass-through: every image at its own URL, as before. On `images: "own"`,
+   * the URLs it builds must be on an asset origin, or the policy blocks them.
+   */
+  imageUrl?: ImageUrlBuilder;
 }
 
 const LIVE_CACHE = "public, max-age=0, s-maxage=31536000, stale-while-revalidate=86400";
@@ -102,7 +120,29 @@ function originOf(url: string): string | null {
   }
 }
 
-async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, fonts: boolean, sectionFrames: readonly string[] = []): Promise<string> {
+/**
+ * Where a page's images may load from. A site on `images: "own"` loads only
+ * from itself and the asset origins (the store's, and any the host names);
+ * any other site from any https host. An asset origin may be http (a local
+ * Supabase), as the publish check accepts it.
+ */
+function imageSources(snapshot: ReleaseSnapshot, assetOrigins: readonly (string | undefined)[]): string {
+  if (snapshot.site.images !== "own") return "'self' https: data:";
+  const own = new Set<string>();
+  for (const value of assetOrigins) {
+    if (!value) continue;
+    try {
+      const u = new URL(value);
+      if (u.protocol === "https:" || u.protocol === "http:") own.add(u.origin);
+      else console.error(`[genesis-sites] the asset origin ${value} isn't http(s); images there will be blocked.`);
+    } catch {
+      console.error(`[genesis-sites] the asset origin ${value} isn't a URL; images there will be blocked.`);
+    }
+  }
+  return ["'self'", "data:", ...own].join(" ");
+}
+
+async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<string, ResolvedForm | null>, imgSrc: string, sectionFrames: readonly string[] = []): Promise<string> {
   const connect = new Set(["'self'"]);
   // A light form posts natively when script is off, so its endpoint is a form target too.
   const formTargets = new Set(["'self'"]);
@@ -127,11 +167,11 @@ async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<strin
   return [
     "default-src 'self'",
     "script-src 'self'",
-    `style-src 'self' 'sha256-${await sha256Base64(styleText)}'${fonts ? " https://fonts.googleapis.com" : ""}`,
+    `style-src 'self' 'sha256-${await sha256Base64(styleText)}'`,
     // Inline style attributes: an image's focal point, a frame's height, the form's own.
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' https: data:",
-    `font-src 'self'${fonts ? " https://fonts.gstatic.com" : ""}`,
+    `img-src ${imgSrc}`,
+    "font-src 'self'",
     `connect-src ${[...connect].join(" ")}`,
     `frame-src ${frames.size ? [...frames].join(" ") : "'none'"}`,
     `form-action ${[...formTargets].join(" ")}`,
@@ -143,6 +183,32 @@ async function contentSecurityPolicy(styleText: string, forms: ReadonlyMap<strin
 
 function textResponse(body: string, status: number, type: string, headers: Record<string, string>, head: boolean): Response {
   return new Response(head ? null : body, { status, headers: { "content-type": type, "x-content-type-options": "nosniff", ...headers } });
+}
+
+const FONT_NAMES = new Set(Object.values(FONT_FILES));
+const fontCache = new Map<string, Uint8Array<ArrayBuffer>>();
+
+/** A font file's bytes. The bodies (about 1 MB of base64) load on the first font request, never for a page. */
+async function fontBody(name: string): Promise<Uint8Array<ArrayBuffer> | null> {
+  const cached = fontCache.get(name);
+  if (cached) return cached;
+  let bodies: Readonly<Record<string, string>>;
+  try {
+    bodies = (await import("./fonts.generated")).FONT_BODIES;
+  } catch (err) {
+    console.error(`[genesis-sites] the font files couldn't be loaded; ${name} is served as not found.`, err);
+    return null;
+  }
+  const base64 = bodies[name];
+  if (!base64) {
+    console.error(`[genesis-sites] the font file ${name} is listed but has no body; rebuild the assets.`);
+    return null;
+  }
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  fontCache.set(name, bytes);
+  return bytes;
 }
 
 /** The drafts as a snapshot, for preview: migrated, unchecked. */
@@ -269,6 +335,10 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   // This package's own files: content-hashed, immutable.
   if (rawPath.startsWith(`${ASSETS_PREFIX}/`)) {
     const name = rawPath.slice(ASSETS_PREFIX.length + 1);
+    if (FONT_NAMES.has(name)) {
+      const body = await fontBody(name);
+      if (body) return new Response(head ? null : body, { status: 200, headers: { "content-type": "font/woff2", "x-content-type-options": "nosniff", "cache-control": ASSET_CACHE, "access-control-allow-origin": "*" } });
+    }
     const asset = Object.values(ASSETS).find((a) => a.name === name);
     if (!asset) return textResponse("Not found\n", 404, "text/plain; charset=utf-8", { "cache-control": "no-store" }, head);
     return textResponse(asset.body, 200, asset.type, { "cache-control": ASSET_CACHE, "access-control-allow-origin": "*" }, head);
@@ -414,7 +484,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
   }
   const logo = brand && "logo" in brand && brand.logo ? { src: brand.logo.src, alt: brand.logo.alt?.trim() || brandDisplayName(brand) } : undefined;
   const assetUrl = (name: string) => `${basePath}${ASSETS_PREFIX}/${name}`;
-  const fontHref = options.fonts === false ? false : (options.fonts ?? googleFontHref);
+  const fontUrl = options.fonts === false ? undefined : (key: string) => (FONT_FILES[key] ? assetUrl(FONT_FILES[key]) : null);
 
   const element = createElement(SiteRenderer, {
     snapshot,
@@ -425,9 +495,9 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     mode,
     ...(logo ? { logo } : {}),
     forms,
-    assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name) },
-    fontHref,
+    assets: { css: assetUrl(ASSETS.css.name), formsCss: assetUrl(ASSETS.formsCss.name), islands: assetUrl(ASSETS.islands.name), ...(fontUrl ? { font: fontUrl } : {}) },
     ...(posts ? { posts } : {}),
+    ...(options.imageUrl ? { imageUrl: options.imageUrl } : {}),
   });
   let failed: unknown = null;
   const stream = await renderToReadableStream(element, {
@@ -446,7 +516,7 @@ export async function handleSiteRequest(request: Request, options: SiteRequestOp
     "referrer-policy": "strict-origin-when-cross-origin",
     ...cacheHeaders(status, page && !brandChanged ? LIVE_CACHE : MISS_CACHE),
   };
-  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(themeCss(theme), forms, fontHref !== false && theme.fonts.some((f) => f.google), sectionFrames);
+  if (options.csp !== false) headers["content-security-policy"] = await contentSecurityPolicy(pageStyleText(theme, fontUrl), forms, imageSources(snapshot, [options.store.assetOrigin, ...(options.assetOrigins ?? [])]), sectionFrames);
   return new Response(head ? null : stream, { status, headers });
 }
 

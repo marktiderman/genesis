@@ -39,12 +39,12 @@ function snapshotOf(t: { site: unknown; pages: { path: string; kind: string; doc
 }
 
 describe("meta tags", () => {
-  const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us", subhead: "Small classes by the river." } }));
+  const snap = snapshotOf(starterSite({ brand, message: { headline: "Come and see us", subhead: "Small groups by the river." } }));
   const about = snap.pages.find((p) => p.path === "/about")!;
 
   it("titles every page with the site's template, unless the page has an SEO title of its own", () => {
-    expect(pageMeta({ site: snap.site, page: about, origin: ORIGIN }).title).toBe("About · Riverside Gym");
-    expect(pageMeta({ site: snap.site, page: snap.pages[0]!, origin: ORIGIN }).title).toBe("Home · Riverside Gym");
+    expect(pageMeta({ site: snap.site, page: about, origin: ORIGIN }).title).toBe("About · Riverside Works");
+    expect(pageMeta({ site: snap.site, page: snap.pages[0]!, origin: ORIGIN }).title).toBe("Home · Riverside Works");
     const own = { ...about, doc: { ...about.doc, seo: { title: "Our story, since 2014" } } };
     expect(pageMeta({ site: snap.site, page: own, origin: ORIGIN }).title).toBe("Our story, since 2014");
   });
@@ -53,15 +53,15 @@ describe("meta tags", () => {
     const meta = pageMeta({ site: snap.site, page: about, origin: ORIGIN, basePath: "/site" });
     expect(meta.canonical).toBe("https://riverside.example/site/about");
     expect(meta.robots).toBe("index, follow");
-    expect(meta.openGraph).toMatchObject({ "og:url": meta.canonical, "og:site_name": "Riverside Gym", "og:type": "website" });
+    expect(meta.openGraph).toMatchObject({ "og:url": meta.canonical, "og:site_name": "Riverside Works", "og:type": "website" });
     expect(meta.twitter["twitter:card"]).toBe("summary");
   });
 
   it("uses the og image (absolute) and the large card when there is one", () => {
-    const page: ReleasePage = { ...about, doc: { ...about.doc, seo: { ogImage: { src: "/og.png", alt: "The gym", width: 1200, height: 630 } } } };
+    const page: ReleasePage = { ...about, doc: { ...about.doc, seo: { ogImage: { src: "/og.png", alt: "The studio", width: 1200, height: 630 } } } };
     const meta = pageMeta({ site: snap.site, page, origin: ORIGIN });
     expect(meta.openGraph["og:image"]).toBe("https://riverside.example/og.png");
-    expect(meta.openGraph["og:image:alt"]).toBe("The gym");
+    expect(meta.openGraph["og:image:alt"]).toBe("The studio");
     expect(meta.twitter["twitter:card"]).toBe("summary_large_image");
   });
 
@@ -73,7 +73,7 @@ describe("meta tags", () => {
 });
 
 describe("sitemap.xml and robots.txt", () => {
-  const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us" } }));
+  const snap = snapshotOf(starterSite({ brand, message: { headline: "Come and see us" } }));
 
   it("lists every indexable page, home first, with lastmod", () => {
     const pages = snap.pages.map((p) => (p.path === "/contact" ? { ...p, doc: { ...p.doc, seo: { noindex: true } } } : p));
@@ -97,11 +97,11 @@ describe("sitemap.xml and robots.txt", () => {
 });
 
 describe("JSON-LD", () => {
-  const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us" } }));
+  const snap = snapshotOf(starterSite({ brand, message: { headline: "Come and see us" } }));
 
   it("describes the Organization and WebSite", () => {
-    expect(organizationJsonLd(snap.site, ORIGIN)).toEqual({ "@context": "https://schema.org", "@type": "Organization", name: "Riverside Gym", url: "https://riverside.example/" });
-    expect(websiteJsonLd(snap.site, ORIGIN)).toMatchObject({ "@type": "WebSite", name: "Riverside Gym", inLanguage: "en" });
+    expect(organizationJsonLd(snap.site, ORIGIN)).toEqual({ "@context": "https://schema.org", "@type": "Organization", name: "Riverside Works", url: "https://riverside.example/" });
+    expect(websiteJsonLd(snap.site, ORIGIN)).toMatchObject({ "@type": "WebSite", name: "Riverside Works", inLanguage: "en" });
   });
 
   it("builds a BreadcrumbList through ancestor pages", () => {
@@ -181,7 +181,7 @@ describe("the theme", () => {
 });
 
 describe("publish checks", () => {
-  const snapLanding = () => snapshotOf(landingPage({ brand, message: { headline: "Train with us", subhead: "By the river." }, form: { slug: "free-class" } }));
+  const snapLanding = () => snapshotOf(landingPage({ brand, message: { headline: "Come and see us", subhead: "By the river." }, form: { slug: "free-class" } }));
 
   it("refuses the template's placeholder quotes until they are replaced or hidden", () => {
     const snap = snapLanding();
@@ -238,7 +238,7 @@ describe("publish checks", () => {
   });
 
   it("warns, but doesn't block, for a page with no hero or no description", () => {
-    const snap = snapshotOf(onePageSite({ name: "Hilltop Fitness", message: { headline: "Fitness on the hill" }, colors: { primary: "#b45309" } }));
+    const snap = snapshotOf(onePageSite({ name: "Hilltop Collective", message: { headline: "Made on the hill" }, colors: { primary: "#b45309" } }));
     snap.pages[0]!.doc.content = [{ id: "t", type: "stats", v: 1, props: sectionProps.stats! }];
     const issues = checkRelease(snap);
     expect(issues.filter((i) => i.severity === "warning").map((i) => i.code).sort()).toEqual(["no-h1", "seo-description"]);
@@ -254,7 +254,7 @@ describe("publish checks", () => {
 
 describe("templates", () => {
   it("makes a one-click landing page: nav, hero, features, testimonials, CTA, form and footer", () => {
-    const t = landingPage({ brand, message: { headline: "Train with us", benefits: [{ title: "A", body: "B" }] }, form: { slug: "free-class" } });
+    const t = landingPage({ brand, message: { headline: "Come and see us", benefits: [{ title: "A", body: "B" }] }, form: { slug: "free-class" } });
     expect(t.site.header!.map((n) => n.type)).toEqual(["nav"]);
     expect(t.pages[0]!.doc.content.map((n) => n.type)).toEqual(["hero", "features", "testimonials", "cta", "form-embed"]);
     expect(t.site.footer!.map((n) => n.type)).toEqual(["footer"]);
@@ -262,14 +262,14 @@ describe("templates", () => {
   });
 
   it("seeds a one-page site from a name, logo, message and brand colours and fonts", () => {
-    const t = onePageSite({ name: "Hilltop Fitness", logo: { src: "/logo.png" }, message: { headline: "Fitness on the hill" }, colors: { primary: "#b45309", primaryDark: "#fbbf24" }, fonts: { heading: "lora", body: "work-sans" }, contact: { email: "hi@hilltop.example" } });
-    expect(t.brand).toEqual({ name: "Hilltop Fitness", colors: { primary: "#b45309", primaryDark: "#fbbf24" }, fonts: { heading: "lora", body: "work-sans" }, logo: { src: "/logo.png" } });
+    const t = onePageSite({ name: "Hilltop Collective", logo: { src: "/logo.png" }, message: { headline: "Made on the hill" }, colors: { primary: "#b45309", primaryDark: "#fbbf24" }, fonts: { heading: "lora", body: "work-sans" }, contact: { email: "hi@hilltop.example" } });
+    expect(t.brand).toEqual({ name: "Hilltop Collective", colors: { primary: "#b45309", primaryDark: "#fbbf24" }, fonts: { heading: "lora", body: "work-sans" }, logo: { src: "/logo.png" } });
     const snap = snapshotOf(t);
     expect(isPublishable(checkRelease(snap, { theme: siteTheme(t.brand) }))).toBe(true);
   });
 
   it("makes a three-page starter site", () => {
-    const t = starterSite({ brand, message: { headline: "Train with us" } });
+    const t = starterSite({ brand, message: { headline: "Come and see us" } });
     expect(t.pages.map((p) => p.path)).toEqual(["/", "/about", "/contact"]);
     expect(t.site.nav!.map((n) => n.href)).toEqual(["/", "/about", "/contact"]);
   });
@@ -277,7 +277,7 @@ describe("templates", () => {
 
 describe("redirect checks", () => {
   it("refuses a redirect from a page's own path, and warns about one to a path with no page", () => {
-    const snap = snapshotOf(starterSite({ brand, message: { headline: "Train with us" } }));
+    const snap = snapshotOf(starterSite({ brand, message: { headline: "Come and see us" } }));
     const site = { ...snap.site, redirects: [{ from: "/about", to: "/contact", status: 301 as const }, { from: "/team", to: "/gone", status: 301 as const }] };
     const issues = checkRelease({ ...snap, site });
     expect(issues.find((i) => i.code === "redirect-shadows-page")?.severity).toBe("error");

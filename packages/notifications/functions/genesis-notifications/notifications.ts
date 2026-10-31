@@ -4,8 +4,8 @@
 // This starter list has the one type every app needs: the admin's test,
 // spread from the package so it stays critical (as the migration seeds it) and
 // a preference can never silence Admin -> Send a test.
-import { GENESIS_TEST_CATEGORY, GENESIS_TEST_TYPE, defineNotifications } from "npm:@marktiderman/genesis-notifications@^0.1.0";
-import type { EmailTemplate, SecretLinks } from "npm:@marktiderman/genesis-notifications@^0.1.0/server";
+import { GENESIS_TEST_CATEGORY, GENESIS_TEST_TYPE, defineNotifications } from "npm:@marktiderman/genesis-notifications@^0.3.0";
+import type { EmailTemplate, SecretLinks } from "npm:@marktiderman/genesis-notifications@^0.3.0/server";
 
 export const notifications = defineNotifications({
   categories: { ...GENESIS_TEST_CATEGORY },

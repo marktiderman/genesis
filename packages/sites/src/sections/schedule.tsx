@@ -1,11 +1,11 @@
 /**
- * The weekly timetable: classes or sessions by time and day, with who
- * hosts them and where they meet.
+ * The weekly timetable: sessions by time and day, with who hosts them and
+ * where they meet.
  *
  * - `grid`: on wider screens an accessible table (a caption, a header cell
  *   per day and per time, an empty slot said as `emptyText`, "Nothing
  *   scheduled" by default); on a phone a
- *   day picker (radio buttons, one day's classes at a time) that needs no
+ *   day picker (radio buttons, one day's sessions at a time) that needs no
  *   script: the stylesheet shows the day whose radio is checked, and shows
  *   every day where the browser can't.
  * - `agenda`: day by day, every day shown, at every width.
@@ -20,17 +20,24 @@ export const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as con
 export type Weekday = (typeof WEEKDAYS)[number];
 const Day = z.enum(WEEKDAYS);
 
+/**
+ * Documents saved before version 2 kept a session's host under this key. It
+ * stays readable (and version 2 moves it into `host`) because stored data
+ * still has it.
+ */
+const LEGACY_HOST = "coach"; // industry-words: allow (a stored key from before version 2)
+
 const DAY_NAMES: Record<Weekday, string> = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
 const DAY_SHORT: Record<Weekday, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
 
 /** A time of day, 24-hour: `06:15`, `18:00`. */
 const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time is HH:MM on the 24-hour clock (06:15, 18:00).");
-const TypeId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "A class type id is lowercase letters, digits and hyphens.");
+const TypeId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,39}$/, "A session type id is lowercase letters, digits and hyphens.");
 
-/** How a class type's chip is drawn, from the brand's own colours. */
+/** How a session type's chip is drawn, from the brand's own colours. */
 export const CHIP_TONES = ["primary", "inverse", "soft", "outline", "plain"] as const;
 
-const ClassType = z.object({
+const SessionType = z.object({
   id: TypeId,
   name: Line(60),
   description: Copy(300).optional(),
@@ -42,15 +49,15 @@ const Session = z.object({
   start: Time,
   end: Time.optional(),
   title: Line(60),
-  /** A class type's id, for its chip colour and the legend. */
+  /** A session type's id, for its chip colour and the legend. */
   type: TypeId.optional(),
   /** Who leads it: shown as "with …". */
   host: Line(60).optional(),
   /** @deprecated Use `host`. Still accepted; version 2 moves it into `host`, and the editor hides it. */
-  coach: Line(60).optional().meta({ deprecated: true }),
+  [LEGACY_HOST]: Line(60).optional().meta({ deprecated: true }),
   location: Line(60).optional(),
   note: Line(80).optional(),
-  /** Book this class (an outbound link, say). */
+  /** Book this session (an outbound link, say). */
   link: Link.optional(),
 });
 export type ScheduleSession = z.infer<typeof Session>;
@@ -64,10 +71,22 @@ const schema = z.object({
   /** Day names in the site's language (default English). */
   dayNames: z.partialRecord(Day, Line(20)).optional(),
   clock: z.enum(["12h", "24h"]).default("12h"),
-  types: z.array(ClassType).max(16).default([]),
+  types: z.array(SessionType).max(16).default([]),
   sessions: z.array(Session).max(200),
   /** What an empty slot or day says. */
   emptyText: Line(60).default("Nothing scheduled"),
+  /**
+   * The nouns a visitor hears for what's on: `items` in the table's caption
+   * ("…: sessions by time and day") and the phone day picker ("Show the
+   * sessions on"), `types` as the legend's name. A template sets its own.
+   */
+  labels: z
+    .object({
+      items: Line(40).default("sessions").meta({ title: "What's on, plural (sessions)" }),
+      types: Line(60).default("Session types").meta({ title: "The legend's name" }),
+    })
+    .default({ items: "sessions", types: "Session types" })
+    .meta({ title: "Words" }),
   footnote: Copy(300).optional(),
   surface: Surface.default("base"),
   anchor: Anchor,
@@ -110,7 +129,7 @@ function TimeText({ start, end, clock }: { start: string; end?: string | undefin
   );
 }
 
-/** A class, in its type's chip: the title, and the type's name as text (unless the title already is it). */
+/** A session, in its type's chip: the title, and the type's name as text (unless the title already is it). */
 function Chip({ session, types }: { session: ScheduleSession; types: Map<string, Props["types"][number]> }) {
   const type = session.type ? types.get(session.type) : undefined;
   const tone = type?.tone ?? "soft";
@@ -125,7 +144,7 @@ function Chip({ session, types }: { session: ScheduleSession; types: Map<string,
 
 /** Host, place and note, as one quiet line. */
 function Details({ session, muted }: { session: ScheduleSession; muted: boolean }) {
-  const host = session.host ?? session.coach;
+  const host = session.host ?? session[LEGACY_HOST];
   const parts = [host ? `with ${host}` : null, session.location, session.note].filter(Boolean);
   if (!parts.length) return null;
   return <span className={cn("block text-xs", muted && "text-muted-foreground")}>{parts.join(" · ")}</span>;
@@ -150,7 +169,7 @@ function SessionItem({ session, props, types, ctx, withTime }: { session: Schedu
 
 const byTime = (a: ScheduleSession, b: ScheduleSession) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title);
 
-/** One day's classes, as a list, or the empty text. */
+/** One day's sessions, as a list, or the empty text. */
 function DayList({ day, props, types, ctx, id }: { day: Weekday; props: Props; types: Map<string, Props["types"][number]>; ctx: RenderContext; id: string }) {
   const sessions = props.sessions.filter((s) => s.day === day).sort(byTime);
   return (
@@ -183,14 +202,14 @@ function DayLabel({ day, props }: { day: Weekday; props: Props }) {
   );
 }
 
-/** Every class type the shown days use, described or not, in the order the types are listed. */
+/** Every session type the shown days use, described or not, in the order the types are listed. */
 function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
   const used = new Set(props.sessions.filter((s) => s.type && days.includes(s.day)).map((s) => s.type));
   const shown = props.types.filter((t) => used.has(t.id));
   if (!shown.length) return null;
   return (
     // A list, not a <dl>: a type with no description has nothing to pair with.
-    <ul aria-label="Class types" className="mt-8 grid gap-4 sm:grid-cols-2">
+    <ul aria-label={props.labels.types} className="mt-8 grid gap-4 sm:grid-cols-2">
       {shown.map((t) => (
         <li key={t.id} className="flex flex-col items-start gap-1">
           <span className={cn("inline-flex rounded-md px-2 py-1 text-sm font-semibold", TONE[t.tone])}>{t.name}</span>
@@ -201,13 +220,13 @@ function Legend({ props, days }: { props: Props; days: readonly Weekday[] }) {
   );
 }
 
-/** Version 2: a session's `coach` moves into `host` (kept when `host` is set) and is dropped. */
-function coachToHost(props: Record<string, unknown>): Record<string, unknown> {
+/** Version 2: a session's legacy host field moves into `host` (kept when `host` is set) and is dropped. */
+function legacyHostToHost(props: Record<string, unknown>): Record<string, unknown> {
   if (!Array.isArray(props.sessions)) return props;
   const sessions = props.sessions.map((s: unknown) => {
-    if (!s || typeof s !== "object" || !("coach" in s)) return s;
-    const { coach, ...rest } = s as Record<string, unknown>;
-    return rest.host === undefined || rest.host === "" ? (coach === undefined ? rest : { ...rest, host: coach }) : rest;
+    if (!s || typeof s !== "object" || !(LEGACY_HOST in s)) return s;
+    const { [LEGACY_HOST]: legacy, ...rest } = s as Record<string, unknown>;
+    return rest.host === undefined || rest.host === "" ? (legacy === undefined ? rest : { ...rest, host: legacy }) : rest;
   });
   return { ...props, sessions };
 }
@@ -215,9 +234,9 @@ function coachToHost(props: Record<string, unknown>): Record<string, unknown> {
 export const scheduleSection = defineSection({
   type: "schedule",
   version: 2,
-  migrations: { 2: coachToHost },
+  migrations: { 2: legacyHostToHost },
   label: "Timetable",
-  description: "The week's classes by time and day, with host and place: a table on wider screens and a day picker on a phone.",
+  description: "The week's sessions by time and day, with host and place: a table on wider screens and a day picker on a phone.",
   category: "content",
   schema,
   variants: [
@@ -230,22 +249,22 @@ export const scheduleSection = defineSection({
       name: "Weekly timetable",
       variant: "grid",
       props: {
-        heading: "Class times",
+        heading: "This week",
         types: [
-          { id: "strength", name: "Strength", description: "Barbell work in a coached group.", tone: "primary" },
-          { id: "open", name: "Open gym", description: "Train on your own; a coach is on the floor.", tone: "soft" },
+          { id: "main", name: "Session type", description: "A line about this kind of session.", tone: "primary" },
+          { id: "open", name: "Open session", description: "Drop by any time it runs.", tone: "soft" },
         ],
         sessions: [
-          { day: "mon", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
-          { day: "wed", start: "06:00", title: "Strength", type: "strength", host: "Host name" },
-          { day: "sat", start: "09:00", title: "Open gym", type: "open" },
+          { day: "mon", start: "09:00", title: "Session name", type: "main", host: "Host name" },
+          { day: "wed", start: "09:00", title: "Session name", type: "main", host: "Host name" },
+          { day: "sat", start: "10:00", title: "Open session", type: "open" },
         ],
       },
     },
     {
       name: "Day by day",
       variant: "agenda",
-      props: { heading: "This week", days: ["mon", "tue", "wed", "thu", "fri"], sessions: [{ day: "mon", start: "18:00", end: "19:00", title: "Class name" }] },
+      props: { heading: "This week", days: ["mon", "tue", "wed", "thu", "fri"], sessions: [{ day: "mon", start: "18:00", end: "19:00", title: "Session name" }] },
     },
   ],
   render: ({ props, variant, node, ctx }) => {
@@ -277,7 +296,7 @@ export const scheduleSection = defineSection({
 
     const times = [...new Set(props.sessions.filter((s) => days.includes(s.day)).map((s) => s.start))].sort();
     const name = (day: Weekday) => props.dayNames?.[day] ?? DAY_NAMES[day];
-    const caption = `${props.heading}: classes by time and day`;
+    const caption = `${props.heading}: ${props.labels.items} by time and day`;
     return (
       <SectionBand node={node} ctx={ctx} anchor={props.anchor} surface={props.surface}>
         {intro}
@@ -333,7 +352,7 @@ export const scheduleSection = defineSection({
         {/* A phone: pick a day. Radios and the stylesheet's :has() rules, no script. */}
         <div data-gs-schedule="" className={cn("mt-8 md:hidden", card)}>
           <fieldset className="min-w-0">
-            <legend className="sr-only">Show the classes on</legend>
+            <legend className="sr-only">{`Show the ${props.labels.items} on`}</legend>
             <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-2">
               {days.map((day, i) => (
                 <label key={day} className="relative shrink-0">

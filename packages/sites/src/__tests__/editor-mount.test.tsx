@@ -23,9 +23,9 @@ async function publishableSite(site: { nav?: { label: string; href: string }[] }
     schemaVersion: 1,
     root: { props: { title: "Home" } },
     // No variant: a publish writes the default one back, so it re-saves this draft on a new revision.
-    content: [{ id: "hero1", type: "hero", v: 1, props: { heading: "Train with people who know your name" } }],
+    content: [{ id: "hero1", type: "hero", v: 1, props: { heading: "Make things with people who know your name" } }],
   };
-  const { siteId, pageIds } = await store.createSite({ site: { schemaVersion: 1, name: "Example Gym", ...site }, pages: [{ path: "/", doc }] });
+  const { siteId, pageIds } = await store.createSite({ site: { schemaVersion: 1, name: "Example Works", ...site }, pages: [{ path: "/", doc }] });
   return { store, siteId, home: pageIds[0]! };
 }
 
@@ -254,7 +254,7 @@ describe("SiteEditor publishing", () => {
 
     // Someone else saves the site while the publish waits...
     const before = (await store.getDraft(siteId))!;
-    const theirs = await store.saveSiteDraft(siteId, before.rev, { ...before.site, name: "Their Gym" });
+    const theirs = await store.saveSiteDraft(siteId, before.rev, { ...before.site, name: "Their Works" });
     expect("conflict" in theirs).toBe(false);
     // ...and a change reaches this editor's site autosave meanwhile (the menu is locked; this stands for any path that gets past it).
     await type(label, "Start here");
@@ -263,7 +263,7 @@ describe("SiteEditor publishing", () => {
     await waitFor(() => el.textContent?.includes("Published release 1"), "the publish to finish");
     await settle(10);
     // Their save stays; this editor's change meets the conflict instead of overwriting it.
-    expect((await store.getDraft(siteId))!.site.name).toBe("Their Gym");
+    expect((await store.getDraft(siteId))!.site.name).toBe("Their Works");
     await waitFor(() => el.querySelector('header [role="status"]')?.textContent === "Someone else saved: choose a version", "the conflict");
   });
 });

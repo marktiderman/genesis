@@ -35,7 +35,15 @@ From the outside in:
    set-up throws (a boot step id that clashes with the shell's, say), or the
    `fatal` slot itself throws, this is what shows, and "Try again" starts over.
 2. **Theme**: `GenesisThemeProvider` with `syncNativeAppearance` on, so the
-   root owns the platform color scheme.
+   root owns the platform color scheme. The brand's role variables
+   (`brandRoleVariables(brand)`: `--primary`, `--background`, …) are set on a
+   view around the app for the current mode, so NativeWind's role classes
+   (`bg-primary`, `border-input`) are the brand's colors. Declare the same
+   brand in `tailwind.config` with
+   `createGenesisNativewindPreset({ brand })` (design-system
+   `presets/nativewind`) so the stylesheet's defaults match too. The app
+   installs `@marktiderman/genesis-core` and `nativewind` itself (peer
+   dependencies, so one copy of each loads).
 3. **Keyboard**: your `keyboardProvider` (react-native-keyboard-controller's
    `KeyboardProvider`), mounted once, then `KeyboardScrollProvider` with your
    `keyboardScroll`, so Genesis form screens scroll the focused field into

@@ -453,7 +453,11 @@ describe("product demo", () => {
 });
 
 describe("metro", () => {
-  it("watches every Genesis workspace package the app depends on, so an edit to one reloads the app", () => {
+  // Only the starter inside the Genesis monorepo watches the workspace packages. An app made with
+  // `genesis init` gets its own Metro config, which installs those packages and watches nothing else.
+  const inMonorepo = read("metro.config.js").includes("monorepoRoot");
+
+  it.runIf(inMonorepo)("watches every Genesis workspace package the app depends on, so an edit to one reloads the app", () => {
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     const watched = /\.\.\.\[([^\]]+)\]\.map\(\(name\) => path\.resolve\(monorepoRoot, "packages", name\)\)/.exec(read("metro.config.js"))?.[1] ?? "";
     const names = [...watched.matchAll(/"([^"]+)"/g)].map((m) => m[1]);

@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-core",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -158,6 +158,49 @@
           "import": "@marktiderman/genesis-core",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
           "why": "A screen that queries the database hand-writes the data layer the provider and views already are, and its rules drift from the resource's. Server files and src/lib aren't checked; doctor.packageRules can widen or narrow that."
+        },
+        {
+          "id": "views-stay-platform-neutral",
+          "need": "a view description shared by web and native",
+          "level": "warn",
+          "files": [
+            "**/*.view.ts"
+          ],
+          "forbid": {
+            "imports": [
+              "react-dom",
+              "react-dom/*",
+              "react-native",
+              "react-native/*",
+              "react-native-*",
+              "lucide-react-native",
+              "lucide-react",
+              "react-router",
+              "react-router/*",
+              "react-router-dom",
+              "react-router-dom/*",
+              "@tanstack/react-router",
+              "@tanstack/react-router/*",
+              "@tanstack/react-start",
+              "@tanstack/react-start/*",
+              "next",
+              "next/*",
+              "expo",
+              "expo/*",
+              "expo-*",
+              "@expo/*",
+              "@marktiderman/genesis-ui",
+              "@marktiderman/genesis-ui/*",
+              "@marktiderman/genesis-ui-native",
+              "@marktiderman/genesis-ui-native/*",
+              "@marktiderman/genesis-native",
+              "@marktiderman/genesis-native/*"
+            ]
+          },
+          "use": "only platform-neutral modules in a *.view.ts file: genesis-core (resource-view, dates, the resource contracts) and plain TypeScript; keep routes, components and platform code in the screens that render the view",
+          "import": "@marktiderman/genesis-core/resource-view",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
+          "why": "Web, native and the extension import the same view description. A router, react-dom, react-native or a web or native UI import in it stops the other platforms loading it, and nothing on the platform that added it fails."
         }
       ],
       "primitives": [

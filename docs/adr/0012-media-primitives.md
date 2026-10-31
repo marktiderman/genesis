@@ -1,9 +1,33 @@
 # ADR 0012: Media primitives, reduced to what every app shares
 
-- Status: accepted (2026-10-29)
-- Date: 2026-10-29
-- Features: `media-library`, `galleries`, `upload-protocol`, `genesis-mcp`
-- Related: ADR 0005 (layers), ADR 0009 (one resource contract), ADR 0010 (own events)
+- Status: proposed (2026-10-30): a correction to the decision accepted on 2026-10-29; see "Correction"
+- Date: 2026-10-29; corrected 2026-10-30
+- Features: `media-resumable-uploads` (alias `upload-protocol`), `galleries`, `genesis-mcp`
+- Related: ADR 0005 (layers), ADR 0009 (one resource contract), ADR 0010 (own events), ADR 0013 (upgrades plug in through ports)
+
+## Correction (proposed, 2026-10-30)
+
+The decision below first put the media value (3) and uploads (4) in a separate package of
+their own. That package was never released. This correction puts both in
+**genesis-media**, beside signed links (1) and bundles (2):
+
+- **One package, subpaths per runtime.** The media value goes at `.`, beside `ImageValue` and
+  responsive images, which are there today;
+  signed links and bundles stay at `/signed`; uploads are `/uploads` (`/uploads/server`,
+  `/uploads/targets`, `/uploads/client`); the adapter for forms' upload port is `/forms`.
+- **genesis-media is optional** (`genesis.optional: true`, ADR 0013): an upgrade apps opt into.
+  No foundation package or primitive imports it.
+- **forms and chat plug in through their own ports**, and never depend on genesis-media. forms
+  keeps its signed single upload as the built-in implementation of its `UploadAdapter` port, and
+  genesis-media's `/forms` adapter fits that port. chat keeps its own TUS client behind
+  `createTusUpload`'s `transport` port; genesis-media ships no chat adapter, since its Supabase
+  TUS transport is the same protocol. Nothing in forms or chat is deprecated.
+- Why one package: the media value, signed links, bundles and uploads share their words (copies,
+  targets, keys, verification) and are adopted together; a second package added a release and a
+  dependency edge without a second set of consumers. The port rule (ADR 0013) keeps the parts an
+  app doesn't use out of its primitives either way.
+
+Everything else in the decision stands.
 
 ## Context
 
@@ -44,7 +68,7 @@ Five primitives and one module, each named for what it is, not for the app that 
    different file set is a new manifest id, so a signed bundle link can never serve files it was
    not signed for. Access to each file is decided when the manifest is made (the app's rules);
    the handler serves exactly the manifest and does not re-check items.
-3. **The media value** (media-library, primitive, data). One typed record for a piece of media:
+3. **The media value** (genesis-media `.`, primitive, data; optional). One typed record for a piece of media:
    - kind (image, video, audio, document);
    - `originals[]` (a RAW and JPEG pair, a sidecar), each with checksums as `{ algo: value }`;
    - `copies[]`: `{ target, tier: working | archive | cold, key, lockedUntil?, lockMode?, verifiedAt }`,
@@ -55,17 +79,18 @@ Five primitives and one module, each named for what it is, not for the app that 
      drop-frame flag, caption tracks, chapters, and the provider's playback ids;
    - derivatives by name on two axes, finish × size (`color/800`, `bw/2400`), plus renditions
      (`web-1080`, `web-720`), `poster` (with its time) and `loop`. Watermarked derivatives are
-     derivatives. How they are made is the app's or a worker's. Video providers are adapters (Mux first, chat's existing Mux code moves
-   here), with a plain-MP4 fallback set. Resources reference a media value, so ResourceView and
+     derivatives. How they are made is the app's or a worker's. Video providers are adapters (Mux first; chat keeps its own Mux code
+   behind a port it owns, and genesis-media's adapter plugs into it), with a plain-MP4 fallback set. Resources reference a media value, so ResourceView and
    RecordView show it, and genesis-mcp can describe it.
-4. **Uploads** (media-library). Resumable, checksummed uploads (multipart, per-part SHA-256,
+4. **Uploads** (genesis-media `/uploads`; optional). Resumable, checksummed uploads (multipart, per-part SHA-256,
    skip-if-identical), one contract for browser, native and server, merging the planned upload
    protocol. Storage targets are adapters (R2, any S3-compatible store with Object Lock mode and
    retain-until per object); one source fans out to several targets with skip-if-identical and a
    read-back check per target. The never-delete-the-source rule is fixed; priorities,
    pause/resume and speed caps are a client's configuration, not the contract. A desktop or
-   worker uploader built on the same contract is tooling, later.
-   - Every upload operation (create, resume, part, finalize) is bound to the person or service
+   worker uploader built on the same contract is tooling, later. forms and chat keep their own
+   uploads behind ports they own; genesis-media ships the adapter for forms' (`/forms`).
+   - Every upload operation (create, resume, part, finalize, abort) is bound to the person or service
      that created it and checked by the app's rules; another owner's upload is not found, and
      skip-if-identical only compares within objects the caller may already read.
    - Identity for skip-if-identical is the whole object's SHA-256 (and size), declared at create
@@ -121,11 +146,21 @@ of a file), derivative, rendition (a video derivative), signed link, scope, bund
   need.
 - One big media package with galleries inside: rejected; galleries is a product surface to switch
   on per tenant (a module), the rest are parts.
+- A separate package for the media value and uploads: first decided, then
+  folded into genesis-media before release (see "Correction"). Subpaths keep each runtime to what
+  it runs, and `genesis.optional` keeps primitives off it, which is what the split was for.
+- forms and chat folding their uploads into the media package behind deprecated re-exports:
+  rejected; a primitive would depend on an optional package. They own ports instead.
 - Buy (Cloudinary, Frame.io): kept as adapters where an app wants them; the contracts stay ours.
 
 ## Consequences
 
 - genesis-media releases with signed links and bundles first (the studio drafts the PR).
-- media-library, annotations and galleries follow, each with its own changeset; chat's Mux code
-  moves behind the video adapter with a deprecated re-export.
+- Uploads follow in genesis-media (`/uploads`, with the `/forms` adapter), then annotations and
+  galleries, each with its own changeset. chat keeps its Mux code behind a video port it owns,
+  and genesis-media's video adapter plugs into it; nothing in chat is deprecated for it.
+- Premium upgrades on genesis-media (galleries, sharing levels, proofing) live outside it and
+  plug in through ports genesis-media owns, so genesis-media is complete on its own.
+- forms and chat gain upload ports (`UploadAdapter`, `createTusUpload`'s `transport`) and keep
+  their own implementations; neither depends on genesis-media.
 - The studio app adopts each piece as it lands and deletes its copy (G4).

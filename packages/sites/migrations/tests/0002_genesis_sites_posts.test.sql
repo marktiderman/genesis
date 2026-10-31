@@ -37,8 +37,8 @@ grant execute on function pg_temp.person(text), pg_temp.sign_in(text), pg_temp.a
 
 create temp table t (k text primary key, v uuid);
 grant select, insert on t to anon, authenticated;
-insert into t select 'a', genesis_sites.create_site('Hilltop Fitness', 'hilltop-posts-test',
-  '{"schemaVersion":1,"name":"Hilltop Fitness","redirects":[]}'::jsonb,
+insert into t select 'a', genesis_sites.create_site('Hilltop Collective', 'hilltop-posts-test',
+  '{"schemaVersion":1,"name":"Hilltop Collective","redirects":[]}'::jsonb,
   jsonb_build_array(jsonb_build_object('path', '/', 'doc', pg_temp.page('Home'))));
 create function pg_temp.id(k text) returns uuid language sql stable as $$ select v from t where t.k = id.k $$;
 grant execute on function pg_temp.id(text) to anon, authenticated;
