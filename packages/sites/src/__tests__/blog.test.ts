@@ -28,16 +28,16 @@ const brand = exampleBrands.hilltop;
 const get = (path: string) => new Request(`${ORIGIN}${path}`);
 
 const node = (id: string, type: string, props: Record<string, unknown>, variant?: string): SectionNode => ({ id, type, v: 1, ...(variant ? { variant } : {}), props });
-const page = (title: string, content: SectionNode[], description = `${title} at Hilltop Fitness.`): PageDoc => ({ schemaVersion: 1, root: { props: { title } }, content, seo: { description } });
+const page = (title: string, content: SectionNode[], description = `${title} at Hilltop Collective.`): PageDoc => ({ schemaVersion: 1, root: { props: { title } }, content, seo: { description } });
 
 /** A site with a home page, a post page at /blog (the index and every post) and a latest-posts list on the home page. */
 async function blogSite(now = () => new Date("2026-10-20T10:00:00Z")) {
   const store = createMemorySiteStore({ now });
   await store.createSite({
     id: "hilltop",
-    site: { schemaVersion: 1, name: "Hilltop Fitness", nav: [{ label: "Blog", href: "/blog" }], seo: { titleTemplate: "%s · Hilltop Fitness", description: "Fitness on the hill." } },
+    site: { schemaVersion: 1, name: "Hilltop Collective", nav: [{ label: "Blog", href: "/blog" }], seo: { titleTemplate: "%s · Hilltop Collective", description: "Made on the hill." } },
     pages: [
-      { path: "/", doc: page("Home", [node("hero", "hero", { heading: "Fitness on the hill" }), node("latest", "blog-list", { heading: "From the blog", perPage: 2, paginate: false }, "list")]) },
+      { path: "/", doc: page("Home", [node("hero", "hero", { heading: "Made on the hill" }), node("latest", "blog-list", { heading: "From the blog", perPage: 2, paginate: false }, "list")]) },
       { path: "/blog", kind: "post", doc: page("Blog", [node("post", "post-body", {}), node("more", "blog-list", { heading: "More posts", perPage: 2 }, "grid")], "Notes from the floor.") },
     ],
   });
@@ -50,7 +50,7 @@ async function withPosts() {
   const ids: Record<string, string> = {};
   for (const [i, slug] of ["first-steps", "warm-up", "scaling", "open-day", "secret"].entries()) {
     clock = new Date(Date.UTC(2026, 8, 1 + i, 9));
-    const saved = await store.savePost!("hilltop", { slug, doc: postDoc(slug === "secret" ? "Secret plans" : `Post ${slug}`, slug === "warm-up" ? { cover: { src: "/images/kettlebells.jpg", alt: "Kettlebells" }, author: { name: "Sam Lee" }, category: "Training" } : {}) });
+    const saved = await store.savePost!("hilltop", { slug, doc: postDoc(slug === "secret" ? "Secret plans" : `Post ${slug}`, slug === "warm-up" ? { cover: { src: "/images/tools.jpg", alt: "Tools" }, author: { name: "Sam Lee" }, category: "Training" } : {}) });
     ids[slug] = saved.id;
     if (slug !== "secret") await store.publishPost!(saved.id);
   }
@@ -176,7 +176,7 @@ describe("the post page", () => {
     expect(two).toContain('href="/blog/warm-up"');
     expect(two).toContain('href="/blog/first-steps"');
     expect(two).toContain('href="/blog" rel="prev"');
-    expect(html).toContain('<link rel="alternate" type="application/rss+xml" title="Hilltop Fitness" href="/rss.xml"/>');
+    expect(html).toContain('<link rel="alternate" type="application/rss+xml" title="Hilltop Collective" href="/rss.xml"/>');
   });
 
   it("shows each post at /blog/<slug>: its title as the h1, Article JSON-LD, og:type article and a breadcrumb through the blog", async () => {
@@ -187,7 +187,7 @@ describe("the post page", () => {
     const html = await res.text();
     expect(checkHtmlOutline(html)).toEqual([]);
     expect(html).toMatch(/<h1[^>]*>Post warm-up<\/h1>/);
-    expect(html).toContain("<title>Post warm-up · Hilltop Fitness</title>");
+    expect(html).toContain("<title>Post warm-up · Hilltop Collective</title>");
     expect(html).toContain('<meta property="og:type" content="article"/>');
     expect(html).toContain('<meta property="article:published_time" content="2026-09-02T09:00:00.000Z"/>');
     expect(html).toContain('<link rel="canonical" href="https://hilltop.example/blog/warm-up"/>');
@@ -195,7 +195,7 @@ describe("the post page", () => {
     const ld = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map((m) => JSON.parse(m[1]!));
     const article = ld.find((d) => d["@type"] === "Article");
     expect(article).toMatchObject({ headline: "Post warm-up", datePublished: "2026-09-02T09:00:00.000Z", author: { "@type": "Person", name: "Sam Lee" }, articleSection: "Training" });
-    expect(article.image).toEqual(["https://hilltop.example/images/kettlebells.jpg"]);
+    expect(article.image).toEqual(["https://hilltop.example/images/tools.jpg"]);
     const crumbs = ld.find((d) => d["@type"] === "BreadcrumbList");
     expect(crumbs.itemListElement.map((i: { name: string }) => i.name)).toEqual(["Home", "Blog", "Post warm-up"]);
     // "More posts" leaves the post itself out.
@@ -249,7 +249,7 @@ describe("the post page", () => {
     const home = (await handleSiteRequest(get("/"), opts(broken)))!;
     expect(home.status).toBe(200);
     const html = await home.text();
-    expect(html).toContain("Fitness on the hill");
+    expect(html).toContain("Made on the hill");
     expect(html).not.toContain('href="/blog/open-day"');
     expect((await handleSiteRequest(get("/sitemap.xml"), opts(broken)))!.status).toBe(200);
     expect((await handleSiteRequest(get("/rss.xml"), opts(broken)))!.status).toBe(200);
@@ -299,7 +299,7 @@ describe("a stored post that skipped the checks", () => {
     { ...good, slug: "never", publishedAt: "-infinity", updatedAt: "-infinity" },
     { ...good, slug: "object-excerpt", excerpt: { html: "<b>x</b>" } },
   ] as unknown as PostSummary[];
-  const siteDoc = { schemaVersion: 1 as const, name: "Hilltop Fitness", lang: "en", theme: { colorScheme: "light" as const }, header: [], nav: [], footer: [], seo: {}, redirects: [] };
+  const siteDoc = { schemaVersion: 1 as const, name: "Hilltop Collective", lang: "en", theme: { colorScheme: "light" as const }, header: [], nav: [], footer: [], seo: {}, redirects: [] };
   const blogPage = { id: "b", path: "/blog", kind: "post" as const, doc: page("Blog", []) };
 
   it("is left out of the list, the feed and the sitemap instead of breaking them", () => {

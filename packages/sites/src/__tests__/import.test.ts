@@ -49,7 +49,7 @@ function fakeTransport(routes: Record<string, { status?: number; body?: Uint8Arr
 
 async function site() {
   const store = createMemorySiteStore();
-  await store.createSite({ id: "s1", site: { schemaVersion: 1, name: "Riverside Gym" }, pages: [{ path: "/", doc: { schemaVersion: 1, root: { props: { title: "Home" } }, content: [] } }] });
+  await store.createSite({ id: "s1", site: { schemaVersion: 1, name: "Riverside Works" }, pages: [{ path: "/", doc: { schemaVersion: 1, root: { props: { title: "Home" } }, content: [] } }] });
   return store;
 }
 
@@ -147,7 +147,7 @@ describe("importAssets", () => {
     });
     const r = await importAssets(store, "s1", ["https://old.example/img/hero.JPG?w=2", "https://old.example/anim.gif", "https://old.example/files/Price%20List.pdf", "https://old.example/anim.gif"], {
       transport,
-      alt: (url) => (url.includes("hero") ? "The gym floor" : undefined),
+      alt: (url) => (url.includes("hero") ? "The studio floor" : undefined),
     });
     expect(r.failed).toEqual([]);
     expect(transport.seen).toHaveLength(3); // the repeat is fetched once

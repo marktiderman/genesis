@@ -18,6 +18,9 @@
  * without this preset those classes aren't generated at all and the
  * components render unstyled (default black borders, buttons with no fill).
  *
+ * An app with its own brand uses `createGenesisNativewindPreset({ brand })`,
+ * which declares the brand's role variables instead.
+ *
  * The radius scale stays `calc(var(--radius) - 2px)` and friends: NativeWind
  * resolves `calc()` and `var()` at runtime (with its 14px rem).
  *
@@ -31,6 +34,8 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { genesisPreset } from "./tailwind";
 import { GENESIS_THEME_BRAND, tailwindColorVariables, themeVariables } from "../tokens/theme-css";
+import { brandRoleVariables } from "../factories/brand-roles";
+import type { CanonicalBrand } from "../schema/brand";
 
 type ColorValue = string | Readonly<Record<string, string>>;
 
@@ -45,28 +50,54 @@ for (const [key, value] of Object.entries(roleColors)) {
   colors[key] = base && typeof base === "object" ? { ...base, DEFAULT: value } : value;
 }
 
-const variables = themeVariables(GENESIS_THEME_BRAND);
-
 interface AddBase {
   addBase: (base: Record<string, unknown>) => void;
 }
 
-export const genesisNativewindPreset = {
-  theme: {
-    extend: {
-      ...genesisPreset.theme.extend,
-      colors,
+/** @stability Beta */
+export interface GenesisNativewindPresetOptions {
+  /**
+   * The app's brand. Its role variables (`--primary`, `--background`, …,
+   * from `brandRoleVariables`) are declared on `:root` instead of the
+   * Genesis ones, so `bg-primary` and the other role classes are the
+   * brand's colors. Default the Genesis brand.
+   */
+  brand?: CanonicalBrand;
+}
+
+/**
+ * The preset for an app's own brand:
+ *
+ *   import { myBrand } from "./src/brand";
+ *   presets: [nativewindPreset, createGenesisNativewindPreset({ brand: myBrand })],
+ *
+ * Pass the same brand to `GenesisNativeApp`, which applies these variables
+ * at runtime too.
+ *
+ * @stability Beta
+ */
+export function createGenesisNativewindPreset(options: GenesisNativewindPresetOptions = {}) {
+  const variables = options.brand ? brandRoleVariables(options.brand) : themeVariables(GENESIS_THEME_BRAND);
+  return {
+    theme: {
+      extend: {
+        ...genesisPreset.theme.extend,
+        colors,
+      },
     },
-  },
-  plugins: [
-    ({ addBase }: AddBase) => {
-      addBase({
-        ":root": variables.light,
-        "@media (prefers-color-scheme: dark)": { ":root": variables.dark },
-      });
-    },
-  ],
-};
+    plugins: [
+      ({ addBase }: AddBase) => {
+        addBase({
+          ":root": variables.light,
+          "@media (prefers-color-scheme: dark)": { ":root": variables.dark },
+        });
+      },
+    ],
+  };
+}
+
+/** The preset with the Genesis brand. An app with its own brand uses {@link createGenesisNativewindPreset}. */
+export const genesisNativewindPreset = createGenesisNativewindPreset();
 
 /** @stability Beta */
 export interface GenesisNativewindContentOptions {

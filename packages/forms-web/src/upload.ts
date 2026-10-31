@@ -1,16 +1,14 @@
 import { createContext, useContext } from "react";
-import type { FieldBlock, PhotoRef } from "@marktiderman/genesis-forms";
+import type { UploadAdapter } from "@marktiderman/genesis-forms";
 
 /**
- * Where a form's files go. The host stores each file (its own bucket, its own
- * rules) and resolves to a reference, which is all the answer keeps; a
- * rejection is shown under the field. `photo` fields read it.
+ * Where a form's files go: genesis-forms' upload port (`UploadAdapter`) for
+ * browser `File`s. The host stores each file (its own bucket, its own rules)
+ * and resolves to a reference, which is all the answer keeps; a rejection is
+ * shown under the field. `photo` fields read it. `signedUploadHost` is the
+ * built-in one; any adapter of this shape fits.
  */
-export interface UploadHost {
-  upload(file: File, field: FieldBlock): Promise<PhotoRef>;
-  /** A link to read a stored file (the host's storage signs it), or null when it can't be read. */
-  url?(ref: PhotoRef, field?: FieldBlock): Promise<string | null>;
-}
+export type UploadHost = UploadAdapter<File>;
 
 /** Provide it around `<Form>` (or pass `onUpload`) so `photo` fields can store files. */
 export const UploadContext = createContext<UploadHost | null>(null);

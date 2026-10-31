@@ -1,5 +1,11 @@
 # @marktiderman/genesis-studio
 
+## 0.2.5
+
+### Patch Changes
+
+- b8b760f: `DataStudio` no longer renders its own `<main>`: inside an app shell that made two main landmarks on the page, which screen readers announce as a duplicate.
+
 ## 0.2.4
 
 ### Patch Changes

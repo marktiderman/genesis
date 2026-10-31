@@ -85,6 +85,13 @@ export interface PackageMeta {
   owner?: string;
   /** Present only on an app's local copy of a Genesis package (an overlay): what it was copied from, when, by whom and why. */
   overlay?: OverlayMarker;
+  /**
+   * An upgrade apps opt into (an optional or premium capability, like a media library). No
+   * foundation package or primitive depends on it: the primitive owns a port, this package ships
+   * the adapter, and the app passes it in. Upgrades plug in; primitives never import them.
+   * An optional peer dependency (`peerDependenciesMeta.<name>.optional`) is the one allowed edge.
+   */
+  optional?: boolean;
 }
 
 /**
@@ -105,6 +112,8 @@ export interface LayerPackage {
    * not another package of the set is ignored.
    */
   uses: readonly string[];
+  /** The peer dependencies its `peerDependenciesMeta` marks optional. */
+  optionalPeers?: readonly string[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -126,7 +135,7 @@ export function readPackageMeta(name: string, genesis: unknown, problems: string
     return null;
   }
   const before = problems.length;
-  const { layer, group, essential, module, toolingEntries, owner, overlay } = genesis;
+  const { layer, group, essential, module, toolingEntries, owner, overlay, optional } = genesis;
   if (overlay !== undefined) readOverlayMarker(name, overlay, problems);
   if (owner !== undefined && (typeof owner !== "string" || !/^@[A-Za-z0-9-]+(\/[A-Za-z0-9._-]+)?$/.test(owner))) {
     problems.push(`${at}.owner: must be a GitHub handle or team, like "@octocat" or "@acme/web"`);
@@ -135,6 +144,9 @@ export function readPackageMeta(name: string, genesis: unknown, problems: string
   if (!(PACKAGE_GROUPS as readonly unknown[]).includes(group)) problems.push(`${at}.group: must be one of ${PACKAGE_GROUPS.join(", ")}, not ${JSON.stringify(group)}`);
   if (essential !== undefined && typeof essential !== "boolean") problems.push(`${at}.essential: must be true or false`);
   if (essential === true && layer !== "foundation" && layer !== "tooling") problems.push(`${at}.essential: only a foundation or tooling package is essential, not a ${String(layer)}`);
+  if (optional !== undefined && typeof optional !== "boolean") problems.push(`${at}.optional: must be true or false`);
+  if (optional === true && (layer === "foundation" || layer === "tooling")) problems.push(`${at}.optional: a ${String(layer)} package can't be optional; only a primitive or module is an upgrade apps opt into`);
+  if (optional === true && essential === true) problems.push(`${at}.optional: an essential package can't be optional`);
   if ((layer === "module") !== (group === "modules")) problems.push(`${at}.group: a module is in the "modules" group, and only a module is`);
   if (layer === "module" && module === undefined) problems.push(`${at}.module: a module declares its card and install (name, summary, blocks, install, docs, skill)`);
   if (layer !== "module" && module !== undefined) problems.push(`${at}.module: only a package with layer "module" has one`);
@@ -194,7 +206,9 @@ function packageOf(specifier: string): string {
  *    foundation or primitive; module → foundation, primitive, or a module it
  *    lists in `requiresModules`; tooling → anything; and nothing outside
  *    tooling uses a tooling package or another package's `toolingEntries`;
- * 3. no cycles among the runtime packages.
+ * 3. no foundation package or primitive uses an optional package (`genesis.optional`) except as
+ *    an optional peer dependency: upgrades plug in through ports the primitive owns;
+ * 4. no cycles among the runtime packages.
  *
  * (Every module's docs and skill existing on disk is the caller's to check;
  * schema ownership is a follow-up, `package-schema-ownership`.)
@@ -229,6 +243,9 @@ export function packageLayerProblems(packages: readonly LayerPackage[]): string[
       if (to.layer === "tooling") problems.push(`${pkg.name} (${meta.layer}) uses ${target}, which is tooling: no runtime package depends on tooling`);
       else if (to.toolingEntries?.includes(sub)) problems.push(`${pkg.name} (${meta.layer}) imports ${spec}, a tooling entry point of ${target}`);
       else if (!allowed(meta, to, target)) problems.push(`${pkg.name} (${meta.layer}) uses ${target} (${to.layer}): ${rule(meta)}`);
+      else if (to.optional === true && (meta.layer === "foundation" || meta.layer === "primitive") && !(pkg.optionalPeers ?? []).includes(target)) {
+        problems.push(`${pkg.name} (${meta.layer}) uses ${target}, which is optional: define a port in ${pkg.name} and let ${target} ship the adapter (or list it as an optional peer dependency)`);
+      }
       // Only allowed edges go in the cycle search: a wrong-way edge is already reported.
       else edges.add(target);
     }

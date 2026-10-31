@@ -8,7 +8,9 @@
  * reads and writes these documents unchanged. A section's `props` are
  * checked by that section's own schema (see `defineSection`), not here.
  */
+import { MAX_PLACEHOLDER, isSafePlaceholder } from "@marktiderman/genesis-media";
 import { z } from "zod";
+import { FONT_IDS } from "@marktiderman/genesis-design-system/fonts";
 import { MAX_URL_LENGTH, PAGE_PATH, isSafeHref, isSafeImageSrc } from "./urls";
 
 /** zod 4 is required: `z.toJSONSchema` (editor fields, AI output) exists only there. */
@@ -81,6 +83,8 @@ export const FileRef = z
   .meta({ title: "File", "x-genesis-kind": "file" });
 export type FileRef = z.infer<typeof FileRef>;
 
+const Focal = z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) });
+
 /**
  * An image. `alt` describes it for someone who can't see it; an image that
  * adds nothing (a texture) is `decorative: true` and gets an empty alt. The
@@ -97,7 +101,21 @@ export const Image = z
     width: z.number().int().positive().max(10000).optional(),
     height: z.number().int().positive().max(10000).optional(),
     /** Where the subject is, for cropping: 0–100 from the left and top. */
-    focal: z.object({ x: z.number().min(0).max(100), y: z.number().min(0).max(100) }).optional(),
+    focal: Focal.optional(),
+    /** A crop for phones (narrow screens), shown instead under 640px wide. It shares the image's alt. */
+    phone: z
+      .object({
+        src: z
+          .string()
+          .max(MAX_URL_LENGTH)
+          .refine(isSafeImageSrc, { message: "An image loads from a site path or an https URL." }),
+        width: z.number().int().positive().max(10000).optional(),
+        height: z.number().int().positive().max(10000).optional(),
+        focal: Focal.optional(),
+      })
+      .optional(),
+    /** A tiny blurred preview shown while the image loads: a base64 PNG, JPEG, WebP or GIF `data:` URI. */
+    placeholder: z.string().max(MAX_PLACEHOLDER).refine(isSafePlaceholder, { message: "A placeholder is a small base64 PNG, JPEG, WebP or GIF data: URI." }).optional(),
   })
   .meta({ title: "Image", "x-genesis-kind": "image" });
 export type Image = z.infer<typeof Image>;
@@ -200,21 +218,13 @@ export const Redirect = z.object({
 });
 export type Redirect = z.infer<typeof Redirect>;
 
-/** Fonts a site may choose; see `FONT_CHOICES` in theme.ts for their stacks. */
-export const FontChoice = z.enum([
-  "system",
-  "inter",
-  "dm-sans",
-  "work-sans",
-  "montserrat",
-  "poppins",
-  "space-grotesk",
-  "source-serif",
-  "merriweather",
-  "playfair-display",
-  "lora",
-]);
+/** Fonts a site may choose for its headings: genesis-design-system's `FONT_IDS` (see `FONT_CHOICES` for their stacks). */
+export const FontChoice = z.enum(FONT_IDS);
 export type FontChoice = z.infer<typeof FontChoice>;
+
+/** Fonts a site may choose for its body text: every choice but the display faces that have one weight. */
+export const BodyFontChoice = FontChoice.exclude(["bebas-neue"]);
+export type BodyFontChoice = z.infer<typeof BodyFontChoice>;
 
 /**
  * A site's theme choices on top of the brand: token choices only, never raw
@@ -223,12 +233,12 @@ export type FontChoice = z.infer<typeof FontChoice>;
 export const TokenOverrides = z.object({
   radius: z.enum(["none", "sm", "md", "lg", "full"]).optional(),
   headingFont: FontChoice.optional(),
-  bodyFont: FontChoice.optional(),
+  bodyFont: BodyFontChoice.optional(),
 });
 export type TokenOverrides = z.infer<typeof TokenOverrides>;
 
 export const SeoDefaults = z.object({
-  /** `%s` is the page's title: `"%s · Riverside Gym"`. */
+  /** `%s` is the page's title: `"%s · Riverside Works"`. */
   titleTemplate: z.string().max(80).optional(),
   description: z.string().trim().max(200).optional(),
   ogImage: Image.optional(),
@@ -263,6 +273,13 @@ export const SiteDoc = z.object({
   footer: z.array(SectionNode).max(3).default([]),
   seo: SeoDefaults.default({}),
   redirects: z.array(Redirect).max(500).default([]),
+  /**
+   * Where the site's images and files may load from. `"own"`: only the site
+   * itself and the store's asset origin. An image elsewhere then blocks the
+   * publish, and the page's Content-Security-Policy refuses other hosts.
+   * Unset: any https host, and an image elsewhere is a warning.
+   */
+  images: z.enum(["any", "own"]).optional(),
 });
 export type SiteDoc = z.infer<typeof SiteDoc>;
 /** A `SiteDoc` as written, before defaults. */

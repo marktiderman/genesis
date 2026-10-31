@@ -131,6 +131,10 @@ Foundation   design-system · core · ui · ui-native · features     (essential
 | module | foundation, primitive, and a module only when its `genesis.module.requiresModules` lists it |
 | tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
+A package marked `genesis.optional` (an upgrade) is off limits to foundation packages and
+primitives except as an optional peer dependency: the primitive owns a port and the upgrade ships
+the adapter (ADR 0013, "Upgrades plug in").
+
 "Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
 its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
 if another package or app embeds it as a part, it is a **primitive**; if someone installs it and
@@ -168,6 +172,9 @@ gets a working product surface to switch on for tenants, it is a **module**.
     "skill": "SKILL.md"
   },
   "toolingEntries": ["./node"],    // optional: entry points that are tooling inside a runtime package
+  "optional": true,                // optional; an upgrade apps opt into (a primitive or module). No
+                                   // foundation package or primitive uses it except as an optional
+                                   // peer: it plugs into ports they own (ADR 0013)
   "blocks": { … }, "doctor": { … } // unchanged
 }
 ```
@@ -245,7 +252,7 @@ so an overlay is a bridge to a release, never an eject. The mechanics are in the
 | M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; The main app's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
 | M2 | **`genesis-ai`**, a new primitive, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
 | M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; The main app's nav-driven palette | S after #449 |
-| M4 | **One upload protocol.** Promote forms' signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) to a shared home (types in `core`, the Supabase Storage handler in `supabase`), then move chat, support and sites onto it through their own seams. A `genesis-files` package only if the shared code outgrows those homes. | forms' protocol, `FileUploadField` | M |
+| M4 | **One upload protocol.** Resumable, checksummed uploads in `@marktiderman/genesis-media` under `/uploads` (ADR 0012, primitive 4, beside primitive 3's media value; design in [media-uploads.md](./media-uploads.md)), in place of the earlier plan for homes in `core` and `supabase`. genesis-media is optional (`genesis.optional`) and plugs into forms and chat through their upload ports: forms keeps its signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) behind `UploadAdapter`, which genesis-media's `/forms` adapter fits; chat keeps its own TUS client behind `createTusUpload`'s `transport`. Neither depends on genesis-media; support and sites move onto it through their own seams. | forms' protocol, chat's TUS client, `FileUploadField` | M |
 | M5 | **Billing writes grants.** When `entitlements` (planned) starts, a billing block (Stripe on the web, store purchases on native, a paywall) writes through `grant_person_entitlement` / `revoke_person_entitlement` with `source` and `source_ref`, which 0017 already reserves for "a billing webhook". The entitlement tables stay with the gate. | Migration 0017; `featureOn` | L |
 | M6 | **Small platform pieces, one home each.** Rate limiting moves from forms into a shared module (AI budgets reuse it). The two key-value storage contracts merge. | `forms/src/rate-limit.ts`; `core/storage` | S |
 | M7 | **Umbrella policy.** Decide: either the umbrella covers every stable primitive and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |

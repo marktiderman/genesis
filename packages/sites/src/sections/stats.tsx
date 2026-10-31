@@ -33,7 +33,7 @@ export const statsSection = defineSection({
     {
       name: "Three numbers",
       variant: "row",
-      props: { items: [{ value: "12", label: "years open" }, { value: "40+", label: "classes a week" }, { value: "6", label: "coaches" }] },
+      props: { items: [{ value: "12", label: "years open" }, { value: "500+", label: "people served" }, { value: "6", label: "on the team" }] },
     },
   ],
   render: ({ props, variant, node, ctx }) => {

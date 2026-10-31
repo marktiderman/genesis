@@ -3,7 +3,8 @@
  * `_layout.tsx` is a few lines.
  *
  *   last-resort boundary (React Native primitives only)
- *   └ theme (GenesisThemeProvider, owning the platform color scheme)
+ *   └ theme (GenesisThemeProvider, owning the platform color scheme, and the brand's role
+ *     variables, so `bg-primary` and the other NativeWind role classes are the brand's colors)
  *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ toasts (`NativeToastProvider`, so `useToast()` works on every screen; `toast={null}` drops it)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
@@ -24,11 +25,12 @@
  * "Try again". Every part is a slot (`slots` / `slotProps`, `null` drops it)
  * and is also exported on its own.
  */
-import { useEffect, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import { Text, View } from "react-native";
 import type { QueryClient, QueryClientConfig } from "@tanstack/react-query";
-import { GenesisThemeProvider } from "@marktiderman/genesis-design-system/theme";
-import type { CanonicalBrand } from "@marktiderman/genesis-design-system";
+import { vars } from "nativewind";
+import { GenesisThemeProvider, useTheme } from "@marktiderman/genesis-design-system/theme";
+import { brandRoleVariables, type CanonicalBrand } from "@marktiderman/genesis-design-system";
 import { GenesisProvider, createSupabaseProvider, type DataProvider, type SupabaseClientInput } from "@marktiderman/genesis-core/provider";
 import { renderSlot, type SlotPropsFor, type Slots } from "@marktiderman/genesis-core/slots";
 import { KeyboardScrollProvider, type KeyboardScrollProps, type KeyboardToolbarProps } from "@marktiderman/genesis-ui-native/layouts";
@@ -302,8 +304,25 @@ function ThemedShell(props: GenesisNativeAppProps) {
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
-      {body}
+      <BrandVariables brand={brand}>{body}</BrandVariables>
     </ThemeProvider>
+  );
+}
+
+/**
+ * The brand's theme role variables (`--primary`, `--background`, …) for the
+ * current mode, set on a view around the app, so NativeWind's role classes
+ * (`bg-primary` is `hsl(var(--primary))`) read the brand's colors instead
+ * of the Genesis ones the preset declares on `:root`.
+ */
+function BrandVariables({ brand, children }: { brand: CanonicalBrand; children: ReactNode }) {
+  const { resolvedMode } = useTheme();
+  const variables = useMemo(() => brandRoleVariables(brand), [brand]);
+  const style = useMemo(() => [{ flex: 1 }, vars(variables[resolvedMode])], [variables, resolvedMode]);
+  return (
+    <View testID="genesis-brand-variables" style={style}>
+      {children}
+    </View>
   );
 }
 

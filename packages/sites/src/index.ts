@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 export {
+  BodyFontChoice,
   Copy,
   FileRef,
   FontChoice,
@@ -71,6 +72,7 @@ export {
   type PostsContext,
   type RegisterSectionOptions,
   type RenderContext,
+  type RenderMedia,
   type SectionCategory,
   type SectionDefinition,
   type SectionManifest,
@@ -103,7 +105,7 @@ export {
   type RssInput,
   type SitemapInput,
 } from "./core/seo";
-export { checkBlog, checkContrast, checkHtmlOutline, checkPage, checkPost, checkRelease, checkSiteDoc, isPublishable, type CheckReleaseOptions, type SiteIssue } from "./core/a11y";
+export { checkAssetHosts, checkBlog, checkContrast, checkHtmlOutline, checkPage, checkPost, checkRelease, checkSiteDoc, isOwnUrl, isPublishable, type AssetHostOptions, type CheckReleaseOptions, type SiteIssue } from "./core/a11y";
 export {
   MAX_IMPORT_POSTS,
   MAX_LIVE_POSTS,
@@ -125,6 +127,7 @@ export {
   type SavePostInput,
   type SavePostResult,
 } from "./core/posts";
+export { LATIN_UNICODE_RANGE, SELF_HOSTED_FONTS, fontFileKey, type SelfHostedFont } from "./core/fonts";
 export {
   FONT_CHOICES,
   brandDisplayName,
@@ -143,6 +146,7 @@ export {
   type FontInfo,
   type SiteBrand,
   type SiteTheme,
+  type SiteThemeOptions,
   type ThemePair,
 } from "./core/theme";
 export { landingPage, onePageSite, starterSite, type OnePageSiteInput, type TemplateInput, type TemplateMessage, type TemplateResult } from "./core/templates";

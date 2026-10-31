@@ -13,7 +13,7 @@ import { getSection, isPlainEmail, Link, type AnySectionDefinition, type Section
 import { createMemorySiteStore, exampleBrands, type FormsResolver, type PageDoc } from "../index";
 import { handleSiteRequest } from "../web/index";
 import { mapEmbedUrl, formatTime } from "../sections/index";
-import { contactForm, sectionProps, testCtx } from "./fixtures";
+import { contactForm, LEGACY_HOST, sectionProps, testCtx } from "./fixtures";
 
 function render(type: string, variant: string, props: Record<string, unknown> = sectionProps[type]!, ctx = {}) {
   const def = getSection(type) as AnySectionDefinition;
@@ -31,7 +31,7 @@ describe("the timetable", () => {
   it("is a table on wider screens: a caption, a header per day and per time, and empty slots said aloud", () => {
     const body = dom(render("schedule", "grid"));
     const table = body.querySelector("table")!;
-    expect(table.querySelector("caption")?.textContent).toBe("Class times: classes by time and day");
+    expect(table.querySelector("caption")?.textContent).toBe("Session times: sessions by time and day");
     const days = [...table.querySelectorAll('thead th[scope="col"]')].map((th) => th.textContent);
     expect(days).toEqual(["Time", "MonMonday", "TueTuesday", "WedWednesday", "ThuThursday", "FriFriday", "SatSaturday"]);
     const rows = [...table.querySelectorAll('tbody th[scope="row"]')].map((th) => th.textContent);
@@ -56,11 +56,11 @@ describe("the timetable", () => {
     expect(html).not.toContain("<script");
   });
 
-  it("says who hosts a class, reading the deprecated coach when host is left out", () => {
+  it("says who hosts a session, reading the legacy host field when host is left out", () => {
     const sessions = [
       { day: "mon", start: "06:00", title: "Hosted", host: "Ada" },
-      { day: "mon", start: "07:00", title: "Old", coach: "Grace" },
-      { day: "mon", start: "08:00", title: "Both", host: "Alan", coach: "Mina" },
+      { day: "mon", start: "07:00", title: "Old", [LEGACY_HOST]: "Grace" },
+      { day: "mon", start: "08:00", title: "Both", host: "Alan", [LEGACY_HOST]: "Mina" },
     ];
     const text = dom(render("schedule", "agenda", { ...sectionProps.schedule, days: ["mon"], sessions })).textContent;
     expect(text).toContain("with Ada");
@@ -84,8 +84,8 @@ describe("the team", () => {
     const details = body.querySelector("details")!;
     expect(details.querySelector("summary")?.textContent).toBe("More about Sam Lee");
     expect(details.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
-    expect(details.querySelector("blockquote")?.textContent).toBe("Strong is a skill.");
-    expect(body.querySelector('a[href="/coaches/sam-lee"]')?.textContent).toBe("Sam Lee's page");
+    expect(details.querySelector("blockquote")?.textContent).toBe("Skill is practice.");
+    expect(body.querySelector('a[href="/team/sam-lee"]')?.textContent).toBe("Sam Lee's page");
     expect(body.querySelector("#sam-lee")).not.toBeNull();
     expect(body.querySelectorAll("details")).toHaveLength(1); // Jane has no bio to open
   });
@@ -93,7 +93,7 @@ describe("the team", () => {
   it("shows the whole bio in the list", () => {
     const html = render("team", "list");
     expect(html).not.toContain("<details");
-    expect(html).toContain("Today Sam runs the strength programme");
+    expect(html).toContain("Today Sam runs the making programme");
   });
 });
 
@@ -109,7 +109,7 @@ describe("the map", () => {
     const open = box.querySelector<HTMLAnchorElement>('a[href^="https://www.openstreetmap.org/?mlat="]')!;
     expect(open.rel).toBe("noopener noreferrer");
     expect(open.target).toBe("_blank");
-    expect(box.querySelector("img")?.getAttribute("alt")).toBe("A map of the streets around the gym");
+    expect(box.querySelector("img")?.getAttribute("alt")).toBe("A map of the streets around the studio");
   });
 
   it("builds the frame URL itself, for a known provider only", () => {
@@ -121,7 +121,7 @@ describe("the map", () => {
   it("lets the page frame only that provider, and loads the islands script for it", async () => {
     const store = createMemorySiteStore();
     const doc: PageDoc = { schemaVersion: 1, root: { props: { title: "Visit" } }, content: [{ id: "map", type: "map", v: 1, props: sectionProps.map! }], seo: { description: "Find us." } };
-    await store.createSite({ id: "m", site: { schemaVersion: 1, name: "Riverside Gym" }, pages: [{ path: "/", doc }] });
+    await store.createSite({ id: "m", site: { schemaVersion: 1, name: "Riverside Works" }, pages: [{ path: "/", doc }] });
     await store.publish("m", { brand: exampleBrands.riverside });
     const res = (await handleSiteRequest(new Request("https://riverside.example/"), { store, brand: { getBrand: () => exampleBrands.riverside }, siteId: "m" }))!;
     expect(res.headers.get("content-security-policy")).toContain("frame-src https://www.openstreetmap.org;");
@@ -150,27 +150,27 @@ describe("links", () => {
   });
 });
 
-describe("the timetable's class types, never by colour alone", () => {
+describe("the timetable's session types, never by colour alone", () => {
   it("names the type in each chip as text, unless the title already is it", () => {
-    const props = { ...sectionProps.schedule, sessions: [...(sectionProps.schedule!.sessions as unknown[]), { day: "fri", start: "07:00", title: "Lunch hour", type: "conditioning" }] };
+    const props = { ...sectionProps.schedule, sessions: [...(sectionProps.schedule!.sessions as unknown[]), { day: "fri", start: "07:00", title: "Lunch hour", type: "talk" }] };
     const body = dom(render("schedule", "grid", props));
-    const chip = body.querySelector('table [data-type="conditioning"]')!;
-    expect([...body.querySelectorAll('table [data-type="conditioning"]')].map((c) => c.textContent)).toContain("Lunch hourConditioning");
-    // "Strength" in the strength chip says its type already: no repeat.
-    expect(body.querySelector('table [data-type="strength"]')?.textContent).toBe("Strength");
+    const chip = body.querySelector('table [data-type="talk"]')!;
+    expect([...body.querySelectorAll('table [data-type="talk"]')].map((c) => c.textContent)).toContain("Lunch hourTalk");
+    // "Making" in the making chip says its type already: no repeat.
+    expect(body.querySelector('table [data-type="making"]')?.textContent).toBe("Making");
     expect(chip).toBeTruthy();
   });
 
   it("lists every type the shown days use in the legend, described or not, and only those", () => {
     const props = { ...sectionProps.schedule, types: [...(sectionProps.schedule!.types as unknown[]), { id: "kids", name: "Kids", tone: "outline" }] };
     const body = dom(render("schedule", "agenda", props));
-    const legend = body.querySelector('[aria-label="Class types"]')!;
-    expect([...legend.querySelectorAll("li > span:first-child")].map((s) => s.textContent)).toEqual(["Strength", "Conditioning", "Open gym"]);
-    // Open gym has no description and is still listed; Kids is used by no class and isn't.
+    const legend = body.querySelector('[aria-label="Session types"]')!;
+    expect([...legend.querySelectorAll("li > span:first-child")].map((s) => s.textContent)).toEqual(["Making", "Talk", "Open studio"]);
+    // Open studio has no description and is still listed; Kids is used by no session and isn't.
     expect(legend.textContent).not.toContain("Kids");
     // A day that isn't shown doesn't bring its type in.
     const noSat = dom(render("schedule", "agenda", { ...props, days: ["mon", "tue", "wed", "thu", "fri"] }));
-    expect(noSat.querySelector('[aria-label="Class types"]')?.textContent).not.toContain("Open gym");
+    expect(noSat.querySelector('[aria-label="Session types"]')?.textContent).not.toContain("Open studio");
   });
 
   it("tells outline from plain by pattern, not only by the border's colour", () => {
@@ -214,7 +214,7 @@ describe("pricing groups", () => {
     const html = render("pricing", "cards", getSection("pricing")!.presets.find((p) => p.name === "Plan groups")!.props as Record<string, unknown>);
     const body = dom(html);
     expect([...body.querySelectorAll("h2, h3, h4")].map((h) => `${h.tagName}:${h.textContent}`)).toEqual([
-      "H2:Memberships",
+      "H2:Plans and prices",
       "H3:Start here",
       "H4:Single visit",
       "H3:Every week",
@@ -241,14 +241,14 @@ describe("numbered steps and the trust bar", () => {
     const html = render("features", "steps", getSection("features")!.presets.find((p) => p.variant === "steps")!.props as Record<string, unknown>);
     const body = dom(html);
     expect(body.querySelector("ol")?.children).toHaveLength(3);
-    expect([...body.querySelectorAll("ol > li > a")].map((a) => a.textContent)).toEqual(["Book a free class", "See the plans"]);
+    expect([...body.querySelectorAll("ol > li > a")].map((a) => a.textContent)).toEqual(["Book a free visit", "See the plans"]);
   });
 
   it("shows a claim and text badges, with a name for the band", () => {
     const html = render("logos", "trust-bar", getSection("logos")!.presets.find((p) => p.variant === "trust-bar")!.props as Record<string, unknown>);
     const body = dom(html);
     expect(body.querySelector("h2.sr-only")?.textContent).toBe("Why people trust us");
-    expect([...body.querySelectorAll("li span")].map((s) => s.textContent)).toEqual(["Small classes", "Friendly coaches", "Free first visit"]);
+    expect([...body.querySelectorAll("li span")].map((s) => s.textContent)).toEqual(["Friendly people", "Fair prices", "Free first visit"]);
   });
 });
 
@@ -276,7 +276,7 @@ describe("the forms resolver's three kinds", () => {
   async function pageWith(slug: string) {
     const store = createMemorySiteStore();
     const doc: PageDoc = { schemaVersion: 1, root: { props: { title: "Contact" } }, content: [{ id: "form", type: "form-embed", v: 1, props: { heading: "Get in touch", form: slug } }], seo: { description: "Contact." } };
-    await store.createSite({ id: "f", site: { schemaVersion: 1, name: "Riverside Gym" }, pages: [{ path: "/", doc }] });
+    await store.createSite({ id: "f", site: { schemaVersion: 1, name: "Riverside Works" }, pages: [{ path: "/", doc }] });
     await store.publish("f", { brand: exampleBrands.riverside });
     const res = (await handleSiteRequest(new Request("https://riverside.example/"), { store, brand: { getBrand: () => exampleBrands.riverside }, siteId: "f", forms }))!;
     return { csp: res.headers.get("content-security-policy")!, html: await res.text() };
