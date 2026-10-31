@@ -1,0 +1,26 @@
+packages/genesis-cli/src/upstream.ts
+  s_36f3212387dbf7::t_e0672addde2dab 115
+packages/native/src/app.tsx
+  s_36f3212387dbf7::t_e0672addde2dab 404,407-409
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_e0672addde2dab 399
+packages/native/src/__tests__/app.test.tsx
+  s_36f3212387dbf7::t_a534faab7e68f2 164
+  s_36f3212387dbf7::t_e0672addde2dab 160-163,165-167
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "33238374b99e6a5988a534544f31ecfcf3ca0bcb",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
