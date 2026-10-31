@@ -1,0 +1,39 @@
+packages/ui-native/src/components/index.ts
+  s_36f3212387dbf7::t_b9bc678a6baf2b 285-286
+packages/native/src/__tests__/app.test.tsx
+  s_36f3212387dbf7::t_103f1b864906b7 133,135
+  s_36f3212387dbf7::t_175b3eb86dc572 10,95
+  s_36f3212387dbf7::t_6c6d99d0c8cc49 8,94,96-132,134,136-170
+  s_36f3212387dbf7::t_603c6abb5dc702 171-172
+.changeset/native-navigation-theme.md
+  s_36f3212387dbf7::t_1830644e328d0d 1-9
+docs/component-reference.md
+  s_36f3212387dbf7::t_14866323ad0a52 7,5281,5304-5305,11254,11277-11278,11444,11462-11463
+packages/native/README.md
+  s_36f3212387dbf7::t_1830644e328d0d 46-52
+apps/genesis-rn-starter/src/lib/native-modules.ts
+  s_36f3212387dbf7::t_1830644e328d0d 6-8,15,30
+packages/native/src/app.tsx
+  s_36f3212387dbf7::t_b9bc678a6baf2b 7-8,43-44,145-153,326-332,377-415,417-433
+  s_36f3212387dbf7::t_175b3eb86dc572 416
+  s_36f3212387dbf7::t_b04db51e767cbe 434
+packages/ui-native/src/native-modules.tsx
+  s_36f3212387dbf7::t_b9bc678a6baf2b 14,18-19,34,154-156,158-167,177
+  s_36f3212387dbf7::t_175b3eb86dc572 157
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e7c0f96e8c575f0759a85115d3acf5e672b51c0c",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
