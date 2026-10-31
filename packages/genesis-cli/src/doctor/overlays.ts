@@ -14,7 +14,7 @@
  * - overlay-unmarked (error): a local package named like a Genesis package with no marker.
  * - overlay-invalid (error): a marker that doesn't validate.
  * - overlay-age: a marker older than 14 days warns; older than 30 days is an error under --strict.
- * - overlay-version (warn): the version doesn't follow `<upstream version>-local.N`.
+ * - overlay-version (warn): the version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`.
  *
  * A marked overlay IS the package it shadows, so the rules that flag copies of a
  * Genesis primitive (shadowed-export, local-genesis-copy, raw-tag) skip files inside
@@ -79,7 +79,10 @@ export function overlayAgeDays(since: string, now: Date = new Date()): number {
   return Math.floor((today - Date.UTC(y, m - 1, d)) / 86_400_000);
 }
 
-const LOCAL_VERSION = /^(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+?)?)-local\.\d+$/;
+// The upstream version itself, `<upstream>+local.N` (build metadata: still satisfies the peer ranges of
+// the package's own family, so it's the recommended form) or `<upstream>-local.N` (a prerelease, which
+// `^x.y.z` peer ranges exclude).
+const LOCAL_VERSION = /^(\d+\.\d+\.\d+(?:-(?!local\.)[0-9A-Za-z.-]+?)?)(?:[+-]local\.\d+)?$/;
 
 /** The overlay rules, over every local package named like a Genesis package. */
 export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void {
@@ -134,7 +137,7 @@ export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void 
         level: "warn",
         file,
         subject: version || "(none)",
-        message: `the overlay of ${marker.upstream} is version ${version || "(none)"}; name it ${upstream}-local.N so it reads as a local build of ${upstream} and never as a release`,
+        message: `the overlay of ${marker.upstream} is version ${version || "(none)"}; use ${upstream}+local.N (or ${upstream} itself) so it reads as a local build of ${upstream} and still satisfies peer ranges`,
       });
     }
   }

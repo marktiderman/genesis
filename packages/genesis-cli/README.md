@@ -176,7 +176,7 @@ package.json, keeping the package's own `genesis` key:
 ```json
 {
   "name": "@marktiderman/genesis-support",
-  "version": "0.2.6-local.1",
+  "version": "0.2.6+local.1",
   "genesis": {
     "doctor": { "…": "the package's own declaration" },
     "overlay": {
@@ -192,7 +192,7 @@ package.json, keeping the package's own `genesis` key:
 - `upstream`: the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`).
 - `since`: the day the overlay was made, `YYYY-MM-DD`.
 - `owner`, `reason`: who answers for it and why it exists.
-- `version`: `<upstream version>-local.N` by convention, so it never reads as a release.
+- `version`: `<upstream version>+local.N` by convention. Build metadata (`+`) keeps it inside other Genesis packages' peer ranges (`^0.2.6`), which a prerelease (`-local.N`) would fall outside; the upstream version itself, or `-local.N`, are also accepted.
 
 **Wiring it in.** The app depends on the overlay as `"@marktiderman/genesis-support": "workspace:*"`,
 and adds a root `overrides` entry (`pnpm.overrides`, npm and Bun `overrides`, Yarn `resolutions`)
@@ -215,7 +215,7 @@ any local package. Then:
 | `overlay-unmarked` | error | A local package with a `@marktiderman/genesis-*` name and no `genesis.overlay`. Mark it, or rename it. |
 | `overlay-invalid` | error | A marker that doesn't validate: each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key. |
 | `overlay-age` | warn / error | A marker older than 14 days warns; older than 30 days it is an error under `--strict`. Promote the change and adopt the release, or drop the overlay. |
-| `overlay-version` | warn | The version isn't `<upstream version>-local.N`. |
+| `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
 
 A marked overlay **is** the package it shadows, so for files inside it `shadowed-export`, `raw-tag`,
 `local-genesis-copy` and `native-raw-primitive` don't flag that package's own names (an overlay of

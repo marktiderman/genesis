@@ -61,8 +61,15 @@ describe("overlay marker rules", () => {
     expect(overlayAgeDays("2026-10-01", new Date("2026-10-31T23:00:00Z"))).toBe(30);
   });
 
-  it("overlay-version: warns when the version isn't <upstream>-local.N", async () => {
-    for (const version of ["0.2.6", "0.2.7-local.1", "0.2.6-local"]) {
+  it("overlay-version: accepts the upstream version, +local.N and -local.N", async () => {
+    for (const version of ["0.2.6", "0.2.6+local.1", "0.2.6-local.2"]) {
+      const result = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({ version }) }), config: {} });
+      expect(rules(result.findings, "overlay-")).toEqual([]);
+    }
+  });
+
+  it("overlay-version: warns on any other version", async () => {
+    for (const version of ["0.2.7-local.1", "0.2.6-local", "0.2.7", "0.2.6+build.1"]) {
       const result = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({ version }) }), config: {} });
       expect(rules(result.findings, "overlay-")).toEqual([`warn overlay-version ${version}`]);
     }
