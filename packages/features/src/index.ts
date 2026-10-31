@@ -120,3 +120,4 @@ export {
   type PackageLayer,
   type PackageMeta,
 } from "./packages";
+export { overlayUpstream, readOverlayMarker, type OverlayMarker } from "./overlay";

@@ -5968,6 +5968,61 @@
       "flags": []
     },
     {
+      "id": "app-overlays",
+      "name": "App overlays",
+      "summary": "A consumer app's marked local copy of a published Genesis package (a local package under the package's own name, with a genesis.overlay marker naming the upstream release, the day, an owner and a reason), so the app changes and ships it the same day and promotes the change upstream. The doctor validates the marker, errors on an unmarked copy, warns as it ages, and treats a marked overlay as the package it shadows.",
+      "category": "Tooling",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "tool",
+      "keywords": [
+        "overlay",
+        "local copy",
+        "patch a package",
+        "shadow package",
+        "workspace override",
+        "promote upstream"
+      ],
+      "platforms": {
+        "cli": "building"
+      },
+      "requires": [
+        "local-packages",
+        "cli-doctor"
+      ],
+      "contributes": [
+        "package.json: genesis.overlay",
+        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer",
+        "agent"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "A genesis.overlay marker validates: upstream is @marktiderman/genesis-*@<semver> naming the package itself, since is a real YYYY-MM-DD day, owner and reason are text.",
+        "The doctor errors on a local package with a Genesis name and no marker, reports a marker older than 14 days as info and warns after 30 (failing --strict), and warns on a version other than the upstream version, <upstream>+local.N (recommended) or <upstream>-local.N.",
+        "Inside a marked overlay the primitive-copy rules don't flag that package's own names, version-skew and the change gate skip it, a block migration's test is looked up in the package it names, and component exports are read from TypeScript source when no types condition exists."
+      ],
+      "reviewedAt": "2026-10-22",
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/doctor/overlays.ts",
+          "packages/features/src/overlay.ts"
+        ],
+        "docs": [
+          "packages/genesis-cli/README.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "cli-migrate",
       "name": "genesis migrate",
       "summary": "Compares the migrations an app's blocks ship with its copies: copies new ones in as new files timestamped after every existing migration, reports a copy edited in the app or a package migration changed upstream (checksum drift) and never rewrites either; --forward writes a forward migration stub instead.",

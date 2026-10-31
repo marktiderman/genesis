@@ -132,8 +132,11 @@ Foundation   design-system · core · ui · ui-native · features     (essential
 | tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
 A package marked `genesis.optional` (an upgrade) is off limits to foundation packages and
-primitives except as an optional peer dependency: the primitive owns a port and the upgrade ships
-the adapter (ADR 0013, "Upgrades plug in").
+primitives except as an optional peer dependency (in `peerDependencies` only, imported for types
+or with `import()`, never a static value import): the primitive owns a port and the upgrade ships
+the adapter (ADR 0013, "Upgrades plug in"). An optional peer isn't a cycle edge, so the adapter may
+depend on the primitive. On a module, `optional` adds no rule (no primitive can use a module); it
+records that the module is an upgrade.
 
 "Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
 its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
@@ -227,6 +230,24 @@ works around it locally, and Genesis adds the extension point (`genesis upstream
 make that a register and an issue form). A fix
 in a package then reaches every app with `genesis upgrade`, which a copied component never would.
 Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
+
+**Overlays: the one exception, marked and short-lived.** When an app can't wait for a release, it
+may copy a package's source into its own workspace under the package's name (an *overlay*), change
+it, ship it, and promote the change upstream. The copy carries a marker in its package.json, which
+`readOverlayMarker` (genesis-features) validates and `genesis doctor` reads:
+
+```json
+"genesis": {
+  "overlay": { "upstream": "@marktiderman/genesis-support@0.2.6", "since": "2026-10-30", "owner": "web team", "reason": "inbox filters, to promote" }
+}
+```
+
+`upstream` is the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`),
+`since` the day it was made (`YYYY-MM-DD`), `owner` and `reason` who answers for it and why. The
+copy is `private: true` and lives in a package folder of its own; a Genesis package never carries
+the marker (the layering check refuses it). An unmarked copy is an error, and a marker older than 14 days is reported (info); older than 30 it warns, failing `--strict`,
+so an overlay is a bridge to a release, never an eject. The mechanics are in the
+[genesis-cli README](../packages/genesis-cli/README.md#overlays).
 
 ### Moves, extending before inventing
 

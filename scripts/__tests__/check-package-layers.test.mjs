@@ -76,6 +76,34 @@ describe("check-package-layers", () => {
     ]);
   });
 
+  it("counts an optional peer only when it is in peerDependencies and not also a dependency", () => {
+    const pkgs = base();
+    pkgs.chat.json = {
+      ...pkgs.chat.json,
+      peerDependencies: { "@marktiderman/genesis-media": "^1", "@marktiderman/genesis-ai": "^1" },
+      dependencies: { ...pkgs.chat.json.dependencies, "@marktiderman/genesis-ai": "^1" },
+      peerDependenciesMeta: { "@marktiderman/genesis-media": { optional: true }, "@marktiderman/genesis-ai": { optional: true }, "@marktiderman/genesis-x": { optional: true } },
+    };
+    const chat = readWorkspace(fixture(pkgs)).find((p) => p.json.name === "@marktiderman/genesis-chat");
+    expect(chat.layer.optionalPeers).toEqual(["@marktiderman/genesis-media"]);
+  });
+
+  it("reads static value imports, not type-only imports or import()", () => {
+    const pkgs = base();
+    pkgs.chat.files = {
+      "src/a.ts": [
+        'import type { A } from "@marktiderman/genesis-media";',
+        'import { type B, type C } from "@marktiderman/genesis-media/forms";',
+        'const m = await import("@marktiderman/genesis-media/chat");',
+        'import { upload } from "@marktiderman/genesis-media/uploads";',
+        'export { x } from "@marktiderman/genesis-ui";',
+        'import "@marktiderman/genesis-ui/styles.css";',
+      ].join("\n"),
+    };
+    const chat = readWorkspace(fixture(pkgs)).find((p) => p.json.name === "@marktiderman/genesis-chat");
+    expect(chat.layer.valueImports).toEqual(["@marktiderman/genesis-media/uploads", "@marktiderman/genesis-ui", "@marktiderman/genesis-ui/styles.css"]);
+  });
+
   it("passes on this repo", async () => {
     const { pkgs, problems } = await checkPackageLayers(REPO);
     expect(problems).toEqual([]);

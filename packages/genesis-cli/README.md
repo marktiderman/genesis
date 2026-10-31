@@ -166,6 +166,100 @@ Then:
 - A local package keeps package shape, so publishing it later (GitHub Packages or npm) needs no
   restructuring.
 
+### Overlays
+
+An **overlay** is a local package that shadows a published `@marktiderman/genesis-*` package by
+name: the package's source, copied into the app at a release, so the app can change it and ship
+the change the same day. Put it in a package folder of its own (`packages/genesis-support`), list it
+in `localPackages` like any local package, and mark it in its package.json, keeping the package's
+own `genesis` key:
+
+```json
+{
+  "name": "@marktiderman/genesis-support",
+  "version": "0.2.6+local.1",
+  "private": true,
+  "genesis": {
+    "doctor": { "…": "the package's own declaration" },
+    "overlay": {
+      "upstream": "@marktiderman/genesis-support@0.2.6",
+      "since": "2026-10-30",
+      "owner": "web team",
+      "reason": "inbox filters; to promote upstream"
+    }
+  }
+}
+```
+
+- `upstream`: the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`,
+  a prerelease allowed; no build metadata and no `-local.N`, which are an overlay's own versions).
+- `since`: the day the overlay was made, `YYYY-MM-DD`, not later than tomorrow.
+- `private: true`: an overlay never publishes.
+- `owner`, `reason`: who answers for it and why it exists.
+- `version`: `<upstream version>+local.N` by convention (`N` without leading zeros). Build metadata (`+`) keeps it inside other Genesis packages' peer ranges (`^0.2.6`), which a prerelease (`-local.N`) would fall outside; the upstream version itself, or `-local.N`, are also accepted.
+
+**Wiring it in.** Point the app's dependency at the overlay, and add a root override with the same
+specifier so other Genesis packages that depend on it get the copy too, not a second published copy:
+
+- **pnpm, Bun, Yarn**: `"@marktiderman/genesis-support": "workspace:*"`, with the same value in
+  `pnpm.overrides` (pnpm), `overrides` (Bun) or `resolutions` (Yarn).
+- **npm** has no `workspace:` protocol: use `"@marktiderman/genesis-support": "file:./packages/genesis-support"`
+  in `dependencies`, and the same `file:` specifier in `overrides` (npm requires an override for a
+  direct dependency to match it).
+
+**Fix the copied manifest.** A source copy keeps Genesis's own `workspace:` ranges for its
+dependencies (`"@marktiderman/genesis-features": "workspace:^"`), which the app can't resolve. Replace
+each with the published range the upstream release declares (read it from the package.json on npm
+for that version), so the overlay installs against the same Genesis it was copied from.
+
+An overlay can keep its build step, or point its exports straight at TypeScript source
+(`"exports": { ".": "./src/index.ts" }`). For TypeScript source, the server bundle must inline
+every Genesis package: otherwise a published Genesis package that the server leaves external
+imports the overlay through Node, which can't load `.tsx` (a 500 in dev). In Vite, set
+`ssr: { noExternal: [/^@marktiderman\/genesis-/] }` (Vite matches `noExternal` against package
+names). Vitest's `server.deps.inline` matches resolved file paths instead, so use a path pattern
+there: `test: { server: { deps: { inline: [/[\\/]@marktiderman[\\/]genesis-/] } } }`. The doctor reads a source overlay's
+component exports from the source its exports point at when there's no `types` condition.
+
+**What the doctor does with it.** A local package wins over an installed one of the same name, so
+the overlay's own `genesis.doctor` rules run, and the [`packages` pack](#rule-packs) checks it like
+any local package. Then:
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `overlay-unmarked` | error | A local package with a `@marktiderman/genesis-*` name and no `genesis.overlay`. Mark it, or rename it. |
+| `overlay-invalid` | error | A marker that doesn't validate (each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key), a `since` later than tomorrow, an overlay that isn't `private: true`, or an overlay folder that holds the app's scanned source (`src`, or the app root). Such an overlay doesn't count as the package below. |
+| `overlay-age` | info / warn | A marker older than 14 days is reported as info, which never fails a run; older than 30 days it warns, which fails `--strict`. An overlay never blocks a release in its first month, and must be promoted or dropped within it. |
+| `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
+
+A marked overlay (valid marker, private, in a package folder of its own) **is** the package it
+shadows, so for files inside it `shadowed-export`, `raw-tag`, `local-genesis-copy` and
+`native-raw-primitive` don't flag that package's own names (an overlay of another package still may
+not shadow genesis-ui). `version-skew` compares the release with the marker's `upstream` version
+instead of the overlay's own (only for an overlay the app lists; a marked package that is merely
+installed is compared as usual), and the packages pack's change gate (`package-unversioned-change`)
+asks for no changeset or version bump. A block migration that names another package
+(`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`) has its test looked up
+in that package, not in the overlay; a name that isn't valid, or a package that isn't installed or
+local, is reported by `package-migration-test`.
+
+**Promotion: manual for now.**
+
+1. Diff the overlay against the source of its upstream tag (`upstream` in the marker), so only the
+   app's own changes travel.
+2. Apply that diff onto a Genesis branch cut from the current staging batch.
+3. Add a changeset for the package.
+4. Open the Genesis PR into the batch.
+5. Before adopting, reconcile migrations: if promotion renamed a migration the overlay's app already
+   applied, or changed its SQL, `genesis migrate` can't match it and would copy it again. Map the
+   app's applied migration to the package's by hand (until the lock mapping below ships), then run
+   `genesis migrate --dry-run` with the release installed and check it copies nothing already applied.
+6. After the release, delete the overlay, drop the override, and pin the released version.
+
+Planned: `genesis upstream promote <package>` (steps 1 to 4) and `genesis upstream adopt
+<package>@<version>` (steps 5 and 6, checking the release matches the overlay), and a `genesis.lock.json`
+mapping so a migration an overlay's app already applied is never copied a second time.
+
 ### genesis add
 
 `genesis add <block>` plans, prints the plan, asks (or `--yes`), then:

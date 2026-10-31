@@ -96,6 +96,29 @@ describe("packageLayerProblems", () => {
     expect(packageLayerProblems([...base, adapter, forms({ uses: ["@x/ui/data"] }), { ...sites, uses: [...sites.uses, "@x/media"] }])).toEqual([]);
   });
 
+  it("leaves an optional peer out of the cycle search, so the adapter may use the primitive", () => {
+    const adapter = { name: "@x/media", genesis: { layer: "primitive", group: "data", optional: true }, uses: ["@x/ui", "@x/forms"] };
+    const base = workspace().filter((p) => p.name !== "@x/forms");
+    const forms: LayerPackage = { name: "@x/forms", genesis: { layer: "primitive", group: "forms" }, uses: ["@x/ui/data", "@x/media"], optionalPeers: ["@x/media"] };
+    expect(packageLayerProblems([...base, adapter, forms])).toEqual([]);
+  });
+
+  it("allows an optional peer only for types or import(), when valueImports is given", () => {
+    const media = { name: "@x/media", genesis: { layer: "primitive", group: "data", optional: true }, uses: ["@x/ui"] };
+    const base = workspace().filter((p) => p.name !== "@x/forms");
+    const forms = (valueImports: string[]): LayerPackage => ({ name: "@x/forms", genesis: { layer: "primitive", group: "forms" }, uses: ["@x/ui/data", "@x/media"], optionalPeers: ["@x/media"], valueImports });
+    expect(packageLayerProblems([...base, media, forms(["@x/ui/data"])])).toEqual([]);
+    expect(packageLayerProblems([...base, media, forms(["@x/media/forms"])])).toEqual([
+      "@x/forms (primitive) imports @x/media statically, but it is an optional peer: import it for types only or with import(), so @x/forms still loads without it",
+    ]);
+  });
+
+  it("refuses genesis.overlay on a Genesis package itself", () => {
+    const overlay = { upstream: "@x/forms@1.0.0", since: "2026-10-30", owner: "a", reason: "b" };
+    const problems = packageLayerProblems(plant("@x/forms", (p) => ({ ...p, genesis: { ...(p.genesis as object), overlay } })));
+    expect(problems).toContainEqual("@x/forms genesis.overlay: only an app's local copy of a Genesis package carries one, never the package itself");
+  });
+
   it("ignores packages outside the set and a package's own subpaths", () => {
     expect(packageLayerProblems(plant("@x/forms", using("left-pad", "@x/forms/react")))).toEqual([]);
   });

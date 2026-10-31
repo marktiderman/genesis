@@ -5,6 +5,7 @@
  * ways, and routes with no Genesis page layout. Like the core rules, every
  * name comes from the installed packages.
  */
+import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import { lineAt } from "./scan.js";
 import { routesDir, webRoutes, type RouteFile } from "./routes.js";
 import { JSX_EXTS, namedImportsFrom, openElementsAt, rendersJsx } from "./source.js";
@@ -114,6 +115,7 @@ export function checkLocalGenesisCopies(ctx: DoctorContext): void {
   if (owner.size === 0) return;
   const decl = /\b(export\s+(?:default\s+)?)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)\b/g;
   const routes = routesDir(ctx);
+  const overlays = markedOverlays(ctx);
   for (const file of ctx.files) {
     if (!JSX_EXTS.has(file.ext)) continue;
     const imported = new Set(namedImportsFrom(file.code, GENESIS_PACKAGE));
@@ -125,6 +127,8 @@ export function checkLocalGenesisCopies(ctx: DoctorContext): void {
       const [, exported, name] = m;
       const pkg = owner.get(name);
       if (!pkg || imported.has(name) || routeComponents.has(name)) return;
+      // Inside the app's overlay of the package that owns the name, it is that package's own component.
+      if (insideOverlayOf(overlays, file, pkg)) return;
       if (inRoutes && !exported && !new RegExp(`\\bexport\\s*(?:default\\s+${name}\\b|\\{[^}]*\\b${name}\\b)`).test(file.code)) return;
       // Its body, up to the next declaration in the file: a component renders JSX.
       const body = file.code.slice(m.index! + m[0].length, decls[i + 1]?.index ?? file.code.length);

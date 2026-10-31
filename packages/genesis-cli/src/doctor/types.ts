@@ -1,6 +1,7 @@
 /**
  * Public types for `genesis doctor` and its rule plugins.
  */
+import type { OverlayMarker } from "@marktiderman/genesis-features";
 
 /** `info` is reported but never fails a run, `--strict` included. */
 export type Level = "error" | "warn" | "info";
@@ -245,6 +246,8 @@ export interface DoctorContext {
   config: DoctorConfig;
   /** The git ref change checks compare against (`--base`), when given. */
   base?: string;
+  /** The run treats warnings as failures (`--strict`). */
+  strict?: boolean;
   /** The Genesis and local packages whose declared rules run, with their declarations. */
   packages: readonly DeclaringPackage[];
   /** Record a finding. Config `rules` levels and `allow` entries apply afterwards. */
@@ -353,4 +356,6 @@ export interface DeclaringPackage {
   error?: string;
   /** What was left out of an accepted declaration (unknown keys, rules that don't validate), when anything was. */
   ignored?: string[];
+  /** A local package's valid `genesis.overlay` marker: it is the app's copy of the Genesis package of that name. */
+  overlay?: OverlayMarker;
 }
