@@ -541,7 +541,12 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
   A reservation belongs to the one request that made it (a random token): only it records or
   gives back the part. Another request for the same part while it is being written writes
   nothing and answers 503 (send it again shortly), and a reservation left for
-  `partReserveSeconds` (10 minutes; its server died mid-write) is taken over. A request writing
+  `partReserveSeconds` (10 minutes; its server died mid-write) is taken over. A taken-over
+  writer that wakes up can still reach the store, since a target has no fencing: on S3 only with
+  the same bytes (S3 refuses others against the declared SHA-256), so nothing changes; on R2,
+  other bytes under the same digest would replace the part, and then `finish` refuses the stale
+  receipt or the read-back refuses the object. That ends the upload as failed, never as a wrong
+  copy recorded. A request writing
   the same bytes
   alongside it leaves it alone, and if the reservation goes from under it, answers 409
   `part_conflict` rather than recording a part the target may not hold. A part whose bytes
