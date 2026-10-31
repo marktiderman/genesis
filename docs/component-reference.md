@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 4051 other exports · 3215 standalone types across 189 entry points in 29 packages.
+**Totals:** 589 components · 4055 other exports · 3217 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -2488,7 +2488,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (56)
+### Other exports (58)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2532,10 +2532,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`overlayUpstream`](../packages/features/src/overlay.ts) | function | Beta | The upstream package name and version of a marker: `{ name, version }`. |
 | [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
 | [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
 | [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readOverlayMarker`](../packages/features/src/overlay.ts) | function | Beta | A package's `genesis.overlay` marker, or null when it doesn't validate. Problems go in `problems`, each prefixed with the package name. |
 | [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
@@ -2551,7 +2553,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (59)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2608,6 +2610,7 @@ export type { GenerateOptions };
 export type { IdSet };
 export type { LayerPackage };
 export type { ModuleMeta };
+export type { OverlayMarker };
 export type { PackageGroup };
 export type { PackageLayer };
 export type { PackageMeta };
@@ -6107,7 +6110,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (56)
+### Other exports (58)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -6151,10 +6154,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`overlayUpstream`](../packages/features/src/overlay.ts) | function | Beta | The upstream package name and version of a marker: `{ name, version }`. |
 | [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
 | [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
 | [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readOverlayMarker`](../packages/features/src/overlay.ts) | function | Beta | A package's `genesis.overlay` marker, or null when it doesn't validate. Problems go in `problems`, each prefixed with the package name. |
 | [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
@@ -6170,7 +6175,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (59)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6227,6 +6232,7 @@ export type { GenerateOptions };
 export type { IdSet };
 export type { LayerPackage };
 export type { ModuleMeta };
+export type { OverlayMarker };
 export type { PackageGroup };
 export type { PackageLayer };
 export type { PackageMeta };
@@ -8556,10 +8562,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
+| `ASSET_SIZES` | value | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| [`FONT_FILES`](../packages/sites/src/web/assets.generated.ts) | value | — | _(no summary)_ |
+| `FONT_FILES` | value | — | _(no summary)_ |
 | [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
 | [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |

@@ -67,15 +67,27 @@ function Clients() {
 }
 
 describe("GenesisNativeApp", () => {
-  it("sets the brand's role variables around the app, so NativeWind's role classes are the brand's colors", async () => {
-    const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e", light: "#0f766e", dark: "#5eead4" } };
-    setup({ brand });
+  it("sets no role variables by default, so the app's own :root variables stand", async () => {
+    setup({ brand: { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e" } } });
     await settle();
-    const style = JSON.parse(screen.getByTestId("genesis-brand-variables").dataset.style!) as Array<Record<string, string>>;
-    const variables = Object.assign({}, ...style) as Record<string, string>;
-    expect(variables["--primary"]).toBe(brandRoleVariables(brand).light["--primary"]);
-    expect(variables["--primary"]).not.toBe(brandRoleVariables(genesisBrand).light["--primary"]);
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-brand-variables")).toBeNull();
+  });
+
+  it("brandVariables: true sets the brand's role variables around the app; an object sets the app's own", async () => {
+    const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e", light: "#99f6e4", dark: "#134e4a" } };
+    const read = () => Object.assign({}, ...(JSON.parse(screen.getByTestId("genesis-brand-variables").dataset.style!) as Array<Record<string, string>>)) as Record<string, string>;
+    const { unmount } = setup({ brand, brandVariables: true });
+    await settle();
+    expect(read()["--primary"]).toBe(brandRoleVariables(brand).light["--primary"]);
+    expect(read()["--primary"]).toBe("175.3 77.4% 26.1%"); // accent.DEFAULT, never the `light` tint
     expect(screen.getByTestId("genesis-brand-variables").contains(screen.getByTestId("screens"))).toBe(true);
+    unmount();
+
+    setup({ brand, brandVariables: { "--primary": "1 2% 3%" } });
+    await settle();
+    expect(read()).toMatchObject({ "--primary": "1 2% 3%" });
+    expect(read()["--background"]).toBeUndefined();
   });
 
   it("holds the splash until the steps and the session are done, then shows the screens", async () => {

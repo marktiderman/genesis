@@ -3,8 +3,8 @@
  * `_layout.tsx` is a few lines.
  *
  *   last-resort boundary (React Native primitives only)
- *   └ theme (GenesisThemeProvider, owning the platform color scheme, and the brand's role
- *     variables, so `bg-primary` and the other NativeWind role classes are the brand's colors)
+ *   └ theme (GenesisThemeProvider, owning the platform color scheme; with `brandVariables`,
+ *     role variables on a view around the app for NativeWind's role classes)
  *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ toasts (`NativeToastProvider`, so `useToast()` works on every screen; `toast={null}` drops it)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
@@ -130,6 +130,15 @@ export interface GenesisNativeAppProps {
    * it props, define the wrapper at module scope, not inline.
    */
   keyboardProvider?: ComponentType<{ children: ReactNode }>;
+  /**
+   * Theme role variables (`--primary`, `--background`, …) to set on a view
+   * around the app, over what the app's stylesheet declares on `:root`.
+   * Default `false`: none are set, so the app's own variables (from
+   * `createGenesisNativewindPreset({ brand })` or its brand package) stand.
+   * `true` sets `brandRoleVariables(brand)` for the current mode; an object
+   * sets the app's own, one map for both modes or `{ light, dark }`.
+   */
+  brandVariables?: boolean | Record<string, string> | { light: Record<string, string>; dark: Record<string, string> };
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
   /**
@@ -304,20 +313,40 @@ function ThemedShell(props: GenesisNativeAppProps) {
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
-      <BrandVariables brand={brand}>{body}</BrandVariables>
+      {props.brandVariables ? (
+        <BrandVariables brand={brand} given={props.brandVariables}>
+          {body}
+        </BrandVariables>
+      ) : (
+        body
+      )}
     </ThemeProvider>
   );
 }
 
 /**
- * The brand's theme role variables (`--primary`, `--background`, …) for the
- * current mode, set on a view around the app, so NativeWind's role classes
- * (`bg-primary` is `hsl(var(--primary))`) read the brand's colors instead
- * of the Genesis ones the preset declares on `:root`.
+ * Theme role variables (`--primary`, `--background`, …) for the current mode,
+ * set on a view around the app, so NativeWind's role classes (`bg-primary` is
+ * `hsl(var(--primary))`) read them instead of what `:root` declares. Only with
+ * `brandVariables`: NativeWind can't tell which `:root` variables are the
+ * app's own, so setting them is the app's choice.
  */
-function BrandVariables({ brand, children }: { brand: CanonicalBrand; children: ReactNode }) {
+function BrandVariables({
+  brand,
+  given,
+  children,
+}: {
+  brand: CanonicalBrand;
+  given: NonNullable<GenesisNativeAppProps["brandVariables"]>;
+  children: ReactNode;
+}) {
   const { resolvedMode } = useTheme();
-  const variables = useMemo(() => brandRoleVariables(brand), [brand]);
+  const variables = useMemo(() => {
+    if (given === true) return brandRoleVariables(brand);
+    const perMode = given as { light?: unknown; dark?: unknown };
+    if (typeof perMode.light === "object" && typeof perMode.dark === "object") return given as { light: Record<string, string>; dark: Record<string, string> };
+    return { light: given as Record<string, string>, dark: given as Record<string, string> };
+  }, [brand, given]);
   const style = useMemo(() => [{ flex: 1 }, vars(variables[resolvedMode])], [variables, resolvedMode]);
   return (
     <View testID="genesis-brand-variables" style={style}>
