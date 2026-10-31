@@ -1,9 +1,9 @@
 # Genesis glossary
 
-- Status: draft (written by hand from the 2026-10-29 taxonomy audit; to be generated from a
-  `glossary.json` later)
+- Status: draft (written by hand; to be generated from a `glossary.json` later)
 - Date: 2026-10-29
-- Related: [ADR 0005](./adr/0005-package-layers.md) (layers), [REFERENCES.md](./REFERENCES.md)
+- Related: [ADR 0005](./adr/0005-package-layers.md) (layers), [ADR 0007](./adr/0007-tenancy.md)
+  (tenancy), [REFERENCES.md](./REFERENCES.md)
 
 One word per concept, in code, docs and package metadata. Each term has its definition and the
 synonyms not to use for it in Genesis exports and docs. A *scoped* exception is allowed only inside
@@ -16,7 +16,7 @@ new names against this page.
 |---|---|---|
 | **package** | one published `@marktiderman/genesis-*` npm package. | library, lib (as a noun), kit. |
 | **layer** | a package's dependency rank: `foundation \| primitive \| module \| tooling`. It is used only for packages. | tier (for packages), level. |
-| **group** | a package's catalog category: core, data, ai, forms, collaboration, shells, modules. | "Domain blocks", "Platform services", "App shells" (the retired group names), and `category` (as a package field). |
+| **group** | a package's catalog category: core, data, ai, forms, collaboration, shells, modules. | "Domain blocks", "Platform services", "App shells" (the retired group names), and `category` (as a package field). A collection of people is never a `group` type. Scoped exception: `genesis-chat` "group" for a conversation with more than two members (`kind: "group"`, `isGroup`). |
 | **foundation** | the layer every app needs (design-system, core, ui, ui-native, features). |  |
 | **primitive** | a package in the primitive layer, a reusable capability that apps and modules compose. | service (as a kind), capability (as a layer), and "primitive" for UI atoms or catalog entries. |
 | **module** | an installable mini app (schema, screens, nav, settings) built from the layers below it. | plugin, app (for this), domain block. |
@@ -55,12 +55,14 @@ new names against this page.
 
 | Term | Definition | Don't use |
 |---|---|---|
-| **tenant** | the isolation boundary that owns rows (`tenant_id`, 178 uses) and that the feature gate scopes to. "Organization" is allowed only as a user-facing label an app chooses. | practice, account (for this), team (for this), organisation (British spelling, 5 files). |
+| **tenant** | the isolation boundary that owns rows (`tenant_id`) and that the feature gate scopes to. | practice, account (for this), team (for this), org (as a type), company (for this), organisation (British spelling). |
+| **organization** | what a tenant is, as people say it. A user-facing label an app chooses, never a Genesis type or column (ADR 0007). |  |
+| **location** | a place a tenant runs (a site, a campus, a studio): a workspace kind and a table (`location_id`, ADR 0007). It is optional; a tenant with one place never sees the word. |  |
 | **workspace** | where the viewer is working: one tenant, a roll-up of several, or personal (ADR 0004, `defineWorkspace`, `WorkspaceScope`). | workspace for the Data Studio UI, for forms-studio's page, or for a pnpm workspace in public API docs. |
-| **scope** | the row filter a workspace gives views (`ResourceScope`, `{ orgId }`, `{ personId }`). | context (for this). Always qualify OAuth scopes as "OAuth scope". |
+| **scope** | the row filter a workspace gives views (`ResourceScope`, `{ tenantId }`, `{ personId }`). | context (for this). Always qualify OAuth scopes as "OAuth scope". |
 | **space** | a collab sharing unit with a subject, an audience, roles and visibility (`genesis-collab`, `space_id`). | room, workspace (for this). |
-| **user** | an auth login (`userId`, 388 uses). | account (for the login), principal, actor (outside audit logs). |
-| **person** | a human record in app data, with or without a login (`personId`). | contact, client, member (as a type). |
+| **user** | an auth login (`userId`). | account (for the login), principal, actor (outside audit logs). |
+| **person** | someone in a tenant (staff, a client, a member), with roles there; with or without a login (`personId`, ADR 0007). | contact, client, member (as a type). |
 | **viewer** | the user currently looking, with their scope (`Viewer`). | current user, me (in APIs). |
 | **member** | a person's role-bearing membership in a tenant or space. |  |
 | **profile** | a user's own presentational record (name, avatar). |  |

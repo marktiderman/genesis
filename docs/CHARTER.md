@@ -13,7 +13,8 @@ safely by people and coding agents alike.
 
 - The layers: foundation, primitives, modules, and the tooling beside them
   ([ADR 0005](./adr/0005-package-layers.md)).
-- The package metadata, the doctor and the CLI (`genesis init`, `genesis add`, `genesis find`).
+- The package metadata, the doctor and the CLI (`genesis init`, `genesis add`, `genesis features find`,
+  `genesis catalog`).
 - The AI kernel and an app's MCP surface ([ADR 0006](./adr/0006-ai-direction.md)).
 - Docs, the demo app and the starter.
 - Governance: one [glossary](./GLOSSARY.md), one maturity ladder, the

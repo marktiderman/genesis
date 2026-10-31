@@ -2,8 +2,8 @@
 
 - [`FRAMEWORK.md`](./FRAMEWORK.md) — **The Genesis Way.** Part 1: why Genesis exists and how
   we decide where code goes (reuse, then extend, then invent; config vs custom code; how an
-  invention moves up into Genesis). Part 2: the layered contract (tokens → primitives →
-  patterns → layouts → data-bound) that decides what belongs in Genesis and what doesn't.
+  invention moves up into Genesis). Part 2: the layered contract (token → element → pattern →
+  layout → data-bound) that decides what belongs in Genesis and what doesn't.
   Read this before building anything.
 - [`RESOURCE-VIEW.md`](./RESOURCE-VIEW.md): one description per resource. `defineView` and
   `<ResourceView>` for lists, `defineRecordView` and `<RecordView>` for one record, the same view on
@@ -23,9 +23,17 @@
   [0003 navigation zones](./adr/0003-navigation-zones.md),
   [0004 workspaces](./adr/0004-workspaces.md),
   [0005 package layers](./adr/0005-package-layers.md),
-  [0006 AI direction](./adr/0006-ai-direction.md).
-- [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): proposal for how the packages are grouped
-  (foundation, app shells, platform services, domain blocks, tooling), what the apps on Genesis
+  [0006 AI direction](./adr/0006-ai-direction.md),
+  [0007 tenancy](./adr/0007-tenancy.md),
+  [0008 lockstep versions](./adr/0008-lockstep-versions.md),
+  [0009 one resource contract](./adr/0009-one-resource-contract.md),
+  [0010 product events](./adr/0010-own-product-events.md),
+  [0011 support email tickets](./adr/0011-support-email-tickets.md),
+  [0012 media primitives](./adr/0012-media-primitives.md),
+  [0013 the customization layer](./adr/0013-customization-layer.md).
+- [`PACKAGE-STRATEGY.md`](./PACKAGE-STRATEGY.md): how the packages are organized (the
+  layers foundation, primitive, module and tooling, and the groups core, data, ai, forms,
+  collaboration, shells and modules), what the apps on Genesis
   use today, what Linear, Cursor and the leading starter kits build once, and a ranked, sized list
   of what Genesis should build next.
 - [`AI.md`](./AI.md): proposal for `genesis-ai`, one server-side layer for every AI call an app

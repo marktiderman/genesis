@@ -1,6 +1,7 @@
 # ADR 0006: AI direction: agents inside genesis-ai, MCP next
 
-- Status: accepted (direction; the items below are built in later PRs)
+- Status: accepted (section 2's contracts and section 5's retirement have shipped; `defineTool`,
+  `defineToolset`, `defineAgent` and `genesis-mcp` are still ahead)
 - Date: 2026-10-29
 - Features: `ai-providers`, `ai-control-plane`, `agent-operable-apps`
 - Related: [AI.md](../AI.md) (the pipeline, P0 to P2), [ADR 0005](./0005-package-layers.md)
@@ -23,7 +24,7 @@ None of them combines data-sharing consent, tenant budgets, per-tenant keys and 
 person under row-level security; an agent framework with its own loop, storage and memory would
 route around all four.
 
-Genesis also has a private `packages/agents` holding contributor rules, whose name collides with
+Genesis also had a private `packages/agents` holding contributor rules, whose name collided with
 the runtime meaning of "agents" every SDK uses.
 
 ## Decision
@@ -45,10 +46,14 @@ subpath (`genesis-chat/ai`). The name `genesis-ai-agents` is reserved for a spli
 execution brings heavy dependencies.
 
 **Mastra is not adopted**, nor any agent framework: its loop, storage and memory would bypass
-consent, budgets and RLS loading. Graphs, workflow DSLs, crews and networks are not standardised;
+consent, budgets and RLS loading. Graphs, workflow DSLs, crews and networks are not standardized;
 tasks compose as plain TypeScript.
 
 ### 2. Contracts fixed now, before agent code exists
+
+Shipped in `genesis-ai`: each item below except the agent-only parts (`invoke_agent` spans, the
+`RunStore`, `ApprovalStore` and `MemoryStore` ports, and `spec` on tools, toolsets and agents,
+which arrive with them).
 
 - **`AiContext`** gains `actor: "person" | "agent" | "system"`, `runId` and an optional
   `conversationId` (additive).
@@ -56,7 +61,7 @@ tasks compose as plain TypeScript.
   `TOOL_CALL_START` / `TOOL_CALL_ARGS` / `TOOL_CALL_END`, `TOOL_CALL_RESULT`, `STATE_DELTA`,
   `INTERRUPT` (an approval), `RUN_FINISHED`, `RUN_ERROR`. The vocabulary is adopted now, while only
   `useAiStream` consumes the stream; a dependency on `@ag-ui/core` comes later, if ever.
-- **`spec: 1`** on every definition (task, tool, toolset, agent), versioned apart from the package,
+- **`spec: 1`** (`AI_SPEC`) on every definition (task, tool, toolset, agent), versioned apart from the package,
   as the AI SDK's provider spec and MCP's dated specs are.
 - **Store ports:** the single `AiStore` splits into `KeyStore`, `BudgetStore`, `UsageStore`,
   `ConsentStore`, later `RunStore`, `ApprovalStore` and `MemoryStore`; one `supabaseStore()`
@@ -84,10 +89,10 @@ nothing from `genesis-ai`, so the foundation layer stays clean. The conversation
 `genesis-chat` (the assistant is a chat member). No `genesis-ai-ui` until AI UI needs a dependency
 `genesis-ui` must not have.
 
-### 5. Coding-agent tooling: packages/agents retires
+### 5. Coding-agent tooling: packages/agents retired
 
-- `packages/agents` retires. Its `RULES.md` moves to `docs/agents/RULES.md`; the rules a script
-  can check move into `genesis-cli` (doctor, hooks, `genesis agents`).
+- `packages/agents` retired. Its `RULES.md` moved to `docs/agents/RULES.md`; the rules a script
+  can check moved into `genesis-cli` (doctor, hooks, `genesis agents --rules`).
 - A future **`genesis-plugin`** (tooling, group `core`) takes its seat as the distributable kit:
   Agent Skills, hooks (the doctor on PreToolUse), reviewer subagents and a docs MCP server, in the
   Claude Code and Codex layouts, both generated from one source in `genesis-cli`. The generated
@@ -97,12 +102,12 @@ nothing from `genesis-ai`, so the foundation layer stays clean. The conversation
 
 ## Consequences
 
-- Build order: the contract items in section 2 first (cheap now, breaking later), then
+- Build order: the contract items in section 2 first (cheap now, breaking later; done), then
   `defineTool` and `defineToolset`, then `genesis-mcp` read-only, then `defineAgent` with runs,
   approvals and per-step budgets (`maxSteps` × estimate, so a loop can't pass the limit mid-run).
 - Durable runs use a runs table plus `genesis-supabase/jobs`, in the same database under the same
   RLS. `@ai-sdk/workflow` is re-checked when the first run longer than one request appears.
-- A2A is not adopted for now (no cross-organisation agent peers). MCP Tasks and Apps are watched.
+- A2A is not adopted for now (no cross-organization agent peers). MCP Tasks and Apps are watched.
 - `genesis-ai` stays 0.x until these contracts settle.
 
 ## Alternatives considered
@@ -115,3 +120,13 @@ nothing from `genesis-ai`, so the foundation layer stays clean. The conversation
   own runtime and thread model, a second framework beside Genesis.
 - **Keep `packages/agents`.** Rejected: the name collides with runtime agents, and rules a script
   can check belong in the CLI.
+
+## Glossary
+
+- **AI task**: a versioned prompt with typed input and output (`defineTask`), one step. Prose says
+  "AI task", because apps have their own to-do tasks.
+- **tool**: a function a model may call, run with the caller's context and declaring a `risk`
+  (`defineTool`, planned).
+- **agent**: a loop over tools in which each step goes through the pipeline (`defineAgent`,
+  planned).
+- **run**: one execution of an AI task or agent, named by `runId` and streamed as run events.

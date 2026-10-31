@@ -2,7 +2,8 @@
 
 - Status: accepted (implemented by the package-layers PR, #515)
 - Date: 2026-10-29
-- Features: `package-layering`, `package-schema-ownership` (added by #515), `ui-primitives`
+- Features: `package-layering`, `ui-primitives`; schema ownership is planned (see Consequences)
+- Amended by: [ADR 0013](./0013-customization-layer.md) (optional packages)
 - Related: [PACKAGE-STRATEGY.md](../PACKAGE-STRATEGY.md) "Layers" (the placement table and the
   metadata schema), [FRAMEWORK.md](../FRAMEWORK.md) Part 2, [REFERENCES.md](../REFERENCES.md)
   (Carbon, Nx, Rails engines, Medusa, Backstage).
@@ -34,7 +35,7 @@ engines) and own one domain each (Medusa).
 | **foundation** | What every app needs: design-system, core, ui, ui-native, features | foundation |
 | **primitive** | A reusable capability an app or module composes: data, AI, forms, collaboration, shells | foundation, primitive (no cycles) |
 | **module** | An installable mini app with its own schema, screens, nav entries and settings | foundation, primitive, and a module only when its `requiresModules` lists it |
-| **tooling** | The CLI and agent tooling, beside the layers | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
+| **tooling** | The CLI, beside the layers | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
 People see it as two levels: **level 1** is the foundation and the primitives, **level 2** is the
 modules built from them. The check keeps three runtime layers, so "ui never imports chat" still
@@ -64,6 +65,10 @@ skill). The types and rules live in `@marktiderman/genesis-features` (`PackageMe
 still counts. The former domain seams stop being exceptions: each is a module depending on a
 primitive, which the rule allows.
 
+Amended by [ADR 0013](./0013-customization-layer.md): a package marked
+`"genesis": { "optional": true }` may not be used by a foundation package or a primitive; an
+optional peer dependency is the one allowed edge.
+
 ### 4. Install unit, plans and the umbrella
 
 - The **block** (`defineBlock`, applied by `genesis add`) stays the install unit at every layer. A
@@ -79,19 +84,20 @@ primitive, which the rule allows.
 FRAMEWORK Part 2's UI tier formerly called "primitives" is now **elements** (token → element →
 pattern → layout → data-bound), so "primitive" means only the package layer. In `features.ts` the
 layer value `primitive` becomes `element`; `"primitive"` stays accepted as a deprecated alias until
-the next major. The doctor's `genesis primitives` catalog and the sample app's
-`/showcase/primitives` URLs keep their names for now; renaming them is a separate change.
+the next major. The doctor's catalog and the sample app's showcase are renamed too: `genesis catalog`
+(`genesis primitives` still works and warns) and `/showcase/elements` (old `/showcase/primitives`
+URLs redirect). The old names alias until the next major.
 
 ## Consequences
 
 - A contributor can place new code from the rule in section 1, and CI says when a dependency
   points the wrong way.
 - Schema ownership (that a module's migrations write only to its own schema, and no other package
-  writes there) is the follow-up `package-schema-ownership`; support's tables still live in
+  writes there) is planned as a follow-up; support's tables still live in
   genesis-supabase's migration 0006 until then.
-- **Follow-up:** the `features.ts` field `layer` becomes `kind`, since it describes a component's
-  kind, with the package layer derived from the package. Both names are read during a
-  deprecation window.
+- **Done:** the `features.ts` field `layer` is now `kind` (`FEATURE_KINDS`), since it describes a
+  component's kind; a feature's package layer comes from its package. `layer` is deprecated but
+  still read until the next major.
 - New layers, groups or exceptions to the dependency rule need a new ADR.
 
 ## Alternatives considered
@@ -100,7 +106,7 @@ the next major. The doctor's `genesis primitives` catalog and the sample app's
   seams appeared.
 - **Two layers only** (foundation folded into primitives). Rejected: it loses the "ui never
   imports chat" rule; the two levels are kept as the presentation instead.
-- **"Capabilities" for the middle layer**, avoiding the clash with the UI tier. Rejected in favour
+- **"Capabilities" for the middle layer**, avoiding the clash with the UI tier. Rejected in favor
   of "primitives" and renaming the UI tier to "elements", a local change.
 - **Rename blocks to modules.** Rejected: `defineBlock` and `genesis add` already ship, and
   primitives ship blocks too (push, notifications, ai-providers).
@@ -108,3 +114,12 @@ the next major. The doctor's `genesis primitives` catalog and the sample app's
 - **Plugins discovered at runtime** (Backstage, Payload). Rejected: Genesis installs modules
   explicitly with `genesis add`, so the app's migrations folder stays the one record of its
   database.
+
+## Glossary
+
+- **layer**: a package's dependency rank (foundation, primitive, module, tooling). Only packages
+  have a layer.
+- **group**: a package's catalog category on the site and in Storybook (core, data, ai, forms,
+  collaboration, shells, modules). It decides where a package appears, not what it may import.
+- **element**: the UI tier formerly called "primitive" (Button, Tooltip): one interaction with no
+  domain words.
