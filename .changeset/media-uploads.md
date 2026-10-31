@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-media": minor
+"@marktiderman/genesis-media": patch
 ---
 
 Resumable, checksummed uploads (ADR 0012, primitive 4), under `@marktiderman/genesis-media/uploads`, beside the media value. genesis-media is now optional (`genesis.optional: true`): an upgrade apps opt into, which no primitive imports.
