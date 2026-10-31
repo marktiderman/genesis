@@ -1,0 +1,35 @@
+.changeset/media-uploads.md
+  s_ba8cb54dbea75a::t_0bcddbde81c08b 13,15
+docs/media-uploads.md
+  s_ba8cb54dbea75a::t_6191c535c11606 153,415
+packages/media/README.md
+  s_ba8cb54dbea75a::t_871c7fc3acfb65 468-469,646,650,659-660,665,727
+packages/media/migrations/0001_genesis_media.sql
+  s_ba8cb54dbea75a::t_df8c0985f2278c 5,27,30-32,35,42,67,71-72,75-76,78-79,88-89,91,94,96,99-104,111,120,124,130,139,146-147,154,160,166,173,191,198,206,213,221-222,228,235-248
+packages/media/migrations/tests/0001_genesis_media.test.sql
+  s_ba8cb54dbea75a::t_913a5243a667f5 2,13,35-36,38-39,45-57,61-84,87-89,93-97,101-102,106-108,112-113
+packages/media/src/uploads/client/config.ts
+  s_ba8cb54dbea75a::t_9b1a66338a0739 67
+packages/media/src/uploads/server/store.ts
+  s_ba8cb54dbea75a::t_9d591af82a0610 3
+packages/media/src/uploads/server/supabase-store.ts
+  s_ba8cb54dbea75a::t_20665d22335a48 3,21,87-88,96,151
+packages/media/src/uploads/server/verify.ts
+  s_ba8cb54dbea75a::t_30929be6b1933b 7,21,23,253,263,274
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3581e37c537e419df7f7092e66672a1f96e9f744",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
