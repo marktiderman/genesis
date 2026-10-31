@@ -213,7 +213,7 @@ a record's page is `<RecordView>`, and the phone renders the same view with
 `NativeResourceView` ([docs/RESOURCE-VIEW.md](https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md)).
 Never copy an older screen as a template. `genesis doctor` enforces this
 (`ui/lists-use-resource-view`, `ui/records-use-record-view`,
-`core/direct-data-access`), and `genesis primitives` lists every primitive the installed
+`core/direct-data-access`), and `genesis catalog` lists every entry the installed
 packages declare.
 
 `ResourcePage` is the escape hatch: ResourceView maps a view onto it, so use it (with `data`

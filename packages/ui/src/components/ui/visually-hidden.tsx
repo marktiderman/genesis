@@ -11,7 +11,7 @@ import { cn } from "../../utils";
 export interface VisuallyHiddenProps
   extends React.ComponentPropsWithoutRef<typeof VisuallyHiddenPrimitive.Root> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

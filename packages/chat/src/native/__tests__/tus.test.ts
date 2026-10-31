@@ -152,3 +152,54 @@ describe("base64Utf8", () => {
     expect(base64Utf8("é/ü")).toBe(Buffer.from("é/ü").toString("base64"));
   });
 });
+
+describe("createTusUpload's transport port", () => {
+  it("sends through the transport it's given, with chat's path, bucket, type and the person's headers", async () => {
+    const seen: { path: string; bucket: string; contentType: string; headers: Record<string, string>; bytes: number }[] = [];
+    const upload = createTusUpload({
+      supabaseUrl: URL_,
+      userId: USER,
+      getAccessToken: async () => "jwt",
+      apikey: "pk",
+      newId: () => "id9",
+      transport: {
+        async send(record, source, info) {
+          const bytes = await source.read(0, source.size);
+          seen.push({ path: record.path, bucket: info.bucket, contentType: info.contentType, headers: await info.headers(), bytes: bytes.byteLength });
+          record.done = true;
+          return record.path;
+        },
+      },
+    });
+    const f = file(10);
+    const path = await upload(CONV, f);
+    expect(path).toBe(`${CONV}/${USER}/id9.jpg`);
+    expect(seen).toEqual([{ path, bucket: "genesis-chat", contentType: "image/jpeg", headers: { authorization: "Bearer jwt", apikey: "pk" }, bytes: 10 }]);
+    // Done once: the same file again is the same path, without another send.
+    expect(await upload(CONV, f)).toBe(path);
+    expect(seen).toHaveLength(1);
+  });
+
+  it("keeps chat's file checks before the transport, and a rename the transport asks for", async () => {
+    const send = vi.fn(async (_record: { path: string }, _source: unknown, _info: unknown, renamePath: () => string) => renamePath());
+    let n = 0;
+    const upload = createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", newId: () => `id${++n}`, transport: { send } });
+    await expect(upload(CONV, { data: new Uint8Array(1).buffer, name: "run.exe", contentType: "application/x-msdownload" })).rejects.toMatchObject({ code: "22023" });
+    expect(send).not.toHaveBeenCalled();
+    expect(await upload(CONV, file(3))).toBe(`${CONV}/${USER}/id2.jpg`);
+  });
+
+  it("turns a transport's failures into chat's errors: refusals keep their kind, the rest are transient", async () => {
+    const failing = (error: unknown) =>
+      createTusUpload({ supabaseUrl: URL_, userId: USER, getAccessToken: async () => "jwt", transport: { send: async () => Promise.reject(error) } });
+    const forbidden = await failing(Object.assign(new Error("no"), { failure: "forbidden" }))(CONV, file(3)).catch((e: unknown) => e);
+    expect(forbidden).toBeInstanceOf(ChatError);
+    expect((forbidden as ChatError).forbidden).toBe(true);
+    const invalid = await failing(Object.assign(new Error("bad"), { failure: "invalid" }))(CONV, file(3)).catch((e: unknown) => e);
+    expect((invalid as ChatError).code).toBe("22023");
+    const network = await failing(new TypeError("Network request failed"))(CONV, file(3)).catch((e: unknown) => e);
+    expect((network as ChatError).transient).toBe(true);
+    const own = new ChatError("Sign in to send files", "42501", "upload");
+    expect(await failing(own)(CONV, file(3)).catch((e: unknown) => e)).toBe(own);
+  });
+});

@@ -73,23 +73,29 @@
       "types": "./dist/import.d.ts",
       "import": "./dist/import.js"
     },
+    "./templates": {
+      "types": "./dist/templates.d.ts",
+      "import": "./dist/templates.js"
+    },
     "./sites.css": "./dist/assets/sites.css",
     "./sites-forms.css": "./dist/assets/sites-forms.css"
   },
   "files": [
     "dist",
     "migrations",
-    "README.md"
+    "README.md",
+    "SKILL.md"
   ],
   "scripts": {
     "assets": "node scripts/build-assets.mjs",
-    "build": "node scripts/build-assets.mjs && tsup && node ../../scripts/check-exports-resolve.mjs",
-    "clean": "rm -rf dist src/web/assets.generated.ts",
+    "build": "node scripts/build-assets.mjs && tsup && node scripts/drop-fonts-sourcemap.mjs && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist src/web/assets.generated.ts src/web/fonts.generated.ts",
     "typecheck": "node scripts/build-assets.mjs --if-missing && tsc --noEmit",
     "test": "node scripts/build-assets.mjs --if-missing && vitest run"
   },
   "dependencies": {
-    "@marktiderman/genesis-features": "workspace:^"
+    "@marktiderman/genesis-features": "workspace:^",
+    "@marktiderman/genesis-media": "workspace:^"
   },
   "peerDependencies": {
     "@marktiderman/genesis-design-system": "workspace:^",
@@ -112,6 +118,21 @@
     }
   },
   "devDependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-condensed": "^5.3.0",
+    "@fontsource/bebas-neue": "^5.3.0",
+    "@fontsource/dm-sans": "^5.3.0",
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/lora": "^5.3.0",
+    "@fontsource/merriweather": "^5.3.0",
+    "@fontsource/montserrat": "^5.3.0",
+    "@fontsource/oswald": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@fontsource/poppins": "^5.3.0",
+    "@fontsource/roboto-condensed": "^5.3.0",
+    "@fontsource/source-serif-4": "^5.3.1",
+    "@fontsource/space-grotesk": "^5.3.0",
+    "@fontsource/work-sans": "^5.3.0",
     "@marktiderman/genesis-design-system": "workspace:^",
     "@marktiderman/genesis-forms": "workspace:^",
     "@marktiderman/genesis-forms-react": "workspace:^",
@@ -137,6 +158,20 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "module",
+    "group": "modules",
+    "owner": "@marktiderman",
+    "module": {
+      "name": "Sites",
+      "summary": "Multi-page sites, landing pages and a blog, edited in the app and served as cached HTML.",
+      "blocks": [
+        "sites"
+      ],
+      "schema": "genesis_sites",
+      "install": "genesis add sites",
+      "docs": "https://github.com/marktiderman/genesis/blob/main/docs/SITES.md",
+      "skill": "SKILL.md"
+    },
     "blocks": {
       "sites": {
         "feature": {

@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3765 other exports · 2955 standalone types across 176 entry points in 28 packages.
+**Totals:** 589 components · 4055 other exports · 3217 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,12 +23,13 @@ One server-side pipeline for every AI call a Genesis app makes: consent, the fea
 
 **Barrel:** [`packages/ai/src/index.ts`](../packages/ai/src/index.ts)
 
-### Other exports (8)
+### Other exports (11)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AI_SPEC`](../packages/ai/src/types.ts) | const | — | The version of the definition format (tasks today; tools and agents next), apart from the package's version: a definition written for spec 1 keeps its meaning while the package moves. |
 | [`ANTHROPIC_API_VERSION`](../packages/ai/src/models.ts) | const | — | Anthropic API version Genesis pins (sampling parameters are refused on it). |
 | [`checkTasks`](../packages/ai/src/define.ts) | function | — | _(no summary)_ |
 | [`costOf`](../packages/ai/src/models.ts) | function | — | Cost of one call in USD from its usage. `cacheTtl` prices cache writes (default 5 minutes). |
@@ -37,13 +38,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`estimateCost`](../packages/ai/src/models.ts) | function | — | Upper bound for the budget: the prompt at the input price plus the full output cap. |
 | [`GuardrailError`](../packages/ai/src/types.ts) | class | — | Stops a call with a typed outcome and a message the UI can show. Thrown by a guardrail, or by a task's `load` when there is nothing to do ("Nothing to catch up on yet") or the person may not read what it needs (`forbidden`). Before the m... |
 | [`MODEL_RECORDS`](../packages/ai/src/models.ts) | const | — | Prices from Anthropic's model table as of 2026-10-06, first-party API. Cache reads are 0.05× of input on Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1 and 0.1× elsewhere (prompt-caching docs, checked 2026-10-28). |
+| [`RUN_EVENT_TYPES`](../packages/ai/src/run-events.ts) | const | — | The names of {@link RunEvent}, in the order a text run sends them. |
+| [`textStreamToRunEvents`](../packages/ai/src/run-events.ts) | function | — | Turns the text stream's events into {@link RunEvent}s, one stream at a time: the first text opens the run and the message, `done` closes them. `threadId` defaults to the run's id (a run outside a conversation is its own thread). |
 
-### Types (32)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Ai };
+export type { AiActor };
 export type { AiConfig };
 export type { AiContext };
 export type { AiMessage };
@@ -51,6 +55,7 @@ export type { AiOutcome };
 export type { AiResult };
 export type { AiSchema };
 export type { AiSpan };
+export type { AiSpec };
 export type { AiStore };
 export type { AiUsage };
 export type { AiVendor };
@@ -58,21 +63,28 @@ export type { AliasConfig };
 export type { AliasFallbacks };
 export type { BeganCall };
 export type { BeginInput };
+export type { BudgetStore };
 export type { CacheTtl };
 export type { Capability };
+export type { ConsentStore };
 export type { ContextLayerRecord };
 export type { FinishInput };
 export type { Guardrail };
+export type { JsonPatchOperation };
 export type { KeySource };
+export type { KeyStore };
 export type { LoadContext };
 export type { Loaded };
 export type { ModelLike };
 export type { ModelRecord };
 export type { ResolvedAlias };
+export type { RunEvent };
 export type { SafetyProtocol };
 export type { SafetyRoute };
 export type { TaskDefinition };
 export type { TelemetrySink };
+export type { TextStreamEvent };
+export type { UsageStore };
 export type { VendorAdapter };
 export type { VendorKey };
 ```
@@ -91,14 +103,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AiCallError`](../packages/ai/src/server/wrap.ts) | class | — | A processor call the pipeline stopped before it ran. |
 | [`createAiHandler`](../packages/ai/src/server/handler.ts) | function | — | One HTTP endpoint for every task: `POST { task, args }` → the task's {@link AiResult} as JSON. A web-standard handler, so it mounts in TanStack Start, Next, Hono or a Supabase Edge Function. With `stream: true`, a text task answers as se... |
-| [`evaluate`](../packages/ai/src/server/evaluate.ts) | function | — | Runs a task's cases through the real pipeline and model, for a check before an alias, rollout or prompt version changes: run it with a live key in CI or by hand, and compare reports. Cases run one at a time, so a budget and the vendor's ... |
+| [`evaluate`](../packages/ai/src/server/evaluate.ts) | function | — | Runs a target's cases through the real pipeline and model, for a check before an alias, rollout or prompt version changes: run it with a live key in CI or by hand, and compare reports. Cases run one at a time, so a budget and the vendor'... |
 | [`memoryStore`](../packages/ai/src/server/memory-store.ts) | function | — | An {@link AiStore} in memory, for tests and local work. It admits a call while platform spend plus the estimates of calls still open stays within the budget, the same bounded overshoot as the database store. Calls on a tenant's or person... |
 | [`otelSink`](../packages/ai/src/server/telemetry.ts) | const | — | Sends genesis-ai's spans to an OpenTelemetry tracer: `telemetry: otelSink(trace.getTracer("ai"))`. |
 | [`runTask`](../packages/ai/src/server/run.ts) | function | — | Runs a task for a person: consent → gate → load (with a manifest) → safety routing → guardrails → budget → the model (rollout, outage fallbacks, refusals) → output guardrails → a usage row and a span. Content never reaches the usage row ... |
 | [`streamTask`](../packages/ai/src/server/run.ts) | function | — | Streams a text task. The same steps run before the model; the usage row is written when the stream ends, is aborted or fails. No outage fallback mid-stream: a conversation keeps one model. Output guardrails need the whole answer, so a ta... |
 | [`wrap`](../packages/ai/src/server/wrap.ts) | function | — | Puts a processor (moderation, transcription) through the same steps as a task: consent, the gate, the budget, a usage row and a span. The processor itself is unchanged; the wrapped function has its signature and throws {@link AiCallError... |
 
-### Types (10)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -106,8 +118,11 @@ Type-only exports not consumed as a component's `Props`.
 export type { AiHandlerOptions };
 export type { EvalCase };
 export type { EvalReport };
+export type { EvalTarget };
 export type { MemoryStore };
 export type { MemoryStoreOptions };
+export type { ScoreResult };
+export type { Scorer };
 export type { StreamOptions };
 export type { StreamResult };
 export type { TracerLike };
@@ -698,7 +713,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`withDay`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` on the day of `day` (its time kept). |
 | [`withTime`](../packages/chat/src/native/schedule-sheet.tsx) | function | — | `base` at the time of `time` (its day kept). |
 
-### Types (92)
+### Types (96)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -781,7 +796,11 @@ export type { SharingLike };
 export type { StartVideoInput };
 export type { ThreadRow };
 export type { TopicMenuAction };
+export type { TusSendInfo };
+export type { TusTransport };
 export type { TusUploadOptions };
+export type { TusUploadRecord };
+export type { TusUploadSource };
 export type { UseJumpOptions };
 export type { UseVoiceRecorderOptions };
 export type { VideoPlayerLike };
@@ -1640,22 +1659,24 @@ export type { ResolvedNavigation };
 
 **Barrel:** [`packages/core/src/workspaces.ts`](../packages/core/src/workspaces.ts)
 
-### Other exports (8)
+### Other exports (10)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`defaultWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The workspace to open when the URL names none (the app's front door): the remembered one if the viewer still has it, else the first tenant, else the first workspace. |
+| [`filterWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces whose label or second line contains every word of `query`, ignoring case and accents, in the order given. An empty query keeps them all. For the switcher's search box, on the web and on the phone. |
 | [`groupWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces grouped by kind, in `order` (default {@link WORKSPACE_KIND_ORDER}, then any kind an app added), each group in the order given. Empty groups are left out. |
 | [`keepSection`](../packages/core/src/workspaces.ts) | function | — | The default `keep`: the same kind keeps the section (the first segment), never a record. |
+| [`orderedWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces in the order the switcher lists them (grouped by kind, in `order`): the order its keyboard jump numbers them, 1 to 9. |
 | [`pathInWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The path inside a workspace: `/o/acme/clients/42` in `/o/acme` is `/clients/42`; the workspace's own landing page is `/`. |
 | [`WORKSPACE_KIND_ORDER`](../packages/core/src/workspaces.ts) | const | — | The kinds in their default order: personal, roll-up, then each tenant. |
 | [`workspaceAt`](../packages/core/src/workspaces.ts) | function | Beta | The workspace a URL is in: the one whose `path` is the longest prefix of `pathname`, or undefined when the URL is in none (a sign-in page, the app's front door). |
 | [`workspaceHref`](../packages/core/src/workspaces.ts) | function | Beta | Where switching to `to` goes from `pathname`. The URL moves with the viewer: it lands in the same section of the new workspace when that makes sense (see `keep`), else on its landing page. |
 | [`workspaceInitials`](../packages/core/src/workspaces.ts) | function | Beta | Initials for a workspace with no image: the first letters of its first two words. |
 
-### Types (5)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1665,6 +1686,7 @@ export type { Workspace };
 export type { WorkspaceGroup };
 export type { WorkspaceHrefOptions };
 export type { WorkspaceKind };
+export type { WorkspaceTheme };
 ```
 
 ---
@@ -1930,142 +1952,6 @@ export type { ErrorReporter };
 
 ---
 
-## @marktiderman/genesis-switchboard
-
-Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/data-switchboard/README.md + SWITCHBOARD.md.
-
-**Barrel:** [`packages/data-switchboard/src/index.ts`](../packages/data-switchboard/src/index.ts)
-
-### Other exports (30)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
-
-### Types (43)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Adapter };
-export type { AirtableAdapterConfig };
-export type { AirtableResourceMap };
-export type { Binding };
-export type { CodeAdapterOptions };
-export type { DataRow };
-export type { DescribeResult };
-export type { DriftReport };
-export type { EnvironmentBinding };
-export type { FeatureRow };
-export type { FetchLike };
-export type { FieldBinding };
-export type { FieldDrift };
-export type { FieldSchema };
-export type { FieldType };
-export type { Level };
-export type { MergeBinding };
-export type { ModelReconcileReport };
-export type { ModelReconcileSummary };
-export type { NotionAdapterConfig };
-export type { NotionPropertyMap };
-export type { NotionPropertyType };
-export type { NotionResourceMap };
-export type { PromoteOptions };
-export type { PromoteResult };
-export type { ProviderKind };
-export type { QueryOptions };
-export type { ReconcileModelOptions };
-export type { ResolvedPlan };
-export type { ResourceBinding };
-export type { ResourceClient };
-export type { ResourceContract };
-export type { ResourceReconcile };
-export type { RowDrift };
-export type { StaleReadInfo };
-export type { SupabaseAdapterConfig };
-export type { SupabaseClientLike };
-export type { SupabaseQueryBuilder };
-export type { SupabaseResourceMap };
-export type { SwitchboardContract };
-export type { TicketRow };
-export type { Tier };
-export type { ValueDrift };
-```
-
----
-
-## @marktiderman/genesis-switchboard/gitdata
-
-**Barrel:** [`packages/data-switchboard/src/gitdata.ts`](../packages/data-switchboard/src/gitdata.ts)
-
-### Other exports (4)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-
-### Types (3)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { AttachGitdataOptions };
-export type { GitdataAdapterConfig };
-export type { GitdataResourceMap };
-```
-
----
-
-## @marktiderman/genesis-switchboard/data-provider
-
-**Barrel:** [`packages/data-switchboard/src/data-provider.ts`](../packages/data-switchboard/src/data-provider.ts)
-
-### Other exports (1)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
-
----
-
 ## @marktiderman/genesis-design-system
 
 DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer brand packages satisfy the canonical schema.
@@ -2078,15 +1964,37 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (25)
+### Other exports (73)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
+| [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
+| [`composite`](../packages/design-system/src/design-systems/color.ts) | function | — | `top` over `bottom` at `alpha` (0–1), blended in sRGB as browsers do: a hex. |
+| [`contrast`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 contrast ratio (1–21) of two hex colours. |
+| [`CORNER_RADII`](../packages/design-system/src/design-systems/tokens.ts) | const | — | Radius per corners set, in px: chips and inputs, cards, feature images, buttons, photos. |
+| [`CORNERS`](../packages/design-system/src/design-systems/define.ts) | const | — | Corner radius sets, from square to friendly. |
+| [`crispDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Cool and exact: a cool ground, hairlines, crisp corners, no shadows, calm motion. |
 | [`debugBrandPreset`](../packages/design-system/src/factories/from-brand.ts) | function | — | Debug utility — dumps the resolved Tailwind preset and NativeWind theme side-by-side so brand authors can introspect token mis-resolution without reading factory source. |
+| [`DEFAULT_DESIGN_SYSTEM_ID`](../packages/design-system/src/design-systems/built-in.ts) | const | — | The design system a brand that names none gets. |
+| [`DEFAULT_EYEBROW`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_FONT_CLASS_RULES`](../packages/design-system/src/design-systems/define.ts) | const | — | How each font class is set at display sizes, when a design system says nothing else. |
+| [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
+| [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
+| [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
+| [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
+| [`FONT_CLASSES`](../packages/design-system/src/fonts.ts) | const | — | How a family is drawn at display sizes: design systems set weight, tracking and case per class. |
+| [`FONT_IDS`](../packages/design-system/src/fonts.ts) | const | — | Every font choice id, `system` first. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
+| [`fontFileKey`](../packages/design-system/src/fonts.ts) | const | — | The key of one font file (`inter-700`): what the asset table and the renderer name it by. |
+| [`fontForStack`](../packages/design-system/src/fonts.ts) | function | — | The font choice a font stack starts with (`["Bebas Neue", "Impact", …]` or `"\"Bebas Neue\", Impact"`), when it is one of `FONT_CHOICES`. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`generateDarkTheme`](../packages/design-system/src/tokens/themes.ts) | function | — | Generate a full set of Shadcn-compatible CSS variables for dark mode. |
@@ -2095,43 +2003,98 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisBrand`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis OOTB brand — the single source of truth for the full brand palette. |
 | [`genesisColors`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | _(no summary)_ |
 | [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — indigo (distinct from the emerald `success`). |
+| [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
+| [`GROUNDS`](../packages/design-system/src/design-systems/color.ts) | const | — | The page's ground: warm, cool, the brand's own hue barely tinted, or dark. |
+| [`hexToHslTriplet`](../packages/design-system/src/design-systems/color.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's role variables hold (`hsl(var(--primary))`). |
+| [`hexToOklch`](../packages/design-system/src/design-systems/color.ts) | function | — | sRGB hex → OKLCH. |
+| [`IMAGE_FILTERS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
+| [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
+| [`listDesignSystems`](../packages/design-system/src/design-systems/registry.ts) | function | — | Every design system available: the built-in ones, then the registered ones. |
+| [`maxChroma`](../packages/design-system/src/design-systems/color.ts) | function | — | The most chroma sRGB can show at this lightness and hue, up to `c`. |
+| [`MOTION_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | How much things move. CSS only; reduced motion always means `none`. |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
+| [`NEUTRAL_DESIGN_SYSTEMS`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Every neutral design system, by id. |
+| [`oklchToHex`](../packages/design-system/src/design-systems/color.ts) | function | — | OKLCH → sRGB hex, reducing chroma (never lightness or hue) until it fits the gamut. |
+| [`palette`](../packages/design-system/src/design-systems/color.ts) | function | Beta | The palette for a brand: colour roles for light and dark, and the ramps. |
+| [`ramp`](../packages/design-system/src/design-systems/color.ts) | function | — | An 11-step ramp from one colour, with the colour itself at its nearest step. |
+| [`RAMP_STEPS`](../packages/design-system/src/design-systems/color.ts) | const | — | The ramp's steps and their OKLCH lightness. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`registerDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | Beta | Make a design system available by its id, so a brand that names it (`brand.designSystem.id`) resolves to it. Registering an id again with a different definition throws: a changed look is a new version. |
+| [`relativeLuminance`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 relative luminance of a hex colour. |
+| [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`resolveTokens`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`rolePairs`](../packages/design-system/src/design-systems/color.ts) | function | — | Every pair the roles promise, for a contrast check or a test. |
+| [`SCRIMS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`SELF_HOSTED_FONTS`](../packages/design-system/src/fonts.ts) | const | — | Every self-hosted family, by its font choice id. |
 | [`semantic`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
+| [`SHADOW_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`softDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Warm and open: a warm ground, generous space, soft corners and shadows. |
 | [`spacing`](../packages/design-system/src/tokens/spacing.ts) | const | — | _(no summary)_ |
 | [`status`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
 | [`tailwindFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a Tailwind v4 preset from a {@link CanonicalBrand} config. |
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
 | [`themeFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a NativeWind v5 theme from a {@link CanonicalBrand} config. |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
+| [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
+| [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
+| [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (19)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
+export type { ColorRoles };
 export type { ColorScale };
+export type { ContrastPair };
+export type { Corners };
+export type { Density };
+export type { DesignSystem };
+export type { DesignSystemChoice };
+export type { DesignSystemInput };
+export type { DesignSystemPair };
+export type { DesignSystemTheme };
+export type { DesignSystemTokenInput };
+export type { EyebrowRule };
+export type { FluidSize };
+export type { FontClass };
+export type { FontClassRule };
+export type { FontId };
+export type { FontInfo };
 export type { GradientToken };
+export type { Ground };
+export type { ImageFilter };
+export type { MotionLevel };
 export type { NativeBrandOutput };
+export type { Oklch };
+export type { Palette };
+export type { PaletteInput };
 export type { PlatformOverridable };
+export type { RampStep };
 export type { ResolveThemeRolesOptions };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
+export type { Scrim };
+export type { SelfHostedFont };
+export type { ShadowLevel };
 export type { ShadowToken };
 export type { TailwindBrandOutput };
 export type { ThemeConfig };
 export type { ThemeMode };
 export type { ThemeRole };
+export type { TypeStep };
 export type { TypographyTokens };
 export type { UseThemeReturn };
 ```
@@ -2232,13 +2195,15 @@ export type { GenesisTheme };
 
 **Barrel:** [`packages/design-system/src/schema/brand.ts`](../packages/design-system/src/schema/brand.ts)
 
-### Other exports (2)
+### Other exports (4)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
+| [`isLength`](../packages/design-system/src/schema/brand.ts) | function | — | Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
 ### Types (8)
@@ -2254,6 +2219,119 @@ export type { GradientToken };
 export type { PlatformOverridable };
 export type { ShadowToken };
 export type { TypographyTokens };
+```
+
+---
+
+## @marktiderman/genesis-design-system/design-systems
+
+**Barrel:** [`packages/design-system/src/design-systems/index.ts`](../packages/design-system/src/design-systems/index.ts)
+
+### Other exports (39)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
+| [`composite`](../packages/design-system/src/design-systems/color.ts) | function | — | `top` over `bottom` at `alpha` (0–1), blended in sRGB as browsers do: a hex. |
+| [`contrast`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 contrast ratio (1–21) of two hex colours. |
+| [`CORNER_RADII`](../packages/design-system/src/design-systems/tokens.ts) | const | — | Radius per corners set, in px: chips and inputs, cards, feature images, buttons, photos. |
+| [`CORNERS`](../packages/design-system/src/design-systems/define.ts) | const | — | Corner radius sets, from square to friendly. |
+| [`crispDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Cool and exact: a cool ground, hairlines, crisp corners, no shadows, calm motion. |
+| [`DEFAULT_DESIGN_SYSTEM_ID`](../packages/design-system/src/design-systems/built-in.ts) | const | — | The design system a brand that names none gets. |
+| [`DEFAULT_EYEBROW`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_FONT_CLASS_RULES`](../packages/design-system/src/design-systems/define.ts) | const | — | How each font class is set at display sizes, when a design system says nothing else. |
+| [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
+| [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
+| [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
+| [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
+| [`GROUNDS`](../packages/design-system/src/design-systems/color.ts) | const | — | The page's ground: warm, cool, the brand's own hue barely tinted, or dark. |
+| [`hexToHslTriplet`](../packages/design-system/src/design-systems/color.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's role variables hold (`hsl(var(--primary))`). |
+| [`hexToOklch`](../packages/design-system/src/design-systems/color.ts) | function | — | sRGB hex → OKLCH. |
+| [`IMAGE_FILTERS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`listDesignSystems`](../packages/design-system/src/design-systems/registry.ts) | function | — | Every design system available: the built-in ones, then the registered ones. |
+| [`maxChroma`](../packages/design-system/src/design-systems/color.ts) | function | — | The most chroma sRGB can show at this lightness and hue, up to `c`. |
+| [`MOTION_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | How much things move. CSS only; reduced motion always means `none`. |
+| [`NEUTRAL_DESIGN_SYSTEMS`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Every neutral design system, by id. |
+| [`oklchToHex`](../packages/design-system/src/design-systems/color.ts) | function | — | OKLCH → sRGB hex, reducing chroma (never lightness or hue) until it fits the gamut. |
+| [`palette`](../packages/design-system/src/design-systems/color.ts) | function | Beta | The palette for a brand: colour roles for light and dark, and the ramps. |
+| [`ramp`](../packages/design-system/src/design-systems/color.ts) | function | — | An 11-step ramp from one colour, with the colour itself at its nearest step. |
+| [`RAMP_STEPS`](../packages/design-system/src/design-systems/color.ts) | const | — | The ramp's steps and their OKLCH lightness. |
+| [`registerDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | Beta | Make a design system available by its id, so a brand that names it (`brand.designSystem.id`) resolves to it. Registering an id again with a different definition throws: a changed look is a new version. |
+| [`relativeLuminance`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 relative luminance of a hex colour. |
+| [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
+| [`rolePairs`](../packages/design-system/src/design-systems/color.ts) | function | — | Every pair the roles promise, for a contrast check or a test. |
+| [`SCRIMS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`SHADOW_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`softDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Warm and open: a warm ground, generous space, soft corners and shadows. |
+| [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
+| [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
+| [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
+| [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
+
+### Types (23)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { ColorRoles };
+export type { ContrastPair };
+export type { Corners };
+export type { Density };
+export type { DesignSystem };
+export type { DesignSystemChoice };
+export type { DesignSystemInput };
+export type { DesignSystemPair };
+export type { DesignSystemTheme };
+export type { DesignSystemTokenInput };
+export type { EyebrowRule };
+export type { FluidSize };
+export type { FontClassRule };
+export type { Ground };
+export type { ImageFilter };
+export type { MotionLevel };
+export type { Oklch };
+export type { Palette };
+export type { PaletteInput };
+export type { RampStep };
+export type { Scrim };
+export type { ShadowLevel };
+export type { TypeStep };
+```
+
+---
+
+## @marktiderman/genesis-design-system/fonts
+
+**Barrel:** [`packages/design-system/src/fonts.ts`](../packages/design-system/src/fonts.ts)
+
+### Other exports (7)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
+| [`FONT_CLASSES`](../packages/design-system/src/fonts.ts) | const | — | How a family is drawn at display sizes: design systems set weight, tracking and case per class. |
+| [`FONT_IDS`](../packages/design-system/src/fonts.ts) | const | — | Every font choice id, `system` first. |
+| [`fontFileKey`](../packages/design-system/src/fonts.ts) | const | — | The key of one font file (`inter-700`): what the asset table and the renderer name it by. |
+| [`fontForStack`](../packages/design-system/src/fonts.ts) | function | — | The font choice a font stack starts with (`["Bebas Neue", "Impact", …]` or `"\"Bebas Neue\", Impact"`), when it is one of `FONT_CHOICES`. |
+| [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
+| [`SELF_HOSTED_FONTS`](../packages/design-system/src/fonts.ts) | const | — | Every self-hosted family, by its font choice id. |
+
+### Types (4)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FontClass };
+export type { FontId };
+export type { FontInfo };
+export type { SelfHostedFont };
 ```
 
 ---
@@ -2410,7 +2488,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (48)
+### Other exports (58)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2432,11 +2510,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -2450,7 +2532,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`overlayUpstream`](../packages/features/src/overlay.ts) | function | Beta | The upstream package name and version of a marker: `{ name, version }`. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readOverlayMarker`](../packages/features/src/overlay.ts) | function | Beta | A package's `genesis.overlay` marker, or null when it doesn't validate. Problems go in `problems`, each prefixed with the package name. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -2465,7 +2553,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2489,14 +2577,17 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -2517,6 +2608,12 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { OverlayMarker };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -2820,7 +2917,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`when`](../packages/forms/src/define.ts) | function | — | Start a rule on a field: `when("overall").lessThan(4).jumpTo("improve")`. |
 | [`withHostOptions`](../packages/forms/src/fields.ts) | function | — | The definition with each `optionsFrom: { source: "host" }` field's options filled in from `hostOptions`: its own `props.options` first, then the host's list for its key (a value the field already has is not added twice). A key the host d... |
 
-### Types (93)
+### Types (95)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2915,6 +3012,8 @@ export type { SubmitOutcome };
 export type { SubmitRequest };
 export type { SubmitResult };
 export type { TableColumn };
+export type { UploadAdapter };
+export type { UploadFile };
 export type { UploadGrant };
 export type { UploadRefusal };
 export type { UploadRequest };
@@ -3691,7 +3790,7 @@ export type { UseSubmitOutboxOptions };
 
 ## @marktiderman/genesis-forms-studio
 
-The form workspace around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
+The form management screens around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
 
 **Barrel:** [`packages/forms-studio/src/index.ts`](../packages/forms-studio/src/index.ts)
 
@@ -4679,15 +4778,37 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (25)
+### Other exports (73)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
+| [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
+| [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
+| [`composite`](../packages/design-system/src/design-systems/color.ts) | function | — | `top` over `bottom` at `alpha` (0–1), blended in sRGB as browsers do: a hex. |
+| [`contrast`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 contrast ratio (1–21) of two hex colours. |
+| [`CORNER_RADII`](../packages/design-system/src/design-systems/tokens.ts) | const | — | Radius per corners set, in px: chips and inputs, cards, feature images, buttons, photos. |
+| [`CORNERS`](../packages/design-system/src/design-systems/define.ts) | const | — | Corner radius sets, from square to friendly. |
+| [`crispDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Cool and exact: a cool ground, hairlines, crisp corners, no shadows, calm motion. |
 | [`debugBrandPreset`](../packages/design-system/src/factories/from-brand.ts) | function | — | Debug utility — dumps the resolved Tailwind preset and NativeWind theme side-by-side so brand authors can introspect token mis-resolution without reading factory source. |
+| [`DEFAULT_DESIGN_SYSTEM_ID`](../packages/design-system/src/design-systems/built-in.ts) | const | — | The design system a brand that names none gets. |
+| [`DEFAULT_EYEBROW`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_FONT_CLASS_RULES`](../packages/design-system/src/design-systems/define.ts) | const | — | How each font class is set at display sizes, when a design system says nothing else. |
+| [`DEFAULT_LEADING`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`DEFAULT_RAMP`](../packages/design-system/src/design-systems/define.ts) | const | — | A ramp that suits most brands: 16 → 18px body, 48 → 112px display. |
+| [`defineDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | Beta | Define a design system: checks it and returns it frozen, with its id (`name@version`). Throws with every problem when it isn't sound. |
+| [`DENSITIES`](../packages/design-system/src/design-systems/define.ts) | const | — | Section padding. |
+| [`designSystemTheme`](../packages/design-system/src/design-systems/tokens.ts) | function | Beta | The CSS variables for one design system and one brand, per mode, and the colour pairs they promise. |
+| [`fluid`](../packages/design-system/src/design-systems/tokens.ts) | function | — | `{ min: 3, max: 7 }` → `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)`: `min` at a 360px viewport, `max` at 1440px, linear between. |
+| [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
+| [`FONT_CLASSES`](../packages/design-system/src/fonts.ts) | const | — | How a family is drawn at display sizes: design systems set weight, tracking and case per class. |
+| [`FONT_IDS`](../packages/design-system/src/fonts.ts) | const | — | Every font choice id, `system` first. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
+| [`fontFileKey`](../packages/design-system/src/fonts.ts) | const | — | The key of one font file (`inter-700`): what the asset table and the renderer name it by. |
+| [`fontForStack`](../packages/design-system/src/fonts.ts) | function | — | The font choice a font stack starts with (`["Bebas Neue", "Impact", …]` or `"\"Bebas Neue\", Impact"`), when it is one of `FONT_CHOICES`. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`generateDarkTheme`](../packages/design-system/src/tokens/themes.ts) | function | — | Generate a full set of Shadcn-compatible CSS variables for dark mode. |
@@ -4696,43 +4817,98 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`genesisBrand`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis OOTB brand — the single source of truth for the full brand palette. |
 | [`genesisColors`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | _(no summary)_ |
 | [`genesisTheme`](../packages/design-system/src/presets/brand-genesis.ts) | const | — | Genesis brand — indigo (distinct from the emerald `success`). |
+| [`getDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | A design system by id (`crisp@1`): a built-in one or a registered one. |
+| [`GROUNDS`](../packages/design-system/src/design-systems/color.ts) | const | — | The page's ground: warm, cool, the brand's own hue barely tinted, or dark. |
+| [`hexToHslTriplet`](../packages/design-system/src/design-systems/color.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's role variables hold (`hsl(var(--primary))`). |
+| [`hexToOklch`](../packages/design-system/src/design-systems/color.ts) | function | — | sRGB hex → OKLCH. |
+| [`IMAGE_FILTERS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
+| [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
+| [`listDesignSystems`](../packages/design-system/src/design-systems/registry.ts) | function | — | Every design system available: the built-in ones, then the registered ones. |
+| [`maxChroma`](../packages/design-system/src/design-systems/color.ts) | function | — | The most chroma sRGB can show at this lightness and hue, up to `c`. |
+| [`MOTION_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | How much things move. CSS only; reduced motion always means `none`. |
 | [`neutral`](../packages/design-system/src/tokens/colors.ts) | const | — | Shared semantic colors used across all Genesis projects. Brand-specific primary colors belong in presets, not here. |
+| [`NEUTRAL_DESIGN_SYSTEMS`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Every neutral design system, by id. |
+| [`oklchToHex`](../packages/design-system/src/design-systems/color.ts) | function | — | OKLCH → sRGB hex, reducing chroma (never lightness or hue) until it fits the gamut. |
+| [`palette`](../packages/design-system/src/design-systems/color.ts) | function | Beta | The palette for a brand: colour roles for light and dark, and the ramps. |
+| [`ramp`](../packages/design-system/src/design-systems/color.ts) | function | — | An 11-step ramp from one colour, with the colour itself at its nearest step. |
+| [`RAMP_STEPS`](../packages/design-system/src/design-systems/color.ts) | const | — | The ramp's steps and their OKLCH lightness. |
 | [`readGenesisThemeV2Flag`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`registerDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | Beta | Make a design system available by its id, so a brand that names it (`brand.designSystem.id`) resolves to it. Registering an id again with a different definition throws: a changed look is a new version. |
+| [`relativeLuminance`](../packages/design-system/src/design-systems/color.ts) | function | — | WCAG 2 relative luminance of a hex colour. |
+| [`resolveChoices`](../packages/design-system/src/design-systems/define.ts) | function | — | The design system's choices for a brand: the brand's, else the design system's defaults. |
 | [`resolveThemeRoles`](../packages/design-system/src/tokens/roles.ts) | function | Beta | Every role's color for one platform and scheme. |
 | [`resolveTokens`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
+| [`rolePairs`](../packages/design-system/src/design-systems/color.ts) | function | — | Every pair the roles promise, for a contrast check or a test. |
+| [`SCRIMS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`SELF_HOSTED_FONTS`](../packages/design-system/src/fonts.ts) | const | — | Every self-hosted family, by its font choice id. |
 | [`semantic`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
+| [`SHADOW_LEVELS`](../packages/design-system/src/design-systems/define.ts) | const | — | _(no summary)_ |
+| [`softDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Warm and open: a warm ground, generous space, soft corners and shadows. |
 | [`spacing`](../packages/design-system/src/tokens/spacing.ts) | const | — | _(no summary)_ |
 | [`status`](../packages/design-system/src/tokens/colors.ts) | const | — | _(no summary)_ |
 | [`tailwindFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a Tailwind v4 preset from a {@link CanonicalBrand} config. |
 | [`THEME_ROLES`](../packages/design-system/src/tokens/roles.ts) | const | Beta | _(no summary)_ |
 | [`themeFromBrand`](../packages/design-system/src/factories/from-brand.ts) | function | — | Derive a NativeWind v5 theme from a {@link CanonicalBrand} config. |
 | [`themeToCss`](../packages/design-system/src/tokens/themes.ts) | function | — | Convert a theme variable map to a CSS string block. |
+| [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
+| [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
+| [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (19)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
+export type { ColorRoles };
 export type { ColorScale };
+export type { ContrastPair };
+export type { Corners };
+export type { Density };
+export type { DesignSystem };
+export type { DesignSystemChoice };
+export type { DesignSystemInput };
+export type { DesignSystemPair };
+export type { DesignSystemTheme };
+export type { DesignSystemTokenInput };
+export type { EyebrowRule };
+export type { FluidSize };
+export type { FontClass };
+export type { FontClassRule };
+export type { FontId };
+export type { FontInfo };
 export type { GradientToken };
+export type { Ground };
+export type { ImageFilter };
+export type { MotionLevel };
 export type { NativeBrandOutput };
+export type { Oklch };
+export type { Palette };
+export type { PaletteInput };
 export type { PlatformOverridable };
+export type { RampStep };
 export type { ResolveThemeRolesOptions };
 export type { ResolvedColorScale };
 export type { ResolvedThemeMode };
 export type { ResolvedTokens };
+export type { Scrim };
+export type { SelfHostedFont };
+export type { ShadowLevel };
 export type { ShadowToken };
 export type { TailwindBrandOutput };
 export type { ThemeConfig };
 export type { ThemeMode };
 export type { ThemeRole };
+export type { TypeStep };
 export type { TypographyTokens };
 export type { UseThemeReturn };
 ```
@@ -4820,36 +4996,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
 
 ### Types (43)
 
@@ -4913,10 +5089,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
 
 ### Types (3)
 
@@ -4940,7 +5116,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
@@ -5453,7 +5629,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`when`](../packages/forms/src/define.ts) | function | — | Start a rule on a field: `when("overall").lessThan(4).jumpTo("improve")`. |
 | [`withHostOptions`](../packages/forms/src/fields.ts) | function | — | The definition with each `optionsFrom: { source: "host" }` field's options filled in from `hostOptions`: its own `props.options` first, then the host's list for its key (a value the field already has is not added twice). A key the host d... |
 
-### Types (93)
+### Types (95)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5548,6 +5724,8 @@ export type { SubmitOutcome };
 export type { SubmitRequest };
 export type { SubmitResult };
 export type { TableColumn };
+export type { UploadAdapter };
+export type { UploadFile };
 export type { UploadGrant };
 export type { UploadRefusal };
 export type { UploadRequest };
@@ -5932,7 +6110,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (48)
+### Other exports (58)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5954,11 +6132,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -5972,7 +6154,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`overlayUpstream`](../packages/features/src/overlay.ts) | function | Beta | The upstream package name and version of a marker: `{ name, version }`. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readOverlayMarker`](../packages/features/src/overlay.ts) | function | Beta | A package's `genesis.overlay` marker, or null when it doesn't validate. Problems go in `problems`, each prefixed with the package name. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -5987,7 +6175,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (60)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6011,14 +6199,17 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -6039,6 +6230,12 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { OverlayMarker };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -6288,6 +6485,356 @@ export type { PrivacyApi };
 export type { PrivacyBlock };
 export type { VariantSuffix };
 export type { WithGenesisOptions };
+```
+
+---
+
+## @marktiderman/genesis-media
+
+Images, files and uploads for Genesis apps: one image value (alt or decorative, size, focal point, phone crop, blur placeholder), responsive images through a host's image URL builder, byte sniffing, a server-side fetch guarded against request forgery, signed links to private media with streaming ZIP bundles, and resumable, checksummed uploads (owner-bound sessions, skip-if-identical on the whole object's SHA-256, storage targets for R2 and S3 with Object Lock, fan-out with read-back verification, browser and native clients). On fetch and WebCrypto for Node and Workers. An optional upgrade: forms takes its uploads through its own port. Part of the Genesis framework.
+
+**Barrel:** [`packages/media/src/index.ts`](../packages/media/src/index.ts)
+
+### Other exports (10)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`DEFAULT_WIDTHS`](../packages/media/src/image.ts) | const | — | The widths a `srcset` offers by default: phone to large desktop, high-density screens included. |
+| [`focalPosition`](../packages/media/src/image.ts) | function | — | `object-position` for a focal point, clamped to 0 to 100. |
+| [`isSafePlaceholder`](../packages/media/src/image.ts) | function | — | A placeholder that is safe to put in a style: a small base64 PNG, JPEG, WebP or GIF, nothing else. |
+| [`MAX_PLACEHOLDER`](../packages/media/src/image.ts) | const | — | The longest placeholder accepted: a blur preview is a few hundred bytes. |
+| [`passThroughImageUrl`](../packages/media/src/image.ts) | const | — | Serves every image at its own URL, with no `srcset`. The default. |
+| [`PHONE_MEDIA`](../packages/media/src/image.ts) | const | — | The media query under which a `phone` crop replaces the image. |
+| [`responsiveImage`](../packages/media/src/image.ts) | function | Beta | An image's attributes, sized for the layout it shows in. `value.src` and `value.phone.src` are used as given: check them (and put a site path under its base path) before calling. |
+| [`sniff`](../packages/media/src/sniff.ts) | function | — | The file's type and size, or null when it isn't one of those types. |
+| [`srcsetWidths`](../packages/media/src/image.ts) | function | — | The widths to offer for a file `width` wide: none past it, and the file's own width when a larger one was dropped. With `fixed` (the widths are fixed files, not resizes) the file's own width is never added: the builder would serve the ne... |
+| [`supabaseImageUrl`](../packages/media/src/image.ts) | function | Beta | Supabase Storage image transformations for public buckets: an image at `<url>/storage/v1/object/public/<bucket>/<path>` is served from `<url>/storage/v1/render/image/public/<bucket>/<path>?width=&quality=`. Supabase picks WebP for browse... |
+
+### Types (11)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FocalPoint };
+export type { ImageFormat };
+export type { ImageUrlBuilder };
+export type { ImageUrlOptions };
+export type { ImageValue };
+export type { PhoneCrop };
+export type { ResponsiveImage };
+export type { ResponsiveImageOptions };
+export type { ResponsiveSource };
+export type { Sniffed };
+export type { SupabaseImageUrlOptions };
+```
+
+---
+
+## @marktiderman/genesis-media/server
+
+**Barrel:** [`packages/media/src/server/index.ts`](../packages/media/src/server/index.ts)
+
+### Other exports (10)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`BlockedAddressError`](../packages/media/src/server/guard.ts) | class | — | _(no summary)_ |
+| [`createGuardedTransport`](../packages/media/src/server/fetch.ts) | function | Beta | A transport on Node's http(s) with `guardedLookup` as the socket's DNS lookup and a fresh agent (no pooled sockets, no proxy from the environment), so the address connected to is the address checked. |
+| [`fetchGuarded`](../packages/media/src/server/fetch.ts) | function | Beta | GET one URL through the guard, following at most `maxRedirects` checked redirects, and read its body under the size cap. Throws `FetchRefusedError` for anything the guard or the limits refuse; a network failure throws as it came. |
+| [`FetchRefusedError`](../packages/media/src/server/fetch.ts) | class | — | A fetch the guard refused, or a response that wasn't the file (a redirect too many, a non-200, too big). Its message is the reason, worded to follow "not fetched because" ("it redirects from https to http (cdn.example)."). It is safe to ... |
+| [`guardedLookup`](../packages/media/src/server/guard.ts) | function | — | A DNS lookup for sockets (`http.request({ lookup })`) that refuses a name if any address it resolves to isn't public. It runs when the connection is made, so the address checked is the address connected to. |
+| [`guardedTransport`](../packages/media/src/server/fetch.ts) | const | — | The default guarded transport. |
+| [`isPublicAddress`](../packages/media/src/server/guard.ts) | function | — | May a server connect to this address on an editor's say-so? True only for a public unicast IPv4 or IPv6 address; false for anything else, including text that isn't an address. |
+| [`readCapped`](../packages/media/src/server/fetch.ts) | function | — | A body read to the end, refused once it passes `maxBytes`. |
+| [`sniff`](../packages/media/src/sniff.ts) | function | — | The file's type and size, or null when it isn't one of those types. |
+| [`urlProblems`](../packages/media/src/server/guard.ts) | function | — | Problems with a URL a server is asked to fetch, before any connection: empty when it may try. |
+
+### Types (6)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FetchedResponse };
+export type { GuardedFetchOptions };
+export type { GuardedFetchResult };
+export type { GuardedTransportOptions };
+export type { Sniffed };
+export type { Transport };
+```
+
+---
+
+## @marktiderman/genesis-media/signed
+
+**Barrel:** [`packages/media/src/signed/index.ts`](../packages/media/src/signed/index.ts)
+
+### Other exports (17)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createBundleHandler`](../packages/media/src/signed/bundle.ts) | function | Experimental | A request handler that streams a bundle as a ZIP. The manifest id is the `id` argument, or else the path's last segment; the link must be signed for `mediaScope.bundle(id)` (403 otherwise, a malformed id included), and the manifest must ... |
+| [`createMediaSigner`](../packages/media/src/signed/signer.ts) | function | Experimental | The signer for media links. **Server-side only** (Node 20+ and Workers): the secret both signs and verifies, so it must never reach a browser, which only ever receives finished signed URLs. It never decides who may see what: the app chec... |
+| [`createMemoryStorage`](../packages/media/src/signed/storage.ts) | function | Experimental | A `MediaStorage` held in memory, for tests and examples. `reads` lists every key read with `get`, in order. |
+| [`createSignedImageUrls`](../packages/media/src/signed/images.ts) | function | Experimental | Signs every declared derivative of `items` and returns the `ImageUrlBuilder` that serves them, for `responsiveImage`: |
+| [`createSignedMediaHandler`](../packages/media/src/signed/handler.ts) | function | Experimental | A request handler that serves files behind signed links. It checks the link before it touches storage (so an unsigned request can't learn what exists), then streams the file: `GET` and `HEAD`, one byte range (206, or 416 when it can't be... |
+| [`createZipManifest`](../packages/media/src/signed/bundle.ts) | function | Experimental | A new bundle manifest with a random id. Store it as JSON where `readManifest` finds it, then sign `mediaScope.bundle(manifest.id)`. Throws a TypeError for an unsafe or duplicate entry path, or more than `MAX_ZIP_ENTRIES` entries. |
+| [`DEFAULT_MAX_SIGNED_ITEMS`](../packages/media/src/signed/images.ts) | const | — | The most items `createSignedImageUrls` signs in one call by default. |
+| [`DEFAULT_MEDIA_TTL`](../packages/media/src/signed/signer.ts) | const | — | How long a link of each scope lasts when `sign` isn't told: two hours for every kind. |
+| [`finishSizes`](../packages/media/src/signed/images.ts) | function | — | `finish × size` derivatives: `finishSizes("bw", [800, 2400])` is `bw/800` 800 wide and `bw/2400` 2400 wide. |
+| [`ifRangeMatches`](../packages/media/src/signed/handler.ts) | function | — | Whether an `If-Range` value still names the stored file (RFC 9110 §13.1.5): a strong ETag equal to the stored one, or an HTTP date equal to its last-modified second. A weak ETag never matches. |
+| [`MAX_MEDIA_TTL`](../packages/media/src/signed/signer.ts) | const | — | The longest link, in seconds: 30 days (a lab or video provider fetching over days). |
+| [`MAX_ZIP_ENTRIES`](../packages/media/src/signed/bundle.ts) | const | — | The most files a bundle holds. `client-zip` 2.5.1 writes the entry count into 16 bits without a ZIP64 count, so more would make a broken ZIP. |
+| [`mediaScope`](../packages/media/src/signed/scope.ts) | const | Experimental | The scopes a link can be signed for. |
+| [`mediaSrc`](../packages/media/src/signed/images.ts) | function | — | The `src` an app stores for a private item: `<collection>/<id>`. Neither part may be empty, `.` or `..`, or hold a slash, a backslash, NUL or a percent-escape (`%2e`): the media handler refuses those paths, so their links would only ever... |
+| [`MIN_MEDIA_TTL`](../packages/media/src/signed/signer.ts) | const | — | The shortest link, in seconds: one minute. |
+| [`parseRange`](../packages/media/src/signed/handler.ts) | function | — | The byte range a `Range` header asks for. `undefined`: serve the whole file (no header, a header this doesn't read, or several ranges); `"unsatisfiable"`: answer 416. |
+| [`parseSignedImagePath`](../packages/media/src/signed/images.ts) | function | — | The item and derivative a default derivative path names (`photos/a1/color/800`), or undefined. Use it in the handler's `route`, and check the derivative is one you declared: |
+
+### Types (25)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { BundleHandlerOptions };
+export type { CreateZipManifestInput };
+export type { ImageDerivative };
+export type { MediaItemRef };
+export type { MediaObject };
+export type { MediaObjectInfo };
+export type { MediaRange };
+export type { MediaRoute };
+export type { MediaRouteContext };
+export type { MediaScope };
+export type { MediaScopeKind };
+export type { MediaSecret };
+export type { MediaSignOptions };
+export type { MediaSigner };
+export type { MediaSignerOptions };
+export type { MediaStorage };
+export type { MediaToken };
+export type { MediaTokenInput };
+export type { MediaTtl };
+export type { MemoryObject };
+export type { SignedImageUrls };
+export type { SignedImageUrlsOptions };
+export type { SignedMediaHandlerOptions };
+export type { ZipManifest };
+export type { ZipManifestEntry };
+```
+
+---
+
+## @marktiderman/genesis-media/uploads
+
+**Barrel:** [`packages/media/src/uploads/index.ts`](../packages/media/src/uploads/index.ts)
+
+### Other exports (12)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`choosePartSize`](../packages/media/src/uploads/protocol.ts) | function | — | The part size for a file: at least `min`, large enough to keep the count at or under `MAX_PARTS`, rounded up to a whole MiB once it passes `min`, and never more than `max` (then the file is too big: undefined). |
+| [`createNobleSha256`](../packages/media/src/uploads/hash.ts) | const | — | The default: `@noble/hashes`. |
+| [`createSha256`](../packages/media/src/uploads/hash.ts) | const | — | The fastest incremental SHA-256 on this runtime: Node's, else `@noble/hashes`. |
+| [`formatContentDigest`](../packages/media/src/uploads/protocol.ts) | function | — | A `content-digest` value for a SHA-256 (RFC 9530): `sha-256=:<base64>:`. |
+| [`MAX_PARTS`](../packages/media/src/uploads/protocol.ts) | const | — | S3's limit, and every part protocol's: at most 10,000 parts. |
+| [`parseContentDigest`](../packages/media/src/uploads/protocol.ts) | function | — | The SHA-256 a `content-digest` header carries, as base64, or undefined (no sha-256 member, or malformed). |
+| [`partPlan`](../packages/media/src/uploads/protocol.ts) | function | — | How many parts a file of `size` has at `partSize`, and each one's size. |
+| [`SHA256_HEX`](../packages/media/src/uploads/protocol.ts) | const | — | _(no summary)_ |
+| [`sha256Bytes`](../packages/media/src/uploads/hash.ts) | function | — | A digest of bytes already in memory (one part): WebCrypto where there is one, else `@noble/hashes` (Hermes has no `crypto.subtle`). |
+| [`sha256Stream`](../packages/media/src/uploads/hash.ts) | function | — | Reads a stream to its end and returns its SHA-256 (hex) and its length: a Worker's `DigestStream` when there is one, else `createHash` (default the fastest here). Memory stays at one chunk. |
+| [`toBase64`](../packages/media/src/uploads/protocol.ts) | function | — | Bytes as standard base64. Written out rather than `btoa`, which not every Hermes build has. |
+| [`toHex`](../packages/media/src/uploads/protocol.ts) | function | — | Bytes as lowercase hex. |
+
+### Types (13)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { CreateSha256 };
+export type { CreateUploadBody };
+export type { FailedTarget };
+export type { FinalizeBody };
+export type { Sha256 };
+export type { UploadCopy };
+export type { UploadError };
+export type { UploadErrorCode };
+export type { UploadOwner };
+export type { UploadPart };
+export type { UploadSkipped };
+export type { UploadState };
+export type { UploadStatus };
+```
+
+---
+
+## @marktiderman/genesis-media/uploads/server
+
+**Barrel:** [`packages/media/src/uploads/server/index.ts`](../packages/media/src/uploads/server/index.ts)
+
+### Other exports (15)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createMemorySessionStore`](../packages/media/src/uploads/server/store.ts) | function | Experimental | Sessions in memory, for tests and a single process. @stability Experimental |
+| [`createSupabaseSessionStore`](../packages/media/src/uploads/server/supabase-store.ts) | function | Experimental | _(no summary)_ |
+| [`createUploadHandler`](../packages/media/src/uploads/server/handler.ts) | function | Experimental | The upload route: `(request) => Promise<Response>`. Every operation is bound to the owner that created the upload and asked of `authorize` again; another owner's upload, an unknown id and a lapsed session are the same 404. |
+| [`createUploadVerifyJob`](../packages/media/src/uploads/server/verify.ts) | function | Experimental | The `media.verify` job's handler, for genesis-supabase's `runJobs({ handlers: { [UPLOAD_VERIFY_JOB]: createUploadVerifyJob({ store, targets }) } })`. When another run holds the lease it asks to run again once the lease could have lapsed,... |
+| [`discardUnverified`](../packages/media/src/uploads/server/verify.ts) | function | — | Removes what an abandoned session left in its targets: its open multipart upload (or one marked verifying and never assembled), copies under way, and the objects it assembled that never verified (verified copies are media, kept under the... |
+| [`isSafeKey`](../packages/media/src/uploads/server/handler.ts) | function | — | A storage key every store keeps as it is: no empty, `.` or `..` segment, no control character. |
+| [`isStuckVerifying`](../packages/media/src/uploads/server/verify.ts) | function | — | Whether a `verifying` session is stuck: no live lease, and verifying for longer than `staleVerifyingSeconds`. |
+| [`safeName`](../packages/media/src/uploads/server/handler.ts) | function | — | A file name made safe for a storage key: one segment, no path, no control characters. For `keyFor`. |
+| [`SessionConflictError`](../packages/media/src/uploads/server/store.ts) | class | — | Another session already holds this key, or this owner's open session for this identity. |
+| [`SessionNotOpenError`](../packages/media/src/uploads/server/store.ts) | class | — | The session isn't open any more (it was finalized or aborted meanwhile). |
+| [`SessionStoreError`](../packages/media/src/uploads/server/supabase-store.ts) | class | — | A store failure (not a refusal): the handler answers 503 and its `onError` sees it. |
+| [`sweepExpiredUploads`](../packages/media/src/uploads/server/verify.ts) | function | Experimental | Clears sessions nobody will finish: open ones that lapsed (no part before `expiresAt`), and verifying ones that are stuck (no live lease, verifying for longer than `staleVerifyingSeconds`). Each is removed only while it is still in the s... |
+| [`UPLOAD_SWEEP_JOB`](../packages/media/src/uploads/server/verify.ts) | const | — | The job kind that aborts lapsed sessions in their targets. |
+| [`UPLOAD_VERIFY_JOB`](../packages/media/src/uploads/server/verify.ts) | const | — | The job kind that reads an upload's copies back. Payload `{ uploadId }`. |
+| [`verifyUpload`](../packages/media/src/uploads/server/verify.ts) | function | — | Assembles (when finalize hasn't yet), copies, reads back and locks an upload in `verifying`, and records what it found: `done`, `partial` (some targets failed; finalize again retries them) or `identity_mismatch` (the assembled object isn... |
+
+### Types (13)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { PartReservation };
+export type { ReadableObject };
+export type { SessionStoreClient };
+export type { StoredPart };
+export type { UploadAuthorizeContext };
+export type { UploadDecision };
+export type { UploadHandlerOptions };
+export type { UploadOperation };
+export type { UploadSession };
+export type { UploadSessionPatch };
+export type { UploadSessionStore };
+export type { UploadVerifyOptions };
+export type { VerifyRun };
+```
+
+---
+
+## @marktiderman/genesis-media/uploads/targets
+
+**Barrel:** [`packages/media/src/uploads/targets/index.ts`](../packages/media/src/uploads/targets/index.ts)
+
+### Other exports (6)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`copyBetweenTargets`](../packages/media/src/uploads/targets/target.ts) | function | — | Copies `key` (that version of it) from one target to another, a part at a time (one part in memory), as the multipart upload `uploadId` in `to` (started by the caller, who records it so a dead run can be aborted). How fan-out writes ever... |
+| [`createMemoryTarget`](../packages/media/src/uploads/targets/memory.ts) | function | Experimental | _(no summary)_ |
+| [`createR2Target`](../packages/media/src/uploads/targets/r2.ts) | function | Experimental | _(no summary)_ |
+| [`createS3Target`](../packages/media/src/uploads/targets/s3.ts) | function | Experimental | _(no summary)_ |
+| [`S3Error`](../packages/media/src/uploads/targets/s3.ts) | class | — | A store's refusal: its HTTP status and S3 error code. |
+| [`signS3Request`](../packages/media/src/uploads/targets/s3.ts) | function | — | The headers for one SigV4-signed request: the given ones plus `host`, `x-amz-date`, `x-amz-content-sha256` and `authorization`. The URL's path must already be encoded (each segment with RFC 3986 rules). |
+
+### Types (9)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AssembledObject };
+export type { MemoryTarget };
+export type { MemoryTargetOptions };
+export type { ObjectLock };
+export type { PartReceipt };
+export type { R2BucketLike };
+export type { S3RequestToSign };
+export type { S3TargetOptions };
+export type { UploadTarget };
+```
+
+---
+
+## @marktiderman/genesis-media/uploads/client
+
+**Barrel:** [`packages/media/src/uploads/client/index.ts`](../packages/media/src/uploads/client/index.ts)
+
+### Other exports (15)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`base64Utf8`](../packages/media/src/uploads/client/supabase-tus.ts) | function | — | Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). |
+| [`createIndexedDbResumeStore`](../packages/media/src/uploads/client/config.ts) | function | — | In the browser's IndexedDB: survives a reload, so closing the tab and coming back resumes the upload (the server's Resume says which parts it has). Entries lapse with their session; `clear()` forgets them all, for sign-out. Falls back to... |
+| [`createMemoryResumeStore`](../packages/media/src/uploads/client/config.ts) | function | — | In memory: survives a retry, not a reload. The default. |
+| [`createSpeedLimiter`](../packages/media/src/uploads/client/config.ts) | function | — | A speed cap shared by every part of every upload on one uploader, paced by bytes: each send takes its bytes from a bucket filling at `rate()` bytes a second (0 is no cap), and waits off any debt, so a part bigger than the bucket still av... |
+| [`createSupabaseTusTransport`](../packages/media/src/uploads/client/supabase-tus.ts) | function | Experimental | _(no summary)_ |
+| [`createUploader`](../packages/media/src/uploads/client/uploader.ts) | function | Experimental | _(no summary)_ |
+| [`createWorkerFileHasher`](../packages/media/src/uploads/client/worker-hasher.ts) | function | — | A `hashFile` for `createUploader` that hashes blobs in a Web Worker (one worker for every file, started on first use by `createWorker`). After the worker fails or goes silent once, its jobs and every later one are hashed in this thread. ... |
+| [`fromBlob`](../packages/media/src/uploads/client/sources.ts) | function | — | A browser `File` or `Blob`. |
+| [`fromBytes`](../packages/media/src/uploads/client/sources.ts) | function | — | Bytes already in memory. |
+| [`fromFileHandle`](../packages/media/src/uploads/client/sources.ts) | function | — | An open file. A read shorter than asked (anywhere but the end) means the file changed or can't be read: it throws rather than send a hole. |
+| [`hashBlob`](../packages/media/src/uploads/client/hash-core.ts) | function | — | Hashes a blob a slice at a time, telling `post` how far it got. |
+| [`isBrowserPage`](../packages/media/src/uploads/client/worker-hasher.ts) | const | — | Whether this is a browser page (a document and module workers): where hashing goes to a worker by default. |
+| [`TUS_CHUNK_BYTES`](../packages/media/src/uploads/client/supabase-tus.ts) | const | — | Supabase requires 6 MiB chunks for TUS (every chunk but the last). |
+| [`TusError`](../packages/media/src/uploads/client/supabase-tus.ts) | class | — | A TUS failure: `failure` says whether it is worth trying again. |
+| [`UploadClientError`](../packages/media/src/uploads/client/uploader.ts) | class | — | A refusal or failure the client won't retry on its own. |
+
+### Types (21)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { HashFile };
+export type { HashReply };
+export type { HashRequest };
+export type { IdbFactoryLike };
+export type { ReadableFileHandle };
+export type { RememberedUpload };
+export type { ResumeStore };
+export type { SupabaseTusOptions };
+export type { TusFailure };
+export type { TusRecord };
+export type { TusSource };
+export type { UploadHandle };
+export type { UploadOptions };
+export type { UploadPriority };
+export type { UploadProgress };
+export type { UploadResult };
+export type { UploadSource };
+export type { Uploader };
+export type { UploaderOptions };
+export type { WorkerFileHasherOptions };
+export type { WorkerLike };
+```
+
+---
+
+## @marktiderman/genesis-media/forms
+
+**Barrel:** [`packages/media/src/forms/index.ts`](../packages/media/src/forms/index.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createFormsUploadAdapter`](../packages/media/src/forms/index.ts) | function | Experimental | _(no summary)_ |
+
+### Types (4)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { FormsFileRef };
+export type { FormsUploadAdapter };
+export type { FormsUploadAdapterOptions };
+export type { FormsUploadField };
 ```
 
 ---
@@ -6947,7 +7494,7 @@ export type { SendContext };
 
 **Barrel:** [`packages/notifications/src/server/index.ts`](../packages/notifications/src/server/index.ts)
 
-### Other exports (42)
+### Other exports (46)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -6956,6 +7503,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cancelNotification`](../packages/notifications/src/server/notify.ts) | function | Beta | Stop what hasn't gone out for a type, tenant and idempotency key (a release rolled back, an event undone): every pending send job is marked cancelled and never claimed. A job already sent is left alone; one being sent right now ends canc... |
 | [`canonicalJson`](../packages/notifications/src/server/email-render.ts) | function | — | JSON with sorted keys: the same bytes however a database reordered them. |
 | [`checkSenderDomain`](../packages/notifications/src/server/dns.ts) | function | Beta | Checks ownership, SPF, DKIM and DMARC for `domain`. Record the result with `genesis_notifications_set_sender_dns(tenant, domain, token, ok ? 'verified' : 'failed', result)` with the same token, so a check made before the tenant changed i... |
+| [`createInboundEmailHandler`](../packages/notifications/src/server/inbound.ts) | function | Beta | The receiving webhook as a web-standard handler: 401 for an unsigned or stale request, 200 for anything handled or ignored, 502 when the message couldn't be fetched or a route threw (Resend retries). |
 | [`createNotificationRunner`](../packages/notifications/src/server/runner.ts) | function | Beta | The runner. |
 | [`createNotificationsHandler`](../packages/notifications/src/server/handler.ts) | function | Beta | The handler. |
 | [`createRateLimiter`](../packages/notifications/src/server/rate.ts) | function | Beta | _(no summary)_ |
@@ -6972,15 +7520,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`expoErrorCode`](../packages/notifications/src/server/expo.ts) | function | — | An Expo error code (`DeviceNotRegistered`), safe to store; anything else is `Unknown`. |
 | [`expoPushProvider`](../packages/notifications/src/server/expo.ts) | function | Beta | Expo's push service as a `PushProvider`. |
 | [`headerSafe`](../packages/notifications/src/server/email-render.ts) | function | — | A header value on one line: control characters and line separators become spaces; cut to `max`. |
+| [`inboundEmailOf`](../packages/notifications/src/server/inbound.ts) | function | — | Resend's received-email object as an `InboundEmail`; null when it has no usable sender. |
 | [`isReservedDomain`](../packages/notifications/src/server/dns.ts) | function | — | Whether `domain` is one of `reserved`, or under one. |
 | [`isRetryableStatus`](../packages/notifications/src/server/errors.ts) | function | — | Whether an HTTP status is worth retrying unchanged: 408, 425, 429 and 5xx. |
 | [`isSafeAddress`](../packages/notifications/src/server/email-render.ts) | function | — | A bare address safe as a header value. |
 | [`NotificationStoreError`](../packages/notifications/src/server/store.ts) | class | — | A database refusal, with its SQLSTATE; never the row it refused. |
 | [`notify`](../packages/notifications/src/server/notify.ts) | function | Beta | Queue a notification for each recipient. Resolves one result per recipient that exists (a deleted login is left out); the same idempotency key again (for the same type and tenant) resolves `created: false` and sends nothing more. |
+| [`parseAddress`](../packages/notifications/src/server/inbound.ts) | function | — | "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. |
 | [`refusedOutright`](../packages/notifications/src/server/expo.ts) | function | — | Expo refused the request itself (a 4xx other than 429): resend its messages one by one. |
 | [`REQUEST_TIMEOUT_MS`](../packages/notifications/src/server/errors.ts) | const | — | Every request gives up after this long. |
 | [`RESEND_API`](../packages/notifications/src/server/resend.ts) | const | — | _(no summary)_ |
 | [`RESEND_DEFAULT_PER_SECOND`](../packages/notifications/src/server/resend.ts) | const | — | Requests a second the provider starts by default: half Resend's default team limit (10). |
+| [`RESEND_RECEIVING_API`](../packages/notifications/src/server/inbound.ts) | const | — | _(no summary)_ |
 | [`resendProvider`](../packages/notifications/src/server/resend.ts) | function | Beta | Resend as an `EmailProvider`. |
 | [`resolveSecretLink`](../packages/notifications/src/server/secret-links.ts) | function | Beta | The secret link for one notification, built server-side at send time. Throws a `SecretLinkError` when there is no builder for `type` or it gives something other than an `https:` URL (`http:` only for localhost). |
 | [`retryAfterSeconds`](../packages/notifications/src/server/errors.ts) | function | — | Seconds from a Retry-After header (delta-seconds or an HTTP date), else `fallback`. 1 s to a day. |
@@ -6996,7 +7547,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`verifyUnsubscribeToken`](../packages/notifications/src/server/unsubscribe.ts) | function | — | The claims of a token this secret signed, or null for anything else. |
 | [`WEBHOOK_TOLERANCE_SECONDS`](../packages/notifications/src/server/webhook.ts) | const | — | How far a webhook's timestamp may be from now: five minutes, as Svix checks. |
 
-### Types (34)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7015,6 +7566,9 @@ export type { EmailTemplate };
 export type { EmailTemplateContext };
 export type { ExpoOptions };
 export type { HttpDeps };
+export type { InboundEmail };
+export type { InboundEmailHandlerOptions };
+export type { InboundEmailRoute };
 export type { NotificationRunner };
 export type { NotificationRunnerOptions };
 export type { NotificationStore };
@@ -7531,7 +8085,7 @@ Sites and landing pages for Genesis apps: a section registry with zod 4 schemas,
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (115)
+### Other exports (121)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7541,9 +8095,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`articleJsonLd`](../packages/sites/src/core/seo.ts) | function | — | `Article` JSON-LD for a blog post. |
 | [`ASSET_TYPES`](../packages/sites/src/core/store.ts) | const | — | The file types a site asset may be, as the database checks them: images and PDF. Never SVG or HTML, which a browser runs as a page. |
 | [`assetPath`](../packages/sites/src/core/store.ts) | function | — | The storage key for an upload: `sites/<siteId>/<id>-<name>` for an image, `sites/<siteId>/files/<id>-<name>` for a file to download (a PDF), so storage policies scope by site with `can_edit`. |
+| [`BodyFontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose for its body text: every choice but the display faces that have one weight. |
 | [`brandDisplayName`](../packages/sites/src/core/theme.ts) | function | — | The brand's display name: the minimal brand's `name`, a canonical brand's `displayName` or `name`. |
 | [`breadcrumbJsonLd`](../packages/sites/src/core/seo.ts) | function | — | The trail from the home page to `page`, through every ancestor path that is a page. |
 | [`BUILT_IN_SECTION_TYPES`](../packages/sites/src/core/registry.ts) | const | — | The built-in section kinds, which a host replaces only with `{ replace: true }`. |
+| [`checkAssetHosts`](../packages/sites/src/core/a11y.ts) | function | Beta | Images and files that load from somewhere other than the site itself or the store's asset origin: a warning, or an error when the site serves only its own (`images: "own"`), whose Content-Security-Policy would block them. |
 | [`checkBlog`](../packages/sites/src/core/a11y.ts) | function | — | The blog's rules: one post page, not the home page, with a post-body section; a post list needs a post page. |
 | [`checkContrast`](../packages/sites/src/core/a11y.ts) | function | — | Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring and primary borders and markers). |
 | [`checkHtmlOutline`](../packages/sites/src/core/a11y.ts) | function | — | A rendered page's outline, from its HTML: one `h1`, no skipped heading level, every `<img>` with an `alt` attribute. For tests and for hosts that want to audit what was actually served. |
@@ -7559,8 +8115,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
 | [`exampleBrands`](../packages/sites/src/core/examples.ts) | const | — | _(no summary)_ |
 | [`FileRef`](../packages/sites/src/core/schemas.ts) | const | — | A downloadable file (a PDF timetable, a waiver): a site path (an upload under `sites/<site_id>/files/`) or an https URL. `bytes` and `mime` say what the visitor is about to download. |
-| [`FONT_CHOICES`](../packages/sites/src/core/theme.ts) | const | — | The fonts a brand or site may choose. |
-| [`FontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose; see `FONT_CHOICES` in theme.ts for their stacks. |
+| [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
+| [`FontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose for its headings: genesis-design-system's `FONT_IDS` (see `FONT_CHOICES` for their stacks). |
+| [`fontFileKey`](../packages/design-system/src/fonts.ts) | const | — | The key of one font file (`inter-700`): what the asset table and the renderer name it by. |
 | [`formCacheTag`](../packages/sites/src/core/store.ts) | function | — | The cache tag of every page that embeds a form: purge it when the host changes that form. |
 | [`getSection`](../packages/sites/src/core/registry.ts) | function | — | _(no summary)_ |
 | [`hexToHslTriplet`](../packages/sites/src/core/theme.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's variables hold. |
@@ -7568,6 +8125,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
 | [`isReservedPath`](../packages/sites/src/core/urls.ts) | function | — | Is `path` reserved: equal to a reserved prefix, or under it (`/api`, `/api/x`, not `/apiary`)? |
@@ -7575,6 +8133,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
 | [`LinkEvent`](../packages/sites/src/core/schemas.ts) | const | — | An analytics event name for a link: `data-gs-event` on the page (default `cta` on buttons). |
@@ -7598,13 +8157,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`onePageSite`](../packages/sites/src/core/templates.ts) | function | Beta | The smallest site, for seeding a brand that has none: a header, a hero, a call to action and a footer. `brand` is the minimal brand to store beside it (the host's `BrandSource` returns it). |
 | [`opensInNewTab`](../packages/sites/src/core/schemas.ts) | const | — | Does this link open in a new tab? Only an http(s) link can. |
 | [`organizationJsonLd`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
-| [`PAGE_PATH`](../packages/sites/src/core/urls.ts) | const | — | A page's path: `/`, or lowercase segments of letters, digits and hyphens (`/about`, `/classes/strength`). No trailing slash, no dots, at most 8 segments and 200 characters. The database checks the same pattern. |
+| [`PAGE_PATH`](../packages/sites/src/core/urls.ts) | const | — | A page's path: `/`, or lowercase segments of letters, digits and hyphens (`/about`, `/services/repairs`). No trailing slash, no dots, at most 8 segments and 200 characters. The database checks the same pattern. |
 | [`PageDoc`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`PageKind`](../packages/sites/src/core/schemas.ts) | const | — | What a page is: an ordinary `page`, a focused `landing` page, or the `post` page: the template every blog post renders in. A site has at most one post page; at its own path (`/blog`) it is the blog's index, and at `/blog/<slug>` it shows... |
 | [`pageMeta`](../packages/sites/src/core/seo.ts) | function | — | Every meta value a page prints in its `<head>`. |
 | [`PagePath`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`pagePathProblems`](../packages/sites/src/core/urls.ts) | function | — | Problems with a page path, empty when it is fine. |
-| [`pageTitle`](../packages/sites/src/core/seo.ts) | function | — | The page's title with the site's template (`%s · Riverside Gym`), so every tab and search result names the site. An SEO title written for the page (`seo.title`) is used as it is. |
+| [`pageTitle`](../packages/sites/src/core/seo.ts) | function | — | The page's title with the site's template (`%s · Riverside Works`), so every tab and search result names the site. An SEO title written for the page (`seo.title`) is used as it is. |
 | [`parseHex`](../packages/sites/src/core/theme.ts) | function | — | `#abc` / `#aabbcc` → [r, g, b] (0–255). Throws on anything else. |
 | [`parseSnapshot`](../packages/sites/src/core/schemas.ts) | function | — | Read a stored snapshot page by page: a page that no longer parses (a schema this release tightened, a document written past the checks) is left out and reported, so one bad page doesn't take the whole site down. Null only when the site d... |
 | [`PostAuthor`](../packages/sites/src/core/posts.ts) | const | — | _(no summary)_ |
@@ -7634,6 +8193,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`sectionJsonSchema`](../packages/sites/src/core/registry.ts) | function | Beta | The JSON Schema of a section's props (`z.toJSONSchema`, input side), for the editor's fields and for validating AI output. Refinements (safe URLs) don't appear in JSON Schema; the zod schema still checks them on save. |
 | [`sectionManifests`](../packages/sites/src/core/registry.ts) | function | Beta | Every registered section as editor data (no renderers): the editor's catalog. @stability Beta |
 | [`SectionNode`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
+| [`SELF_HOSTED_FONTS`](../packages/design-system/src/fonts.ts) | const | — | Every self-hosted family, by its font choice id. |
 | [`Seo`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`SeoDefaults`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`siteCacheTag`](../packages/sites/src/core/store.ts) | function | — | The cache tag every response of a site carries (`Vercel-Cache-Tag`). |
@@ -7653,13 +8213,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`websiteJsonLd`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
 | [`withCacheInvalidation`](../packages/sites/src/core/store.ts) | function | Beta | A store that purges the site's cached pages after every publish and rollback: `invalidate` gets `["site:<id>"]` and what happened. |
 
-### Types (63)
+### Types (67)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AnySectionDefinition };
 export type { Asset };
+export type { AssetHostOptions };
 export type { AssetMeta };
 export type { BrandInput };
 export type { BrandSource };
@@ -7695,6 +8256,7 @@ export type { RegisterSectionOptions };
 export type { Release };
 export type { ReleaseMeta };
 export type { RenderContext };
+export type { RenderMedia };
 export type { ReservedPaths };
 export type { ResolvedForm };
 export type { RobotsInput };
@@ -7709,6 +8271,7 @@ export type { SectionPlacement };
 export type { SectionPreset };
 export type { SectionRenderProps };
 export type { SectionVariant };
+export type { SelfHostedFont };
 export type { SeoPageMeta };
 export type { SiteBrand };
 export type { SiteDocInput };
@@ -7716,6 +8279,7 @@ export type { SiteDraft };
 export type { SiteIssue };
 export type { SiteStore };
 export type { SiteTheme };
+export type { SiteThemeOptions };
 export type { SitemapInput };
 export type { TemplateInput };
 export type { TemplateMessage };
@@ -7729,7 +8293,7 @@ export type { ThemePair };
 
 **Barrel:** [`packages/sites/src/index.ts`](../packages/sites/src/index.ts)
 
-### Other exports (115)
+### Other exports (121)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -7739,9 +8303,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`articleJsonLd`](../packages/sites/src/core/seo.ts) | function | — | `Article` JSON-LD for a blog post. |
 | [`ASSET_TYPES`](../packages/sites/src/core/store.ts) | const | — | The file types a site asset may be, as the database checks them: images and PDF. Never SVG or HTML, which a browser runs as a page. |
 | [`assetPath`](../packages/sites/src/core/store.ts) | function | — | The storage key for an upload: `sites/<siteId>/<id>-<name>` for an image, `sites/<siteId>/files/<id>-<name>` for a file to download (a PDF), so storage policies scope by site with `can_edit`. |
+| [`BodyFontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose for its body text: every choice but the display faces that have one weight. |
 | [`brandDisplayName`](../packages/sites/src/core/theme.ts) | function | — | The brand's display name: the minimal brand's `name`, a canonical brand's `displayName` or `name`. |
 | [`breadcrumbJsonLd`](../packages/sites/src/core/seo.ts) | function | — | The trail from the home page to `page`, through every ancestor path that is a page. |
 | [`BUILT_IN_SECTION_TYPES`](../packages/sites/src/core/registry.ts) | const | — | The built-in section kinds, which a host replaces only with `{ replace: true }`. |
+| [`checkAssetHosts`](../packages/sites/src/core/a11y.ts) | function | Beta | Images and files that load from somewhere other than the site itself or the store's asset origin: a warning, or an error when the site serves only its own (`images: "own"`), whose Content-Security-Policy would block them. |
 | [`checkBlog`](../packages/sites/src/core/a11y.ts) | function | — | The blog's rules: one post page, not the home page, with a post-body section; a post list needs a post page. |
 | [`checkContrast`](../packages/sites/src/core/a11y.ts) | function | — | Colour pairs below their minimum (1.4.3 text, 1.4.11 focus ring and primary borders and markers). |
 | [`checkHtmlOutline`](../packages/sites/src/core/a11y.ts) | function | — | A rendered page's outline, from its HTML: one `h1`, no skipped heading level, every `<img>` with an `alt` attribute. For tests and for hosts that want to audit what was actually served. |
@@ -7757,8 +8323,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`escapeXml`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
 | [`exampleBrands`](../packages/sites/src/core/examples.ts) | const | — | _(no summary)_ |
 | [`FileRef`](../packages/sites/src/core/schemas.ts) | const | — | A downloadable file (a PDF timetable, a waiver): a site path (an upload under `sites/<site_id>/files/`) or an https URL. `bytes` and `mime` say what the visitor is about to download. |
-| [`FONT_CHOICES`](../packages/sites/src/core/theme.ts) | const | — | The fonts a brand or site may choose. |
-| [`FontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose; see `FONT_CHOICES` in theme.ts for their stacks. |
+| [`FONT_CHOICES`](../packages/design-system/src/fonts.ts) | const | — | The fonts a brand may choose. Every one but `system` is self-hosted. |
+| [`FontChoice`](../packages/sites/src/core/schemas.ts) | const | — | Fonts a site may choose for its headings: genesis-design-system's `FONT_IDS` (see `FONT_CHOICES` for their stacks). |
+| [`fontFileKey`](../packages/design-system/src/fonts.ts) | const | — | The key of one font file (`inter-700`): what the asset table and the renderer name it by. |
 | [`formCacheTag`](../packages/sites/src/core/store.ts) | function | — | The cache tag of every page that embeds a form: purge it when the host changes that form. |
 | [`getSection`](../packages/sites/src/core/registry.ts) | function | — | _(no summary)_ |
 | [`hexToHslTriplet`](../packages/sites/src/core/theme.ts) | function | — | `#4f46e5` → `243 75% 59%`: the HSL triplet genesis-ui's variables hold. |
@@ -7766,6 +8333,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Image`](../packages/sites/src/core/schemas.ts) | const | — | An image. `alt` describes it for someone who can't see it; an image that adds nothing (a texture) is `decorative: true` and gets an empty alt. The accessibility check refuses to publish an image with neither. |
 | [`isConflict`](../packages/sites/src/core/store.ts) | const | — | _(no summary)_ |
 | [`isExternalHref`](../packages/sites/src/core/urls.ts) | function | — | Is this an external (absolute) link, opened with `rel="noopener noreferrer"`? |
+| [`isOwnUrl`](../packages/sites/src/core/a11y.ts) | function | Beta | Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of `origins` (the store's asset origin)? |
 | [`isPlainEmail`](../packages/sites/src/core/forms.ts) | function | — | A plain email address (no display name, no `%` escapes, no header injection): what a `mailto` form may write to. |
 | [`isPublishable`](../packages/sites/src/core/a11y.ts) | const | — | _(no summary)_ |
 | [`isReservedPath`](../packages/sites/src/core/urls.ts) | function | — | Is `path` reserved: equal to a reserved prefix, or under it (`/api`, `/api/x`, not `/apiary`)? |
@@ -7773,6 +8341,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isSafeImageSrc`](../packages/sites/src/core/urls.ts) | function | — | Is this a URL an image may load from: a site path or an `https:` URL? |
 | [`isSiteBrand`](../packages/sites/src/core/theme.ts) | function | — | _(no summary)_ |
 | [`landingPage`](../packages/sites/src/core/templates.ts) | function | Beta | The one-click landing page: brand plus message, on one page. |
+| [`LATIN_UNICODE_RANGE`](../packages/design-system/src/fonts.ts) | const | — | The latin subset's `unicode-range`, so a page in another script falls back to the next font in the stack. |
 | [`Line`](../packages/sites/src/core/schemas.ts) | const | — | A short line of copy (a heading, a label). |
 | [`Link`](../packages/sites/src/core/schemas.ts) | const | — | A labelled link: a button, a menu entry, a footer link, an outbound booking link. |
 | [`LinkEvent`](../packages/sites/src/core/schemas.ts) | const | — | An analytics event name for a link: `data-gs-event` on the page (default `cta` on buttons). |
@@ -7796,13 +8365,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`onePageSite`](../packages/sites/src/core/templates.ts) | function | Beta | The smallest site, for seeding a brand that has none: a header, a hero, a call to action and a footer. `brand` is the minimal brand to store beside it (the host's `BrandSource` returns it). |
 | [`opensInNewTab`](../packages/sites/src/core/schemas.ts) | const | — | Does this link open in a new tab? Only an http(s) link can. |
 | [`organizationJsonLd`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
-| [`PAGE_PATH`](../packages/sites/src/core/urls.ts) | const | — | A page's path: `/`, or lowercase segments of letters, digits and hyphens (`/about`, `/classes/strength`). No trailing slash, no dots, at most 8 segments and 200 characters. The database checks the same pattern. |
+| [`PAGE_PATH`](../packages/sites/src/core/urls.ts) | const | — | A page's path: `/`, or lowercase segments of letters, digits and hyphens (`/about`, `/services/repairs`). No trailing slash, no dots, at most 8 segments and 200 characters. The database checks the same pattern. |
 | [`PageDoc`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`PageKind`](../packages/sites/src/core/schemas.ts) | const | — | What a page is: an ordinary `page`, a focused `landing` page, or the `post` page: the template every blog post renders in. A site has at most one post page; at its own path (`/blog`) it is the blog's index, and at `/blog/<slug>` it shows... |
 | [`pageMeta`](../packages/sites/src/core/seo.ts) | function | — | Every meta value a page prints in its `<head>`. |
 | [`PagePath`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`pagePathProblems`](../packages/sites/src/core/urls.ts) | function | — | Problems with a page path, empty when it is fine. |
-| [`pageTitle`](../packages/sites/src/core/seo.ts) | function | — | The page's title with the site's template (`%s · Riverside Gym`), so every tab and search result names the site. An SEO title written for the page (`seo.title`) is used as it is. |
+| [`pageTitle`](../packages/sites/src/core/seo.ts) | function | — | The page's title with the site's template (`%s · Riverside Works`), so every tab and search result names the site. An SEO title written for the page (`seo.title`) is used as it is. |
 | [`parseHex`](../packages/sites/src/core/theme.ts) | function | — | `#abc` / `#aabbcc` → [r, g, b] (0–255). Throws on anything else. |
 | [`parseSnapshot`](../packages/sites/src/core/schemas.ts) | function | — | Read a stored snapshot page by page: a page that no longer parses (a schema this release tightened, a document written past the checks) is left out and reported, so one bad page doesn't take the whole site down. Null only when the site d... |
 | [`PostAuthor`](../packages/sites/src/core/posts.ts) | const | — | _(no summary)_ |
@@ -7832,6 +8401,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`sectionJsonSchema`](../packages/sites/src/core/registry.ts) | function | Beta | The JSON Schema of a section's props (`z.toJSONSchema`, input side), for the editor's fields and for validating AI output. Refinements (safe URLs) don't appear in JSON Schema; the zod schema still checks them on save. |
 | [`sectionManifests`](../packages/sites/src/core/registry.ts) | function | Beta | Every registered section as editor data (no renderers): the editor's catalog. @stability Beta |
 | [`SectionNode`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
+| [`SELF_HOSTED_FONTS`](../packages/design-system/src/fonts.ts) | const | — | Every self-hosted family, by its font choice id. |
 | [`Seo`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`SeoDefaults`](../packages/sites/src/core/schemas.ts) | const | — | _(no summary)_ |
 | [`siteCacheTag`](../packages/sites/src/core/store.ts) | function | — | The cache tag every response of a site carries (`Vercel-Cache-Tag`). |
@@ -7851,13 +8421,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`websiteJsonLd`](../packages/sites/src/core/seo.ts) | function | — | _(no summary)_ |
 | [`withCacheInvalidation`](../packages/sites/src/core/store.ts) | function | Beta | A store that purges the site's cached pages after every publish and rollback: `invalidate` gets `["site:<id>"]` and what happened. |
 
-### Types (63)
+### Types (67)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { AnySectionDefinition };
 export type { Asset };
+export type { AssetHostOptions };
 export type { AssetMeta };
 export type { BrandInput };
 export type { BrandSource };
@@ -7893,6 +8464,7 @@ export type { RegisterSectionOptions };
 export type { Release };
 export type { ReleaseMeta };
 export type { RenderContext };
+export type { RenderMedia };
 export type { ReservedPaths };
 export type { ResolvedForm };
 export type { RobotsInput };
@@ -7907,6 +8479,7 @@ export type { SectionPlacement };
 export type { SectionPreset };
 export type { SectionRenderProps };
 export type { SectionVariant };
+export type { SelfHostedFont };
 export type { SeoPageMeta };
 export type { SiteBrand };
 export type { SiteDocInput };
@@ -7914,6 +8487,7 @@ export type { SiteDraft };
 export type { SiteIssue };
 export type { SiteStore };
 export type { SiteTheme };
+export type { SiteThemeOptions };
 export type { SitemapInput };
 export type { TemplateInput };
 export type { TemplateMessage };
@@ -7936,7 +8510,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`Anchor`](../packages/sites/src/sections/shared.tsx) | const | — | An in-page anchor (`#contact`): lowercase letters, digits and hyphens. |
 | [`builtInSections`](../packages/sites/src/sections/index.ts) | const | — | The built-in sections, in the editor's order. |
 | [`ButtonLink`](../packages/sites/src/sections/shared.tsx) | function | — | A link drawn as a button: at least 44px tall, with the focus ring. |
-| [`CHIP_TONES`](../packages/sites/src/sections/schedule.tsx) | const | — | How a class type's chip is drawn, from the brand's own colours. |
+| [`CHIP_TONES`](../packages/sites/src/sections/schedule.tsx) | const | — | How a session type's chip is drawn, from the brand's own colours. |
 | [`fileDescription`](../packages/sites/src/sections/shared.tsx) | function | — | "PDF, 1.2 MB": what a download is, said beside its link. |
 | [`fileHref`](../packages/sites/src/sections/shared.tsx) | function | — | A file's href: checked again, under the base path when it is a site path. Null when it isn't safe. |
 | [`formatPostDate`](../packages/sites/src/sections/blog-list.tsx) | function | — | A post's date as the page says it, in UTC so every visitor sees the same day. |
@@ -7954,7 +8528,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SectionTitle`](../packages/sites/src/sections/shared.tsx) | function | — | The section's title, at the level the page gives it (h1 for the page's main heading). |
 | [`SiteFormHeader`](../packages/sites/src/sections/form-header.tsx) | function | — | _(no summary)_ |
 | [`siteFormSlots`](../packages/sites/src/sections/form-header.tsx) | const | — | _(no summary)_ |
-| [`SiteImage`](../packages/sites/src/sections/shared.tsx) | function | — | An image with alt text (empty when decorative), its size to stop layout shift, and lazy loading below the fold. |
+| [`SiteImage`](../packages/sites/src/sections/shared.tsx) | function | — | An image with alt text (empty when decorative), its size to stop layout shift, a `srcset` through the host's image URL builder, the focal point as `object-position`, a phone crop as a `<picture>` source, and lazy loading except for the p... |
 | [`TextLink`](../packages/sites/src/sections/shared.tsx) | function | — | A text link: underlined, at least 24px tall (WCAG 2.5.8). |
 | [`titleId`](../packages/sites/src/sections/shared.tsx) | const | — | _(no summary)_ |
 | [`WEEKDAYS`](../packages/sites/src/sections/schedule.tsx) | const | — | _(no summary)_ |
@@ -7982,17 +8556,19 @@ export type { Weekday };
 | --- | --- | --- | --- |
 | [`SiteRenderer`](../packages/sites/src/web/document.tsx) | `SiteRendererProps` | Beta | The document for one page. |
 
-### Other exports (6)
+### Other exports (8)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
+| `ASSET_SIZES` | value | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| [`googleFontHref`](../packages/sites/src/web/document.tsx) | const | — | _(no summary)_ |
+| `FONT_FILES` | value | — | _(no summary)_ |
+| [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
+| [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |
 | [`renderSitePageToString`](../packages/sites/src/web/handler.ts) | function | Beta | One page as an HTML string (tests, static export, the editor's preview frame). |
 
 ### Types (2)
@@ -8087,7 +8663,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`safeSectionId`](../packages/sites/src/editor/data.ts) | function | — | A section id the schema accepts (1–64 letters, digits, `-`, `_`). Puck makes ids for dragged-in and duplicated sections from the component name and a UUID; the same id always maps to the same safe one, so saves stay stable. |
 | [`sectionFields`](../packages/sites/src/editor/fields.ts) | function | Beta | Every field of a section: its layout (variant) first, then its props from the JSON Schema, then where it shows. |
 | [`sectionTypeOf`](../packages/sites/src/editor/data.ts) | const | — | The section type a Puck component name stands for. |
-| [`slugify`](../packages/sites/src/editor/site-actions.ts) | function | — | A page's title as a path segment: "Our classes" → "/our-classes". |
+| [`slugify`](../packages/sites/src/editor/site-actions.ts) | function | — | A page's title as a path segment: "Our services" → "/our-services". |
 | [`toEditorData`](../packages/sites/src/editor/data.ts) | function | — | A page (and its site's header and footer) as the editor's Puck data. |
 | [`uploadProblem`](../packages/sites/src/editor/asset-picker.tsx) | function | — | Why an upload can't be used (or null). |
 | `usePuck` | value | — | _(no summary)_ |
@@ -8133,15 +8709,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`BlockedAddressError`](../packages/sites/src/import/guard.ts) | class | — | _(no summary)_ |
-| [`guardedLookup`](../packages/sites/src/import/guard.ts) | function | — | A DNS lookup for sockets (`http.request({ lookup })`) that refuses a name if any address it resolves to isn't public. It runs when the connection is made, so the address checked is the address connected to. |
+| [`BlockedAddressError`](../packages/media/src/server/guard.ts) | class | — | _(no summary)_ |
+| [`guardedLookup`](../packages/media/src/server/guard.ts) | function | — | A DNS lookup for sockets (`http.request({ lookup })`) that refuses a name if any address it resolves to isn't public. It runs when the connection is made, so the address checked is the address connected to. |
 | [`guardedTransport`](../packages/sites/src/import/index.ts) | const | — | The default transport: Node's http(s) with `guardedLookup` as the socket's DNS lookup and a fresh agent (no pooled sockets, no proxy from the environment), so the address connected to is the address checked. |
 | [`importAssets`](../packages/sites/src/import/index.ts) | function | Beta | Re-host remote images and files on a site: fetch, check, store, and map each old URL to its new one. A URL that fails (refused by the guard, not an image or PDF, too big, a server error) is listed in `failed` and the rest go on. |
-| [`isPublicAddress`](../packages/sites/src/import/guard.ts) | function | — | May a server connect to this address on an editor's say-so? True only for a public unicast IPv4 or IPv6 address; false for anything else, including text that isn't an address. |
+| [`isPublicAddress`](../packages/media/src/server/guard.ts) | function | — | May a server connect to this address on an editor's say-so? True only for a public unicast IPv4 or IPv6 address; false for anything else, including text that isn't an address. |
 | [`MAX_IMPORT_URLS`](../packages/sites/src/import/index.ts) | const | — | The most URLs one `importAssets` call fetches (one at a time, each with its own time limit). |
 | [`rewriteUrls`](../packages/sites/src/import/index.ts) | function | — | A copy of a document (a page, a post, a site) with every string that is exactly an old URL in `map` replaced by its new one: image sources, file links, rich text links. Nothing else changes. |
-| [`sniff`](../packages/sites/src/import/sniff.ts) | function | — | The file's type and size, or null when it isn't one a site stores. |
-| [`urlProblems`](../packages/sites/src/import/guard.ts) | function | — | Problems with a URL a server is asked to fetch, before any connection: empty when it may try. |
+| [`sniff`](../packages/media/src/sniff.ts) | function | — | The file's type and size, or null when it isn't one of those types. |
+| [`urlProblems`](../packages/media/src/server/guard.ts) | function | — | Problems with a URL a server is asked to fetch, before any connection: empty when it may try. |
 
 ### Types (6)
 
@@ -8154,6 +8730,32 @@ export type { ImportAssetsResult };
 export type { ImportedAsset };
 export type { Sniffed };
 export type { Transport };
+```
+
+---
+
+## @marktiderman/genesis-sites/templates
+
+**Barrel:** [`packages/sites/src/templates/index.ts`](../packages/sites/src/templates/index.ts)
+
+### Other exports (5)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`fitness`](../packages/sites/src/templates/fitness.ts) | const | — | A functional fitness gym's presets and sample data. |
+| [`forgeDesignSystem`](../packages/sites/src/templates/design-systems.ts) | const | — | Forge: bold and athletic. Poster-sized headings (up to 112px, capitals in a condensed face), square corners and 2px edges, a cool ground, crisp photos with a little grain, and lively motion. For a strength gym or a training box. |
+| [`industryDesignSystems`](../packages/sites/src/templates/design-systems.ts) | const | — | Every industry design system in this library. |
+| [`industryTemplates`](../packages/sites/src/templates/index.ts) | const | — | Every template in this package, by id. |
+| [`studioDesignSystem`](../packages/sites/src/templates/design-systems.ts) | const | — | Studio: calm. A warm ground, generous space, rounded corners, soft shadows, light headings that never shout (no display step bigger than an h1), warm photos and calm motion. For a yoga or Pilates studio. |
+
+### Types (1)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { IndustryTemplate };
 ```
 
 ---
@@ -8353,7 +8955,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (17)
+### Other exports (18)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8363,6 +8965,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`APPLE_REVOKE_FUNCTION`](../packages/supabase/src/apple-tokens.ts) | const | — | The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. |
 | [`createGenesisSupabase`](../packages/supabase/src/index.ts) | function | Beta | A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not tokens in a redirect URL, with an S256 challenge: pass `crypto` on native), a persisted session that refreshes itself, and the session storage you pass. |
 | [`deleteMyAccount`](../packages/supabase/src/index.ts) | function | Beta | In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and native: calls the `delete_my_account` RPC (this package's `migrations/0001_genesis_account_deletion.sql`), which deletes the login and, through the app's `on delet... |
+| [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureGateState`](../packages/supabase/src/feature-registry.ts) | function | Beta | A tenant's switches, entitlements and flag values: `feature_gate_state`. Works with a signed-in person's client (for tenants they belong to; their own person entitlements are included) or the service key. Throws a `SupabaseQueryError` (`... |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
@@ -8460,13 +9063,14 @@ export type { WipeOnReinstallOptions };
 
 **Barrel:** [`packages/supabase/src/blocks.ts`](../packages/supabase/src/blocks.ts)
 
-### Other exports (5)
+### Other exports (6)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`accountBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The account block: sign-in, profile and in-app account deletion. Its screens are the app's (or genesis-ui-native's `AuthScreen`); this names its migrations and its data. |
+| [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
@@ -8508,6 +9112,34 @@ export type { NamedJob };
 export type { RunJobsOptions };
 export type { RunJobsReport };
 export type { VerifyJobRequestOptions };
+```
+
+---
+
+## @marktiderman/genesis-supabase/events
+
+**Barrel:** [`packages/supabase/src/events.ts`](../packages/supabase/src/events.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createEventsSink`](../packages/supabase/src/events.ts) | function | Beta | The tracker as a genesis-native observability sink (structurally: an object with `name`, `event` and `flush`), so typed events reach the app's own table. |
+| [`createEventTracker`](../packages/supabase/src/events.ts) | function | Beta | A batching tracker for the app's own events. |
+
+### Types (6)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { EventTracker };
+export type { EventTrackerOptions };
+export type { EventValue };
+export type { EventsClient };
+export type { EventsSinkOptions };
+export type { TrackOptions };
 ```
 
 ---
@@ -8621,7 +9253,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (36)
+### Other exports (38)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8639,6 +9271,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createSupportClient`](../packages/support/src/client.ts) | function | — | The support client over the app's Supabase client. |
 | [`defineSupportBlock`](../packages/support/src/block.ts) | function | — | The platform-neutral declaration. |
 | [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migration `0001_genesis_support_chat.sql` from this package, after... |
+| [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_REPORT_TYPES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
@@ -8656,6 +9289,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SUPPORT_CHAT_BLOCK_ID`](../packages/support/src/chat.ts) | const | — | The block's FeatureId. |
 | [`SUPPORT_CHAT_KIND`](../packages/support/src/chat.ts) | const | — | The genesis_chat kind a report's conversation is, and its subject type. |
 | [`SUPPORT_CHAT_SUBJECT`](../packages/support/src/chat.ts) | const | — | _(no summary)_ |
+| [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
@@ -8833,6 +9467,170 @@ export type { SupportBlock };
 export type { SupportOptions };
 export type { ViewShotLike };
 ```
+
+---
+
+## @marktiderman/genesis-support/email
+
+**Barrel:** [`packages/support/src/email.ts`](../packages/support/src/email.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`runSupportEmail`](../packages/support/src/email.ts) | function | Beta | Sends the queued staff replies on email tickets. Returns how many were sent and failed; a failed one is queued again (up to 5 attempts). Never throws for one email. |
+| [`supportEmailRoute`](../packages/support/src/email.ts) | function | Beta | A route that files support email as tickets. It takes an email when one of its recipients is a support address or a ticket's reply address, or (with `threads`) when it answers an email. |
+
+### Types (6)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { ReceivedEmail };
+export type { RunSupportEmailOptions };
+export type { SupportEmailClient };
+export type { SupportEmailMessage };
+export type { SupportEmailProvider };
+export type { SupportEmailRouteOptions };
+```
+
+---
+
+## @marktiderman/genesis-switchboard
+
+Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/switchboard/README.md + SWITCHBOARD.md.
+
+**Barrel:** [`packages/switchboard/src/index.ts`](../packages/switchboard/src/index.ts)
+
+### Other exports (30)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+
+### Types (43)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { Adapter };
+export type { AirtableAdapterConfig };
+export type { AirtableResourceMap };
+export type { Binding };
+export type { CodeAdapterOptions };
+export type { DataRow };
+export type { DescribeResult };
+export type { DriftReport };
+export type { EnvironmentBinding };
+export type { FeatureRow };
+export type { FetchLike };
+export type { FieldBinding };
+export type { FieldDrift };
+export type { FieldSchema };
+export type { FieldType };
+export type { Level };
+export type { MergeBinding };
+export type { ModelReconcileReport };
+export type { ModelReconcileSummary };
+export type { NotionAdapterConfig };
+export type { NotionPropertyMap };
+export type { NotionPropertyType };
+export type { NotionResourceMap };
+export type { PromoteOptions };
+export type { PromoteResult };
+export type { ProviderKind };
+export type { QueryOptions };
+export type { ReconcileModelOptions };
+export type { ResolvedPlan };
+export type { ResourceBinding };
+export type { ResourceClient };
+export type { ResourceContract };
+export type { ResourceReconcile };
+export type { RowDrift };
+export type { StaleReadInfo };
+export type { SupabaseAdapterConfig };
+export type { SupabaseClientLike };
+export type { SupabaseQueryBuilder };
+export type { SupabaseResourceMap };
+export type { SwitchboardContract };
+export type { TicketRow };
+export type { Tier };
+export type { ValueDrift };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/gitdata
+
+**Barrel:** [`packages/switchboard/src/gitdata.ts`](../packages/switchboard/src/gitdata.ts)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+
+### Types (3)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AttachGitdataOptions };
+export type { GitdataAdapterConfig };
+export type { GitdataResourceMap };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/data-provider
+
+**Barrel:** [`packages/switchboard/src/data-provider.ts`](../packages/switchboard/src/data-provider.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
@@ -9398,7 +10196,7 @@ export type { ViewMode };
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
 
-### Other exports (23)
+### Other exports (27)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9427,8 +10225,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`toHslTriplet`](../packages/ui/src/components/layout/brand-theme.ts) | function | — | The Genesis token shape: `"160 84% 39%"`, for `hsl(var(--x))`. |
 | [`useAppShellSubNav`](../packages/ui/src/components/layout/sub-nav.tsx) | function | Beta | Give the shell this page's child items (sub-navigation) while the page is mounted. They replace the current `NavigationNode`'s `items`; pass `null` / `undefined` to fall back to them (a `mode` still applies). When several components call... |
+| [`WORKSPACE_SWITCHER_PARTS`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | Every part, in document order; see {@link WorkspaceSwitcherPart}. |
+| [`WORKSPACE_SWITCHER_SCOPE`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | The value of every part's `data-scope`. |
+| [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
+| [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (23)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9455,6 +10257,18 @@ export type { SplitRatio };
 export type { SubNavItem };
 export type { SubNavMode };
 export type { UseAppShellSubNavOptions };
+export type { WorkspaceSwitcherAction };
+export type { WorkspaceSwitcherBadgeProps };
+export type { WorkspaceSwitcherClassNames };
+export type { WorkspaceSwitcherEmptyProps };
+export type { WorkspaceSwitcherImageProps };
+export type { WorkspaceSwitcherItemProps };
+export type { WorkspaceSwitcherPart };
+export type { WorkspaceSwitcherSearchProps };
+export type { WorkspaceSwitcherShortcuts };
+export type { WorkspaceSwitcherSlotMap };
+export type { WorkspaceSwitcherSlotProps };
+export type { WorkspaceSwitcherSlots };
 export type { WorkspaceSwitcherVariant };
 ```
 

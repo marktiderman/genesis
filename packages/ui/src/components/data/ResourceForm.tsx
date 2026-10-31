@@ -28,6 +28,7 @@ import {
   type UseResourceFormOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { showUndoToast, showWriteErrorToast } from "./undo-toast";
+import { compact } from "./compact";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 import { WizardForm } from "./WizardForm";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
@@ -42,33 +43,33 @@ import { AlertTriangle } from "lucide-react";
 export interface ResourceFormProps {
   resource: string;
   action: "create" | "edit";
-  item?: Record<string, unknown>;
+  item?: Record<string, unknown> | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** The title, over everything else. */
-  title?: string;
+  title?: string | undefined;
   /**
    * What one record is called ("goal"): the title reads "New goal" / "Edit goal" (the UI
    * catalogue's `form`). Without it the title is built from `resource`, as before.
    */
   noun?: string;
-  fields?: ResourceFormFieldDef[];
+  fields?: ResourceFormFieldDef[] | undefined;
   /** Full dataset used to auto-detect select fields from unique values. */
   listData?: Record<string, unknown>[];
-  renderForm?: (
+  renderForm?: ((
     form: UseFormReturn<Record<string, unknown>>,
     fields: ResourceFormFieldDef[],
-  ) => ReactNode;
+  ) => ReactNode) | undefined;
   onSuccess?: (data: Record<string, unknown>) => void;
-  onError?: (error: Error) => void;
+  onError?: ((error: Error) => void) | undefined;
   /** Layout mode for the form container. Default "dialog". */
   layout?: "dialog" | "sheet" | "page";
   /** Form presentation mode. Default "standard". */
-  mode?: "standard" | "wizard";
+  mode?: "standard" | "wizard" | undefined;
   /** Wizard step definitions. Required when mode is "wizard". */
-  steps?: WizardStep[];
+  steps?: WizardStep[] | undefined;
   /** Number of columns for the form layout. Default 1. */
-  columns?: 1 | 2;
+  columns?: 1 | 2 | undefined;
   /**
    * Pre-fill a create form from the page URL: a query param named like a
    * field (`?status=draft`) becomes that field's starting value. Default
@@ -105,7 +106,7 @@ export interface ResourceFormProps {
    * after `undoDelayMs` unless undone (or at once, undone by the provider,
    * when it serves `undo`). Needs a mounted `<Toaster />`.
    */
-  mutationMode?: MutationMode;
+  mutationMode?: MutationMode | undefined;
   /** How long an `undoable` save waits for an undo, in ms. Default 5000. */
   undoDelayMs?: number;
   /** Replaces the undo toast. */
@@ -131,15 +132,15 @@ function FormBody({
 }: {
   form: UseFormReturn<Record<string, unknown>>;
   resolvedFields: ResourceFormFieldDef[];
-  renderForm?: ResourceFormProps["renderForm"];
+  renderForm?: ResourceFormProps["renderForm"] | undefined;
   action: "create" | "edit";
   isSaving: boolean;
   isLoading: boolean;
   onOpenChange: (open: boolean) => void;
   handleSave: (data: Record<string, unknown>) => Promise<void>;
-  mode?: "standard" | "wizard";
-  steps?: WizardStep[];
-  columns?: 1 | 2;
+  mode?: "standard" | "wizard" | undefined;
+  steps?: WizardStep[] | undefined;
+  columns?: 1 | 2 | undefined;
 }) {
   // Only watch all values when conditional fields exist (performance optimization)
   const hasConditionalFields = resolvedFields.some((f: ResourceFormFieldDef) => f.visible || f.disabled);
@@ -348,10 +349,14 @@ export function ResourceForm(props: ResourceFormProps) {
     ? fillMessage(action === "create" ? m.form.createDescription : m.form.editDescription, { noun })
     : `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`;
 
-  const hookOptions: UseResourceFormOptions = {
+  // `compact`: some settings are `undefined` here, which useResourceForm reads as absent. The type
+  // argument keeps the literal checked against the hook's options, so a misspelled key is an error.
+  const hookOptions: UseResourceFormOptions = compact<{
+    [K in keyof UseResourceFormOptions]: UseResourceFormOptions[K] | undefined;
+  }>({
     resource,
     action,
-    id: item ? String(item.id ?? "") : undefined,
+    id: item ? String(item["id"] ?? "") : undefined,
     initialData: item ?? undefined,
     fields: fieldsProp,
     listData,
@@ -370,7 +375,7 @@ export function ResourceForm(props: ResourceFormProps) {
     mutationMode,
     undoDelayMs,
     onUndoable: onUndoable ?? showUndoToast,
-  };
+  });
 
   const { form, resolvedFields, handleSave, isSaving, isLoading, isDirty, confirmLeave } =
     useResourceForm(hookOptions);

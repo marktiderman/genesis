@@ -195,13 +195,13 @@ export type ResourcePageSlotProps<
  */
 export interface ResourceDeleteConfirmCopy<T> {
   /** Default "Delete this record?". A function receives the row. */
-  title?: string | ((item: T) => string);
+  title?: (string | ((item: T) => string)) | undefined;
   /** Default "This can't be undone." */
-  description?: ReactNode | ((item: T) => ReactNode);
+  description?: (ReactNode | ((item: T) => ReactNode)) | undefined;
   /** Default "Delete". */
-  confirmLabel?: string;
+  confirmLabel?: string | undefined;
   /** Default "Cancel". */
-  cancelLabel?: string;
+  cancelLabel?: string | undefined;
 }
 
 export interface ResourcePageProps<
@@ -209,7 +209,7 @@ export interface ResourcePageProps<
 > {
   // Data source — one or the other
   /** Client-side mode: resource name passed to useResource / DataProvider. */
-  resource?: string;
+  resource?: string | undefined;
   /** Server-data mode: pre-fetched data array. */
   data?: T[];
   /**
@@ -251,7 +251,7 @@ export interface ResourcePageProps<
    *   server orders by `resourceOptions.defaultSort`; search, sort and
    *   filters in the toolbar act on the rows loaded so far.
    */
-  pagination?: "client" | "server" | "cursor";
+  pagination?: "client" | "server" | "cursor" | undefined;
   /**
    * `pagination="client"` only: the most rows fetched. Default 1000. An
    * explicit `resourceOptions.defaultPerPage` wins. Keep it at or under the
@@ -263,11 +263,11 @@ export interface ResourcePageProps<
   // Page chrome
   title: string;
   /** Page subtitle shown below the title. */
-  subtitle?: string;
-  icon?: LucideIcon;
+  subtitle?: string | undefined;
+  icon?: LucideIcon | undefined;
 
   // Columns — optional, string shorthand supported
-  columns?: Array<string | ResourceColumnDef<T>>;
+  columns?: Array<string | ResourceColumnDef<T>> | undefined;
 
   /**
    * A row's identity, for React keys and bulk selection. Defaults to
@@ -282,8 +282,8 @@ export interface ResourcePageProps<
   /** How row-click detail is shown. Default "panel". */
   detail?: "panel" | "modal" | "route" | "none";
   detailWidth?: "sm" | "md" | "lg";
-  titleField?: string;
-  subtitleField?: string;
+  titleField?: string | undefined;
+  subtitleField?: string | undefined;
   /**
    * Name a record from more than one field (`${first} ${last}`). Wins over
    * `titleField` for the detail title and the card's accessible name.
@@ -299,7 +299,7 @@ export interface ResourcePageProps<
   detailFields?: Array<{
     key: string;
     label: string;
-    render?: (value: unknown, item: T) => ReactNode;
+    render?: ((value: unknown, item: T) => ReactNode) | undefined;
   }>;
 
   // Filters
@@ -313,11 +313,11 @@ export interface ResourcePageProps<
    * reaching the server. In server-controlled mode a status change also
    * resets to page 1 via `onPageChange(1)` — see {@link onPageChange}.
    */
-  statusFilter?: string | { field: string; options?: string[] };
-  searchFields?: string[];
-  searchPlaceholder?: string;
-  initialFilters?: FilterParam[];
-  onFiltersChange?: (filters: FilterParam[]) => void;
+  statusFilter?: (string | { field: string; options?: string[] }) | undefined;
+  searchFields?: string[] | undefined;
+  searchPlaceholder?: string | undefined;
+  initialFilters?: FilterParam[] | undefined;
+  onFiltersChange?: ((filters: FilterParam[]) => void) | undefined;
   /**
    * Extra multi-select filter comboboxes, handed straight to `DataFilters`
    * and rendered beside the status chips. Each config owns its own
@@ -337,7 +337,7 @@ export interface ResourcePageProps<
    *   A caller using them is expected to filter its own `data` (or ask the
    *   server to), exactly as it already does in server-controlled mode.
    */
-  filters?: DataFilterConfig[];
+  filters?: DataFilterConfig[] | undefined;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Server-controlled list (opt-in, additive)
@@ -440,7 +440,7 @@ export interface ResourcePageProps<
    * loading skeleton instead of the (as yet meaningless) `data`. Ignored in
    * client-side mode, where `useResource`'s own loading state is used.
    */
-  loading?: boolean;
+  loading?: boolean | undefined;
   /**
    * Server-data mode: the caller's fetch failed, so render the shell's error
    * panel instead of an empty table. Takes effect even when `data` is
@@ -467,12 +467,12 @@ export interface ResourcePageProps<
 
   // ── Saved views — passed straight through to DataFilters ──
   /** Saved filter views to offer. Pair with `useSavedViews` for per-user storage. */
-  savedViews?: SavedViewItem[];
-  onLoadView?: (filters: Record<string, unknown>) => void;
-  onSaveView?: (name: string) => void;
-  onDeleteView?: (id: string) => void;
+  savedViews?: SavedViewItem[] | undefined;
+  onLoadView?: ((filters: Record<string, unknown>) => void) | undefined;
+  onSaveView?: ((name: string) => void) | undefined;
+  onDeleteView?: ((id: string) => void) | undefined;
   /** Show the "save current view" affordance. */
-  canSaveViews?: boolean;
+  canSaveViews?: boolean | undefined;
 
   /**
    * What the data source can do. A control it can't serve is hidden rather
@@ -484,23 +484,23 @@ export interface ResourcePageProps<
 
   // ── Table chrome — passed straight through to DataTable ──
   /** Show the column-visibility dropdown. DataTable's default is `true`. */
-  columnVisibility?: boolean;
+  columnVisibility?: boolean | undefined;
   /** Persist key for the user's column-visibility picks. */
-  columnVisibilityKey?: string;
+  columnVisibilityKey?: string | undefined;
   /** Allow drag-resizing columns. DataTable's default is `true`. */
-  resizableColumns?: boolean;
+  resizableColumns?: boolean | undefined;
   /** Persist key for the user's column widths. */
-  resizeKey?: string;
+  resizeKey?: string | undefined;
   /** Keep the table header visible while scrolling. DataTable's default is `true`. */
-  stickyHeader?: boolean;
+  stickyHeader?: boolean | undefined;
   /** Keep the first column visible while scrolling horizontally. */
-  stickyFirstColumn?: boolean;
+  stickyFirstColumn?: boolean | undefined;
   /**
    * Page-size choices offered by `DataTable`'s own pager. Client-side mode
    * only — server-controlled mode switches that pager off. (The header's
    * view-settings popover has its own fixed 10/25/50/100 list.)
    */
-  pageSizeOptions?: number[];
+  pageSizeOptions?: number[] | undefined;
 
   // CRUD — presence enables the action
   onCreate?: () => void;
@@ -568,7 +568,7 @@ export interface ResourcePageProps<
    * Extra header actions beyond the create button, in one overflow menu.
    * See {@link PageHeaderAction} — the budget is one primary, the rest here.
    */
-  secondaryActions?: PageHeaderAction[];
+  secondaryActions?: PageHeaderAction[] | undefined;
 
   // Built-in form support (Phase 2)
   /** Enable built-in create form (ignored if onCreate callback is provided). */
@@ -587,10 +587,10 @@ export interface ResourcePageProps<
   /** Field definitions for the built-in form. */
   formFields?: ResourceFormFieldDef[];
   /** Custom form renderer — receives form instance and resolved fields. */
-  renderForm?: (
+  renderForm?: ((
     form: UseFormReturn<Record<string, unknown>>,
     fields: ResourceFormFieldDef[],
-  ) => ReactNode;
+  ) => ReactNode) | undefined;
 
   /** Form presentation mode. Default "standard". */
   formMode?: "standard" | "wizard";
@@ -604,13 +604,13 @@ export interface ResourcePageProps<
    * toast). See ResourceForm `mutationMode`. `resourceOptions.mutationMode`
    * wins for deletes.
    */
-  mutationMode?: MutationMode;
+  mutationMode?: MutationMode | undefined;
 
   // Bulk actions
   bulkActions?: Array<{
     label: string;
-    icon?: LucideIcon;
-    variant?: "default" | "destructive";
+    icon?: LucideIcon | undefined;
+    variant?: "default" | "destructive" | undefined;
     onAction: (ids: string[]) => void | Promise<void>;
     /**
      * Forwarded straight to the rendered bulk button (see `BulkAction`).
@@ -618,9 +618,9 @@ export interface ResourcePageProps<
      * in flight — an early return inside `onAction` blocks the second call
      * but leaves the button looking live, which misstates what it will do.
      */
-    disabled?: boolean;
+    disabled?: boolean | undefined;
     /** `data-testid` on the rendered bulk button, so e2e can drive it. */
-    testId?: string;
+    testId?: string | undefined;
   }>;
 
   // Grid/list rendering + keyboard nav
@@ -683,7 +683,7 @@ export interface ResourcePageProps<
    * `DataGrid`'s `gridCols` — e.g. `"grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"`.
    * Defaults to DataGrid's own responsive 1/2/3/4-column ramp.
    */
-  gridCols?: string;
+  gridCols?: string | undefined;
   /**
    * Built-in list keyboard navigation via `useKeyboardNavigation`: j/k (or
    * Arrow Up/Down) move a focus cursor, Enter opens the focused item,
@@ -735,7 +735,7 @@ export interface ResourcePageProps<
    *   search in the URL, say);
    * - `keyboardNavigation={false}`, since j/k shortcuts belong to the page.
    */
-  variant?: "page" | "embedded";
+  variant?: "page" | "embedded" | undefined;
 
   /**
    * Imperative navigation used only when `detail="route"` (navigates to

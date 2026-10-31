@@ -8,6 +8,13 @@
  * Split a href into its path (trailing slash dropped, except for `/`), query
  * (no `?`) and hash (no `#`).
  */
+/** `path` without its trailing slashes, in one linear pass (a regex can backtrack on many slashes). */
+function trimTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path.charCodeAt(end - 1) === 47) end--;
+  return path.slice(0, end);
+}
+
 function splitHref(href: string): { path: string; search: string; hash: string } {
   const hashAt = href.indexOf("#");
   const hash = hashAt === -1 ? "" : href.slice(hashAt + 1);
@@ -15,7 +22,7 @@ function splitHref(href: string): { path: string; search: string; hash: string }
   const searchAt = beforeHash.indexOf("?");
   const rawPath = searchAt === -1 ? beforeHash : beforeHash.slice(0, searchAt);
   return {
-    path: rawPath.length > 1 ? rawPath.replace(/\/+$/, "") || "/" : rawPath,
+    path: rawPath.length > 1 ? trimTrailingSlashes(rawPath) || "/" : rawPath,
     search: searchAt === -1 ? "" : beforeHash.slice(searchAt + 1),
     hash,
   };

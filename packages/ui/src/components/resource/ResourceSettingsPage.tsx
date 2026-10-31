@@ -19,9 +19,9 @@ export function SettingsSection({
 }: {
   /** The jump link's target. */
   id?: string | undefined;
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   title: ReactNode;
-  description?: ReactNode;
+  description?: ReactNode | undefined;
   children?: ReactNode;
   className?: string | undefined;
 }) {
@@ -69,8 +69,8 @@ export function SettingsSection({
 export interface ResourceSettingsSection {
   id: string;
   title: string;
-  icon?: ReactNode;
-  description?: ReactNode;
+  icon?: ReactNode | undefined;
+  description?: ReactNode | undefined;
   /** The rows. Absent: a jump link only, to `#id` elsewhere on the page (or `onSelect`). */
   content?: ReactNode;
   /** For a link-only section whose target has no id: scroll to it yourself. */

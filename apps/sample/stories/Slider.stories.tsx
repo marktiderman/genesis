@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Slider } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Slider> = {
-  title: "UI/Slider",
+  title: "Foundation/UI/Slider",
   component: Slider,
   parameters: { layout: "centered" },
 };

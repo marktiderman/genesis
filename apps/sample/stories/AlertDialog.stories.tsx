@@ -13,7 +13,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof AlertDialog> = {
-  title: "UI/AlertDialog",
+  title: "Foundation/UI/AlertDialog",
   component: AlertDialog,
 };
 export default meta;

@@ -9,7 +9,7 @@ export interface FormPageProps
   /** Page title. Rendered as the page's single `<h1>`. */
   title: React.ReactNode;
   /** Supporting copy under the title — what this form is for. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /**
    * Validation summary. Rendered in a destructive `Alert` above the fields
    * when set, so the summary announces itself (`role="alert"`) and sits
@@ -24,7 +24,7 @@ export interface FormPageProps
    */
   actions?: React.ReactNode;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { genesisBrand } from "@marktiderman/genesis-design-system";
+import { brandRoleVariables, genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
 import { useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
@@ -67,6 +67,29 @@ function Clients() {
 }
 
 describe("GenesisNativeApp", () => {
+  it("sets no role variables by default, so the app's own :root variables stand", async () => {
+    setup({ brand: { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e" } } });
+    await settle();
+    expect(screen.getByTestId("screens")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-brand-variables")).toBeNull();
+  });
+
+  it("brandVariables: true sets the brand's role variables around the app; an object sets the app's own", async () => {
+    const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e", light: "#99f6e4", dark: "#134e4a" } };
+    const read = () => Object.assign({}, ...(JSON.parse(screen.getByTestId("genesis-brand-variables").dataset.style!) as Array<Record<string, string>>)) as Record<string, string>;
+    const { unmount } = setup({ brand, brandVariables: true });
+    await settle();
+    expect(read()["--primary"]).toBe(brandRoleVariables(brand).light["--primary"]);
+    expect(read()["--primary"]).toBe("175.3 77.4% 26.1%"); // accent.DEFAULT, never the `light` tint
+    expect(screen.getByTestId("genesis-brand-variables").contains(screen.getByTestId("screens"))).toBe(true);
+    unmount();
+
+    setup({ brand, brandVariables: { "--primary": "1 2% 3%" } });
+    await settle();
+    expect(read()).toMatchObject({ "--primary": "1 2% 3%" });
+    expect(read()["--background"]).toBeUndefined();
+  });
+
   it("holds the splash until the steps and the session are done, then shows the screens", async () => {
     let finish!: () => void;
     const { splash } = setup({

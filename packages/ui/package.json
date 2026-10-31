@@ -44,7 +44,8 @@
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json"
+    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
+    "typecheck:strict": "tsc -p tsconfig.strict.json"
   },
   "exports": {
     ".": {
@@ -112,6 +113,7 @@
       "import": "./dist/router/tanstack-router.js"
     },
     "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json",
     "./accessible-icon": {
       "types": "./dist/components/ui/accessible-icon.d.ts",
       "import": "./dist/components/ui/accessible-icon.js"
@@ -462,7 +464,7 @@
     "react-resizable-panels": "^2.0.0",
     "react-router": "8.5.0",
     "recharts": "^2.15.0",
-    "sonner": "^1.0.0",
+    "sonner": "^2.0.8",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vaul": "^1.0.0",
@@ -493,6 +495,10 @@
     }
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "owner": "@marktiderman",
+    "essential": true,
     "doctor": {
       "prefer": [
         {
@@ -518,12 +524,13 @@
               "ResourceView",
               "RecordView",
               "ResourceWorkspace"
-            ]
+            ],
+            "pattern": "^(?=[\\s\\S]*<KanbanBoard\\b)(?=[\\s\\S]*\\buseResource(?:View|Table)\\s*[<(])(?![\\s\\S]*<(?:DataTable|DataGrid|DataList|ResourcePage)\\b)"
           },
           "use": "a view (defineView from @marktiderman/genesis-core/resource-view) rendered by <ResourceView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
-          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView."
+          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A KanbanBoard over a list is fine when the same file feeds it from useResourceView or useResourceTable and renders no other forbidden list (the exemption is file-wide, so a DataTable beside it flags both)."
         },
         {
           "id": "records-use-record-view",

@@ -46,7 +46,27 @@ export interface AiContext<Db = unknown> {
   db: Db;
   /** Free for the app: roles, a gate snapshot, a request id. Never read by the pipeline. */
   meta?: Record<string, unknown> | undefined;
+  /**
+   * Who started the call: the person (default), an agent acting for them, or the system (a job,
+   * a schedule). `personId` is still whose rights and budget it runs on. On the span and in the
+   * audit trail.
+   */
+  actor?: AiActor | undefined;
+  /** The run this call is a step of, when it is one (an agent run, a job). On the span. */
+  runId?: string | undefined;
+  /** The conversation it belongs to (a genesis-chat conversation id). `gen_ai.conversation.id` on the span. */
+  conversationId?: string | undefined;
 }
+
+/** Who started a call. @see AiContext.actor */
+export type AiActor = "person" | "agent" | "system";
+
+/**
+ * The version of the definition format (tasks today; tools and agents next), apart from the
+ * package's version: a definition written for spec 1 keeps its meaning while the package moves.
+ */
+export const AI_SPEC = 1;
+export type AiSpec = typeof AI_SPEC;
 
 /** One layer of context a task's `load` used. Recorded on the usage row; never the content. */
 export interface ContextLayerRecord {
@@ -103,6 +123,8 @@ export type Loaded = Record<string, unknown>;
  * Clients send the task id and `args` (ids only); everything the model reads comes from `load`.
  */
 export interface TaskDefinition<Args = unknown, L extends Loaded = Loaded, Out = unknown, Db = unknown> {
+  /** The definition format it is written for. `defineTask` sets it; only {@link AI_SPEC} is accepted. */
+  spec?: AiSpec | undefined;
   id: string;
   /** Bumped on any prompt change; recorded on every usage row. */
   version: number;
@@ -175,6 +197,10 @@ export interface BeginInput {
   budgetExempt: boolean;
   /** A call on the tenant's or the person's own key is recorded but doesn't spend the platform budget. */
   keySource: KeySource;
+  /** From the context, for a store that records them; the built-in stores ignore them for now. */
+  actor?: AiActor | undefined;
+  runId?: string | undefined;
+  conversationId?: string | undefined;
 }
 
 export interface FinishInput {
@@ -201,12 +227,27 @@ export interface VendorKey {
  * person's own key for a vendor, else their tenant's, else null (the platform's key is used).
  * `memoryStore()` is for tests and local work; `supabaseStore()` uses the genesis_ai schema.
  */
-export interface AiStore {
+export interface AiStore extends ConsentStore, BudgetStore, UsageStore, Partial<KeyStore> {}
+
+/** Has the person agreed to share with a vendor? One port of {@link AiStore}. */
+export interface ConsentStore {
   /** `policyVersion`: when set, consent counts only if it was given to that version of the text. */
   hasConsent(personId: string, vendor: AiVendor, policyVersion?: string): Promise<boolean>;
+}
+
+/** Admits a call within the budget and the open-call limit, or returns null. One port of {@link AiStore}. */
+export interface BudgetStore {
   begin(input: BeginInput): Promise<BeganCall | null>;
+}
+
+/** Writes a call's usage row and returns its id. One port of {@link AiStore}. */
+export interface UsageStore {
   finish(input: FinishInput): Promise<string>;
-  keyFor?(input: { tenantId: string | null; personId: string; vendor: AiVendor }): Promise<VendorKey | null>;
+}
+
+/** The person's own key for a vendor, else their tenant's, else null. One port of {@link AiStore}. */
+export interface KeyStore {
+  keyFor(input: { tenantId: string | null; personId: string; vendor: AiVendor }): Promise<VendorKey | null>;
 }
 
 /** One span for the trace, with OpenTelemetry GenAI attribute names. Never content. */

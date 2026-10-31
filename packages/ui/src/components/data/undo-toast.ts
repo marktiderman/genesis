@@ -42,7 +42,7 @@ export function showWriteErrorToast(error: Error): void {
 export function writeModeOptions(
   resourceOptions: { mutationMode?: MutationMode; onUndoable?: (write: UndoableWrite) => void; onError?: (error: Error) => void } | undefined,
   mutationMode: MutationMode | undefined,
-): { mutationMode: MutationMode; onUndoable: (write: UndoableWrite) => void; onError?: (error: Error) => void } {
+): { mutationMode: MutationMode; onUndoable: (write: UndoableWrite) => void; onError?: ((error: Error) => void) | undefined } {
   const mode = resourceOptions?.mutationMode ?? mutationMode ?? "pessimistic";
   return {
     mutationMode: mode,

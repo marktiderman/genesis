@@ -60,8 +60,30 @@
  * with the same shape for 2+ consecutive minor versions.
  */
 
-/** Rem-based length pattern shared with brand.schema.json. Matches "0", "1rem", "0.5rem", etc. */
-const LENGTH_REGEX = /^(?:0|\d+(?:\.\d+)?rem)$/;
+import { validateDesignSystemChoice, type DesignSystemChoice } from "../design-systems/define";
+
+/**
+ * Length pattern shared with brand.schema.json: "0", a rem ("1rem",
+ * "0.5rem"), or a fluid size as a clamp of rems and one vw term, in that
+ * order: `clamp(3rem, 1.6667rem + 5.9259vw, 7rem)` (the intercept may be
+ * negative). Nothing else: no px, no percentages, no other functions, so a
+ * value can't carry anything but a length. Native reads a clamp's minimum.
+ */
+const REM = "\\d+(?:\\.\\d+)?rem";
+const LENGTH_REGEX = new RegExp(`^(?:0|${REM}|clamp\\(${REM}, ?-?${REM} \\+ \\d+(?:\\.\\d+)?vw, ?${REM}\\))$`);
+
+/** A clamp's min and max, in rem; undefined for a plain length. */
+export function clampBounds(value: string): { min: number; max: number } | undefined {
+  const m = /^clamp\((\d+(?:\.\d+)?)rem, ?-?\d+(?:\.\d+)?rem \+ \d+(?:\.\d+)?vw, ?(\d+(?:\.\d+)?)rem\)$/.exec(value);
+  return m ? { min: Number(m[1]), max: Number(m[2]) } : undefined;
+}
+
+/** Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. */
+export function isLength(value: string): boolean {
+  if (!LENGTH_REGEX.test(value)) return false;
+  const b = clampBounds(value);
+  return !b || b.min <= b.max;
+}
 
 // ---------------------------------------------------------------------------
 // ColorScale: the shape of every entry in `extensions`.
@@ -237,6 +259,15 @@ export interface CanonicalBrand {
     web?: Partial<PlatformOverridable>;
     native?: Partial<PlatformOverridable>;
   };
+
+  /**
+   * The design system the brand uses (`{ id: "crisp@1" }`), plus up to
+   * three choices from fixed lists: `density`, `corners` and `motion`.
+   * `themeFromBrand` resolves the id (built-in, or registered with
+   * `registerDesignSystem`) and adds its tokens. Unset: `classic@1`, which
+   * adds none.
+   */
+  designSystem?: DesignSystemChoice;
 }
 
 // ---------------------------------------------------------------------------
@@ -395,6 +426,7 @@ const ALLOWED_TOP_LEVEL_KEYS = new Set([
   "shadow",
   "gradient",
   "platformOverrides",
+  "designSystem",
 ]);
 
 const ALLOWED_STATUS_KEYS = new Set([
@@ -469,9 +501,9 @@ function validateLengthRecord(
       errors.push(`${path}.${k}: expected non-empty string`);
       continue;
     }
-    if (!LENGTH_REGEX.test(v)) {
+    if (!isLength(v)) {
       errors.push(
-        `${path}.${k}: expected rem length matching ${LENGTH_REGEX} (e.g., "1rem", "0.5rem", "0")`
+        `${path}.${k}: expected rem length matching ${LENGTH_REGEX} (e.g., "1rem", "0.5rem", "0", or "clamp(1rem, 0.9rem + 0.4vw, 1.25rem)" with min ≤ max)`
       );
     }
   }
@@ -526,9 +558,9 @@ function validateTypography(value: unknown, path: string): string[] {
           );
           continue;
         }
-        if (!LENGTH_REGEX.test(v)) {
+        if (!isLength(v)) {
           errors.push(
-            `${path}.fontSize.${k}: expected rem length matching ${LENGTH_REGEX} (e.g., "1rem", "0.5rem", "0")`
+            `${path}.fontSize.${k}: expected rem length matching ${LENGTH_REGEX} (e.g., "1rem", "0.5rem", "0", or "clamp(1rem, 0.9rem + 0.4vw, 1.25rem)" with min ≤ max)`
           );
         }
       }
@@ -861,6 +893,10 @@ export function validateBrand(input: unknown): BrandValidationResult {
         "brand.platformOverrides"
       )
     );
+  }
+
+  if (b.designSystem !== undefined) {
+    errors.push(...validateDesignSystemChoice(b.designSystem, "brand.designSystem"));
   }
 
   return { ok: errors.length === 0, errors };

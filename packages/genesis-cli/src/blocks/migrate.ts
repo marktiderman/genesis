@@ -15,8 +15,10 @@ import { localPackageNames } from "./local.js";
 import { readPackageFile } from "./files.js";
 import { readLock, writeLock } from "./lock.js";
 import { GENESIS_PACKAGE } from "./manifest.js";
-import { applyMigrationPlan, needsAttention, planMigrations, readAppMigrations, validHeaderFile, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { applyMigrationPlan, needsAttention, planMigrations, readAppMigrations, rememberMigrationCopies, validHeaderFile, type MigrationPlan, type SourceMigration } from "./migrations.js";
 import { recordOwned, sourceMigrations } from "./add.js";
+import { createApp } from "./files.js";
+import { NOTIFICATIONS_PACKAGE, planNotificationTypes } from "./notification-types.js";
 
 export interface MigrateOptions {
   root: string;
@@ -26,6 +28,8 @@ export interface MigrateOptions {
   /** Write a forward migration stub for each edited or changed-upstream copy. */
   forward?: boolean;
   now?: Date;
+  /** The app's defineNotifications registry (default: genesis.config.json notifications.registry). Loading it runs app code; never on a dry run. */
+  notifications?: string;
 }
 
 export interface MigrateReport {
@@ -34,6 +38,8 @@ export interface MigrateReport {
   warnings: string[];
   /** True when something needs a person: an edited, changed or unreadable migration. */
   attention: boolean;
+  /** The notification types migration created (or, in a dry run, that would be). */
+  notificationTypes?: string;
 }
 
 export async function runMigrate(options: MigrateOptions): Promise<MigrateReport> {
@@ -71,12 +77,29 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   }
   if (!ids.length && !sources.length) warnings.push("No blocks in genesis.lock.json and no copied package migrations: nothing to compare. Add a block (genesis add <block>), or pass --block.");
 
-  const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}) });
+  const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}), ...(lock.migrations ? { copied: lock.migrations } : {}) });
   // An edited or changed copy that a forward migration already carries is handled.
   const attention = plan.rows.some(needsAttention);
-  if (options.dryRun) return { plan, written: [], warnings, attention };
+  // The notifications block: mirror the registry's types in a migration of their own, after this run's.
+  const notifies = ids.some((id) => (lock.blocks[id]?.package ?? (id === "notifications" ? NOTIFICATIONS_PACKAGE : "")) === NOTIFICATIONS_PACKAGE);
+  const types = notifies
+    ? await planNotificationTypes(root, {
+        ...(options.notifications ? { registry: options.notifications } : {}),
+        now: options.now ?? new Date(),
+        pending: plan.creates.filter((c) => c.kind !== "test").map((c) => c.path.split("/").pop()!),
+        ...(options.dryRun ? { dryRun: true } : {}),
+      })
+    : undefined;
+  warnings.push(...(types?.warnings ?? []));
+  const notificationTypes = types?.create ? { notificationTypes: types.create.path } : {};
+  if (options.dryRun) return { plan, written: [], warnings, attention, ...notificationTypes };
   const written = applyMigrationPlan(root, plan);
+  if (types?.create) {
+    createApp(root, types.create.path, types.create.content);
+    written.push(types.create.path);
+  }
   for (const c of plan.creates) if (c.kind === "test" && c.source) recordOwned(lock, c.path, `${c.source.package}:${c.source.file}`, c.content, root, c.source.package);
-  if (plan.creates.some((c) => c.kind === "test")) writeLock(root, lock);
-  return { plan, written, warnings, attention };
+  const remembered = rememberMigrationCopies(lock, plan);
+  if (remembered || plan.creates.some((c) => c.kind === "test")) writeLock(root, lock);
+  return { plan, written, warnings, attention, ...notificationTypes };
 }

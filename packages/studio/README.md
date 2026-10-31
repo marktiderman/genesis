@@ -1,6 +1,6 @@
 # @marktiderman/genesis-studio
 
-**Genesis Data Studio**, the workspace UI: a sidebar of the tables the signed-in user may see, and a
+**Genesis Data Studio**, the editor UI: a sidebar of the tables the signed-in user may see, and a
 sheet of the selected one where a cell is edited in place. Every save is checked against the
 version of the row it was read at and committed with its audit entry, and the outcome is on screen:
 "Saved", with the audit entry, or "Not saved" and why.

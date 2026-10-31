@@ -61,8 +61,8 @@ export type SubNavMode = "section" | "tabs" | "sidebar" | "off";
  * @stability Beta
  */
 export interface SubNavItem extends Omit<NavItem, "icon" | "children"> {
-  icon?: LucideIcon;
-  children?: SubNavItem[];
+  icon?: LucideIcon | undefined;
+  children?: SubNavItem[] | undefined;
   /**
    * Leave this item out of the phone bar (it stays in the tab row, the
    * sidebar and the rail). The phone bar fits back plus about four items:
@@ -133,7 +133,7 @@ function BadgeChip({ badge, active }: { badge: string | number; active?: boolean
 export interface SubNavTabsProps {
   items: SubNavItem[];
   /** Current location (`pathname + search + hash`); drives the active tab. */
-  activePath?: string;
+  activePath?: string | undefined;
   linkComponent: LinkComponent;
   isActive?: (to: string, activePath?: string) => boolean;
   /** Right-aligned slot in the row, e.g. a "Ready to publish" chip. */
@@ -219,8 +219,8 @@ export function SubNavTabs({
 
 interface PageSubNav {
   /** Absent: this registrant only sets a mode; items come from elsewhere. */
-  items?: SubNavItem[];
-  mode?: SubNavMode;
+  items?: SubNavItem[] | undefined;
+  mode?: SubNavMode | undefined;
 }
 
 interface Registration extends PageSubNav {
@@ -371,7 +371,7 @@ function itemsKey(items: SubNavItem[]): string {
  */
 export interface UseAppShellSubNavOptions {
   /** This page's `subNav` mode; wins over the shell's and the node's. */
-  mode?: SubNavMode;
+  mode?: SubNavMode | undefined;
 }
 
 /**

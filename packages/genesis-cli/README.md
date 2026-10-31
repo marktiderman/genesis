@@ -49,11 +49,25 @@ function's secrets, apply the migration. Options: `--host next|supabase-function
 DATABASE_URL=postgres://… npx @marktiderman/genesis-cli introspect
 ```
 
-Writes `resources.genesis.ts`, a checked-in contract for the Data Studio: every table in the
+With no flags it follows the app's `doctor.contracts` settings (`out`, `schemas`,
+`databaseEnv`), so it rewrites the file the doctor's `contracts-stale` check reads, from the same
+schemas: without `contracts.schemas`, the ones the existing contract's `// Source:` line names.
+`-o`, `-s` and `--database-env` override them; paths are relative to the app's root, where you run
+the command. With `--openapi`, only a single configured schema carries over (else `public`).
+
+Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for the Data Studio: every table in the
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
-table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). Review it like code, and pass `contracts` to `createStudioHandler`. It
+table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). A read-only view
+that joins tables has no key the catalog can see: name it in the view's comment,
+`@genesis {"key": "id"}` (or a list of columns, no repeats; one that differs from a primary key
+is used, with a warning). A foreign key is a link when it's one column, or a composite key whose
+other columns reference their namesakes and whose own column references a column unique on its own
+(the primary key or a unique index): the tenant-safe `(gallery_id, org_id) references galleries
+(id, org_id)` makes `gallery_id` a link to galleries, while `(doc_id, version) references
+doc_versions (id, version)` is not a link.
+PostgREST's OpenAPI notes single-column keys only, so `--openapi` links those alone. Review it like code, and pass `contracts` to `createStudioHandler`. It
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 
@@ -160,6 +174,100 @@ Then:
 - A local package keeps package shape, so publishing it later (GitHub Packages or npm) needs no
   restructuring.
 
+### Overlays
+
+An **overlay** is a local package that shadows a published `@marktiderman/genesis-*` package by
+name: the package's source, copied into the app at a release, so the app can change it and ship
+the change the same day. Put it in a package folder of its own (`packages/genesis-support`), list it
+in `localPackages` like any local package, and mark it in its package.json, keeping the package's
+own `genesis` key:
+
+```json
+{
+  "name": "@marktiderman/genesis-support",
+  "version": "0.2.6+local.1",
+  "private": true,
+  "genesis": {
+    "doctor": { "…": "the package's own declaration" },
+    "overlay": {
+      "upstream": "@marktiderman/genesis-support@0.2.6",
+      "since": "2026-10-30",
+      "owner": "web team",
+      "reason": "inbox filters; to promote upstream"
+    }
+  }
+}
+```
+
+- `upstream`: the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`,
+  a prerelease allowed; no build metadata and no `-local.N`, which are an overlay's own versions).
+- `since`: the day the overlay was made, `YYYY-MM-DD`, not later than tomorrow.
+- `private: true`: an overlay never publishes.
+- `owner`, `reason`: who answers for it and why it exists.
+- `version`: `<upstream version>+local.N` by convention (`N` without leading zeros). Build metadata (`+`) keeps it inside other Genesis packages' peer ranges (`^0.2.6`), which a prerelease (`-local.N`) would fall outside; the upstream version itself, or `-local.N`, are also accepted.
+
+**Wiring it in.** Point the app's dependency at the overlay, and add a root override with the same
+specifier so other Genesis packages that depend on it get the copy too, not a second published copy:
+
+- **pnpm, Bun, Yarn**: `"@marktiderman/genesis-support": "workspace:*"`, with the same value in
+  `pnpm.overrides` (pnpm), `overrides` (Bun) or `resolutions` (Yarn).
+- **npm** has no `workspace:` protocol: use `"@marktiderman/genesis-support": "file:./packages/genesis-support"`
+  in `dependencies`, and the same `file:` specifier in `overrides` (npm requires an override for a
+  direct dependency to match it).
+
+**Fix the copied manifest.** A source copy keeps Genesis's own `workspace:` ranges for its
+dependencies (`"@marktiderman/genesis-features": "workspace:^"`), which the app can't resolve. Replace
+each with the published range the upstream release declares (read it from the package.json on npm
+for that version), so the overlay installs against the same Genesis it was copied from.
+
+An overlay can keep its build step, or point its exports straight at TypeScript source
+(`"exports": { ".": "./src/index.ts" }`). For TypeScript source, the server bundle must inline
+every Genesis package: otherwise a published Genesis package that the server leaves external
+imports the overlay through Node, which can't load `.tsx` (a 500 in dev). In Vite, set
+`ssr: { noExternal: [/^@marktiderman\/genesis-/] }` (Vite matches `noExternal` against package
+names). Vitest's `server.deps.inline` matches resolved file paths instead, so use a path pattern
+there: `test: { server: { deps: { inline: [/[\\/]@marktiderman[\\/]genesis-/] } } }`. The doctor reads a source overlay's
+component exports from the source its exports point at when there's no `types` condition.
+
+**What the doctor does with it.** A local package wins over an installed one of the same name, so
+the overlay's own `genesis.doctor` rules run, and the [`packages` pack](#rule-packs) checks it like
+any local package. Then:
+
+| Rule | Level | What it flags |
+| --- | --- | --- |
+| `overlay-unmarked` | error | A local package with a `@marktiderman/genesis-*` name and no `genesis.overlay`. Mark it, or rename it. |
+| `overlay-invalid` | error | A marker that doesn't validate (each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key), a `since` later than tomorrow, an overlay that isn't `private: true`, or an overlay folder that holds the app's scanned source (`src`, or the app root). Such an overlay doesn't count as the package below. |
+| `overlay-age` | info / warn | A marker older than 14 days is reported as info, which never fails a run; older than 30 days it warns, which fails `--strict`. An overlay never blocks a release in its first month, and must be promoted or dropped within it. |
+| `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
+
+A marked overlay (valid marker, private, in a package folder of its own) **is** the package it
+shadows, so for files inside it `shadowed-export`, `raw-tag`, `local-genesis-copy` and
+`native-raw-primitive` don't flag that package's own names (an overlay of another package still may
+not shadow genesis-ui). `version-skew` compares the release with the marker's `upstream` version
+instead of the overlay's own (only for an overlay the app lists; a marked package that is merely
+installed is compared as usual), and the packages pack's change gate (`package-unversioned-change`)
+asks for no changeset or version bump. A block migration that names another package
+(`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`) has its test looked up
+in that package, not in the overlay; a name that isn't valid, or a package that isn't installed or
+local, is reported by `package-migration-test`.
+
+**Promotion: manual for now.**
+
+1. Diff the overlay against the source of its upstream tag (`upstream` in the marker), so only the
+   app's own changes travel.
+2. Apply that diff onto a Genesis branch cut from the current staging batch.
+3. Add a changeset for the package.
+4. Open the Genesis PR into the batch.
+5. Before adopting, reconcile migrations: if promotion renamed a migration the overlay's app already
+   applied, or changed its SQL, `genesis migrate` can't match it and would copy it again. Map the
+   app's applied migration to the package's by hand (until the lock mapping below ships), then run
+   `genesis migrate --dry-run` with the release installed and check it copies nothing already applied.
+6. After the release, delete the overlay, drop the override, and pin the released version.
+
+Planned: `genesis upstream promote <package>` (steps 1 to 4) and `genesis upstream adopt
+<package>@<version>` (steps 5 and 6, checking the release matches the overlay), and a `genesis.lock.json`
+mapping so a migration an overlay's app already applied is never copied a second time.
+
 ### genesis add
 
 `genesis add <block>` plans, prints the plan, asks (or `--yes`), then:
@@ -197,6 +305,7 @@ installed packages with the app's copies, and every copy that carries a header:
 | `edited` | the copy no longer matches the text it was copied with | reported; never rewritten |
 | `changed-upstream` | the package now ships different text than the copy was made from | reported; never rewritten |
 | `differs` | a file with the migration's name, other text and no header | treated as the app's own; never rewritten |
+| `deleted` | the app deleted a copy `genesis.lock.json` records (its `migrations` map: where each package migration was copied) | reported; never copied again |
 
 Every file already in `supabase/migrations` counts as applied: none is ever written again, and a
 new file is created only if its name is free (otherwise it fails). A package migration is copied
@@ -206,7 +315,25 @@ symlink in the folder stops the command. A pgTAP test is copied only with its mi
 deleted stays deleted. `--forward` writes one forward migration stub
 (`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
 copy, holding the package's current text commented out, for you to turn into the change; later
-runs count that copy as handled. It exits 1 when something still needs you.
+runs count that copy as handled. It exits 1 when something still needs you (a deleted copy was your
+choice, so it doesn't). `genesis add`, `genesis migrate` and `init --template native` record each
+copy in the lock; a run on an older lock records the copies it finds.
+
+With the notifications block and a named registry (`--notifications <file>`, or
+`"notifications": { "registry": "src/notifications.ts" }` in `genesis.config.json`; a relative
+path is resolved against the app's root, `--dir`), it also mirrors the app's `defineNotifications`
+types: when they differ from the newest `*_genesis_notification_types.sql` (the JSON only, not its
+header), it writes a new one after this run's other migrations. That migration adds and updates
+types and never retires one: each is one branch's snapshot, and two branches merged would
+otherwise retire each other's types. Retiring stays with `syncNotificationTypes` on deploy. The
+types are in place once every migration has run, so a trigger that fires after the migrations
+meets no unknown type before the deploy; a migration that queues a notification while it runs
+needs its type added earlier in that migration.
+
+Loading the registry runs the app's code, so it happens only when the registry is named, never on
+`--dry-run` (reported as not checked), and the registry module must have no side effects on
+import (no network, database or writes). A registry it can't find or load, or a timestamp that
+doesn't fit, is a warning.
 
 ### genesis upgrade
 
@@ -401,10 +528,13 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `local-genesis-copy` | warn | An app component definition named like a component of `uiPackage` or of `componentPackages` (forms-studio's `ResourceHeader`, `SettingsSection`, `ResourceSettingsPage`, `HeadlineNumbers`, `SummaryCard`, `ShareDialog`, …): "Genesis already has X". A definition renders JSX, isn't in a file that imports the Genesis one, and is exported or lives outside the routes folder; a route's own non-exported functions and anything passed as `component` / `errorComponent` / `pendingComponent` / `notFoundComponent` (TanStack's `FormError`) are not copies. An exported genesis-ui value is `shadowed-export` instead; `const X = lazy(() => import("@marktiderman/genesis-…"))` is fine. |
 | `resource-workspace` | info | In a routes folder where a detail page (`courses.$courseId.tsx`, `[id]/page.tsx`) renders `AppShellPageHeader`, directly or through one local import, the other detail pages there that don't: one workspace header and tab row for every resource. Reported, never failing (`--strict` included); `rules` can raise it to `warn`. |
 | `page-layout` | warn | A route inside the AppShell (under the layout route that renders it) that renders no Genesis page layout (the `…Page` / `…PageShell` components `uiPackage` and `componentPackages` export, not `BreadcrumbPage`) itself, through one local import, or from a layout route around it (`my/route.tsx` supplying `DetailPage` covers `my/index.tsx`). A `…Page`, `…Screen` or `…Workspace` imported from any Genesis package counts. Routes outside the shell (sign-in, landing, public forms) aren't checked until Genesis ships layouts for them. Layout-only (`route.tsx`, `__root`, `<Outlet>`) and redirect-only routes are skipped; off with the `native` pack (see `native-screen-layout`). |
+| `core/views-stay-platform-neutral` | warn | Declared by genesis-core (see [Package rules](#package-rules)). A `*.view.ts` file (a view description web and native share) that imports a platform module: a router (`react-router*`, `@tanstack/react-router`, `@tanstack/react-start`, `next`, `expo-router`), `react-dom`, `react-native` or `react-native-*`, `expo*`, icon sets (`lucide-react`, `lucide-react-native`), or Genesis UI (`genesis-ui`, `genesis-ui-native`, `genesis-native`). Direct imports only: keep what the view imports platform-neutral too. |
 | `iso-date-slice` | warn | A day cut from an ISO timestamp: `.toISOString().slice(0, 10)`, `.substring(0, 10)`, `.substr(0, 10)`, `.split("T")[0]` or `.split("T").at(0)`. That's the day in UTC, which for an evening in the Americas is already tomorrow. Use `personDay(person)` or `dayIn(zone)` from `@marktiderman/genesis-core/dates`. Test files are skipped; where UTC is what you mean (a log name, a UTC report), allow it with a reason. |
 | `resource-view-tree` | error | A `<ResourceView>` or `<ResourcePage>` with `tree` and `pagination="server"` or `"cursor"` (bare or in braces). A tree is built from every row on the client, so the screen throws when it renders. Leave `pagination` unset. Only the tag's own attributes count, not a `tree` inside an expression. ([Tree mode](../../docs/RESOURCE-VIEW.md#tree-mode)) |
 | `studio-server-auth-import` | warn | An import of a studio-server file the package doesn't export (`@marktiderman/genesis-studio-server/dist/…`, `/src/…`, `/lib/…`), or a CommonJS `require("@marktiderman/genesis-studio-server")` of the ESM-only root. Besides the doctor's scan it reads the app's `.cjs` and `.mjs` files (tests skipped), where a `require` usually is. Both fail at run time with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Use `@marktiderman/genesis-studio-server/auth`: the token checks and `switchToUser`, for `import` and `require`. An ESM import of the root is fine. |
 | `removed-scope-name` | error | A "practice" name genesis-core 2 removed, in a file that imports a Genesis package: a view field's `timeZone: "practice"` (a string value in a view definition), NativeResourceView's `practiceTimeZone`, `resolveZone("practice", …)`, or DisplayTimeZones' `practice`. `defineView` refuses the first when the view loads and the rest are type errors; this lists them in CI. `genesis codemod genesis-core-2-scope-names` rewrites every one. It reads only Genesis API usage, the same shapes the codemod rewrites (see its row above); comments and an app's own `practice` settings, props and `resolveZone` are skipped. |
+| `deprecated-import` | warn | A named import of a Genesis export tagged `@deprecated` (or `@stability Deprecated`) in its published declarations. It goes at the next major; the message carries the tag's advice. Ratcheted by default: under `--base`, files that didn't change report it as `info`, so an upgrade never fails strict CI on untouched files. |
+| `beta-import` | info | A named import of an export tagged `@stability Beta` or `Experimental`, which may still change in a minor. Info by default since most of Genesis is beta; set it to `warn` in `rules` to see it in CI. |
 | `scope-practice-id` | info | `scope.practiceId` read with no `ResourceScope` augmentation in the app (declaration files included). It still works, as the app's own key in the open slot, but reads as `unknown`; the message gives the one-line augmentation. Never fails, `--strict` included. |
 | `stale-exception` | warn | An `allow` entry that no longer matches anything, or a `packageRules` entry that names no rule an installed package declares (a typo there would change nothing). An id in the namespace of a package with a `plugin` isn't checked, since a plugin's ids aren't known until it reports. |
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
@@ -415,7 +545,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
 
 It also prints **Available but unused**: the Genesis components no file imports, and a
-**Primitives** line: how many rules the installed packages declare (`genesis primitives` lists
+**Primitives** line: how many rules the installed packages declare (`genesis catalog` lists
 them). Check both before building something.
 
 The route rules (`hand-rolled-sub-nav`, `resource-workspace`, `page-layout`) read the routes
@@ -596,17 +726,20 @@ A declaration has **`prefer` rules** ("use X instead of Y") and optional **`prim
           "newOnly": false
         }
       ],
-      "primitives": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
+      "catalog": [{ "need": "dates", "use": "dayIn(zone)", "import": "@marktiderman/genesis-widgets/dates" }],
       "plugin": "./dist/doctor-rules.js"
     }
   }
 }
 ```
 
+`catalog` was called `primitives`; the old key is still read until the next major (not both at
+once). A package that must stay readable by a genesis-cli before this release keeps `primitives`.
+
 | Key | |
 | --- | --- |
 | `id` | Lower-case words and dashes; namespaced by the doctor. |
-| `need` | The need it answers, for `genesis primitives` and the agent guide. |
+| `need` | The need it answers, for `genesis catalog` and the agent guide. |
 | `level` | `error`, `warn` (default) or `info`. |
 | `platform` | `web` (off with the `native` pack) or `native` (only with it). Default both. |
 | `files`, `exclude` | App-relative globs. `{routes}` is the routes folder (`routesDir`). Default: every scanned script file. |
@@ -645,14 +778,14 @@ silently. `rules` works too, but warns (`package-rule-override`) until the reaso
 }
 ```
 
-**The catalog.** `genesis primitives` (`--json` for data) prints, for each need, what to use,
+**The catalog.** `genesis catalog` (`--json` for data; `genesis primitives` is its deprecated name) prints, for each need, what to use,
 its import, the rule that enforces it and the docs: a short static core plus every installed
 package's declarations. `genesis agents` writes the same catalog as
 `.claude/skills/genesis/SKILL.md` and a `<!-- genesis-primitives:start -->` block in the app's
 AGENTS.md (the rest of the file is the app's), telling agents to use the primitives first, never
 copy an older screen, and write a gap up for Genesis before inventing. `genesis agents --check`
 writes nothing and fails when either is out of date, and the doctor's `agent-guide-stale` warns.
-Both commands, and `genesis primitives`, exit 1 when a package's declaration doesn't validate,
+Both commands, and `genesis catalog`, exit 1 when a package's declaration doesn't validate,
 since the catalog would leave it out. Run `genesis agents` after each Genesis upgrade.
 
 ### The ratchet
@@ -822,3 +955,20 @@ if (!result.ok) throw new Error(formatReport(result));
    the local Vite plugin import with `@marktiderman/genesis-cli/vite`.
 4. Run `genesis doctor`, fix or `allow` what it reports (it checks `raw-color` in code as well
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
+## genesis upstream
+
+What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md`, one table:
+
+| id | kind | status | feature | package | local | need |
+| --- | --- | --- | --- | --- | --- | --- |
+| kanban-swimlanes | extension | candidate | data-views | @marktiderman/genesis-ui | src/components/lanes.tsx | Swimlanes on KanbanBoard |
+
+`kind` is `gap` (nothing in Genesis), `extension` (a part with no prop, variant or slot for it)
+or `invention` (the app built it). `status` is `candidate`, `proposed`, `promoted` or `declined`.
+
+- `genesis upstream check` validates it, and warns when a promoted entry's local code is still
+  there (delete your copy and use the Genesis one).
+- `genesis upstream export <id>` prints the link to Genesis's gap issue form, filled in from the
+  entry (never the local path). It sends nothing; check the text names no app or customer, file
+  it, and set the entry to `proposed`.
+

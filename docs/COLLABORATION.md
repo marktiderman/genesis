@@ -1,9 +1,9 @@
-# Collaboration and sharing (proposal)
+# Collaboration and sharing
 
-Status: building, feature `collaboration`. Built: step 1 of the build order, in
-`packages/collab`. That's the `genesis_collab` migration with its pgTAP contract, and the pure core
-(`gateOf`, `canSee`, `mayAggregate`, `showsNames`, `describePolicy`). The rest is still a
-proposal, and decisions still open are listed at the end.
+Status: **building** (feature `collaboration`). Step 1 of the build order is built, in
+`packages/collab`: the `genesis_collab` migration with its pgTAP contract, and the pure core
+(`gateOf`, `canSee`, `mayAggregate`, `showsNames`, `describePolicy`). The later steps are the
+accepted design, not built yet; decisions still open are listed at the end.
 
 ## The problem
 

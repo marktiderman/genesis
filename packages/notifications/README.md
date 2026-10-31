@@ -71,8 +71,14 @@ test, and the `functions/genesis-notifications` Edge Function template.
    });
    ```
 
-4. Mirror it on deploy: `await syncNotificationTypes(admin, notifications)` (types left out are
-   retired, never deleted).
+4. Mirror it at migration time: name the registry in `genesis.config.json`
+   (`"notifications": { "registry": "src/notifications.ts" }`) or pass `--notifications <file>`, and
+   `genesis migrate` writes a `<timestamp>_genesis_notification_types.sql` that adds and updates the
+   types whenever they change. They are in place once every migration has run, so a trigger never
+   meets an unknown type before the deploy. The module is imported, so keep it free of side effects.
+   Run it after changing the registry, and commit the file. Keep
+   `await syncNotificationTypes(admin, notifications)` on deploy: it is what retires types left out
+   (never deleted); the migrations never retire one.
 5. Deploy `functions/genesis-notifications` (`--no-verify-jwt`), and schedule `POST …/run`
    every minute and `POST …/receipts` every 15 minutes with
    `Authorization: Bearer <GENESIS_NOTIFICATIONS_CRON_SECRET>`, and
@@ -203,6 +209,16 @@ before the job settles still finds it.
 
 The provider is chosen per job (`email.providerFor`), so a tenant-owned Resend key kept in
 Vault can be added later without changing the runner. It isn't built.
+
+## Receiving email
+
+`createInboundEmailHandler` (`/server`) is the way in: it verifies Resend's `email.received`
+webhook (signed like its other webhooks), fetches the full message (`GET /emails/receiving/{id}`)
+and hands an `InboundEmail` (Message-ID, In-Reply-To, References, from, to, subject, text, SPF,
+DKIM and DMARC results, attachment names) to the first route that returns true. Routes are
+plain functions: genesis-support's `supportEmailRoute` files tickets; an agent's inbox, an
+onboarding address or a forward are routes of your own. A route that throws answers 502 so
+Resend retries; an email no route takes goes to `onUnrouted`.
 
 ## Push
 

@@ -46,8 +46,8 @@ export function ImageField({ field, id, value, onChange, readOnly }: FieldRender
   const choose = async () => {
     const picked = await services.pickImage(image.src ? { current: image as PickedImage } : {});
     if (!picked) return;
-    // The new image replaces every image attribute (alt, decorative, size, focal point); other props stay.
-    const { src: _s, alt: _a, decorative: _d, width: _w, height: _h, focal: _f, ...rest } = image;
+    // The new image replaces every image attribute (alt, decorative, size, focal point, phone crop, placeholder); other props stay.
+    const { src: _s, alt: _a, decorative: _d, width: _w, height: _h, focal: _f, phone: _p, placeholder: _b, ...rest } = image;
     onChange({ ...rest, ...picked });
   };
   return (

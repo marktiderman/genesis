@@ -34,12 +34,12 @@ export interface RelationFieldProps {
   field: ResourceFormFieldDef;
   value: string;
   onChange: (value: string) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /** Id for the trigger, so a `<label htmlFor>` names it. */
-  id?: string;
-  "aria-describedby"?: string;
-  "aria-invalid"?: boolean;
-  "aria-required"?: boolean;
+  id?: string | undefined;
+  "aria-describedby"?: string | undefined;
+  "aria-invalid"?: boolean | undefined;
+  "aria-required"?: boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------

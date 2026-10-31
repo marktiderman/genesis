@@ -9,7 +9,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Breadcrumb> = {
-  title: "UI/Breadcrumb",
+  title: "Foundation/UI/Breadcrumb",
   component: Breadcrumb,
 };
 export default meta;

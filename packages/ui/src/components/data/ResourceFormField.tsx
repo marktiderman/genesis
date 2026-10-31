@@ -41,7 +41,7 @@ export function ResourceFormFieldRenderer({
   control: Control<Record<string, unknown>>;
   action: "create" | "edit";
   autoFocus?: boolean;
-  watchedValues?: Record<string, unknown>;
+  watchedValues?: Record<string, unknown> | undefined;
 }) {
   const label = field.label ?? titleCase(field.key);
   // Ids come from `useId`, not from `field.key`: two forms on one page (a

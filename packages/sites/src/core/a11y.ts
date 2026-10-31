@@ -19,6 +19,10 @@
  * And content rules: unknown or invalid sections, sections over their
  * limit or on the wrong kind of page, template placeholders still showing,
  * duplicate or reserved paths, a site with no home page.
+ *
+ * And where files load from: an image or file that isn't on the site itself
+ * or the store's asset origin is a warning, or an error on a site that
+ * serves only its own (`images: "own"`).
  */
 import { migrateNode } from "./migrate";
 import { getSection, type AnySectionDefinition } from "./registry";
@@ -49,7 +53,71 @@ function images(value: unknown, path: string[] = []): { path: string; image: { s
   const found = typeof record.src === "string" && !("mime" in record) && ("alt" in record || "decorative" in record || /\.(png|jpe?g|webp|avif|gif|svg)(\?|$)/i.test(record.src))
     ? [{ path: path.join("."), image: record as { src: unknown; alt?: unknown; decorative?: unknown } }]
     : [];
-  return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" ? [] : images(v, [...path, k])))];
+  // An image's phone crop shares its alt: it isn't an image of its own.
+  return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" || (found.length && k === "phone") ? [] : images(v, [...path, k])))];
+}
+
+/** Every object in a props tree with a string `src` (an image or a file to download), with its path. */
+function sources(value: unknown, path: string[] = []): { path: string; src: string; file: boolean }[] {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap((v, i) => sources(v, [...path, String(i)]));
+  const record = value as Record<string, unknown>;
+  const found = typeof record.src === "string" ? [{ path: path.join("."), src: record.src, file: "mime" in record }] : [];
+  return [...found, ...Object.entries(record).flatMap(([k, v]) => (k === "src" ? [] : sources(v, [...path, k])))];
+}
+
+/**
+ * Is this URL the site's own: a site path (`/photo.jpg`), or a URL on one of
+ * `origins` (the store's asset origin)?
+ *
+ * @stability Beta
+ */
+export function isOwnUrl(src: string, origins: readonly string[] = []): boolean {
+  if (src.startsWith("/") && !src.startsWith("//") && !src.startsWith("/\\")) return true;
+  let origin: string;
+  try {
+    origin = new URL(src).origin;
+  } catch {
+    return false;
+  }
+  return origins.some((o) => {
+    try {
+      return new URL(o).origin === origin;
+    } catch {
+      return false;
+    }
+  });
+}
+
+/** Where files may load from, for the host check. */
+export interface AssetHostOptions {
+  /** `"own"`: a file elsewhere is an error. Default: a warning. */
+  images?: "any" | "own";
+  /** Origins that count as the site's own besides its paths: the store's asset origin (`SiteStore.assetOrigin`). */
+  assetOrigins?: readonly string[];
+}
+
+const hostOf = (src: string) => {
+  try {
+    return new URL(src).host;
+  } catch {
+    return "another site";
+  }
+};
+
+function hostIssues(value: unknown, at: string, where: string, options: AssetHostOptions, base: Omit<SiteIssue, "severity" | "code" | "message"> = {}): SiteIssue[] {
+  const issues: SiteIssue[] = [];
+  for (const { path, src, file } of sources(value)) {
+    if (isOwnUrl(src, options.assetOrigins)) continue;
+    const what = file ? "a file" : "an image";
+    issues.push({
+      ...base,
+      severity: options.images === "own" ? "error" : "warning",
+      code: "asset-host",
+      message: `${at}: ${what} ${where}(${path || "image"}) loads from ${hostOf(src)}, not from the site. Upload it to the site again, or copy the old site's files over with importAssets.`,
+    });
+  }
+  return issues;
 }
 
 /** Heading levels in a rich text document, in order. */
@@ -161,6 +229,10 @@ export function checkContrast(theme: SiteTheme): SiteIssue[] {
 export interface CheckReleaseOptions {
   /** The brand's theme: adds the contrast check. */
   theme?: SiteTheme;
+  /** Origins that count as the site's own besides its paths: the store's asset origin. */
+  assetOrigins?: readonly string[];
+  /** The brand's logo, which every page shows: checked for where it loads from, like an image. */
+  logo?: string;
   lookup?: Lookup;
   reserved?: ReservedPaths;
 }
@@ -194,6 +266,40 @@ export function checkRelease(snapshot: ReleaseSnapshot, options: CheckReleaseOpt
     }
   }
   if (options.theme) issues.push(...checkContrast(options.theme));
+  issues.push(...checkAssetHosts(snapshot, { ...options, lookup }));
+  return issues;
+}
+
+/**
+ * Images and files that load from somewhere other than the site itself or
+ * the store's asset origin: a warning, or an error when the site serves only
+ * its own (`images: "own"`), whose Content-Security-Policy would block them.
+ *
+ * @stability Beta
+ */
+export function checkAssetHosts(snapshot: ReleaseSnapshot, options: Pick<CheckReleaseOptions, "assetOrigins" | "logo" | "lookup"> = {}): SiteIssue[] {
+  const lookup = options.lookup ?? getSection;
+  const hosts: AssetHostOptions = { ...(snapshot.site.images ? { images: snapshot.site.images } : {}), ...(options.assetOrigins ? { assetOrigins: options.assetOrigins } : {}) };
+  const issues: SiteIssue[] = [];
+  const nodes = (list: readonly SectionNode[], at: string, page?: ReleasePage) => {
+    for (const node of list) {
+      if (node.hidden) continue;
+      const def = lookup(node.type);
+      const migrated = migrateNode(node, lookup).node;
+      if (!def || !migrated) continue;
+      issues.push(...hostIssues(migrated.props, at, `in the ${def.label} section `, hosts, { ...(page ? { pageId: page.id, path: page.path } : {}), sectionId: node.id }));
+    }
+  };
+  nodes(snapshot.site.header, "the site header");
+  nodes(snapshot.site.footer, "the site footer");
+  for (const page of snapshot.pages) nodes(page.doc.content, page.path, page);
+  if (options.logo && !isOwnUrl(options.logo, hosts.assetOrigins)) {
+    issues.push({
+      severity: hosts.images === "own" ? "error" : "warning",
+      code: "asset-host",
+      message: `The brand's logo loads from ${hostOf(options.logo)}, not from the site. Upload it to the site again, or copy it over with importAssets.`,
+    });
+  }
   return issues;
 }
 
@@ -231,7 +337,7 @@ export function checkBlog(snapshot: ReleaseSnapshot, lookup: Lookup = getSection
  *
  * @stability Beta
  */
-export function checkPost(slug: string, doc: unknown): SiteIssue[] {
+export function checkPost(slug: string, doc: unknown, hosts: AssetHostOptions = {}): SiteIssue[] {
   const issues: SiteIssue[] = [];
   const at = `The post ${JSON.stringify(slug)}`;
   if (!PostSlug.safeParse(slug).success) issues.push({ severity: "error", code: "post-slug", message: `${at}: a slug is lowercase letters, digits and single hyphens.` });
@@ -252,6 +358,7 @@ export function checkPost(slug: string, doc: unknown): SiteIssue[] {
     if (level === 1) issues.push({ severity: "error", code: "heading-h1", message: `${at}: the text can't hold a level 1 heading; the post's title is the page's.` });
     else if (level > previous + 1) issues.push({ severity: "error", code: "heading-order", message: `${at}: a level ${level} heading follows a level ${previous}; don't skip a level.` });
   }
+  issues.push(...hostIssues({ ...parsed.data, seo: undefined }, at, "", hosts));
   if (!parsed.data.excerpt && !parsed.data.seo?.description) issues.push({ severity: "warning", code: "seo-description", message: `${at}: no excerpt for the list, search results and the feed.` });
   return issues;
 }
@@ -263,16 +370,70 @@ export function checkPost(slug: string, doc: unknown): SiteIssue[] {
  */
 export function checkHtmlOutline(html: string): SiteIssue[] {
   const issues: SiteIssue[] = [];
-  const body = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
-  const levels = [...body.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
+  const { levels, images } = outlineTags(html);
   const h1 = levels.filter((l) => l === 1).length;
   if (h1 !== 1) issues.push({ severity: "error", code: "h1-count", message: `The page has ${h1} h1 elements; it needs exactly one.` });
   if (levels[0] !== undefined && levels[0] !== 1) issues.push({ severity: "error", code: "heading-order", message: `The first heading is an h${levels[0]}, not the h1.` });
   for (let i = 1; i < levels.length; i++) {
     if (levels[i]! > levels[i - 1]! + 1) issues.push({ severity: "error", code: "heading-order", message: `An h${levels[i]} follows an h${levels[i - 1]}.` });
   }
-  for (const m of body.matchAll(/<img\b[^>]*>/gi)) {
-    if (!/\salt=/.test(m[0])) issues.push({ severity: "error", code: "image-alt", message: `An image has no alt attribute: ${m[0].slice(0, 120)}` });
+  for (const tag of images) {
+    if (!/\salt=/i.test(tag)) issues.push({ severity: "error", code: "image-alt", message: `An image has no alt attribute: ${tag.slice(0, 120)}` });
   }
   return issues;
+}
+
+const WORD_CHAR = /\w/;
+/** Elements whose content is raw text: a `<h1>` inside one is not a heading. */
+const RAW_TEXT = ["script", "style"] as const;
+
+/** `name` starts at `at` in `lower` (an already lowercased string) and ends there: `<h1` but not `<h1x`. */
+function tagAt(lower: string, at: number, name: string): boolean {
+  if (!lower.startsWith(name, at)) return false;
+  const next = lower[at + name.length];
+  return next === undefined || !WORD_CHAR.test(next);
+}
+
+/**
+ * The heading levels and `<img>` tags of a page, in order, skipping the
+ * content of `<script>` and `<style>`. One linear pass over the HTML: nothing
+ * is stripped or rebuilt, so the result never carries markup to render, and
+ * end tags match case-insensitively with any whitespace or junk before their
+ * `>` (`</SCRIPT >`), as browsers parse them. An unclosed raw-text element
+ * runs to the end of the document, as it does in a browser.
+ */
+function outlineTags(html: string): { levels: number[]; images: string[] } {
+  // ASCII-only lowering keeps every index the same as in `html`.
+  const lower = html.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  const levels: number[] = [];
+  const images: string[] = [];
+  let unclosed = false;
+  let i = lower.indexOf("<");
+  while (i >= 0 && i < lower.length) {
+    const raw = RAW_TEXT.find((name) => tagAt(lower, i + 1, name));
+    if (raw) {
+      let close = lower.indexOf(`</${raw}`, i + 1 + raw.length);
+      while (close >= 0 && !tagAt(lower, close + 2, raw)) close = lower.indexOf(`</${raw}`, close + 2);
+      if (close < 0) break;
+      const end = lower.indexOf(">", close);
+      if (end < 0) break;
+      i = lower.indexOf("<", end + 1);
+      continue;
+    }
+    const h = lower[i + 1] === "h" ? lower[i + 2] : undefined;
+    if (h !== undefined && h >= "1" && h <= "6" && tagAt(lower, i + 1, `h${h}`)) {
+      levels.push(Number(h));
+    } else if (!unclosed && tagAt(lower, i + 1, "img")) {
+      const end = lower.indexOf(">", i);
+      // No `>` from here on: no later `<img` closes either, so stop looking (keeps the pass linear).
+      if (end < 0) unclosed = true;
+      if (end >= 0) {
+        images.push(html.slice(i, end + 1));
+        i = lower.indexOf("<", end + 1);
+        continue;
+      }
+    }
+    i = lower.indexOf("<", i + 1);
+  }
+  return { levels, images };
 }

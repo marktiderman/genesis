@@ -23,7 +23,7 @@ export interface PageLoadingProps extends VariantProps<typeof pageLoadingVariant
   label?: string;
   className?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

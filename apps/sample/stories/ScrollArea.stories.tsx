@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ScrollArea, Separator } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof ScrollArea> = {
-  title: "UI/ScrollArea",
+  title: "Foundation/UI/ScrollArea",
   component: ScrollArea,
 };
 export default meta;

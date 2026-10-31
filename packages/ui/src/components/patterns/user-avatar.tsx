@@ -64,7 +64,7 @@ export interface UserAvatarProps extends VariantProps<typeof userAvatarVariants>
   src?: string | null;
   className?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

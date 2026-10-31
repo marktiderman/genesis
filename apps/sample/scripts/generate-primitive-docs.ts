@@ -4,7 +4,7 @@
  * Walks every component file under packages/ui/src and packages/ui-native/src,
  * extracts the parsed component metadata via react-docgen-typescript, and
  * emits a single JSON artifact at apps/sample/app/data/primitives.json that
- * the /showcase/primitives/:slug route consumes.
+ * the /showcase/elements/:slug route consumes.
  *
  * Each *file* becomes one primitive entry — its slug derived from the file
  * name (so `accordion.tsx` → `accordion`). Multiple exported components per
@@ -102,6 +102,8 @@ const NON_COMPONENT_DIRS = new Set(["hooks", "provider", "context"]);
 const NON_COMPONENT_FILES = new Set([
   "utils",
   "status-colors",
+  // genesis-ui/data's internal helper for exactOptionalPropertyTypes; not exported.
+  "compact",
   "nativewind.d",
   "supabase-provider",
   // Rich text's pure document helpers and its Tiptap node: no React

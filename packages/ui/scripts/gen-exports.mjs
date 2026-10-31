@@ -248,6 +248,7 @@ const baseExports = {
   // Tailwind v4 `@source` entry — a CSS file, so a bare string target. It is
   // copied into dist/ by the `build` script, not emitted by tsup.
   "./styles.css": "./dist/styles.css",
+  "./package.json": "./package.json",
 };
 
 const componentExports = {};

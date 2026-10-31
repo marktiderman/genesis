@@ -341,7 +341,11 @@ export function scanFlagReads(path: string, source: string, accessors: readonly 
 
 const ids = (features: Features) => new Set(Object.entries(features).flatMap(([id, f]) => [id, ...(f.aliases ?? [])]));
 
-/** Ids recorded in the committed JSON that the registry no longer has, as an id or an alias. */
+/**
+ * Ids recorded in the committed JSON that the registry no longer has, as an id or an alias. An
+ * id last recorded as an `idea` or `planned` may go for good (it never shipped, so no code, flag
+ * or test refers to it): a backlog can move to a planning repo of its own.
+ */
 function removedIds(options: FeatureProjectOptions): string[] {
   const json = options.json === undefined ? "features.json" : options.json;
   if (!json) return [];
@@ -349,7 +353,10 @@ function removedIds(options: FeatureProjectOptions): string[] {
   if (!doc) return [];
   let previous: string[];
   try {
-    previous = (JSON.parse(doc) as { features?: { id: string; aliases?: string[] }[] }).features?.flatMap((f) => [f.id, ...(f.aliases ?? [])]) ?? [];
+    previous =
+      (JSON.parse(doc) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
+        // An alias is always kept: it may name a built feature that was renamed onto this one.
+        ?.flatMap((f) => [...(f.status === "idea" || f.status === "planned" ? [] : [f.id]), ...(f.aliases ?? [])]) ?? [];
   } catch {
     return [];
   }
@@ -365,7 +372,7 @@ const canonical = (features: Features) =>
 const and = (items: string[]) => (items.length < 2 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
 
 const removedMessage = (id: string) =>
-  `the feature id "${id}" was removed. Ids are permanent: keep the entry with status "retired", or list "${id}" in the new entry's aliases`;
+  `the feature id "${id}" was removed. Ids are permanent once a feature is being built: keep the entry with status "retired", or list "${id}" in the new entry's aliases`;
 
 /** Every generated file: its path, and its content given what's on disk now. */
 function outputs(options: FeatureProjectOptions): { path: string; next: (current: string | null) => string; same: (current: string | null, next: string) => boolean }[] {
@@ -509,6 +516,7 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
       if (!/^https?:\/\//.test(path) && !existsSync(join(root, path))) warnings.push(`${id}.links.docs: ${path} doesn't exist`);
     }
     if (def.claimedBy) claims.push([id, def.claimedBy]);
+    if (def.layer !== undefined) warnings.push(`${id}.layer: deprecated, write kind: "${def.layer === "primitive" ? "element" : def.layer}" (layer will be the owning package's, derived)`);
     if (def.status !== "idea" && def.status !== "planned" && def.status !== "retired") {
       if (!def.reviewedAt) warnings.push(`${id}: never reviewed (set reviewedAt)`);
       else if (def.reviewedAt < reviewCutoff) warnings.push(`${id}: last reviewed ${def.reviewedAt}, over ${options.reviewDays ?? 90} days ago`);

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { createForm, defineForm, f, type FieldBlock, type FormEngine, type PhotoRef } from "@marktiderman/genesis-forms";
+import { createForm, defineForm, f, type FieldBlock, type FormEngine, type PhotoRef, type UploadAdapter } from "@marktiderman/genesis-forms";
 import { Form, photoAccept, photoFileProblem, UploadContext, UPLOAD_WAIT_MESSAGE } from "../index";
 
 const form = defineForm({
@@ -113,6 +113,26 @@ describe("photo renderer", () => {
     });
     expect(upload).toHaveBeenCalledTimes(1);
     expect(photoValue(engine)).toEqual([{ id: "u1", name: "a.png", type: "image/png", size: 1000 }]);
+  });
+
+  it("takes an upload adapter (`uploads`), which wins over onUpload and an UploadContext", async () => {
+    const adapter: UploadAdapter<File> = { upload: vi.fn(async (f: File) => refFor(f, "a1")) };
+    const onUpload = vi.fn(async (f: File) => refFor(f, "o1"));
+    const context = vi.fn(async (f: File) => refFor(f, "c1"));
+    const engine = createForm(form.definition);
+    const { container } = render(
+      <UploadContext.Provider value={{ upload: context }}>
+        <Form form={form} engine={engine} uploads={adapter} onUpload={onUpload} />
+      </UploadContext.Provider>,
+    );
+    const input = container.querySelector<HTMLInputElement>('input[type="file"]:not([capture])')!;
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [file("a.png", "image/png")] } });
+    });
+    expect(adapter.upload).toHaveBeenCalledTimes(1);
+    expect(onUpload).not.toHaveBeenCalled();
+    expect(context).not.toHaveBeenCalled();
+    expect(photoValue(engine)).toEqual([{ id: "a1", name: "a.png", type: "image/png", size: 1000 }]);
   });
 
   it("exposes its checks for hosts", () => {

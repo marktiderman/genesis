@@ -27,7 +27,7 @@ function Brand({ props, ctx }: { props: NavProps; ctx: RenderContext }) {
       href={ctx.href("/")}
       className="inline-flex min-h-11 items-center gap-3 rounded-md font-display text-lg font-bold tracking-tight focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
     >
-      {logo ? <SiteImage image={{ ...logo, alt: showName ? "" : logo.alt || ctx.site.name, decorative: showName }} ctx={ctx} priority className="h-8 w-auto" /> : null}
+      {logo ? <SiteImage image={{ ...logo, alt: showName ? "" : logo.alt || ctx.site.name, decorative: showName }} ctx={ctx} eager sizes="240px" className="h-8 w-auto" /> : null}
       {showName ? <span>{ctx.site.name}</span> : null}
       <span className="sr-only">, home</span>
     </a>

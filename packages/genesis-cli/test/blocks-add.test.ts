@@ -64,6 +64,23 @@ describe("genesis add", () => {
     expect(report.steps.join("\n")).toMatch(/Turn the notes on/);
   });
 
+  it("pins an Edge Function's Genesis npm imports to the installed versions", async () => {
+    const root = expoApp();
+    linkWorkspacePackage(root, "@marktiderman/genesis-features", "features");
+    fixturePackage(root, {}, {
+      "functions/fixture-send/index.ts": [
+        'import { send } from "npm:@marktiderman/genesis-fixture@^0.1.0/server";',
+        'import { other } from "npm:@marktiderman/genesis-not-installed@^2.0.0";',
+        "Deno.serve(() => new Response(send(other)));",
+        "",
+      ].join("\n"),
+    });
+    await add(root);
+    const copy = read(root, "supabase/functions/fixture-send/index.ts");
+    expect(copy).toContain('"npm:@marktiderman/genesis-fixture@^1.0.0/server"');
+    expect(copy).toContain('"npm:@marktiderman/genesis-not-installed@^2.0.0"');
+  });
+
   it("is idempotent: a second run creates nothing and changes nothing", async () => {
     const root = app();
     await add(root);

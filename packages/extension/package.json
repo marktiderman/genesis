@@ -79,6 +79,9 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "shells",
+    "owner": "@marktiderman",
     "doctor": {
       "prefer": [
         {

@@ -12,19 +12,19 @@ export interface SheetGridColumn<T> {
   key: string;
   header: string;
   /** Width in px. Default 160. */
-  width?: number;
+  width?: number | undefined;
   /** The cell's text: what is shown when no `render` is given, edited, and copied. Default `String(row[key])`. */
   getText?: (row: T) => string;
   /** Custom display. Editing and copying still use `getText`. */
-  render?: (row: T) => ReactNode;
+  render?: ((row: T) => ReactNode) | undefined;
   /** Whether this column's cells can be edited. */
-  editable?: boolean;
+  editable?: boolean | undefined;
   /** Why the cells can't be edited, shown on hover. */
   readOnlyReason?: string;
   /** Fixed choices: the editor becomes a select. */
   options?: string[];
   /** Shown before the header text, e.g. an icon for the field's type. */
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   /** `end` right-aligns the cells, as for numbers. */
   align?: "start" | "end";
 }

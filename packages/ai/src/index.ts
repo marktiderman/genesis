@@ -2,8 +2,15 @@
 export { checkTasks, defineAi, defineTask, type Ai, type AiConfig, type AliasConfig, type ModelLike, type ResolvedAlias, type VendorAdapter } from "./define";
 export { ANTHROPIC_API_VERSION, MODEL_RECORDS, costOf, estimateCost, type CacheTtl, type ModelRecord } from "./models";
 export {
+  AI_SPEC,
   GuardrailError,
+  type AiActor,
   type AiContext,
+  type AiSpec,
+  type BudgetStore,
+  type ConsentStore,
+  type KeyStore,
+  type UsageStore,
   type AiMessage,
   type AiSchema,
   type Capability,
@@ -28,3 +35,4 @@ export {
   type TaskDefinition,
   type TelemetrySink,
 } from "./types";
+export { RUN_EVENT_TYPES, textStreamToRunEvents, type JsonPatchOperation, type RunEvent, type TextStreamEvent } from "./run-events";

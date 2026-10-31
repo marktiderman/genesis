@@ -94,6 +94,13 @@ describe("package declarations", () => {
     expect(validateDeclaration({ enforce: false, reason: "Tooling only." }, "x").enforce).toBe(false);
   });
 
+  it("reads catalog, and primitives as its old name, but not both", () => {
+    const entry = { need: "dates", use: "dayIn" };
+    expect(validateDeclaration({ prefer: [LIST_RULE], catalog: [entry] }, "x").primitives).toEqual([entry]);
+    expect(() => validateDeclaration({ prefer: [LIST_RULE], catalog: [entry], primitives: [entry] }, "x")).toThrow(/both catalog and primitives/);
+    expect(() => validateDeclaration({ prefer: [LIST_RULE], catalog: [{ use: "dayIn" }] }, "x")).toThrow(/catalog\[0\] needs "need"/);
+  });
+
   it.each([
     [false, /say why/],
     [{ enforce: false }, /without a reason/],
@@ -159,7 +166,7 @@ describe("package rules in the doctor", () => {
     expect(message).toContain("use <WidgetView> (@marktiderman/genesis-widgets)");
     expect(message).toContain("https://example.com/widgets");
     expect(result.primitives).toEqual({ rules: 1, packages: 1 });
-    expect(formatReport(result)).toContain("Primitives: 1 rules from 1 packages; see genesis primitives");
+    expect(formatReport(result)).toContain("Primitives: 1 rules from 1 packages; see genesis catalog");
   });
 
   it("leaves a file that renders the primitive alone, and files outside the rule's globs", async () => {
@@ -379,6 +386,61 @@ describe("the real package declarations", () => {
       "core-rules/direct-data-access warn src/components/Rpc.tsx:1 .schema(\"app\").from(",
       "core-rules/direct-data-access warn src/components/Rpc.tsx:1 client.rpc(",
       "core-rules/direct-data-access warn src/routes/goals.tsx:2 supabase.from(",
+    ]);
+  });
+
+  it("ui accepts a KanbanBoard fed by useResourceView or useResourceTable in the same file, and nothing else it would flag", async () => {
+    const root = makeApp(null, {
+      ...install("ui", "genesis-ui-rules"),
+      "src/routes/board.tsx": "export const B = () => { const t = useResourceTable(view); return <KanbanBoard columns={t.rows} />; };\n",
+      "src/routes/typed.tsx": "export const T = () => { const v = useResourceView<Task>(tasks); return <KanbanBoard columns={v.rows} />; };\n",
+      "src/routes/loose.tsx": "export const L = () => <KanbanBoard columns={[]} />;\n",
+      "src/routes/table.tsx": "export const T = () => { const t = useResourceTable(view); return <DataTable rows={t.rows} />; };\n",
+      // A calendar is no exemption: the hook and a calendar beside a raw DataTable is still flagged.
+      "src/routes/calendar.tsx": "export const C = () => { const v = useResourceView(events); return <><MiniCalendar /><DataTable rows={raw} /></>; };\n",
+      // A banned list beside an exempted board: the exemption is off for the file, so both are flagged.
+      "src/routes/mixed.tsx": "export const M = () => { const v = useResourceView(tasks); return <><KanbanBoard columns={v.rows} /><DataTable rows={raw} /></>; };\n",
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/lists")).toEqual([
+      "ui-rules/lists-use-resource-view warn src/routes/calendar.tsx:1 DataTable",
+      "ui-rules/lists-use-resource-view warn src/routes/loose.tsx:1 KanbanBoard",
+      "ui-rules/lists-use-resource-view warn src/routes/mixed.tsx:1 KanbanBoard",
+      "ui-rules/lists-use-resource-view warn src/routes/mixed.tsx:1 DataTable",
+      "ui-rules/lists-use-resource-view warn src/routes/table.tsx:1 DataTable",
+    ]);
+  });
+
+  it("core keeps *.view.ts files platform-neutral: no router, react-dom, react-native or UI imports", async () => {
+    const root = makeApp(null, {
+      ...install("core", "genesis-core-rules"),
+      "src/lib/views/goals.view.ts": [
+        'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+        'import { personDay } from "@marktiderman/genesis-core/dates";',
+        'import { goals } from "../resources";',
+        "export const goalsView = defineView(goals, {});",
+        "",
+      ].join("\n"),
+      "src/lib/views/studio.view.ts": [
+        'import { defineView } from "@marktiderman/genesis-core/resource-view";',
+        'import { Link } from "@tanstack/react-router";',
+        'import { createPortal } from "react-dom";',
+        'import { Platform } from "react-native";',
+        'import { Badge } from "@marktiderman/genesis-ui";',
+        'import { useRouter } from "expo-router";',
+        'import { Star } from "lucide-react-native";',
+        "export const studioView = defineView(studio, {});",
+        "",
+      ].join("\n"),
+      // Not a view file: a screen may import all of these.
+      "src/routes/studio.tsx": 'import { Link } from "@tanstack/react-router";\nexport const S = () => <Link to="/" />;\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "core-rules/views-stay")).toEqual([
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:2 @tanstack/react-router",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:3 react-dom",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:4 react-native",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:5 @marktiderman/genesis-ui",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:6 expo-router",
+      "core-rules/views-stay-platform-neutral warn src/lib/views/studio.view.ts:7 lucide-react-native",
     ]);
   });
 

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Kbd } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Kbd> = { title: "UI/Kbd", component: Kbd };
+const meta: Meta<typeof Kbd> = { title: "Foundation/UI/Kbd", component: Kbd };
 export default meta;
 type Story = StoryObj<typeof Kbd>;
 

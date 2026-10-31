@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Textarea, Label } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Textarea> = { title: "UI/Textarea", component: Textarea };
+const meta: Meta<typeof Textarea> = { title: "Foundation/UI/Textarea", component: Textarea };
 export default meta;
 type Story = StoryObj<typeof Textarea>;
 

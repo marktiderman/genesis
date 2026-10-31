@@ -27,7 +27,7 @@ export interface SectionProps
   /** Section heading. Required — an untitled region is just a `Stack`. */
   title: React.ReactNode;
   /** Optional supporting copy under the heading. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /** Optional trailing controls for this region (a button, a menu, a filter). */
   actions?: React.ReactNode;
   /**
@@ -39,7 +39,7 @@ export interface SectionProps
   /** Escape hatch for the heading's own classes (type scale, color). */
   headingClassName?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

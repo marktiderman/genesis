@@ -169,6 +169,40 @@ One difference: a chat message carries its sender's id, so the person can learn 
 member answered (support_replies hid it). Name staff as "Support" in `resolveUser` (the web views
 do by default for the person).
 
+## Email tickets (the `support-email` block)
+
+Email is a ticket channel (ADR 0011). `genesis add support-email` copies
+`migrations/0002_genesis_support_email.sql` (after 0006). Mail to a support address opens a
+ticket; a reply to the ticket's reply address (`support+<token>@your-reply-domain`) or to its
+email joins it and reopens an answered one; a staff reply, written in the app or in
+support-chat, goes back by email in the same thread. An email ticket may have no login: staff
+see it, and nothing links a login from an address (a From header can be forged).
+
+```ts
+// The inbound webhook route (server only)
+import { createInboundEmailHandler, resendProvider } from "@marktiderman/genesis-notifications/server";
+import { runSupportEmail, supportEmailRoute } from "@marktiderman/genesis-support/email";
+
+export const handleInbound = createInboundEmailHandler({
+  webhookSecret: env.RESEND_INBOUND_WEBHOOK_SECRET,
+  apiKey: env.RESEND_API_KEY,
+  routes: [supportEmailRoute(admin, { addresses: ["support@acme.test"], replyDomain: "reply.acme.test" })],
+});
+
+// Every minute, from your jobs: send staff replies on email tickets, threaded.
+await runSupportEmail(admin, { email: resendProvider({ apiKey: env.RESEND_API_KEY }), from: "Acme Support <support@acme.test>", replyDomain: "reply.acme.test" });
+```
+
+Point the reply domain's MX record at Resend so replies come back. Inbound attachments are
+listed (name, type, size) but not stored yet.
+
+- Staff link an email ticket to a login with `support_link_requester(report, person)` (with
+  support-chat, the person joins the conversation), and mark it read as usual.
+- Automatic mail (out-of-office, bounces, lists) and mail from your own addresses never open or
+  reopen a ticket; a sender past 20 emails an hour is dropped.
+- A reply keeps its text and thread ids when it is queued (a retry sends the same email); one
+  deleted before it goes out is cancelled.
+
 ## Access, in the database
 
 A person sees, edits (while open) and deletes their own reports, replies on them and sees their

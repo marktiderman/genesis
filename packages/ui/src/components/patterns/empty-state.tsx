@@ -13,13 +13,13 @@ const DEFAULT_TITLE = "No results found";
 const FILTERED_TITLE = "No results match your filters";
 
 export interface EmptyStateProps {
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   /**
    * Bold heading. Optional — falls back to `message` (deprecated), then a
    * generic default. Superseded by fixed copy whenever `hasFilters` is true.
    */
-  title?: string;
-  description?: string;
+  title?: string | undefined;
+  description?: string | undefined;
   action?: React.ReactNode;
   className?: string;
   /**
@@ -36,7 +36,7 @@ export interface EmptyStateProps {
    */
   hasFilters?: boolean;
   /** Invoked by the "Clear all filters" action shown when `hasFilters` is true. */
-  onClearFilters?: () => void;
+  onClearFilters?: (() => void) | undefined;
 }
 
 /**

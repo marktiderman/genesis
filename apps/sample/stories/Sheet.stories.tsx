@@ -9,7 +9,7 @@ import {
   Button,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Sheet> = { title: "UI/Sheet", component: Sheet };
+const meta: Meta<typeof Sheet> = { title: "Foundation/UI/Sheet", component: Sheet };
 export default meta;
 type Story = StoryObj<typeof Sheet>;
 

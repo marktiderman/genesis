@@ -85,7 +85,7 @@ export interface RichTextProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   /** Heading levels to keep; others move to the nearest kept level. Default `[2, 3, 4]`. */
   headingLevels?: readonly RichTextHeadingLevel[];
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 function renderInline(nodes: RichTextNode[] | undefined): React.ReactNode[] {
@@ -100,7 +100,7 @@ function renderInline(nodes: RichTextNode[] | undefined): React.ReactNode[] {
       else if (mark.type === "italic") el = <em>{el}</em>;
       else if (mark.type === "underline") el = <u>{el}</u>;
       else if (mark.type === "link") {
-        const href = String(mark.attrs?.href);
+        const href = String(mark.attrs?.["href"]);
         el = isExternalHref(href) ? (
           <a href={href} target="_blank" rel="noopener noreferrer nofollow">
             {el}
@@ -147,14 +147,14 @@ function renderBlocks(nodes: RichTextNode[] | undefined, asLink: boolean): React
       case "paragraph":
         return <p key={i}>{renderInline(node.content)}</p>;
       case "heading": {
-        const Tag = `h${node.attrs?.level as RichTextHeadingLevel}` as "h2" | "h3" | "h4";
+        const Tag = `h${node.attrs?.["level"] as RichTextHeadingLevel}` as "h2" | "h3" | "h4";
         return <Tag key={i}>{renderInline(node.content)}</Tag>;
       }
       case "bulletList":
         return <ul key={i}>{renderBlocks(node.content, asLink)}</ul>;
       case "orderedList":
         return (
-          <ol key={i} start={node.attrs?.start as number | undefined}>
+          <ol key={i} start={node.attrs?.["start"] as number | undefined}>
             {renderBlocks(node.content, asLink)}
           </ol>
         );

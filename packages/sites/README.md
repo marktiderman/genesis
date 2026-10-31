@@ -18,6 +18,8 @@ hydration, and published as immutable releases you can roll back.
 - **Editor** (`/editor`): `<SiteEditor>`, the visual editor (on Puck).
 - **Block** (`/blocks`): `sitesBlock`, so `genesis add sites` installs the
   migration.
+- **Templates** (`/templates`): industry template content, as data on the
+  neutral sections (see [A neutral core](#a-neutral-core-and-industry-templates)).
 
 Status: beta. The design and its reasoning are in
 [docs/SITES.md](../../docs/SITES.md).
@@ -49,18 +51,18 @@ import { createMemorySiteStore, landingPage } from "@marktiderman/genesis-sites"
 import { handleSiteRequest } from "@marktiderman/genesis-sites/web";
 
 const brand = {
-  name: "Riverside Gym",
+  name: "Riverside Works",
   colors: { primary: "#0f766e", primaryDark: "#2dd4bf" },
   fonts: { heading: "space-grotesk", body: "inter" },
 };
 const { site, pages } = landingPage({
   brand,
   message: {
-    headline: "Train with people who know your name",
-    subhead: "Small classes and real coaching by the river.",
-    benefits: [{ title: "Coached classes", body: "A coach in every class." }],
+    headline: "Make things with people who know your name",
+    subhead: "Small groups and real teaching by the river.",
+    benefits: [{ title: "Guided sessions", body: "A host in every session." }],
   },
-  form: { slug: "free-class", heading: "Book a free class" },
+  form: { slug: "free-class", heading: "Book a free visit" },
   contact: { email: "hello@riverside.example" },
 });
 
@@ -116,6 +118,47 @@ serves:
 
 The page loads one script, the islands loader (2.3 KB), and only when it has a
 phone menu or a form. Pass `basePath` to mount a site under a path.
+
+### Everything from the site itself
+
+A published page loads its fonts, styles and scripts from the site, never from
+a third party. No visitor's address goes to a font host, and the
+Content-Security-Policy says so: `font-src 'self'`, `script-src 'self'`, and a
+`style-src` that names only the site and the hash of the page's one inline
+style.
+
+**Fonts.** Every font choice but `system` is served from `/_gs/`: the latin
+subset, one woff2 per weight the choice lists, content-hashed and immutable.
+The page's inline style declares an `@font-face` for each weight, with
+`font-display: swap`, and the page preloads the heading font's bold file. A
+face with one weight (Bebas Neue) is declared for every weight, so a bold
+heading draws it as it is, without a faux bold. Pass `fonts: false` to load no
+files; the page then uses an installed font or the stack's fallback.
+
+The choices (`FONT_CHOICES`): System, Inter, DM Sans, Work Sans, Montserrat,
+Poppins, Space Grotesk, Source Serif, Merriweather, Playfair Display, Lora,
+Barlow, Barlow Condensed, Oswald, Roboto Condensed and Bebas Neue. Bebas Neue
+has one weight, so it is a heading font only (`BodyFontChoice` leaves it out).
+The list itself lives in genesis-design-system (`/fonts`), where each font
+carries its class (grotesk, geometric, condensed, serif) for the design
+systems' heading rules; this package still builds and serves the files.
+
+The files come from the `@fontsource/*` packages at build time. All are under
+the SIL Open Font License 1.1; their licences ship in
+`dist/assets/fonts/LICENSES.txt`. They cost about 840 KB of woff2 (1.1 MB as
+the base64 chunk the server holds). The handler loads that chunk on the first
+font request only, never to render a page, and a visitor downloads only the
+weights a page uses (about 20 KB each).
+
+**Images.** A page's images and files should live on the site too: uploaded
+with `putAsset`, or copied from an old site with `importAssets` (see
+[Importing a site](#importing-a-site)). The publish check warns about one that loads from another
+host. A site that sets `images: "own"` in its site document makes that an
+error, and its page's policy narrows `img-src` to `'self' data:` plus the
+store's asset origin (`SiteStore.assetOrigin`; the Supabase store's is its
+storage origin). Other origins go in the publish's `assetOrigins` and, the
+same list, in `handleSiteRequest`'s `assetOrigins`. Without it, `img-src` allows any https host, so existing
+sites keep working.
 
 **Publishing and the cache.** Wrap the editor's store with
 `withCacheInvalidation` so publish and rollback purge `site:<id>`. Mind what
@@ -180,12 +223,14 @@ a button and a note per step) and `numbered`; `pricing` takes plan `groups`
 `tiers`; `logos` has a `trust-bar` variant (a short claim and badges), and an
 item without an image is a text badge.
 
-- **`schedule`**: the week's classes by time and day, with a host ("with …";
-  `coach` is a deprecated alias), place, a note and a booking link per class,
-  and chips per class type in the brand's colours (`types`, with a legend). On
+- **`schedule`**: the week's sessions by time and day, with a host ("with …";
+  documents saved before version 2 keep an older key for it, which still
+  renders and moves into `host`), place, a note and a booking link per
+  session, the nouns a visitor hears (`labels`: `items`, default "sessions",
+  and `types`, default "Session types"), and chips per session type in the brand's colours (`types`, with a legend). On
   wider screens it is a table (a caption, a header cell per day and per time,
   an empty slot said as `emptyText`, default "Nothing scheduled"); on a phone a day picker: radio buttons and the stylesheet's
-  `:has()` show one day's classes, with no script (every day shows where
+  `:has()` show one day's sessions, with no script (every day shows where
   `:has()` isn't supported).
 - **`team`**: photo, role, credentials, a long bio, a quote, a button and a
   link to the person's page (`profile`). The cards open each bio in place
@@ -252,6 +297,90 @@ props; `migrateNode` runs the steps on read and a publish writes the result
 into the release. `sectionJsonSchema(type)` gives the props' JSON Schema (for
 editor fields and AI output) and `sectionManifests()` the editor's catalog.
 
+## Design systems
+
+A brand is identity (name, colours, fonts, logo). A **design system** is the
+look rules attached to it: the type ramp, space, corners, surfaces, image
+treatment and motion. They come from genesis-design-system
+(`defineDesignSystem`, versioned like `crisp@1`); a brand names one, plus up
+to three choices from fixed lists:
+
+```ts
+const brand: SiteBrand = {
+  name: "Riverside Works",
+  colors: { primary: "#0f766e", secondary: "#f59e0b" }, // one accent, one optional supporting colour
+  fonts: { heading: "space-grotesk", body: "inter" },
+  designSystem: { id: "soft@1", density: "generous", corners: "round", motion: "calm" },
+};
+```
+
+- **Swapping it re-themes every page with no other work.** Sections draw only
+  tokens, so a swap changes the page's theme `<style>` (its CSS variables) and
+  nothing else in the HTML. A test renders the same page under every shipped
+  design system and compares.
+- **`classic@1` is the default** and emits no tokens: a brand that names no
+  design system looks exactly as before, and its release hash is unchanged.
+- **Built in** (genesis-design-system): `classic@1`, `crisp@1` (cool, exact,
+  flat) and `soft@1` (warm, generous, rounded). **Industry ones** are template
+  content in `/templates`: `forge@1` (bold, poster headings, square) and
+  `studio@1` (calm, warm, rounded). Register the ones you offer once at
+  startup; a brand naming an id that isn't registered is logged and themes
+  as `classic@1`:
+
+  ```ts
+  import { registerDesignSystem } from "@marktiderman/genesis-design-system";
+  import { industryDesignSystems } from "@marktiderman/genesis-sites/templates";
+
+  registerDesignSystem(...industryDesignSystems);
+  ```
+
+- **Colour.** A design system with `surfaces` themes through the OKLCH colour
+  engine: neutrals tinted with the brand, a warm or cool ground (never pure
+  white), the accent as a fill (the brand colour, unchanged) and as text
+  (walked down its ramp until it reads at 4.5:1), and every text colour
+  solved to pass WCAG AA, in light and dark. A neon or near-white brand
+  colour passes: its buttons keep the colour, with dark text on them. The
+  publish's contrast check reads the engine's pairs.
+- **What the tokens drive today** (`src/web/sites.css`, each with today's
+  value as its fallback): heading sizes from the fluid ramp (a clamp per step,
+  so browser zoom works; the hero's display step can reach 112px), heading
+  weight, tracking and case by the heading font's class, eyebrows and lead
+  copy, section padding by density, neighbouring bands on the same surface
+  sharing their padding (no doubled gap), corners (`--radius`) and button
+  corners, the photo filter, the wash behind text over a photo (the least
+  that keeps 4.5:1, instead of 80%), and motion: below-the-fold sections rise
+  in with a scroll-driven animation, never the hero, and never under reduced
+  motion. Shadows, border width, grain and the space scale are emitted as
+  tokens for sections to adopt.
+- `siteTheme(brand, theme, { designSystem })` previews another design system
+  without changing the brand ("try a look").
+
+## A neutral core, and industry templates
+
+The core never names an industry: its schemas, sections, presets, defaults,
+examples and docs read naturally for any business (a person and their role,
+a session and its host). Industry flavour is template content, in
+`src/templates/` and exported from `/templates`: per-section presets on the
+sections' own preset shape, plus a sample brand and message for
+`landingPage`, `onePageSite` and `starterSite`. A template never adds a code
+path; a section renders the same whichever template its props came from.
+The businesses in templates are made up. Industry design systems
+(`forgeDesignSystem`, `studioDesignSystem`, `industryDesignSystems`) live here
+too, as tokens only, and a template lists the ones that suit it
+(`template.designSystems`).
+
+```ts
+import { industryTemplates } from "@marktiderman/genesis-sites/templates";
+
+for (const template of Object.values(industryTemplates)) {
+  template.presets.team; // SectionPreset[]: offer them beside the built-in ones
+}
+```
+
+CI (`scripts/check-industry-words.mjs`, word list in
+`scripts/industry-words.mjs`) fails on industry words anywhere in this
+package but `src/templates/`.
+
 ## Publish checks
 
 `store.publish` runs `prepareRelease`, which migrates every node and refuses
@@ -263,20 +392,27 @@ to publish (`PublishBlockedError`, with `issues`) when:
   one hero;
 - a brand colour pair the sections draw is under 4.5:1 (3:1 for the focus
   ring), in each colour scheme the site uses, or the publish wasn't given the
-  brand to check;
+  brand to check (with a colour design system, these are the colour engine's
+  pairs, which are solved to pass);
 - an image has no alt text and isn't marked decorative;
 - a section is unknown, has invalid props or was saved by newer code;
 - a template placeholder is still visible;
-- a page path is malformed or reserved, or the site has no home page.
+- a page path is malformed or reserved, or the site has no home page;
+- on a site with `images: "own"`, an image, a file or the brand's logo loads
+  from a host other than the site and the store's asset origin.
 
-Warnings (an unknown variant, a page with no hero, a missing description)
-don't block.
-`checkRelease`, `checkPage`, `checkContrast` and `checkHtmlOutline` are
-exported for an editor's lint panel.
+Warnings (an unknown variant, a page with no hero, a missing description, an
+image from another host on any other site) don't block. An image from another
+host says how to fix it: upload it again, or copy the old site's files with
+`importAssets`.
+`checkRelease`, `checkPage`, `checkContrast`, `checkAssetHosts` and
+`checkHtmlOutline` are exported for an editor's lint panel. `checkPost` takes
+the same `{ images, assetOrigins }` as its third argument; the stores pass the
+site's setting when they publish a post.
 
 ## SEO
 
-Each page gets a title from the site's template (`%s · Riverside Gym`), a
+Each page gets a title from the site's template (`%s · Riverside Works`), a
 description, `robots`, a canonical URL from `origin`, and Open Graph and
 Twitter tags. The home page carries `Organization` and `WebSite` JSON-LD, and
 every page below it a `BreadcrumbList`. `sitemap.xml` lists the indexable
@@ -547,4 +683,5 @@ Vercel.
 
 ## License
 
-MIT
+MIT. The font files it serves are under the SIL Open Font License 1.1 (see
+`dist/assets/fonts/LICENSES.txt`).

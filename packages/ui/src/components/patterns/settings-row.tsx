@@ -7,7 +7,7 @@ export interface SettingsRowProps {
   /** Row label. */
   label: React.ReactNode;
   /** Supporting copy shown under the label, muted. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /** Control(s) rendered on the trailing side. */
   children?: React.ReactNode;
   /**
@@ -24,12 +24,12 @@ export interface SettingsRowProps {
    * `<p>` that a screen reader skips while navigating controls. `ToggleRow`
    * wires this automatically; pass it yourself when supplying your own control.
    */
-  descriptionId?: string;
+  descriptionId?: string | undefined;
   /** Dims the row to indicate the control it wraps is disabled. */
-  disabled?: boolean;
-  className?: string;
+  disabled?: boolean | undefined;
+  className?: string | undefined;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

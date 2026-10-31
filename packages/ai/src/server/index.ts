@@ -11,4 +11,4 @@ export { wrap, AiCallError, type WrapOptions } from "./wrap";
 export { createAiHandler, type AiHandlerOptions } from "./handler";
 export { memoryStore, type MemoryStore, type MemoryStoreOptions, type UsageRow } from "./memory-store";
 export { otelSink, type TracerLike } from "./telemetry";
-export { evaluate, type EvalCase, type EvalReport } from "./evaluate";
+export { evaluate, type EvalCase, type EvalReport, type EvalTarget, type Scorer, type ScoreResult } from "./evaluate";

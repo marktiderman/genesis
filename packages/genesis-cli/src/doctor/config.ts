@@ -216,7 +216,7 @@ export function doctorBlock(json: unknown, file: string, explicit: boolean): unk
 }
 
 /**
- * A package's rule declaration (`prefer`, `primitives`, `plugin`, `enforce`), as opposed to an app's
+ * A package's rule declaration (`prefer`, `catalog` or its old name `primitives`, `plugin`, `enforce`), as opposed to an app's
  * doctor settings. A block that also holds an app setting is the app's, so a typo such as `plugin`
  * beside `rules` reaches validateConfig and fails instead of hiding the whole block.
  */
@@ -224,7 +224,7 @@ export function isPackageDeclaration(block: unknown): boolean {
   if (typeof block === "string") return true;
   if (!isObject(block)) return false;
   const keys = Object.keys(block).filter((k) => k !== "$comment");
-  return keys.some((k) => ["prefer", "primitives", "plugin", "enforce"].includes(k)) && !keys.some((k) => KNOWN.has(k));
+  return keys.some((k) => ["prefer", "catalog", "primitives", "plugin", "enforce"].includes(k)) && !keys.some((k) => KNOWN.has(k));
 }
 
 function readJson(file: string) {

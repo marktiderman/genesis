@@ -13,7 +13,7 @@ export function Chip({
   testID,
 }: {
   tone: ChipTone;
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   children: ReactNode;
   className?: string | undefined;
   testID?: string | undefined;

@@ -74,12 +74,21 @@
       "import": "./dist/schema/brand.js"
     },
     "./schema/brand.schema.json": "./schema/brand.schema.json",
+    "./design-systems": {
+      "types": "./dist/design-systems/index.d.ts",
+      "import": "./dist/design-systems/index.js"
+    },
+    "./fonts": {
+      "types": "./dist/fonts.d.ts",
+      "import": "./dist/fonts.js"
+    },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
       "react-native": "./dist/theme/index.native.js",
       "import": "./dist/theme/index.js"
     },
-    "./themes/*.css": "./dist/themes/*.css"
+    "./themes/*.css": "./dist/themes/*.css",
+    "./package.json": "./package.json"
   },
   "devDependencies": {
     "@types/react": "^19.2.14",
@@ -92,6 +101,10 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "owner": "@marktiderman",
+    "essential": true,
     "doctor": {
       "enforce": false,
       "reason": "Its rules are built in to the doctor: raw-color, palette-color, arbitrary-color and undefined-token read its tokens.",

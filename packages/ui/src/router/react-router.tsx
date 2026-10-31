@@ -26,6 +26,7 @@ import type {
   NavigateFn,
   SearchParamsAdapter,
 } from "../navigation";
+import { compact } from "../components/data/compact";
 import { isExternalHref } from "./utils";
 
 /**
@@ -91,7 +92,7 @@ export function useReactRouterSearchParams(): SearchParamsAdapter {
       const qs = next.toString();
       void navigate(
         { search: qs ? `?${qs}` : "", hash },
-        { replace: options?.replace },
+        compact({ replace: options?.replace }),
       );
     },
     [navigate, hash],

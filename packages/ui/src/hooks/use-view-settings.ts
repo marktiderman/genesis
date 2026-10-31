@@ -8,7 +8,7 @@ export type Density = "compact" | "comfortable" | "spacious";
 export interface ViewSettings {
   pageSize: number;
   density: Density;
-  defaultSort?: { key: string; direction: "asc" | "desc" };
+  defaultSort?: { key: string; direction: "asc" | "desc" } | undefined;
 }
 
 const DEFAULT_SETTINGS: ViewSettings = {

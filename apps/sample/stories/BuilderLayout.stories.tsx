@@ -72,7 +72,7 @@ function LivePreview() {
 }
 
 const meta: Meta<typeof Demo> = {
-  title: "Layout/BuilderLayout",
+  title: "Foundation/Layout/BuilderLayout",
   component: Demo,
   parameters: { layout: "fullscreen" },
 };

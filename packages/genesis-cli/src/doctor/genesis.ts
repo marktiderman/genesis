@@ -121,36 +121,53 @@ export function readPackageExports(root: string, uiPackage: string): PackageExpo
   const uiPkg = JSON.parse(readFileSync(path.join(uiDir, "package.json"), "utf8"));
 
   // ---- Exports, from every subpath's declarations ----
+  // A package whose exports point straight at TypeScript source with no `types` condition (an app's
+  // overlay of a Genesis package, built by the app's bundler) is read from that source instead.
+  const subpaths = Object.values(uiPkg.exports ?? {});
+  const declared = uiPkg.types ?? uiPkg.typings ?? exportTypes(uiPkg.exports?.["."] ?? uiPkg.exports);
+  const fromSource = typeof declared !== "string" && !subpaths.some((t) => typeof exportTypes(t) === "string");
+  const entryOf = fromSource ? exportSource : exportTypes;
   const typeEntries = new Set<string>();
-  const mainTypes = uiPkg.types ?? uiPkg.typings ?? exportTypes(uiPkg.exports?.["."] ?? uiPkg.exports);
+  const mainTypes = fromSource ? (exportSource(uiPkg.exports?.["."] ?? uiPkg.exports) ?? (isTsSource(uiPkg.main) ? uiPkg.main : undefined)) : declared;
   if (typeof mainTypes === "string") typeEntries.add(mainTypes);
-  for (const target of Object.values(uiPkg.exports ?? {})) {
-    const t = exportTypes(target);
+  for (const target of subpaths) {
+    const t = entryOf(target);
     if (typeof t === "string" && !t.includes("*")) typeEntries.add(t);
   }
   const exportNames = new Set<string>();
   const reexportedPackages = new Set<string>();
   let readAny = false;
-  for (const entry of typeEntries) {
-    const file = path.join(uiDir, entry);
-    if (!existsSync(file)) continue;
+  const seen = new Set<string>();
+  const readEntry = (file: string) => {
+    // Only files inside the package: an export or re-export can't send the reader elsewhere. `seen` ends cycles.
+    if (seen.has(file) || !insidePackage(uiDir, file) || !existsSync(file)) return;
+    seen.add(file);
     readAny = true;
-    const dts = readFileSync(file, "utf8");
-    for (const name of parseExportNames(dts)) exportNames.add(name);
-    for (const m of dts.matchAll(/export\s+(?:type\s+)?(?:\{[^}]*\}|\*)\s*from\s*["']([^"'.][^"']*)["']/g)) {
+    const code = fromSource ? stripComments(readFileSync(file, "utf8")) : readFileSync(file, "utf8");
+    for (const name of fromSource ? parseSourceExportNames(code) : parseExportNames(code)) exportNames.add(name);
+    for (const m of code.matchAll(/export\s+(?:type\s+)?(?:\{[^}]*\}|\*)\s*from\s*["']([^"'.][^"']*)["']/g)) {
       reexportedPackages.add(packageName(m[1]));
     }
-  }
+    // Source barrels re-export their siblings: `export * from "./button"` is followed.
+    if (fromSource) {
+      for (const m of code.matchAll(/export\s+\*\s+from\s*["'](\.[^"']*)["']/g)) {
+        const next = resolveSource(path.dirname(file), m[1]);
+        if (next) readEntry(next);
+      }
+    }
+  };
+  for (const entry of typeEntries) readEntry(path.join(uiDir, entry));
   if (!readAny) {
-    throw new DoctorConfigError(`${uiPackage} has no type declarations to read (is it built?). Looked for: ${[...typeEntries].join(", ") || "none"}`);
+    const what = fromSource ? "type declarations or TypeScript source" : "type declarations";
+    throw new DoctorConfigError(`${uiPackage} has no ${what} to read (is it built?). Looked for: ${[...typeEntries].join(", ") || "none"}`);
   }
 
-  // ---- Which exports are types only, from every declaration file it ships ----
+  // ---- Which exports are types only, from every declaration (or source) file it ships ----
   const valueDecls = new Set<string>();
   const typeDecls = new Set<string>();
   const declRoot = typeof mainTypes === "string" ? path.dirname(path.join(uiDir, mainTypes)) : uiDir;
   // Names re-exported from other packages (e.g. genesis-core's types) are declared there.
-  const declFiles = walkDts(declRoot);
+  const declFiles = fromSource ? walkSource(declRoot) : walkDts(declRoot);
   for (const pkg of reexportedPackages) {
     const dir = findPackageDir(uiDir, pkg);
     if (dir) walkDts(path.join(dir, "dist"), declFiles);
@@ -192,6 +209,88 @@ export function declaredTokens(css: string): string[] {
 function packageName(specifier: string): string {
   const parts = specifier.split("/");
   return parts.slice(0, specifier.startsWith("@") ? 2 : 1).join("/");
+}
+
+/** Names a TypeScript source file exports: `export { … }` lists, `export * as ns` and exported declarations. */
+export function parseSourceExportNames(code: string): string[] {
+  const names = parseExportNames(code);
+  for (const m of code.matchAll(/export\s+(?:default\s+)?(?:declare\s+)?(?:abstract\s+)?(?:async\s+)?(?:var|class|function\*?)\s+([A-Za-z_$][\w$]*)/g)) names.push(m[1]);
+  for (const m of code.matchAll(/export\s+\*\s+as\s+([A-Za-z_$][\w$]*)/g)) names.push(m[1]);
+  return [...new Set(names)];
+}
+
+const TS_SOURCE = /\.(?:[cm]?tsx?)$/;
+const isTsSource = (v: unknown): v is string => typeof v === "string" && TS_SOURCE.test(v) && !/\.d\.[cm]?ts$/.test(v);
+
+/** The TypeScript source an export target points at (`./src/index.ts`, or the first source path under a condition). */
+function exportSource(target: unknown): string | undefined {
+  if (isTsSource(target)) return target;
+  if (!target || typeof target !== "object") return undefined;
+  for (const value of Object.values(target as Record<string, unknown>)) {
+    const nested = exportSource(value);
+    if (nested) return nested;
+  }
+  return undefined;
+}
+
+/** `./button` from `dir`: the file itself, with a TypeScript extension, or its folder's index. */
+function resolveSource(dir: string, spec: string): string | null {
+  const base = path.resolve(dir, spec.replace(/\.js$/, ""));
+  const candidates = [base, ...[".ts", ".tsx", ".mts", ".cts"].map((e) => base + e), ...["index.ts", "index.tsx"].map((i) => path.join(base, i))];
+  return candidates.find((f) => TS_SOURCE.test(f) && existsSync(f) && statSync(f).isFile()) ?? null;
+}
+
+/** `file` is `dir` or inside it. */
+function insidePackage(dir: string, file: string): boolean {
+  const rel = path.relative(path.resolve(dir), path.resolve(file));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * Block and line comments blanked (line breaks kept), so a commented-out export doesn't count.
+ * String and template contents are read past, so `"./icons/*.svg"` or `"https://x"` isn't a comment.
+ * Regex literals aren't told apart from division; an export line rarely holds one.
+ */
+export function stripComments(code: string): string {
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i]!;
+    const next = code[i + 1];
+    if (c === "/" && next === "*") {
+      const end = code.indexOf("*/", i + 2);
+      const stop = end < 0 ? code.length : end + 2;
+      out += code.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+    } else if (c === "/" && next === "/") {
+      const end = code.indexOf("\n", i);
+      i = end < 0 ? code.length : end;
+    } else if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== c) {
+        if (code[j] === "\\") j++;
+        else if (c !== "`" && code[j] === "\n") break;
+        j++;
+      }
+      out += code.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
+}
+
+function walkSource(dir: string, out: string[] = []): string[] {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+    const p = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkSource(p, out);
+    else if (isTsSource(entry.name) || /\.d\.[cm]?ts$/.test(entry.name)) out.push(p);
+  }
+  return out;
 }
 
 function exportTypes(target: unknown): string | undefined {

@@ -61,7 +61,7 @@ export interface VideoEmbedAttrs {
   /** Vimeo's privacy hash for unlisted videos (`vimeo.com/123/abcdef`). */
   hash?: string;
   /** Accessible name for the player frame. */
-  title?: string;
+  title?: string | undefined;
 }
 
 export interface SanitizeRichTextOptions {
@@ -203,16 +203,16 @@ export function parseVideoUrl(input: string): VideoEmbedAttrs | null {
 export function sanitizeVideoEmbedAttrs(attrs: unknown): VideoEmbedAttrs | null {
   if (!attrs || typeof attrs !== "object") return null;
   const a = attrs as Record<string, unknown>;
-  const id = typeof a.id === "string" ? a.id : "";
+  const id = typeof a["id"] === "string" ? a["id"] : "";
   let clean: VideoEmbedAttrs | null = null;
-  if (a.provider === "youtube" && YOUTUBE_ID.test(id)) clean = { provider: "youtube", id };
-  else if (a.provider === "vimeo" && VIMEO_ID.test(id)) {
+  if (a["provider"] === "youtube" && YOUTUBE_ID.test(id)) clean = { provider: "youtube", id };
+  else if (a["provider"] === "vimeo" && VIMEO_ID.test(id)) {
     clean = { provider: "vimeo", id };
-    if (typeof a.hash === "string" && VIMEO_HASH.test(a.hash)) clean.hash = a.hash;
-  } else if (a.provider === "loom" && LOOM_ID.test(id)) clean = { provider: "loom", id };
+    if (typeof a["hash"] === "string" && VIMEO_HASH.test(a["hash"])) clean.hash = a["hash"];
+  } else if (a["provider"] === "loom" && LOOM_ID.test(id)) clean = { provider: "loom", id };
   if (!clean) return null;
-  if (typeof a.title === "string" && a.title.trim() !== "") {
-    clean.title = a.title.trim().slice(0, MAX_TITLE_LENGTH);
+  if (typeof a["title"] === "string" && a["title"].trim() !== "") {
+    clean.title = a["title"].trim().slice(0, MAX_TITLE_LENGTH);
   }
   return clean;
 }
@@ -349,7 +349,7 @@ function sanitizeMarks(marks: unknown): RichTextMark[] | undefined {
       out.push({ type });
       seen.add(type);
     } else if (type === "link") {
-      const href = (mark as RichTextMark).attrs?.href;
+      const href = (mark as RichTextMark).attrs?.["href"];
       if (isSafeUrl(href)) {
         out.push({ type: "link", attrs: { href: href.trim() } });
         seen.add(type);
@@ -443,7 +443,7 @@ function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[]
       case "heading":
         out.push(
           withContent("heading", sanitizeInline(n.content, depth + 1, ctx), {
-            level: nearestLevel(n.attrs?.level, ctx.levels),
+            level: nearestLevel(n.attrs?.["level"], ctx.levels),
           }),
         );
         break;
@@ -451,7 +451,7 @@ function sanitizeBlocks(nodes: unknown, ctx: Ctx, depth: number): RichTextNode[]
       case "orderedList": {
         const items = sanitizeListItems(n.content, ctx, depth);
         if (items.length === 0) break;
-        const start = n.attrs?.start;
+        const start = n.attrs?.["start"];
         const attrs =
           n.type === "orderedList" &&
           typeof start === "number" &&
@@ -604,7 +604,7 @@ function inlineToHtml(nodes: RichTextNode[] | undefined): string {
       if (mark.type === "bold") text = `<strong>${text}</strong>`;
       else if (mark.type === "italic") text = `<em>${text}</em>`;
       else if (mark.type === "underline") text = `<u>${text}</u>`;
-      else if (mark.type === "link") text = `<a ${linkAttrs(String(mark.attrs?.href))}>${text}</a>`;
+      else if (mark.type === "link") text = `<a ${linkAttrs(String(mark.attrs?.["href"]))}>${text}</a>`;
     }
     html += text;
   }
@@ -637,7 +637,7 @@ function blocksToHtml(nodes: RichTextNode[] | undefined, embedAs: "iframe" | "li
         html += `<p>${inlineToHtml(node.content)}</p>`;
         break;
       case "heading": {
-        const level = node.attrs?.level as number;
+        const level = node.attrs?.["level"] as number;
         html += `<h${level}>${inlineToHtml(node.content)}</h${level}>`;
         break;
       }
@@ -645,7 +645,7 @@ function blocksToHtml(nodes: RichTextNode[] | undefined, embedAs: "iframe" | "li
         html += `<ul>${blocksToHtml(node.content, embedAs)}</ul>`;
         break;
       case "orderedList": {
-        const start = node.attrs?.start;
+        const start = node.attrs?.["start"];
         html += `<ol${typeof start === "number" ? ` start="${start}"` : ""}>${blocksToHtml(node.content, embedAs)}</ol>`;
         break;
       }

@@ -20,7 +20,8 @@ import { Command } from "commander";
 import { runScaffold, type FileSystem } from "./scaffolder.js";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import type { FindOptions } from "@marktiderman/genesis-features";
 
 /** The installed CLI's version, from its own package.json (dist/ sits beside it). */
 function cliVersion(): string {
@@ -123,16 +124,22 @@ program
 program
   .command("introspect")
   .description("Write a checked-in contract (resources.genesis.ts) from the Postgres catalog or a PostgREST/Supabase OpenAPI spec")
-  .option("--database-env <name>", "Environment variable holding the Postgres URL", "DATABASE_URL")
+  .option("--database-env <name>", "Environment variable holding the Postgres URL (default: doctor.contracts.databaseEnv, else DATABASE_URL)")
   .option("--openapi <file-or-url>", "Read a PostgREST OpenAPI document (a Supabase project's /rest/v1/) instead of Postgres")
   .option("--header <header...>", "HTTP header for --openapi URLs, for values that aren't secret (repeatable)")
   .option("--apikey-env <name>", "Environment variable holding the API key for --openapi URLs (sent as apikey and Bearer)")
-  .option("-s, --schema <schemas>", "Comma-separated schemas", "public")
-  .option("-o, --out <file>", "Where to write the contract", "resources.genesis.ts")
+  .option("-s, --schema <schemas>", "Comma-separated schemas (default: doctor.contracts.schemas, else public)")
+  .option("-o, --out <file>", "Where to write the contract (default: doctor.contracts.out in genesis.config.json, else resources.genesis.ts)")
+  .option("--config <path>", "Config file to read doctor.contracts from (default: genesis.config.json or package.json)")
   .option("--check", "Write nothing; exit 1 if the contract on disk is out of date (for CI)", false)
-  .action(async (opts: { databaseEnv: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema: string; out: string; check: boolean }) => {
-    const schemas = opts.schema.split(",").map((s) => s.trim()).filter(Boolean);
+  .action(async (opts: { databaseEnv?: string; openapi?: string; header?: string[]; apikeyEnv?: string; schema?: string; out?: string; config?: string; check: boolean }) => {
     const { introspectOpenApi, introspectPostgres, emitContracts } = await import("./introspect/index.js");
+    const { introspectSettings } = await import("./introspect/settings.js");
+    const { loadConfig } = await import("./doctor/config.js");
+    const cwd = process.cwd();
+    const loaded = loadConfig(cwd, opts.config);
+    const settings = introspectSettings(opts, cwd, loaded.config.contracts, (file) => (existsSync(file) ? readFileSync(file, "utf-8") : null));
+    const { schemas, target, label } = settings;
     let tables;
     let source: string;
     if (opts.openapi) {
@@ -146,36 +153,35 @@ program
         headers.push(`apikey: ${key}`, `Authorization: Bearer ${key}`);
       }
       const doc = await readOpenApi(opts.openapi, headers);
-      tables = introspectOpenApi(doc, schemas[0]);
+      tables = introspectOpenApi(doc, schemas[0], { warn: (m) => logger.warn(m) });
       source = `OpenAPI ${redactUrl(opts.openapi)}`;
     } else {
       // The URL comes from the environment, never the command line, so it
       // stays out of shell history and process listings.
-      const url = process.env[opts.databaseEnv];
-      if (!url) throw new Error(`Set ${opts.databaseEnv} to the database URL, or pass --openapi.`);
+      const url = process.env[settings.databaseEnv];
+      if (!url) throw new Error(`Set ${settings.databaseEnv} to the database URL, or pass --openapi.`);
       const { default: postgres } = await import("postgres");
       const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
       try {
-        tables = await introspectPostgres(sql, schemas);
+        tables = await introspectPostgres(sql, schemas, { warn: (m) => logger.warn(m) });
       } finally {
         await sql.end();
       }
       source = (await import("./doctor/contracts.js")).postgresSource(schemas);
     }
     const content = emitContracts(tables, { source });
-    const target = path.resolve(opts.out);
     if (opts.check) {
       const current = await fs.readFile(target, "utf-8").catch(() => null);
       // A checkout with Windows line endings holds the same contract.
       if (current?.replace(/\r\n/g, "\n") !== content) {
-        console.error(`✗ ${opts.out} is out of date. Run \`genesis introspect\` and commit the result.`);
+        console.error(`✗ ${label} is out of date. Run \`genesis introspect\` and commit the result.`);
         process.exit(1);
       }
-      console.log(`✔ ${opts.out} is up to date (${tables.length} tables).`);
+      console.log(`✔ ${label} is up to date (${tables.length} tables).`);
       return;
     }
     await fs.writeFile(target, content, "utf-8");
-    console.log(`✔ Wrote ${opts.out}: ${tables.length} tables.`);
+    console.log(`✔ Wrote ${label}: ${tables.length} tables.`);
   });
 
 program
@@ -211,11 +217,33 @@ program
   });
 
 program
-  .command("primitives")
-  .description("Print the Genesis primitives catalog: for each need, what to use, its import and docs, from every installed Genesis package's declarations")
+  .command("catalog")
+  .description("Print the Genesis catalog: for each need, what to use, its import and docs, from every installed Genesis package's declarations")
   .option("--json", "Print the catalog as JSON", false)
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
   .action(async (opts: { json: boolean; dir: string }) => {
+    const doctor = await import("./doctor/index.js");
+    const packages = doctor.discoverPackages(path.resolve(opts.dir));
+    const rows = doctor.primitivesCatalog(packages);
+    // A package whose declaration doesn't validate is missing from the catalog: say so and exit 1, in both formats.
+    const broken = packages.filter((p) => p.error);
+    if (opts.json) {
+      console.log(JSON.stringify({ catalog: rows, ...doctor.primitivesSummary(packages), errors: broken.map((p) => p.error) }, null, 2));
+    } else {
+      console.log(doctor.formatPrimitives(rows));
+    }
+    for (const p of broken) console.error(`! ${p.error}`);
+    for (const note of packages.flatMap((p) => p.ignored ?? [])) console.error(`! ${note}`);
+    if (broken.length) process.exitCode = 1;
+  });
+
+program
+  .command("primitives")
+  .description("Deprecated name of `genesis catalog` (same output; JSON keeps the `primitives` key until the next major)")
+  .option("--json", "Print the catalog as JSON", false)
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { json: boolean; dir: string }) => {
+    console.error("! `genesis primitives` is now `genesis catalog`; the old name works until the next major.");
     const doctor = await import("./doctor/index.js");
     const packages = doctor.discoverPackages(path.resolve(opts.dir));
     const rows = doctor.primitivesCatalog(packages);
@@ -235,10 +263,24 @@ program
   .command("agents")
   .description(`Write the agent guide from the installed Genesis packages: .claude/skills/genesis/SKILL.md and a marked block in AGENTS.md`)
   .option("--check", "Write nothing; exit 1 if either is missing or out of date (for CI)", false)
+  .option("--rules", "Check the repo against the agent rules of engagement a script can check (docs/agents/RULES.md); exit 1 on a break", false)
+  .option("--batch <pattern>", "With --rules: the branch pattern staging batches use in workflow filters", "staging/**")
   .option("-d, --dir <dir>", "The app's folder", process.cwd())
-  .action(async (opts: { check: boolean; dir: string }) => {
-    const doctor = await import("./doctor/index.js");
+  .action(async (opts: { check: boolean; rules: boolean; batch: string; dir: string }) => {
     const root = path.resolve(opts.dir);
+    if (opts.rules && opts.check) return program.error("--rules checks the repo, --check the agent guide: run them one at a time");
+    if (opts.rules) {
+      if (!existsSync(path.join(root, "packages")) && !existsSync(path.join(root, ".github", "workflows"))) {
+        return program.error(`--rules checks a repository: ${root} has no packages/ or .github/workflows/. Run it from the repo root or pass --dir.`);
+      }
+      const { checkAgentRules } = await import("./agent-rules.js");
+      const problems = checkAgentRules(root, { batch: opts.batch });
+      for (const p of problems) console.error(`✗ ${p.rule}: ${p.message}`);
+      if (problems.length) process.exitCode = 1;
+      else console.log("✔ The repo keeps the checkable rules of engagement (first-version, batch-ci).");
+      return;
+    }
+    const doctor = await import("./doctor/index.js");
     const packages = doctor.discoverPackages(root);
     // The guide would leave out a package whose declaration doesn't validate: fix it first, in both modes.
     const broken = packages.filter((p) => p.error);
@@ -311,27 +353,56 @@ featureOptions(
     .description("Search features before building: reuse one, extend one, or add an idea first")
     .argument("[term]", "What to look for (id, alias, name, keyword, summary, import, slot or code path)", "")
     .option("--platform <platform>", "Only features on web, native, server or cli")
-    .option("--layer <layer>", "Only token, primitive, pattern, layout, hook, provider, block, service or tool")
+    .option("--kind <kind>", "Only token, element, pattern, layout, hook, provider, block, service or tool")
+    .option("--layer <layer>", "Only features whose package is foundation, module or tooling (a kind here is deprecated: use --kind)")
     .option("--status <status>", "Only idea, planned, building, beta, live, deprecated or retired"),
-).action(async (term: string, opts: FeatureCliOptions & { platform?: string; layer?: string; status?: string }) => {
-  const { FEATURE_LAYERS, FEATURE_PLATFORMS, FEATURE_STATUSES } = await import("@marktiderman/genesis-features");
-  const { runFeaturesFind, formatFeature } = await import("./features.js");
-  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
-    if (value === undefined) return undefined;
-    if ((allowed as readonly string[]).includes(value)) return value as T;
-    return program.error(`--${name} must be one of ${allowed.join(", ")}`);
-  };
-  const { platform, layer, status, ...rest } = opts;
-  const filters = {
-    platform: pick("platform", platform, FEATURE_PLATFORMS),
-    layer: pick("layer", layer, FEATURE_LAYERS),
-    status: pick("status", status, FEATURE_STATUSES),
-  };
-  if (!term && !filters.platform && !filters.layer && !filters.status) program.error("Give a term, or --platform, --layer or --status");
+).action(async (term: string, opts: FeatureCliOptions & { platform?: string; kind?: string; layer?: string; status?: string }) => {
+  const { findFilters, runFeaturesFind, formatFeature } = await import("./features.js");
+  const { platform, kind, layer, status, ...rest } = opts;
+  let filters: FindOptions;
+  try {
+    const parsed = findFilters({ platform, kind, layer, status });
+    if (parsed.warning) console.warn(`! ${parsed.warning}`);
+    filters = parsed.filters;
+  } catch (error) {
+    return program.error((error as Error).message);
+  }
+  if (!term && !filters.platform && !filters.kind && !filters.packageLayer && !filters.status) program.error("Give a term, or --platform, --kind, --layer or --status");
   const hits = await runFeaturesFind(rest, term, filters);
   const what = term ? `"${term}"` : "those filters";
   console.log(hits.length ? hits.map(formatFeature).join("\n\n") : `No feature matches ${what}. If this is new work, add it to the registry first (an idea is enough).`);
 });
+
+const upstream = program.command("upstream").description("The app's register of what it needed from Genesis (docs/genesis-upstream.md)");
+
+upstream
+  .command("check")
+  .description("Check docs/genesis-upstream.md: kinds, statuses, local paths, and promoted entries whose local copy is still there")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (opts: { dir: string }) => {
+    const { checkUpstream } = await import("./upstream.js");
+    const result = checkUpstream(path.resolve(opts.dir));
+    for (const w of result.warnings) console.warn(`! ${w}`);
+    for (const p of result.problems) console.error(`✗ ${p}`);
+    if (result.problems.length) process.exitCode = 1;
+    else if (!result.missing) console.log(`✔ ${result.entries.length} register entr${result.entries.length === 1 ? "y" : "ies"} check out.`);
+  });
+
+upstream
+  .command("export")
+  .description("Print the link that files a register entry with Genesis through the gap form (sends nothing)")
+  .argument("<id>", "The entry's id")
+  .option("-d, --dir <dir>", "The app's folder", process.cwd())
+  .action(async (id: string, opts: { dir: string }) => {
+    const { checkUpstream, exportIssueUrl } = await import("./upstream.js");
+    const register = checkUpstream(path.resolve(opts.dir));
+    if (register.missing) return program.error("There is no docs/genesis-upstream.md here; add the register first (see genesis upstream check).");
+    const entry = register.entries.find((e) => e.id === id);
+    if (!entry) return program.error(`No register entry "${id}" in docs/genesis-upstream.md.`);
+    const own = register.problems.filter((p) => p.startsWith(`${id}:`) || p.startsWith(`${id} `));
+    if (own.length) return program.error(`Fix the entry first:\n${own.map((p) => `  ${p}`).join("\n")}`);
+    console.log(`Open this to file it (check it names no app or customer; Genesis is public), then set its status to proposed:\n${exportIssueUrl(entry)}`);
+  });
 
 const studio = program.command("studio").description("The Genesis Data Studio");
 
@@ -472,15 +543,23 @@ program
   .option("--block <id...>", "Also check these blocks (beyond genesis.lock.json's)")
   .option("--dry-run", "Report only", false)
   .option("--forward", "Write a forward migration stub for each edited or changed migration", false)
-  .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean }) => {
+  .option("--notifications <file>", "The app's defineNotifications registry (relative to --dir), loaded to write a types migration when the notifications block is installed; default: notifications.registry in genesis.config.json. Runs app code; skipped on --dry-run")
+  .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean; notifications?: string }) => {
     const { runMigrate } = await import("./blocks/migrate.js");
     const { formatMigrationRows } = await import("./blocks/migrations.js");
-    const report = await runMigrate({ root: path.resolve(opts.dir), ...(opts.block ? { blocks: opts.block } : {}), dryRun: opts.dryRun, forward: opts.forward });
+    const report = await runMigrate({
+      root: path.resolve(opts.dir),
+      ...(opts.block ? { blocks: opts.block } : {}),
+      ...(opts.notifications ? { notifications: opts.notifications } : {}),
+      dryRun: opts.dryRun,
+      forward: opts.forward,
+    });
     for (const w of report.warnings) logger.warn(w);
     console.log(formatMigrationRows(report.plan.rows));
     for (const c of report.plan.creates) if (c.kind !== "migration") console.log(`+ ${c.path} (${c.kind === "test" ? "pgTAP test" : "forward migration: fill it in"})`);
+    if (report.notificationTypes) console.log(`+ ${report.notificationTypes} (the notification types, from the registry)`);
     console.log("");
-    const count = report.plan.creates.length;
+    const count = report.plan.creates.length + (report.notificationTypes ? 1 : 0);
     console.log(opts.dryRun ? `Dry run: ${count} file${count === 1 ? "" : "s"} would be created.` : `✔ ${report.written.length} file${report.written.length === 1 ? "" : "s"} created. Nothing existing was changed.`);
     if (report.attention) {
       console.log(opts.forward ? "Fill in the forward migrations, review them, then apply them." : "Some migrations need you (above): an applied migration is never rewritten. Run genesis migrate --forward to add a forward migration for each.");

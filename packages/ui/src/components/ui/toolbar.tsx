@@ -26,7 +26,7 @@ export const toolbarVariants = cva(
 export interface ToolbarProps
   extends React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.Root> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -65,7 +65,7 @@ export interface ToolbarButtonProps
   extends React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.Button>,
     VariantProps<typeof buttonVariants> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -95,7 +95,7 @@ ToolbarButton.displayName = ToolbarPrimitive.Button.displayName;
 export interface ToolbarLinkProps
   extends React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.Link> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -180,7 +180,7 @@ export interface ToolbarToggleItemProps
   extends React.ComponentPropsWithoutRef<typeof ToolbarPrimitive.ToggleItem>,
     VariantProps<typeof toggleVariants> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

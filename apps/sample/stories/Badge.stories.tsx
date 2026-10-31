@@ -13,7 +13,7 @@ const VARIANTS = [
 ] as const;
 
 const meta: Meta<typeof Badge> = {
-  title: "UI/Badge",
+  title: "Foundation/UI/Badge",
   component: Badge,
   args: { children: "Badge" },
   argTypes: {

@@ -21,7 +21,7 @@ export function FieldArrayRenderer({
   field: ResourceFormFieldDef;
   control: Control<Record<string, unknown>>;
   action: "create" | "edit";
-  watchedValues?: Record<string, unknown>;
+  watchedValues?: Record<string, unknown> | undefined;
 }) {
   const { fields: items, append, remove } = useFieldArray({
     control: control as unknown as Control,

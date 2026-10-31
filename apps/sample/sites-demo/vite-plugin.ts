@@ -56,6 +56,12 @@ function middleware(base: string): Connect.NextHandleFunction {
   };
 }
 
+/** The site's own asset paths (`/_gs/`) a page or stylesheet names: in attributes and in CSS `url()`, inline `@font-face` included. */
+function collectAssets(text: string, into: Set<string>): void {
+  const refs = [...text.matchAll(/(?:href|src)="([^"]+)"/g), ...text.matchAll(/url\(\s*["']?([^"')\s]+)/g)];
+  for (const m of refs) if (m[1]!.includes("/_gs/")) into.add(m[1]!);
+}
+
 export function sitesDemo(): Plugin {
   let base = "/";
   let outDir = "";
@@ -79,7 +85,7 @@ export function sitesDemo(): Plugin {
       if (!dir.endsWith(join("build", "client"))) return;
       const origin = "https://genesisone.dev";
       const root = base.replace(/\/+$/, "");
-      const write = (path: string, body: string) => {
+      const write = (path: string, body: string | Uint8Array) => {
         const file = join(dir, path.slice(root.length));
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(file, body);
@@ -94,11 +100,14 @@ export function sitesDemo(): Plugin {
           continue;
         }
         write(`${root}${path.replace(/\/$/, "")}/index.html`, html);
-        for (const m of html.matchAll(/(?:href|src)="([^"]*\/_gs\/[^"]+)"/g)) assets.add(m[1]!);
+        collectAssets(html, assets);
       }
+      // Stylesheets name further assets (the self-hosted fonts), so the set grows while it is read.
       for (const asset of assets) {
         const res = (await handleDemoRequest(new Request(`${origin}${asset}`), base))!;
-        write(asset, await res.text());
+        const body = new Uint8Array(await res.arrayBuffer());
+        if (asset.endsWith(".css")) collectAssets(new TextDecoder().decode(body), assets);
+        write(asset, body);
       }
       console.log(`[sites-demo] wrote ${(await demoPaths()).length} pages and ${assets.size} assets under ${DEMO_PREFIX}/`);
     },

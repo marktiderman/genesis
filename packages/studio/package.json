@@ -6,7 +6,7 @@
   "sideEffects": [
     "*.css"
   ],
-  "description": "Genesis Data Studio — an Airtable-style workspace for a Postgres or Supabase app's own data: a table sidebar and a sheet grid with version-checked, audited single-cell edits, as the signed-in user. Built on genesis-ui's ResourcePage; routing and sign-in come from the host app. Part of the Genesis framework.",
+  "description": "Genesis Data Studio — an Airtable-style data editor for a Postgres or Supabase app's own data: a table sidebar and a sheet grid with version-checked, audited single-cell edits, as the signed-in user. Built on genesis-ui's ResourcePage; routing and sign-in come from the host app. Part of the Genesis framework.",
   "keywords": [
     "genesis",
     "genesis-framework",
@@ -87,6 +87,9 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
     "doctor": {
       "prefer": [
         {

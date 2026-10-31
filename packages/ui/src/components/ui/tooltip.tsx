@@ -71,7 +71,7 @@ const TooltipTriggerSlot = React.forwardRef<
   return (
     <Slot.Root ref={ref} {...triggerProps}>
       {React.cloneElement(
-        children as React.ReactElement<{ "aria-describedby"?: string }>,
+        children as React.ReactElement<{ "aria-describedby"?: string | undefined }>,
         { "aria-describedby": describedBy }
       )}
     </Slot.Root>

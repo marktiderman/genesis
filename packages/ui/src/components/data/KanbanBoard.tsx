@@ -301,7 +301,7 @@ export function KanbanBoard<T>({
   const columnAt = (x: number, y: number) =>
     (typeof document.elementFromPoint === "function" ? document.elementFromPoint(x, y) : null)
       ?.closest<HTMLElement>("[data-kanban-column]")
-      ?.dataset.kanbanColumn ?? null;
+      ?.dataset["kanbanColumn"] ?? null;
   const onHandlePointerDown = (event: PointerEvent<HTMLButtonElement>, key: string, from: string) => {
     if (event.pointerType === "mouse" || grabbed || dragging) return;
     event.currentTarget.setPointerCapture?.(event.pointerId);
