@@ -36,7 +36,7 @@ describe("serving a page", () => {
   it("ships no React hydration: the only script is the islands loader", async () => {
     const res = (await handleSiteRequest(get("/"), await opts()))!;
     const html = await res.text();
-    const scripts = [...html.matchAll(/<script\b[^>]*>/g)].map((m) => m[0]);
+    const scripts = [...html.matchAll(/<script\b[^>]*>/gi)].map((m) => m[0]);
     const executable = scripts.filter((s) => !/type="application\/(ld\+json|json)"/.test(s));
     expect(executable).toEqual([`<script type="module" src="${ASSETS_PREFIX}/${ASSETS.islands.name}">`]);
     expect(html).not.toMatch(/\$RC|__reactContainer|hydrateRoot|self\.__next/);

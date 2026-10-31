@@ -49,6 +49,23 @@ const BODY_KEY = "body";
 
 // -- frontmatter helpers (YAML subset: scalars, null, string arrays) ----
 
+/**
+ * A YAML single-quoted scalar (`'...'`) as a JSON string literal. YAML reads a
+ * backslash in single quotes literally, so backslashes are escaped first, then
+ * double quotes; `''` is YAML's escaped single quote.
+ */
+function singleQuotedAsJson(v: string): string {
+  const inner = v.slice(1, -1).replace(/''/g, "'").replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  return `"${inner}"`;
+}
+
+/**
+ * The first level-1 heading (`# Title`): `#`, spaces or tabs, then text on the
+ * same line. The character classes don't overlap, so the match is linear
+ * (`^#\s+.+$` backtracks on `#` followed by a long run of spaces).
+ */
+const H1_LINE = /^#[ \t]+(\S.*)$/m;
+
 function parseFmValue(raw: string): unknown {
   const v = (raw.split("#", 1)[0] ?? "").trim();
   if (v === "" || v === "null" || v === "~") return null;
@@ -60,7 +77,7 @@ function parseFmValue(raw: string): unknown {
     (v.startsWith("'") && v.endsWith("'"))
   ) {
     try {
-      return JSON.parse(v.startsWith("'") ? `"${v.slice(1, -1).replace(/"/g, '\\"')}"` : v);
+      return JSON.parse(v.startsWith("'") ? singleQuotedAsJson(v) : v);
     } catch {
       return v.slice(1, -1);
     }
@@ -178,7 +195,7 @@ function serializeFrontmatter(fm: Record<string, unknown>): string {
 
 function extractTitleAndJob(body: string): { title: string; job: string; restBody: string } {
   let title = "";
-  const titleMatch = body.match(/^#\s+(.+)\s*$/m);
+  const titleMatch = body.match(H1_LINE);
   if (titleMatch?.[1]) title = titleMatch[1].trim();
 
   let job = "";
@@ -205,8 +222,8 @@ function extractTitleAndJob(body: string): { title: string; job: string; restBod
 function applyTitleAndJob(body: string, title?: string, job?: string): string {
   let next = body;
   if (typeof title === "string" && title.length > 0) {
-    if (/^#\s+.+/m.test(next)) {
-      next = next.replace(/^#\s+.+$/m, `# ${title}`);
+    if (H1_LINE.test(next)) {
+      next = next.replace(H1_LINE, () => `# ${title}`);
     } else {
       next = `# ${title}\n\n${next}`;
     }
@@ -225,8 +242,8 @@ function applyTitleAndJob(body: string, title?: string, job?: string): string {
         const tail = nextHeading < 0 ? "" : rest.slice(nextHeading);
         next = `${head}${section}\n${tail}`;
       }
-    } else if (/^#\s+.+$/m.test(next)) {
-      next = next.replace(/^(#\s+.+$)/m, `$1\n\n${section}`);
+    } else if (H1_LINE.test(next)) {
+      next = next.replace(H1_LINE, (heading) => `${heading}\n\n${section}`);
     } else {
       next = `${section}\n${next}`;
     }
