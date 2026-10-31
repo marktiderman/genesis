@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
-import { extname, join, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const pkg = resolve(__dirname, "../../../..");
@@ -46,8 +46,10 @@ describe.runIf(built)("the hashing worker in a Vite build", () => {
       if (!browserType) return; // the build alone is checked without a browser
       const types: Record<string, string> = { ".html": "text/html", ".js": "text/javascript" };
       const server = createServer((req, res) => {
-        const file = join(dir, "out", req.url === "/" ? "index.html" : decodeURIComponent(req.url!.split("?")[0]!));
-        if (!existsSync(file)) return void res.writeHead(404).end();
+        // Serve only files inside the build folder: a request can't climb out of it.
+        const root = join(dir, "out");
+        const file = join(root, req.url === "/" ? "index.html" : decodeURIComponent(req.url!.split("?")[0]!));
+        if (relative(root, file).startsWith("..") || isAbsolute(relative(root, file)) || !existsSync(file)) return void res.writeHead(404).end();
         res.writeHead(200, { "content-type": types[extname(file)] ?? "application/octet-stream" }).end(readFileSync(file));
       });
       await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));

@@ -43,4 +43,5 @@ export const SCOPE = ["packages/sites", "docs/SITES.md"];
 export const EXEMPT = {
   "packages/sites/src/templates/": "industry template content: the one place industry wording belongs",
   "packages/sites/CHANGELOG.md": "release history, written before the core went neutral",
+  "packages/sites/LICENSE": "the MIT licence text (\"fitness for a particular purpose\"), not product wording",
 };
