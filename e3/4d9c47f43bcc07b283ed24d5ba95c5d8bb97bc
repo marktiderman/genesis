@@ -1,0 +1,35 @@
+packages/sites/src/core/a11y.ts
+  s_36f3212387dbf7::t_800debecd9c078 406-407
+  s_36f3212387dbf7::t_ade32bde1d01e4 430-434
+  s_36f3212387dbf7::t_95d382012f54b0 373,380-381,385-405,408-409,411-425,427,435-439
+  s_36f3212387dbf7::t_2a6b41f19b3a7b 426,428-429
+  s_36f3212387dbf7::t_986fbfafbbf832 410
+packages/sites/src/__tests__/seo-a11y.test.ts
+  s_36f3212387dbf7::t_bc31196b5c3fea 10,254-297
+packages/switchboard/src/__tests__/gitdata-adapter.test.ts
+  s_36f3212387dbf7::t_bc31196b5c3fea 91-129
+.changeset/codeql-sites-switchboard.md
+  s_36f3212387dbf7::t_6c5161cc646bbf 1-6
+packages/sites/src/__tests__/web.test.ts
+  s_36f3212387dbf7::t_800debecd9c078 39
+packages/switchboard/src/adapters/gitdata.ts
+  s_36f3212387dbf7::t_800debecd9c078 52-68,80,198,225-226,245-246
+packages/sites/src/core/seo.ts
+  s_36f3212387dbf7::t_800debecd9c078 36-42,45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e34d9c47f43bcc07b283ed24d5ba95c5d8bb97bc",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
