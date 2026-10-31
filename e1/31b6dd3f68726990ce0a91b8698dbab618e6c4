@@ -1,0 +1,51 @@
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_36f3212387dbf7::t_19f4a0715ca498 66-76
+packages/design-system/src/factories/from-brand.ts
+  s_36f3212387dbf7::t_9b668454674755 84
+packages/design-system/src/factories/overrides.ts
+  s_36f3212387dbf7::t_9b668454674755 1-41
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_36f3212387dbf7::t_0cc03d6a3bd1a1 422
+  s_36f3212387dbf7::t_043270e6ba20d0 409
+packages/design-system/src/index.native.ts
+  s_36f3212387dbf7::t_f7f94586432586 54
+.changeset/core-views-platform-neutral.md
+  s_36f3212387dbf7::t_4967bba44f2b94 5
+.changeset/native-record-view-insets.md
+  s_36f3212387dbf7::t_4967bba44f2b94 5
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_36f3212387dbf7::t_b130737b82ee7c 282-288,385,389-390,452-463
+  s_36f3212387dbf7::t_aca77ca27a84bc 450-451
+packages/ui-native/src/data/resource-view/__tests__/native-record-view.test.tsx
+  s_36f3212387dbf7::t_fc8d7a655ede2c 262-284
+packages/core/package.json
+  s_36f3212387dbf7::t_98c328f3faaa12 176-177
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_4967bba44f2b94 413
+packages/design-system/src/factories/brand-roles.ts
+  s_36f3212387dbf7::t_fd72b471127880 43-49
+  s_36f3212387dbf7::t_b5aef84b6a9065 33
+  s_36f3212387dbf7::t_e04e24e73bc9bc 144-147,151-152
+.changeset/native-brand-role-variables.md
+  s_36f3212387dbf7::t_f85717efce365c 8
+packages/design-system/src/index.ts
+  s_36f3212387dbf7::t_f7f94586432586 47
+docs/component-reference.md
+  s_36f3212387dbf7::t_ddc85ec09359a9 7,1996,2004,4616,4624
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e131b6dd3f68726990ce0a91b8698dbab618e6c4",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

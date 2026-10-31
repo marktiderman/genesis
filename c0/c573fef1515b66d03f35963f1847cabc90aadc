@@ -1,0 +1,30 @@
+scripts/check-package-layers.mjs
+  s_36f3212387dbf7::t_0dc5f6265aca07 61
+packages/features/src/__tests__/packages.test.ts
+  s_36f3212387dbf7::t_7a21ca8ce525ca 85-98,145-154
+  s_36f3212387dbf7::t_cead7853be0e85 155
+packages/features/src/packages.ts
+  s_36f3212387dbf7::t_0dc5f6265aca07 85-91,112-113,135,143-145,205-207,242-244
+.changeset/optional-packages.md
+  s_36f3212387dbf7::t_8e78b527953bc6 1-5
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_816dd977389d6d 134-137,175-177
+docs/adr/0013-customization-layer.md
+  s_36f3212387dbf7::t_cb375393cc0967 47-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c0c573fef1515b66d03f35963f1847cabc90aadc",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
