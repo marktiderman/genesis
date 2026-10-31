@@ -1,5 +1,52 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.0
+
+### Minor Changes
+
+- ba4220d: Email is a support ticket channel (ADR 0011). genesis-notifications gains `createInboundEmailHandler` (`/server`): it verifies Resend's `email.received` webhook, fetches the message and hands it to the first route that takes it (`InboundEmail`, `inboundEmailOf`, `parseAddress`). genesis-support gains the `support-email` block (migration 0002: a report's channel, requester and reply token, `support_email_messages`, `support_receive_email`, a queue of staff replies to send) and `/email`: `supportEmailRoute` (files mail to a support address, a ticket's reply address or a ticket's thread) and `runSupportEmail` (sends staff replies threaded through the notifier's Resend provider, once per reply). 0006's reply rule now lets staff answer a ticket with no login and server code write on an email ticket.
+
+### Patch Changes
+
+- 9551c52: First-run fixes from a fresh `genesis init --template native`:
+
+  - `genesis.lock.json` remembers where each package migration was copied (`migrations`), written by `genesis add`, `genesis migrate` and `init --template native`; a run on an older lock records the copies it finds. A copy the app deleted is reported as `deleted` by `genesis migrate` and `genesis add`, the way an edited copy is, and is never copied again (before, it looked new and `genesis upgrade` listed it to copy back). It doesn't make `genesis migrate` exit 1.
+  - An Edge Function's `npm:@marktiderman/genesis-*@<range>` imports are pinned to the versions the app has installed when `genesis add` copies the function, and `genesis upgrade` refreshes them the same way. The notifications function's own imports now name `^0.3.0`, not `^0.1.0`.
+  - The native starter's Metro test (which reads the monorepo's `metro.config.js`) runs only inside the Genesis monorepo, so `vitest` passes right after `init --template native`.
+
+- 4516ead: The block's setup step and README say to mirror the registry at migration time with `genesis migrate`, keeping `syncNotificationTypes` on deploy.
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+- Updated dependencies [6eb984b]
+- Updated dependencies [b11005b]
+- Updated dependencies [b028861]
+- Updated dependencies [c0c573f]
+- Updated dependencies [37972e2]
+- Updated dependencies [1ed0cba]
+- Updated dependencies [f9a11f2]
+  - @marktiderman/genesis-features@0.8.0
+
 ## 0.3.2
 
 ### Patch Changes

@@ -1,5 +1,30 @@
 # @marktiderman/genesis-ai
 
+## 0.2.0
+
+### Minor Changes
+
+- ee0100f: The AI contract's "now" items, all additive. `AiContext` gains `actor` (`"person"` by default, `"agent"` or `"system"`), `runId` and `conversationId`; they go on the span (`genesis.ai.actor`, `genesis.ai.run_id`, `gen_ai.conversation.id`) and to the store's `begin`. `RunEvent` is a union named after AG-UI's events (`RUN_STARTED`, `TEXT_MESSAGE_*`, `TOOL_CALL_*`, `STATE_DELTA`, `RUN_FINISHED`, `RUN_ERROR`, and `CUSTOM` named `genesis.interrupt` for an approval pause); `createAiHandler` streams them with `stream: "events"` (`stream: true` is unchanged), `textStreamToRunEvents` converts today's stream, and `useAiStream` reads both. `AiStore` is split into ports (`ConsentStore`, `BudgetStore`, `UsageStore`, `KeyStore`) that it extends. `defineTask` stamps `spec: 1` (`AI_SPEC`) and refuses another spec. A wrapped processor's span is now named `{operation} {id}` (for example `moderation chat.moderate`), as OpenTelemetry's GenAI conventions name spans; it was `{id} {vendor}`.
+- e68ba61: `evaluate` takes scorers (`{ scorers: [{ name, score(case, result) => { pass, score?, note? } }] }`) and reports every score (`report.scores`); a case passes when its `check`, now optional, and every scorer pass. A case can carry `expected` for scorers to compare against. The target can be a task or any `{ id, version, run(args, ctx) }`, so agents and tool trajectories evaluate the same way once they exist. `EvalReport` gains `scores` (empty without scorers). Two type changes: `EvalReport.scores` is always present, and `EvalCase.check` is optional (code that calls `c.check(...)` directly checks it first).
+
+### Patch Changes
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
 ## 0.1.1
 
 ### Patch Changes

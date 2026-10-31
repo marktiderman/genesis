@@ -1,5 +1,43 @@
 # @marktiderman/genesis-features
 
+## 0.8.0
+
+### Minor Changes
+
+- 6eb984b: `readOverlayMarker(name, raw, problems)` validates a package's `genesis.overlay` marker (an app's local copy of a Genesis package): `upstream` is `@marktiderman/genesis-*@<semver>` naming the package itself, `since` a real `YYYY-MM-DD` day, `owner` and `reason` text. `readPackageMeta` checks the marker when present, and `PackageMeta` gains `overlay`. New exports: `readOverlayMarker`, `overlayUpstream`, `OverlayMarker`.
+
+  Features: app-overlays
+
+- b11005b: `genesis features check` and `build` let an id that was last recorded as `idea` or `planned` be removed for good: it never shipped, so no code, flag or test refers to it, and a backlog can move to a planning repo of its own. Ids stay permanent from `building` on.
+- b028861: A feature's `kind` replaces its `layer` field. `kind` takes the same values (token, element, pattern, layout, hook, provider, block, service, tool); `layer` is still read as a kind until the next major (`"primitive"` as `"element"`), `features check` warns on it, and a feature that sets both to different kinds fails. A feature's layer is now its owning package's (foundation, primitive, module, tooling), derived from its `entry` imports or its `links.code` paths: `featurePackageLayer(def, packages)`, and `findFeatures(…, { packageLayer, packages })`. New exports: `FEATURE_KINDS`, `FeatureKind`, `featureKind`, `featurePackageLayer`, `FeaturePackage`; `FEATURE_LAYERS` and `FeatureLayer` are deprecated aliases.
+
+  `genesis features find` gains `--kind`; `--layer` now filters by the owning package's layer (foundation, module or tooling), and a kind passed to `--layer` still works with a warning until the next major (so `--layer primitive` still means the element kind until then); a kind passed to both that disagrees is refused. Records (`toRecords`, `features.json`) carry the resolved `kind` and no longer the deprecated `layer`. `genesis add` writes `kind:` into features.ts when the app's genesis-features reads it (0.8 and later; `layer:` before), and a block manifest's `feature.kind` (or its deprecated `feature.layer`) sets it.
+
+- c0c573f: Package metadata gains `genesis.optional`: an upgrade apps opt into. The layering check fails a foundation package or primitive that uses an optional package, except as an optional peer dependency (`peerDependenciesMeta`), so optional capabilities plug in through ports the primitive owns (ADR 0013).
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- f9a11f2: `PackageMeta` gains `owner`, a GitHub handle or team (`@octocat`, `@acme/web`) who reviews changes to the package; `readPackageMeta` checks its shape. Genesis's packages each declare one, and the repo's `.github/CODEOWNERS` is generated from them (`pnpm gen:codeowners`, checked in CI), so ownership can split per package later without a process change.
+
+### Patch Changes
+
+- 37972e2: Layering fixes for optional packages: an optional peer is left out of the cycle search, so an upgrade's adapter that uses the primitive no longer reports a false cycle. `LayerPackage.valueImports` (filled by the repo's layering check) lets a foundation package or primitive import an optional peer only for types or with `import()`. `packageLayerProblems` refuses `genesis.overlay` on a Genesis package itself, and the overlay marker's `upstream` refuses build metadata and a `-local` tag. `optional` on a module is documented as adding no rule.
+
+  Features: package-layering, app-overlays
+
 ## 0.7.0
 
 ### Minor Changes

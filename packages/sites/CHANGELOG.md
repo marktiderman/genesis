@@ -1,5 +1,61 @@
 # @marktiderman/genesis-sites
 
+## 0.5.0
+
+### Minor Changes
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- c2ba64f: Sites render from the brand's design system. `SiteBrand` takes `designSystem` (`{ id, density?, corners?, motion? }`) and an optional `colors.secondary`; `siteTheme(brand, theme, { designSystem })` themes through genesis-design-system's `themeFromBrand`, uses the colour engine's roles and contrast pairs when the design system has surfaces, and reports `theme.designSystem`. Sections draw tokens: heading sizes from the fluid ramp (the hero can reach the design system's display size instead of stopping at 60px), heading weight, tracking and case by font class, eyebrows and lead copy, section padding by density, same-surface neighbours sharing their padding instead of doubling it, corners and button corners, a photo filter, the least wash over a photo that keeps text at 4.5:1 (instead of 80%), and a scroll-driven reveal below the fold that skips the hero and honours reduced motion. Each rule falls back to today's value, so `classic@1` (the default) renders exactly as before and keeps its release hash; the markup gains only `data-gs-size`, `data-gs-text`, `data-gs-spacing` and `data-gs-scrim` hooks and a tokenised button radius. Swapping design systems changes only the theme's variables, never the HTML. `/templates` adds the `forge@1` and `studio@1` design systems (`industryDesignSystems`, to register with `registerDesignSystem`) and `IndustryTemplate.designSystems`. `FONT_CHOICES` and the self-hosted font list now come from genesis-design-system (still exported here).
+- e7c4e20: The core is neutral: no section, preset, default, example or doc names an industry. The team presets show a person and their role, the timetable's presets a session and its host, and the timetable reads "sessions" where it said "classes" (its table caption, the type legend's name "Session types", the phone day picker's legend). A new optional `labels` prop (`{ items, types }`, default "sessions" and "Session types") sets those nouns per timetable, with no version bump; the fitness template sets "classes" and "Class types". `exampleBrands` are now "Riverside Works" and "Hilltop Collective". Industry flavour moves to a new `/templates` entry: `industryTemplates` and a first `fitness` template, plain data on the sections' own preset shape (presets per section, a sample brand and message), with no code paths. Stored timetables are unchanged: the older host key still renders and still moves into `host`.
+- 176bb8b: Responsive images through genesis-media. `handleSiteRequest` and `SiteRenderer` take `imageUrl` (an `ImageUrlBuilder`, such as `supabaseImageUrl({ url })`); with it every section image gets a `srcset` no wider than the file and `sizes` for its layout (capped at the 1280px column). The default is pass-through, so images load from the same URLs as before; `sizes` is now sent only with a `srcset`. Only the page's first large image (a hero, a post cover, a half-width photo) loads eagerly at high priority; every other image loads lazily, and the header logo loads at once at normal priority. `RenderContext.media` carries the builder and that claim. `Image` takes an optional `phone` crop (shown under 640px through `<picture>`, with its own focal point) and `placeholder` (a small base64 data URI, shown while the image loads). `/import`'s guard, fetch and sniffer now come from `@marktiderman/genesis-media/server`; its exports are unchanged.
+- 5e0b4c0: Published sites load every font, style and script from the site itself.
+
+  - Fonts are self-hosted. Each font choice is served from `/_gs/` as latin woff2 files (the weights it lists), declared with `@font-face` and `font-display: swap` in the page's inline style, and the heading font is preloaded. Google Fonts is gone from the page and from the Content-Security-Policy (`font-src 'self'`). The files come from `@fontsource/*` at build time; their OFL licences ship in `dist/assets/fonts/LICENSES.txt`. They add about 1.1 MB (base64) to the server bundle, in a chunk loaded only on a font request; that chunk ships without a sourcemap.
+  - New font choices: Barlow, Barlow Condensed, Oswald, Roboto Condensed and Bebas Neue. Bebas Neue has one weight, so it is a heading font only: `bodyFont` (and a brand's `fonts.body`) is now `BodyFontChoice`, which leaves it out.
+  - A new publish check, `asset-host`: an image, file or brand logo that loads from a host other than the site and the store's asset origin is a warning, and an error on a site with `images: "own"`. That site's `img-src` narrows to `'self' data:` plus the store's asset origin. `SiteStore.assetOrigin` names that origin (the Supabase store's is its storage origin), `PublishOptions.assetOrigins` adds more (pass the same list to `handleSiteRequest`'s `assetOrigins`), and `checkPost` takes the same options as a third argument. Sites without `images: "own"` keep `img-src 'self' https: data:`.
+
+  Breaking, for code that used them: `googleFontHref` and the `fontHref` renderer prop are removed, `FontInfo.google` is replaced by `id`, `family` and `weights`, and the handler's `fonts` option is now a boolean (`false` loads no font files).
+
+### Patch Changes
+
+- e34d9c4: Fix CodeQL alerts. Sites: `checkHtmlOutline` skips `<script>` and `<style>` content with one linear, case-insensitive pass that matches end tags like `</script >`, instead of regex stripping; `absoluteUrl` trims trailing slashes without a backtracking regex. Switchboard (gitdata): single-quoted frontmatter escapes backslashes before quotes (and reads `''` as `'`), and the `# Title` heading match is linear and no longer expands `$&` in a new title.
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+- Updated dependencies [6eb984b]
+- Updated dependencies [b11005b]
+- Updated dependencies [b028861]
+- Updated dependencies [176bb8b]
+- Updated dependencies [60f8f0d]
+- Updated dependencies [222df94]
+- Updated dependencies [c9b2640]
+- Updated dependencies [4240f39]
+- Updated dependencies [c0c573f]
+- Updated dependencies [37972e2]
+- Updated dependencies [1ed0cba]
+- Updated dependencies [f9a11f2]
+  - @marktiderman/genesis-features@0.8.0
+  - @marktiderman/genesis-media@0.1.1
+
 ## 0.4.1
 
 ### Patch Changes

@@ -1,5 +1,45 @@
 # @marktiderman/genesis-supabase
 
+## 0.11.0
+
+### Minor Changes
+
+- 6d5312b: Product events, owned by the app (ADR 0010): migration 0018 adds `public.genesis_events` with `genesis_track_events` (a signed-in person, only in tenants they have a record in), `genesis_track_server_events` (service role), `genesis_feature_usage` and `genesis_prune_events`, with a pgTAP test, as the `events` block (`genesis add events`). `@marktiderman/genesis-supabase/events` adds `createEventTracker` (batched, retried with backoff, `reset()` on sign-out, never throws) and `createEventsSink`, which plugs the tracker into genesis-native's observability sinks.
+
+### Patch Changes
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+- Updated dependencies [6eb984b]
+- Updated dependencies [b11005b]
+- Updated dependencies [b028861]
+- Updated dependencies [c0c573f]
+- Updated dependencies [37972e2]
+- Updated dependencies [1ed0cba]
+- Updated dependencies [f9a11f2]
+  - @marktiderman/genesis-features@0.8.0
+
 ## 0.10.1
 
 ### Patch Changes
