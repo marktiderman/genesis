@@ -99,12 +99,12 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "4.0.85",
-    "@ai-sdk/openai": "4.0.99",
+    "@ai-sdk/anthropic": "4.0.87",
+    "@ai-sdk/openai": "4.0.101",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22",
     "@types/react": "^19.2.14",
-    "ai": "7.0.148",
+    "ai": "7.0.152",
     "happy-dom": "^21.0.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
