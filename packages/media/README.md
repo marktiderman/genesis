@@ -546,11 +546,8 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
   the same bytes (S3 refuses others against the declared SHA-256), so nothing changes; on R2,
   other bytes under the same digest would replace the part, and then `finish` refuses the stale
   receipt or the read-back refuses the object. That ends the upload as failed, never as a wrong
-  copy recorded. A request writing
-  the same bytes
-  alongside it leaves it alone, and if the reservation goes from under it, answers 409
-  `part_conflict` rather than recording a part the target may not hold. A part whose bytes
-  don't match their `content-digest` (RFC 9530) isn't recorded (422).
+  copy recorded. A part whose bytes don't match their `content-digest` (RFC 9530) isn't
+  recorded (422).
 - **Two tabs, one session.** An owner has at most one open session per identity, purpose and
   target set (a unique index); a create that loses that race resumes the winner's.
 - **Fan-out.** The parts go to the first target. At finalize the object is copied server-side to
@@ -652,7 +649,7 @@ import { createFormsUploadAdapter } from "@marktiderman/genesis-media/forms";
   `ref` for a file it already holds (so `readable` must give every object a `ref`). A `partial`
   store is retried once, then is a failed upload.
   - **The route** authorizes the purpose the adapter sends: `"forms"` by default, or one per
-    field (`purpose: (field) => \`forms.${field.id}\``, for field ids that fit a purpose), so
+    field (`` purpose: (field) => `forms.${field.id}` ``, for field ids that fit a purpose), so
     `authorize` can apply that field's type and size rules. Its `owner` is forms' respondent:
     the visit's attempt id or the edit link, from the uploader's `headers`.
   - **The submit check.** forms' `submitResponse` checks each answer's file ids through its

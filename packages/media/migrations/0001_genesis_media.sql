@@ -133,7 +133,12 @@ begin
   if found then
     return 'reserved';
   end if;
-  select digest, etag, reserved_at into had from genesis_media.upload_parts where upload_id = p_upload and n = p_n;
+  -- The part row too, so a release or a completion can't slip between this read and the takeover.
+  select digest, etag, reserved_at into had from genesis_media.upload_parts where upload_id = p_upload and n = p_n for update;
+  if not found then
+    -- Given back meanwhile: the caller sends it again and finds it free.
+    return 'busy';
+  end if;
   if had.digest <> p_digest then
     return 'conflict';
   end if;
