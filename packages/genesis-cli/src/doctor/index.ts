@@ -38,6 +38,7 @@ import { discoverPackages, packageRuleIds, packageRulesPlugins, preferRules, unk
 import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } from "./ratchet.js";
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
+import { checkOverlays } from "./overlays.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
@@ -131,7 +132,7 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   }
 
   const raw: FindingInput[] = [];
-  const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), report: (f) => raw.push(f) };
+  const ctx: DoctorContext = { root, files, genesis, config, packages, ...(options.base ? { base: options.base } : {}), ...(options.strict ? { strict: true } : {}), report: (f) => raw.push(f) };
   for (const plugin of [...builtinChecks(config, { contracts: options.contracts ?? true }), ...packagePlugins, ...(patterns ? [patterns.plugin] : []), ...plugins]) {
     try {
       await plugin.check(ctx);
@@ -230,6 +231,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "removed-scope-names", check: checkRemovedScopeNames },
     { name: "stability-imports", check: checkStabilityImports },
     { name: "agent-guide", check: checkAgentGuide },
+    { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];

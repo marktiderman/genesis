@@ -7,6 +7,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { findPackageDir } from "./genesis.js";
+import { markerAt } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 
 export const UMBRELLA_PACKAGE = "@marktiderman/genesis";
@@ -25,13 +26,15 @@ export function readReleaseManifest(root: string): ReleaseManifest | null {
   return JSON.parse(readFileSync(file, "utf8")) as ReleaseManifest;
 }
 
-/** `version-skew`: an installed Genesis package isn't the version the installed umbrella was released with. */
+/** `version-skew`: an installed Genesis package isn't the version the installed umbrella was released with. A marked overlay is skipped. */
 export function checkVersionSkew(ctx: DoctorContext): void {
   const manifest = readReleaseManifest(ctx.root);
   if (!manifest) return;
   for (const [name, want] of Object.entries(manifest.packages)) {
     const dir = findPackageDir(ctx.root, name);
     if (!dir) continue;
+    // The app's marked overlay of the package is meant to differ from the release (overlays.ts).
+    if (markerAt(dir)) continue;
     const have = (JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { version: string }).version;
     if (have === want) continue;
     ctx.report({

@@ -16,6 +16,7 @@ import { DoctorConfigError } from "./config.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
 import { localImports, readSource } from "./source.js";
+import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 
 const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs", ".cjs"]);
@@ -53,6 +54,8 @@ const RN = String.raw`["']react-native["']`;
 
 /** `native-raw-primitive`: a React Native primitive Genesis wraps, taken from react-native at runtime. */
 function checkRawPrimitives(ctx: DoctorContext, pkg: PackageExports): void {
+  // The app's overlay of the native component package is the wrapper: it takes the primitives from react-native.
+  const overlays = markedOverlays(ctx);
   const wrapped = Object.keys(NATIVE_WRAPPED_PRIMITIVES);
   const named = [
     // import { Modal } / import RN, { Modal }; `import type { … }` doesn't match.
@@ -66,7 +69,7 @@ function checkRawPrimitives(ctx: DoctorContext, pkg: PackageExports): void {
   ];
   const member = new RegExp(String.raw`\brequire\(\s*${RN}\s*\)\.(${wrapped.join("|")})\b`, "g");
   for (const file of ctx.files) {
-    if (!SCRIPT_EXTS.has(file.ext)) continue;
+    if (!SCRIPT_EXTS.has(file.ext) || insideOverlayOf(overlays, file, NATIVE_UI_PACKAGE)) continue;
     const code = file.code;
     const report = (name: string, at: number) => {
       const use = NATIVE_WRAPPED_PRIMITIVES[name].filter((c) => pkg.values.has(c));

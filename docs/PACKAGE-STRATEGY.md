@@ -221,6 +221,23 @@ make that a register and an issue form). A fix
 in a package then reaches every app with `genesis upgrade`, which a copied component never would.
 Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
 
+**Overlays: the one exception, marked and short-lived.** When an app can't wait for a release, it
+may copy a package's source into its own workspace under the package's name (an *overlay*), change
+it, ship it, and promote the change upstream. The copy carries a marker in its package.json, which
+`readOverlayMarker` (genesis-features) validates and `genesis doctor` reads:
+
+```json
+"genesis": {
+  "overlay": { "upstream": "@marktiderman/genesis-support@0.2.6", "since": "2026-10-30", "owner": "web team", "reason": "inbox filters, to promote" }
+}
+```
+
+`upstream` is the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`),
+`since` the day it was made (`YYYY-MM-DD`), `owner` and `reason` who answers for it and why. An
+unmarked copy is an error, and a marker older than 14 days warns (older than 30 fails `--strict`),
+so an overlay is a bridge to a release, never an eject. The mechanics are in the
+[genesis-cli README](../packages/genesis-cli/README.md#overlays).
+
 ### Moves, extending before inventing
 
 | # | Move | Builds on | Size |

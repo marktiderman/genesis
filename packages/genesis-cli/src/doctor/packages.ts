@@ -14,7 +14,8 @@
  * - package-doctor-declaration: a published Genesis package without a `genesis.doctor`
  *   declaration (or `{ "enforce": false, "reason": "…" }`), or with one that doesn't validate.
  * - package-unversioned-change: files in the package changed since the base ref, but
- *   neither its version nor a new changeset naming it did.
+ *   neither its version nor a new changeset naming it did. Not for a marked overlay
+ *   (overlays.ts), which never releases.
  *
  * The change rules (package-migration-edited, package-unversioned-change) run only
  * with a base ref: `--base <ref>`, or `doctor.packages.base`. Without one, or when git
@@ -31,6 +32,8 @@ import { MIGRATION_FILE, ManifestError, parseManifest, rawBlocksOf } from "../bl
 import { compareVersions, parseVersion } from "./semver.js";
 import { stripForImports } from "./trail.js";
 import { validateDeclaration } from "./package-rules.js";
+import { findPackageDir } from "./genesis.js";
+import { overlayState } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
@@ -168,16 +171,30 @@ function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
   }
 }
 
-function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson): void {
+/**
+ * The folder a block migration's paths are relative to: this package, or the package its `package`
+ * names (another local package, else the installed one, found from this package's folder as Node
+ * would). Null when the named package can't be found: nothing is said about what can't be read.
+ */
+function migrationHome(pkg: LocalPackage, named: unknown, locals: readonly LocalPackage[]): string | null {
+  if (typeof named !== "string" || named === pkg.name) return pkg.dir;
+  return locals.find((l) => l.name === named)?.dir ?? findPackageDir(pkg.dir, named);
+}
+
+function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, locals: readonly LocalPackage[]): void {
   const declaredFiles = new Set<string>();
   for (const [id, raw] of Object.entries(rawBlocksOf(json))) {
-    const migrations = (raw as { migrations?: Array<{ file?: unknown; test?: unknown }> }).migrations ?? [];
+    const migrations = (raw as { migrations?: Array<{ package?: unknown; file?: unknown; test?: unknown }> }).migrations ?? [];
     for (const m of migrations) {
-      if (typeof m.file === "string" && typeof m.test === "string") declaredFiles.add(m.file);
+      // A migration another package ships (`{ package, file, test }`) is that package's to test.
+      const home = migrationHome(pkg, m.package, locals);
+      const own = home === pkg.dir;
+      if (own && typeof m.file === "string" && typeof m.test === "string") declaredFiles.add(m.file);
+      const from = own ? "" : ` (in ${m.package as string})`;
       if (typeof m.file === "string" && typeof m.test !== "string") {
-        ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.file, message: `${pkg.name} block ${id}: ${m.file} has no pgTAP test; declare one as "test" beside it` });
-      } else if (typeof m.test === "string" && !existsSync(path.join(pkg.dir, m.test))) {
-        ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.test, message: `${pkg.name} block ${id}: its test ${m.test} doesn't exist` });
+        ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.file, message: `${pkg.name} block ${id}: ${m.file}${from} has no pgTAP test; declare one as "test" beside it` });
+      } else if (home !== null && typeof m.test === "string" && !existsSync(path.join(home, m.test))) {
+        ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.test, message: `${pkg.name} block ${id}: its test ${m.test}${from} doesn't exist` });
       }
     }
   }
@@ -405,10 +422,13 @@ export function checkPackagesPack(ctx: DoctorContext): void {
     checkImports(ctx, pkg, json);
     checkExports(ctx, pkg, json);
     checkBlocks(ctx, pkg, json);
-    checkMigrations(ctx, pkg, json);
+    checkMigrations(ctx, pkg, json, packages);
     checkTaggedTests(ctx, pkg);
     checkRegistered(ctx, pkg);
     checkDoctorDeclaration(ctx, pkg, json);
-    if (base && "sha" in merge) checkChanges(ctx, pkg, json, base, merge.sha);
+    // A marked overlay is the app's copy of a released package, versioned <upstream>-local.N: it never
+    // releases, so it needs no changeset or bump (overlay-version checks its version instead).
+    const overlay = GENESIS_NAME.test(json.name) && overlayState(json.name, json).kind === "marked";
+    if (base && "sha" in merge && !overlay) checkChanges(ctx, pkg, json, base, merge.sha);
   }
 }

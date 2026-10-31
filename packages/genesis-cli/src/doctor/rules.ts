@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { findColorFunctions, findHexLiterals } from "../../../../scripts/lib/color-literals.mjs";
 import { globMatcher } from "./glob.js";
 import { declaredTokens } from "./genesis.js";
+import { insideOverlayOf, markedOverlays } from "./overlays.js";
 import type { DoctorContext, SourceFile } from "./types.js";
 
 /** Ids of the built-in rules, for `rules` overrides and `allow` entries. */
@@ -63,6 +64,11 @@ export const BUILTIN_RULES = [
   "package-block-invalid",
   "package-untagged-tests",
   "package-doctor-declaration",
+  // overlays (overlays.ts)
+  "overlay-unmarked",
+  "overlay-invalid",
+  "overlay-age",
+  "overlay-version",
   // package rules (package-rules.ts): the rules themselves are namespaced, e.g. ui/lists-use-resource-view
   "package-rules-invalid",
   "package-rule-override",
@@ -138,8 +144,10 @@ export function checkImports(ctx: DoctorContext): void {
 export function checkRawTags(ctx: DoctorContext): void {
   const tags = [...ctx.genesis.rawTags].map(([tag, component]) => [tag, component, new RegExp(`<${tag}(?=[\\s>/]|$)`)] as const);
   if (tags.length === 0) return;
+  // The app's overlay of the component package is that package: its raw tags are how it builds its components.
+  const overlays = markedOverlays(ctx);
   for (const file of ctx.files) {
-    if (!JSX_EXTS.has(file.ext)) continue;
+    if (!JSX_EXTS.has(file.ext) || insideOverlayOf(overlays, file, ctx.genesis.uiPackage)) continue;
     file.code.split("\n").forEach((text, i) => {
       for (const [tag, component, re] of tags) {
         if (re.test(text)) {
@@ -223,9 +231,11 @@ export function checkTokens(ctx: DoctorContext): void {
 }
 
 export function checkShadowedExports(ctx: DoctorContext): void {
+  // The app's overlay of the component package exports those names because it is that package.
+  const overlays = markedOverlays(ctx);
   const re = /\bexport\s+(?:default\s+)?(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Z][\w$]*)/g;
   for (const file of ctx.files) {
-    if (!SCRIPT_EXTS.has(file.ext)) continue;
+    if (!SCRIPT_EXTS.has(file.ext) || insideOverlayOf(overlays, file, ctx.genesis.uiPackage)) continue;
     file.code.split("\n").forEach((text, i) => {
       for (const m of text.matchAll(re)) {
         if (!ctx.genesis.values.has(m[1])) continue;

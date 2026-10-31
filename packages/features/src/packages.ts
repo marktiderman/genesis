@@ -18,6 +18,7 @@
  * (`scripts/check-package-layers.mjs`) reads the workspace and calls
  * {@link packageLayerProblems}.
  */
+import { readOverlayMarker, type OverlayMarker } from "./overlay";
 import { cycleProblems } from "./graph";
 
 /**
@@ -82,6 +83,8 @@ export interface PackageMeta {
   toolingEntries?: readonly string[];
   /** Who reviews changes to it: a GitHub handle (`@octocat`) or team (`@acme/web`). Generates CODEOWNERS. */
   owner?: string;
+  /** Present only on an app's local copy of a Genesis package (an overlay): what it was copied from, when, by whom and why. */
+  overlay?: OverlayMarker;
 }
 
 /**
@@ -123,7 +126,8 @@ export function readPackageMeta(name: string, genesis: unknown, problems: string
     return null;
   }
   const before = problems.length;
-  const { layer, group, essential, module, toolingEntries, owner } = genesis;
+  const { layer, group, essential, module, toolingEntries, owner, overlay } = genesis;
+  if (overlay !== undefined) readOverlayMarker(name, overlay, problems);
   if (owner !== undefined && (typeof owner !== "string" || !/^@[A-Za-z0-9-]+(\/[A-Za-z0-9._-]+)?$/.test(owner))) {
     problems.push(`${at}.owner: must be a GitHub handle or team, like "@octocat" or "@acme/web"`);
   }

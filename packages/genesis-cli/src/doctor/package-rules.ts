@@ -37,6 +37,7 @@ import { installedGenesis } from "../blocks/discover.js";
 import { inside } from "../blocks/files.js";
 import { localPackages } from "../blocks/local.js";
 import { globMatcher } from "./glob.js";
+import { overlayState } from "./overlays.js";
 import { loadPlugins } from "./plugins.js";
 import { routesDir } from "./routes.js";
 import { lineAt } from "./scan.js";
@@ -217,7 +218,7 @@ interface ManifestJson {
   name?: unknown;
   version?: unknown;
   private?: unknown;
-  genesis?: { doctor?: unknown };
+  genesis?: { doctor?: unknown; overlay?: unknown };
 }
 
 const discoveryCache = new Map<string, DeclaringPackage>();
@@ -251,6 +252,10 @@ export function readDeclaringPackage(dir: string, local: boolean): DeclaringPack
     private: json.private === true,
     declaration: null,
   };
+  if (local) {
+    const state = overlayState(json.name, json);
+    if (state.kind === "marked") pkg.overlay = state.marker;
+  }
   const raw = json.genesis?.doctor;
   if (raw !== undefined) {
     const ignored: string[] = [];
