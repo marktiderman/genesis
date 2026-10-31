@@ -3,13 +3,16 @@
  * FlashList v2 for long lists, expo-image for avatars and pictures,
  * Reanimated 4 for toasts, drawers and skeletons, Liquid Glass for floating
  * surfaces on iOS 26, SF Symbols on iOS with lucide everywhere else, and the
- * @expo/ui (SwiftUI / Jetpack Compose) date picker. To fall back to plain
+ * @expo/ui (SwiftUI / Jetpack Compose) date picker, and React Navigation's
+ * theming (GenesisNativeApp themes headers and tab bars in the brand's light
+ * and dark colors). To fall back to plain
  * React Native for one, delete its line, its import below and its package.
  */
 import DateTimePicker from "@expo/ui/community/datetime-picker";
 import { FlashList } from "@shopify/flash-list";
 import * as GlassEffect from "expo-glass-effect";
 import { Image } from "expo-image";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { SymbolView } from "expo-symbols";
 import * as Reanimated from "react-native-reanimated";
 import type { GenesisModules } from "@marktiderman/genesis-ui-native";
@@ -24,4 +27,5 @@ export const nativeModules: GenesisModules = {
   symbol: SymbolView as unknown as GenesisModules["symbol"],
   icons: lucideIcons,
   datePicker: DateTimePicker as unknown as GenesisModules["datePicker"],
+  navigation: { ThemeProvider, DefaultTheme, DarkTheme },
 };

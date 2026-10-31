@@ -87,6 +87,18 @@ describe("brandRoleVariables", () => {
     }
   });
 
+  it("darkens muted text to the first neutral that reads at 4.5:1 on the page", () => {
+    // A warm neutral whose 500 is 3.27:1 on its surface.
+    const warm: CanonicalBrand = {
+      ...espresso,
+      neutral: { ...genesisBrand.neutral, "100": "#f1ebe3", "500": "#8f8275", "600": "#6f6357", "700": "#544a41", "900": "#1c1917" },
+    };
+    const { light } = brandRoleVariables(warm);
+    const muted = hslToRgb(light["--muted-foreground"]!);
+    expect(contrast(muted, hex("#f5efe6"))).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(muted, hex("#6f6357"))).toBeLessThan(1.05); // neutral 600, not 500
+  });
+
   it("matches genesis.css for the Genesis brand (to rounding), so the default look doesn't move", () => {
     const genesis = themeVariables(GENESIS_THEME_BRAND);
     const roles = brandRoleVariables(genesisBrand);

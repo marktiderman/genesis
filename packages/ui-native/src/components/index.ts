@@ -282,6 +282,8 @@ export type {
   GenesisIconSet,
   GenesisDatePickerComponent,
   GenesisDatePickerProps,
+  GenesisNavigationModule,
+  GenesisNavigationTheme,
 } from "../native-modules";
 
 export { NativeIcon } from "./icon";

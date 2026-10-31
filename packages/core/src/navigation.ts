@@ -4,10 +4,6 @@
  * `resolveNavigation` never reads browser history or `window`.
  */
 
-/**
- * Split a href into its path (trailing slash dropped, except for `/`), query
- * (no `?`) and hash (no `#`).
- */
 /** `path` without its trailing slashes, in one linear pass (a regex can backtrack on many slashes). */
 function trimTrailingSlashes(path: string): string {
   let end = path.length;
@@ -15,6 +11,10 @@ function trimTrailingSlashes(path: string): string {
   return path.slice(0, end);
 }
 
+/**
+ * Split a href into its path (trailing slash dropped, except for `/`), query
+ * (no `?`) and hash (no `#`).
+ */
 function splitHref(href: string): { path: string; search: string; hash: string } {
   const hashAt = href.indexOf("#");
   const hash = hashAt === -1 ? "" : href.slice(hashAt + 1);

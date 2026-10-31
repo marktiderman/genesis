@@ -26,6 +26,7 @@ const BLOCKED = new Set([
   "0d1c9373ac1681ac4525443ac86217b2eb12deec2a90a2e47fad1eaec224e91a",
   "50a949349c63896899821981b0cee30e3f0b61a37cb55a852aeb360f61cfba19",
   "8ca2101047362ac367ca21fcad6e438bc3bb0cc870b6edbecdd8e50068dc3808",
+  "752115f45427e30c230603d78fa1bf560bfea9cc378e954dfd1f571540ddc184",
 ]);
 
 const SKIP = /\.(png|jpe?g|gif|webp|ico|icns|woff2?|ttf|otf|pdf|zip|gz|mp4|mov|wasm)$/i;
@@ -78,6 +79,21 @@ for (const file of files) {
     }
   });
 }
+// `--commits <base>`: also the messages of the commits after <base> (a PR's), which a merge keeps for good.
+const at = process.argv.indexOf("--commits");
+if (at !== -1) {
+  const base = process.argv[at + 1];
+  if (!base) throw new Error("--commits needs a base, e.g. --commits origin/main");
+  const log = execFileSync("git", ["log", "--format=%h%x00%B%x01", `${base}..HEAD`], { encoding: "utf8" });
+  for (const entry of log.split("\x01")) {
+    const [sha, message = ""] = entry.trim().split("\0");
+    if (sha && words(message).some(isBlocked)) {
+      console.error(`commit ${sha}: its message names an app or customer built on Genesis. Reword it before it reaches main.`);
+      found++;
+    }
+  }
+}
+
 if (found) {
   console.error(`\ncheck-private-names: ${found} line(s). Genesis is public; see the header of scripts/check-private-names.mjs.`);
   process.exit(1);

@@ -9,7 +9,9 @@
  * - `kind`: gap (nothing in Genesis), extension (a part with no prop, variant or slot for it) or
  *   invention (the app built it; it may belong in Genesis).
  * - `status`: candidate, proposed (filed with Genesis), promoted (Genesis shipped it) or declined.
- * - `local`: the app's own code for it, a repo-relative path, or empty.
+ * - `local`: the app's own code for it: repo-relative paths, separated by `, ` or `<br>`, or empty.
+ *
+ * The register is `docs/genesis-upstream.md`, or `genesis-upstream.md` at the app's root.
  *
  * `check` validates the table, and flags a promoted entry whose local code is still there (the
  * app should delete its copy). `export <id>` prints the new-issue link for Genesis's gap form,
@@ -21,6 +23,8 @@ import * as path from "node:path";
 export const UPSTREAM_KINDS = ["gap", "extension", "invention"] as const;
 export const UPSTREAM_STATUSES = ["candidate", "proposed", "promoted", "declined"] as const;
 export const REGISTER_PATH = "docs/genesis-upstream.md";
+/** Where the register may be, in the order they're looked for. */
+export const REGISTER_PATHS = [REGISTER_PATH, "genesis-upstream.md"] as const;
 const COLUMNS = ["id", "kind", "status", "feature", "package", "local", "need"] as const;
 const ISSUE_FORM = "https://github.com/marktiderman/genesis/issues/new";
 
@@ -88,8 +92,8 @@ export function readRegister(markdown: string): { entries: UpstreamEntry[]; prob
     const need = at(row, "need");
     if (!need || need === "-") problems.push(`${where}: say the need in one line`);
     const local = at(row, "local");
-    if (local && local !== "-" && (path.isAbsolute(local) || /^[A-Za-z]:[\\/]/.test(local) || local.split(/[\\/]/).includes(".."))) {
-      problems.push(`${where}: local must be a path inside the app, relative to its root`);
+    if (local && local !== "-" && localPaths(local).some((p) => path.isAbsolute(p) || /^[A-Za-z]:[\\/]/.test(p) || p.split(/[\\/]/).includes(".."))) {
+      problems.push(`${where}: local must be paths inside the app, relative to its root`);
     }
     const opt = (c: (typeof COLUMNS)[number]) => (at(row, c) && at(row, c) !== "-" ? at(row, c) : undefined);
     entries.push({ id, kind: kind as UpstreamEntry["kind"], status: status as UpstreamEntry["status"], need, ...(opt("feature") ? { feature: opt("feature") } : {}), ...(opt("package") ? { package: opt("package") } : {}), ...(opt("local") ? { local: opt("local") } : {}) });
@@ -97,20 +101,30 @@ export function readRegister(markdown: string): { entries: UpstreamEntry[]; prob
   return { entries, problems };
 }
 
+/**
+ * An entry's `local` cell as paths, separated by a comma and a space (`, `) or `<br>`. A comma
+ * with no space after it is part of the path (`src/a,b.ts`).
+ */
+export function localPaths(local: string | undefined): string[] {
+  return (local ?? "").split(/,\s+|<br\s*\/?>/i).map((p) => p.trim()).filter((p) => p && p !== "-");
+}
+
 /** `genesis upstream check`: the register's problems, with a promoted entry whose local copy remains. */
-export function checkUpstream(root: string): { entries: UpstreamEntry[]; problems: string[]; warnings: string[]; missing?: true } {
-  const file = path.join(root, REGISTER_PATH);
-  if (!existsSync(file)) return { entries: [], problems: [], warnings: [`no ${REGISTER_PATH}: nothing to check (add it when the app first needs something Genesis lacks)`], missing: true };
-  const { entries, problems } = readRegister(readFileSync(file, "utf8"));
+export function checkUpstream(root: string): { entries: UpstreamEntry[]; problems: string[]; warnings: string[]; missing?: true; file?: string } {
+  const found = REGISTER_PATHS.find((p) => existsSync(path.join(root, p)));
+  if (!found) return { entries: [], problems: [], warnings: [`no ${REGISTER_PATHS.join(" or ")}: nothing to check (add one when the app first needs something Genesis lacks)`], missing: true };
+  const { entries, problems } = readRegister(readFileSync(path.join(root, found), "utf8"));
   const warnings: string[] = [];
   for (const e of entries) {
-    if (e.local && !existsSync(path.join(root, e.local))) {
-      if (e.status !== "promoted" && e.status !== "declined") problems.push(`${e.id}: local ${e.local} doesn't exist`);
-    } else if (e.local && e.status === "promoted") {
-      warnings.push(`${e.id}: Genesis ships it now; delete ${e.local} and use ${e.package ?? e.feature ?? "the Genesis version"}`);
+    const paths = localPaths(e.local);
+    const absent = paths.filter((p) => !existsSync(path.join(root, p)));
+    const present = paths.filter((p) => !absent.includes(p));
+    if (absent.length && e.status !== "promoted" && e.status !== "declined") problems.push(`${e.id}: local ${absent.join(", ")} doesn't exist`);
+    if (present.length && e.status === "promoted") {
+      warnings.push(`${e.id}: Genesis ships it now; delete ${present.join(", ")} and use ${e.package ?? e.feature ?? "the Genesis version"}`);
     }
   }
-  return { entries, problems, warnings };
+  return { entries, problems, warnings, file: found };
 }
 
 /** `genesis upstream export <id>`: the gap form's link, filled in from the entry. */

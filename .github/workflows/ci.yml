@@ -46,9 +46,19 @@ jobs:
         with:
           persist-credentials: false
 
-      # Genesis is public: no app or customer built on it is named here (hashes in the script).
+      # Genesis is public: no app or customer built on it is named here (hashes in the script),
+      # nor in a PR's commit messages, which a merge keeps for good.
       - name: No private names
         run: node scripts/check-private-names.mjs
+
+      - name: No private names in this PR's commit messages
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          # The checkout is one commit deep: fetch the history (commits and trees only) and the base.
+          git fetch --no-tags --filter=blob:none --unshallow origin "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          node scripts/check-private-names.mjs --commits "origin/$BASE_REF"
 
       # The site builder's core names no industry; industry wording lives in its templates folder.
       - name: No industry words in the sites core
