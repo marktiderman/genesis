@@ -9,7 +9,9 @@ import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeTempDir } from "./temp.js";
-import { formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind, type GhRunner } from "../src/features";
+import { findFilters, formatFeature, runFeaturesBuild, runFeaturesCheck, runFeaturesFind, type GhRunner } from "../src/features";
+import { featureKindField, featureSnippet } from "../src/blocks/registry-edit";
+import { parseManifest } from "../src/blocks/manifest";
 
 const created: string[] = [];
 afterEach(() => {
@@ -124,6 +126,54 @@ describe("genesis features", () => {
     const root = repo({ "src/features.ts": registry("live"), "src/tasks.ts": "" });
     expect((await runFeaturesFind({ dir: root }, "next steps")).map((r) => r.id)).toEqual(["tasks"]);
     expect(formatFeature((await runFeaturesFind({ dir: root }, "tasks"))[0]!)).toBe("tasks — Tasks [live] (mark)\n  Next steps.\n  code: src/tasks.ts");
+  });
+
+  it("finds by kind, the deprecated layer field, and the owning package's layer", async () => {
+    const root = repo({
+      "src/features.ts": `export const features = {
+  button: { name: "Button", summary: "Presses.", status: "building", owner: "mark", apps: ["web"], audience: ["developer"], kind: "element", entry: { web: "@acme/ui/button" } },
+  thread: { name: "Thread", summary: "Talks.", status: "building", owner: "mark", apps: ["web"], audience: ["developer"], layer: "pattern", links: { code: ["packages/chat/src"] } },
+};
+`,
+      "packages/chat/package.json": JSON.stringify({ name: "@acme/chat", genesis: { layer: "primitive", group: "collaboration" } }),
+      "packages/chat/src/index.ts": "",
+      "node_modules/@marktiderman/ui/package.json": JSON.stringify({ name: "@acme/ui", genesis: { layer: "foundation", group: "core" } }),
+    });
+    const ids = (r: { id: string }[]) => r.map((x) => x.id);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { kind: "pattern" }))).toEqual(["thread"]);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { packageLayer: "foundation" }))).toEqual(["button"]);
+    expect(ids(await runFeaturesFind({ dir: root }, "", { packageLayer: "primitive" }))).toEqual(["thread"]);
+    expect(formatFeature((await runFeaturesFind({ dir: root }, "thread"))[0]!)).toContain("[building] pattern (mark)");
+    expect((await runFeaturesCheck({ dir: root, ...off })).warnings).toContain(
+      'thread.layer: deprecated, write kind: "pattern" (layer will be the owning package\'s, derived)',
+    );
+  });
+
+  it("reads find's flags: --kind, --layer as a package layer, --layer as a deprecated kind", () => {
+    expect(findFilters({ kind: "element" })).toEqual({ filters: { kind: "element" } });
+    expect(findFilters({ layer: "module" })).toEqual({ filters: { packageLayer: "module" } });
+    expect(findFilters({ layer: "primitive" })).toEqual({ filters: { kind: "element" }, warning: "--layer primitive is deprecated for a kind: use --kind element" });
+    expect(findFilters({ layer: "pattern", kind: "pattern" }).filters).toEqual({ kind: "pattern" });
+    expect(() => findFilters({ layer: "pattern", kind: "element" })).toThrow(/disagree/);
+    expect(() => findFilters({ layer: "widget" })).toThrow(/--layer must be one of foundation, module, tooling/);
+    expect(() => findFilters({ kind: "primitive" })).toThrow(/--kind must be one of/);
+  });
+
+  it("says so when --layer finds no package layers", async () => {
+    const root = repo({ "src/features.ts": registry("live"), "src/tasks.ts": "" });
+    await expect(runFeaturesFind({ dir: root }, "", { packageLayer: "foundation" })).rejects.toThrow(/no package here declares one/);
+  });
+
+  it("writes a block's kind in the field the app's genesis-features reads", () => {
+    const manifest = parseManifest("@marktiderman/genesis-fixture", "notes", { feature: { name: "Notes", summary: "Notes.", layer: "primitive" } });
+    expect(manifest.feature?.kind).toBe("element");
+    expect(parseManifest("@marktiderman/genesis-fixture", "notes", { feature: { name: "Notes", summary: "Notes." } }).feature?.kind).toBeUndefined();
+    expect(featureSnippet(manifest, "app")).toContain('kind: "element"');
+    expect(featureSnippet({ ...manifest, feature: undefined }, "app", "layer")).toContain('layer: "block"');
+    const at = (version: string) => repo({ "node_modules/@marktiderman/genesis-features/package.json": JSON.stringify({ name: "@marktiderman/genesis-features", version }) });
+    expect(featureKindField(at("0.7.3"))).toBe("layer");
+    expect(featureKindField(at("0.8.0"))).toBe("kind");
+    expect(featureKindField(repo({ "README.md": "" }))).toBe("layer");
   });
 
   it("fails on a missing code path", async () => {

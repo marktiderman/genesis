@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Table> = { title: "UI/Table", component: Table };
+const meta: Meta<typeof Table> = { title: "Foundation/UI/Table", component: Table };
 export default meta;
 type Story = StoryObj<typeof Table>;
 

@@ -6,7 +6,7 @@ import {
   AccordionContent,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Accordion> = { title: "UI/Accordion", component: Accordion };
+const meta: Meta<typeof Accordion> = { title: "Foundation/UI/Accordion", component: Accordion };
 export default meta;
 type Story = StoryObj<typeof Accordion>;
 

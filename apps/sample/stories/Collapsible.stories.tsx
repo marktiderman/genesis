@@ -7,7 +7,7 @@ import {
 } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof Collapsible> = {
-  title: "UI/Collapsible",
+  title: "Foundation/UI/Collapsible",
   component: Collapsible,
 };
 export default meta;

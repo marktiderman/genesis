@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { UserAvatar } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof UserAvatar> = {
-  title: "UI/UserAvatar",
+  title: "Foundation/UI/UserAvatar",
   component: UserAvatar,
   args: { name: "Ada Lovelace" },
 };

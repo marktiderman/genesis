@@ -10,7 +10,7 @@ import {
   Button,
 } from "@marktiderman/genesis-ui";
 
-const meta: Meta<typeof Dialog> = { title: "UI/Dialog", component: Dialog };
+const meta: Meta<typeof Dialog> = { title: "Foundation/UI/Dialog", component: Dialog };
 export default meta;
 type Story = StoryObj<typeof Dialog>;
 

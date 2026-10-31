@@ -35,6 +35,9 @@ export const BUILTIN_RULES = [
   "studio-server-auth-import",
   "removed-scope-name",
   "scope-practice-id",
+  // export maturity (stability.ts)
+  "deprecated-import",
+  "beta-import",
   // native pack
   "native-raw-primitive",
   "native-literal-color",

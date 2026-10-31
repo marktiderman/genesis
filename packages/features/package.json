@@ -105,6 +105,10 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "owner": "@marktiderman",
+    "essential": true,
     "doctor": {
       "prefer": [
         {

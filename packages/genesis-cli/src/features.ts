@@ -10,7 +10,7 @@
  * options win over both.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { createJiti } from "jiti";
 import {
@@ -21,7 +21,20 @@ import {
   type FeaturePrEvidence,
   type FeatureProjectOptions,
 } from "@marktiderman/genesis-features/node";
-import { findFeatures, type FeatureRecord, type Features, type FindOptions, type Flags } from "@marktiderman/genesis-features";
+import {
+  FEATURE_KINDS,
+  FEATURE_PLATFORMS,
+  FEATURE_STATUSES,
+  featureKind,
+  findFeatures,
+  PACKAGE_LAYERS,
+  type FeaturePackage,
+  type FeatureRecord,
+  type Features,
+  type FindOptions,
+  type Flags,
+  type PackageLayer,
+} from "@marktiderman/genesis-features";
 
 type Settings = Omit<FeatureProjectOptions, "root" | "features" | "flags" | "labels" | "today" | "evidence">;
 
@@ -158,14 +171,75 @@ export async function runFeaturesCheck(options: FeaturesCommandOptions): Promise
   return { ...result, summary };
 }
 
+/**
+ * The packages a feature can belong to, with their layers: this repo's own
+ * `packages/*` and the installed `@marktiderman/*` packages, read from each
+ * package.json's `genesis.layer`.
+ */
+export function readFeaturePackages(root: string): FeaturePackage[] {
+  const found: FeaturePackage[] = [];
+  const read = (dir: string, inRepo: boolean) => {
+    const file = path.join(dir, "package.json");
+    if (!existsSync(file)) return;
+    try {
+      const pkg = JSON.parse(readFileSync(file, "utf8")) as { name?: unknown; genesis?: { layer?: unknown } };
+      const layer = pkg.genesis?.layer;
+      if (typeof pkg.name !== "string" || !(PACKAGE_LAYERS as readonly unknown[]).includes(layer)) return;
+      if (found.some((p) => p.name === pkg.name)) return;
+      found.push({ name: pkg.name, layer: layer as PackageLayer, ...(inRepo ? { dir: path.relative(root, dir).split(path.sep).join("/") } : {}) });
+    } catch {
+      // An unreadable package.json owns no features.
+    }
+  };
+  for (const [base, inRepo] of [
+    [path.join(root, "packages"), true],
+    [path.join(root, "node_modules", "@marktiderman"), false],
+  ] as const) {
+    if (!existsSync(base)) continue;
+    for (const name of readdirSync(base)) read(path.join(base, name), inRepo);
+  }
+  return found;
+}
+
+/**
+ * `genesis features find`'s filter flags, checked. Until the next major,
+ * `--layer` also takes a kind (its old meaning; `primitive` is the element
+ * kind there), with a warning; otherwise it is the owning package's layer
+ * (foundation, module or tooling).
+ */
+export function findFilters(flags: { platform?: string; kind?: string; layer?: string; status?: string }): { filters: FindOptions; warning?: string } {
+  const pick = <T extends string>(name: string, value: string | undefined, allowed: readonly T[]): T | undefined => {
+    if (value === undefined) return undefined;
+    if ((allowed as readonly string[]).includes(value)) return value as T;
+    throw new Error(`--${name} must be one of ${allowed.join(", ")}`);
+  };
+  const { layer } = flags;
+  const layerKind = layer === "primitive" ? "element" : (FEATURE_KINDS as readonly string[]).includes(layer ?? "") ? layer : undefined;
+  if (layerKind && flags.kind && layerKind !== flags.kind) throw new Error(`--layer ${layer} and --kind ${flags.kind} disagree; use --kind alone`);
+  return {
+    filters: {
+      platform: pick("platform", flags.platform, FEATURE_PLATFORMS),
+      kind: pick("kind", flags.kind ?? layerKind, FEATURE_KINDS),
+      packageLayer: layerKind ? undefined : pick("layer", layer, PACKAGE_LAYERS.filter((l) => l !== "primitive")),
+      status: pick("status", flags.status, FEATURE_STATUSES),
+    },
+    ...(layerKind ? { warning: `--layer ${layer} is deprecated for a kind: use --kind ${layerKind}` } : {}),
+  };
+}
+
 export async function runFeaturesFind(options: FeaturesCommandOptions, term: string, filters: FindOptions = {}): Promise<FeatureRecord[]> {
   const project = await loadRegistry(options);
-  return findFeatures(project.features, term, project.flags, filters);
+  const packages = filters.packageLayer && !filters.packages ? readFeaturePackages(project.root) : filters.packages;
+  if (filters.packageLayer && !packages?.length) {
+    throw new Error("--layer needs package layers, and no package here declares one (genesis.layer in packages/* or node_modules/@marktiderman/*)");
+  }
+  return findFeatures(project.features, term, project.flags, { ...filters, ...(packages ? { packages } : {}) });
 }
 
 /** One search hit, for the terminal. */
 export function formatFeature(r: FeatureRecord): string {
-  const kind = r.layer ? ` ${r.layer}` : "";
+  const kindOf = featureKind(r);
+  const kind = kindOf ? ` ${kindOf}` : "";
   const lines = [`${r.id} — ${r.name} [${r.status}${r.horizon ? `, ${r.horizon}` : ""}]${kind} (${r.owner})`, `  ${r.summary}`];
   if (r.platforms) lines.push(`  platforms: ${Object.entries(r.platforms).map(([p, s]) => `${p} ${s}`).join(", ")}`);
   if (r.entry) lines.push(`  import: ${Object.entries(r.entry).map(([p, e]) => `${e} (${p})`).join(", ")}`);

@@ -55,7 +55,7 @@ The two axes are **independent and compose**: a resource at any Tier can be back
 ## Architecture (this package)
 
 ```text
-packages/data-switchboard/
+packages/switchboard/
 ├── SWITCHBOARD.md            ← this doc
 └── src/
     ├── types.ts              Level · Tier · FieldSchema · ResourceContract · Binding · ResolvedPlan

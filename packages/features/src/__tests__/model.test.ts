@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FeatureRegistryError, defineFeatures, defineFlags, expiredFlags, findFeatures, flagsForFeature, toRecords } from "../index";
+import { FeatureRegistryError, defineFeatures, defineFlags, expiredFlags, featureKind, featurePackageLayer, findFeatures, flagsForFeature, toRecords } from "../index";
 import { features, flags, type FeatureId } from "./fixture";
 
 const base = { name: "X", summary: "Does x.", status: "building", owner: "mark", apps: ["web"], audience: ["client"] } as const;
@@ -212,6 +212,45 @@ describe("findFeatures with reuse fields", () => {
     expect(ids(findFeatures(catalog, "", undefined, { layer: "layout" }))).toEqual(["settings"]);
     expect(ids(findFeatures(catalog, "", undefined, { status: "idea" }))).toEqual(["palette"]);
     expect(ids(findFeatures(catalog, "inbox", undefined, { platform: "server" }))).toEqual([]);
+  });
+});
+
+describe("kind, and layer from the owning package", () => {
+  const packages = [
+    { name: "@acme/ui", dir: "packages/ui", layer: "foundation" as const },
+    { name: "@acme/chat", dir: "packages/chat", layer: "primitive" as const },
+  ];
+  const catalog = defineFeatures({
+    button: { ...base, name: "Button", kind: "element", entry: { web: "@acme/ui/button" } },
+    old: { ...base, name: "Old card", layer: "primitive", links: { code: ["packages/ui/src/card.tsx"] } },
+    thread: { ...base, name: "Thread", kind: "pattern", links: { code: ["packages/chat/src"] } },
+    local: { ...base, name: "App screen", kind: "layout" },
+  });
+  const ids = (r: { id: string }[]) => r.map((x) => x.id);
+
+  it("reads kind, and the deprecated layer field as a kind", () => {
+    expect(ids(findFeatures(catalog, "", undefined, { kind: "element" }))).toEqual(["button", "old"]);
+    expect(ids(findFeatures(catalog, "", undefined, { layer: "primitive" }))).toEqual(["button", "old"]);
+    const old = toRecords(catalog).find((r) => r.id === "old");
+    expect(old?.kind).toBe("element");
+    expect(old && "layer" in old).toBe(false);
+  });
+
+  it("derives a feature's layer from its entry, else its code paths", () => {
+    expect(featurePackageLayer(catalog.button, packages)).toBe("foundation");
+    expect(featurePackageLayer(catalog.old, packages)).toBe("foundation");
+    expect(featurePackageLayer(catalog.thread, packages)).toBe("primitive");
+    expect(featurePackageLayer(catalog.local, packages)).toBeUndefined();
+    expect(ids(findFeatures(catalog, "", undefined, { packageLayer: "primitive", packages }))).toEqual(["thread"]);
+    expect(() => findFeatures(catalog, "", undefined, { packageLayer: "primitive" })).toThrow(/needs packages/);
+    expect(featurePackageLayer({ ...base, links: { code: ["./packages/chat/src/a.ts"] } }, packages)).toBe("primitive");
+  });
+
+  it("refuses a layer that disagrees with kind", () => {
+    expect(problems(() => defineFeatures({ a: { ...base, kind: "element", layer: "pattern" } }))).toEqual([
+      "a.layer: says pattern but kind says element; drop layer (deprecated), kind replaces it",
+    ]);
+    expect(featureKind({ kind: "element", layer: "primitive" })).toBe("element");
   });
 });
 

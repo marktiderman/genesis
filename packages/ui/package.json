@@ -112,6 +112,7 @@
       "import": "./dist/router/tanstack-router.js"
     },
     "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json",
     "./accessible-icon": {
       "types": "./dist/components/ui/accessible-icon.d.ts",
       "import": "./dist/components/ui/accessible-icon.js"
@@ -462,7 +463,7 @@
     "react-resizable-panels": "^2.0.0",
     "react-router": "8.5.0",
     "recharts": "^2.15.0",
-    "sonner": "^1.0.0",
+    "sonner": "^2.0.8",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
     "vaul": "^1.0.0",
@@ -493,6 +494,10 @@
     }
   },
   "genesis": {
+    "layer": "foundation",
+    "group": "core",
+    "owner": "@marktiderman",
+    "essential": true,
     "doctor": {
       "prefer": [
         {

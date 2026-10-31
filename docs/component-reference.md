@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 3765 other exports · 2955 standalone types across 176 entry points in 28 packages.
+**Totals:** 589 components · 3804 other exports · 3015 standalone types across 178 entry points in 28 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -23,12 +23,13 @@ One server-side pipeline for every AI call a Genesis app makes: consent, the fea
 
 **Barrel:** [`packages/ai/src/index.ts`](../packages/ai/src/index.ts)
 
-### Other exports (8)
+### Other exports (11)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AI_SPEC`](../packages/ai/src/types.ts) | const | — | The version of the definition format (tasks today; tools and agents next), apart from the package's version: a definition written for spec 1 keeps its meaning while the package moves. |
 | [`ANTHROPIC_API_VERSION`](../packages/ai/src/models.ts) | const | — | Anthropic API version Genesis pins (sampling parameters are refused on it). |
 | [`checkTasks`](../packages/ai/src/define.ts) | function | — | _(no summary)_ |
 | [`costOf`](../packages/ai/src/models.ts) | function | — | Cost of one call in USD from its usage. `cacheTtl` prices cache writes (default 5 minutes). |
@@ -37,13 +38,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`estimateCost`](../packages/ai/src/models.ts) | function | — | Upper bound for the budget: the prompt at the input price plus the full output cap. |
 | [`GuardrailError`](../packages/ai/src/types.ts) | class | — | Stops a call with a typed outcome and a message the UI can show. Thrown by a guardrail, or by a task's `load` when there is nothing to do ("Nothing to catch up on yet") or the person may not read what it needs (`forbidden`). Before the m... |
 | [`MODEL_RECORDS`](../packages/ai/src/models.ts) | const | — | Prices from Anthropic's model table as of 2026-10-06, first-party API. Cache reads are 0.05× of input on Opus 5.5 and Sonnet 5.5, 0.025× on Fable 5.1 and 0.1× elsewhere (prompt-caching docs, checked 2026-10-28). |
+| [`RUN_EVENT_TYPES`](../packages/ai/src/run-events.ts) | const | — | The names of {@link RunEvent}, in the order a text run sends them. |
+| [`textStreamToRunEvents`](../packages/ai/src/run-events.ts) | function | — | Turns the text stream's events into {@link RunEvent}s, one stream at a time: the first text opens the run and the message, `done` closes them. `threadId` defaults to the run's id (a run outside a conversation is its own thread). |
 
-### Types (32)
+### Types (41)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Ai };
+export type { AiActor };
 export type { AiConfig };
 export type { AiContext };
 export type { AiMessage };
@@ -51,6 +55,7 @@ export type { AiOutcome };
 export type { AiResult };
 export type { AiSchema };
 export type { AiSpan };
+export type { AiSpec };
 export type { AiStore };
 export type { AiUsage };
 export type { AiVendor };
@@ -58,21 +63,28 @@ export type { AliasConfig };
 export type { AliasFallbacks };
 export type { BeganCall };
 export type { BeginInput };
+export type { BudgetStore };
 export type { CacheTtl };
 export type { Capability };
+export type { ConsentStore };
 export type { ContextLayerRecord };
 export type { FinishInput };
 export type { Guardrail };
+export type { JsonPatchOperation };
 export type { KeySource };
+export type { KeyStore };
 export type { LoadContext };
 export type { Loaded };
 export type { ModelLike };
 export type { ModelRecord };
 export type { ResolvedAlias };
+export type { RunEvent };
 export type { SafetyProtocol };
 export type { SafetyRoute };
 export type { TaskDefinition };
 export type { TelemetrySink };
+export type { TextStreamEvent };
+export type { UsageStore };
 export type { VendorAdapter };
 export type { VendorKey };
 ```
@@ -91,14 +103,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AiCallError`](../packages/ai/src/server/wrap.ts) | class | — | A processor call the pipeline stopped before it ran. |
 | [`createAiHandler`](../packages/ai/src/server/handler.ts) | function | — | One HTTP endpoint for every task: `POST { task, args }` → the task's {@link AiResult} as JSON. A web-standard handler, so it mounts in TanStack Start, Next, Hono or a Supabase Edge Function. With `stream: true`, a text task answers as se... |
-| [`evaluate`](../packages/ai/src/server/evaluate.ts) | function | — | Runs a task's cases through the real pipeline and model, for a check before an alias, rollout or prompt version changes: run it with a live key in CI or by hand, and compare reports. Cases run one at a time, so a budget and the vendor's ... |
+| [`evaluate`](../packages/ai/src/server/evaluate.ts) | function | — | Runs a target's cases through the real pipeline and model, for a check before an alias, rollout or prompt version changes: run it with a live key in CI or by hand, and compare reports. Cases run one at a time, so a budget and the vendor'... |
 | [`memoryStore`](../packages/ai/src/server/memory-store.ts) | function | — | An {@link AiStore} in memory, for tests and local work. It admits a call while platform spend plus the estimates of calls still open stays within the budget, the same bounded overshoot as the database store. Calls on a tenant's or person... |
 | [`otelSink`](../packages/ai/src/server/telemetry.ts) | const | — | Sends genesis-ai's spans to an OpenTelemetry tracer: `telemetry: otelSink(trace.getTracer("ai"))`. |
 | [`runTask`](../packages/ai/src/server/run.ts) | function | — | Runs a task for a person: consent → gate → load (with a manifest) → safety routing → guardrails → budget → the model (rollout, outage fallbacks, refusals) → output guardrails → a usage row and a span. Content never reaches the usage row ... |
 | [`streamTask`](../packages/ai/src/server/run.ts) | function | — | Streams a text task. The same steps run before the model; the usage row is written when the stream ends, is aborted or fails. No outage fallback mid-stream: a conversation keeps one model. Output guardrails need the whole answer, so a ta... |
 | [`wrap`](../packages/ai/src/server/wrap.ts) | function | — | Puts a processor (moderation, transcription) through the same steps as a task: consent, the gate, the budget, a usage row and a span. The processor itself is unchanged; the wrapped function has its signature and throws {@link AiCallError... |
 
-### Types (10)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -106,8 +118,11 @@ Type-only exports not consumed as a component's `Props`.
 export type { AiHandlerOptions };
 export type { EvalCase };
 export type { EvalReport };
+export type { EvalTarget };
 export type { MemoryStore };
 export type { MemoryStoreOptions };
+export type { ScoreResult };
+export type { Scorer };
 export type { StreamOptions };
 export type { StreamResult };
 export type { TracerLike };
@@ -1640,22 +1655,24 @@ export type { ResolvedNavigation };
 
 **Barrel:** [`packages/core/src/workspaces.ts`](../packages/core/src/workspaces.ts)
 
-### Other exports (8)
+### Other exports (10)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`defaultWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The workspace to open when the URL names none (the app's front door): the remembered one if the viewer still has it, else the first tenant, else the first workspace. |
+| [`filterWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces whose label or second line contains every word of `query`, ignoring case and accents, in the order given. An empty query keeps them all. For the switcher's search box, on the web and on the phone. |
 | [`groupWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces grouped by kind, in `order` (default {@link WORKSPACE_KIND_ORDER}, then any kind an app added), each group in the order given. Empty groups are left out. |
 | [`keepSection`](../packages/core/src/workspaces.ts) | function | — | The default `keep`: the same kind keeps the section (the first segment), never a record. |
+| [`orderedWorkspaces`](../packages/core/src/workspaces.ts) | function | Beta | The workspaces in the order the switcher lists them (grouped by kind, in `order`): the order its keyboard jump numbers them, 1 to 9. |
 | [`pathInWorkspace`](../packages/core/src/workspaces.ts) | function | Beta | The path inside a workspace: `/o/acme/clients/42` in `/o/acme` is `/clients/42`; the workspace's own landing page is `/`. |
 | [`WORKSPACE_KIND_ORDER`](../packages/core/src/workspaces.ts) | const | — | The kinds in their default order: personal, roll-up, then each tenant. |
 | [`workspaceAt`](../packages/core/src/workspaces.ts) | function | Beta | The workspace a URL is in: the one whose `path` is the longest prefix of `pathname`, or undefined when the URL is in none (a sign-in page, the app's front door). |
 | [`workspaceHref`](../packages/core/src/workspaces.ts) | function | Beta | Where switching to `to` goes from `pathname`. The URL moves with the viewer: it lands in the same section of the new workspace when that makes sense (see `keep`), else on its landing page. |
 | [`workspaceInitials`](../packages/core/src/workspaces.ts) | function | Beta | Initials for a workspace with no image: the first letters of its first two words. |
 
-### Types (5)
+### Types (6)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1665,6 +1682,7 @@ export type { Workspace };
 export type { WorkspaceGroup };
 export type { WorkspaceHrefOptions };
 export type { WorkspaceKind };
+export type { WorkspaceTheme };
 ```
 
 ---
@@ -1930,142 +1948,6 @@ export type { ErrorReporter };
 
 ---
 
-## @marktiderman/genesis-switchboard
-
-Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/data-switchboard/README.md + SWITCHBOARD.md.
-
-**Barrel:** [`packages/data-switchboard/src/index.ts`](../packages/data-switchboard/src/index.ts)
-
-### Other exports (30)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
-
-### Types (43)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { Adapter };
-export type { AirtableAdapterConfig };
-export type { AirtableResourceMap };
-export type { Binding };
-export type { CodeAdapterOptions };
-export type { DataRow };
-export type { DescribeResult };
-export type { DriftReport };
-export type { EnvironmentBinding };
-export type { FeatureRow };
-export type { FetchLike };
-export type { FieldBinding };
-export type { FieldDrift };
-export type { FieldSchema };
-export type { FieldType };
-export type { Level };
-export type { MergeBinding };
-export type { ModelReconcileReport };
-export type { ModelReconcileSummary };
-export type { NotionAdapterConfig };
-export type { NotionPropertyMap };
-export type { NotionPropertyType };
-export type { NotionResourceMap };
-export type { PromoteOptions };
-export type { PromoteResult };
-export type { ProviderKind };
-export type { QueryOptions };
-export type { ReconcileModelOptions };
-export type { ResolvedPlan };
-export type { ResourceBinding };
-export type { ResourceClient };
-export type { ResourceContract };
-export type { ResourceReconcile };
-export type { RowDrift };
-export type { StaleReadInfo };
-export type { SupabaseAdapterConfig };
-export type { SupabaseClientLike };
-export type { SupabaseQueryBuilder };
-export type { SupabaseResourceMap };
-export type { SwitchboardContract };
-export type { TicketRow };
-export type { Tier };
-export type { ValueDrift };
-```
-
----
-
-## @marktiderman/genesis-switchboard/gitdata
-
-**Barrel:** [`packages/data-switchboard/src/gitdata.ts`](../packages/data-switchboard/src/gitdata.ts)
-
-### Other exports (4)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-
-### Types (3)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { AttachGitdataOptions };
-export type { GitdataAdapterConfig };
-export type { GitdataResourceMap };
-```
-
----
-
-## @marktiderman/genesis-switchboard/data-provider
-
-**Barrel:** [`packages/data-switchboard/src/data-provider.ts`](../packages/data-switchboard/src/data-provider.ts)
-
-### Other exports (1)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
-
----
-
 ## @marktiderman/genesis-design-system
 
 DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer brand packages satisfy the canonical schema.
@@ -2078,13 +1960,14 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (25)
+### Other exports (26)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`debugBrandPreset`](../packages/design-system/src/factories/from-brand.ts) | function | — | Debug utility — dumps the resolved Tailwind preset and NativeWind theme side-by-side so brand authors can introspect token mis-resolution without reading factory source. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -2110,13 +1993,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (19)
+### Types (21)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -2410,7 +2295,7 @@ A typed feature registry: `defineFeatures` and `defineFlags` in one `features.ts
 
 **Barrel:** [`packages/features/src/index.ts`](../packages/features/src/index.ts)
 
-### Other exports (48)
+### Other exports (56)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -2432,11 +2317,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -2450,7 +2339,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -2465,7 +2358,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -2489,14 +2382,17 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -2517,6 +2413,11 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -3691,7 +3592,7 @@ export type { UseSubmitOutboxOptions };
 
 ## @marktiderman/genesis-forms-studio
 
-The form workspace around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
+The form management screens around a Genesis Forms builder: the page header, the Responses tab (filters, headline numbers, question summaries, a follow-up list), the Settings page layout and the Share dialog, plus the pure summary, answer, share and availability rules behind them. Data-agnostic: the host passes rows and actions. Part of the Genesis framework.
 
 **Barrel:** [`packages/forms-studio/src/index.ts`](../packages/forms-studio/src/index.ts)
 
@@ -4679,13 +4580,14 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (25)
+### Other exports (26)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`debugBrandPreset`](../packages/design-system/src/factories/from-brand.ts) | function | — | Debug utility — dumps the resolved Tailwind preset and NativeWind theme side-by-side so brand authors can introspect token mis-resolution without reading factory source. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -4711,13 +4613,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (19)
+### Types (21)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
+export type { BrandRoleVariables };
+export type { BrandRoleVariablesOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -4820,36 +4724,36 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`AIRTABLE_BASE_ID`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`AirtableAdapter`](../packages/data-switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
-| [`asWritable`](../packages/data-switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
-| [`CodeAdapter`](../packages/data-switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
-| [`driftReport`](../packages/data-switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
-| [`featuresAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`featuresSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
-| [`inferFieldType`](../packages/data-switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
-| [`introspectFields`](../packages/data-switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
-| [`isMergeBinding`](../packages/data-switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
-| [`LEVEL_LABEL`](../packages/data-switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
-| [`LEVELS`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`markStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
-| [`NotionAdapter`](../packages/data-switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
-| [`promote`](../packages/data-switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
-| [`propagateStale`](../packages/data-switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
-| [`PROVIDER_LEVEL`](../packages/data-switchboard/src/types.ts) | const | — | _(no summary)_ |
-| [`ReadOnlyAdapterError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
-| [`reconcileModel`](../packages/data-switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
-| [`Registry`](../packages/data-switchboard/src/registry.ts) | class | — | _(no summary)_ |
-| [`staleInfo`](../packages/data-switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
-| [`SupabaseAdapter`](../packages/data-switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
-| [`Switchboard`](../packages/data-switchboard/src/resolver.ts) | class | — | _(no summary)_ |
-| [`ticketsAirtableMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsContract`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`ticketsSupabaseMap`](../packages/data-switchboard/src/resources.ts) | const | — | _(no summary)_ |
-| [`UnknownResourceError`](../packages/data-switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
 
 ### Types (43)
 
@@ -4913,10 +4817,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`attachGitdata`](../packages/data-switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
-| [`GitdataAdapter`](../packages/data-switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
-| [`gitdataMdContract`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
-| [`gitdataResourceName`](../packages/data-switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
 
 ### Types (3)
 
@@ -4940,7 +4844,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`createSwitchboardProvider`](../packages/data-switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
@@ -5932,7 +5836,7 @@ export type { UploadHost };
 
 **Barrel:** [`packages/genesis/src/features.ts`](../packages/genesis/src/features.ts)
 
-### Other exports (48)
+### Other exports (56)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -5954,11 +5858,15 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`dependencyOrder`](../packages/features/src/graph.ts) | function | — | The ids in dependency order (what a node requires comes first), ties kept in the given order. Requirements outside `nodes` are ignored. Assumes no cycles ({@link requiresProblems} reports them). |
 | [`expiredFlags`](../packages/features/src/model.ts) | function | Beta | Flags whose `expires` date is before `today` (`YYYY-MM-DD`, default today in UTC): remove the code path, then the flag. |
 | [`FEATURE_HORIZONS`](../packages/features/src/model.ts) | const | Beta | When a planned or building feature is due, without dates: the roadmap's three columns. |
-| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell a primitive from a whole block: `token`, `primitive` (one component), `pattern` (a composed component with slots), `layout` (a p... |
+| [`FEATURE_KINDS`](../packages/features/src/model.ts) | const | Beta | What kind of thing a feature is, from smallest to largest, so an agent looking for a building block can tell an element from a whole block: `token`, `element` (one component), `pattern` (a composed component with slots), `layout` (a page... |
+| [`FEATURE_LAYERS`](../packages/features/src/model.ts) | const | — | _(no summary)_ |
 | [`FEATURE_PLATFORMS`](../packages/features/src/platforms.ts) | const | Beta | Where a feature runs. `server` covers Node, edge functions and the database. |
 | [`FEATURE_STATUSES`](../packages/features/src/types.ts) | const | Beta | Where a feature is in its life. The order is the board's column order. `idea` is captured but not agreed: it is in the list so `find` turns it up before someone builds the same thing twice. |
+| [`featureKind`](../packages/features/src/model.ts) | function | Beta | A feature's kind: `kind`, or else the deprecated `layer` field (read until the next major). |
+| [`featureLayer`](../packages/features/src/model.ts) | function | Beta | A kind written in the deprecated `layer` field, with its old name `"primitive"` mapped to `"element"`. |
 | [`FeatureOff`](../packages/features/src/gate.ts) | class | Beta | Thrown by {@link requireFeature} when a feature is off. Servers map it to a refusal that carries the reason (HTTP 403, or 402 for `entitlement`). |
 | [`featureOn`](../packages/features/src/gate.ts) | function | Beta | Is feature `id` on for this context? Returns the first check that said no as `reason`, and for a paid feature the plan that unlocks it. An unknown id is off with reason `unknown`; it never throws for one. |
+| [`featurePackageLayer`](../packages/features/src/model.ts) | function | Beta | A feature's layer, derived from the package that owns it: the first `entry` import whose package is known, else the first `links.code` path inside a known package folder. Undefined when no package owns it (an app's own feature, a tool in... |
 | [`FeatureRegistryError`](../packages/features/src/model.ts) | class | — | Thrown by {@link defineFeatures} and {@link defineFlags}; lists every problem at once. |
 | [`featureSchema`](../packages/features/src/model.ts) | const | — | The Zod schema for one {@link FeatureDef}, field by field. Cross-field rules live in {@link featureProblems}. |
 | [`findFeatures`](../packages/features/src/model.ts) | function | Beta | Features matching `term` in their id, aliases, name, keywords, summary, tagline, category, import paths, slots, contributions or code paths, best matches (id, name and keywords) first. With `options` and an empty `term`, every feature th... |
@@ -5972,7 +5880,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`MARKETING_BLOCK_START`](../packages/features/src/generate.ts) | const | — | Marks the start of the generated marketing block (e.g. in README.md). |
 | [`marketingRecords`](../packages/features/src/generate.ts) | function | — | The public, shipped features a marketing page shows: visibility public, a tagline, live or beta. |
 | [`OPENFEATURE_MANIFEST_SCHEMA`](../packages/features/src/generate.ts) | const | — | The schema an OpenFeature CLI flag manifest points at. |
+| [`PACKAGE_GROUPS`](../packages/features/src/packages.ts) | const | Beta | Where a package appears on the site and in Storybook. `modules` holds every module. |
+| [`PACKAGE_LAYERS`](../packages/features/src/packages.ts) | const | Beta | The package layers, bottom to top, with tooling beside them. |
+| [`packageLayerProblems`](../packages/features/src/packages.ts) | function | Beta | Every layering problem across a set of packages, as strings: |
 | [`readAgentsBlock`](../packages/features/src/generate.ts) | const | — | The generated AGENTS.md block inside `doc`, or null. |
+| [`readPackageMeta`](../packages/features/src/packages.ts) | function | Beta | A package's layer metadata, or null when it has none valid. Problems go in `problems`, each prefixed with the package name. |
 | [`replaceAgentsBlock`](../packages/features/src/generate.ts) | const | Beta | `doc` with its generated AGENTS.md block replaced by `block`, or with `block` appended when it has none yet. |
 | [`requireFeature`](../packages/features/src/gate.ts) | function | Beta | Refuse unless the feature is on: call it at the top of every server function and route that belongs to a feature. |
 | [`requirementProblem`](../packages/features/src/graph.ts) | function | Beta | One requirement's problem (itself, or an unknown id), or undefined when it is fine. @stability Beta |
@@ -5987,7 +5899,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`toRecords`](../packages/features/src/model.ts) | function | Beta | Features as records, in declaration order, each with its flags attached. |
 | [`toSkillMarkdown`](../packages/features/src/generate.ts) | function | Beta | The agent skill for working with the registry, written to `.claude/skills/features/SKILL.md` by `genesis features build`. `outputs` names what the build writes in this repo, so the skill never claims a file the repo turned off. |
 
-### Types (51)
+### Types (59)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6011,14 +5923,17 @@ export type { ContentPackSectionValidator };
 export type { ContentPackSections };
 export type { ContentPackSessionType };
 export type { Contributed };
+export type { DeprecatedFeatureLayer };
 export type { EnabledBlocks };
 export type { FeatureAccess };
 export type { FeatureDef };
 export type { FeatureHorizon };
 export type { FeatureIdOf };
+export type { FeatureKind };
 export type { FeatureLayer };
 export type { FeatureLinks };
 export type { FeatureMedia };
+export type { FeaturePackage };
 export type { FeaturePlatform };
 export type { FeatureRecord };
 export type { FeatureStatus };
@@ -6039,6 +5954,11 @@ export type { GateSnapshot };
 export type { GateSnapshotOptions };
 export type { GenerateOptions };
 export type { IdSet };
+export type { LayerPackage };
+export type { ModuleMeta };
+export type { PackageGroup };
+export type { PackageLayer };
+export type { PackageMeta };
 export type { RequiresNode };
 export type { RequiresProblemsOptions };
 export type { ResolveBlocksOptions };
@@ -6947,7 +6867,7 @@ export type { SendContext };
 
 **Barrel:** [`packages/notifications/src/server/index.ts`](../packages/notifications/src/server/index.ts)
 
-### Other exports (42)
+### Other exports (46)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -6956,6 +6876,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`cancelNotification`](../packages/notifications/src/server/notify.ts) | function | Beta | Stop what hasn't gone out for a type, tenant and idempotency key (a release rolled back, an event undone): every pending send job is marked cancelled and never claimed. A job already sent is left alone; one being sent right now ends canc... |
 | [`canonicalJson`](../packages/notifications/src/server/email-render.ts) | function | — | JSON with sorted keys: the same bytes however a database reordered them. |
 | [`checkSenderDomain`](../packages/notifications/src/server/dns.ts) | function | Beta | Checks ownership, SPF, DKIM and DMARC for `domain`. Record the result with `genesis_notifications_set_sender_dns(tenant, domain, token, ok ? 'verified' : 'failed', result)` with the same token, so a check made before the tenant changed i... |
+| [`createInboundEmailHandler`](../packages/notifications/src/server/inbound.ts) | function | Beta | The receiving webhook as a web-standard handler: 401 for an unsigned or stale request, 200 for anything handled or ignored, 502 when the message couldn't be fetched or a route threw (Resend retries). |
 | [`createNotificationRunner`](../packages/notifications/src/server/runner.ts) | function | Beta | The runner. |
 | [`createNotificationsHandler`](../packages/notifications/src/server/handler.ts) | function | Beta | The handler. |
 | [`createRateLimiter`](../packages/notifications/src/server/rate.ts) | function | Beta | _(no summary)_ |
@@ -6972,15 +6893,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`expoErrorCode`](../packages/notifications/src/server/expo.ts) | function | — | An Expo error code (`DeviceNotRegistered`), safe to store; anything else is `Unknown`. |
 | [`expoPushProvider`](../packages/notifications/src/server/expo.ts) | function | Beta | Expo's push service as a `PushProvider`. |
 | [`headerSafe`](../packages/notifications/src/server/email-render.ts) | function | — | A header value on one line: control characters and line separators become spaces; cut to `max`. |
+| [`inboundEmailOf`](../packages/notifications/src/server/inbound.ts) | function | — | Resend's received-email object as an `InboundEmail`; null when it has no usable sender. |
 | [`isReservedDomain`](../packages/notifications/src/server/dns.ts) | function | — | Whether `domain` is one of `reserved`, or under one. |
 | [`isRetryableStatus`](../packages/notifications/src/server/errors.ts) | function | — | Whether an HTTP status is worth retrying unchanged: 408, 425, 429 and 5xx. |
 | [`isSafeAddress`](../packages/notifications/src/server/email-render.ts) | function | — | A bare address safe as a header value. |
 | [`NotificationStoreError`](../packages/notifications/src/server/store.ts) | class | — | A database refusal, with its SQLSTATE; never the row it refused. |
 | [`notify`](../packages/notifications/src/server/notify.ts) | function | Beta | Queue a notification for each recipient. Resolves one result per recipient that exists (a deleted login is left out); the same idempotency key again (for the same type and tenant) resolves `created: false` and sends nothing more. |
+| [`parseAddress`](../packages/notifications/src/server/inbound.ts) | function | — | "Pat <Pat@Example.test>" → { email: "pat@example.test", name: "Pat" }. |
 | [`refusedOutright`](../packages/notifications/src/server/expo.ts) | function | — | Expo refused the request itself (a 4xx other than 429): resend its messages one by one. |
 | [`REQUEST_TIMEOUT_MS`](../packages/notifications/src/server/errors.ts) | const | — | Every request gives up after this long. |
 | [`RESEND_API`](../packages/notifications/src/server/resend.ts) | const | — | _(no summary)_ |
 | [`RESEND_DEFAULT_PER_SECOND`](../packages/notifications/src/server/resend.ts) | const | — | Requests a second the provider starts by default: half Resend's default team limit (10). |
+| [`RESEND_RECEIVING_API`](../packages/notifications/src/server/inbound.ts) | const | — | _(no summary)_ |
 | [`resendProvider`](../packages/notifications/src/server/resend.ts) | function | Beta | Resend as an `EmailProvider`. |
 | [`resolveSecretLink`](../packages/notifications/src/server/secret-links.ts) | function | Beta | The secret link for one notification, built server-side at send time. Throws a `SecretLinkError` when there is no builder for `type` or it gives something other than an `https:` URL (`http:` only for localhost). |
 | [`retryAfterSeconds`](../packages/notifications/src/server/errors.ts) | function | — | Seconds from a Retry-After header (delta-seconds or an HTTP date), else `fallback`. 1 s to a day. |
@@ -6996,7 +6920,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`verifyUnsubscribeToken`](../packages/notifications/src/server/unsubscribe.ts) | function | — | The claims of a token this secret signed, or null for anything else. |
 | [`WEBHOOK_TOLERANCE_SECONDS`](../packages/notifications/src/server/webhook.ts) | const | — | How far a webhook's timestamp may be from now: five minutes, as Svix checks. |
 
-### Types (34)
+### Types (37)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -7015,6 +6939,9 @@ export type { EmailTemplate };
 export type { EmailTemplateContext };
 export type { ExpoOptions };
 export type { HttpDeps };
+export type { InboundEmail };
+export type { InboundEmailHandlerOptions };
+export type { InboundEmailRoute };
 export type { NotificationRunner };
 export type { NotificationRunnerOptions };
 export type { NotificationStore };
@@ -7988,7 +7915,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
+| `ASSET_SIZES` | value | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
 | [`googleFontHref`](../packages/sites/src/web/document.tsx) | const | — | _(no summary)_ |
@@ -8353,7 +8280,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (17)
+### Other exports (18)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8363,6 +8290,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`APPLE_REVOKE_FUNCTION`](../packages/supabase/src/apple-tokens.ts) | const | — | The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. |
 | [`createGenesisSupabase`](../packages/supabase/src/index.ts) | function | Beta | A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not tokens in a redirect URL, with an S256 challenge: pass `crypto` on native), a persisted session that refreshes itself, and the session storage you pass. |
 | [`deleteMyAccount`](../packages/supabase/src/index.ts) | function | Beta | In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and native: calls the `delete_my_account` RPC (this package's `migrations/0001_genesis_account_deletion.sql`), which deletes the login and, through the app's `on delet... |
+| [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureGateState`](../packages/supabase/src/feature-registry.ts) | function | Beta | A tenant's switches, entitlements and flag values: `feature_gate_state`. Works with a signed-in person's client (for tenants they belong to; their own person entitlements are included) or the service key. Throws a `SupabaseQueryError` (`... |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
@@ -8460,13 +8388,14 @@ export type { WipeOnReinstallOptions };
 
 **Barrel:** [`packages/supabase/src/blocks.ts`](../packages/supabase/src/blocks.ts)
 
-### Other exports (5)
+### Other exports (6)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`accountBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The account block: sign-in, profile and in-app account deletion. Its screens are the app's (or genesis-ui-native's `AuthScreen`); this names its migrations and its data. |
+| [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
@@ -8508,6 +8437,34 @@ export type { NamedJob };
 export type { RunJobsOptions };
 export type { RunJobsReport };
 export type { VerifyJobRequestOptions };
+```
+
+---
+
+## @marktiderman/genesis-supabase/events
+
+**Barrel:** [`packages/supabase/src/events.ts`](../packages/supabase/src/events.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createEventsSink`](../packages/supabase/src/events.ts) | function | Beta | The tracker as a genesis-native observability sink (structurally: an object with `name`, `event` and `flush`), so typed events reach the app's own table. |
+| [`createEventTracker`](../packages/supabase/src/events.ts) | function | Beta | A batching tracker for the app's own events. |
+
+### Types (6)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { EventTracker };
+export type { EventTrackerOptions };
+export type { EventValue };
+export type { EventsClient };
+export type { EventsSinkOptions };
+export type { TrackOptions };
 ```
 
 ---
@@ -8621,7 +8578,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (36)
+### Other exports (38)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8639,6 +8596,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`createSupportClient`](../packages/support/src/client.ts) | function | — | The support client over the app's Supabase client. |
 | [`defineSupportBlock`](../packages/support/src/block.ts) | function | — | The platform-neutral declaration. |
 | [`defineSupportChatBlock`](../packages/support/src/block.ts) | function | — | The support-chat block: a report's conversation runs on genesis-chat. It adds no screens of its own (the support block's thread route renders the conversation); it brings migration `0001_genesis_support_chat.sql` from this package, after... |
+| [`defineSupportEmailBlock`](../packages/support/src/block.ts) | function | — | The support-email block: email is a ticket channel (ADR 0011). It brings migration `0002_genesis_support_email.sql` from this package, after 0006; the server half is `@marktiderman/genesis-support/email` with genesis-notifications' inbou... |
 | [`DEVICE_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`EXTRA_MAX_BYTES`](../packages/support/src/record.ts) | const | — | _(no summary)_ |
 | [`FEEDBACK_REPORT_TYPES`](../packages/support/src/contract.ts) | const | — | _(no summary)_ |
@@ -8656,6 +8614,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SUPPORT_CHAT_BLOCK_ID`](../packages/support/src/chat.ts) | const | — | The block's FeatureId. |
 | [`SUPPORT_CHAT_KIND`](../packages/support/src/chat.ts) | const | — | The genesis_chat kind a report's conversation is, and its subject type. |
 | [`SUPPORT_CHAT_SUBJECT`](../packages/support/src/chat.ts) | const | — | _(no summary)_ |
+| [`SUPPORT_EMAIL_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The support-email block's id. |
 | [`SUPPORT_TO_CHAT_STATUS`](../packages/support/src/chat.ts) | const | — | A support report's status, as genesis-chat's conversation status (the migration's mapping). |
 | [`supportContributions`](../packages/support/src/block.ts) | function | — | The block's contributions, for any platform. |
 | [`supportCopy`](../packages/support/src/copy.ts) | const | — | Every string the support block shows, in English. Pass `copy` (any part of this shape) to translate or reword; what you leave out stays English. |
@@ -8833,6 +8792,170 @@ export type { SupportBlock };
 export type { SupportOptions };
 export type { ViewShotLike };
 ```
+
+---
+
+## @marktiderman/genesis-support/email
+
+**Barrel:** [`packages/support/src/email.ts`](../packages/support/src/email.ts)
+
+### Other exports (2)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`runSupportEmail`](../packages/support/src/email.ts) | function | Beta | Sends the queued staff replies on email tickets. Returns how many were sent and failed; a failed one is queued again (up to 5 attempts). Never throws for one email. |
+| [`supportEmailRoute`](../packages/support/src/email.ts) | function | Beta | A route that files support email as tickets. It takes an email when one of its recipients is a support address or a ticket's reply address, or (with `threads`) when it answers an email. |
+
+### Types (6)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { ReceivedEmail };
+export type { RunSupportEmailOptions };
+export type { SupportEmailClient };
+export type { SupportEmailMessage };
+export type { SupportEmailProvider };
+export type { SupportEmailRouteOptions };
+```
+
+---
+
+## @marktiderman/genesis-switchboard
+
+Pluggable data layer — a resource's backing (L1 Code / L2 Airtable·Notion / L3 Supabase × tiers A/B/C) is config, not a rewrite. Read one canonical shape via data.resource('x'). See packages/switchboard/README.md + SWITCHBOARD.md.
+
+**Barrel:** [`packages/switchboard/src/index.ts`](../packages/switchboard/src/index.ts)
+
+### Other exports (30)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`AIRTABLE_BASE_ID`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`AirtableAdapter`](../packages/switchboard/src/adapters/airtable.ts) | class | — | _(no summary)_ |
+| [`asWritable`](../packages/switchboard/src/adapters/adapter.ts) | function | — | Narrow an adapter to its writable surface (or throw a typed error). |
+| [`CodeAdapter`](../packages/switchboard/src/adapters/code.ts) | class | — | _(no summary)_ |
+| [`driftReport`](../packages/switchboard/src/reconcile.ts) | function | — | Compare a resource across two Levels using the two adapters that back those Levels. The `from`/`to` adapters are passed in explicitly by the caller; the Registry is used only to look up the resource contract (`getContract`). |
+| [`featuresAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`featuresSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+| [`inferFieldType`](../packages/switchboard/src/introspect.ts) | function | — | Infer the canonical StorageType (+ array-ness) of a single value. |
+| [`introspectFields`](../packages/switchboard/src/introspect.ts) | function | — | Derive a resource's live field schema from its actual DATA. Fields = the union of keys across `rows`; types are inferred from values; `optional`/`array` come from the data. The optional `contract` ENRICHES (description + a more-specific ... |
+| [`isMergeBinding`](../packages/switchboard/src/types.ts) | function | — | Narrow a binding to the Tier-B MERGE (multi-source) variant. |
+| [`LEVEL_LABEL`](../packages/switchboard/src/types.ts) | const | — | Human-facing label for a Level (docs / drift reports). |
+| [`LEVELS`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`markStale`](../packages/switchboard/src/staleness.ts) | function | — | Stamp a row array as a degraded (stale) read. Returns the SAME array for chaining. The marker is non-enumerable so it never serializes into data. |
+| [`NotionAdapter`](../packages/switchboard/src/adapters/notion.ts) | class | — | _(no summary)_ |
+| [`promote`](../packages/switchboard/src/reconcile.ts) | function | — | Generate a reviewable Supabase migration that promotes a proven L2 shape to L3. Emits: CREATE TABLE (from the contract field schema) + a user_id column + RLS (user_id = auth.uid()) + updated_at trigger + optional backfill. Returns SQL TE... |
+| [`propagateStale`](../packages/switchboard/src/staleness.ts) | function | — | Copy a staleness marker from `source` onto `target` (used after a defensive `{ ...row }` clone drops the array-level symbol). No-op when `source` is fresh. Returns `target` for chaining. |
+| [`PROVIDER_LEVEL`](../packages/switchboard/src/types.ts) | const | — | _(no summary)_ |
+| [`ReadOnlyAdapterError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown by a read-only adapter when a write op is attempted. |
+| [`reconcileModel`](../packages/switchboard/src/reconcile.ts) | function | — | Reconcile the whole MODEL across two Levels: run `driftReport` for every registered resource backed by BOTH adapters, record the rest as MISSING, and roll up a model verdict. The `from`/`to` adapters are passed explicitly (the Registry s... |
+| [`Registry`](../packages/switchboard/src/registry.ts) | class | — | _(no summary)_ |
+| [`staleInfo`](../packages/switchboard/src/staleness.ts) | function | — | Read the staleness marker off a row array (or any value), if present. |
+| [`SupabaseAdapter`](../packages/switchboard/src/adapters/supabase.ts) | class | — | _(no summary)_ |
+| [`Switchboard`](../packages/switchboard/src/resolver.ts) | class | — | _(no summary)_ |
+| [`ticketsAirtableMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsContract`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`ticketsSupabaseMap`](../packages/switchboard/src/resources.ts) | const | — | _(no summary)_ |
+| [`UnknownResourceError`](../packages/switchboard/src/adapters/adapter.ts) | class | — | Thrown when an adapter is asked for a resource it has no mapping for. |
+
+### Types (43)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { Adapter };
+export type { AirtableAdapterConfig };
+export type { AirtableResourceMap };
+export type { Binding };
+export type { CodeAdapterOptions };
+export type { DataRow };
+export type { DescribeResult };
+export type { DriftReport };
+export type { EnvironmentBinding };
+export type { FeatureRow };
+export type { FetchLike };
+export type { FieldBinding };
+export type { FieldDrift };
+export type { FieldSchema };
+export type { FieldType };
+export type { Level };
+export type { MergeBinding };
+export type { ModelReconcileReport };
+export type { ModelReconcileSummary };
+export type { NotionAdapterConfig };
+export type { NotionPropertyMap };
+export type { NotionPropertyType };
+export type { NotionResourceMap };
+export type { PromoteOptions };
+export type { PromoteResult };
+export type { ProviderKind };
+export type { QueryOptions };
+export type { ReconcileModelOptions };
+export type { ResolvedPlan };
+export type { ResourceBinding };
+export type { ResourceClient };
+export type { ResourceContract };
+export type { ResourceReconcile };
+export type { RowDrift };
+export type { StaleReadInfo };
+export type { SupabaseAdapterConfig };
+export type { SupabaseClientLike };
+export type { SupabaseQueryBuilder };
+export type { SupabaseResourceMap };
+export type { SwitchboardContract };
+export type { TicketRow };
+export type { Tier };
+export type { ValueDrift };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/gitdata
+
+**Barrel:** [`packages/switchboard/src/gitdata.ts`](../packages/switchboard/src/gitdata.ts)
+
+### Other exports (4)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`attachGitdata`](../packages/switchboard/src/gitdata.ts) | function | — | _(no summary)_ |
+| [`GitdataAdapter`](../packages/switchboard/src/adapters/gitdata.ts) | class | — | _(no summary)_ |
+| [`gitdataMdContract`](../packages/switchboard/src/gitdata-names.ts) | function | — | Default markdown contract: identity + common columns; extras still round-trip. |
+| [`gitdataResourceName`](../packages/switchboard/src/gitdata-names.ts) | function | — | Stable resource name for a gitdata table — minimum wiring for new tables. |
+
+### Types (3)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { AttachGitdataOptions };
+export type { GitdataAdapterConfig };
+export type { GitdataResourceMap };
+```
+
+---
+
+## @marktiderman/genesis-switchboard/data-provider
+
+**Barrel:** [`packages/switchboard/src/data-provider.ts`](../packages/switchboard/src/data-provider.ts)
+
+### Other exports (1)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`createSwitchboardProvider`](../packages/switchboard/src/data-provider.ts) | function | — | Build a `DataProvider` backed by a `Switchboard`. Reads route to the resolved backing (Supabase live, Code mock); a Genesis-core consumer needs no change — only the data plane beneath `useResource` is swapped. |
 
 ---
 
@@ -9398,7 +9521,7 @@ export type { ViewMode };
 | [`SubNavTabs`](../packages/ui/src/components/layout/sub-nav.tsx) | `SubNavTabsProps` | Beta | A row of navigation tabs: real links (deep links and middle-click work), `aria-current="page"` on the active one, badges as chips, the active tab underlined in the brand colour. AppShell renders it in `tabs` mode; an app using `subNav: "... |
 | [`WorkspaceSwitcher`](../packages/ui/src/components/layout/workspace-switcher.tsx) | `WorkspaceSwitcherProps` | Beta | The workspace switcher. Put it in AppShell's `headerSlot`, and the `rail` and `bar` variants in `collapsedHeaderSlot` and `mobileHeaderSlot`. |
 
-### Other exports (23)
+### Other exports (27)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9427,8 +9550,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`stackVariants`](../packages/ui/src/components/layout/stack.tsx) | value | — | _(no summary)_ |
 | [`toHslTriplet`](../packages/ui/src/components/layout/brand-theme.ts) | function | — | The Genesis token shape: `"160 84% 39%"`, for `hsl(var(--x))`. |
 | [`useAppShellSubNav`](../packages/ui/src/components/layout/sub-nav.tsx) | function | Beta | Give the shell this page's child items (sub-navigation) while the page is mounted. They replace the current `NavigationNode`'s `items`; pass `null` / `undefined` to fall back to them (a `mode` still applies). When several components call... |
+| [`WORKSPACE_SWITCHER_PARTS`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | Every part, in document order; see {@link WorkspaceSwitcherPart}. |
+| [`WORKSPACE_SWITCHER_SCOPE`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | The value of every part's `data-scope`. |
+| [`WORKSPACE_SWITCHER_SEARCH_THRESHOLD`](../packages/ui/src/components/layout/workspace-switcher.tsx) | const | — | With `search="auto"`, past this many workspaces the menu opens with a search box. |
+| [`workspaceThemeStyle`](../packages/ui/src/components/layout/workspace-switcher.tsx) | function | Beta | The CSS variables for a workspace's brand (`workspace.theme.accent`): `--primary`, `--primary-foreground` and `--ring` pointed at an accessible shade of the accent, as `brandThemeStyle` does for a public page. Empty without a valid accen... |
 
-### Types (23)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -9455,6 +9582,18 @@ export type { SplitRatio };
 export type { SubNavItem };
 export type { SubNavMode };
 export type { UseAppShellSubNavOptions };
+export type { WorkspaceSwitcherAction };
+export type { WorkspaceSwitcherBadgeProps };
+export type { WorkspaceSwitcherClassNames };
+export type { WorkspaceSwitcherEmptyProps };
+export type { WorkspaceSwitcherImageProps };
+export type { WorkspaceSwitcherItemProps };
+export type { WorkspaceSwitcherPart };
+export type { WorkspaceSwitcherSearchProps };
+export type { WorkspaceSwitcherShortcuts };
+export type { WorkspaceSwitcherSlotMap };
+export type { WorkspaceSwitcherSlotProps };
+export type { WorkspaceSwitcherSlots };
 export type { WorkspaceSwitcherVariant };
 ```
 

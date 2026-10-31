@@ -1,6 +1,7 @@
 # Package strategy: how Genesis is organised, and what to build next
 
-v0.2, 2026-10-28. Status: **accepted by the maintainer, 2026-10-28** (section 5). The inventory
+v0.3, 2026-10-29. Status: **accepted by the maintainer, 2026-10-28**, with the five groups
+replaced by package layers on 2026-10-29 (section 5, and [Layers](#layers) below). The inventory
 is the baseline of 2026-10-28. Since then the AI core's first phase has been built (see "P1
 progress" in [AI.md](AI.md)); every other move is still to come, each as its own pull request,
 tracked in `features.ts`. v0.2 folds in three adversarial
@@ -8,7 +9,8 @@ reviews; what changed from v0.1 is listed at the end.
 
 ## Recommendation
 
-Keep the package list nearly as it is, name the five groups it already falls into, and make
+Keep the package list nearly as it is, put each package in a layer (foundation, primitives,
+modules, tooling) that decides what it may depend on, and make
 most of the next work **extensions of what exists** rather than new packages:
 
 - error reporting grows into observability inside `core`;
@@ -24,31 +26,32 @@ order, coach-side first.
 
 ## 1. What Genesis has today
 
-Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests.
+Measured on `main` at 2026-10-28: 28 packages. Line counts are source lines, without tests. Each
+row shows the package's layer and group from [Layers](#layers).
 
-| Group | Package | Lines | What it is |
+| Layer · group | Package | Lines | What it is |
 |---|---|---:|---|
-| **Foundation** | `design-system` | 3.8k | Tokens, brands, themes |
-| | `core` | 10.8k | DataProvider, hooks (including optimistic and **undoable** writes), query keys, dates, slots, navigation, `reportError` |
-| | `ui` | 28.3k | Web components, patterns, layouts, data views, `CommandPalette` with `useCommandPaletteHotkey` |
-| | `ui-native` | 14.4k | The same vocabulary on React Native |
-| | `features` | 3.1k | Feature registry, flags, gate, blocks |
-| **App shells** | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, observability sinks, devtools |
-| | `extension` | 2.1k | Chrome MV3 kit |
-| **Platform services** | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, jobs, feature mirror, web handoff, people, **person entitlements** (0017, with `grant_person_entitlement`) |
-| | `connect` | 1.9k | Encrypted secrets, OAuth connector kit |
-| | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
-| | `data-switchboard` | 4.1k | Move a resource between backends |
-| **Domain blocks** | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
-| | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, workspace, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
-| | `sites` | 12.2k | Sites, landing pages, blog, editor |
-| | `support` | 3.5k | Feedback, reports, idea board |
-| | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
-| | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
-| | `product` | 2.1k | Product board, triage, release notes |
-| **Tooling** | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
-| | `agents` | docs | Rules of engagement for agent sessions |
-| | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
+| foundation · core | `design-system` | 3.8k | Tokens, brands, themes |
+| foundation · core | `core` | 10.8k | DataProvider, hooks (including optimistic and **undoable** writes), query keys, dates, slots, navigation, `reportError` |
+| foundation · core | `ui` | 28.3k | Web components, patterns, layouts, data views, `CommandPalette` with `useCommandPaletteHotkey` |
+| foundation · core | `ui-native` | 14.4k | The same vocabulary on React Native |
+| foundation · core | `features` | 3.1k | Feature registry, flags, gate, blocks |
+| primitive · shells | `native` | 8.3k | Expo root: boot, errors, persistence, updates, push, observability sinks, devtools |
+| primitive · shells | `extension` | 2.1k | Chrome MV3 kit |
+| primitive · data | `supabase` | 3.0k | Client kit, plus 12 migrations: account deletion, release policy, tenant features, push, support, jobs, feature mirror, web handoff, people, **person entitlements** (0017, with `grant_person_entitlement`) |
+| primitive · data | `connect` | 1.9k | Encrypted secrets, OAuth connector kit |
+| primitive · collaboration | `notifications` | 3.7k | One notifier: push, email, feed, preferences |
+| primitive · data | `switchboard` | 4.1k | Move a resource between backends |
+| primitive · collaboration | `chat` | 21.6k | Conversations, media, moderation, permission-aware search (`search_messages`), AI recap and drafts, transcription |
+| primitive · forms | `forms` and six siblings (`-react`, `-web`, `-native`, `-builder`, `-studio`, `-devtools`) | 30.3k | Forms engine, renderers, builder, form management screens, devtools; a signed-upload protocol and a rate limiter, both moved up from an app |
+| module · modules | `sites` | 12.2k | Sites, landing pages, blog, editor |
+| module · modules | `support` | 3.5k | Feedback, reports, idea board |
+| primitive · collaboration | `collab` | 0.2k | Spaces and visibility, designed in [COLLABORATION.md](./COLLABORATION.md) (`building`) |
+| primitive · data | `studio`, `studio-server` | 9.0k | Data Studio, with an audit entry per edit |
+| module · modules | `product` | 2.1k | Product board, triage, release notes |
+| tooling · core | `genesis-cli` | 11.0k | init, add, migrate, upgrade, doctor, introspect |
+| tooling · core | `agents` (retired 2026-10-29) | docs | Rules of engagement for agent sessions; now [docs/agents/RULES.md](./agents/RULES.md), checked by `genesis agents --rules` |
+| primitive · core | `genesis` | — | Umbrella: re-exports `core`, `ui`, `ui-native`, `design-system`, `features`, `switchboard`, `native` and the forms engine and renderers |
 
 ### Consumers today
 
@@ -75,7 +78,7 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 - **Domains own their schema.** `chat`, `support`, `sites` and `notifications` ship migrations
   into their own Postgres schema and install as blocks through `genesis add`.
 - **The feature registry is the spine.** Status, flags, tenant switches and entitlements all pass
-  through one `featureOn`. New platform services gate through it rather than add their own
+  through one `featureOn`. New primitives gate through it rather than add their own
   switches.
 
 ### What isn't
@@ -107,49 +110,135 @@ built on these packages, is where AI ran in production; its lessons are in [AI.m
 
 ## 2. Proposed organisation
 
-### Five groups, matching the dependencies that exist
+### Layers
 
-Name the five groups in the table above in `FRAMEWORK.md` Part 2 and the README, and record each
-package's group in its `package.json` (`genesis.group`). The groups sit *above* Part 2's layers:
-tokens, primitives, patterns, layouts and data-bound describe what is inside the Foundation
-packages; the groups describe how packages depend on each other.
+Decided on 2026-10-29; it replaces the five groups accepted on 2026-10-28. Every package records
+its layer and group in its package.json, and `pnpm check:package-layers` fails CI on a violation
+(feature `package-layering`). Presented simply: **level 1 is the foundation and the primitives;
+level 2 is the modules built from them.**
 
 ```
-Tooling           genesis-cli · agents
-Domain blocks     chat · forms* · sites · support · collab · studio · product
-Platform services supabase · connect · notifications · switchboard · (ai)
-App shells        native · extension
-Foundation        design-system · core · ui · ui-native · features
+Tooling      genesis-cli                                          (beside the layers; may use anything)
+Modules      sites · support · product                            (mini apps, installed with genesis add)
+Primitives   data · ai · forms · collaboration · shells · umbrella
+Foundation   design-system · core · ui · ui-native · features     (essential: every app starts with them)
 ```
 
-A package may depend on its own group or any group below it. I checked every `package.json`
-dependency on `main`:
+| Layer | May depend on |
+|---|---|
+| foundation | foundation |
+| primitive | foundation, primitive (no cycles) |
+| module | foundation, primitive, and a module only when its `genesis.module.requiresModules` lists it |
+| tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
-- today's graph already follows this order;
-- `notifications → native` is a platform service depending on an app shell, which is below it,
-  so it is allowed;
-- `features → ui` stays inside Foundation;
-- `cli → studio-server` is Tooling depending downward;
-- two dependencies run between domain blocks: `support → chat` (support threads) and
-  `sites → forms`. They must be declared as block requirements (`requires` in the block), and
-  the check allows only declared ones.
+A package marked `genesis.optional` (an upgrade) is off limits to foundation packages and
+primitives except as an optional peer dependency: the primitive owns a port and the upgrade ships
+the adapter (ADR 0013, "Upgrades plug in").
 
-A layering check in `genesis doctor`'s repo rules then turns rule 2 of Part 2 ("Downward
-dependencies only") from an opinion into a gate. The new packages and moves below are placed so
-the check keeps passing. `FRAMEWORK.md`'s "Current state, measured" still says "Packages (7)" and
-should be refreshed in the same change.
+"Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
+its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
+if another package or app embeds it as a part, it is a **primitive**; if someone installs it and
+gets a working product surface to switch on for tenants, it is a **module**.
+
+| Package | Layer | Group | Note |
+|---|---|---|---|
+| design-system, core, ui, ui-native, features | foundation | core | essential |
+| genesis (umbrella) | primitive | core | bundles primitives, never modules |
+| supabase, switchboard, studio, studio-server, connect | primitive | data | |
+| ai | primitive | ai | |
+| forms, forms-react, forms-web, forms-native, forms-builder, forms-studio, forms-devtools | primitive | forms | |
+| collab, chat, notifications | primitive | collaboration | chat is embedded by support and apps, so a primitive |
+| native, extension | primitive | shells | |
+| sites | module | modules | owns `genesis_sites`; `genesis add sites` |
+| support | module | modules | `genesis add support-feedback`; threads through the chat primitive |
+| product | module | modules | the roadmap, idea board and release notes; `genesis add product-board` |
+| genesis-cli | tooling | core | `packages/agents` retired: its rules are docs/agents/RULES.md, the checkable ones in genesis-cli; a `genesis-plugin` (idea) takes the seat |
+
+**The metadata.** Each package's `genesis` key in package.json:
+
+```jsonc
+"genesis": {
+  "layer": "module",               // foundation | primitive | module | tooling
+  "group": "modules",              // core | data | ai | forms | collaboration | shells | modules
+  "essential": true,               // optional; foundation or tooling only
+  "module": {                      // modules only
+    "name": "Sites",
+    "summary": "Multi-page sites, landing pages and a blog, …",
+    "blocks": ["sites"],           // ids in genesis.blocks: migrations, routes, nav and settings live there
+    "requiresModules": [],         // the only module-to-module dependencies allowed
+    "schema": "genesis_sites",     // the Postgres schema it owns, when it has tables
+    "install": "genesis add sites",
+    "docs": "https://github.com/marktiderman/genesis/blob/main/docs/SITES.md",
+    "skill": "SKILL.md"
+  },
+  "toolingEntries": ["./node"],    // optional: entry points that are tooling inside a runtime package
+  "optional": true,                // optional; an upgrade apps opt into (a primitive or module). No
+                                   // foundation package or primitive uses it except as an optional
+                                   // peer: it plugs into ports they own (ADR 0013)
+  "blocks": { … }, "doctor": { … } // unchanged
+}
+```
+
+The type is `PackageMeta` in `@marktiderman/genesis-features` (with `readPackageMeta` and
+`packageLayerProblems`). Package dependencies are already the record of which primitives a
+module is built from, so they are not declared again. Plans and entitlements are left out on
+purpose: which plan unlocks a module is the app's decision, in its own `features.ts`
+(`access: { plan }`).
+
+**What the check enforces.** Every package has a valid layer and group, a `module` block only and
+always on a module, every block it lists exists, and its install line names one of them; the
+dependency direction above; no cycles; every module's docs and `SKILL.md` exist and the skill
+ships; `essential` only on foundation or tooling. A genesis-cli test runs each module's install
+line through `genesis add --dry-run`. **Not yet:** that a module's migrations create objects only
+in its schema and no other package writes there (`package-schema-ownership`, planned; support's
+tables are still in genesis-supabase's migration 0006).
+
+**Product's two halves.** The board, idea board, roadmap and release notes for an app's own
+people are the module (`.`, `/native`, `/server`, block `product-board`). The repo-maintenance
+CLI (the `genesis-product` bin and `/node`, which reads git and GitHub issues) is tooling,
+declared as `toolingEntries: ["./node"]` in the same package rather than a new package: the two
+halves already have separate entry points with no imports between them in that direction, the
+release and board workflows keep running unchanged, and no published entry point moves. The
+check refuses any runtime package that imports `genesis-product/node`. If the CLI grows, it moves
+into `genesis-cli` as `genesis product`.
+
+**On the site and in Storybook** the packages appear in the same bands, grouped by `group`:
+Foundation, Primitives (Core, Data, AI, Forms, Collaboration, Shells), Modules, and Tooling.
+Storybook titles start with the layer and group: `Foundation/UI/Button`, `Primitives/Forms/Form`.
+
+### What ships as a package, and what is copied in
+
+Accepted by the maintainer, 2026-10-29 (R6). Code ships as npm packages; an app never holds a
+copy of a Genesis component, hook or server handler. What an app must own, because it runs or
+lives in the app's own project, is copied in by `genesis add`: new migrations later arrive with
+`genesis migrate`, and `genesis upgrade` refreshes the files Genesis owns (pgTAP tests, skills,
+the AGENTS.md block). Route stubs are written once, on Expo Router apps; elsewhere `genesis add`
+prints the step.
+
+| Ships in the package (the app imports it) | Copied into the app (the app owns the file) |
+| --- | --- |
+| Components, hooks, providers, server handlers, the doctor's rules | Migrations (new timestamped files; an applied one is never rewritten) and their pgTAP tests |
+| Types, contracts, views, blocks' declarations | Route stubs, Edge Functions and the config the app's platform runs (`supabase/config.toml`) |
+| | Agent skills (`SKILL.md`) and the AGENTS.md block |
+
+There is no eject. An app that needs a component to behave differently uses its props, variants
+and slots (FRAMEWORK G2); when no extension point fits, it writes the gap up for Genesis and
+works around it locally, and Genesis adds the extension point (`genesis upstream`, an idea, will
+make that a register and an issue form). A fix
+in a package then reaches every app with `genesis upgrade`, which a copied component never would.
+Rejected: shadcn-style ejecting, which recreates the code in each app, breaks G5 and drifts.
 
 ### Moves, extending before inventing
 
 | # | Move | Builds on | Size |
 |---|---|---|---|
 | M1 | **Observability in `core`.** Grow `core/errors.ts` into `core/observability`: one sink contract for errors, breadcrumbs, typed events (`defineEvents`), timings and **spans**, plus the scrubber, all platform-neutral. Web and server sinks (Sentry, console, OpenTelemetry) are subpaths. `native` keeps the React parts (`wrap`, route error boundaries) and its existing exports. | `core/errors.ts`; `native/observability`; The main app's web Sentry, scrubbers included (G4) | M: spans are new design, not an extraction |
-| M2 | **`genesis-ai`**, a new platform service, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
+| M2 | **`genesis-ai`**, a new primitive, server-first, depending on nothing above it. Chat's provider code stays in chat; chat gains an optional `genesis-chat/ai` subpath with its tasks, and `genesis-ai` is an optional peer dependency of that subpath only. | The main app's recap loading; chat's `Moderator` and `Transcriber` seams; the gate; `connect` | See [AI.md](./AI.md) |
 | M3 | **Commands from navigation.** Once #449's `defineNavigation` lands, add `actions` alongside destinations: a `ViewAction`-shaped entry (`confirm`, `destructive`, `can`) with an optional shortcut. The palette, shortcuts and menus read it; AI tools derive from it later. Coordinate with #449's author before building. | #449; `ViewAction`; `useCommandPaletteHotkey`; The main app's nav-driven palette | S after #449 |
 | M4 | **One upload protocol.** Promote forms' signed-upload protocol (`forms/src/upload-protocol.ts`, `upload-handler.ts`) to a shared home (types in `core`, the Supabase Storage handler in `supabase`), then move chat, support and sites onto it through their own seams. A `genesis-files` package only if the shared code outgrows those homes. | forms' protocol, `FileUploadField` | M |
 | M5 | **Billing writes grants.** When `entitlements` (planned) starts, a billing block (Stripe on the web, store purchases on native, a paywall) writes through `grant_person_entitlement` / `revoke_person_entitlement` with `source` and `source_ref`, which 0017 already reserves for "a billing webhook". The entitlement tables stay with the gate. | Migration 0017; `featureOn` | L |
 | M6 | **Small platform pieces, one home each.** Rate limiting moves from forms into a shared module (AI budgets reuse it). The two key-value storage contracts merge. | `forms/src/rate-limit.ts`; `core/storage` | S |
-| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable platform service and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
+| M7 | **Umbrella policy.** Decide: either the umbrella covers every stable primitive and the main app moves to it, or the README says it is Foundation plus forms and stops there. | — | S, a decision |
 
 Deliberately **not** moved:
 
@@ -234,19 +323,39 @@ Not recommended as Genesis packages yet: multiplayer editing and A2A. No app is 
 
 ## 5. Decisions
 
+Decided by the maintainer on 2026-10-29 (the package-layers research, nine decisions):
+
+1. **Layers:** foundation, primitives and modules, with tooling beside them. The UI tier
+   FRAMEWORK called "primitives" is now "elements" (and `features.ts` layer `element`), so
+   "primitives" means the package layer.
+2. **Three layers,** presented as level 1 (foundation and primitives) and level 2 (modules).
+3. **Block** stays the install unit at every layer; a module is a package of blocks forming a
+   mini app.
+4. **Plans and entitlements** live in each app's `features.ts`, never in package metadata.
+5. **support and product are modules;** product's repo CLI is tooling (`toolingEntries`).
+6. **cli and agents** are tooling, in the `core` group. (agents was then retired: RULES.md moved to docs/agents/, the checkable rules into genesis-cli, and `genesis-plugin` takes its seat.)
+7. **The umbrella** is a primitive that may bundle primitives, never modules.
+8. **The layering check fails CI from day one.**
+9. **Schema ownership** is a follow-up (`package-schema-ownership`).
+
+Groups on the site and in Storybook: core, data, ai, forms, collaboration, shells and modules,
+with no "start here" group: an `essential` badge and the `genesis init` line instead. This
+replaces decision 1 of 2026-10-28 below; the declared domain seams (`sites → forms`,
+`support → chat`) are now a module depending on a primitive, which the rule allows.
+
 Decided by the maintainer on 2026-10-28:
 
-1. **Accepted:** the five groups, the declared domain seams and a layering check in doctor
-   (`package-layering`).
+1. **Accepted, then replaced on 2026-10-29:** the five groups, the declared domain seams and a
+   layering check in doctor (`package-layering`).
 2. **Accepted:** M1 is observability in `core`, with spans, not a new package
    (`core-observability`).
 3. **Accepted:** `genesis-ai` P0–P2 ([AI.md](./AI.md)) is the next build; retrieval, MCP and
    agents stay ideas (`ai-providers`, `ai-control-plane`).
 4. **Accepted:** M3 extends #449's `defineNavigation`, and builds after #449 lands
    (`command-registry`).
-5. **Narrowed:** the umbrella promises Foundation, the native shell, switchboard and forms; platform
-   services and domain blocks are installed on their own. The README says so. Revisit when the
-   platform services are stable.
+5. **Narrowed:** the umbrella promises Foundation, the native shell, switchboard and forms; the other
+   primitives and every module are installed on their own (an umbrella never bundles a module).
+   The README says so. Revisit when those primitives are stable.
 6. **Accepted:** the ranked list is in `features.ts` as `planned` and `idea` entries with
    horizons.
 

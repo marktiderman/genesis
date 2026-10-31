@@ -4,6 +4,7 @@ import { Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from
 import { data } from "react-router";
 import primitives from "../data/primitives.json";
 import { catalog, readmeIntro } from "../lib/catalog.server";
+import { GROUP_LABELS, PACKAGES } from "../lib/packages";
 import { REPO_URL } from "../lib/site";
 import type { Route } from "./+types/packages.$name";
 
@@ -15,8 +16,10 @@ export async function loader({ params }: Route.LoaderArgs) {
   for (const p of (primitives as { primitives: Array<{ slug: string; components: Array<{ name: string }> }> }).primitives) {
     for (const c of p.components) if (!pages.has(c.name)) pages.set(c.name, p.slug);
   }
+  const meta = PACKAGES.find((p) => p.dir === pkg.dir);
   return {
     ...pkg,
+    layer: meta ? { layer: meta.layer, group: GROUP_LABELS[meta.group], essential: meta.essential, install: meta.module?.install } : null,
     intro: readmeIntro(pkg.dir),
     entries: pkg.entries.map((e) => ({
       name: e.name,
@@ -30,6 +33,8 @@ export async function loader({ params }: Route.LoaderArgs) {
   };
 }
 
+const LAYER_TITLES = { foundation: "Foundation", primitive: "Primitive", module: "Module", tooling: "Tooling" } as const;
+
 export default function PackagePage({ loaderData: pkg }: Route.ComponentProps) {
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-6" data-testid={`package-page-${pkg.dir}`}>
@@ -40,12 +45,19 @@ export default function PackagePage({ loaderData: pkg }: Route.ComponentProps) {
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="font-mono text-2xl font-bold tracking-tight sm:text-3xl">{pkg.name}</h1>
           <Badge variant="outline">{pkg.version}</Badge>
+          {pkg.layer ? (
+            <Badge variant="secondary" data-testid="package-layer">
+              {LAYER_TITLES[pkg.layer.layer]}
+              {pkg.layer.layer === "module" ? "" : ` · ${pkg.layer.group}`}
+            </Badge>
+          ) : null}
+          {pkg.layer?.essential ? <Badge variant="secondary">essential</Badge> : null}
         </div>
         <p className="text-muted-foreground">{pkg.description}</p>
         {pkg.intro.map((p, i) => (
           <p key={i} className="text-sm text-muted-foreground">{p}</p>
         ))}
-        <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"><code>pnpm add {pkg.name}</code></pre>
+        <pre className="overflow-x-auto rounded-md border border-border bg-muted/40 px-3 py-2 text-sm"><code>{pkg.layer?.install ? `${pkg.layer.install}\n` : ""}pnpm add {pkg.name}</code></pre>
         <p className="flex flex-wrap gap-x-4 text-sm">
           <a className="underline-offset-2 hover:underline" href={`${REPO_URL}/tree/main/packages/${pkg.dir}#readme`}>README</a>
           <a className="underline-offset-2 hover:underline" href={`${REPO_URL}/blob/main/packages/${pkg.dir}/CHANGELOG.md`}>Changelog</a>
@@ -67,7 +79,7 @@ export default function PackagePage({ loaderData: pkg }: Route.ComponentProps) {
                   {e.components.map((c) => (
                     <li key={c.name} className="min-w-0">
                       {c.page ? (
-                        <Link className="font-mono hover:underline" to={`/showcase/primitives/${c.page}`}>{c.name}</Link>
+                        <Link className="font-mono hover:underline" to={`/showcase/elements/${c.page}`}>{c.name}</Link>
                       ) : (
                         <span className="font-mono">{c.name}</span>
                       )}

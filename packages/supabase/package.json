@@ -57,6 +57,10 @@
       "types": "./dist/jobs.d.ts",
       "import": "./dist/jobs.js"
     },
+    "./events": {
+      "types": "./dist/events.d.ts",
+      "import": "./dist/events.js"
+    },
     "./runner": {
       "types": "./dist/runner.d.ts",
       "import": "./dist/runner.js"
@@ -97,6 +101,9 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
     "blocks": {
       "account": {
         "feature": {
@@ -269,6 +276,37 @@
           "Add two POST routes with createWebHandoff from @marktiderman/genesis-supabase/web-handoff/server (mint at /api/auth/handoff, redeem at /api/auth/redeem-handoff), using the service-role client on the server.",
           "Add the /auth/handoff page: call takeWebHandoffFragment before analytics or error reporting load, then completeWebHandoff; send Referrer-Policy: no-referrer and frame-ancestors 'none' for it.",
           "In the native app, call openOnWeb from @marktiderman/genesis-native/web-handoff with the mint route, the session's access token and expo-web-browser."
+        ]
+      },
+      "events": {
+        "feature": {
+          "name": "Product events",
+          "summary": "The app's own product events in Postgres: who used which feature, in which tenant, when, with the flags that were on; tracked from web, native and server.",
+          "keywords": [
+            "analytics",
+            "events",
+            "usage",
+            "telemetry",
+            "activation"
+          ],
+          "audience": [
+            "developer",
+            "admin"
+          ]
+        },
+        "migrations": [
+          {
+            "file": "migrations/0018_genesis_events.sql",
+            "test": "migrations/tests/0018_genesis_events.test.sql"
+          }
+        ],
+        "steps": [
+          "Track from the client with createEventTracker from @marktiderman/genesis-supabase/events (and createEventsSink on native). Events in a tenant count only when the app defines the private.genesis_viewer_people hook (0016).",
+          "Schedule genesis_prune_events() (default 400 days) from your jobs, e.g. a monthly genesis_schedule_job."
+        ],
+        "platforms": [
+          "web",
+          "native"
         ]
       }
     },

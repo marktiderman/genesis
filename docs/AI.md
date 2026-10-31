@@ -196,8 +196,8 @@ Avoid, as of 2026-10-28:
 
 ### Package shape and dependencies
 
-`@marktiderman/genesis-ai` is a platform service. It depends only on Foundation (`core`,
-`features`) and `connect`, never on a domain block.
+`@marktiderman/genesis-ai` is a primitive (group ai). It depends only on Foundation (`core`,
+`features`) and `connect`, never on a module.
 
 | Subpath | Contents | Phase |
 |---|---|---|
@@ -207,7 +207,7 @@ Avoid, as of 2026-10-28:
 | `/admin` | The control plane's screens on `ResourceView`: usage and cost, budgets, switches, model rollouts, tenant guidance, BYOK keys. Mountable in Data Studio or an app's admin. | P2 |
 | `migrations/` | The `genesis_ai` schema (below). | P1–P2 |
 
-Domain blocks bring their own tasks. Chat gains `@marktiderman/genesis-chat/ai`, the only part of
+Domain packages bring their own tasks. Chat gains `@marktiderman/genesis-chat/ai`, the only part of
 chat that imports `genesis-ai`, which is an optional peer dependency of that subpath (FRAMEWORK
 rule 6). Chat's `Moderator` and `Transcriber` seams, and their implementations, stay in chat. No
 code moves, so there is no cycle and no chat install pulls in the AI SDK.

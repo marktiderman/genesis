@@ -51,6 +51,7 @@ export {
   type NativeBrandOutput,
   type BrandFactoryOptions,
 } from "./factories/from-brand";
+export { brandRoleVariables, type BrandRoleVariables, type BrandRoleVariablesOptions } from "./factories/brand-roles";
 
 // Brand-genesis OOTB fallback
 export { genesisTheme, genesisColors, genesisBrand } from "./presets/brand-genesis";

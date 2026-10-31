@@ -79,7 +79,8 @@
   "files": [
     "dist",
     "migrations",
-    "README.md"
+    "README.md",
+    "SKILL.md"
   ],
   "scripts": {
     "assets": "node scripts/build-assets.mjs",
@@ -137,6 +138,20 @@
     "zod": "^4.6.6"
   },
   "genesis": {
+    "layer": "module",
+    "group": "modules",
+    "owner": "@marktiderman",
+    "module": {
+      "name": "Sites",
+      "summary": "Multi-page sites, landing pages and a blog, edited in the app and served as cached HTML.",
+      "blocks": [
+        "sites"
+      ],
+      "schema": "genesis_sites",
+      "install": "genesis add sites",
+      "docs": "https://github.com/marktiderman/genesis/blob/main/docs/SITES.md",
+      "skill": "SKILL.md"
+    },
     "blocks": {
       "sites": {
         "feature": {

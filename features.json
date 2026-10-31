@@ -8,7 +8,7 @@
       "tagline": "Bring your brand once; every component follows it.",
       "category": "Design system",
       "status": "live",
-      "layer": "token",
+      "kind": "token",
       "keywords": [
         "theme",
         "brand",
@@ -48,12 +48,12 @@
     },
     {
       "id": "ui-primitives",
-      "name": "UI primitives",
+      "name": "UI elements",
       "summary": "Shadcn and Radix based web components: buttons, inputs, overlays, menus, tables, badges and the rest.",
       "tagline": "Accessible, themeable components you don't have to hand-roll.",
       "category": "Design system",
       "status": "live",
-      "layer": "primitive",
+      "kind": "element",
       "keywords": [
         "button",
         "input",
@@ -74,7 +74,7 @@
       ],
       "visibility": "public",
       "acceptance": [
-        "Every primitive renders with Genesis tokens and passes its accessibility tests."
+        "Every element renders with Genesis tokens and passes its accessibility tests."
       ],
       "reviewedAt": "2026-10-22",
       "links": {
@@ -97,7 +97,7 @@
       "tagline": "Pages that look consistent without a designer on every screen.",
       "category": "Design system",
       "status": "live",
-      "layer": "layout",
+      "kind": "layout",
       "keywords": [
         "page",
         "dashboard page",
@@ -141,7 +141,7 @@
       "category": "Design system",
       "status": "building",
       "claimedBy": "flare",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "resource header",
         "share dialog",
@@ -181,7 +181,7 @@
       "tagline": "One navigation tree drives the sidebar, mobile nav and command palette.",
       "category": "Design system",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "sidebar",
         "navigation",
@@ -224,7 +224,7 @@
       "category": "Design system",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "workspace",
         "tenant",
@@ -270,7 +270,7 @@
       "name": "Router adapters",
       "summary": "Link, navigate and search-params adapters for React Router and TanStack Router, behind genesis-ui's navigation contract.",
       "status": "live",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "router",
         "links",
@@ -303,7 +303,7 @@
       "name": "Rich text",
       "summary": "RichText rendering and a Tiptap-based RichTextEditor with size limits.",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "editor",
         "wysiwyg",
@@ -339,7 +339,7 @@
       "tagline": "The same components on iOS and Android.",
       "category": "Design system",
       "status": "live",
-      "layer": "primitive",
+      "kind": "element",
       "keywords": [
         "react native",
         "expo",
@@ -377,7 +377,7 @@
       "tagline": "A working list, detail and edit page from a few lines of config.",
       "category": "Data",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "crud",
         "list",
@@ -437,7 +437,7 @@
       "tagline": "Tables, cards, boards and filters that share one set of conventions.",
       "category": "Data",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "table",
         "grid",
@@ -474,7 +474,7 @@
       "name": "List state in the URL",
       "summary": "ResourcePage keeps the open record, search, sort and page in the URL, so a list view can be bookmarked and shared.",
       "status": "beta",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "url state",
         "query params",
@@ -505,7 +505,7 @@
       "name": "Tree mode for lists",
       "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",
       "status": "beta",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "tree",
         "nested rows",
@@ -553,7 +553,7 @@
       "tagline": "One data contract for every backend, with hooks for lists, records and forms.",
       "category": "Data",
       "status": "live",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "data",
         "query",
@@ -596,7 +596,7 @@
       "summary": "Supabase for web and React Native: a client with PKCE sign-in, Keychain session storage that survives interrupted writes, refresh only while the app is in front, a wipe of sessions left by a reinstall, and a result helper.",
       "category": "Data",
       "status": "beta",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "supabase",
         "session storage",
@@ -650,7 +650,7 @@
       "tagline": "Supabase under row-level security, with honest write results.",
       "category": "Data",
       "status": "live",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "supabase",
         "postgres",
@@ -692,7 +692,7 @@
       "tagline": "Invalidation that never misses, and no data across people.",
       "category": "Data",
       "status": "beta",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "query key",
         "cache",
@@ -742,7 +742,7 @@
       "tagline": "Move a resource between backends without a rewrite.",
       "category": "Data",
       "status": "live",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "airtable",
         "notion",
@@ -765,10 +765,10 @@
       "reviewedAt": "2026-10-22",
       "links": {
         "code": [
-          "packages/data-switchboard"
+          "packages/switchboard"
         ],
         "docs": [
-          "packages/data-switchboard/README.md"
+          "packages/switchboard/README.md"
         ]
       },
       "access": "all",
@@ -777,11 +777,11 @@
     {
       "id": "data-studio",
       "name": "Data Studio",
-      "summary": "An Airtable-style workspace over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
+      "summary": "An Airtable-style data editor over an app's own Postgres or Supabase data, edited as the signed-in user with version checks and an audit trail.",
       "tagline": "A spreadsheet over your own database, as the signed-in user.",
       "category": "Data",
       "status": "live",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "admin",
         "database",
@@ -873,7 +873,7 @@
       "name": "Forms for React",
       "summary": "useForm, useField with one-field re-renders, a ranked renderer registry, a headless FormRuntime and useFormController, the step and send controller every renderer shares.",
       "status": "live",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "useForm",
         "useField",
@@ -917,7 +917,7 @@
       "tagline": "Beautiful, accessible forms, one question at a time or all at once.",
       "category": "Forms",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "form renderer",
         "survey",
@@ -957,7 +957,7 @@
       "tagline": "Build forms visually, with logic, and see problems as you go.",
       "category": "Forms",
       "status": "live",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "form editor",
         "survey builder",
@@ -992,7 +992,7 @@
       "name": "Forms devtools",
       "summary": "An inspector with live state, a time-travel timeline, a server-check panel with tamper mode, a flow map and path coverage.",
       "status": "live",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "form debugger",
         "playground",
@@ -1021,11 +1021,11 @@
     {
       "id": "forms-studio",
       "name": "Form studio",
-      "summary": "The workspace around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
+      "summary": "The form management screens around a form builder: a header with status, save state and publish, a Responses tab with filters, headline numbers, question summaries and a follow-up list, a Settings page with jump links, and the Share dialog.",
       "tagline": "Run a form end to end: edit, publish, share and read the responses.",
       "category": "Forms",
       "status": "building",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "form responses",
         "form workspace"
@@ -1058,7 +1058,7 @@
       "tagline": "Send every response to email, Google Sheets or your own webhook.",
       "category": "Forms",
       "status": "live",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "webhook",
         "email",
@@ -1095,7 +1095,7 @@
       "status": "building",
       "claimedBy": "mark",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "oauth",
         "connect",
@@ -1145,7 +1145,7 @@
       "summary": "submitResponse on the server: re-checks a submission (validateSubmission, uploads), snapshots the options picked and stores it once per idempotency key through the app's SubmissionStore, answering one SubmitResult the client outbox reads.",
       "category": "Forms",
       "status": "beta",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "submit",
         "submission",
@@ -1192,7 +1192,7 @@
       "summary": "Answers saved on the device as the respondent goes (debounced), put back where they left off, and discarded whole when a new version of the form no longer fits them. Memory, localStorage and AsyncStorage or MMKV storage.",
       "category": "Forms",
       "status": "beta",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "draft",
         "autosave",
@@ -1243,7 +1243,7 @@
       "summary": "Submissions queued on the device with an idempotency key, kept across restarts, sent when online with backoff, and never dropped: refused or exhausted ones stay as failed for retry or discard. Transport-agnostic.",
       "category": "Forms",
       "status": "beta",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "offline",
         "outbox",
@@ -1296,7 +1296,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "site builder",
         "landing page",
@@ -1357,7 +1357,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "hero",
         "pricing table",
@@ -1421,7 +1421,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "ssr",
         "server render",
@@ -1470,7 +1470,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "supabase",
         "rls",
@@ -1521,7 +1521,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "blog",
         "posts",
@@ -1584,7 +1584,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "import",
         "migrate site",
@@ -1635,7 +1635,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "template",
         "starter site",
@@ -1684,7 +1684,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "page builder",
         "visual editor",
@@ -1739,7 +1739,7 @@
       "name": "genesis init",
       "summary": "Scaffolds a Genesis consumer: a brand package, Tailwind or NativeWind config and token imports.",
       "status": "live",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "scaffold",
         "new app",
@@ -1774,7 +1774,7 @@
       "tagline": "Your app stays on the design system, checked on every build.",
       "category": "Tooling",
       "status": "live",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "lint",
         "rules",
@@ -1810,7 +1810,7 @@
       "tagline": "Install a package, get its rules; agents reach for the primitives first.",
       "category": "Tooling",
       "status": "building",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "doctor",
         "package rules",
@@ -1856,7 +1856,7 @@
       "summary": "Reusable GitHub Actions workflows an app calls in a few lines: app-ci (install, typecheck, lint, test, doctor, features check), supabase-ci (doctor with the supabase pack, db start, pgTAP) and genesis-upgrade (moves every Genesis package to one release and opens a pull request), for pnpm, Bun or npm.",
       "category": "Tooling",
       "status": "building",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "ci",
         "github actions",
@@ -1901,12 +1901,12 @@
     {
       "id": "agent-rules",
       "name": "Agent rules of engagement",
-      "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed.",
+      "summary": "How agent sessions and the owner work together: who owns what, how work is claimed, verified, reviewed and shipped through staging batches, each rule marked agreed, reported, practice or proposed (docs/agents/RULES.md); the ones a script can check run as genesis agents --rules.",
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "agents",
         "rules of engagement",
@@ -1927,7 +1927,10 @@
       "reviewedAt": "2026-10-25",
       "links": {
         "code": [
-          "packages/agents"
+          "packages/genesis-cli/src/agent-rules.ts"
+        ],
+        "docs": [
+          "docs/agents/RULES.md"
         ]
       },
       "access": "all",
@@ -1941,7 +1944,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "roadmap",
         "now next later",
@@ -1985,7 +1988,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "insights",
         "feedback",
@@ -2027,7 +2030,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "release notes",
         "changelog",
@@ -2063,7 +2066,7 @@
       "name": "genesis introspect",
       "summary": "Writes a checked-in contract of every table from the Postgres catalog or a PostgREST OpenAPI document; --check catches drift in CI.",
       "status": "live",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "schema",
         "types",
@@ -2095,7 +2098,7 @@
       "name": "genesis studio init",
       "summary": "Turns the Data Studio on in an existing app: a server route or Edge Function, a page and one migration to review.",
       "status": "live",
-      "layer": "tool",
+      "kind": "tool",
       "owner": "mark",
       "apps": [
         "cli"
@@ -2123,7 +2126,7 @@
       "tagline": "Chrome extensions with the same components and tests as your app.",
       "category": "Tooling",
       "status": "live",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "browser extension",
         "chrome",
@@ -2182,7 +2185,7 @@
       "tagline": "One typed list of what your product does, kept honest by CI.",
       "category": "Tooling",
       "status": "beta",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "inventory",
         "roadmap",
@@ -2227,7 +2230,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "defineContentPack",
         "content pack",
@@ -2290,7 +2293,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "featureOn",
         "useFeature",
@@ -2363,7 +2366,7 @@
       "status": "building",
       "claimedBy": "mark",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "sync_feature_registry",
         "features sync",
@@ -2431,7 +2434,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "next",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "navigation from blocks",
         "settings from blocks",
@@ -2461,7 +2464,7 @@
       "category": "Platform",
       "status": "building",
       "horizon": "now",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "block",
         "blocks",
@@ -2529,7 +2532,7 @@
       "name": "Status from evidence",
       "summary": "A feature's status follows evidence (merged PRs and changesets tagged with it, flag rollout): check warns when tagged work shipped but the feature is still planned, and later a bot proposes status changes as PRs.",
       "status": "building",
-      "layer": "tool",
+      "kind": "tool",
       "horizon": "next",
       "owner": "mark",
       "apps": [
@@ -2558,7 +2561,7 @@
       "name": "Feature hierarchy",
       "summary": "Epics and sub-features, and a rollup of several repos' registries.",
       "status": "planned",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "epics",
         "sub-features",
@@ -2583,7 +2586,7 @@
       "summary": "Screen shells for Expo apps: sign-in (AuthForm, SocialAuthRow, ForgotPasswordLink), settings and its sub-pages, notifications, the nav bar and the screen container.",
       "category": "Design system",
       "status": "live",
-      "layer": "layout",
+      "kind": "layout",
       "keywords": [
         "screen",
         "sign in",
@@ -2623,7 +2626,7 @@
       "tagline": "Native lists, images, motion, glass and symbols when the app has them.",
       "category": "Design system",
       "status": "beta",
-      "layer": "primitive",
+      "kind": "element",
       "keywords": [
         "flashlist",
         "expo-image",
@@ -2671,7 +2674,7 @@
       "summary": "The slots and slotProps contract: replace, feed or drop (null) one part of a pattern without forking it. It lives in core (no DOM), so web patterns (ResourcePage) and native layouts (SettingsPage, NotificationsPage, AuthScreen) share it.",
       "category": "Design system",
       "status": "live",
-      "layer": "hook",
+      "kind": "hook",
       "keywords": [
         "slot",
         "slotProps",
@@ -2716,7 +2719,7 @@
       "summary": "Semantic color roles (label, background, separator, tint, destructive…) that each platform resolves itself: CSS variables on web, system colors on iOS, Material You on Android. A brand overrides the tint.",
       "category": "Design system",
       "status": "beta",
-      "layer": "token",
+      "kind": "token",
       "keywords": [
         "PlatformColor",
         "system colors",
@@ -2764,7 +2767,7 @@
       "summary": "One root component above an Expo app's screens: boot steps behind the splash, error boundary and fatal screen with retry, theme, a persisted query client, data provider, auth gate, held deep links and an update banner, each a slot and each exported on its own.",
       "category": "Starters",
       "status": "beta",
-      "layer": "block",
+      "kind": "block",
       "extends": "app-shell",
       "keywords": [
         "GenesisNativeApp",
@@ -2833,7 +2836,7 @@
       "summary": "apps/genesis-rn-starter: an Expo SDK 58 app (New Architecture, React Compiler, typed routes, native tabs) whose root layout is GenesisNativeApp, with every universal feature the packages ship on and each turned off in one line of starter.config.ts: email and Apple sign-in, settings with account deletion, notifications, query persistence and lifecycle, keyboard scrolling, deep links, the reinstall wipe and foreground refresh, the updates block (force upgrade, maintenance, update banner, what's new, the version signature in Settings) on the release-policy migration, and the push block (building: Settings → Notifications, the soft prompt on the Notifications tab, the sender function) on the push migration, a check-in example on genesis-forms-native (FormFocus with a draft per user and the offline outbox, behind features.checkIn), observability (Sentry when EXPO_PUBLIC_SENTRY_DSN is set), the devtools overlay in development and preview builds, and the support block (building: Send feedback and Help in Settings, shake to report with a marked-up screenshot, your reports with staff replies, the idea board) on the support migration. EAS Workflows and Maestro smoke flows ship with it. Onboarding joins as its block ships.",
       "category": "Starters",
       "status": "beta",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "template",
         "boilerplate",
@@ -2893,7 +2896,7 @@
       "category": "Tooling",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "eas",
         "eas build",
@@ -2951,7 +2954,7 @@
       "category": "Tooling",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "e2e",
         "end to end",
@@ -2997,7 +3000,7 @@
       "summary": "Sign-in (email, phone, Google, Apple), profile and in-app account deletion, on web and native, with the sign-in rules app stores require.",
       "category": "Identity",
       "status": "beta",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "auth",
         "login",
@@ -3059,7 +3062,7 @@
       "category": "Identity",
       "status": "building",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "sign in with apple",
         "revoke",
@@ -3119,7 +3122,7 @@
       "tagline": "The same forms, one question at a time, native on iOS and Android.",
       "category": "Forms",
       "status": "beta",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "check-in",
         "onboarding",
@@ -3189,7 +3192,7 @@
       "summary": "Doctor rule packs for Expo apps (every screen uses a Genesis layout, no hand-built headers, literal colors only through theme roles, app-store readiness) and for migrations (grants by name, no edits to applied migrations, RLS on new tables).",
       "category": "Tooling",
       "status": "beta",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "lint",
         "store readiness",
@@ -3235,7 +3238,7 @@
       "category": "Tooling",
       "status": "planned",
       "horizon": "now",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "config",
         "settings",
@@ -3261,7 +3264,7 @@
       "summary": "withGenesis() keeps app.config.ts to a name, ids and plugins: app variants from APP_VARIANT, associated domains and verified app links from genesis.config.json's links, the privacy manifest (required-reason APIs for React Native, Expo and the packages installed; NSPrivacyTracking false; collected data types from the Genesis blocks in use, or genesis.config.json privacy), export compliance and the fingerprint runtime. It reads only committed files and APP_VARIANT, so EAS fingerprints stay stable.",
       "category": "Tooling",
       "status": "beta",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "app.config",
         "config plugin",
@@ -3313,7 +3316,7 @@
       "category": "Forms",
       "status": "planned",
       "horizon": "later",
-      "layer": "pattern",
+      "kind": "pattern",
       "extends": "forms-engine",
       "keywords": [
         "onboarding",
@@ -3351,7 +3354,7 @@
       "category": "Support",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "intercom",
         "help",
@@ -3419,7 +3422,7 @@
       "category": "Support",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "support inbox",
         "help desk",
@@ -3474,7 +3477,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "chat",
         "messages",
@@ -3539,7 +3542,7 @@
       "category": "Social",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "pattern",
+      "kind": "pattern",
       "keywords": [
         "messages",
         "chat",
@@ -3607,7 +3610,7 @@
       "status": "building",
       "claimedBy": "mark",
       "horizon": "now",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "push notifications",
         "expo-notifications",
@@ -3683,7 +3686,7 @@
       "summary": "Superseded by notifications (genesis-notifications adopts these tables and replaces the sender). Migration 0005 and the genesis-push-send Edge Function: push_devices, notification_preferences and push_receipts under owner-only row level security; genesis_push_targets returns the devices a push may reach now, honouring categories, quiet hours in the person's time zone (past midnight and across daylight saving) and hidden previews; the function sends through Expo in batches of 100, swaps hidden previews for neutral text on the server, records a receipt per ticket with no content, polls the receipts and forgets DeviceNotRegistered devices.",
       "category": "Engagement",
       "status": "deprecated",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "push sender",
         "expo push api",
@@ -3741,7 +3744,7 @@
       "status": "building",
       "claimedBy": "mark",
       "horizon": "now",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "notifications",
         "notify",
@@ -3821,7 +3824,7 @@
       "status": "building",
       "claimedBy": "mark",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "email",
         "resend",
@@ -3884,7 +3887,7 @@
       "summary": "Force upgrade, maintenance screen, an update banner, switching a test build between update channels, and a what's new sheet.",
       "category": "Platform",
       "status": "beta",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "ota",
         "eas update",
@@ -3950,7 +3953,7 @@
       "category": "Observability",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "sentry",
         "errors",
@@ -4010,7 +4013,7 @@
       "category": "Tooling",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "debug panel",
         "diagnostics",
@@ -4067,8 +4070,9 @@
       "name": "Deep links",
       "summary": "One list of link hosts and paths that generates the web association files and the native path map, with unknown paths falling back home and links held until sign-in.",
       "category": "Platform",
-      "status": "idea",
-      "layer": "service",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "service",
       "keywords": [
         "universal links",
         "app links",
@@ -4095,7 +4099,7 @@
       "category": "Support",
       "status": "building",
       "claimedBy": "mark",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "roadmap voting",
         "ideas board",
@@ -4141,8 +4145,9 @@
       "name": "Copy catalog and translations",
       "summary": "Default strings for every Genesis pattern in one catalog both platforms read, ready for translation and right-to-left layouts.",
       "category": "Platform",
-      "status": "idea",
-      "layer": "provider",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "provider",
       "keywords": [
         "translations",
         "localization",
@@ -4169,7 +4174,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "now",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "cookies",
         "gdpr",
@@ -4198,7 +4203,7 @@
       "category": "Data",
       "status": "building",
       "horizon": "now",
-      "layer": "primitive",
+      "kind": "element",
       "keywords": [
         "time zone",
         "timezone",
@@ -4255,7 +4260,7 @@
       "category": "Platform",
       "status": "building",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "background jobs",
         "job queue",
@@ -4320,7 +4325,7 @@
       "summary": "One model for anything more than one person works on (docs/COLLABORATION.md): a space with a subject, an audience, roles (owner, facilitator, participant, viewer), a visibility policy (nothing, who's done, totals, totals with names, full; shown always, after I contribute, after everyone or when the facilitator reveals; anonymous; per-contribution private) and timing (ongoing, a window, live, by period). SQL checks the app's own row-level security calls, a headless canSee and gateOf, the Share dialog's people tab, a reveal gate and roster, discussions on genesis-chat and a compare view in forms-studio. Built so far: the genesis_collab migration with its pgTAP contract, and the pure core.",
       "category": "Social",
       "status": "building",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "sharing",
         "share",
@@ -4382,7 +4387,7 @@
       "status": "building",
       "claimedBy": "web-handoff PR",
       "horizon": "now",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "handoff",
         "open on web",
@@ -4458,7 +4463,7 @@
       "summary": "Moved into an app as its own local package (it had one app). session_types, sessions, session_attendees and session_links in genesis-work (schema genesis_work): sessions of any kind (meeting, workshop, presentation, coaching call, one-on-one, class, planning day) with reusable types and agendas, a schedule and calendar event, the agenda copied when it starts, the live step, facilitator and scribe, notes, recording and transcript; attendees with presence and a 1-to-10 rating; links to pre-work, worksheets and collaboration spaces; session_ratings averages. Owned and gated through the pursuits block's owner-access contract; attendees read the sessions they attend.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "sessions",
         "meetings",
@@ -4514,7 +4519,7 @@
       "summary": "Moved into an app as its own local package (it had one app). metrics, metric_values and metric_goal_changes in genesis-work (schema genesis_work): numbers tracked over time with a unit, a cadence, a goal and direction, leading or lagging, a rollup rule, a template key, a formula or a sync source; one value per metric and period; goal changes kept, and metric_values_with_goal judging each value against the goal of its period. Owned and gated like pursuits.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "metrics",
         "kpi",
@@ -4564,7 +4569,7 @@
       "summary": "Moved into an app as its own local package (it had one app). genesis_work.install_content_pack / uninstall_content_pack, installed_packs, metric_templates and labels: a pack (defined in code) installs session types, metric templates, custom fields and labels into a tenant's own editable rows, each keeping its source pack, version, key and content hash. Installing again or a newer version is idempotent and additive and keeps what the tenant changed; uninstalling removes only untouched, unused items and never people's data. Server code installs; tenants read and edit the rows.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "content packs",
         "templates",
@@ -4618,7 +4623,7 @@
       "summary": "Moved into an app as its own local package (it had one app). genesis_work.field_definitions and a custom jsonb on pursuits, work items, metrics and sessions: a tenant adds its own fields with no code or migration, using genesis-forms field types; values are keyed <namespace>.<key>, checked by shape in the database and fully on the server, with a GIN index. 'tenant' fields are managed by whoever may write the tenant's own rows; an app's or a content pack's namespace is written only by server code. Definitions from a pack keep their source.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "custom fields",
         "extend data model",
@@ -4667,7 +4672,7 @@
       "summary": "Moved into the one app that uses genesis-work (its packages/work). Was 0009_genesis_owner_access in genesis-supabase: fail-closed wrappers, genesis_owner_readable() and genesis_owner_allows(), over an app's genesis_owner_can and genesis_readable_owners hooks.",
       "category": "Platform",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "access",
         "owners",
@@ -4714,7 +4719,7 @@
       "summary": "Moved into an app as its own local package (it had one app). pursuits and work_items in genesis-work (schema genesis_work): goals and projects in one table (a pursuit is a goal, a project or both), nesting, a period, health and criteria; tasks, issues and milestones alone or under a pursuit, with issue terms, priority, manual rank, decider and solution. Every row has a tenant and exactly one owner (a person, a team or the tenant), and the app's hooks decide who reads and writes.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "goals",
         "projects",
@@ -4765,7 +4770,7 @@
       "summary": "Moved into an app as its own local package (it had one app). status_updates and update_requests in genesis-work (schema genesis_work): dated updates (health and a note) on a pursuit, work item or metric, and requests to one person for an update by a due time, answered by the first update they post; update_requests_due lists open requests and whether each is overdue. An update with a health sets a pursuit's health. Owned and gated through the item.",
       "category": "Productivity",
       "status": "retired",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "status update",
         "check-in",
@@ -4817,7 +4822,7 @@
       "category": "Platform",
       "status": "building",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "tenant",
         "organization",
@@ -4885,7 +4890,7 @@
       "category": "Billing",
       "status": "planned",
       "horizon": "now",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "paywall",
         "subscription",
@@ -4919,7 +4924,7 @@
       "category": "Observability",
       "status": "planned",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "tracing",
         "spans",
@@ -4948,16 +4953,17 @@
     },
     {
       "id": "package-layering",
-      "name": "Package groups and layering check",
-      "summary": "Five package groups (Foundation, App shells, Platform services, Domain blocks, Tooling) recorded in package.json, and a doctor check that dependencies only point down, with declared domain seams.",
+      "name": "Package layers and the layering check",
+      "summary": "Every package declares its layer (foundation, primitive, module or tooling) and group in package.json, and CI fails when a dependency points up, a module uses an undeclared module, a runtime package uses tooling, or packages form a cycle.",
       "category": "Tooling",
-      "status": "planned",
-      "horizon": "next",
-      "layer": "tool",
+      "status": "beta",
+      "kind": "tool",
       "keywords": [
         "layering",
         "dependency direction",
         "package groups",
+        "package layers",
+        "modules",
         "architecture check"
       ],
       "owner": "mark",
@@ -4968,7 +4974,18 @@
         "developer"
       ],
       "visibility": "internal",
+      "acceptance": [
+        "A foundation package that imports a primitive, a primitive that imports a module, or a module that imports a module it doesn't list in requiresModules fails CI.",
+        "A runtime package that imports tooling, or a tooling entry point such as genesis-product/node, fails CI.",
+        "Every module names its blocks, docs and skill, and its install line resolves with genesis add --dry-run."
+      ],
+      "reviewedAt": "2026-10-29",
       "links": {
+        "code": [
+          "packages/features/src/packages.ts",
+          "scripts/check-package-layers.mjs",
+          "packages/genesis-cli/test/blocks-modules.test.ts"
+        ],
         "docs": [
           "docs/PACKAGE-STRATEGY.md"
         ]
@@ -4983,7 +5000,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "next",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "command palette",
         "shortcuts",
@@ -5019,7 +5036,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "later",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "percentage rollout",
         "gradual release",
@@ -5049,7 +5066,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "later",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "file upload",
         "signed upload",
@@ -5082,7 +5099,7 @@
       "category": "Platform",
       "status": "planned",
       "horizon": "later",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "rate limit",
         "throttle",
@@ -5106,7 +5123,7 @@
       "category": "Data",
       "status": "planned",
       "horizon": "later",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "full text search",
         "semantic search",
@@ -5133,8 +5150,9 @@
       "name": "Audit log",
       "summary": "A general, retention-aware audit log of who changed what, generalised from the Data Studio's audit trail.",
       "category": "Admin",
-      "status": "idea",
-      "layer": "service",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "service",
       "keywords": [
         "audit trail",
         "history",
@@ -5159,8 +5177,9 @@
       "name": "Invites",
       "summary": "Invite links, join codes and a waitlist or gated beta, checked on the server.",
       "category": "Identity",
-      "status": "idea",
-      "layer": "block",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "block",
       "keywords": [
         "invite link",
         "join code",
@@ -5187,8 +5206,9 @@
       "name": "View as user",
       "summary": "An admin views the app as one user, verified on the server, with a banner and an audit entry.",
       "category": "Admin",
-      "status": "idea",
-      "layer": "block",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "block",
       "keywords": [
         "impersonate",
         "support access",
@@ -5214,7 +5234,7 @@
       "summary": "A local store on device with a write queue that syncs when the connection returns.",
       "category": "Data",
       "status": "idea",
-      "layer": "provider",
+      "kind": "provider",
       "keywords": [
         "offline",
         "sqlite",
@@ -5239,7 +5259,7 @@
       "summary": "Springs, pressable feedback, glass surfaces, celebrations, animated numbers and scroll haptics for native screens.",
       "category": "Design system",
       "status": "idea",
-      "layer": "primitive",
+      "kind": "element",
       "keywords": [
         "animation",
         "haptics",
@@ -5266,7 +5286,7 @@
       "category": "AI",
       "status": "building",
       "horizon": "now",
-      "layer": "service",
+      "kind": "service",
       "keywords": [
         "llm",
         "ai",
@@ -5308,7 +5328,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "next",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "ai admin",
         "ai usage",
@@ -5345,7 +5365,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "later",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "check-in review",
         "coach drafts",
@@ -5385,7 +5405,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "later",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "weekly review",
         "weekly plan",
@@ -5423,7 +5443,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "later",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "memory",
         "personalisation",
@@ -5460,7 +5480,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "later",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "daily brief",
         "ask coach",
@@ -5496,7 +5516,7 @@
       "category": "AI",
       "status": "planned",
       "horizon": "later",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "nudge",
         "proactive",
@@ -5529,8 +5549,9 @@
       "name": "Agent-operable apps",
       "summary": "Tools, commands, search and an MCP server generated from the resource descriptions, actions and navigation an app already declares, run as the person under RLS; the AI north star in docs/AI.md.",
       "category": "AI",
-      "status": "idea",
-      "layer": "service",
+      "status": "planned",
+      "horizon": "later",
+      "kind": "service",
       "keywords": [
         "mcp server",
         "ai tools",
@@ -5562,7 +5583,7 @@
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "add feature",
         "add block",
@@ -5610,7 +5631,7 @@
       "status": "building",
       "horizon": "now",
       "claimedBy": "mark",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "localPackages",
         "workspace package",
@@ -5666,7 +5687,7 @@
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "migrations",
         "supabase migrations",
@@ -5710,7 +5731,7 @@
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "upgrade",
         "lockstep",
@@ -5759,7 +5780,7 @@
       "category": "Tooling",
       "status": "building",
       "horizon": "now",
-      "layer": "tool",
+      "kind": "tool",
       "keywords": [
         "new app",
         "create app",
@@ -5804,7 +5825,7 @@
       "summary": "Reusable, staff-editable option lists for forms (locations, people, categories), stored by the app under its own access rules, imported from a CSV paste or upload, resolved through the forms engine's host options, re-checked on submit, with each answer keeping the label it had when submitted.",
       "category": "Forms",
       "status": "building",
-      "layer": "block",
+      "kind": "block",
       "keywords": [
         "choices",
         "dropdown options",
@@ -5855,8 +5876,9 @@
       "name": "Seed data",
       "summary": "Generated demo and test data for an app's tables, for local stacks and preview branches.",
       "category": "Data",
-      "status": "idea",
-      "layer": "tool",
+      "status": "planned",
+      "horizon": "next",
+      "kind": "tool",
       "keywords": [
         "fixtures",
         "demo data",
@@ -5872,6 +5894,284 @@
         "developer"
       ],
       "visibility": "internal",
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "support-email",
+      "name": "Support over email",
+      "summary": "Email is a support ticket channel (ADR 0011): mail to a support address or a ticket's reply address opens or continues the ticket, staff replies (in the app or support-chat) go back threaded through Resend, and one thread holds app and email.",
+      "category": "Support",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "block",
+      "keywords": [
+        "help desk",
+        "email tickets",
+        "zendesk",
+        "inbound email",
+        "support inbox",
+        "resend"
+      ],
+      "requires": [
+        "support-feedback"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "server"
+      ],
+      "audience": [
+        "person",
+        "admin"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/support/migrations/0002_genesis_support_email.sql",
+          "packages/support/src/email.ts"
+        ],
+        "docs": [
+          "docs/adr/0011-support-email-tickets.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "inbound-email",
+      "name": "Inbound email",
+      "summary": "Receiving email through Resend: one signed webhook, the full message fetched, and routes that take it in order (support tickets, an agent's inbox, onboarding, forwarding); SMS will route the same way.",
+      "category": "Platform",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "service",
+      "keywords": [
+        "receive email",
+        "inbound",
+        "resend",
+        "email webhook",
+        "agent inbox",
+        "routing"
+      ],
+      "owner": "mark",
+      "apps": [
+        "server"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/notifications/src/server/inbound.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "product-events",
+      "name": "Product events",
+      "summary": "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
+      "category": "Data",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "service",
+      "keywords": [
+        "analytics",
+        "events",
+        "usage",
+        "telemetry",
+        "activation",
+        "track"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native",
+        "server"
+      ],
+      "audience": [
+        "developer",
+        "admin"
+      ],
+      "visibility": "internal",
+      "links": {
+        "code": [
+          "packages/supabase/migrations/0018_genesis_events.sql",
+          "packages/supabase/src/events.ts"
+        ],
+        "docs": [
+          "docs/adr/0010-own-product-events.md"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "integrations-catalog",
+      "name": "Integrations on the site",
+      "summary": "The site's /integrations page: every outside service Genesis works with (available or planned), grouped, each linked to the feature that holds its code; Genesis owns the contract and vendors plug in behind it.",
+      "category": "Integrations",
+      "status": "building",
+      "horizon": "now",
+      "claimedBy": "mark",
+      "kind": "tool",
+      "keywords": [
+        "integrations",
+        "vendors",
+        "partners",
+        "website",
+        "adapters"
+      ],
+      "owner": "mark",
+      "apps": [
+        "web"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "public",
+      "links": {
+        "code": [
+          "apps/sample/app/lib/integrations.ts",
+          "apps/sample/app/routes/integrations.tsx"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "package-owners",
+      "name": "Package owners and CODEOWNERS",
+      "summary": "A genesis.owner per package that generates CODEOWNERS path entries (T11).",
+      "category": "Tooling",
+      "status": "beta",
+      "kind": "tool",
+      "keywords": [
+        "owners",
+        "codeowners",
+        "ownership"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "CI fails when .github/CODEOWNERS differs from what each package's genesis.owner generates."
+      ],
+      "links": {
+        "code": [
+          "scripts/gen-codeowners.mjs"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "export-prefix-rules",
+      "name": "Export naming rules",
+      "summary": "define*/create*/use*/with* and the other prefixes checked on new exports (R5).",
+      "category": "Tooling",
+      "status": "beta",
+      "kind": "tool",
+      "keywords": [
+        "naming",
+        "prefixes",
+        "define",
+        "create",
+        "exports"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "CI fails when a new export in packages/*/src starts with build, new or make (FRAMEWORK rule 7)."
+      ],
+      "links": {
+        "code": [
+          "scripts/check-export-prefixes.mjs"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "genesis-upstream",
+      "name": "genesis upstream",
+      "summary": "An app's register of gaps, extensions and inventions, checked by genesis upstream check and filed by genesis upstream export through a gap issue form (T10).",
+      "category": "Tooling",
+      "status": "beta",
+      "kind": "tool",
+      "keywords": [
+        "upstream",
+        "gaps",
+        "register",
+        "promote",
+        "intake"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "genesis upstream lists an app's gaps from docs/genesis-upstream.md and checks each entry's shape."
+      ],
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/upstream.ts"
+        ]
+      },
+      "access": "all",
+      "flags": []
+    },
+    {
+      "id": "stability-tags",
+      "name": "Stability tags and coverage",
+      "summary": "@stability on every export a beta or live feature reaches, a doctor warning on @beta or @deprecated imports, and a ratchet on untagged exports (R3).",
+      "category": "Tooling",
+      "status": "beta",
+      "kind": "tool",
+      "keywords": [
+        "stability",
+        "beta",
+        "deprecated",
+        "jsdoc",
+        "coverage"
+      ],
+      "owner": "mark",
+      "apps": [
+        "cli"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "visibility": "internal",
+      "acceptance": [
+        "genesis doctor reports an import of an Experimental or Deprecated export from its @stability tag."
+      ],
+      "links": {
+        "code": [
+          "packages/genesis-cli/src/doctor/stability.ts"
+        ]
+      },
       "access": "all",
       "flags": []
     }

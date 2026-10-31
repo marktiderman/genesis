@@ -7,7 +7,7 @@ React Native, from one design system. Row-level security keeps each tenant's dat
 
 **See it running: [genesisone.dev](https://genesisone.dev)** — a [live demo app](https://genesisone.dev/demo)
 with three tenants and three roles, every [package](https://genesisone.dev/packages) and
-[component](https://genesisone.dev/showcase/primitives), [Storybook](https://genesisone.dev/storybook/),
+[component](https://genesisone.dev/showcase/elements), [Storybook](https://genesisone.dev/storybook/),
 and [llms.txt](https://genesisone.dev/llms.txt) for agents.
 
 ```bash
@@ -17,8 +17,8 @@ npx @marktiderman/genesis-cli init my-app --template native   # an Expo app
 
 Or add it to an app you have: `npm install @marktiderman/genesis`, the umbrella that pins the
 foundation (`core`, `ui`, `ui-native`, `design-system`, `features`), the native app shell,
-`switchboard` and forms at one version. Platform services (`supabase`, `connect`, `notifications`,
-`ai`) and domain blocks (`chat`, `sites`, `support`, …) install on their own.
+`switchboard` and forms at one version. Other primitives (`supabase`, `connect`, `notifications`,
+`ai`, `chat`, …) and the modules (`sites`, `support`, `product`) install on their own.
 
 ## A screen is a description
 
@@ -64,7 +64,7 @@ row-level security is the boundary.
 
 ### Design system
 
-- **UI primitives** — Accessible, themeable components you don't have to hand-roll.
+- **UI elements** — Accessible, themeable components you don't have to hand-roll.
 - **Page layouts** — Pages that look consistent without a designer on every screen.
 - **AppShell navigation** — One navigation tree drives the sidebar, mobile nav and command palette.
 - **React Native components** — The same components on iOS and Android.
@@ -148,14 +148,22 @@ All published packages, with their entry points and exports, are listed at
 [genesisone.dev/packages](https://genesisone.dev/packages) (generated from this repository on every
 deploy) and in [docs/component-reference.md](./docs/component-reference.md).
 
-| Group | Packages |
-| --- | --- |
-| Foundation | [`genesis-core`](./packages/core) (data contract, providers, hooks, views, workspaces) · [`genesis-ui`](./packages/ui) (web components, layouts, `ResourceView`, `RecordView`, `AppShell`) · [`genesis-ui-native`](./packages/ui-native) (React Native components, `NativeResourceView`) · [`genesis-design-system`](./packages/design-system) (tokens, brand schema, themes) · [`genesis-features`](./packages/features) (feature registry, flags, the gate) |
-| App shells | [`genesis-native`](./packages/native) (the Expo app shell) · [`genesis-extension`](./packages/extension) (Chrome extensions) |
-| Platform services | [`genesis-supabase`](./packages/supabase) · [`genesis-ai`](./packages/ai) · [`genesis-notifications`](./packages/notifications) · [`genesis-connect`](./packages/connect) · [`genesis-collab`](./packages/collab) · [`genesis-switchboard`](./packages/data-switchboard) |
-| Domain blocks | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) · [`genesis-chat`](./packages/chat) · [`genesis-sites`](./packages/sites) · [`genesis-support`](./packages/support) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) |
-| Tooling | [`genesis-cli`](./packages/genesis-cli) (`init`, `doctor`, `introspect`, `features`, codemods) · [`genesis-product`](./packages/product) (Now/Next/Later board from `features.ts`) |
-| Umbrella | [`genesis`](./packages/genesis): one version coordinate for the foundation, the native shell, switchboard and forms. It holds no code of its own. |
+Packages sit in layers, and dependencies only point down (CI checks it,
+[PACKAGE-STRATEGY.md](./docs/PACKAGE-STRATEGY.md#layers)). Level 1 is the foundation and the
+primitives; level 2 is the modules built from them. Each package's `genesis.layer` and
+`genesis.group` in its package.json say where it sits.
+
+| Layer | Group | Packages |
+| --- | --- | --- |
+| Foundation | Core | [`genesis-core`](./packages/core) (data contract, providers, hooks, views, workspaces) · [`genesis-ui`](./packages/ui) (web components, layouts, `ResourceView`, `RecordView`, `AppShell`) · [`genesis-ui-native`](./packages/ui-native) (React Native components, `NativeResourceView`) · [`genesis-design-system`](./packages/design-system) (tokens, brand schema, themes) · [`genesis-features`](./packages/features) (feature registry, flags, the gate, blocks). All five are essential: every app starts with them. |
+| Primitives | Core | [`genesis`](./packages/genesis), the umbrella: one version coordinate for the foundation, the native shell, switchboard and forms. It holds no code of its own, and bundles primitives, never modules. |
+| | Data | [`genesis-supabase`](./packages/supabase) · [`genesis-switchboard`](./packages/switchboard) · [`genesis-studio`](./packages/studio) and [`studio-server`](./packages/studio-server) (Data Studio) · [`genesis-connect`](./packages/connect) |
+| | AI | [`genesis-ai`](./packages/ai) |
+| | Forms | [`genesis-forms`](./packages/forms) with [`forms-react`](./packages/forms-react), [`forms-web`](./packages/forms-web), [`forms-native`](./packages/forms-native), [`forms-builder`](./packages/forms-builder), [`forms-studio`](./packages/forms-studio), [`forms-devtools`](./packages/forms-devtools) |
+| | Collaboration | [`genesis-chat`](./packages/chat) · [`genesis-notifications`](./packages/notifications) · [`genesis-collab`](./packages/collab) |
+| | Shells | [`genesis-native`](./packages/native) (the Expo app shell) · [`genesis-extension`](./packages/extension) (Chrome extensions) |
+| Modules | Modules | [`genesis-sites`](./packages/sites) (`genesis add sites`) · [`genesis-support`](./packages/support) (`genesis add support-feedback`) · [`genesis-product`](./packages/product) (`genesis add product-board`): mini apps with their own tables, screens and settings, installed as blocks and switched on per tenant |
+| Tooling | Core | [`genesis-cli`](./packages/genesis-cli) (`init`, `add`, `doctor`, `introspect`, `features`, codemods) · the rules for agent sessions ([docs/agents/RULES.md](./docs/agents/RULES.md), checked by `genesis agents --rules`). genesis-product's `genesis-product` bin and `/node` entry are tooling too. |
 
 ## Reference apps
 

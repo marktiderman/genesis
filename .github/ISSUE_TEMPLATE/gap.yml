@@ -1,0 +1,42 @@
+name: Gap from an app
+description: Something an app built on Genesis needed and Genesis doesn't have (a gap, an extension point, or an invention to promote). `genesis upstream export <id>` fills this in.
+title: "[Gap] "
+labels: ["gap"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - gap (Genesis has nothing for it)
+        - extension (a Genesis part is close but has no prop, variant or slot for it)
+        - invention (the app built it; it may belong in Genesis)
+    validations:
+      required: true
+  - type: textarea
+    id: need
+    attributes:
+      label: The need
+      description: What the app had to do, and for whom. No app or customer names (Genesis is public).
+    validations:
+      required: true
+  - type: input
+    id: feature
+    attributes:
+      label: Feature
+      description: "The Genesis feature id it is closest to (`genesis features find <term>`), if any."
+  - type: input
+    id: package
+    attributes:
+      label: Package
+      description: "The Genesis package it would live in, if known (`@marktiderman/genesis-ui`)."
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What the app does today
+      description: The local code or workaround, described (paths in the app are fine; no app names).
+  - type: input
+    id: register
+    attributes:
+      label: Register entry
+      description: The entry's id in the app's docs/genesis-upstream.md.

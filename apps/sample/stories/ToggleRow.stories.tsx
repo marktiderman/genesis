@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ToggleRow } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof ToggleRow> = {
-  title: "UI/ToggleRow",
+  title: "Foundation/UI/ToggleRow",
   component: ToggleRow,
 };
 export default meta;

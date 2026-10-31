@@ -20,7 +20,7 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
 ## Building a screen in an app
 
 The same rules hold in every Genesis app, and `genesis doctor` enforces them from what each
-package declares (`genesis primitives` lists them; `genesis agents` writes them into an app's
+package declares (`genesis catalog` lists them; `genesis agents` writes them into an app's
 AGENTS.md and skill):
 
 - **A list** is a view: `defineView` (`@marktiderman/genesis-core/resource-view`) rendered by
@@ -56,10 +56,16 @@ time. Before writing code for a new build or phase:
 Why: work has been duplicated, and plans have been written against components that were about to
 be replaced, when this check was skipped.
 
+Ideas and planned work are kept by the maintainers outside this repository. `features.ts` here
+holds work from `building` on, plus the planned features shipped ones depend on: don't add `idea`
+entries to it.
+New design decisions (ADRs) and new primitives also start outside this repository; a public ADR
+is written here when a contract ships. Don't open a PR here that only proposes a new design.
+
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 128 features (9 idea, 19 planned, 48 building, 17 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 136 features (2 idea, 25 planned, 52 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

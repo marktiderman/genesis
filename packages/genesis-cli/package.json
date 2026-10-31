@@ -58,7 +58,8 @@
       "import": "./dist/expo.js",
       "default": "./dist/expo.js"
     },
-    "./app.plugin.js": "./app.plugin.js"
+    "./app.plugin.js": "./app.plugin.js",
+    "./package.json": "./package.json"
   },
   "files": [
     "dist",
@@ -107,6 +108,9 @@
     }
   },
   "genesis": {
+    "layer": "tooling",
+    "group": "core",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "The doctor itself: its rules are the built-ins."

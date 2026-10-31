@@ -12,14 +12,14 @@
     "config",
     "runtime"
   ],
-  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/data-switchboard#readme",
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/switchboard#readme",
   "bugs": {
     "url": "https://github.com/marktiderman/genesis/issues"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/marktiderman/genesis.git",
-    "directory": "packages/data-switchboard"
+    "directory": "packages/switchboard"
   },
   "license": "MIT",
   "publishConfig": {
@@ -81,6 +81,9 @@
     "vitest": "^5.0.5"
   },
   "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
     "doctor": {
       "enforce": false,
       "reason": "Data-layer configuration an app composes once; no hand-rolled equivalent is reliably detectable yet."

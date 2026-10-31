@@ -20,7 +20,7 @@ const LABELS: Record<(typeof STATUSES)[number], string> = {
 };
 
 const meta: Meta<typeof StatusBadge> = {
-  title: "UI/StatusBadge",
+  title: "Foundation/UI/StatusBadge",
   component: StatusBadge,
   args: { children: "On Track", status: "onTrack" },
   argTypes: {

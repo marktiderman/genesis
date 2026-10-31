@@ -2,6 +2,7 @@ import { z } from "zod";
 import { cycleProblems, requirementProblem } from "./graph";
 import { FEATURE_PLATFORMS, type FeaturePlatform } from "./platforms";
 import { statusOn } from "./status";
+import type { PackageLayer } from "./packages";
 import { FEATURE_STATUSES, FLAG_KINDS, type FeatureAccess, type FeatureStatus, type FlagKind, type FlagValue } from "./types";
 
 // The plain types live in their own zod-free file, shared with the gate.
@@ -49,18 +50,50 @@ export { FEATURE_PLATFORMS, type FeaturePlatform };
 
 /**
  * What kind of thing a feature is, from smallest to largest, so an agent
- * looking for a building block can tell a primitive from a whole block:
- * `token`, `primitive` (one component), `pattern` (a composed component with
+ * looking for a building block can tell an element from a whole block:
+ * `token`, `element` (one component), `pattern` (a composed component with
  * slots), `layout` (a page or screen shell), `hook`, `provider` (data or
  * context), `block` (a feature an app adds whole: UI, data and server),
  * `service` (server code) and `tool` (CLI, CI, devtools).
  *
+ * A feature's layer is not declared: it is its package's layer (see
+ * {@link featurePackageLayer} and `PACKAGE_LAYERS`).
+ *
  * @stability Beta
  */
-export const FEATURE_LAYERS = ["token", "primitive", "pattern", "layout", "hook", "provider", "block", "service", "tool"] as const;
+export const FEATURE_KINDS = ["token", "element", "pattern", "layout", "hook", "provider", "block", "service", "tool"] as const;
 
 /** @stability Beta */
-export type FeatureLayer = (typeof FEATURE_LAYERS)[number];
+export type FeatureKind = (typeof FEATURE_KINDS)[number];
+
+/** @deprecated Use `FEATURE_KINDS`. Removed at the next major. */
+export const FEATURE_LAYERS = FEATURE_KINDS;
+
+/** @deprecated Use `FeatureKind`. Removed at the next major. */
+export type FeatureLayer = FeatureKind;
+
+/** @deprecated Use `"element"`. Accepted until the next major. */
+export type DeprecatedFeatureLayer = "primitive";
+
+/**
+ * A kind written in the deprecated `layer` field, with its old name
+ * `"primitive"` mapped to `"element"`.
+ *
+ * @stability Beta
+ */
+export function featureLayer(layer: FeatureKind | DeprecatedFeatureLayer | undefined): FeatureKind | undefined {
+  return layer === "primitive" ? "element" : layer;
+}
+
+/**
+ * A feature's kind: `kind`, or else the deprecated `layer` field (read until
+ * the next major).
+ *
+ * @stability Beta
+ */
+export function featureKind(def: Pick<FeatureDef, "kind" | "layer">): FeatureKind | undefined {
+  return def.kind ?? featureLayer(def.layer);
+}
 
 /** A picture or video for a marketing page. @stability Beta */
 export interface FeatureMedia {
@@ -111,7 +144,12 @@ export interface FeatureDef {
   /** A hero item on a marketing page. */
   highlight?: boolean;
   /** What kind of thing it is. */
-  layer?: FeatureLayer;
+  kind?: FeatureKind;
+  /**
+   * @deprecated Use `kind` (same values; `"primitive"` means `"element"`). Read until the
+   * next major, when `layer` is the owning package's layer, derived and never written.
+   */
+  layer?: FeatureKind | DeprecatedFeatureLayer;
   /**
    * Status per platform, when it differs from `status`: `{ web: "live", native: "planned" }`.
    * A platform left out doesn't have it.
@@ -227,7 +265,8 @@ export const featureSchema = z
       .strict()
       .optional(),
     highlight: z.boolean().optional(),
-    layer: z.enum(FEATURE_LAYERS).optional(),
+    kind: z.enum(FEATURE_KINDS).optional(),
+    layer: z.enum([...FEATURE_KINDS, "primitive"]).optional(),
     platforms: perPlatform(z.enum(FEATURE_STATUSES)).optional(),
     entry: perPlatform(text).optional(),
     keywords: z.array(text).optional(),
@@ -278,6 +317,9 @@ function featureProblems(id: string, def: FeatureDef): string[] {
   }
   if (def.claimedBy && def.status !== "building") problems.push(`${id}.claimedBy: only a building feature can be claimed`);
   if (def.media && !def.media.image && !def.media.video) problems.push(`${id}.media: needs an image or a video`);
+  if (def.kind && def.layer && featureLayer(def.layer) !== def.kind) {
+    problems.push(`${id}.layer: says ${def.layer} but kind says ${def.kind}; drop layer (deprecated), kind replaces it`);
+  }
   return problems;
 }
 
@@ -431,9 +473,11 @@ export interface FeatureRecord extends FeatureDef {
  * @stability Beta
  */
 export function toRecords(features: Features, flags?: Flags): FeatureRecord[] {
-  return Object.entries(features).map(([id, def]) => ({
+  // The deprecated `layer` comes out as `kind`, so a record's `layer` can later mean the package's.
+  return Object.entries(features).map(([id, { layer: _layer, ...def }]) => ({
     id,
     ...def,
+    ...(featureKind({ ...def, layer: _layer }) ? { kind: featureKind({ ...def, layer: _layer }) } : {}),
     visibility: def.visibility ?? "customer",
     access: def.access ?? "all",
     flags: flagsForFeature(flags, id),
@@ -448,8 +492,60 @@ export function toRecords(features: Features, flags?: Flags): FeatureRecord[] {
  */
 export interface FindOptions {
   platform?: FeaturePlatform;
-  layer?: FeatureLayer;
+  kind?: FeatureKind;
+  /** @deprecated Use `kind` (`"primitive"` is read as `"element"`). */
+  layer?: FeatureKind | DeprecatedFeatureLayer;
+  /**
+   * Only features whose package is in this layer (see {@link featurePackageLayer}).
+   * Needs `packages`: without them it throws, rather than matching nothing.
+   */
+  packageLayer?: PackageLayer;
+  /** The packages a feature can belong to, for `packageLayer`. */
+  packages?: readonly FeaturePackage[];
   status?: FeatureStatus;
+}
+
+/**
+ * A package a feature can belong to: its npm name, its folder (repo-relative,
+ * e.g. `packages/ui`) when it is in this repo, and its layer.
+ *
+ * @stability Beta
+ */
+export interface FeaturePackage {
+  name: string;
+  dir?: string;
+  layer: PackageLayer;
+}
+
+/** The package an import specifier names: `@scope/name` or `name`, without a subpath. */
+function specifierPackage(specifier: string): string {
+  const parts = specifier.split("/");
+  return specifier.startsWith("@") ? parts.slice(0, 2).join("/") : (parts[0] ?? specifier);
+}
+
+/**
+ * A feature's layer, derived from the package that owns it: the first `entry`
+ * import whose package is known, else the first `links.code` path inside a
+ * known package folder. Undefined when no package owns it (an app's own
+ * feature, a tool in scripts/).
+ *
+ * @stability Beta
+ */
+export function featurePackageLayer(
+  def: FeatureDef,
+  packages: readonly FeaturePackage[],
+): PackageLayer | undefined {
+  for (const specifier of Object.values(def.entry ?? {})) {
+    const name = specifier && specifierPackage(specifier);
+    const hit = packages.find((p) => p.name === name);
+    if (hit) return hit.layer;
+  }
+  for (const raw of def.links?.code ?? []) {
+    const path = raw.replace(/\\/g, "/").replace(/^\.\//, "");
+    const hit = packages.find((p) => p.dir && (path === p.dir || path.startsWith(`${p.dir}/`)));
+    if (hit) return hit.layer;
+  }
+  return undefined;
 }
 
 // A feature's status on one platform: in its own zod-free file so the gate shares it.
@@ -465,11 +561,14 @@ export { statusOn };
  */
 export function findFeatures(features: Features, term: string, flags?: Flags, options: FindOptions = {}): FeatureRecord[] {
   const needle = term.trim().toLowerCase();
-  const filtered = Boolean(options.platform || options.layer || options.status);
+  const kind = options.kind ?? featureLayer(options.layer);
+  if (options.packageLayer && !options.packages) throw new Error("findFeatures: packageLayer needs packages");
+  const filtered = Boolean(options.platform || kind || options.packageLayer || options.status);
   if (!needle && !filtered) return [];
   const keep = (r: FeatureRecord) =>
     (!options.platform || statusOn(r, options.platform) !== undefined) &&
-    (!options.layer || r.layer === options.layer) &&
+    (!kind || featureKind(r) === kind) &&
+    (!options.packageLayer || featurePackageLayer(r, options.packages ?? []) === options.packageLayer) &&
     (!options.status || r.status === options.status);
   const score = (r: FeatureRecord) => {
     if (!needle) return 0;

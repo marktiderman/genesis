@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { AspectRatio } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof AspectRatio> = {
-  title: "UI/AspectRatio",
+  title: "Foundation/UI/AspectRatio",
   component: AspectRatio,
 };
 export default meta;

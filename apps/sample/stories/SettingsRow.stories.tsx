@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { SettingsRow, Switch, Badge, Button } from "@marktiderman/genesis-ui";
 
 const meta: Meta<typeof SettingsRow> = {
-  title: "UI/SettingsRow",
+  title: "Foundation/UI/SettingsRow",
   component: SettingsRow,
 };
 export default meta;
