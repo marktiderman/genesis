@@ -14,7 +14,7 @@ interface DatePickerProps {
   onChange?: (date: Date | undefined) => void;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 function DatePicker({
@@ -41,7 +41,7 @@ function DatePicker({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
-        <Calendar mode="single" selected={value} onSelect={onChange} />
+        <Calendar mode="single" selected={value} {...(onChange ? { onSelect: onChange } : {})} />
       </PopoverContent>
     </Popover>
   );

@@ -85,12 +85,12 @@ export interface DataTableColumn<T> {
    * a class name for the cell, as before (`"w-48"`); a bare px string
    * (`"180"`, `"180px"`) also sets the width in pixels.
    */
-  width?: string | number;
-  hideBelow?: "sm" | "md" | "lg" | "xl";
+  width?: string | number | undefined;
+  hideBelow?: "sm" | "md" | "lg" | "xl" | undefined;
   sortable?: boolean;
-  render?: (item: T, value: unknown) => ReactNode;
-  accessor?: (item: T) => unknown;
-  editable?: {
+  render?: ((item: T, value: unknown) => ReactNode) | undefined;
+  accessor?: ((item: T) => unknown) | undefined;
+  editable?: ({
     type: "text" | "select";
     options?: string[];
     /**
@@ -101,11 +101,11 @@ export interface DataTableColumn<T> {
      * `void` return closes the editor at once, as before.
      */
     onSave: (item: T, newValue: string) => void | Promise<void>;
-  };
+  }) | undefined;
   /** Whether column is visible by default (default true) */
-  defaultVisible?: boolean;
+  defaultVisible?: boolean | undefined;
   /** Minimum width in px for resizing */
-  minWidth?: number;
+  minWidth?: number | undefined;
 }
 
 /* ── Component props ── */
@@ -114,38 +114,38 @@ export interface DataTableProps<T> {
   items: T[];
   columns: DataTableColumn<T>[];
   getKey: (item: T) => string;
-  onRowClick?: (item: T) => void;
+  onRowClick?: ((item: T) => void) | undefined;
   selectable?: boolean;
   selected?: Set<string>;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: ((id: string) => void) | undefined;
   onToggleAll?: () => void;
   renderActions?: (item: T) => ReactNode;
   emptyMessage?: string;
   /** Enable column visibility toggle dropdown */
-  columnVisibility?: boolean;
+  columnVisibility?: boolean | undefined;
   /** localStorage key for persisting column visibility */
-  columnVisibilityKey?: string;
+  columnVisibilityKey?: string | undefined;
   /** Enable column resizing via drag */
-  resizableColumns?: boolean;
+  resizableColumns?: boolean | undefined;
   /** Enable pagination */
-  pagination?: boolean;
+  pagination?: boolean | undefined;
   /** Initial page size (default 25) */
   pageSize?: number;
   /** Page size options (default [10, 25, 50, 100]) */
-  pageSizeOptions?: number[];
+  pageSizeOptions?: number[] | undefined;
   /** Sticky header on scroll */
-  stickyHeader?: boolean;
+  stickyHeader?: boolean | undefined;
   /** localStorage key for persisting column resize widths */
-  resizeKey?: string;
+  resizeKey?: string | undefined;
   /** Make the first column sticky when scrolling horizontally */
-  stickyFirstColumn?: boolean;
+  stickyFirstColumn?: boolean | undefined;
   /**
    * Row height / padding rhythm.
    * - compact: ~32px (py-1 / h-8)
    * - comfortable: default (py-2)
    * - spacious: taller (py-3)
    */
-  density?: Density;
+  density?: Density | undefined;
   /**
    * Keyboard use of rows when `onRowClick` is set. Each row's open column
    * (see `openColumn`) is a button named by its content, and the table is
@@ -269,7 +269,7 @@ type SortEntry = DataTableSort;
 function nextSort(prev: readonly SortEntry[], key: string, shiftKey: boolean): SortEntry[] {
   const existing = prev.findIndex((s) => s.key === key);
   if (existing >= 0) {
-    const entry = prev[existing];
+    const entry = prev[existing]!;
     if (entry.dir === "asc") {
       const next = [...prev];
       next[existing] = { key, dir: "desc" };

@@ -42,9 +42,9 @@ export type FormTab = "questions" | "logic" | "responses" | "settings";
 export interface NavItemShape<Icon = never> {
   to: string;
   label: string;
-  icon?: Icon;
+  icon?: Icon | undefined;
   badge?: string | number;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   end?: boolean;
 }
 

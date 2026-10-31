@@ -21,7 +21,7 @@ interface DataGridProps<T> {
   /** Items per infinite scroll batch (grid only). Default 48 */
   batchSize?: number;
   /** Tailwind grid column classes */
-  gridCols?: string;
+  gridCols?: string | undefined;
   /** Render a single card in grid mode */
   renderCard: (item: T, index: number) => ReactNode;
   /** Render the table view (receives currently visible items) */
@@ -127,7 +127,7 @@ export function DataGrid<T>({
   if (viewMode === "list" && renderListItem) {
     const keyFnList =
       getKey ||
-      ((item: T) => (item as Record<string, unknown>).id as string);
+      ((item: T) => (item as Record<string, unknown>)["id"] as string);
     return (
       <div
         ref={keyboardContainerRef}
@@ -155,7 +155,7 @@ export function DataGrid<T>({
   const visible = items.slice(0, visibleCount);
   const keyFn =
     getKey ||
-    ((item: T) => (item as Record<string, unknown>).id as string);
+    ((item: T) => (item as Record<string, unknown>)["id"] as string);
 
   return (
     <>

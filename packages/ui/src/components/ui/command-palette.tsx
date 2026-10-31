@@ -26,7 +26,7 @@ export interface CommandPaletteProps {
   commands: CommandPaletteItem[];
   placeholder?: string;
   emptyMessage?: string;
-  title?: string;
+  title?: string | undefined;
 }
 
 /**

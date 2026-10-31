@@ -19,7 +19,7 @@ export function ResponsesToolbar({
 }: {
   view: ResponsesView;
   onViewChange: (view: ResponsesView) => void;
-  filters?: ReactNode;
+  filters?: ReactNode | undefined;
   actions?: ReactNode;
   /** The switch's words. Defaults "Summary", "Each response" and "Show responses as". */
   labels?: { summary?: string | undefined; each?: string | undefined; group?: string | undefined } | undefined;

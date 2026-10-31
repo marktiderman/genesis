@@ -78,7 +78,7 @@ export interface SplitProps
   /** Breakpoint at and above which the panes sit side by side. Default `"md"`. */
   at?: SplitBreakpoint;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

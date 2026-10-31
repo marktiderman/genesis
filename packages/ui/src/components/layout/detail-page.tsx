@@ -10,7 +10,7 @@ export interface DetailPageProps
   /** Page title. Rendered as the page's single `<h1>`. */
   title: React.ReactNode;
   /** Supporting line under the title — a status, an owner, a last-updated. */
-  subtitle?: React.ReactNode;
+  subtitle?: React.ReactNode | undefined;
   /** Slot above the title: a `Breadcrumb`, a back link, a `StatusBadge`. */
   breadcrumb?: React.ReactNode;
   /** Trailing controls for the whole record — Edit, Archive, a menu. */
@@ -26,7 +26,7 @@ export interface DetailPageProps
    */
   sidebarAt?: SplitBreakpoint;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

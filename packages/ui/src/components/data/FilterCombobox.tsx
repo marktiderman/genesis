@@ -22,7 +22,7 @@ import type { LucideIcon } from "lucide-react";
 export interface FilterOption {
   value: string;
   label?: string;
-  count?: number;
+  count?: number | undefined;
 }
 
 interface FilterComboboxProps {
@@ -31,10 +31,10 @@ interface FilterComboboxProps {
   options: FilterOption[];
   selected: string[];
   onChange: (selected: string[]) => void;
-  searchPlaceholder?: string;
-  allLabel?: string;
+  searchPlaceholder?: string | undefined;
+  allLabel?: string | undefined;
   /** Optional map of value -> display label */
-  labelMap?: Record<string, string>;
+  labelMap?: Record<string, string> | undefined;
 }
 
 export function FilterCombobox({
@@ -63,7 +63,7 @@ export function FilterCombobox({
     selected.length === 0
       ? allLabel || `All ${label}`
       : selected.length === 1
-        ? getDisplayLabel(selected[0])
+        ? getDisplayLabel(selected[0] ?? "")
         : `${selected.length} ${label.toLowerCase()}`;
 
   return (

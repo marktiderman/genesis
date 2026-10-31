@@ -60,14 +60,14 @@ export interface PageHeaderOptions {
   /** Quiet hint beside actions while details are collapsed */
   showDetailsHint?: boolean;
   /** Move subtitle into the details panel (default true when details exist) */
-  subtitleInDetails?: boolean;
+  subtitleInDetails?: boolean | undefined;
   defaultDetailsOpen?: boolean;
-  detailsLabel?: string;
+  detailsLabel?: string | undefined;
   /**
    * Show the in-header Header options popover so users can customize chrome.
    * Default true when the header has more than one chrome affordance.
    */
-  configurable?: boolean;
+  configurable?: boolean | undefined;
 }
 
 /** @stability Beta */
@@ -144,25 +144,25 @@ function readStoredOptions(key: string): Partial<PageHeaderOptions> {
 export interface PageHeaderAction {
   label: string;
   onClick: () => void;
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   /** `data-testid` on the menu item, so e2e can drive it. */
-  testId?: string;
-  disabled?: boolean;
+  testId?: string | undefined;
+  disabled?: boolean | undefined;
   /** Omits the action entirely — for one gated on data. */
   hidden?: boolean;
 }
 
 export interface PageHeaderProps {
   title: string;
-  subtitle?: string;
-  icon?: LucideIcon;
+  subtitle?: string | undefined;
+  icon?: LucideIcon | undefined;
   /**
    * Header chrome config (developer defaults). Merged under user picks from
    * the in-header options menu when `options.configurable` / storage is on.
    */
-  options?: PageHeaderOptions;
+  options?: PageHeaderOptions | undefined;
   /** Persist user header-option overrides (localStorage) */
-  optionsStorageKey?: string;
+  optionsStorageKey?: string | undefined;
   /** Extra trailing actions (after create); prefer first-class slots below */
   actions?: ReactNode;
   /**
@@ -174,13 +174,13 @@ export interface PageHeaderProps {
   stats?: ReactNode;
   /** Collapsible details region below the title row */
   details?: ReactNode;
-  detailsOpen?: boolean;
-  onDetailsOpenChange?: (open: boolean) => void;
+  detailsOpen?: boolean | undefined;
+  onDetailsOpenChange?: ((open: boolean) => void) | undefined;
   detailsActive?: boolean;
   detailsHint?: ReactNode;
   /** Count badge */
-  count?: number;
-  totalCount?: number;
+  count?: number | undefined;
+  totalCount?: number | undefined;
   /** Singular entity for “N rows” copy when unfiltered */
   entityName?: string;
   /** Several of `entityName`, when not `entityName` + "s". */
@@ -191,12 +191,12 @@ export interface PageHeaderProps {
    */
   countFormat?: { one?: string; other?: string; filtered?: string };
   countActive?: boolean;
-  viewMode?: ViewMode;
-  onViewModeChange?: (mode: ViewMode) => void;
-  pageSize?: number;
-  onPageSizeChange?: (size: number) => void;
-  density?: Density;
-  onDensityChange?: (density: Density) => void;
+  viewMode?: ViewMode | undefined;
+  onViewModeChange?: ((mode: ViewMode) => void) | undefined;
+  pageSize?: number | undefined;
+  onPageSizeChange?: ((size: number) => void) | undefined;
+  density?: Density | undefined;
+  onDensityChange?: ((density: Density) => void) | undefined;
   createAction?: ReactNode;
   /**
    * Additional actions, rendered in ONE overflow menu — never as more
@@ -211,7 +211,7 @@ export interface PageHeaderProps {
    * Pass `ReactNode` via `actions` instead when you need arbitrary chrome;
    * this prop is for the ordinary case, and it keeps the budget for you.
    */
-  secondaryActions?: PageHeaderAction[];
+  secondaryActions?: PageHeaderAction[] | undefined;
 }
 
 type ToggleDef = {

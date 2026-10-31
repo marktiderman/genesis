@@ -71,7 +71,7 @@ export interface RecordViewProps<T extends Row = Row> {
   lists?: Partial<Record<string, Partial<Omit<ResourceViewProps, "view" | "filter">>>>;
   /** The readiness chip's words. */
   readinessLabels?: ReadinessLabels;
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

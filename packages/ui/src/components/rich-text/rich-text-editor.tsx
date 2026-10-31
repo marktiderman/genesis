@@ -194,15 +194,15 @@ export interface RichTextEditorProps {
    * (wired as `aria-labelledby`, since a contenteditable is not a labelable
    * element) and clicking it focuses the editor.
    */
-  id?: string;
+  id?: string | undefined;
   /**
    * Form field name. When set, a hidden input carries the document as JSON
    * so a native `<form>` submission includes it.
    */
   name?: string;
-  "aria-label"?: string;
+  "aria-label"?: string | undefined;
   "aria-labelledby"?: string;
-  "aria-describedby"?: string;
+  "aria-describedby"?: string | undefined;
   /** Marks the field invalid (`aria-invalid`, destructive border). */
   invalid?: boolean;
   /** Placeholder shown while the document is empty. */
@@ -210,7 +210,7 @@ export interface RichTextEditorProps {
   /** Content is visible and selectable but not editable; the toolbar is hidden. */
   readOnly?: boolean;
   /** Not editable, toolbar disabled, dimmed. */
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   autoFocus?: boolean;
   /** Heading levels offered in the toolbar and kept in the document. Default `[2, 3]`. Read at mount. */
   headingLevels?: readonly RichTextHeadingLevel[];
@@ -229,7 +229,7 @@ export interface RichTextEditorProps {
   /** Classes for the editable area (for example a taller `min-h-*`). */
   contentClassName?: string;
   /** Stable test/automation selector (emitted as `data-testid` on the frame). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -896,7 +896,7 @@ function LinkPopover({
 
   React.useEffect(() => {
     if (open && editor) {
-      setUrl((editor.getAttributes("link").href as string | undefined) ?? "");
+      setUrl((editor.getAttributes("link")["href"] as string | undefined) ?? "");
       setError(false);
     }
   }, [open, editor]);

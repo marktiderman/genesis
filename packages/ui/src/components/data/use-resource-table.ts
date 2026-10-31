@@ -35,6 +35,7 @@ import { writeModeOptions } from "./undo-toast";
 import { toast } from "../ui/sonner";
 import { useUiMessages } from "../../messages";
 import { defaultNavigate } from "../../navigation";
+import { compact } from "./compact";
 
 /**
  * Everything ResourcePage's markup reads. Internal: its names may change in
@@ -219,7 +220,7 @@ export function useResourceTableModel<
   const resourceHook = useResource<T & BaseRecord>(
     resourceName ?? "__noop__",
     isClientMode
-      ? {
+      ? compact({
           ...resourceOptions,
           // Client paging fetches everything it can in one request; server
           // paging starts at the user's stored page size. An explicit
@@ -250,10 +251,10 @@ export function useResourceTableModel<
           // only writes.
           ...(resourceCursorPaging ? { enabled: false } : {}),
           live: resourceOptions?.live ?? live,
-        }
+        })
       : { enabled: false },
   );
-  const infinite = useInfiniteResource<T & BaseRecord>(resourceName ?? "__noop__", {
+  const infinite = useInfiniteResource<T & BaseRecord>(resourceName ?? "__noop__", compact({
     enabled: resourceCursorPaging && (resourceOptions?.enabled ?? true),
     perPage: resourceOptions?.defaultPerPage ?? perPageProp ?? settings.pageSize,
     defaultSort: resourceOptions?.defaultSort,
@@ -267,7 +268,7 @@ export function useResourceTableModel<
     ...(resourceCursorPaging && urlSeed
       ? { defaultSearch: urlSeed.q, ...(urlSeed.sort ? { defaultSort: urlSeed.sort } : {}) }
       : {}),
-  });
+  }));
 
   /** Explicit prop beats the per-user stored preference. */
   const effectivePageSize = resourceServerPaging
@@ -470,7 +471,7 @@ export function useResourceTableModel<
   // ── Row identity ──
   const keyOf = useCallback(
     (item: T): string =>
-      getKeyProp ? getKeyProp(item) : String((item as Record<string, unknown>).id ?? ""),
+      getKeyProp ? getKeyProp(item) : String((item as Record<string, unknown>)["id"] ?? ""),
     [getKeyProp],
   );
 
@@ -621,7 +622,7 @@ export function useResourceTableModel<
         await removeRecord(
           (getKeyProp
             ? keyOf(item)
-            : (item as Record<string, unknown>).id) as Identifier,
+            : (item as Record<string, unknown>)["id"]) as Identifier,
         );
       } else if (onDelete) {
         await onDelete(item);
@@ -981,7 +982,7 @@ export function useResourceTableModel<
   const handleRowClick = (item: T) => {
     if (detail === "route") {
       // Navigate to /{resource}/{id}
-      const id = (item as Record<string, unknown>).id;
+      const id = (item as Record<string, unknown>)["id"];
       if (resourceName && id) {
         onNavigate(`/${resourceName}/${id}`);
       }

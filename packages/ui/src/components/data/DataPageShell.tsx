@@ -17,7 +17,7 @@ import type { Density } from "../../hooks/use-view-settings";
 export interface DataPageShellProps {
   /** Display title for the page */
   title: string;
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   /** Singular entity name for generated text, e.g. "session" */
   entityName?: string;
   /** Several of `entityName` ("people"), when not `entityName` + "s". */
@@ -25,27 +25,27 @@ export interface DataPageShellProps {
   /** The count's words; see PageHeader `countFormat`. */
   countFormat?: { one?: string; other?: string; filtered?: string };
   /** Subtitle text */
-  subtitle?: string;
+  subtitle?: string | undefined;
   createAction?: ReactNode;
   /** Extra actions, rendered in the header's one overflow menu. */
-  secondaryActions?: PageHeaderAction[];
+  secondaryActions?: PageHeaderAction[] | undefined;
   isLoading?: boolean;
   isEmpty?: boolean;
-  emptyIcon?: LucideIcon;
-  emptyMessage?: string;
+  emptyIcon?: LucideIcon | undefined;
+  emptyMessage?: string | undefined;
   /**
    * A sentence under the empty-state title — what this list is for, or what
    * to do first. Forwarded to `EmptyState`'s `description`; hidden while
    * filters are active, where "no results" is the whole story.
    */
-  emptyDescription?: string;
+  emptyDescription?: string | undefined;
   emptyAction?: ReactNode;
   /** Error state */
   hasError?: boolean;
-  errorMessage?: string;
-  onRetry?: () => void;
+  errorMessage?: string | undefined;
+  onRetry?: (() => void) | undefined;
   /** Number of filtered/visible items */
-  count?: number;
+  count?: number | undefined;
   /** Total items before filtering */
   totalCount?: number;
   viewMode?: ViewMode;
@@ -53,8 +53,8 @@ export interface DataPageShellProps {
   /** View settings */
   pageSize?: number;
   onPageSizeChange?: (size: number) => void;
-  density?: Density;
-  onDensityChange?: (density: Density) => void;
+  density?: Density | undefined;
+  onDensityChange?: ((density: Density) => void) | undefined;
   /**
    * Slot for a stat cards row. Forwarded to the header, which renders it
    * full width under the title block and above the filters — but only when
@@ -63,7 +63,7 @@ export interface DataPageShellProps {
    */
   stats?: ReactNode;
   /** Slot for filter bar */
-  filters?: ReactNode;
+  filters?: ReactNode | undefined;
   /** Whether filters are currently active */
   hasActiveFilters?: boolean;
   onClearFilters?: () => void;

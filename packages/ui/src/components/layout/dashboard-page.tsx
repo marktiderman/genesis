@@ -9,7 +9,7 @@ export interface DashboardPageProps
   /** Page title. Rendered as the page's single `<h1>`. */
   title: React.ReactNode;
   /** Supporting line under the title — a date range, a scope, a filter. */
-  subtitle?: React.ReactNode;
+  subtitle?: React.ReactNode | undefined;
   /** Trailing controls — a period picker, an export, a refresh. */
   actions?: React.ReactNode;
   /**
@@ -24,7 +24,7 @@ export interface DashboardPageProps
    */
   statColumns?: NonNullable<GridProps["cols"]>;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

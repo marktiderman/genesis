@@ -77,7 +77,7 @@ export function ShareDialog({
   /** Default "Share your {noun}". */
   title?: string | undefined;
   /** Default "Anyone with the link can open it." */
-  description?: ReactNode;
+  description?: ReactNode | undefined;
   /** The public link; null while it is still loading. */
   url: string | null;
   /** A printable poster for a link (the base link, or a prefilled one), when the host has one. */

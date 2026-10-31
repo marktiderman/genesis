@@ -14,13 +14,12 @@ export interface BulkAction {
   label: string;
   icon: LucideIcon;
   onClick: () => void;
-  variant?:
-    | "default"
+  variant?: ("default"
     | "destructive"
     | "outline"
     | "secondary"
     | "ghost"
-    | "link";
+    | "link") | undefined;
   /**
    * Makes this action inert: it renders with the Button primitive's native
    * `disabled` attribute, so it is neither clickable nor focusable, and it
@@ -38,7 +37,7 @@ export interface BulkAction {
    *
    * Optional and defaulted off — omitting it behaves exactly as before.
    */
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /**
    * `data-testid` on the rendered button.
    *
@@ -47,7 +46,7 @@ export interface BulkAction {
    * reason not to migrate, and the kind of small missing affordance that
    * keeps a parallel implementation alive.
    */
-  testId?: string;
+  testId?: string | undefined;
 }
 
 export interface DataBulkBarProps {

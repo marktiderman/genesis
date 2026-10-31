@@ -14,7 +14,7 @@ export interface AuthPageBrandingProps {
   headline: React.ReactNode;
   /** One line under the headline. */
   subhead?: React.ReactNode;
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /** The parts of an {@link AuthPage} that `slots` and `slotProps` reach. Names match native `AuthScreenSlotMap`. */
@@ -48,7 +48,7 @@ export interface AuthPageProps extends Omit<React.HTMLAttributes<HTMLDivElement>
   /** More props for a default part, merged over what the page passes. */
   slotProps?: SlotPropsFor<AuthPageSlotMap>;
   /** testID on the root. Default `"auth-page"`; parts use `${testID}-branding`, `-card`, `-social`, `-footer`, `-legal`, `-aside`. */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

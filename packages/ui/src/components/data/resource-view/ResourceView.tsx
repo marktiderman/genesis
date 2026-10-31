@@ -22,7 +22,7 @@ export interface ResourceViewOptions {
   /** `page` (default), `embedded` inside a page or tab, or `compact` for a narrow side panel. */
   layout?: "page" | "embedded" | "compact";
   /** A column preset the view defines (`"compact"`). Default: the preset's own, then `default`. */
-  columns?: string;
+  columns?: string | undefined;
   /** A tab the view defines: its columns and its filter. */
   preset?: string;
   /**
@@ -43,9 +43,9 @@ export interface ResourceViewOptions {
    */
   defaults?: Defaults;
   /** How rows show first. The user's own pick is remembered. */
-  mode?: "table" | "grid" | "list";
-  title?: string;
-  subtitle?: string;
+  mode?: "table" | "grid" | "list" | undefined;
+  title?: string | undefined;
+  subtitle?: string | undefined;
 }
 
 export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
