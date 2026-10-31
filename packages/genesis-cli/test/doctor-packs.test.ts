@@ -361,12 +361,14 @@ describe("supabase pack", () => {
     expect(brief(r.findings)).toEqual([
       "migration-rls supabase/migrations/20260101000000_init.sql:5 public.todos",
       "migration-definer-search-path supabase/migrations/20260101000000_init.sql:13 private.do_thing(uuid)",
+      // The body's `execute 'grant … to anon'` can't be read, so it's a warning.
+      "migration-grants supabase/migrations/20260101000000_init.sql:13 dynamic grant",
       "migration-grants supabase/migrations/20260102000000_grants.sql:2 on all functions",
       "migration-grants supabase/migrations/20260102000000_grants.sql:3 alter default privileges",
       "migration-grants supabase/migrations/20260102000000_grants.sql:5 private.do_thing",
     ]);
     // A blanket grant to authenticated is a warning; to anon or public an error.
-    expect(r.findings.map((f) => f.level)).toEqual(["error", "error", "warn", "error", "error"]);
+    expect(r.findings.map((f) => f.level)).toEqual(["error", "error", "warn", "warn", "error", "error"]);
     expect(r.findings.find((f) => f.subject === "private.do_thing")!.message).toContain("to anon;");
   });
 
@@ -442,6 +444,27 @@ describe("supabase pack", () => {
       `migration-grants ${M}:9 alter default privileges`,
     ]);
     expect(levels(r.findings, "migration-grants")).toEqual(["error", "error", "error", "warn"]);
+  });
+
+  it("migration-grants: grants built in dynamic SQL are a warning", async () => {
+    const r = await migration(
+      [
+        "do $$ declare f text; begin",
+        "  for f in select oid::regprocedure::text from pg_proc loop",
+        "    execute format('grant execute on function %s to anon', f);",
+        "  end loop;",
+        "end $$;",
+        "do $$ begin execute 'grant select on public.t to ' || current_setting('app.role'); end $$;",
+        "do $$ begin execute format('grant usage on schema %I to authenticated', 'x'); end $$;",
+        "do $$ begin perform 1; -- 'grant all to anon'\nend $$;",
+      ].join("\n"),
+    );
+    expect(brief(r.findings, "migration-grants")).toEqual([`migration-grants ${M}:1 dynamic grant`, `migration-grants ${M}:6 dynamic grant`]);
+    expect(levels(r.findings, "migration-grants")).toEqual(["warn", "warn"]);
+    expect(r.findings.filter((f) => f.rule === "migration-grants").map((f) => f.message)).toEqual([
+      expect.stringContaining("grant to anon in dynamic SQL"),
+      expect.stringContaining("computed role"),
+    ]);
   });
 
   it("migration-rls: dynamic enables, disable, rename and set schema", async () => {
@@ -524,8 +547,11 @@ describe("supabase pack", () => {
         "migration-edited supabase/migrations/20260101000000_init.sql:0 supabase/migrations/20260101000000_init.sql",
       ]);
       expect(r.findings.find((f) => f.rule === "migration-edited")!.message).toContain("put the change in a new migration");
-      // The untouched grants migration is no longer checked; the new one is.
-      expect(brief(r.findings, "migration-grants")).toEqual(["migration-grants supabase/migrations/20260103000000_new.sql:1 on all functions"]);
+      // The untouched grants migration is no longer checked; the new one and the edited one are.
+      expect(brief(r.findings, "migration-grants")).toEqual([
+        "migration-grants supabase/migrations/20260101000000_init.sql:13 dynamic grant",
+        "migration-grants supabase/migrations/20260103000000_new.sql:1 on all functions",
+      ]);
     });
 
     it("migration-edited: deleting an applied migration counts too", async () => {

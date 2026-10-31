@@ -3,7 +3,9 @@
  * `doctor.packs: ["supabase"]`.
  *
  * - migration-grants: blanket function grants and grants of unexposed
- *   functions or schemas to anon/public, in new or changed migrations.
+ *   functions or schemas to anon/public, in new or changed migrations; a grant
+ *   built as a string for `execute` (to anon/public, or to a computed role) is
+ *   a warning, since what it grants can't be read.
  * - migration-rls: a table in an exposed schema whose row level security is off
  *   after every migration has run.
  * - migration-definer-search-path: a security definer function without a pinned search_path.
@@ -315,6 +317,25 @@ function granteesOf(s: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Grants built as strings inside a body (`execute format('grant … to anon', f)` in a loop, or
+ * `'grant … to ' || role`): the grantee when it is anon or public, or `null` when it is computed.
+ * Grants to a named role other than anon and public aren't returned.
+ */
+export function dynamicGrants(body: string): Array<string | null> {
+  const out: Array<string | null> = [];
+  const code = body.replace(/--[^\n]*/g, "");
+  for (const m of code.matchAll(/'\s*grant\b[^;]*/g)) {
+    const to = /\bto\s+([^']*)/.exec(m[0]);
+    if (!to) continue;
+    const roles = to[1]!.replace(/\s+with grant option[\s\S]*$/, "").trim();
+    const open = /\b(anon|public)\b/.exec(roles);
+    if (open) out.push(open[1]!);
+    else if (!roles || /%[sil]/.test(roles)) out.push(null);
+  }
+  return out;
+}
+
 /** `migration-grants`: grant function privileges by name, and never expose an unexposed schema to anon/public. */
 function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<string>): void {
   const fix = "grant by name (grant execute on function schema.fn(args) to role) so an earlier revoke survives";
@@ -327,7 +348,21 @@ function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<s
     return null;
   };
   for (const { file, statements } of migrations) {
-    for (const { sql, line } of statements) {
+    for (const { sql, line, bodies } of statements) {
+      const dynamic = bodies.flatMap(dynamicGrants);
+      if (dynamic.length) {
+        const named = [...new Set(dynamic.filter((r): r is string => r !== null))];
+        ctx.report({
+          rule: "migration-grants",
+          level: "warn",
+          file,
+          line,
+          subject: "dynamic grant",
+          message: named.length
+            ? `builds a grant to ${named.join(" and ")} in dynamic SQL (execute), so the doctor can't check what it grants; grant each function by name, or make sure every target is in an exposed schema`
+            : "builds a grant to a computed role in dynamic SQL (execute), so the doctor can't check it isn't anon or public; name the role in the grant",
+        });
+      }
       const all = /^grant\b.*\bon all (?:functions|routines|procedures) in schema .+? to (.+)$/.exec(sql);
       if (all) {
         const hit = blanket(granteesOf(all[1]));
