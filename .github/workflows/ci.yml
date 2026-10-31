@@ -81,6 +81,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      # genesis-ui's source compiles under the strictest settings an app may use, so an app
+      # that builds it from source needs no patches.
+      - name: Typecheck genesis-ui (strict)
+        run: pnpm --filter @marktiderman/genesis-ui typecheck:strict
+
       # Two packages at a time: every package's test runner at once starved the runner, and
       # async UI tests (forms-native, the native starter) timed out on CI only.
       - name: Test

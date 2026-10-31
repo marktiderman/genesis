@@ -44,7 +44,8 @@
     "clean": "rm -rf dist",
     "check:exports": "node ../../scripts/check-exports-resolve.mjs",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json"
+    "typecheck": "tsc -p tsconfig.type-tests.json && tsc -p tsconfig.type-tests-exact.json",
+    "typecheck:strict": "tsc -p tsconfig.strict.json"
   },
   "exports": {
     ".": {

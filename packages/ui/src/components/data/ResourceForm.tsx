@@ -28,6 +28,7 @@ import {
   type UseResourceFormOptions,
 } from "@marktiderman/genesis-core/hooks";
 import { showUndoToast, showWriteErrorToast } from "./undo-toast";
+import { compact } from "./compact";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "./ResourceFormField";
 import { WizardForm } from "./WizardForm";
 import type { WizardStep } from "@marktiderman/genesis-core/hooks";
@@ -348,8 +349,11 @@ export function ResourceForm(props: ResourceFormProps) {
     ? fillMessage(action === "create" ? m.form.createDescription : m.form.editDescription, { noun })
     : `${action === "create" ? "Fill in the details to create a new" : "Update the"} ${resourceLabel.toLowerCase()} record.`;
 
-  // `as`: some settings are `undefined` here, which useResourceForm reads as absent, under `exactOptionalPropertyTypes`.
-  const hookOptions = {
+  // `compact`: some settings are `undefined` here, which useResourceForm reads as absent. The type
+  // argument keeps the literal checked against the hook's options, so a misspelled key is an error.
+  const hookOptions: UseResourceFormOptions = compact<{
+    [K in keyof UseResourceFormOptions]: UseResourceFormOptions[K] | undefined;
+  }>({
     resource,
     action,
     id: item ? String(item["id"] ?? "") : undefined,
@@ -371,7 +375,7 @@ export function ResourceForm(props: ResourceFormProps) {
     mutationMode,
     undoDelayMs,
     onUndoable: onUndoable ?? showUndoToast,
-  } as UseResourceFormOptions;
+  });
 
   const { form, resolvedFields, handleSave, isSaving, isLoading, isDirty, confirmLeave } =
     useResourceForm(hookOptions);
