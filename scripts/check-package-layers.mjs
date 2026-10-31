@@ -8,7 +8,9 @@
  *      primitive; module → foundation, primitive or a module it lists in
  *      `genesis.module.requiresModules`; tooling → anything; nothing outside tooling uses a
  *      tooling package or a package's `toolingEntries`;
- *   3. there is a dependency cycle among the runtime packages;
+ *   3. there is a dependency cycle among the runtime packages (optional peers aren't edges), or a
+ *      foundation package or primitive uses an optional package other than as an optional peer
+ *      imported for types or with import();
  *   4. a module's docs or skill is missing, or its skill isn't in the package's `files`.
  *
  * "Uses" is a package's dependencies and peer dependencies plus every Genesis specifier its
@@ -29,6 +31,21 @@ const SOURCE = /\.(?:ts|tsx|mts|cts|js|jsx|mjs)$/;
 const SKIP_FILE = /(?:\.test|\.spec|\.stories)\.[cm]?[jt]sx?$|\.d\.ts$/;
 const SKIP_DIR = new Set(["node_modules", "dist", "__tests__", "__mocks__", "test", "tests", "fixtures"]);
 const IMPORT = /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|\bimport\s+)["'](@marktiderman\/genesis[^"']*)["']/g;
+/** A static `import … from`, `export … from` or bare `import "x"` of a Genesis package, at the start of a statement. */
+const STATIC = /(?:^|[\n;])\s*(?:(import|export)\s+(type\s+)?([^;"'`]*?)\s*from\s*|import\s+)["'](@marktiderman\/genesis[^"']*)["']/g;
+
+/** Genesis specifiers a file imports statically for their values (not `import type`, not `{ type A, type B }`, not `import()`). */
+export function valueImportsIn(code) {
+  const out = [];
+  for (const m of code.matchAll(STATIC)) {
+    if (m[2]) continue;
+    const clause = (m[3] ?? "").trim();
+    const braces = /^\{([^}]*)\}$/.exec(clause);
+    if (braces && braces[1].split(",").map((s) => s.trim()).filter(Boolean).every((s) => s.startsWith("type "))) continue;
+    out.push(m[4]);
+  }
+  return out;
+}
 
 function sourceFiles(dir) {
   if (!existsSync(dir)) return [];
@@ -49,7 +66,10 @@ export function readWorkspace(root) {
       const pkgDir = path.join(dir, d);
       const json = JSON.parse(readFileSync(path.join(pkgDir, "package.json"), "utf8"));
       const declared = Object.keys({ ...json.dependencies, ...json.peerDependencies, ...json.optionalDependencies });
-      const imported = sourceFiles(path.join(pkgDir, "src")).flatMap((f) => [...readFileSync(f, "utf8").matchAll(IMPORT)].map((m) => m[1]));
+      const codes = sourceFiles(path.join(pkgDir, "src")).map((f) => readFileSync(f, "utf8"));
+      const imported = codes.flatMap((code) => [...code.matchAll(IMPORT)].map((m) => m[1]));
+      // An optional peer is one listed only in peerDependencies (marked optional), not also a dependency.
+      const required = new Set(Object.keys({ ...json.dependencies, ...json.optionalDependencies }));
       return {
         dir: pkgDir,
         json,
@@ -58,7 +78,11 @@ export function readWorkspace(root) {
           genesis: json.genesis,
           exports: json.exports && typeof json.exports === "object" ? Object.keys(json.exports) : undefined,
           uses: [...new Set([...declared, ...imported])].sort(),
-          optionalPeers: Object.entries(json.peerDependenciesMeta ?? {}).filter(([, m]) => m && m.optional === true).map(([n]) => n).sort(),
+          optionalPeers: Object.entries(json.peerDependenciesMeta ?? {})
+            .filter(([n, m]) => m && m.optional === true && Object.hasOwn(json.peerDependencies ?? {}, n) && !required.has(n))
+            .map(([n]) => n)
+            .sort(),
+          valueImports: [...new Set(codes.flatMap(valueImportsIn))].sort(),
         },
       };
     });

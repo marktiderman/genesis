@@ -18,12 +18,12 @@ const SUPPORT = "@marktiderman/genesis-support";
 const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 const marker = (name: string, version: string, since = daysAgo(0)) => ({ upstream: `${name}@${version}`, since, owner: "web team", reason: "inbox filters, to promote upstream" });
 const overlayJson = (extra: Record<string, unknown> = {}, overlay: unknown = marker(SUPPORT, "0.2.6")) =>
-  JSON.stringify({ name: SUPPORT, version: "0.2.6-local.1", genesis: { doctor: { enforce: false, reason: "a sample" }, overlay }, ...extra });
+  JSON.stringify({ name: SUPPORT, version: "0.2.6+local.1", private: true, genesis: { doctor: { enforce: false, reason: "a sample" }, overlay }, ...extra });
 const APP = { "genesis.config.json": JSON.stringify({ localPackages: ["packages/*"] }) };
 const rules = (findings: Finding[], prefix: string) => findings.filter((f) => f.rule.startsWith(prefix) && f.level !== "info").map((f) => `${f.level} ${f.rule} ${f.subject ?? ""}`.trim());
 
 describe("overlay marker rules", () => {
-  it("is quiet for a fresh, marked overlay versioned <upstream>-local.N", async () => {
+  it("is quiet for a fresh, marked overlay versioned <upstream>+local.N", async () => {
     const result = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson() }), config: {}, strict: true });
     expect(rules(result.findings, "overlay-")).toEqual([]);
   });
@@ -69,10 +69,40 @@ describe("overlay marker rules", () => {
   });
 
   it("overlay-version: warns on any other version", async () => {
-    for (const version of ["0.2.7-local.1", "0.2.6-local", "0.2.7", "0.2.6+build.1"]) {
+    for (const version of ["0.2.7-local.1", "0.2.6-local", "0.2.7", "0.2.6+build.1", "0.2.6-local.01"]) {
       const result = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({ version }) }), config: {} });
       expect(rules(result.findings, "overlay-")).toEqual([`warn overlay-version ${version}`]);
     }
+  });
+});
+
+describe("what counts as an overlay", () => {
+  const invalid = (findings: Finding[]) => findings.filter((f) => f.rule === "overlay-invalid").map((f) => f.message);
+
+  it("overlay-invalid: a since later than tomorrow, which would keep overlay-age quiet for good", async () => {
+    const result = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({}, marker(SUPPORT, "0.2.6", "2099-12-31")) }), config: {} });
+    expect(invalid(result.findings)).toEqual([expect.stringMatching(/since: 2099-12-31 is in the future/)]);
+    const tomorrow = await runDoctor({ root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({}, marker(SUPPORT, "0.2.6", daysAgo(-1))) }), config: {} });
+    expect(invalid(tomorrow.findings)).toEqual([]);
+  });
+
+  it("overlay-invalid: an overlay that isn't private, which then doesn't count as the package", async () => {
+    const result = await runDoctor({
+      root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson({ private: false }) }),
+      config: {},
+    });
+    expect(invalid(result.findings)).toEqual([expect.stringMatching(/set "private": true/)]);
+  });
+
+  it("overlay-invalid: a folder holding the app's source, whose marker switches nothing off", async () => {
+    const BUTTON = 'export const Button = () => <button />;\n';
+    const ui = JSON.stringify({ name: "@marktiderman/genesis-ui", version: "9.9.9", private: true, genesis: { overlay: marker("@marktiderman/genesis-ui", "9.9.9") } });
+    const result = await runDoctor({
+      root: makeApp(null, { "genesis.config.json": JSON.stringify({ localPackages: ["src"] }), "src/package.json": ui, "src/button.tsx": BUTTON }),
+      config: {},
+    });
+    expect(invalid(result.findings)).toEqual([expect.stringMatching(/a package folder of its own, not in src/)]);
+    expect(result.findings.filter((f) => f.rule === "shadowed-export" || f.rule === "raw-tag").map((f) => f.rule).sort()).toEqual(["raw-tag", "shadowed-export"]);
   });
 });
 
@@ -101,6 +131,16 @@ describe("overlays and the packages pack", () => {
     expect(migrationFindings(result.findings)).toEqual([expect.stringMatching(/0007_missing\.test\.sql \(in @marktiderman\/genesis-supabase\) doesn't exist/)]);
   });
 
+  it("reports a migration package that can't be found, or isn't a valid name", async () => {
+    for (const [pkg, want] of [
+      ["@marktiderman/genesis-nowhere", /names the package @marktiderman\/genesis-nowhere, which isn't installed or a local package/],
+      ["../../etc", /isn't a valid package name/],
+    ] as const) {
+      const result = await runDoctor({ root: makeApp(null, { ...APP, ...SUPABASE, "packages/support/package.json": withBlock({ ...MIGRATION, package: pkg }) }), config: PACKAGES });
+      expect(migrationFindings(result.findings)).toEqual([expect.stringMatching(want)]);
+    }
+  });
+
   it("package-unversioned-change skips a marked overlay, but not an unmarked package", async () => {
     const root = makeApp(null, {
       ...APP,
@@ -123,15 +163,27 @@ describe("overlays and the packages pack", () => {
 });
 
 describe("version-skew", () => {
-  it("skips a marked overlay, and still warns for an unmarked copy", async () => {
-    const umbrella = {
-      "node_modules/@marktiderman/genesis/package.json": JSON.stringify({ name: "@marktiderman/genesis", version: "1.0.0" }),
-      "node_modules/@marktiderman/genesis/dist/versions.json": JSON.stringify({ version: "1.0.0", packages: { [SUPPORT]: "0.2.6" } }),
-    };
-    const skew = async (json: string) =>
-      (await runDoctor({ root: makeApp(null, { ...umbrella, [`node_modules/${SUPPORT}/package.json`]: json }), config: {} })).findings.filter((f) => f.rule === "version-skew");
-    expect(await skew(overlayJson())).toEqual([]);
-    expect(await skew(JSON.stringify({ name: SUPPORT, version: "0.2.7" }))).toHaveLength(1);
+  const umbrella = {
+    "node_modules/@marktiderman/genesis/package.json": JSON.stringify({ name: "@marktiderman/genesis", version: "1.0.0" }),
+    "node_modules/@marktiderman/genesis/dist/versions.json": JSON.stringify({ version: "1.0.0", packages: { [SUPPORT]: "0.2.6" } }),
+  };
+  /** The overlay listed in localPackages and linked into node_modules, as a workspace install does. */
+  const linked = (json: string) => {
+    const root = makeApp(null, { ...APP, ...umbrella, "packages/support/package.json": json });
+    mkdirSync(path.join(root, "node_modules/@marktiderman"), { recursive: true });
+    symlinkSync(path.join(root, "packages/support"), path.join(root, "node_modules", SUPPORT), "dir");
+    return root;
+  };
+  const skew = async (root: string) => (await runDoctor({ root, config: {} })).findings.filter((f) => f.rule === "version-skew").map((f) => f.message);
+
+  it("compares a listed overlay by the release it was copied from", async () => {
+    expect(await skew(linked(overlayJson()))).toEqual([]);
+    expect(await skew(linked(overlayJson({ version: "0.2.5+local.1" }, marker(SUPPORT, "0.2.5"))))).toEqual([expect.stringMatching(/overlay of .* was copied from 0\.2\.5, but .* was released with 0\.2\.6/)]);
+  });
+
+  it("doesn't skip a marked package in node_modules that the app doesn't list", async () => {
+    const found = await skew(makeApp(null, { ...umbrella, [`node_modules/${SUPPORT}/package.json`]: overlayJson() }));
+    expect(found).toEqual([expect.stringMatching(/is 0\.2\.6\+local\.1, but/)]);
   });
 });
 
@@ -144,7 +196,8 @@ describe("an overlay of the component package", () => {
       ...APP,
       "packages/ui/package.json": JSON.stringify({
         name: UI,
-        version: "9.9.9-local.1",
+        version: "9.9.9+local.1",
+        private: true,
         exports: { ".": "./src/index.ts", "./data": { import: "./src/data/index.ts" } },
         genesis: { doctor: { enforce: false, reason: "a sample" }, ...(markIt ? { overlay: marker(UI, "9.9.9") } : {}) },
       }),
@@ -181,11 +234,40 @@ describe("an overlay of the component package", () => {
     );
   });
 
+  it("stays inside the package and survives a re-export cycle; string contents aren't comments", () => {
+    const pkg = readPackageExports(
+      uiOverlay(true, {
+        "packages/ui/src/index.ts": 'export * from "./a";\nexport * from "../../outside";\nexport const ICONS = "./icons/*.svg"; export const Tag = () => null;\n',
+        "packages/ui/src/a.ts": 'export * from "./index";\nexport const Alpha = () => null;\n',
+        "packages/outside.ts": "export const Outside = () => null;\n",
+      }),
+      UI,
+    )!;
+    expect(pkg.components).toEqual(["Alpha", "ResourceView", "Tag"]);
+  });
+
   it("an overlay of another package still may not shadow the component package", async () => {
     const result = await runDoctor({
       root: makeApp(null, { ...APP, "packages/support/package.json": overlayJson(), "packages/support/src/button.tsx": BUTTON }),
       config: {},
     });
     expect(result.findings.filter((f) => f.rule === "shadowed-export").map((f) => f.file)).toEqual(["packages/support/src/button.tsx"]);
+  });
+});
+
+describe("an overlay of the native component package", () => {
+  it("skips native-raw-primitive inside it, and still flags the app", async () => {
+    const NATIVE = "@marktiderman/genesis-ui-native";
+    const MODAL = 'import { Modal } from "react-native";\nexport const Sheet = () => <Modal />;\n';
+    const result = await runDoctor({
+      root: makeApp(null, {
+        ...APP,
+        "packages/ui-native/package.json": JSON.stringify({ name: NATIVE, version: "9.9.9", private: true, genesis: { doctor: { enforce: false, reason: "a sample" }, overlay: marker(NATIVE, "9.9.9") } }),
+        "packages/ui-native/src/sheet.tsx": MODAL,
+        "src/sheet.tsx": MODAL,
+      }),
+      config: { packs: ["native"], src: ["src", "packages"] },
+    });
+    expect(result.findings.filter((f) => f.rule === "native-raw-primitive").map((f) => f.file)).toEqual(["src/sheet.tsx"]);
   });
 });

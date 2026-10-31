@@ -7,7 +7,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { findPackageDir } from "./genesis.js";
-import { markerAt } from "./overlays.js";
+import { markedOverlays } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 
 export const UMBRELLA_PACKAGE = "@marktiderman/genesis";
@@ -26,15 +26,29 @@ export function readReleaseManifest(root: string): ReleaseManifest | null {
   return JSON.parse(readFileSync(file, "utf8")) as ReleaseManifest;
 }
 
-/** `version-skew`: an installed Genesis package isn't the version the installed umbrella was released with. A marked overlay is skipped. */
+/** `version-skew`: an installed Genesis package isn't the version the installed umbrella was released with. The app's marked overlay is compared by the release it was copied from. */
 export function checkVersionSkew(ctx: DoctorContext): void {
   const manifest = readReleaseManifest(ctx.root);
   if (!manifest) return;
+  const overlays = markedOverlays(ctx);
   for (const [name, want] of Object.entries(manifest.packages)) {
+    // The app's marked overlay is meant to differ from the release: what it was copied from must match.
+    const overlay = overlays.get(name);
+    if (overlay) {
+      const from = overlay.marker.upstream.slice(overlay.marker.upstream.lastIndexOf("@") + 1);
+      if (from !== want) {
+        ctx.report({
+          rule: "version-skew",
+          level: "warn",
+          file: "package.json",
+          subject: name,
+          message: `the app's overlay of ${name} was copied from ${from}, but ${UMBRELLA_PACKAGE} ${manifest.version} was released with ${want}. Bring the overlay onto ${want} (or promote it and adopt the release).`,
+        });
+      }
+      continue;
+    }
     const dir = findPackageDir(ctx.root, name);
     if (!dir) continue;
-    // The app's marked overlay of the package is meant to differ from the release (overlays.ts).
-    if (markerAt(dir)) continue;
     const have = (JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { version: string }).version;
     if (have === want) continue;
     ctx.report({

@@ -170,13 +170,15 @@ Then:
 
 An **overlay** is a local package that shadows a published `@marktiderman/genesis-*` package by
 name: the package's source, copied into the app at a release, so the app can change it and ship
-the change the same day. List it in `localPackages` like any local package, and mark it in its
-package.json, keeping the package's own `genesis` key:
+the change the same day. Put it in a package folder of its own (`packages/genesis-support`), list it
+in `localPackages` like any local package, and mark it in its package.json, keeping the package's
+own `genesis` key:
 
 ```json
 {
   "name": "@marktiderman/genesis-support",
   "version": "0.2.6+local.1",
+  "private": true,
   "genesis": {
     "doctor": { "…": "the package's own declaration" },
     "overlay": {
@@ -189,10 +191,12 @@ package.json, keeping the package's own `genesis` key:
 }
 ```
 
-- `upstream`: the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`).
-- `since`: the day the overlay was made, `YYYY-MM-DD`.
+- `upstream`: the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`,
+  a prerelease allowed; no build metadata and no `-local.N`, which are an overlay's own versions).
+- `since`: the day the overlay was made, `YYYY-MM-DD`, not later than tomorrow.
+- `private: true`: an overlay never publishes.
 - `owner`, `reason`: who answers for it and why it exists.
-- `version`: `<upstream version>+local.N` by convention. Build metadata (`+`) keeps it inside other Genesis packages' peer ranges (`^0.2.6`), which a prerelease (`-local.N`) would fall outside; the upstream version itself, or `-local.N`, are also accepted.
+- `version`: `<upstream version>+local.N` by convention (`N` without leading zeros). Build metadata (`+`) keeps it inside other Genesis packages' peer ranges (`^0.2.6`), which a prerelease (`-local.N`) would fall outside; the upstream version itself, or `-local.N`, are also accepted.
 
 **Wiring it in.** The app depends on the overlay as `"@marktiderman/genesis-support": "workspace:*"`,
 and adds a root `overrides` entry (`pnpm.overrides`, npm and Bun `overrides`, Yarn `resolutions`)
@@ -213,16 +217,20 @@ any local package. Then:
 | Rule | Level | What it flags |
 | --- | --- | --- |
 | `overlay-unmarked` | error | A local package with a `@marktiderman/genesis-*` name and no `genesis.overlay`. Mark it, or rename it. |
-| `overlay-invalid` | error | A marker that doesn't validate: each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key. |
+| `overlay-invalid` | error | A marker that doesn't validate (each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key), a `since` later than tomorrow, an overlay that isn't `private: true`, or an overlay folder that holds the app's scanned source (`src`, or the app root). Such an overlay doesn't count as the package below. |
 | `overlay-age` | warn / error | A marker older than 14 days warns; older than 30 days it is an error under `--strict`. Promote the change and adopt the release, or drop the overlay. |
 | `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
 
-A marked overlay **is** the package it shadows, so for files inside it `shadowed-export`, `raw-tag`,
-`local-genesis-copy` and `native-raw-primitive` don't flag that package's own names (an overlay of
-another package still may not shadow genesis-ui). `version-skew` skips it, and the packages pack's
-change gate (`package-unversioned-change`) asks for no changeset or version bump. A block migration
-that names another package (`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`)
-has its test looked up in that package, not in the overlay.
+A marked overlay (valid marker, private, in a package folder of its own) **is** the package it
+shadows, so for files inside it `shadowed-export`, `raw-tag`, `local-genesis-copy` and
+`native-raw-primitive` don't flag that package's own names (an overlay of another package still may
+not shadow genesis-ui). `version-skew` compares the release with the marker's `upstream` version
+instead of the overlay's own (only for an overlay the app lists; a marked package that is merely
+installed is compared as usual), and the packages pack's change gate (`package-unversioned-change`)
+asks for no changeset or version bump. A block migration that names another package
+(`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`) has its test looked up
+in that package, not in the overlay; a name that isn't valid, or a package that isn't installed or
+local, is reported by `package-migration-test`.
 
 **Promotion: manual for now.**
 

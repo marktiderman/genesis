@@ -12,21 +12,24 @@
  * visible and short-lived:
  *
  * - overlay-unmarked (error): a local package named like a Genesis package with no marker.
- * - overlay-invalid (error): a marker that doesn't validate.
+ * - overlay-invalid (error): a marker that doesn't validate, a `since` later than tomorrow, an
+ *   overlay that isn't `private: true`, or an overlay folder that holds the app's own source.
  * - overlay-age: a marker older than 14 days warns; older than 30 days is an error under --strict.
  * - overlay-version (warn): the version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`.
  *
- * A marked overlay IS the package it shadows, so the rules that flag copies of a
- * Genesis primitive (shadowed-export, local-genesis-copy, raw-tag) skip files inside
- * an overlay of that package, and version-skew and the packages pack's change gate
- * skip the overlay itself.
+ * A marked overlay (a valid marker, private, in a package folder of its own) IS the package it
+ * shadows, so the rules that flag copies of a Genesis primitive (shadowed-export,
+ * local-genesis-copy, raw-tag, native-raw-primitive) skip files inside an overlay of that
+ * package, the packages pack's change gate skips the overlay, and version-skew compares the
+ * release with the marker's upstream version instead of the overlay's own.
  */
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { overlayUpstream, readOverlayMarker, type OverlayMarker } from "@marktiderman/genesis-features";
 import { inside } from "../blocks/files.js";
 import { localPackages, type LocalPackage } from "../blocks/local.js";
-import type { DoctorContext, SourceFile } from "./types.js";
+import { DEFAULT_NATIVE_SRC, DEFAULT_SRC } from "./scan.js";
+import type { DoctorConfig, DoctorContext, SourceFile } from "./types.js";
 
 export type { OverlayMarker } from "@marktiderman/genesis-features";
 
@@ -47,28 +50,41 @@ export function overlayState(name: string, json: unknown): OverlayState {
   return marker ? { kind: "marked", marker } : { kind: "invalid", problems };
 }
 
-/** The marker of the package.json in `dir`, when it carries a valid one. */
-export function markerAt(dir: string): OverlayMarker | null {
-  try {
-    const json = JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")) as { name?: unknown };
-    if (typeof json.name !== "string") return null;
-    const state = overlayState(json.name, json);
-    return state.kind === "marked" ? state.marker : null;
-  } catch {
-    return null;
-  }
+/**
+ * What keeps a validly marked package from counting as an overlay: it must be `private: true` (an
+ * overlay never publishes), and its folder must be a package of its own, not one holding the app's
+ * scanned source (`src` by default), so a marker can't switch the primitive-copy rules off for the app.
+ */
+export function overlaySetupProblems(root: string, config: Pick<DoctorConfig, "src" | "packs">, dir: string, name: string, json: { private?: unknown }): string[] {
+  const problems: string[] = [];
+  if (json.private !== true) problems.push(`${name}: an overlay is the app's own copy and never publishes; set "private": true`);
+  const rel = path.relative(path.resolve(root), path.resolve(dir)).split(path.sep).join("/");
+  const sources = (config.src ?? (config.packs?.includes("native") ? DEFAULT_NATIVE_SRC : DEFAULT_SRC)).map((s) => s.replace(/^\.\//, "").replace(/\/+$/, ""));
+  const holds = sources.find((s) => rel === "" || s === rel || s.startsWith(`${rel}/`));
+  if (holds !== undefined) problems.push(`${name}: an overlay lives in a package folder of its own, not in ${rel || "the app root"}, which holds the app's source (${holds})`);
+  return problems;
 }
 
-/** The app's marked overlays: package name → folder. */
-export function markedOverlays(ctx: Pick<DoctorContext, "packages">): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const p of ctx.packages) if (p.local && p.overlay) out.set(p.name, p.dir);
+/** A marked overlay the doctor treats as the package it shadows. */
+export interface MarkedOverlay {
+  dir: string;
+  marker: OverlayMarker;
+}
+
+/** The app's marked overlays (valid marker, private, a package folder of its own): package name → overlay. */
+export function markedOverlays(ctx: Pick<DoctorContext, "packages" | "root" | "config">): Map<string, MarkedOverlay> {
+  const out = new Map<string, MarkedOverlay>();
+  for (const p of ctx.packages) {
+    if (!p.local || !p.overlay) continue;
+    if (overlaySetupProblems(ctx.root, ctx.config, p.dir, p.name, { private: p.private }).length) continue;
+    out.set(p.name, { dir: p.dir, marker: p.overlay });
+  }
   return out;
 }
 
 /** Whether `file` is inside the app's marked overlay of `packageName`. */
-export function insideOverlayOf(overlays: ReadonlyMap<string, string>, file: SourceFile, packageName: string): boolean {
-  const dir = overlays.get(packageName);
+export function insideOverlayOf(overlays: ReadonlyMap<string, MarkedOverlay>, file: SourceFile, packageName: string): boolean {
+  const dir = overlays.get(packageName)?.dir;
   return dir !== undefined && inside(dir, file.absolutePath);
 }
 
@@ -82,7 +98,7 @@ export function overlayAgeDays(since: string, now: Date = new Date()): number {
 // The upstream version itself, `<upstream>+local.N` (build metadata: still satisfies the peer ranges of
 // the package's own family, so it's the recommended form) or `<upstream>-local.N` (a prerelease, which
 // `^x.y.z` peer ranges exclude).
-const LOCAL_VERSION = /^(\d+\.\d+\.\d+(?:-(?!local\.)[0-9A-Za-z.-]+?)?)(?:[+-]local\.\d+)?$/;
+const LOCAL_VERSION = /^(\d+\.\d+\.\d+(?:-(?!local\.)[0-9A-Za-z.-]+?)?)(?:[+-]local\.(?:0|[1-9]\d*))?$/;
 
 /** The overlay rules, over every local package named like a Genesis package. */
 export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void {
@@ -95,7 +111,7 @@ export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void 
   for (const pkg of packages) {
     if (!GENESIS_PACKAGE_NAME.test(pkg.name)) continue;
     const file = `${pkg.rel}/package.json`;
-    let json: { version?: unknown };
+    let json: { version?: unknown; private?: unknown };
     try {
       json = JSON.parse(readFileSync(path.join(pkg.dir, "package.json"), "utf8")) as typeof json;
     } catch {
@@ -118,8 +134,12 @@ export function checkOverlays(ctx: DoctorContext, now: Date = new Date()): void 
       continue;
     }
     const { marker } = state;
+    for (const problem of overlaySetupProblems(ctx.root, ctx.config, pkg.dir, pkg.name, json)) ctx.report({ rule: "overlay-invalid", file, subject: pkg.name, message: problem });
     const age = overlayAgeDays(marker.since, now);
-    if (age > OVERLAY_WARN_DAYS) {
+    // A day of slack for time zones; a later `since` would keep overlay-age quiet for good.
+    if (age < -1) {
+      ctx.report({ rule: "overlay-invalid", file, subject: pkg.name, message: `${pkg.name} genesis.overlay.since: ${marker.since} is in the future; use the day the overlay was made` });
+    } else if (age > OVERLAY_WARN_DAYS) {
       const error = age > OVERLAY_ERROR_DAYS && ctx.strict === true;
       ctx.report({
         rule: "overlay-age",

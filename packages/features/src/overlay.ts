@@ -36,8 +36,10 @@ export interface OverlayMarker {
 }
 
 const OVERLAY_KEYS = new Set(["upstream", "since", "owner", "reason", "$comment"]);
-/** A Genesis package name at an exact semver release (a prerelease or build tag allowed). */
-const UPSTREAM = /^(@marktiderman\/genesis(?:-[a-z0-9-]+)?)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/;
+/** A Genesis package name at an exact semver release (a prerelease tag allowed, no build metadata). */
+const UPSTREAM = /^(@marktiderman\/genesis(?:-[a-z0-9-]+)?)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)$/;
+/** A local build's tag (`-local.1`): an overlay's own version, never the release it was copied from. */
+const LOCAL_TAG = /(?:^|[.-])local(?:[.-]|$)/;
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -71,6 +73,7 @@ export function readOverlayMarker(name: string, raw: unknown, problems: string[]
   const m = typeof raw.upstream === "string" ? UPSTREAM.exec(raw.upstream) : null;
   if (!m) problems.push(`${at}.upstream: must be "@marktiderman/genesis-<name>@<version>", the package and release it was copied from, not ${JSON.stringify(raw.upstream)}`);
   else if (m[1] !== name) problems.push(`${at}.upstream: names ${m[1]}, but the package is ${name}; an overlay keeps the name it shadows`);
+  else if (m[2]!.includes("-") && LOCAL_TAG.test(m[2]!.slice(m[2]!.indexOf("-") + 1))) problems.push(`${at}.upstream: ${m[2]} is a local build; name the release it was copied from`);
   if (!isIsoDate(raw.since)) problems.push(`${at}.since: must be the day it was made, as YYYY-MM-DD, not ${JSON.stringify(raw.since)}`);
   if (!isText(raw.owner)) problems.push(`${at}.owner: say who answers for the overlay`);
   if (!isText(raw.reason)) problems.push(`${at}.reason: say why the overlay exists`);

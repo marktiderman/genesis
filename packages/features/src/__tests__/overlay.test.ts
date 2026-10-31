@@ -26,7 +26,7 @@ describe("readOverlayMarker", () => {
   });
 
   it("refuses a range, a non-Genesis upstream, another package's upstream and an impossible date", () => {
-    for (const upstream of [`${NAME}@^0.2.6`, `${NAME}@latest`, "@acme/support@0.2.6"]) {
+    for (const upstream of [`${NAME}@^0.2.6`, `${NAME}@latest`, "@acme/support@0.2.6", `${NAME}@0.2.6+build.1`, `${NAME}@0.2.6-local.1`]) {
       expect(readOverlayMarker(NAME, { ...MARKER, upstream })).toBeNull();
     }
     const problems: string[] = [];

@@ -132,8 +132,11 @@ Foundation   design-system · core · ui · ui-native · features     (essential
 | tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
 A package marked `genesis.optional` (an upgrade) is off limits to foundation packages and
-primitives except as an optional peer dependency: the primitive owns a port and the upgrade ships
-the adapter (ADR 0013, "Upgrades plug in").
+primitives except as an optional peer dependency (in `peerDependencies` only, imported for types
+or with `import()`, never a static value import): the primitive owns a port and the upgrade ships
+the adapter (ADR 0013, "Upgrades plug in"). An optional peer isn't a cycle edge, so the adapter may
+depend on the primitive. On a module, `optional` adds no rule (no primitive can use a module); it
+records that the module is an upgrade.
 
 "Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
 its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
@@ -240,8 +243,9 @@ it, ship it, and promote the change upstream. The copy carries a marker in its p
 ```
 
 `upstream` is the package and the exact release it was copied from (`@marktiderman/genesis-*@<semver>`),
-`since` the day it was made (`YYYY-MM-DD`), `owner` and `reason` who answers for it and why. An
-unmarked copy is an error, and a marker older than 14 days warns (older than 30 fails `--strict`),
+`since` the day it was made (`YYYY-MM-DD`), `owner` and `reason` who answers for it and why. The
+copy is `private: true` and lives in a package folder of its own; a Genesis package never carries
+the marker (the layering check refuses it). An unmarked copy is an error, and a marker older than 14 days warns (older than 30 fails `--strict`),
 so an overlay is a bridge to a release, never an eject. The mechanics are in the
 [genesis-cli README](../packages/genesis-cli/README.md#overlays).
 

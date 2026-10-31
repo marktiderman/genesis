@@ -139,7 +139,8 @@ export function readPackageExports(root: string, uiPackage: string): PackageExpo
   let readAny = false;
   const seen = new Set<string>();
   const readEntry = (file: string) => {
-    if (seen.has(file) || !existsSync(file)) return;
+    // Only files inside the package: an export or re-export can't send the reader elsewhere. `seen` ends cycles.
+    if (seen.has(file) || !insidePackage(uiDir, file) || !existsSync(file)) return;
     seen.add(file);
     readAny = true;
     const code = fromSource ? stripComments(readFileSync(file, "utf8")) : readFileSync(file, "utf8");
@@ -239,9 +240,46 @@ function resolveSource(dir: string, spec: string): string | null {
   return candidates.find((f) => TS_SOURCE.test(f) && existsSync(f) && statSync(f).isFile()) ?? null;
 }
 
-/** Block and line comments blanked, so a commented-out export doesn't count. */
-function stripComments(code: string): string {
-  return code.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:"'`\\])\/\/[^\n]*/g, "$1");
+/** `file` is `dir` or inside it. */
+function insidePackage(dir: string, file: string): boolean {
+  const rel = path.relative(path.resolve(dir), path.resolve(file));
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+/**
+ * Block and line comments blanked (line breaks kept), so a commented-out export doesn't count.
+ * String and template contents are read past, so `"./icons/*.svg"` or `"https://x"` isn't a comment.
+ * Regex literals aren't told apart from division; an export line rarely holds one.
+ */
+export function stripComments(code: string): string {
+  let out = "";
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i]!;
+    const next = code[i + 1];
+    if (c === "/" && next === "*") {
+      const end = code.indexOf("*/", i + 2);
+      const stop = end < 0 ? code.length : end + 2;
+      out += code.slice(i, stop).replace(/[^\n]/g, " ");
+      i = stop;
+    } else if (c === "/" && next === "/") {
+      const end = code.indexOf("\n", i);
+      i = end < 0 ? code.length : end;
+    } else if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < code.length && code[j] !== c) {
+        if (code[j] === "\\") j++;
+        else if (c !== "`" && code[j] === "\n") break;
+        j++;
+      }
+      out += code.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      out += c;
+      i++;
+    }
+  }
+  return out;
 }
 
 function walkSource(dir: string, out: string[] = []): string[] {

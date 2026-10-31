@@ -33,7 +33,7 @@ import { compareVersions, parseVersion } from "./semver.js";
 import { stripForImports } from "./trail.js";
 import { validateDeclaration } from "./package-rules.js";
 import { findPackageDir } from "./genesis.js";
-import { overlayState } from "./overlays.js";
+import { overlaySetupProblems, overlayState } from "./overlays.js";
 import type { DoctorContext } from "./types.js";
 
 const SOURCE = /\.(?:[cm]?[jt]sx?)$/;
@@ -171,14 +171,19 @@ function checkImports(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson):
   }
 }
 
+/** An npm package name (`name` or `@scope/name`): lower case, no `.`/`..` segments, no path tricks. */
+const NPM_NAME = /^(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*$/;
+
 /**
  * The folder a block migration's paths are relative to: this package, or the package its `package`
  * names (another local package, else the installed one, found from this package's folder as Node
- * would). Null when the named package can't be found: nothing is said about what can't be read.
+ * would). A string when the name is invalid or the package can't be found: why.
  */
-function migrationHome(pkg: LocalPackage, named: unknown, locals: readonly LocalPackage[]): string | null {
-  if (typeof named !== "string" || named === pkg.name) return pkg.dir;
-  return locals.find((l) => l.name === named)?.dir ?? findPackageDir(pkg.dir, named);
+function migrationHome(pkg: LocalPackage, named: unknown, locals: readonly LocalPackage[]): { dir: string } | { problem: string } {
+  if (named === undefined || named === pkg.name) return { dir: pkg.dir };
+  if (typeof named !== "string" || !NPM_NAME.test(named) || named.split("/").some((s) => s === "." || s === "..")) return { problem: `names the package ${JSON.stringify(named)}, which isn't a valid package name` };
+  const dir = locals.find((l) => l.name === named)?.dir ?? findPackageDir(pkg.dir, named);
+  return dir ? { dir } : { problem: `names the package ${named}, which isn't installed or a local package, so its test can't be checked` };
 }
 
 function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJson, locals: readonly LocalPackage[]): void {
@@ -187,13 +192,18 @@ function checkMigrations(ctx: DoctorContext, pkg: LocalPackage, json: PackageJso
     const migrations = (raw as { migrations?: Array<{ package?: unknown; file?: unknown; test?: unknown }> }).migrations ?? [];
     for (const m of migrations) {
       // A migration another package ships (`{ package, file, test }`) is that package's to test.
-      const home = migrationHome(pkg, m.package, locals);
+      const found = migrationHome(pkg, m.package, locals);
+      if ("problem" in found) {
+        ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: typeof m.file === "string" ? m.file : id, message: `${pkg.name} block ${id}: a migration ${found.problem}` });
+        continue;
+      }
+      const home = found.dir;
       const own = home === pkg.dir;
       if (own && typeof m.file === "string" && typeof m.test === "string") declaredFiles.add(m.file);
       const from = own ? "" : ` (in ${m.package as string})`;
       if (typeof m.file === "string" && typeof m.test !== "string") {
         ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.file, message: `${pkg.name} block ${id}: ${m.file}${from} has no pgTAP test; declare one as "test" beside it` });
-      } else if (home !== null && typeof m.test === "string" && !existsSync(path.join(home, m.test))) {
+      } else if (typeof m.test === "string" && !existsSync(path.join(home, m.test))) {
         ctx.report({ rule: "package-migration-test", file: `${pkg.rel}/package.json`, subject: m.test, message: `${pkg.name} block ${id}: its test ${m.test}${from} doesn't exist` });
       }
     }
@@ -426,9 +436,10 @@ export function checkPackagesPack(ctx: DoctorContext): void {
     checkTaggedTests(ctx, pkg);
     checkRegistered(ctx, pkg);
     checkDoctorDeclaration(ctx, pkg, json);
-    // A marked overlay is the app's copy of a released package, versioned <upstream>-local.N: it never
+    // A marked overlay is the app's copy of a released package, versioned <upstream>+local.N: it never
     // releases, so it needs no changeset or bump (overlay-version checks its version instead).
-    const overlay = GENESIS_NAME.test(json.name) && overlayState(json.name, json).kind === "marked";
+    const overlay =
+      GENESIS_NAME.test(json.name) && overlayState(json.name, json).kind === "marked" && overlaySetupProblems(ctx.root, ctx.config, pkg.dir, json.name, json as { private?: unknown }).length === 0;
     if (base && "sha" in merge && !overlay) checkChanges(ctx, pkg, json, base, merge.sha);
   }
 }

@@ -89,7 +89,9 @@ export interface PackageMeta {
    * An upgrade apps opt into (an optional or premium capability, like a media library). No
    * foundation package or primitive depends on it: the primitive owns a port, this package ships
    * the adapter, and the app passes it in. Upgrades plug in; primitives never import them.
-   * An optional peer dependency (`peerDependenciesMeta.<name>.optional`) is the one allowed edge.
+   * An optional peer dependency (`peerDependenciesMeta.<name>.optional`) is the one allowed edge,
+   * imported for types or with `import()` only. On a module it adds no rule (no foundation package
+   * or primitive can use a module anyway); it records that the module is an upgrade.
    */
   optional?: boolean;
 }
@@ -112,8 +114,18 @@ export interface LayerPackage {
    * not another package of the set is ignored.
    */
   uses: readonly string[];
-  /** The peer dependencies its `peerDependenciesMeta` marks optional. */
+  /**
+   * The peer dependencies its `peerDependenciesMeta` marks optional (and that aren't also in
+   * `dependencies` or `optionalDependencies`).
+   */
   optionalPeers?: readonly string[];
+  /**
+   * The specifiers its source imports statically for their values (`import { x } from`, `export … from`,
+   * `import "x"`): not `import type`, not a dynamic `import()`. When given, an optional package that is
+   * an optional peer may only be imported for types or with `import()`, so the primitive still loads
+   * without it. When left out, that isn't checked.
+   */
+  valueImports?: readonly string[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -207,7 +219,8 @@ function packageOf(specifier: string): string {
  *    lists in `requiresModules`; tooling → anything; and nothing outside
  *    tooling uses a tooling package or another package's `toolingEntries`;
  * 3. no foundation package or primitive uses an optional package (`genesis.optional`) except as
- *    an optional peer dependency: upgrades plug in through ports the primitive owns;
+ *    an optional peer dependency, imported for types or with `import()` only (checked when
+ *    `valueImports` is given): upgrades plug in through ports the primitive owns;
  * 4. no cycles among the runtime packages.
  *
  * (Every module's docs and skill existing on disk is the caller's to check;
@@ -220,6 +233,8 @@ export function packageLayerProblems(packages: readonly LayerPackage[]): string[
   const metas = new Map<string, PackageMeta>();
   for (const pkg of packages) {
     const meta = readPackageMeta(pkg.name, pkg.genesis, problems, pkg.exports);
+    // An overlay is an app's local copy of a Genesis package; a Genesis package is never one.
+    if (isObject(pkg.genesis) && pkg.genesis["overlay"] !== undefined) problems.push(`${pkg.name} genesis.overlay: only an app's local copy of a Genesis package carries one, never the package itself`);
     if (meta) metas.set(pkg.name, meta);
   }
   for (const [name, meta] of metas) {
@@ -234,6 +249,8 @@ export function packageLayerProblems(packages: readonly LayerPackage[]): string[
     const meta = metas.get(pkg.name);
     if (!meta) continue;
     const edges = new Set<string>();
+    const optionalPeers = new Set(pkg.optionalPeers ?? []);
+    const valueImported = new Set((pkg.valueImports ?? []).map(packageOf));
     for (const spec of new Set(pkg.uses)) {
       const target = packageOf(spec);
       if (target === pkg.name) continue;
@@ -243,11 +260,14 @@ export function packageLayerProblems(packages: readonly LayerPackage[]): string[
       if (to.layer === "tooling") problems.push(`${pkg.name} (${meta.layer}) uses ${target}, which is tooling: no runtime package depends on tooling`);
       else if (to.toolingEntries?.includes(sub)) problems.push(`${pkg.name} (${meta.layer}) imports ${spec}, a tooling entry point of ${target}`);
       else if (!allowed(meta, to, target)) problems.push(`${pkg.name} (${meta.layer}) uses ${target} (${to.layer}): ${rule(meta)}`);
-      else if (to.optional === true && (meta.layer === "foundation" || meta.layer === "primitive") && !(pkg.optionalPeers ?? []).includes(target)) {
+      else if (to.optional === true && (meta.layer === "foundation" || meta.layer === "primitive") && !optionalPeers.has(target)) {
         problems.push(`${pkg.name} (${meta.layer}) uses ${target}, which is optional: define a port in ${pkg.name} and let ${target} ship the adapter (or list it as an optional peer dependency)`);
+      } else if (to.optional === true && (meta.layer === "foundation" || meta.layer === "primitive") && valueImported.has(target)) {
+        problems.push(`${pkg.name} (${meta.layer}) imports ${target} statically, but it is an optional peer: import it for types only or with import(), so ${pkg.name} still loads without it`);
       }
-      // Only allowed edges go in the cycle search: a wrong-way edge is already reported.
-      else edges.add(target);
+      // Only allowed edges go in the cycle search: a wrong-way edge is already reported, and an
+      // optional peer is no edge at all (the adapter package may use this one).
+      else if (!optionalPeers.has(target)) edges.add(target);
     }
     if (meta.layer !== "tooling") graph[pkg.name] = { requires: [...edges].sort() };
   }

@@ -57,8 +57,12 @@ a primitive at level 4, **Adapt**, never as a dependency:
    primitive.
 4. **Enforced by the layering check.** A package marks itself `"genesis": { "optional": true }`.
    No foundation package or primitive may use it; an optional peer dependency
-   (`peerDependenciesMeta.<name>.optional`) is the one allowed edge. Modules are already out of
-   a primitive's reach by layer.
+   (`peerDependenciesMeta.<name>.optional`, listed in `peerDependencies` only) is the one allowed
+   edge, and the primitive imports it for types or with `import()` only, never with a static value
+   import, so it still loads without the upgrade. An optional peer is not an edge in the cycle
+   search, so the upgrade's adapter may depend on the primitive. Modules are already out of a
+   primitive's reach by layer, so `optional` on a module adds no rule; it only records that the
+   module is an upgrade.
 
 This is how a public engine and premium parts can coexist: the engine is complete on its own,
 and premium parts plug into ports it defines.
