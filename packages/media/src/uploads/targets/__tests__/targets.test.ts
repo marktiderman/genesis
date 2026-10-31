@@ -276,6 +276,8 @@ describe("copyBetweenTargets", () => {
     const from = createMemoryTarget();
     const to = createMemoryTarget();
     await expect(copyBetweenTargets(from, to, "missing", { partSize: 4, uploadId: await to.start("missing", { contentType: "a/b" }) })).rejects.toThrow(/missing/);
+    // A missing source aborts the copy's upload too.
+    expect(to.calls.at(-1)).toBe("abort missing");
     await roundTrip(from, "k", bytesOf(4), 4);
     const failing = { ...to, part: async () => Promise.reject(new Error("down")) };
     await expect(copyBetweenTargets(from, failing, "k", { partSize: 4, uploadId: await to.start("k", { contentType: "a/b" }) })).rejects.toThrow(/down/);

@@ -79,12 +79,15 @@ export async function copyBetweenTargets(
   options: { partSize: number; uploadId: string; versionId?: string | undefined; onPart?: (() => Promise<unknown>) | undefined },
 ): Promise<AssembledObject | void> {
   const uploadId = options.uploadId;
-  const source = await from.read(key, options.versionId);
-  if (!source) throw new Error(`copy: ${key} is missing from the source target.`);
   const partSize = Math.min(Math.max(options.partSize, to.minPart), to.maxPart);
   const receipts: PartReceipt[] = [];
-  const reader = source.getReader();
+  // Everything after the caller started `uploadId` is inside the cleanup: a missing source, or
+  // one whose stream can't be read, aborts the copy's upload too.
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   try {
+    const source = await from.read(key, options.versionId);
+    if (!source) throw new Error(`copy: ${key} is missing from the source target.`);
+    reader = source.getReader();
     let buffer = new Uint8Array(partSize);
     let filled = 0;
     let n = 1;
@@ -112,7 +115,7 @@ export async function copyBetweenTargets(
     return await to.finish(key, uploadId, receipts);
   } catch (error) {
     // The source's body is still open (an S3 fetch, which counts against a Worker's connections): close it too.
-    await reader.cancel().catch(() => {});
+    await reader?.cancel().catch(() => {});
     await to.abort(key, uploadId).catch(() => {});
     throw error;
   }
