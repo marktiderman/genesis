@@ -130,6 +130,7 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
           stop();
           const fresh = pending.size ? start() : undefined;
           for (const [otherId, other] of [...pending]) {
+            if (other.signal?.aborted) continue; // its own abort handler rejects it
             if (fresh && other.source.blob) {
               watch(other);
               fresh.postMessage({ id: otherId, blob: other.source.blob });

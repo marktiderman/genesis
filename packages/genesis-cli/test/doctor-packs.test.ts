@@ -457,13 +457,19 @@ describe("supabase pack", () => {
         "do $$ begin execute 'grant select on public.t to ' || current_setting('app.role'); end $$;",
         "do $$ begin execute format('grant usage on schema %I to authenticated', 'x'); end $$;",
         "do $$ begin perform 1; -- 'grant all to anon'\nend $$;",
+        "do $$ begin execute $q$grant execute on function public.f() to anon$q$; end $$;",
       ].join("\n"),
     );
-    expect(brief(r.findings, "migration-grants")).toEqual([`migration-grants ${M}:1 dynamic grant`, `migration-grants ${M}:6 dynamic grant`]);
-    expect(levels(r.findings, "migration-grants")).toEqual(["warn", "warn"]);
+    expect(brief(r.findings, "migration-grants")).toEqual([
+      `migration-grants ${M}:1 dynamic grant`,
+      `migration-grants ${M}:6 dynamic grant`,
+      `migration-grants ${M}:10 dynamic grant`,
+    ]);
+    expect(levels(r.findings, "migration-grants")).toEqual(["warn", "warn", "warn"]);
     expect(r.findings.filter((f) => f.rule === "migration-grants").map((f) => f.message)).toEqual([
       expect.stringContaining("grant to anon in dynamic SQL"),
       expect.stringContaining("computed role"),
+      expect.stringContaining("grant to anon in dynamic SQL"),
     ]);
   });
 

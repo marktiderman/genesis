@@ -120,8 +120,8 @@ const ChartTooltip = RechartsPrimitive.Tooltip;
 
 /**
  * One series entry Recharts hands a tooltip or legend. Written out here, not taken from
- * Recharts' types, so the chart type-checks the same against Recharts 2 and 3 (their prop
- * types differ; the entries they pass at runtime don't).
+ * Recharts' types, so the chart doesn't depend on either version's prop types, which differ between
+ * Recharts 2 and 3 (the entries they pass at runtime don't). Only 3 is type-checked in CI.
  */
 export interface ChartPayloadItem {
   name?: string | number;

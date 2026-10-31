@@ -325,8 +325,10 @@ function granteesOf(s: string): string[] {
 export function dynamicGrants(body: string): Array<string | null> {
   const out: Array<string | null> = [];
   const code = body.replace(/--[^\n]*/g, "");
-  for (const m of code.matchAll(/'\s*grant\b[^;]*/g)) {
-    const to = /\bto\s+([^']*)/.exec(m[0]);
+  // Single-quoted ('…', E'…') and dollar-quoted ($q$…$q$) strings. Best effort: a `--` inside a
+  // string is read as a comment.
+  for (const m of code.matchAll(/(?:'|\$\w*\$)\s*grant\b[^;]*/g)) {
+    const to = /\bto\s+([^'$]*)/.exec(m[0]);
     if (!to) continue;
     const roles = to[1]!.replace(/\s+with grant option[\s\S]*$/, "").trim();
     const open = /\b(anon|public)\b/.exec(roles);
