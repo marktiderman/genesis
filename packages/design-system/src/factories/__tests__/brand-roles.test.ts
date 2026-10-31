@@ -88,7 +88,7 @@ describe("brandRoleVariables", () => {
   });
 
   it("darkens muted text to the first neutral that reads at 4.5:1 on the page", () => {
-    // A warm neutral whose 500 is 3.97:1 on its surface.
+    // A warm neutral whose 500 is 3.27:1 on its surface.
     const warm: CanonicalBrand = {
       ...espresso,
       neutral: { ...genesisBrand.neutral, "100": "#f1ebe3", "500": "#8f8275", "600": "#6f6357", "700": "#544a41", "900": "#1c1917" },

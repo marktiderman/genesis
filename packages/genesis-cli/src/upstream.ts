@@ -9,7 +9,7 @@
  * - `kind`: gap (nothing in Genesis), extension (a part with no prop, variant or slot for it) or
  *   invention (the app built it; it may belong in Genesis).
  * - `status`: candidate, proposed (filed with Genesis), promoted (Genesis shipped it) or declined.
- * - `local`: the app's own code for it: repo-relative paths, separated by commas, or empty.
+ * - `local`: the app's own code for it: repo-relative paths, separated by `, ` or `<br>`, or empty.
  *
  * The register is `docs/genesis-upstream.md`, or `genesis-upstream.md` at the app's root.
  *
@@ -101,9 +101,12 @@ export function readRegister(markdown: string): { entries: UpstreamEntry[]; prob
   return { entries, problems };
 }
 
-/** An entry's `local` cell as paths: comma-separated, `<br>` allowed between them. */
+/**
+ * An entry's `local` cell as paths, separated by a comma and a space (`, `) or `<br>`. A comma
+ * with no space after it is part of the path (`src/a,b.ts`).
+ */
 export function localPaths(local: string | undefined): string[] {
-  return (local ?? "").split(/,|<br\s*\/?>/i).map((p) => p.trim()).filter((p) => p && p !== "-");
+  return (local ?? "").split(/,\s+|<br\s*\/?>/i).map((p) => p.trim()).filter((p) => p && p !== "-");
 }
 
 /** `genesis upstream check`: the register's problems, with a promoted entry whose local copy remains. */

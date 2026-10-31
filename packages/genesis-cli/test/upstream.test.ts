@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { cells, checkUpstream, exportIssueUrl, readRegister } from "../src/upstream";
+import { cells, checkUpstream, exportIssueUrl, localPaths, readRegister } from "../src/upstream";
 
 const table = (...rows: string[]) => ["# Genesis upstream", "", "| id | kind | status | feature | package | local | need |", "| --- | --- | --- | --- | --- | --- | --- |", ...rows].join("\n");
 
@@ -59,6 +59,8 @@ describe("genesis upstream", () => {
     expect(r.problems).toEqual(["half: local src/c.ts doesn't exist"]);
     expect(r.warnings).toEqual(["two: Genesis ships it now; delete src/a.ts, src/b.ts and use the Genesis version"]);
     expect(readRegister(table("| mix | gap | candidate | | | src/a.ts, ../x | Need |")).problems).toEqual(["mix: local must be paths inside the app, relative to its root"]);
+    expect(localPaths("src/a,b.ts")).toEqual(["src/a,b.ts"]);
+    expect(localPaths("src/a.ts, src/b,c.ts<br/>src/d.ts")).toEqual(["src/a.ts", "src/b,c.ts", "src/d.ts"]);
   });
 
   it("builds the gap form link without the app's local paths", () => {
