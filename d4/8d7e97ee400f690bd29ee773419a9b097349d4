@@ -1,0 +1,38 @@
+docs/component-reference.md
+  s_36f3212387dbf7::t_863b1801fc5bbc 7,2491,2535,2540,2556,2613,6113,6157,6162,6178,6235,8565,8568
+packages/design-system/src/presets/nativewind.ts
+  s_36f3212387dbf7::t_3741ee4a82f006 74-75
+packages/native/src/__tests__/app.test.tsx
+  s_36f3212387dbf7::t_61acb0f1f6f43d 70-71,73-83,85-90
+packages/native/src/app.tsx
+  s_36f3212387dbf7::t_c6690a2c549953 133-141,316-322,328-332,334-342,344-349
+  s_36f3212387dbf7::t_c6202e867525f3 6-7
+packages/design-system/src/factories/brand-roles.ts
+  s_36f3212387dbf7::t_070ec8548d214e 11,13-19,26-30,32,39,99,111-117,123-128,130,133-147,149-156
+  s_36f3212387dbf7::t_179909c04b235a 31,129
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_36f3212387dbf7::t_179909c04b235a 74
+  s_36f3212387dbf7::t_cddce9e7f1e24e 3-5,9,14-15,17-21,24-47,51,56-65,68-73,75-78,81-96,101,107-108
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_36f3212387dbf7::t_3741ee4a82f006 8
+packages/native/README.md
+  s_36f3212387dbf7::t_3741ee4a82f006 38-40,42-46
+.changeset/brand-roles-tints-not-modes.md
+  s_36f3212387dbf7::t_0e98edce956abb 1-9
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d48d7e97ee400f690bd29ee773419a9b097349d4",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
