@@ -16,8 +16,8 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   extend, then invent, and invent in the app before Genesis. Slots, variants and configuration
   are config; recreating something that exists, or should, is the custom code we remove. Cite
   the principle IDs (G1–G6) in reviews.
-- Track your work with `work`, the maintainers' private product-hub CLI: load the `work-tracking`
-  skill (`.claude/skills/work-tracking/SKILL.md`).
+- Work tracked outside this repo is referenced only by its id (`Closes <ID>`): never write what
+  the card is, or which app it's for, in a commit, PR or comment.
 
 ## Building a screen in an app
 
