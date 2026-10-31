@@ -466,8 +466,8 @@ The design, the protocol messages and the failure cases are in
 | `/uploads/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
 | `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
-The session table's migration is `migrations/0001_genesis_media.sql` (schema
-`genesis_media`), shipped in the package.
+The session table's migrations are `migrations/0001_genesis_media.sql` (schema
+`genesis_media`) and `0002_genesis_media_targets_key_grants.sql`, shipped in the package.
 
 ### The route
 
@@ -683,8 +683,10 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
   row level security (only the service role writes; a signed-in person may read their own
   sessions and change nothing, so no one can claim a state or a copy verification didn't find;
   anon gets nothing), and `add_part` and `update_upload`, which record a part and change a state
-  atomically, for the service role only. Its pgTAP test is in `migrations/tests/`: copy both into
-  the app's `supabase/` and run `supabase test db`. Add `genesis_media` to the project's
+  atomically, for the service role only. `0002_genesis_media_targets_key_grants.sql` makes
+  `targets_key` (which the one-open-session index uses) the service role's only too. Their pgTAP
+  tests are in `migrations/tests/`: copy the migrations, in order, and the tests into the app's
+  `supabase/` and run `supabase test db`. Add `genesis_media` to the project's
   exposed schemas, and pass the service-role client: the handler binds every operation to its
   owner itself.
 - `createMemorySessionStore()`, for tests.
