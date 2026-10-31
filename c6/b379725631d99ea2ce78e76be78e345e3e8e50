@@ -1,0 +1,21 @@
+.claude/skills/work-tracking/SKILL.md
+  s_d4b9f2a19d9170::t_fe8fe835d01883 1-45
+AGENTS.md
+  s_d4b9f2a19d9170::t_c75e176c8d6935 19-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c6b379725631d99ea2ce78e76be78e345e3e8e50",
+  "prompts": {},
+  "sessions": {
+    "s_d4b9f2a19d9170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3542c701-8199-4093-b68c-4e0a1f56807a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
