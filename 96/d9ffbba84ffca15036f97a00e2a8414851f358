@@ -1,0 +1,475 @@
+.changeset/cli-first-run-fixes.md
+  s_36f3212387dbf7::t_eda215972b0626 1-10
+.changeset/core-views-platform-neutral.md
+  s_36f3212387dbf7::t_d2097543a5a8f4 5
+.changeset/design-systems.md
+  s_36f3212387dbf7::t_8ec1abf5a3512f 1-5
+.changeset/genesis-media.md
+  s_36f3212387dbf7::t_cabe7b3d78ca44 1-5
+.changeset/media-onerror-throws.md
+  s_36f3212387dbf7::t_be9b1256008778 2,5
+.changeset/media-private-image-urls.md
+  s_36f3212387dbf7::t_0ba45668d3aa81 1-7
+.changeset/media-signed-links.md
+  s_36f3212387dbf7::t_a127be2126c9e5 1-13
+.changeset/media-uploads.md
+  s_36f3212387dbf7::t_0d8e695fbeac72 1-27
+.changeset/native-brand-role-variables.md
+  s_36f3212387dbf7::t_02948093881c0e 1-9
+.changeset/native-core-peer.md
+  s_36f3212387dbf7::t_489622c0d5ec66 2,5
+.changeset/native-record-view-insets.md
+  s_36f3212387dbf7::t_88243b173d747d 1-5
+.changeset/optional-packages.md
+  s_36f3212387dbf7::t_c19a927abfad3f 2,5
+.changeset/sites-design-systems.md
+  s_36f3212387dbf7::t_67f59dbad660f2 1-5
+.changeset/sites-neutral-core.md
+  s_36f3212387dbf7::t_001ae5953f929d 1-5
+.changeset/sites-responsive-images.md
+  s_36f3212387dbf7::t_a8c5b882f31e07 1-5
+.changeset/sites-serve-ourselves.md
+  s_36f3212387dbf7::t_02234066cc90eb 1-11
+.changeset/upload-ports.md
+  s_36f3212387dbf7::t_a9f0700788e1ce 2-4,7-11
+.github/workflows/ci.yml
+  s_36f3212387dbf7::t_ad4f32db728bbd 53-56
+AGENTS.md
+  s_36f3212387dbf7::t_e758fe6d4be26a 68
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_36f3212387dbf7::t_cb17e19a11595c 456-460
+apps/genesis-rn-starter/tailwind.config.mjs
+  s_36f3212387dbf7::t_27c36e6ca9e4a8 6-8
+apps/sample/app/data/primitives.json
+  s_36f3212387dbf7::t_c0c6d21dec831b 3647,3650,3730,3733
+docs/PACKAGE-STRATEGY.md
+  s_36f3212387dbf7::t_534f313af25054 134-137,175-177,238
+docs/SITES.md
+  s_36f3212387dbf7::t_261a5441259524 5,117,336-357,387-436,453,456-464,494-496
+docs/adr/0012-media-primitives.md
+  s_36f3212387dbf7::t_a09f0540fda5ff 3-30,71,82-83,85,91-93,149-153,159-165
+docs/adr/0013-customization-layer.md
+  s_36f3212387dbf7::t_44baf4488e826d 47-65
+docs/component-reference.md
+  s_36f3212387dbf7::t_f7713d050f14bc 7,106,113,121,124-125,1963,1970,1996,2003-2004,4583,4590,4616,4623-4624,6870,6879,6896,6902,6907,6923,6942-6944,7918,8283,8293,8391,8398,8444-8471,8581,8599,8617,8798-8825
+docs/media-uploads.md
+  s_36f3212387dbf7::t_d97da64e4f1645 1-450
+features.json
+  s_36f3212387dbf7::t_7c02e730bc51e5 1622-1623,1626-1627,1633-1837,2971-3020,5320-5322,5324-5325,5330-5332,5335-5339,5341-5350,5361-5367,5369-5372,5374-5375
+features.ts
+  s_36f3212387dbf7::t_aba30d2efc0504 712-803,1307-1328,2328-2330,2332-2333,2335-2338,2343-2350
+package.json
+  s_36f3212387dbf7::t_60769809c8ba6a 23
+packages/chat/src/native/__tests__/tus.test.ts
+  s_36f3212387dbf7::t_01d86b36a2ab32 155-205
+packages/chat/src/native/index.ts
+  s_36f3212387dbf7::t_1289b7c1690982 138
+packages/chat/src/native/tus.ts
+  s_36f3212387dbf7::t_5e166cca7576a7 18-21,53-95,119,147,156-176,260,311
+packages/core/CHANGELOG.md
+  s_36f3212387dbf7::t_b98d32abd39952 3-15
+packages/core/package.json
+  s_36f3212387dbf7::t_943dae411e02ff 3,161-203
+packages/design-system/README.md
+  s_36f3212387dbf7::t_afd7c855530c46 3-6,12-19,21,23-25,27-28,30-31,34-37,39-43,45-53,56-57,59-91,93-156
+packages/design-system/package.json
+  s_36f3212387dbf7::t_f72a5ed1fa5ef1 77-84
+packages/design-system/schema/brand.schema.json
+  s_36f3212387dbf7::t_bb8605204f68b4 101-112,117,119
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_36f3212387dbf7::t_bb08180a972969 1-236
+packages/design-system/src/design-systems/built-in.ts
+  s_36f3212387dbf7::t_d4dff2af4b98f5 1-58
+packages/design-system/src/design-systems/color.ts
+  s_36f3212387dbf7::t_de5d7e027c2c5e 1-431
+packages/design-system/src/design-systems/define.ts
+  s_36f3212387dbf7::t_abc06066f573f8 1-319
+packages/design-system/src/design-systems/index.ts
+  s_36f3212387dbf7::t_df02dd9d9cb90f 1-65
+packages/design-system/src/design-systems/registry.ts
+  s_36f3212387dbf7::t_2fda31e983711c 1-41
+packages/design-system/src/design-systems/tokens.ts
+  s_36f3212387dbf7::t_444da016c2725f 1-287
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_36f3212387dbf7::t_799418d7fb32d6 1-83
+packages/design-system/src/factories/brand-roles.ts
+  s_36f3212387dbf7::t_401162cbd3f952 1-154
+packages/design-system/src/factories/from-brand.ts
+  s_36f3212387dbf7::t_da39a6602f997c 83-89,164-170,209-215,222,225-226,545-548,576-581,686-691,695,710-742
+packages/design-system/src/factories/overrides.ts
+  s_36f3212387dbf7::t_51dad87498b4ea 1-41
+packages/design-system/src/fonts.ts
+  s_36f3212387dbf7::t_04e779f2b418d7 1-132
+packages/design-system/src/index.native.ts
+  s_36f3212387dbf7::t_4635fb90fb2515 43,46-63,73
+packages/design-system/src/index.ts
+  s_36f3212387dbf7::t_321553888d1917 34,37-54,66
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_36f3212387dbf7::t_353194047410ad 9-11,54-72
+packages/design-system/src/presets/nativewind.ts
+  s_36f3212387dbf7::t_c5924cd003fe1e 21-23,37-38,57-86,88-100
+packages/design-system/src/schema/brand.ts
+  s_36f3212387dbf7::t_3ab5de2ba98cf5 63-86,262-270,429,504,506,561,563,898-901
+packages/design-system/tsup.config.ts
+  s_36f3212387dbf7::t_d9f3edba8923ef 29-31
+packages/features/src/__tests__/packages.test.ts
+  s_36f3212387dbf7::t_39eb56d028829c 85-98,145-155
+packages/features/src/packages.ts
+  s_36f3212387dbf7::t_10ec902b769220 85-91,112-113,135,143-145,205-207,242-244
+packages/forms-web/src/Form.tsx
+  s_36f3212387dbf7::t_e9e72143c4545c 42,559-564,598-599,601
+packages/forms-web/src/__tests__/photo.test.tsx
+  s_36f3212387dbf7::t_8b9c0596536cca 3,118-137
+packages/forms-web/src/upload.ts
+  s_36f3212387dbf7::t_cb23d3136a8d67 2,5-9,11
+packages/forms/src/index.ts
+  s_36f3212387dbf7::t_97ea8c154e99f6 115
+packages/forms/src/upload-adapter.ts
+  s_36f3212387dbf7::t_f2e5f83bad9d95 1-31
+packages/genesis-cli/CHANGELOG.md
+  s_36f3212387dbf7::t_fde335bf3f0a26 3-8
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_b334cce4dd9e19 211,221-223,425
+packages/genesis-cli/package.json
+  s_36f3212387dbf7::t_da6f14ca0c7c39 3
+packages/genesis-cli/src/blocks/add.ts
+  s_36f3212387dbf7::t_dd9e2c9db19f7e 22,112-130,144,235,303
+packages/genesis-cli/src/blocks/init-native.ts
+  s_36f3212387dbf7::t_eb4e996aa28681 22,190-192
+packages/genesis-cli/src/blocks/lock.ts
+  s_36f3212387dbf7::t_4765012a4ed3b0 8-11,42-43,55-61,67-73,77-81
+packages/genesis-cli/src/blocks/migrate.ts
+  s_36f3212387dbf7::t_d026db4b33b31d 18,80,101-102
+packages/genesis-cli/src/blocks/migrations.ts
+  s_36f3212387dbf7::t_96d18b0c7fd60a 19-22,27,90-91,111-112,172-176,201-205,280-295,309
+packages/genesis-cli/src/upgrade/index.ts
+  s_36f3212387dbf7::t_eea4f02265db78 21,140-142,222
+packages/genesis-cli/test/blocks-add.test.ts
+  s_36f3212387dbf7::t_52f910f16e18da 67-83
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_36f3212387dbf7::t_b0175106977c4a 2,7,59-79
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_36f3212387dbf7::t_a6e3a66791efb8 407-440
+packages/genesis/CHANGELOG.md
+  s_36f3212387dbf7::t_c695bb2c606b51 3-11
+packages/genesis/package.json
+  s_36f3212387dbf7::t_2351e56197ffc6 3
+packages/media/LICENSE
+  s_36f3212387dbf7::t_cae0d4129ad974 1-21
+packages/media/README.md
+  s_36f3212387dbf7::t_d2997e92926165 1-748
+packages/media/migrations/0001_genesis_media.sql
+  s_36f3212387dbf7::t_6d0c29a4fa283e 1-271
+packages/media/migrations/tests/0001_genesis_media.test.sql
+  s_36f3212387dbf7::t_786ad5daa0cc11 1-120
+packages/media/package.json
+  s_36f3212387dbf7::t_6fdcdda7d5115a 1-156
+packages/media/src/forms/__tests__/forms.test.ts
+  s_36f3212387dbf7::t_51d74a1181bde8 1-51
+packages/media/src/forms/index.ts
+  s_36f3212387dbf7::t_759cf2976043ac 1-77
+packages/media/src/image.test.ts
+  s_36f3212387dbf7::t_0221e230849e75 1-93
+packages/media/src/image.ts
+  s_36f3212387dbf7::t_bf2536c6fa816e 1-249
+packages/media/src/index.ts
+  s_36f3212387dbf7::t_c960ca8ee08996 1-40
+packages/media/src/server/fetch.test.ts
+  s_36f3212387dbf7::t_c1c2bff950ab2a 1-46
+packages/media/src/server/fetch.ts
+  s_36f3212387dbf7::t_a1a603a2b4c1c1 1-186
+packages/media/src/server/guard.ts
+  s_36f3212387dbf7::t_1f28ff0d71b6db 2
+packages/media/src/server/index.ts
+  s_36f3212387dbf7::t_6106d9c7a9888f 1-20
+packages/media/src/signed/bundle.test.ts
+  s_36f3212387dbf7::t_1f944b7e517c5d 1-393
+packages/media/src/signed/bundle.ts
+  s_36f3212387dbf7::t_7feeb7951fb84a 1-247
+packages/media/src/signed/handler.test.ts
+  s_36f3212387dbf7::t_5044b1653343fa 1-397
+packages/media/src/signed/handler.ts
+  s_36f3212387dbf7::t_dbb651c3bcf4d4 1-200
+packages/media/src/signed/http.ts
+  s_36f3212387dbf7::t_1f1bb51f99e7f5 1-84
+packages/media/src/signed/images.test.ts
+  s_36f3212387dbf7::t_95094feabbc35b 1-237
+packages/media/src/signed/images.ts
+  s_36f3212387dbf7::t_9f56c63d22ebac 1-226
+packages/media/src/signed/index.ts
+  s_36f3212387dbf7::t_5e495bab82a9ba 1-69
+packages/media/src/signed/scope.ts
+  s_36f3212387dbf7::t_8addee4aa9b148 1-88
+packages/media/src/signed/signer.test.ts
+  s_36f3212387dbf7::t_f6cc8e87bdcd5a 1-264
+packages/media/src/signed/signer.ts
+  s_36f3212387dbf7::t_a688123bc204ce 1-278
+packages/media/src/signed/storage.ts
+  s_36f3212387dbf7::t_f882ed6c26168b 1-89
+packages/media/src/sniff.ts
+  s_36f3212387dbf7::t_188b375d60f0cc 4,52
+packages/media/src/uploads/__tests__/protocol.test.ts
+  s_36f3212387dbf7::t_76042986b87140 1-49
+packages/media/src/uploads/client/__tests__/hardening.test.ts
+  s_36f3212387dbf7::t_d62af958dadca4 1-80
+packages/media/src/uploads/client/__tests__/rereview.test.ts
+  s_36f3212387dbf7::t_c0a55134b6e8ef 1-93
+packages/media/src/uploads/client/__tests__/review.test.ts
+  s_36f3212387dbf7::t_db3051761a3d15 1-340
+packages/media/src/uploads/client/__tests__/uploader.test.ts
+  s_36f3212387dbf7::t_6c741d71d9430d 1-319
+packages/media/src/uploads/client/__tests__/vite-worker.test.ts
+  s_36f3212387dbf7::t_07817bf2e17107 1-81
+packages/media/src/uploads/client/browser-worker.ts
+  s_36f3212387dbf7::t_3625e2227b6b26 1-21
+packages/media/src/uploads/client/config.ts
+  s_36f3212387dbf7::t_8ff99e3c234cb6 1-142
+packages/media/src/uploads/client/hash-core.ts
+  s_36f3212387dbf7::t_1146bebdbab3ca 1-26
+packages/media/src/uploads/client/hash-worker.ts
+  s_36f3212387dbf7::t_b66420a7c40e90 1-10
+packages/media/src/uploads/client/index.ts
+  s_36f3212387dbf7::t_4e610008e83824 1-39
+packages/media/src/uploads/client/sources.ts
+  s_36f3212387dbf7::t_fb399662855588 1-64
+packages/media/src/uploads/client/supabase-tus.ts
+  s_36f3212387dbf7::t_35d924fcc0f513 1-210
+packages/media/src/uploads/client/uploader.ts
+  s_36f3212387dbf7::t_02a23e8ebd8db2 1-570
+packages/media/src/uploads/client/web.ts
+  s_36f3212387dbf7::t_836a18d874dede 1-24
+packages/media/src/uploads/client/worker-hasher.ts
+  s_36f3212387dbf7::t_7f858408811d7b 1-146
+packages/media/src/uploads/hash.ts
+  s_36f3212387dbf7::t_41301ad0cab7d3 1-85
+packages/media/src/uploads/index.ts
+  s_36f3212387dbf7::t_ca97a88682b288 1-32
+packages/media/src/uploads/protocol.ts
+  s_36f3212387dbf7::t_b6b457c6a905ad 1-188
+packages/media/src/uploads/server/__tests__/handler.test.ts
+  s_36f3212387dbf7::t_925b536af96b83 1-457
+packages/media/src/uploads/server/__tests__/hardening.test.ts
+  s_36f3212387dbf7::t_8cdb7a5f6ce177 1-72
+packages/media/src/uploads/server/__tests__/helpers.ts
+  s_36f3212387dbf7::t_174fb9c989ebd5 1-100
+packages/media/src/uploads/server/__tests__/races.test.ts
+  s_36f3212387dbf7::t_235eff004726db 1-191
+packages/media/src/uploads/server/__tests__/review.test.ts
+  s_36f3212387dbf7::t_4a9e771d393298 1-274
+packages/media/src/uploads/server/__tests__/security.test.ts
+  s_36f3212387dbf7::t_2f151867680265 1-49
+packages/media/src/uploads/server/__tests__/supabase-store.test.ts
+  s_36f3212387dbf7::t_519853a52ce2d7 1-110
+packages/media/src/uploads/server/handler.ts
+  s_36f3212387dbf7::t_62bf5b658bcfc0 1-578
+packages/media/src/uploads/server/index.ts
+  s_36f3212387dbf7::t_d121c5d02ad7ee 1-47
+packages/media/src/uploads/server/store.ts
+  s_36f3212387dbf7::t_9e3ebcb7923802 1-250
+packages/media/src/uploads/server/supabase-store.ts
+  s_36f3212387dbf7::t_a247163be0ec01 1-193
+packages/media/src/uploads/server/verify.ts
+  s_36f3212387dbf7::t_66c294c9c5ab09 1-312
+packages/media/src/uploads/targets/__tests__/sigv4.test.ts
+  s_36f3212387dbf7::t_ac3c29ee70fbbf 1-22
+packages/media/src/uploads/targets/__tests__/targets.test.ts
+  s_36f3212387dbf7::t_e2b42896ba70e4 1-289
+packages/media/src/uploads/targets/index.ts
+  s_36f3212387dbf7::t_40b0d3d4d9a4ef 1-15
+packages/media/src/uploads/targets/memory.ts
+  s_36f3212387dbf7::t_8b9109d091f53d 1-186
+packages/media/src/uploads/targets/r2.ts
+  s_36f3212387dbf7::t_72c59249cf0d31 1-69
+packages/media/src/uploads/targets/s3.ts
+  s_36f3212387dbf7::t_fc30f7e52f6d81 1-258
+packages/media/src/uploads/targets/target.ts
+  s_36f3212387dbf7::t_71dcecadb0dd10 1-119
+packages/media/tsconfig.json
+  s_36f3212387dbf7::t_2badc980e4ffff 1-17
+packages/media/tsup.config.ts
+  s_36f3212387dbf7::t_3fc9ac746e0447 1-41
+packages/media/vitest.config.ts
+  s_36f3212387dbf7::t_45c6ddbd29b7de 1-8
+packages/native/README.md
+  s_36f3212387dbf7::t_318ff0876ff8c4 38-46
+packages/native/package.json
+  s_36f3212387dbf7::t_e394b5fbef4f94 116-117,156,165
+packages/native/src/__tests__/app.test.tsx
+  s_36f3212387dbf7::t_92b787c223d114 6,70-80
+packages/native/src/app.tsx
+  s_36f3212387dbf7::t_718e2c4654c14f 6-7,28,31-33,307,312-328
+packages/native/tsup.config.ts
+  s_36f3212387dbf7::t_e2e01bdd4e7836 32
+packages/notifications/functions/genesis-notifications/index.ts
+  s_36f3212387dbf7::t_ab1bd1290cadef 25
+packages/notifications/functions/genesis-notifications/notifications.ts
+  s_36f3212387dbf7::t_5797d687f7c6ea 7-8
+packages/sites/.gitignore
+  s_36f3212387dbf7::t_b32c745f167701 2
+packages/sites/CHANGELOG.md
+  s_36f3212387dbf7::t_cacadac48c7867 3-8
+packages/sites/README.md
+  s_36f3212387dbf7::t_69776b94c9247c 21-22,54,61-63,65,122-162,226-230,233,300-383,395-396,400-411,415,686-687
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_36f3212387dbf7::t_fa39c01e400bf1 41-42,294,323
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_36f3212387dbf7::t_c6c4a50733a909 40-41
+packages/sites/package.json
+  s_36f3212387dbf7::t_e6ea3499ce3bc9 3,76-79,91-92,97-98,121-135
+packages/sites/scripts/build-assets.mjs
+  s_36f3212387dbf7::t_10889697b976f7 11-14,16,31-32,80-104,115,122-131
+packages/sites/scripts/drop-fonts-sourcemap.mjs
+  s_36f3212387dbf7::t_c2a72c74dce1ac 1-22
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_36f3212387dbf7::t_8bc72b77663180 1-5563
+packages/sites/src/__tests__/__snapshots__/sections.test.tsx.snap
+  s_36f3212387dbf7::t_4deb65374994e6 3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79,81,83,85,87,89,91,93,95
+packages/sites/src/__tests__/blog.test.ts
+  s_36f3212387dbf7::t_eb2a6569f754a9 31,38,40,53,179,190,198,252,302
+packages/sites/src/__tests__/core.test.ts
+  s_36f3212387dbf7::t_f86b740592cb79 67,101
+packages/sites/src/__tests__/design-systems.test.ts
+  s_36f3212387dbf7::t_0979492fc62c40 1-118
+packages/sites/src/__tests__/editor-mount.test.tsx
+  s_36f3212387dbf7::t_967186cc1abc72 26,28,257,266
+packages/sites/src/__tests__/editor.test.tsx
+  s_36f3212387dbf7::t_8e47a7a7169b7e 21,98,101,103,193,232,236,260,264,272-273,279,615,647,722
+packages/sites/src/__tests__/fixtures.ts
+  s_36f3212387dbf7::t_4b6473c2b35c8c 5,23-25,32-35,37,41-42,44-46,49,53-54,60-61,65,68-69,74-75,87,90-91,93-95,98-102,108-109,113-120,123,136,138,144-145,151,153,158,161,187,227,235,243,250-251,262-263,265-266,270,277
+packages/sites/src/__tests__/import.test.ts
+  s_36f3212387dbf7::t_c8e25c44c99011 52,150
+packages/sites/src/__tests__/media.test.ts
+  s_36f3212387dbf7::t_da398c6fbfea68 1-71
+packages/sites/src/__tests__/second-industry.test.tsx
+  s_36f3212387dbf7::t_2a27c6ed22a7e0 1-84
+packages/sites/src/__tests__/sections-v1.test.tsx
+  s_36f3212387dbf7::t_a1cdfd1c81359c 16,34,59,62-63,87-88,96,112,124,153,155,157-160,167-169,173,217,244,251,279
+packages/sites/src/__tests__/self-hosted.test.ts
+  s_36f3212387dbf7::t_b0afe4ba80afa5 1-196
+packages/sites/src/__tests__/seo-a11y.test.ts
+  s_36f3212387dbf7::t_b529bcda8230ab 42,46-47,56,61,64,76,100,103-104,184,241,257,265-266,272,280
+packages/sites/src/__tests__/web.test.ts
+  s_36f3212387dbf7::t_2a7218f877f19d 48,304,309
+packages/sites/src/core/a11y.ts
+  s_36f3212387dbf7::t_f99a05d522ae45 22-25,56-120,232-235,269-302,340,361
+packages/sites/src/core/examples.ts
+  s_36f3212387dbf7::t_b9e5681c94d49a 9,14
+packages/sites/src/core/fonts.ts
+  s_36f3212387dbf7::t_60665c4c5b1897 1-14
+packages/sites/src/core/registry.ts
+  s_36f3212387dbf7::t_f077abef0e93a3 15,69-82
+packages/sites/src/core/schemas.ts
+  s_36f3212387dbf7::t_4601bac7679b48 11,13,86-87,104-118,221-222,225-228,236,241,276-282
+packages/sites/src/core/seo.ts
+  s_36f3212387dbf7::t_c660161e5371b5 48
+packages/sites/src/core/store.ts
+  s_36f3212387dbf7::t_cf7012bbbc4c23 85-89,139-144,224-230,665-666
+packages/sites/src/core/theme.ts
+  s_36f3212387dbf7::t_7ba42aa1d9c51e 11,14-27,29-32,42-43,45,48-53,143-144,146-148,155,159,192-193,198-199,282-303,310,313-315,327,329-330,332,334-355,357-358,361,363-371
+packages/sites/src/core/urls.ts
+  s_36f3212387dbf7::t_244a827976a841 52
+packages/sites/src/editor/field-components.tsx
+  s_36f3212387dbf7::t_0f98ad81c63f79 49-50
+packages/sites/src/editor/fields.ts
+  s_36f3212387dbf7::t_a5840bee11cbb7 240
+packages/sites/src/editor/site-actions.ts
+  s_36f3212387dbf7::t_ab1128d15edc00 44-48,79
+packages/sites/src/import/index.ts
+  s_36f3212387dbf7::t_a50d28254d1b0c 22-23,27-29,36,80,119,145-147
+packages/sites/src/index.ts
+  s_36f3212387dbf7::t_63c368f5615068 10,75,108,130,149
+packages/sites/src/sections/blog-list.tsx
+  s_36f3212387dbf7::t_bbb71e3754c062 113
+packages/sites/src/sections/cta.tsx
+  s_36f3212387dbf7::t_d93eaf842d3a7c 45,60,73
+packages/sites/src/sections/features.tsx
+  s_36f3212387dbf7::t_bd8130d0b65a9c 73-74,121,152,189
+packages/sites/src/sections/file.tsx
+  s_36f3212387dbf7::t_d5c74baa58e0e8 62-63
+packages/sites/src/sections/form-embed.tsx
+  s_36f3212387dbf7::t_ebd7edb5bd8747 143
+packages/sites/src/sections/gallery.tsx
+  s_36f3212387dbf7::t_9b00e46d517539 46
+packages/sites/src/sections/hero.tsx
+  s_36f3212387dbf7::t_9030f4e6ba80e1 47,51,59,61,72
+packages/sites/src/sections/logos.tsx
+  s_36f3212387dbf7::t_496cd500477748 22,50
+packages/sites/src/sections/map.tsx
+  s_36f3212387dbf7::t_3e94d9141fabdf 129,150
+packages/sites/src/sections/nav.tsx
+  s_36f3212387dbf7::t_e7ab4833e585d2 30
+packages/sites/src/sections/post-body.tsx
+  s_36f3212387dbf7::t_36b88cb614b468 84-85,88,104,108
+packages/sites/src/sections/pricing.tsx
+  s_36f3212387dbf7::t_96ce408469096f 86,88,175
+packages/sites/src/sections/schedule.tsx
+  s_36f3212387dbf7::t_fa40721065169a 2-3,8,23-29,35,37,40,52,57,60,74,78-89,132,147,172,205,212,223-224,227-229,237,239,252,254-255,258-260,267,299,355
+packages/sites/src/sections/shared.tsx
+  s_36f3212387dbf7::t_333afee04cbaae 13,137-139,143,206,208-214,218-232,236-249,251-261,265-277,284-285,287,339-348,375,381
+packages/sites/src/sections/stats.tsx
+  s_36f3212387dbf7::t_7e8adcd35a4d79 36
+packages/sites/src/sections/team.tsx
+  s_36f3212387dbf7::t_53d12e306b036f 21,86,99,101-102,109,150
+packages/sites/src/sections/timeline.tsx
+  s_36f3212387dbf7::t_3f4ebcc7c1f263 74
+packages/sites/src/supabase/index.ts
+  s_36f3212387dbf7::t_caef547839fab8 132-139,156,231,346-348
+packages/sites/src/templates/design-systems.ts
+  s_36f3212387dbf7::t_d32b24a1466300 1-69
+packages/sites/src/templates/fitness.ts
+  s_36f3212387dbf7::t_d715d702eac2a1 1-113
+packages/sites/src/templates/index.ts
+  s_36f3212387dbf7::t_0c6b14b0f94ea2 1-23
+packages/sites/src/templates/templates.test.tsx
+  s_36f3212387dbf7::t_31bbb834431298 1-43
+packages/sites/src/templates/types.ts
+  s_36f3212387dbf7::t_0c612e85c91366 1-24
+packages/sites/src/web/document.tsx
+  s_36f3212387dbf7::t_2f30aa9128bb40 8,15,27-32,56-57,60-100,169,180-181,215,232-235,238-239
+packages/sites/src/web/handler.ts
+  s_36f3212387dbf7::t_59538c2649a71e 18,28,30-31,42,77-82,85-97,123-145,170,173-174,188-213,338-341,487,498,500,519
+packages/sites/src/web/index.ts
+  s_36f3212387dbf7::t_34da88618b0fee 8-9
+packages/sites/src/web/sites.css
+  s_36f3212387dbf7::t_0eb3f9e6458b42 7,47,61-220
+packages/sites/tsup.config.ts
+  s_36f3212387dbf7::t_03623aa7a19f9a 12
+packages/studio/CHANGELOG.md
+  s_36f3212387dbf7::t_6a256f1674483b 3-8
+packages/studio/package.json
+  s_36f3212387dbf7::t_4363ac5ecd09c4 3
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_36f3212387dbf7::t_9f6d064a9d2981 282-288,381-414,419-426,432-433,447,449-463,468
+packages/ui-native/src/data/resource-view/__tests__/native-record-view.test.tsx
+  s_36f3212387dbf7::t_a6e427b0a279e5 243-284
+packages/ui-native/test-utils/nativewind-mock.ts
+  s_36f3212387dbf7::t_ccb7e2167b677d 5-11
+packages/ui/CHANGELOG.md
+  s_36f3212387dbf7::t_972c4f996edc66 3-21
+packages/ui/package.json
+  s_36f3212387dbf7::t_166e5db11bd2b6 3
+pnpm-lock.yaml
+  s_36f3212387dbf7::t_3b9489f5b20da5 1269-1299,1318-1320,1345-1347,1479-1481,1483-1527,3355-3399,3833-3836,7302-7304,13470-13499,14017-14018,17476-17477
+scripts/check-industry-words.mjs
+  s_36f3212387dbf7::t_38e7a3476a049b 1-76
+scripts/check-package-layers.mjs
+  s_36f3212387dbf7::t_08e66b652f75ec 61
+scripts/industry-words.mjs
+  s_36f3212387dbf7::t_a447ce3f239365 1-47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "96d9ffbba84ffca15036f97a00e2a8414851f358",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}

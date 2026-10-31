@@ -1,0 +1,155 @@
+.changeset/ui-strict-typescript.md
+  s_d4b9f2a19d9170::t_d1483d132e5288 1-6
+packages/forms-studio/src/status.ts
+  s_d4b9f2a19d9170::t_f76d24201b0300 45,47
+packages/ui/src/components/data/ConfirmDeleteDialog.tsx
+  s_d4b9f2a19d9170::t_19ae63ceabe2f4 33,43,45,47
+packages/ui/src/components/data/DataBulkBar.tsx
+  s_d4b9f2a19d9170::t_fbce0e1836b9d1 17,22,40,49
+packages/ui/src/components/data/DataFilters.tsx
+  s_d4b9f2a19d9170::t_11e53c5d60f545 38,56,65,69,81-82,84-88,92,94,137
+packages/ui/src/components/data/DataGrid.tsx
+  s_d4b9f2a19d9170::t_8018f00c325183 24,130,158
+packages/ui/src/components/data/DataPageShell.tsx
+  s_d4b9f2a19d9170::t_d6dce9389c17ff 20,28,31,34-35,41,45-46,48,56-57,66
+packages/ui/src/components/data/DataTable.tsx
+  s_d4b9f2a19d9170::t_d91c67d8fc450f 88-89,91-93,104,106,108,117,120,125,127,129,131,135,137,139,141,148,272
+packages/ui/src/components/data/DetailPanel.tsx
+  s_d4b9f2a19d9170::t_0ce9e623444a25 25,27,29,31,33,38-39,46
+packages/ui/src/components/data/FieldArrayRenderer.tsx
+  s_d4b9f2a19d9170::t_b0cf93610afcae 24
+packages/ui/src/components/data/FileUploadField.tsx
+  s_d4b9f2a19d9170::t_f0a4f79201ef3f 8,50,52,58-60,129,150-158
+packages/ui/src/components/data/FilterCombobox.tsx
+  s_d4b9f2a19d9170::t_af146cb7114a5a 25,34-35,37,66
+packages/ui/src/components/data/KanbanBoard.tsx
+  s_d4b9f2a19d9170::t_95183a4b5d4cff 304
+packages/ui/src/components/data/RelationField.tsx
+  s_d4b9f2a19d9170::t_0bc6ad0b90a6ba 37,39-42
+packages/ui/src/components/data/ResourceDetailPage.tsx
+  s_d4b9f2a19d9170::t_59016824681519 25,27,29,40,45,149
+packages/ui/src/components/data/ResourceForm.tsx
+  s_d4b9f2a19d9170::t_a5546810ebf783 45,49,55,58,61,63,67,69,71,108,134,140-142,351-352,355,374
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_d4b9f2a19d9170::t_8a47b951ee174a 44
+packages/ui/src/components/data/ResourcePage.tsx
+  s_d4b9f2a19d9170::t_480f08fd2557a2 198,200,202,204,212,254,266-267,270,285-286,302,316-320,340,443,470-473,475,487,489,491,493,495,497,503,571,590,593,607,612-613,621,623,686,738
+packages/ui/src/components/data/StatCard.tsx
+  s_d4b9f2a19d9170::t_d9577e3579ebad 19
+packages/ui/src/components/data/compact.ts
+  s_d4b9f2a19d9170::t_6a7de6a5606a8a 1-11
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_d4b9f2a19d9170::t_7f4f20d377dbbe 74
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_d4b9f2a19d9170::t_6771f545ce21cb 25,46-48
+packages/ui/src/components/data/undo-toast.ts
+  s_d4b9f2a19d9170::t_250d56d4cd8031 45
+packages/ui/src/components/data/use-resource-table.ts
+  s_d4b9f2a19d9170::t_24ce085f6c01e1 38,223,254,257,271,474,625,985
+packages/ui/src/components/layout/AppShell.tsx
+  s_d4b9f2a19d9170::t_3768d3c9c2e359 64,72,138,147,293,324,413,544,546,551,649,736,738,895-896,904-905,910,912,1071
+packages/ui/src/components/layout/PageHeader.tsx
+  s_d4b9f2a19d9170::t_adeeb31b4efea5 63,65,70,147,149-150,157-158,163,165,177-178,182-183,194-199,214
+packages/ui/src/components/layout/auth-page.tsx
+  s_d4b9f2a19d9170::t_464cb425cda86d 17,51
+packages/ui/src/components/layout/band.tsx
+  s_d4b9f2a19d9170::t_e996003f2f2960 48,52,122,165
+packages/ui/src/components/layout/container.tsx
+  s_d4b9f2a19d9170::t_9f6c54febfd1d3 39
+packages/ui/src/components/layout/dashboard-page.tsx
+  s_d4b9f2a19d9170::t_878ff1e244b7c7 12,27
+packages/ui/src/components/layout/detail-page.tsx
+  s_d4b9f2a19d9170::t_6d0141c5485f0f 13,29
+packages/ui/src/components/layout/form-page.tsx
+  s_d4b9f2a19d9170::t_98e58220b25448 12,27
+packages/ui/src/components/layout/grid.tsx
+  s_d4b9f2a19d9170::t_2baaf94f3b9df8 44
+packages/ui/src/components/layout/public-page.tsx
+  s_d4b9f2a19d9170::t_40826396de8fad 20,22,43
+packages/ui/src/components/layout/section.tsx
+  s_d4b9f2a19d9170::t_c5be97c87e5721 30,42
+packages/ui/src/components/layout/settings-page.tsx
+  s_d4b9f2a19d9170::t_ff19f3d5727742 35,47,59
+packages/ui/src/components/layout/split.tsx
+  s_d4b9f2a19d9170::t_6e045c8f2a640b 81
+packages/ui/src/components/layout/stack.tsx
+  s_d4b9f2a19d9170::t_0b63fc44d9616a 60
+packages/ui/src/components/layout/sub-nav.tsx
+  s_d4b9f2a19d9170::t_40d4e43bf73e98 64-65,136,222-223,374
+packages/ui/src/components/layout/workspace-switcher.tsx
+  s_d4b9f2a19d9170::t_e60d29620bf2c6 221,237-238,271-272,315
+packages/ui/src/components/patterns/empty-state.tsx
+  s_d4b9f2a19d9170::t_fab572839fe71e 16,21-22,39
+packages/ui/src/components/patterns/form-field.tsx
+  s_d4b9f2a19d9170::t_ed734ac4c66b72 27
+packages/ui/src/components/patterns/page-loading.tsx
+  s_d4b9f2a19d9170::t_691ce902a3b92c 26
+packages/ui/src/components/patterns/settings-row.tsx
+  s_d4b9f2a19d9170::t_dab3ed898ff114 10,27,29-30,32
+packages/ui/src/components/patterns/toggle-row.tsx
+  s_d4b9f2a19d9170::t_226784bb8b36a0 9,13,15,22
+packages/ui/src/components/patterns/user-avatar.tsx
+  s_d4b9f2a19d9170::t_23831ef349983e 67
+packages/ui/src/components/resource/ResourceSettingsPage.tsx
+  s_d4b9f2a19d9170::t_a375591d42af6e 22,24,72-73
+packages/ui/src/components/resource/ResponsesToolbar.tsx
+  s_d4b9f2a19d9170::t_4cd29f97c6e8de 22
+packages/ui/src/components/resource/ShareDialog.tsx
+  s_d4b9f2a19d9170::t_f24472417c1150 80
+packages/ui/src/components/resource/SummaryCard.tsx
+  s_d4b9f2a19d9170::t_3db33e779720a6 16
+packages/ui/src/components/resource/chip.tsx
+  s_d4b9f2a19d9170::t_4850ec47c14f3a 16
+packages/ui/src/components/rich-text/rich-text-doc.ts
+  s_d4b9f2a19d9170::t_3e549b37ffad6a 64,206,208-209,211-212,214-215,352,446,454,607,640,648
+packages/ui/src/components/rich-text/rich-text-editor.tsx
+  s_d4b9f2a19d9170::t_9c5190e11db8bf 197,203,205,213,232,899
+packages/ui/src/components/rich-text/rich-text.tsx
+  s_d4b9f2a19d9170::t_7b3315aeac5490 88,103,150,157
+packages/ui/src/components/sheet-grid/sheet-grid.tsx
+  s_d4b9f2a19d9170::t_5e00d49d1d4726 15,19,21,27
+packages/ui/src/components/ui/button.tsx
+  s_d4b9f2a19d9170::t_4f47787cd0ac21 71,77,84
+packages/ui/src/components/ui/calendar.tsx
+  s_d4b9f2a19d9170::t_56c346c16a7fd7 202-203,212-215,217-219
+packages/ui/src/components/ui/chart.tsx
+  s_d4b9f2a19d9170::t_23f9132a94258b 17,202,301
+packages/ui/src/components/ui/command-palette.tsx
+  s_d4b9f2a19d9170::t_f38dd106bd47e7 29
+packages/ui/src/components/ui/date-picker.tsx
+  s_d4b9f2a19d9170::t_95648123d863ee 17,44
+packages/ui/src/components/ui/password-toggle-field.tsx
+  s_d4b9f2a19d9170::t_895a79cde1c621 15,87,122
+packages/ui/src/components/ui/toolbar.tsx
+  s_d4b9f2a19d9170::t_b252904becd8f4 29,68,98,183
+packages/ui/src/components/ui/tooltip.tsx
+  s_d4b9f2a19d9170::t_f334bd9276aaf8 74
+packages/ui/src/components/ui/visually-hidden.tsx
+  s_d4b9f2a19d9170::t_cbc307259d73fa 14
+packages/ui/src/hooks/use-keyboard-navigation.ts
+  s_d4b9f2a19d9170::t_977b1f75112343 125,140,156
+packages/ui/src/hooks/use-resource-page.ts
+  s_d4b9f2a19d9170::t_01e2efb92ba753 28,30,32,34-35,39,41,46,51,57,59,61,63,65,81,83,138,142,395,502
+packages/ui/src/hooks/use-view-settings.ts
+  s_d4b9f2a19d9170::t_d09a71123f2b32 11
+packages/ui/src/navigation.tsx
+  s_d4b9f2a19d9170::t_d9b1e409a901ca 40,45,47,53
+packages/ui/src/router/react-router.tsx
+  s_d4b9f2a19d9170::t_53ab0f15e0284e 29,95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9fcb997ca3e9d2eb3b8abd63b57474cf004618d",
+  "prompts": {},
+  "sessions": {
+    "s_d4b9f2a19d9170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3542c701-8199-4093-b68c-4e0a1f56807a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
