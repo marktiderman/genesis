@@ -23,13 +23,14 @@
  *   - accent → primary (and the sidebar's), with whichever of white and the
  *     darkest neutral reads better on it as its foreground; the ring is the
  *     primary when it reaches 3:1 on the background, the text color otherwise
- *   - neutral 100 → secondary, muted, accent; 500 → muted foreground;
- *     200 → border, input
+ *   - neutral 100 → secondary, muted, accent; 500 → muted foreground (or the
+ *     first darker stop that reads at 4.5:1 on the background, else the text
+ *     color); 200 → border, input
  *   - status → destructive (error), success, warning, info
  *
- * Dark mode: a brand declares no dark-mode colors, so the Genesis dark values
- * stay, except the primary, which is the brand's accent when it reaches 4.5:1
- * on the dark background.
+ * Dark mode: a brand declares no dark-mode colors, so dark mode is the Genesis
+ * dark theme, except the primary, which is the brand's accent when it reaches
+ * 4.5:1 on the dark background.
  *
  * Colors that aren't `#rgb`/`#rrggbb` are left at the Genesis value.
  *
@@ -137,7 +138,11 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
   if (accent) primaryWith(accent, background ?? read("background"), foreground ?? read("foreground"));
 
   set(["secondary", "muted", "accent"], neutral("100"));
-  set(["muted-foreground"], neutral("500"));
+  // Muted text: the first neutral from 500 down that reads at 4.5:1 on the page, else the text color.
+  const page = read("background");
+  const readable = (rgb: [number, number, number] | null) => rgb !== null && contrast(rgb, page) >= 4.5;
+  const mutedText = ["500", "600", "700", "800", "900"].map(neutral).find(readable);
+  set(["muted-foreground"], mutedText ?? (brand.neutral?.["500"] ? read("foreground") : null));
   set(["border", "input"], neutral("200"));
 
   set(["destructive"], hex(brand.status?.error?.DEFAULT));

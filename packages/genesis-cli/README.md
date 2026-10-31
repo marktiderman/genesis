@@ -957,7 +957,8 @@ if (!result.ok) throw new Error(formatReport(result));
    as CSS, and `raw-tag` only in JSX files), then delete the old script.
 ## genesis upstream
 
-What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md`, one table:
+What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.md` (or
+`genesis-upstream.md` at the app's root), one table:
 
 | id | kind | status | feature | package | local | need |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -965,6 +966,8 @@ What an app needed from Genesis and didn't find goes in `docs/genesis-upstream.m
 
 `kind` is `gap` (nothing in Genesis), `extension` (a part with no prop, variant or slot for it)
 or `invention` (the app built it). `status` is `candidate`, `proposed`, `promoted` or `declined`.
+`local` is the app's own code for it: repo-relative paths, separated by `, ` (a comma and a space)
+or `<br>`; a comma with no space after it stays part of the path.
 
 - `genesis upstream check` validates it, and warns when a promoted entry's local code is still
   there (delete your copy and use the Genesis one).

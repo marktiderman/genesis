@@ -5,8 +5,9 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { brandRoleVariables, genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
+import { Appearance } from "react-native";
 import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
-import { useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
+import { useGenesisModules, useToast, type GenesisNavigationTheme } from "@marktiderman/genesis-ui-native/components";
 import { GenesisNativeApp, type GenesisNativeAppProps } from "../app";
 import { useBoot } from "../boot";
 import { useSession } from "../auth";
@@ -88,6 +89,95 @@ describe("GenesisNativeApp", () => {
     await settle();
     expect(read()).toMatchObject({ "--primary": "1 2% 3%" });
     expect(read()["--background"]).toBeUndefined();
+  });
+
+  describe("navigationTheme", () => {
+    type NavTheme = GenesisNavigationTheme;
+    const base = (dark: boolean): NavTheme => ({
+      dark,
+      colors: { primary: "base-primary", background: "base-bg", card: "base-card", text: "base-text", border: "base-border", notification: "base-red" },
+      fonts: { regular: { fontFamily: "System", fontWeight: "400" } },
+    });
+    function navigation() {
+      const seen: NavTheme[] = [];
+      const ThemeProvider = ({ value, children }: { value: NavTheme; children: ReactNode }) => {
+        seen.push(value);
+        return <div data-testid="nav-theme">{children}</div>;
+      };
+      return { seen, module: { ThemeProvider, DefaultTheme: base(false), DarkTheme: base(true) } };
+    }
+    const hsl = (triplet: string) => `hsl(${triplet.split(" ").join(", ")})`;
+
+    it("themes React Navigation in the brand's role colors for the current mode, keeping its fonts", async () => {
+      const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e" } };
+      const nav = navigation();
+      setup({ brand, modules: { navigation: nav.module } });
+      await settle();
+      const light = brandRoleVariables(brand).light;
+      expect(nav.seen.at(-1)).toEqual({
+        dark: false,
+        colors: {
+          primary: hsl(light["--primary"]!),
+          background: hsl(light["--background"]!),
+          card: hsl(light["--card"]!),
+          text: hsl(light["--foreground"]!),
+          border: hsl(light["--border"]!),
+          notification: hsl(light["--destructive"]!),
+        },
+        fonts: base(false).fonts,
+      });
+      expect(screen.getByTestId("nav-theme").contains(screen.getByTestId("screens"))).toBe(true);
+    });
+
+    it("uses React Navigation's dark theme with dark role colors in dark mode", async () => {
+      // The phone's setting (Appearance) and, where the web provider resolves, the browser's.
+      vi.spyOn(Appearance, "getColorScheme").mockReturnValue("dark");
+      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("dark"), media: query, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+      const nav = navigation();
+      setup({ modules: { navigation: nav.module } });
+      await settle();
+      const dark = brandRoleVariables(genesisBrand).dark;
+      expect(nav.seen.at(-1)!.dark).toBe(true);
+      expect(nav.seen.at(-1)!.colors.card).toBe(hsl(dark["--card"]!));
+      expect(nav.seen.at(-1)!.colors.text).toBe(hsl(dark["--foreground"]!));
+    });
+
+    it("reads the app's own brandVariables, takes a theme of its own, and sets none with false or without the module", async () => {
+      const nav = navigation();
+      const { unmount } = setup({ modules: { navigation: nav.module }, brandVariables: { "--card": "1 2% 3%", "--border": "4 5% 6% / 0.5" } });
+      await settle();
+      expect(nav.seen.at(-1)!.colors.card).toBe("hsl(1, 2%, 3%)");
+      expect(nav.seen.at(-1)!.colors.border).toBe("hsla(4, 5%, 6%, 0.5)");
+      // A partial map keeps the brand's role colors for the rest, never React Navigation's.
+      expect(nav.seen.at(-1)!.colors.text).toBe(hsl(brandRoleVariables(genesisBrand).light["--foreground"]!));
+      unmount();
+
+      const own = { ...base(false), colors: { ...base(false).colors, card: "own-card" } };
+      const second = navigation();
+      const again = setup({ modules: { navigation: second.module }, navigationTheme: { light: own, dark: base(true) } });
+      await settle();
+      expect(second.seen.at(-1)).toBe(own);
+      again.unmount();
+
+      // A theme without fonts keeps React Navigation's, which its headers read.
+      const fontless = navigation();
+      const bare = setup({ modules: { navigation: fontless.module }, navigationTheme: { dark: false, colors: own.colors } });
+      await settle();
+      expect(fontless.seen.at(-1)!.fonts).toEqual(base(false).fonts);
+      expect(fontless.seen.at(-1)!.colors.card).toBe("own-card");
+      bare.unmount();
+
+      const off = navigation();
+      const third = setup({ modules: { navigation: off.module }, navigationTheme: false });
+      await settle();
+      expect(off.seen).toEqual([]);
+      expect(screen.getByTestId("screens")).toBeTruthy();
+      third.unmount();
+
+      setup();
+      await settle();
+      expect(screen.queryByTestId("nav-theme")).toBeNull();
+    });
   });
 
   it("holds the splash until the steps and the session are done, then shows the screens", async () => {
