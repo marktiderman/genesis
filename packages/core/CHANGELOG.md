@@ -1,5 +1,11 @@
 # @marktiderman/genesis-core
 
+## 2.4.1
+
+### Patch Changes
+
+- b51031f: Navigation: `splitHref`'s doc comment sits on `splitHref` again, not on the trailing-slash helper.
+
 ## 2.4.0
 
 ### Minor Changes
