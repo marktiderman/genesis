@@ -79,7 +79,7 @@ function parseFmValue(raw: string): unknown {
     try {
       return JSON.parse(v.startsWith("'") ? singleQuotedAsJson(v) : v);
     } catch {
-      return v.slice(1, -1);
+      return v.startsWith("'") ? v.slice(1, -1).replace(/''/g, "'") : v.slice(1, -1);
     }
   }
   if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);

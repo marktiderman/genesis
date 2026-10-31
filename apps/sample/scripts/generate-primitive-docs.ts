@@ -102,6 +102,8 @@ const NON_COMPONENT_DIRS = new Set(["hooks", "provider", "context"]);
 const NON_COMPONENT_FILES = new Set([
   "utils",
   "status-colors",
+  // genesis-ui/data's internal helper for exactOptionalPropertyTypes; not exported.
+  "compact",
   "nativewind.d",
   "supabase-provider",
   // Rich text's pure document helpers and its Tiptap node: no React

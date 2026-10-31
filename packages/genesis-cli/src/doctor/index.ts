@@ -160,7 +160,10 @@ export async function runDoctor(options: RunDoctorOptions = {}): Promise<DoctorR
   const newOnly = new Set([...RATCHETED_BY_DEFAULT, ...(patterns?.newOnly ?? []), ...preferRules(packages).filter((r) => r.newOnly).map((r) => r.ruleId)]);
   let changed: Set<string> | null = null;
   let skipped = false;
-  if (options.base && (newOnly.size > 0 || config.ratchet)) {
+  // A default-ratcheted rule asks git only when it found something, so an app with no deprecated
+  // imports never sees a ratchet-skipped notice where git can't compare.
+  const ratchetNeeded = newOnly.size > RATCHETED_BY_DEFAULT.length || raw.some((f) => (RATCHETED_BY_DEFAULT as readonly string[]).includes(f.rule));
+  if (options.base && (ratchetNeeded || config.ratchet)) {
     changed = options.changedFiles ? new Set(options.changedFiles) : changedSince(root, options.base);
     skipped ||= !changed;
   }
