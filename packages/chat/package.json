@@ -179,7 +179,7 @@
     }
   },
   "devDependencies": {
-    "@ai-sdk/anthropic": "4.0.85",
+    "@ai-sdk/anthropic": "4.0.87",
     "@marktiderman/genesis-ai": "workspace:^",
     "@marktiderman/genesis-core": "workspace:^",
     "@marktiderman/genesis-notifications": "workspace:^",
@@ -191,7 +191,7 @@
     "@types/node": "^22",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "ai": "7.0.148",
+    "ai": "7.0.152",
     "happy-dom": "^21.0.4",
     "hls.js": "1.7.3",
     "lucide-react": "^1.28.0",
