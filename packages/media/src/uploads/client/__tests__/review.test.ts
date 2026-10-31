@@ -156,7 +156,9 @@ describe("5. resume entries are private and lapse", () => {
     await alice.uploader.upload(fromBytes(bytes, "a.bin"), { name: "a", contentType: "a/b", purpose: "media" }).done.catch(() => {});
     const keys = [...idb.data.keys()];
     expect(keys).toHaveLength(1);
-    expect(JSON.parse(keys[0]!)).toEqual([ENDPOINT, "alice", "media", "a.bin"]);
+    // The key is a SHA-256 of [endpoint, owner, purpose, file]: the store never holds the user id or file name.
+    expect(keys[0]).toMatch(/^[0-9a-f]{64}$/);
+    expect(keys[0]).not.toContain("alice");
     expect((idb.data.get(keys[0]!) as { expiresAt: string }).expiresAt).toMatch(/^2026-11-08/);
     await alice.uploader.clearResume();
     expect(idb.data.size).toBe(0);
