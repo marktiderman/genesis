@@ -98,13 +98,25 @@
         "web": { "$ref": "#/$defs/PlatformOverridable" },
         "native": { "$ref": "#/$defs/PlatformOverridable" }
       }
+    },
+    "designSystem": {
+      "type": "object",
+      "description": "The design system the brand uses, plus up to three choices from fixed lists. Unset: classic@1.",
+      "required": ["id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,39}@[1-9][0-9]{0,3}$", "description": "name@version, e.g. 'crisp@1'." },
+        "density": { "enum": ["compact", "normal", "generous"] },
+        "corners": { "enum": ["square", "crisp", "soft", "round", "friendly"] },
+        "motion": { "enum": ["none", "calm", "lively", "bold"] }
+      }
     }
   },
   "$defs": {
     "LengthString": {
-      "description": "Rem-based length, mirrored at runtime by LENGTH_REGEX in src/schema/brand.ts. Matches '0', '1rem', '0.5rem'. Rejects '12px', 'auto', percentages.",
+      "description": "Rem-based length, mirrored at runtime by LENGTH_REGEX in src/schema/brand.ts. Matches '0', '1rem', '0.5rem', or a fluid size 'clamp(3rem, 1.6667rem + 5.9259vw, 7rem)' (rems and one vw term, in that order; the runtime check also wants min <= max). Rejects '12px', 'auto', percentages.",
       "type": "string",
-      "pattern": "^(?:0|\\d+(?:\\.\\d+)?rem)$"
+      "pattern": "^(?:0|\\d+(?:\\.\\d+)?rem|clamp\\(\\d+(?:\\.\\d+)?rem, ?-?\\d+(?:\\.\\d+)?rem \\+ \\d+(?:\\.\\d+)?vw, ?\\d+(?:\\.\\d+)?rem\\))$"
     },
     "ColorScale": {
       "type": "object",

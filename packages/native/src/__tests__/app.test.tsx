@@ -3,7 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { genesisBrand } from "@marktiderman/genesis-design-system";
+import { brandRoleVariables, genesisBrand } from "@marktiderman/genesis-design-system";
 import { createMockProvider } from "@marktiderman/genesis-core/provider";
 import { useKeyboardScroll, useKeyboardToolbar } from "@marktiderman/genesis-ui-native/layouts";
 import { useGenesisModules, useToast } from "@marktiderman/genesis-ui-native/components";
@@ -67,6 +67,17 @@ function Clients() {
 }
 
 describe("GenesisNativeApp", () => {
+  it("sets the brand's role variables around the app, so NativeWind's role classes are the brand's colors", async () => {
+    const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e", light: "#0f766e", dark: "#5eead4" } };
+    setup({ brand });
+    await settle();
+    const style = JSON.parse(screen.getByTestId("genesis-brand-variables").dataset.style!) as Array<Record<string, string>>;
+    const variables = Object.assign({}, ...style) as Record<string, string>;
+    expect(variables["--primary"]).toBe(brandRoleVariables(brand).light["--primary"]);
+    expect(variables["--primary"]).not.toBe(brandRoleVariables(genesisBrand).light["--primary"]);
+    expect(screen.getByTestId("genesis-brand-variables").contains(screen.getByTestId("screens"))).toBe(true);
+  });
+
   it("holds the splash until the steps and the session are done, then shows the screens", async () => {
     let finish!: () => void;
     const { splash } = setup({

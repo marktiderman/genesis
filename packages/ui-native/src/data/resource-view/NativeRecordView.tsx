@@ -279,8 +279,13 @@ export interface NativeRecordViewProps<T extends Row = Row> {
   onSaved?: (row: T) => void;
   /** Above the sections: a switcher between records. */
   switcher?: ReactNode;
-  /** The screen's own sections, by id. */
-  slots?: Partial<Record<string, ReactNode>>;
+  /**
+   * The screen's own sections, by id. A node is laid out in the screen's scroll view. A section
+   * that scrolls itself (a long FlatList) passes a function instead: it gets the screen's top
+   * (switcher, readiness, sections) to render as its list's header, and owns the scroll view, so
+   * set `contentInsetAdjustmentBehavior="automatic"` on it.
+   */
+  slots?: Partial<Record<string, ReactNode | ((top: ReactNode) => ReactNode)>>;
   /** More props for a list section's NativeResourceView, by section id. */
   lists?: Partial<Record<string, Partial<Omit<NativeResourceViewProps, "view" | "filter">>>>;
   messages?: Partial<NativeRecordViewMessages>;
@@ -356,20 +361,6 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
     </View>
   );
 
-  let body: ReactNode = null;
-  if (many && !active) {
-    body = (
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Group testID={`${testID}-sections`}>
-          {sections.map((s, i) => (
-            <Cell key={s.id} last={i === sections.length - 1}>
-              <NativeListItem testID={`${testID}-section-${s.id}`} title={s.label} showChevron onPress={() => choose(s.id)} className="bg-transparent" />
-            </Cell>
-          ))}
-        </Group>
-      </ScrollView>
-    );
-  }
   // A section opened in place from the list of sections: a row back to the list.
   const back =
     many && local !== undefined && section === undefined ? (
@@ -387,20 +378,59 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
         </Group>
       </View>
     ) : null;
-  if (active?.kind === "list") {
-    body = (
+
+  // One scroll view holds the whole screen, so iOS insets it below the navigation bar
+  // (`contentInsetAdjustmentBehavior`): the header is translucent and the first rows would sit
+  // behind it otherwise. A list section is its own scroll view, with the top as its header.
+  const scroll = (content: ReactNode) => (
+    <ScrollView
+      testID={`${testID}-scroll`}
+      contentInsetAdjustmentBehavior="automatic"
+      // A field and its button in one section: the first tap presses the button.
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ flexGrow: 1, paddingBottom: 16 }}
+    >
+      {top}
+      {back}
+      {content}
+    </ScrollView>
+  );
+
+  let screen: ReactNode;
+  if (many && !active) {
+    screen = scroll(
+      <View style={{ padding: 16 }}>
+        <Group testID={`${testID}-sections`}>
+          {sections.map((s, i) => (
+            <Cell key={s.id} last={i === sections.length - 1}>
+              <NativeListItem testID={`${testID}-section-${s.id}`} title={s.label} showChevron onPress={() => choose(s.id)} className="bg-transparent" />
+            </Cell>
+          ))}
+        </Group>
+      </View>,
+    );
+  } else if (active?.kind === "list") {
+    const more = lists?.[active.id];
+    screen = (
       <NativeResourceView
         key={active.id}
         view={active.view}
         testID={`${testID}-list`}
-        {...lists?.[active.id]}
+        {...more}
+        header={
+          <>
+            {top}
+            {back}
+            {more?.header}
+          </>
+        }
         title={false}
         filter={recordView.listFilter(active.id, record)}
       />
     );
   } else if (active?.kind === "settings") {
-    body = (
-      <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+    screen = scroll(
+      <View style={{ padding: 16 }}>
         <SettingsGroup
           // A fresh draft per record and section.
           key={`${String(recordView.recordId(record))}:${active.id}`}
@@ -414,17 +444,28 @@ export function NativeRecordView<T extends Row = Row>(props: NativeRecordViewPro
           }}
           testID={`${testID}-settings`}
         />
-      </ScrollView>
+      </View>,
     );
-  } else if (active) {
-    body = slots?.[active.id] ?? null;
+  } else {
+    // The screen's own section: in the screen's scroll view, or its own (a function slot) with the
+    // top as its header.
+    const slot = active ? slots?.[active.id] : undefined;
+    screen =
+      typeof slot === "function" ? (
+        slot(
+          <>
+            {top}
+            {back}
+          </>,
+        )
+      ) : (
+        scroll(slot ?? null)
+      );
   }
 
   return (
     <View testID={testID} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
-      {top}
-      {back}
-      <View style={{ flex: 1 }}>{body}</View>
+      {screen}
     </View>
   );
 }

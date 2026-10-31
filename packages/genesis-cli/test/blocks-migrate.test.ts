@@ -1,10 +1,10 @@
 // @feat:cli-migrate
-import { readdirSync, writeFileSync } from "node:fs";
+import { readdirSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
 import { runMigrate } from "../src/blocks/migrate.js";
-import { applyMigrationPlan, nextTimestamps, planMigrations } from "../src/blocks/migrations.js";
+import { applyMigrationPlan, formatMigrationRows, nextTimestamps, planMigrations } from "../src/blocks/migrations.js";
 import { expoApp, fixturePackage, linkWorkspacePackage, makeApp, NOW, read, snapshot, SQL_A, SQL_B } from "./blocks-helpers.js";
 
 const migrations = (root: string) => readdirSync(path.join(root, "supabase/migrations")).sort();
@@ -54,6 +54,27 @@ describe("genesis migrate", () => {
     expect(read(root, copy)).toBe(edited);
     expect(forward.written).toEqual(["supabase/migrations/20261101120002_fixture_notes_forward.sql"]);
     expect(read(root, forward.written[0]!)).toMatch(/^-- genesis-forward: [^\n]+\n-- Forward migration for @marktiderman\/genesis-fixture migrations\/0001_fixture_notes\.sql/);
+  });
+
+  it("reports a copy deleted in the app, and never copies it again", async () => {
+    const root = await appWithBlock();
+    const copy = "supabase/migrations/20261101120000_fixture_notes.sql";
+    expect(JSON.parse(read(root, "genesis.lock.json")).migrations).toMatchObject({ "@marktiderman/genesis-fixture:migrations/0001_fixture_notes.sql": copy });
+    rmSync(path.join(root, copy));
+    const report = await runMigrate({ root, now: NOW });
+    expect(report.plan.rows[0]).toMatchObject({ state: "deleted", copy });
+    expect(formatMigrationRows(report.plan.rows)).toMatch(/^! deleted +@marktiderman\/genesis-fixture migrations\/0001_fixture_notes\.sql/);
+    expect(report.written).toEqual([]);
+    expect(migrations(root)).not.toContain("20261101120000_fixture_notes.sql");
+  });
+
+  it("remembers copies an older lock didn't record, so deleting one later is noticed", async () => {
+    const root = await appWithBlock();
+    const lock = JSON.parse(read(root, "genesis.lock.json"));
+    delete lock.migrations;
+    writeFileSync(path.join(root, "genesis.lock.json"), `${JSON.stringify(lock, null, 2)}\n`);
+    await runMigrate({ root });
+    expect(Object.keys(JSON.parse(read(root, "genesis.lock.json")).migrations)).toHaveLength(2);
   });
 
   it("refuses to rewrite a copy whose package migration changed upstream", async () => {

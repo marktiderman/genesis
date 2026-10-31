@@ -83,9 +83,9 @@ export const pricingSection = defineSection({
       name: "Plan groups",
       variant: "cards",
       props: {
-        heading: "Memberships",
+        heading: "Plans and prices",
         groups: [
-          { heading: "Start here", anchor: "start", tiers: [{ name: "Single visit", price: "$20", description: "One class", cta: { label: "Book a visit", href: "#contact" } }] },
+          { heading: "Start here", anchor: "start", tiers: [{ name: "Single visit", price: "$20", description: "One visit", cta: { label: "Book a visit", href: "#contact" } }] },
           { heading: "Every week", anchor: "weekly", tiers: [{ name: "Monthly", price: "$99", period: "per month", cta: { label: "Join monthly", href: "#contact" } }, { name: "Yearly", price: "$89", period: "per month", description: "Paid yearly", highlighted: true, cta: { label: "Join for a year", href: "#contact" } }] },
         ],
       },
@@ -172,7 +172,7 @@ export const pricingSection = defineSection({
       return (
         <section key={gi} aria-labelledby={id} {...(group.anchor ? { id: group.anchor } : {})} className={cn("flex flex-col gap-3", group.anchor && "scroll-mt-20")}>
           <div className="mx-auto flex max-w-3xl flex-col items-center gap-2 text-center">
-            {group.eyebrow ? <p className="text-sm font-semibold uppercase tracking-wider">{group.eyebrow}</p> : null}
+            {group.eyebrow ? <p data-gs-text="eyebrow" className="text-sm font-semibold uppercase tracking-wider">{group.eyebrow}</p> : null}
             <GroupTitle ctx={ctx} id={id}>
               {group.heading}
             </GroupTitle>

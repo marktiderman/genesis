@@ -5,8 +5,10 @@
  * checksum still matches was not edited, so a newer version may replace it;
  * one that differs is the app's, and is merged or left alone.
  *
- * Migrations aren't here: each copy carries its own header (see migrations.ts),
- * and they are never refreshed.
+ * Migrations aren't owned files: each copy carries its own header (see
+ * migrations.ts), and they are never refreshed. `migrations` only remembers
+ * where each package migration was copied, so a copy the app deleted is
+ * reported (and not copied again) instead of looking new.
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -37,6 +39,8 @@ export interface GenesisLock {
   blocks: Record<string, { package: string; version?: string }>;
   /** Files Genesis owns in the app, by app-relative path. */
   files: Record<string, OwnedFile>;
+  /** Package migrations copied into the app: `<package>:<file>` → the copy's app-relative path. */
+  migrations?: Record<string, string>;
 }
 
 export function emptyLock(): GenesisLock {
@@ -48,14 +52,31 @@ export function readLock(root: string): GenesisLock {
   if (!existsSync(file)) return emptyLock();
   const raw = JSON.parse(readFileSync(file, "utf8")) as Partial<GenesisLock>;
   if (raw.version !== 1) throw new Error(`${LOCK_FILE} has version ${String(raw.version)}; this CLI reads version 1.`);
-  return { version: 1, ...(raw.substitutions ? { substitutions: raw.substitutions } : {}), blocks: raw.blocks ?? {}, files: raw.files ?? {} };
+  return {
+    version: 1,
+    ...(raw.substitutions ? { substitutions: raw.substitutions } : {}),
+    blocks: raw.blocks ?? {},
+    files: raw.files ?? {},
+    ...(raw.migrations ? { migrations: raw.migrations } : {}),
+  };
 }
 
 /** Keys sorted, so the file diffs cleanly. */
 export function writeLock(root: string, lock: GenesisLock): void {
   const sorted = <T>(o: Record<string, T>) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
-  const out = { version: 1, ...(lock.substitutions ? { substitutions: lock.substitutions } : {}), blocks: sorted(lock.blocks), files: sorted(lock.files) };
+  const out = {
+    version: 1,
+    ...(lock.substitutions ? { substitutions: lock.substitutions } : {}),
+    blocks: sorted(lock.blocks),
+    files: sorted(lock.files),
+    ...(lock.migrations && Object.keys(lock.migrations).length ? { migrations: sorted(lock.migrations) } : {}),
+  };
   replaceApp(root, LOCK_FILE, `${JSON.stringify(out, null, 2)}\n`);
+}
+
+/** The `migrations` key for a package migration. */
+export function migrationKey(pkg: string, file: string): string {
+  return `${pkg}:${file}`;
 }
 
 export function parseSource(source: string): { package: string; path: string } {

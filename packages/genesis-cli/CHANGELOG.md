@@ -1,5 +1,11 @@
 # @marktiderman/genesis-cli
 
+## 1.16.2
+
+### Patch Changes
+
+- 845d802: The native starter template moves to `@sentry/react-native` ~8.32.0.
+
 ## 1.16.1
 
 ### Patch Changes

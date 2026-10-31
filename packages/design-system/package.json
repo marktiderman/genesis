@@ -74,6 +74,14 @@
       "import": "./dist/schema/brand.js"
     },
     "./schema/brand.schema.json": "./schema/brand.schema.json",
+    "./design-systems": {
+      "types": "./dist/design-systems/index.d.ts",
+      "import": "./dist/design-systems/index.js"
+    },
+    "./fonts": {
+      "types": "./dist/fonts.d.ts",
+      "import": "./dist/fonts.js"
+    },
     "./theme": {
       "types": "./dist/theme/index.d.ts",
       "react-native": "./dist/theme/index.native.js",

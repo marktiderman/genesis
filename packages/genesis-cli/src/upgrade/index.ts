@@ -18,7 +18,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
-import { agentsFragment, ownedWrites, sourceMigrations } from "../blocks/add.js";
+import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from "../blocks/add.js";
 import { mergeFragment } from "../blocks/agents.js";
 import { findBlock, packageDir, packageVersion } from "../blocks/discover.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
@@ -137,7 +137,9 @@ function sourceText(root: string, source: string, substitutions: Record<string, 
       return text === null ? null : substitute(text, substitutions);
     }
     const text = readPackageFile(dir, rel);
-    return text === null ? null : substitute(text, substitutions);
+    if (text === null) return null;
+    // An Edge Function's npm imports name the installed versions, as `genesis add` wrote them.
+    return substitute(rel.startsWith("functions/") ? pinGenesisImports(root, text) : text, substitutions);
   } catch {
     return null;
   }
@@ -217,7 +219,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     try {
       const { manifest } = await findBlock(root, id, { package: entry.package, warnings });
       manifests.push(manifest);
-      for (const row of planMigrations(root, sourceMigrations(root, manifest), { now: new Date(), tests: false }).rows) {
+      for (const row of planMigrations(root, sourceMigrations(root, manifest), { now: new Date(), tests: false, ...(lock.migrations ? { copied: lock.migrations } : {}) }).rows) {
         if (row.state === "new") newMigrations.push(`${row.package} ${row.file}`);
       }
       if (manifest.version && manifest.version !== entry.version) lock.blocks[id] = { ...entry, version: manifest.version };

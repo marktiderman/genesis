@@ -59,8 +59,8 @@ export const fileSection = defineSection({
   ],
   defaultVariant: "list",
   presets: [
-    { name: "Downloads", variant: "list", props: { heading: "Downloads", files: [{ label: "Timetable", file: { src: "/files/timetable.pdf", mime: "application/pdf" } }] } },
-    { name: "File cards", variant: "cards", props: { heading: "Forms to bring", files: [{ label: "Waiver", description: "Sign it before your first class.", file: { src: "/files/waiver.pdf", mime: "application/pdf" } }] } },
+    { name: "Downloads", variant: "list", props: { heading: "Downloads", files: [{ label: "Price list", file: { src: "/files/price-list.pdf", mime: "application/pdf" } }] } },
+    { name: "File cards", variant: "cards", props: { heading: "Forms to bring", files: [{ label: "Sign-up form", description: "Fill it in before your first visit.", file: { src: "/files/sign-up.pdf", mime: "application/pdf" } }] } },
   ],
   render: ({ props, variant, node, ctx }) => {
     const inverted = onAccent(props.surface);

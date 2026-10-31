@@ -3644,10 +3644,10 @@
             },
             {
               "name": "slots",
-              "type": "Partial<Record<string, ReactNode>>",
+              "type": "Partial<Record<string, ReactNode | ((top: ReactNode) => ReactNode)>>",
               "required": false,
               "defaultValue": null,
-              "description": "The screen's own sections, by id."
+              "description": "The screen's own sections, by id. A node is laid out in the screen's scroll view. A section\nthat scrolls itself (a long FlatList) passes a function instead: it gets the screen's top\n(switcher, readiness, sections) to render as its list's header, and owns the scroll view, so\nset `contentInsetAdjustmentBehavior=\"automatic\"` on it."
             },
             {
               "name": "switcher",
@@ -3727,10 +3727,10 @@
             },
             {
               "name": "slots",
-              "type": "Partial<Record<string, ReactNode>>",
+              "type": "Partial<Record<string, ReactNode | ((top: ReactNode) => ReactNode)>>",
               "required": false,
               "defaultValue": null,
-              "description": "The screen's own sections, by id."
+              "description": "The screen's own sections, by id. A node is laid out in the screen's scroll view. A section\nthat scrolls itself (a long FlatList) passes a function instead: it gets the screen's top\n(switcher, readiness, sections) to render as its list's header, and owns the scroll view, so\nset `contentInsetAdjustmentBehavior=\"automatic\"` on it."
             },
             {
               "name": "switcher",

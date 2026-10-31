@@ -82,6 +82,11 @@ export interface PublishOptions {
   /** The brand to check contrast against (and record the hash of). Required: a publish without it is blocked. */
   brand?: BrandInput | null;
   reserved?: ReservedPaths;
+  /**
+   * Origins that count as the site's own besides its paths, for the check on
+   * where images load from. A store adds its own `assetOrigin`.
+   */
+  assetOrigins?: readonly string[];
 }
 
 export interface NewPage {
@@ -131,6 +136,12 @@ export interface SiteStore {
   listReleases(siteId: string): Promise<ReleaseMeta[]>;
   /** Store an upload under `sites/<siteId>/...` (a PDF under `files/`) and record it. Images and PDF only. */
   putAsset?(siteId: string, file: Blob, meta?: AssetMeta): Promise<Asset>;
+  /**
+   * The origin `putAsset` URLs live on (`https://project.supabase.co`), when
+   * it isn't the site's own. The publish checks and the page's
+   * Content-Security-Policy treat it as the site's own.
+   */
+  readonly assetOrigin?: string;
 
   // Posts. Optional: a store without them serves a site with no blog.
 
@@ -210,7 +221,13 @@ export function prepareRelease(
     pages: releasePages.map((p) => ({ ...p, doc: { ...p.doc, content: visible(p.doc.content) } })),
   });
   const theme = options.brand ? siteTheme(options.brand, snapshot.site.theme) : undefined;
-  const issues = checkRelease(snapshot, { ...(theme ? { theme } : {}), reserved: options.reserved ?? DEFAULT_RESERVED_PATHS });
+  const logo = options.brand && "logo" in options.brand ? options.brand.logo?.src : undefined;
+  const issues = checkRelease(snapshot, {
+    ...(theme ? { theme } : {}),
+    reserved: options.reserved ?? DEFAULT_RESERVED_PATHS,
+    ...(options.assetOrigins ? { assetOrigins: options.assetOrigins } : {}),
+    ...(logo ? { logo } : {}),
+  });
   // The contrast check needs the brand: without it a publish can't show its colours are readable.
   if (!theme) issues.push({ severity: "error", code: "brand-missing", message: "Publish with the site's brand (`brand`), so its colours can be checked for contrast." });
   if (!isPublishable(issues)) throw new PublishBlockedError(issues);
@@ -645,7 +662,8 @@ export function createMemorySiteStore(options: MemoryStoreOptions = {}): MemoryS
       const p = editablePost(postId);
       // Archiving is a takedown: no post goes back up (as publish_post refuses).
       if (sites.get(p.siteId)?.status === "archived") throw new Error("An archived site can't publish posts.");
-      const issues = checkPost(p.slug, p.doc);
+      const images = sites.get(p.siteId)?.site.images;
+      const issues = checkPost(p.slug, p.doc, images ? { images } : {});
       if (!isPublishable(issues)) throw new PublishBlockedError(issues);
       const at = now().toISOString();
       p.published = { doc: clone(p.doc), at };

@@ -20,6 +20,7 @@
     "check:navigation-reimplementation": "node scripts/check-navigation-reimplementation.mjs",
     "check:package-layers": "node scripts/check-package-layers.mjs",
     "check:peer-deps": "node scripts/check-peer-deps.mjs",
+    "check:industry-words": "node scripts/check-industry-words.mjs",
     "check:private-names": "node scripts/check-private-names.mjs",
     "check:testid-coverage": "node scripts/check-testid-coverage.mjs",
     "check:token-usage": "node scripts/check-token-usage.mjs",
