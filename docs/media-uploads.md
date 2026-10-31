@@ -185,7 +185,7 @@ upload, and checked again by the app's rules on each call, not only at create:
 ```ts
 createUploadHandler({
   store,                       // where sessions live: the Supabase table by default, or a Durable Object
-  targets: { working: r2Target(env.BUCKET), archive: s3Target({ ... }) },
+  targets: { working: createR2Target(env.BUCKET), archive: createS3Target({ ... }) },
   owner: (request) => …,       // who is asking, or null (401)
   authorize: ({ owner, op, purpose, size, contentType }) => …, // the app's rules: allow, narrow, refuse
   keyFor: ({ owner, purpose, sha256, name }) => …,             // where the object goes; never the client's
@@ -216,22 +216,26 @@ createUploadHandler({
 
 ## Targets and fan-out
 
-A target adapter:
+A target adapter (`UploadTarget` in `@marktiderman/genesis-media/uploads/targets`, as built):
 
 ```ts
 interface UploadTarget {
-  name: string;
+  minPart: number;                 // the smallest part it takes (every part but the last)
   maxPart: number;                 // the largest part it takes
+  tier?: "working" | "archive" | "cold";
   start(key, meta): Promise<string>;                        // a multipart upload id
-  part(key, uploadId, n, body, digest): Promise<PartReceipt>;
-  presignPart?(key, uploadId, n, digest): Promise<{ url: string; headers: Record<string, string> }>;
-  listParts(key, uploadId): Promise<PartReceipt[]>;
-  finish(key, uploadId, parts): Promise<void>;
+  part(key, uploadId, n, body, { size, sha256 }): Promise<PartReceipt>;  // body streams
+  finish(key, uploadId, parts): Promise<AssembledObject | void>;          // { etag?, versionId? }
   abort(key, uploadId): Promise<void>;
-  read(key): Promise<ReadableStream<Uint8Array> | null>;   // for the read-back check
-  head(key): Promise<{ size: number; sha256?: string } | null>;
+  assembled?(key, uploadId, parts): Promise<AssembledObject | undefined>; // after a lost finish
+  read(key, versionId?): Promise<ReadableStream<Uint8Array> | null>;     // for the read-back check
+  head(key): Promise<{ size: number } | null>;
+  delete(key, versionId?): Promise<void>;                  // an assembly that didn't verify
+  lock?(key, versionId?): Promise<ObjectLock | undefined>; // only after it verified
 }
 ```
+
+Direct mode, later, adds `presignPart` (presigned part URLs) and `listParts`.
 
 - **R2**, through a binding in a Worker (`createMultipartUpload`, `uploadPart`) or a Worker over
   fetch from elsewhere. Each part is hashed on arrival before `uploadPart`.

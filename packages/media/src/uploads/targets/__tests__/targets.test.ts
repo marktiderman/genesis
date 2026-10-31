@@ -280,5 +280,10 @@ describe("copyBetweenTargets", () => {
     const failing = { ...to, part: async () => Promise.reject(new Error("down")) };
     await expect(copyBetweenTargets(from, failing, "k", { partSize: 4, uploadId: await to.start("k", { contentType: "a/b" }) })).rejects.toThrow(/down/);
     expect(to.calls.at(-1)).toBe("abort k");
+    // The source's stream is cancelled, not left open.
+    let cancelled = false;
+    const source = { ...from, read: async () => new ReadableStream<Uint8Array>({ pull: (c) => c.enqueue(new Uint8Array(4)), cancel: () => void (cancelled = true) }) };
+    await expect(copyBetweenTargets(source, failing, "k", { partSize: 4, uploadId: await to.start("k", { contentType: "a/b" }) })).rejects.toThrow(/down/);
+    expect(cancelled).toBe(true);
   });
 });

@@ -83,8 +83,8 @@ export async function copyBetweenTargets(
   if (!source) throw new Error(`copy: ${key} is missing from the source target.`);
   const partSize = Math.min(Math.max(options.partSize, to.minPart), to.maxPart);
   const receipts: PartReceipt[] = [];
+  const reader = source.getReader();
   try {
-    const reader = source.getReader();
     let buffer = new Uint8Array(partSize);
     let filled = 0;
     let n = 1;
@@ -111,6 +111,8 @@ export async function copyBetweenTargets(
     if (filled > 0 || receipts.length === 0) await flush();
     return await to.finish(key, uploadId, receipts);
   } catch (error) {
+    // The source's body is still open (an S3 fetch, which counts against a Worker's connections): close it too.
+    await reader.cancel().catch(() => {});
     await to.abort(key, uploadId).catch(() => {});
     throw error;
   }
