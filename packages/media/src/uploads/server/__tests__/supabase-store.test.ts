@@ -81,12 +81,12 @@ describe("createSupabaseSessionStore", () => {
   it("goes through reserve_part, complete_part and update_upload, each one atomic in the database", async () => {
     const { client, calls } = fakeClient([{ data: "conflict", error: null }, { data: true, error: null }, { data: true, error: null }]);
     const store = createSupabaseSessionStore(client);
-    expect(await store.reservePart(session.id, { n: 1, size: 4, digest: "d" })).toBe("conflict");
-    expect(await store.completePart(session.id, 1, "d", "e")).toBe(true);
+    expect(await store.reservePart(session.id, { n: 1, size: 4, digest: "d" }, "h", { now: "2026-11-01T00:10:00.000Z", staleBefore: "2026-11-01T00:00:00.000Z" })).toBe("conflict");
+    expect(await store.completePart(session.id, 1, "h", "e")).toBe(true);
     expect(await store.update(session.id, { state: "verifying", sha256: "a".repeat(64), leaseUntil: null }, ["open"])).toBe(true);
     expect(calls.filter((c) => c.startsWith("rpc"))).toEqual([
-      `rpc reserve_part {"p_upload":"${session.id}","p_n":1,"p_size":4,"p_digest":"d"}`,
-      `rpc complete_part {"p_upload":"${session.id}","p_n":1,"p_digest":"d","p_etag":"e"}`,
+      `rpc reserve_part {"p_upload":"${session.id}","p_n":1,"p_size":4,"p_digest":"d","p_holder":"h","p_now":"2026-11-01T00:10:00.000Z","p_stale_before":"2026-11-01T00:00:00.000Z"}`,
+      `rpc complete_part {"p_upload":"${session.id}","p_n":1,"p_holder":"h","p_etag":"e"}`,
       `rpc update_upload {"p_id":"${session.id}","p_patch":{"state":"verifying","sha256":"${"a".repeat(64)}","lease_until":null},"p_when":["open"]}`,
     ]);
   });
@@ -97,7 +97,7 @@ describe("createSupabaseSessionStore", () => {
       { data: null, error: { message: "duplicate key", code: "23505" } as never },
     ]);
     const store = createSupabaseSessionStore(client);
-    await expect(store.reservePart(session.id, { n: 1, size: 4, digest: "d" })).rejects.toBeInstanceOf(SessionNotOpenError);
+    await expect(store.reservePart(session.id, { n: 1, size: 4, digest: "d" }, "h", { now: "2026-11-01T00:10:00.000Z", staleBefore: "2026-11-01T00:00:00.000Z" })).rejects.toBeInstanceOf(SessionNotOpenError);
     await expect(store.insert(session)).rejects.toBeInstanceOf(SessionConflictError);
   });
 

@@ -185,7 +185,7 @@ upload, and checked again by the app's rules on each call, not only at create:
 ```ts
 createUploadHandler({
   store,                       // where sessions live: the Supabase table by default, or a Durable Object
-  targets: { working: r2Target(env.BUCKET), archive: s3Target({ ... }) },
+  targets: { working: createR2Target(env.BUCKET), archive: createS3Target({ ... }) },
   owner: (request) => …,       // who is asking, or null (401)
   authorize: ({ owner, op, purpose, size, contentType }) => …, // the app's rules: allow, narrow, refuse
   keyFor: ({ owner, purpose, sha256, name }) => …,             // where the object goes; never the client's
@@ -216,22 +216,26 @@ createUploadHandler({
 
 ## Targets and fan-out
 
-A target adapter:
+A target adapter (`UploadTarget` in `@marktiderman/genesis-media/uploads/targets`, as built):
 
 ```ts
 interface UploadTarget {
-  name: string;
+  minPart: number;                 // the smallest part it takes (every part but the last)
   maxPart: number;                 // the largest part it takes
+  tier?: "working" | "archive" | "cold";
   start(key, meta): Promise<string>;                        // a multipart upload id
-  part(key, uploadId, n, body, digest): Promise<PartReceipt>;
-  presignPart?(key, uploadId, n, digest): Promise<{ url: string; headers: Record<string, string> }>;
-  listParts(key, uploadId): Promise<PartReceipt[]>;
-  finish(key, uploadId, parts): Promise<void>;
+  part(key, uploadId, n, body, { size, sha256 }): Promise<PartReceipt>;  // body streams
+  finish(key, uploadId, parts): Promise<AssembledObject | void>;          // { etag?, versionId? }
   abort(key, uploadId): Promise<void>;
-  read(key): Promise<ReadableStream<Uint8Array> | null>;   // for the read-back check
-  head(key): Promise<{ size: number; sha256?: string } | null>;
+  assembled?(key, uploadId, parts): Promise<AssembledObject | undefined>; // after a lost finish
+  read(key, versionId?): Promise<ReadableStream<Uint8Array> | null>;     // for the read-back check
+  head(key): Promise<{ size: number } | null>;
+  delete(key, versionId?): Promise<void>;                  // an assembly that didn't verify
+  lock?(key, versionId?): Promise<ObjectLock | undefined>; // only after it verified
 }
 ```
+
+Direct mode, later, adds `presignPart` (presigned part URLs) and `listParts`.
 
 - **R2**, through a binding in a Worker (`createMultipartUpload`, `uploadPart`) or a Worker over
   fetch from elsewhere. Each part is hashed on arrival before `uploadPart`.
@@ -393,8 +397,8 @@ with its own transport. Either is media-video-value's decision.
   - a browser run (Playwright) with a reload mid-upload;
   - React Native through the existing chat outbox tests, unchanged.
 - **Never delete the source**: no client API moves or deletes a source (a type test).
-- **Merge**: forms' and chat's existing upload tests pass unchanged; each adapter is tested
-  against its port.
+- **Merge**: forms' and chat's existing upload tests pass unchanged; the forms adapter is
+  tested against forms' port, and chat's `transport` port against a transport of its own.
 - **Large files**: a 5 GB upload through the in-memory target with flat memory; part counts at
   the 10,000 limit.
 
@@ -425,8 +429,17 @@ with its own transport. Either is media-video-value's decision.
 - **Finalize leaves `open` before anything is assembled** (a compare-and-set to `verifying`);
   the verify run assembles under its lease. An abort racing a finalize either came first, and
   nothing was assembled, or is refused, so an object never outlives its session.
-- **Only the request that reserved a part gives it back** when its write fails. Another
-  request writing the same bytes leaves it, and answers 409 `part_conflict` if it went.
+- **A part's reservation belongs to one request** (a random token): only it records the part or
+  gives it back when its write fails. Another request for that part while it is written writes
+  nothing and answers 503 (send it again shortly); a reservation left for `partReserveSeconds`
+  (10 minutes, its server died mid-write) is taken over, and the late writer's answer isn't
+  recorded.
+- **A finalize that loses the race to another** answers 202 while the upload is checked, and a
+  client never treats a 200 `verifying` as done.
+- **Abort** works on a finalized upload that nothing has assembled yet (its job hasn't started),
+  in the same step that checks no run has taken it.
+- **Each verified copy is recorded as soon as it is locked**, and a target's earlier copy that
+  didn't verify is removed, by its version, before it is copied again.
 - **Abort and the sweep** remove a session only in the state they found it in; a session stuck
   in `verifying` with no live lease can be aborted and is swept, with its unverified objects.
 - **Parts** stream through and are reserved for their bytes before they are written; other bytes

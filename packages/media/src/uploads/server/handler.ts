@@ -25,7 +25,7 @@ import {
   type UploadStatus,
 } from "../protocol";
 import { SessionConflictError, SessionNotOpenError, type UploadSession } from "./store";
-import { discardUnverified, isStuckVerifying, verifyUpload, type UploadVerifyOptions } from "./verify";
+import { discardUnverified, isAssembled, isStuckVerifying, verifyUpload, type UploadVerifyOptions } from "./verify";
 
 /** The operation the app's rules are asked about. Every one of them is asked, every time. */
 export type UploadOperation = "create" | "resume" | "part" | "finalize" | "abort";
@@ -91,6 +91,12 @@ export interface UploadHandlerOptions extends UploadVerifyOptions {
   sessionTtlSeconds?: number | undefined;
   /** The largest part this handler buffers. Default 32 MiB. */
   maxPartBytes?: number | undefined;
+  /**
+   * How long a part's reservation holds while its request writes it. Another request for that
+   * part meanwhile is told to send it again soon (503); after this, a reservation that never
+   * completed (its server died mid-write) is taken over. Default 10 minutes.
+   */
+  partReserveSeconds?: number | undefined;
   /** The route's path. Default `/uploads`. */
   basePath?: string | undefined;
   /** Sees unexpected errors (a target down, a store failing); the client gets 500 or 503. */
@@ -130,6 +136,11 @@ function json(status: number, body: unknown, headers: Record<string, string> = {
 
 function refuse(status: number, code: UploadErrorCode, extra: Partial<UploadError> = {}, error?: string): Response {
   return json(status, { error: error ?? WORDS[code], code, ...extra } satisfies UploadError);
+}
+
+/** A part another request is writing now: try again shortly (a client retries a 503 on its own). */
+function busy(): Response {
+  return json(503, { error: "This part is still arriving from another request. It will be sent again.", code: "server_error" } satisfies UploadError, { "retry-after": "2" });
 }
 
 /** The body, at most `max` bytes, or null when it is longer. Read as it streams, never buffered past the cap. */
@@ -252,6 +263,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
   const inlineBytes = options.verifyInlineBytes ?? 64 * MiB;
   const ttlMs = (options.sessionTtlSeconds ?? 7 * 86_400) * 1000;
   const maxPartBytes = options.maxPartBytes ?? 32 * MiB;
+  const partReserveMs = (options.partReserveSeconds ?? 600) * 1000;
   const expiresAt = () => new Date(now() + ttlMs).toISOString();
 
   /** The owner's session, or a 404 for anything else. Then the app's rules, for this operation. */
@@ -368,11 +380,16 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     const digest = parseContentDigest(request.headers.get("content-digest"));
     if (!digest) return refuse(400, "digest_required");
     const stored = formatContentDigestB64(digest);
-    // Reserve the part number for these bytes first, atomically: other bytes are refused before
-    // anything is written, so the target never holds a part the session didn't record.
+    // Reserve the part number for these bytes, and for this request alone, first and atomically:
+    // other bytes are refused, and a second request for the same bytes waits, before anything is
+    // written. So only one request writes a part at a time, and only it records or releases it.
+    const holder = randomId();
     let reservation;
     try {
-      reservation = await store.reservePart(s.id, { n, size: expected, digest: stored });
+      reservation = await store.reservePart(s.id, { n, size: expected, digest: stored }, holder, {
+        now: new Date(now()).toISOString(),
+        staleBefore: new Date(now() - partReserveMs).toISOString(),
+      });
     } catch (error) {
       if (error instanceof SessionNotOpenError) return refuse(410, "finalized");
       throw error;
@@ -384,6 +401,12 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (reservation === "received") {
       await request.body?.cancel().catch(() => {});
       return json(200, { n, size: expected, digest: stored });
+    }
+    if (reservation === "busy") {
+      // Another request is writing this part now (a retry that overtook its first try, say). Nothing
+      // is written; sent again shortly, it finds the part received, or free to write.
+      await request.body?.cancel().catch(() => {});
+      return busy();
     }
     // Streamed to the target as it arrives, hashed and counted on the way: never held whole.
     const hash = createSha256();
@@ -403,9 +426,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
         },
       }),
     );
-    // Only the request that reserved the part gives the reservation back when its write fails. A
-    // "same" request shares it with a writer that may still be sending, and leaves it alone.
-    const release = () => (reservation === "reserved" ? store.releasePart(s.id, n, stored) : Promise.resolve());
+    // The reservation is this request's own, so its failure gives it back; nobody else's is touched.
+    const release = () => store.releasePart(s.id, n, holder);
     let receipt;
     try {
       receipt = await targets[s.targets[0]!]!.part(s.key, s.targetUploadId, n, counted, { size: expected, sha256: toHex(base64ToBytes(digest)) });
@@ -425,11 +447,11 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
       await release();
       return refuse(422, "digest_mismatch");
     }
-    if (!(await store.completePart(s.id, n, stored, receipt.etag))) {
-      // The reservation went (its writer failed and gave it back) while this request wrote: what
-      // the target holds for this part is unknown, so it isn't recorded. Finished means finished.
+    if (!(await store.completePart(s.id, n, holder, receipt.etag))) {
+      // This request ran past `partReserveSeconds` and another took the part over, so this write
+      // isn't recorded: sent again, the part is found received (or free). Finished means finished.
       const after = await store.get(s.id);
-      return after && after.state === "open" ? refuse(409, "part_conflict") : refuse(410, "finalized");
+      return after && after.state === "open" ? busy() : refuse(410, "finalized");
     }
     await store.update(s.id, { expiresAt: expiresAt() }, ["open"]);
     return json(200, { n, size: expected, digest: stored });
@@ -459,7 +481,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     if (s.state === "partial") {
       // Retry only the targets that failed; the verified copies stand.
       const since = new Date(now()).toISOString();
-      if (!(await store.update(s.id, { state: "verifying", failed: [], verifyingSince: since }, ["partial"]))) return json(200, statusOf((await store.get(s.id)) ?? s));
+      if (!(await store.update(s.id, { state: "verifying", failed: [], verifyingSince: since }, ["partial"]))) return lost(s.id);
       return verify({ ...s, state: "verifying", failed: [], verifyingSince: since });
     }
     const body = await readJson(request);
@@ -478,16 +500,24 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     // its lease). An abort that races this either removed the session first, and nothing was ever
     // assembled, or finds it verifying and is refused: an object never outlives its session.
     const since = new Date(now()).toISOString();
-    if (!(await store.update(s.id, { state: "verifying", sha256, verifyingSince: since }, ["open"]))) {
-      const after = await store.get(s.id);
-      return after ? json(200, statusOf(after)) : refuse(404, "not_found");
-    }
+    if (!(await store.update(s.id, { state: "verifying", sha256, verifyingSince: since }, ["open"]))) return lost(s.id);
     return verify({ ...s, state: "verifying", sha256, verifyingSince: since });
+  }
+
+  /** Another finalize moved the session on first: what it is now, with 202 while it is still being checked. */
+  async function lost(id: string): Promise<Response> {
+    const after = await store.get(id);
+    if (!after) return refuse(404, "not_found");
+    return json(after.state === "verifying" ? 202 : 200, statusOf(after));
   }
 
   async function abort(s: UploadSession): Promise<Response> {
     // Being checked, by a live run or a job still to come: not now. Stuck (no lease for long): yes.
-    if (s.state === "verifying" && !isStuckVerifying(s, { ...options, store, targets, now })) {
+    // Nothing assembled yet and no run at it (its job hasn't started, or its assembly failed): yes,
+    // since removal checks in the same step that no run has taken the lease meanwhile.
+    const leased = s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now();
+    const unassembled = s.state === "verifying" && !isAssembled(s) && !leased;
+    if (s.state === "verifying" && !unassembled && !isStuckVerifying(s, { ...options, store, targets, now })) {
       return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
     }
     // Only if it is still in the state it was loaded in, and (for a stuck verification) still with

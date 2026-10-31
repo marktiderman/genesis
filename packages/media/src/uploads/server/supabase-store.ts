@@ -145,10 +145,13 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
       const match = rows.find((r) => sameTargets(r.targets, q.targets));
       return match ? toSession(match) : null;
     },
-    async reservePart(id, part) {
+    async reservePart(id, part, holder, at) {
       try {
-        const result = check<string>("reservePart", await db().rpc("reserve_part", { p_upload: id, p_n: part.n, p_size: part.size, p_digest: part.digest }));
-        if (result !== "reserved" && result !== "same" && result !== "received" && result !== "conflict") throw new SessionStoreError(`genesis_media reservePart: unexpected ${String(result)}`);
+        const result = check<string>(
+          "reservePart",
+          await db().rpc("reserve_part", { p_upload: id, p_n: part.n, p_size: part.size, p_digest: part.digest, p_holder: holder, p_now: at.now, p_stale_before: at.staleBefore }),
+        );
+        if (result !== "reserved" && result !== "busy" && result !== "received" && result !== "conflict") throw new SessionStoreError(`genesis_media reservePart: unexpected ${String(result)}`);
         return result;
       } catch (error) {
         // The session isn't open (finalized or aborted meanwhile): the handler answers 410.
@@ -156,11 +159,11 @@ export function createSupabaseSessionStore(client: SessionStoreClient): UploadSe
         throw error;
       }
     },
-    async completePart(id, n, digest, etag) {
-      return check<boolean>("completePart", await db().rpc("complete_part", { p_upload: id, p_n: n, p_digest: digest, p_etag: etag })) === true;
+    async completePart(id, n, holder, etag) {
+      return check<boolean>("completePart", await db().rpc("complete_part", { p_upload: id, p_n: n, p_holder: holder, p_etag: etag })) === true;
     },
-    async releasePart(id, n, digest) {
-      check("releasePart", await db().rpc("release_part", { p_upload: id, p_n: n, p_digest: digest }));
+    async releasePart(id, n, holder) {
+      check("releasePart", await db().rpc("release_part", { p_upload: id, p_n: n, p_holder: holder }));
     },
     async claimVerify(id, until, now, holder) {
       return check<boolean>("claimVerify", await db().rpc("claim_verify", { p_id: id, p_until: until, p_now: now, p_holder: holder })) === true;

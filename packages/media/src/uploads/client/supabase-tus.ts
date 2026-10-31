@@ -5,8 +5,9 @@
  * speaks the part protocol: offsets are sequential (one PATCH at a time, in
  * order), chunks are a fixed 6 MiB (every one but the last), there is no
  * part list and no fan-out, and Supabase's upload URL lapses after 24 hours,
- * after which a send starts again. Moved here from genesis-chat, whose
- * `createTusUpload` now wraps it.
+ * after which a send starts again. genesis-chat keeps its own copy of this
+ * client in `createTusUpload` (chat never depends on genesis-media), so a fix
+ * to one belongs in both; an app may pass this one as chat's `transport`.
  */
 
 /** Supabase requires 6 MiB chunks for TUS (every chunk but the last). */

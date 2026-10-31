@@ -17,6 +17,10 @@ export interface StoredPart {
   digest: string;
   /** The target's receipt; null while the part is reserved and being written. */
   etag: string | null;
+  /** The request that reserved it (a random token): only it completes or releases it. */
+  holder?: string | undefined;
+  /** ISO 8601: when it was reserved. A reservation older than the handler's `partReserveSeconds` can be taken over. */
+  reservedAt?: string | undefined;
 }
 
 /** An upload session as stored. */
@@ -87,10 +91,10 @@ export class SessionConflictError extends Error {
 
 /** What reserving a part found. */
 export type PartReservation =
-  /** It's this request's to write. */
+  /** It's this request's to write and complete (new, or taken over from a writer that died). */
   | "reserved"
-  /** Reserved or received with these bytes already: write it (again, harmlessly) and complete it. */
-  | "same"
+  /** Another request is writing these bytes now: nothing written; ask again soon. */
+  | "busy"
   /** Received already with these bytes: nothing to write. */
   | "received"
   /** Reserved or received with other bytes: refused, nothing written. */
@@ -108,15 +112,17 @@ export interface UploadSessionStore {
   /** The owner's open session for this identity, purpose and target set, if any. */
   findOpen(query: { owner: UploadOwner; purpose: string; size: number; sha256: string; targets: string[] }): Promise<UploadSession | null>;
   /**
-   * Reserves part `n` for these bytes before they are written, atomically
-   * with the check (a compare-and-set on the part row). Throws
+   * Reserves part `n` for these bytes and for `holder` (a random token per
+   * request) before they are written, atomically with the check (a
+   * compare-and-set on the part row). A reservation made before
+   * `at.staleBefore` and never completed is taken over. Throws
    * `SessionNotOpenError` when the session isn't open.
    */
-  reservePart(id: string, part: { n: number; size: number; digest: string }): Promise<PartReservation>;
-  /** Records the target's etag for a part reserved with this digest. False when the reservation is gone. */
-  completePart(id: string, n: number, digest: string, etag: string): Promise<boolean>;
-  /** Drops a reservation with this digest that never received an etag (the write failed). */
-  releasePart(id: string, n: number, digest: string): Promise<void>;
+  reservePart(id: string, part: { n: number; size: number; digest: string }, holder: string, at: { now: string; staleBefore: string }): Promise<PartReservation>;
+  /** Records the target's etag for the part `holder` reserved, while the session is open. False when the reservation went. */
+  completePart(id: string, n: number, holder: string, etag: string): Promise<boolean>;
+  /** Drops `holder`'s reservation when its write failed (it never received an etag). */
+  releasePart(id: string, n: number, holder: string): Promise<void>;
   /**
    * Applies `patch` when the session is still in one of `when` states (all
    * states when omitted) and, when `holder` is given, while that worker still
@@ -179,24 +185,32 @@ export function createMemorySessionStore(): UploadSessionStore & { readonly sess
       const s = openFor(q);
       return s ? copy(s) : null;
     },
-    async reservePart(id, part) {
+    async reservePart(id, part, holder, at) {
       const s = sessions.get(id);
       if (!s || s.state !== "open") throw new SessionNotOpenError(id);
       const had = s.parts.find((p) => p.n === part.n);
-      if (had) return had.digest !== part.digest ? "conflict" : had.etag === null ? "same" : "received";
-      s.parts.push({ ...part, etag: null });
-      s.parts.sort((a, b) => a.n - b.n);
+      if (!had) {
+        s.parts.push({ ...part, etag: null, holder, reservedAt: at.now });
+        s.parts.sort((a, b) => a.n - b.n);
+        return "reserved";
+      }
+      if (had.digest !== part.digest) return "conflict";
+      if (had.etag !== null) return "received";
+      if (had.reservedAt && Date.parse(had.reservedAt) > Date.parse(at.staleBefore)) return "busy";
+      had.holder = holder;
+      had.reservedAt = at.now;
       return "reserved";
     },
-    async completePart(id, n, digest, etag) {
-      const p = sessions.get(id)?.parts.find((x) => x.n === n && x.digest === digest);
+    async completePart(id, n, holder, etag) {
+      const s = sessions.get(id);
+      const p = s?.state === "open" ? s.parts.find((x) => x.n === n && x.holder === holder && x.etag === null) : undefined;
       if (!p) return false;
       p.etag = etag;
       return true;
     },
-    async releasePart(id, n, digest) {
+    async releasePart(id, n, holder) {
       const s = sessions.get(id);
-      if (s) s.parts = s.parts.filter((p) => !(p.n === n && p.digest === digest && p.etag === null));
+      if (s) s.parts = s.parts.filter((p) => !(p.n === n && p.holder === holder && p.etag === null));
     },
     async update(id, patch, when, holder) {
       const s = sessions.get(id);

@@ -30,6 +30,16 @@ describe("the forms adapter", () => {
     expect(await skipped.upload(file, { id: "photo" })).toEqual({ id: "media-7", name: "a.heic", type: "image/heic", size: 5 });
     const partial = createFormsUploadAdapter({ uploader: fakeUploader({ state: "partial", uploadId: "u2", copies: [] }) });
     await expect(partial.upload(file, { id: "photo" })).rejects.toThrow(/wasn't stored/);
+    const noRef = createFormsUploadAdapter({ uploader: fakeUploader({ state: "skipped", copies: [] }) });
+    await expect(noRef.upload(file, { id: "photo" })).rejects.toThrow(/readable.*ref/);
+  });
+
+  it("retries a partial store's failed targets once before giving up", async () => {
+    const file = new File([new Uint8Array(5)], "a.jpg", { type: "image/jpeg" });
+    const finalize = vi.fn(async () => ({ state: "done" as const, uploadId: "u3", copies: [] }));
+    const adapter = createFormsUploadAdapter({ uploader: { ...fakeUploader({ state: "partial", uploadId: "u3", copies: [] }), finalize } });
+    expect((await adapter.upload(file, { id: "photo" })).id).toBe("u3");
+    expect(finalize).toHaveBeenCalledWith("u3");
   });
 
   it("reads a link through readUrl, and null when it fails or isn't given", async () => {

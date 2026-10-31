@@ -111,7 +111,7 @@ describe("an abort racing a finalize never leaves an object without its session"
 });
 
 describe("a part written by two requests at once with the same bytes", () => {
-  it("the second writer failing doesn't release the first writer's reservation", async () => {
+  it("only one writes: the second is told to send it again (503) and writes nothing, then finds it received", async () => {
     const s = setup();
     const bytes = bytesOf(4);
     const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
@@ -120,59 +120,72 @@ describe("a part written by two requests at once with the same bytes", () => {
     let calls = 0;
     s.working.part = async (key, mpu, n, body, info): Promise<PartReceipt> => {
       calls++;
-      if (calls === 1) {
-        // The first writer (it reserved the part) is slow.
-        const receipt = await part(key, mpu, n, body, info);
-        await g.wait;
-        return receipt;
-      }
-      throw new Error("connection reset"); // the second writer ("same") fails
+      // The first writer (it reserved the part) is slow.
+      const receipt = await part(key, mpu, n, body, info);
+      await g.wait;
+      return receipt;
     };
     const first = s.alice.part(uploadId, 1, bytes);
     await until(() => calls === 1);
-    expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(503);
-    // The reservation is still there for the first writer.
-    expect(s.store.sessions.get(uploadId)!.parts).toEqual([{ n: 1, size: 4, digest: await digestOf(bytes), etag: null }]);
+    const second = await s.alice.part(uploadId, 1, bytes);
+    expect(second.status).toBe(503);
+    expect(second.headers.get("retry-after")).toBe("2");
+    expect(calls).toBe(1);
     g.open();
     expect((await first).status).toBe(200);
-    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).not.toBeNull();
+    // Sent again, it is received: nothing is written twice.
+    expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(200);
+    expect(calls).toBe(1);
   });
 
-  it("the first writer failing gives the reservation back; the second answers 409 part_conflict, not 410, and the part can go again", async () => {
+  it("a writer that fails gives back only its own reservation, and the part can go again", async () => {
     const s = setup();
     const bytes = bytesOf(4);
     const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
     const part = s.working.part;
-    const first = gate();
-    const second = gate();
     let calls = 0;
     s.working.part = async (key, mpu, n, body, info): Promise<PartReceipt> => {
-      calls++;
-      if (calls === 1) {
-        await first.wait;
-        throw new Error("connection reset"); // the writer that reserved it fails
-      }
-      if (calls === 2) {
-        const receipt = await part(key, mpu, n, body, info);
-        await second.wait; // the "same" writer finishes writing after the release
-        return receipt;
-      }
+      if (++calls === 1) throw new Error("connection reset");
       return part(key, mpu, n, body, info);
     };
-    const w1 = s.alice.part(uploadId, 1, bytes);
-    await until(() => calls === 1);
-    const w2 = s.alice.part(uploadId, 1, bytes);
-    await until(() => calls === 2);
-    first.open();
-    expect((await w1).status).toBe(503);
+    expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(503);
     expect(s.store.sessions.get(uploadId)!.parts).toEqual([]);
-    second.open();
-    const res = await w2;
-    expect(res.status).toBe(409);
-    expect((await json(res)).code).toBe("part_conflict");
-    expect(s.store.sessions.get(uploadId)!.state).toBe("open");
-    // Sent again, the part is recorded, and the upload finishes.
     expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(200);
     expect((await json<UploadStatus>(await s.alice.finalize(uploadId, { sha256: await sha256Hex(bytes) }))).state).toBe("done");
+  });
+
+  it("a writer past partReserveSeconds is taken over; its late answer isn't recorded, and the upload finishes", async () => {
+    const s = setup({ partReserveSeconds: 60 });
+    const bytes = bytesOf(4);
+    const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
+    const part = s.working.part;
+    const g = gate();
+    let calls = 0;
+    s.working.part = async (key, mpu, n, body, info): Promise<PartReceipt> => {
+      const mine = ++calls;
+      const receipt = await part(key, mpu, n, body, info);
+      if (mine === 1) await g.wait; // the first writer hangs
+      return receipt;
+    };
+    const first = s.alice.part(uploadId, 1, bytes);
+    await until(() => calls === 1);
+    s.tick(61_000);
+    expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(200);
+    const recorded = s.store.sessions.get(uploadId)!.parts[0]!.etag;
+    g.open();
+    // The first can't complete a part it no longer holds: told to send again, it finds it received.
+    expect((await first).status).toBe(503);
+    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe(recorded);
+    expect((await s.alice.part(uploadId, 1, bytes)).status).toBe(200);
+    expect((await json<UploadStatus>(await s.alice.finalize(uploadId, { sha256: await sha256Hex(bytes) }))).state).toBe("done");
+  });
+
+  it("a request whose part is completed by its holder after finalize moved the session on is 410", async () => {
+    const s = setup();
+    const bytes = bytesOf(4);
+    const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest: await digestOf(bytes) }, "h", { now: new Date(s.now()).toISOString(), staleBefore: new Date(0).toISOString() })).toBe("reserved");
+    await s.store.update(uploadId, { state: "verifying" }, ["open"]);
+    expect(await s.store.completePart(uploadId, 1, "h", "e")).toBe(false);
   });
 });

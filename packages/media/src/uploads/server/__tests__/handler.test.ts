@@ -356,7 +356,26 @@ describe("the failure and resume table", () => {
     const s = setup();
     const { id } = await sendAll(s, bytesOf(40));
     await s.alice.finalize(id);
+    // A job has taken the session and assembled it.
+    const t = new Date(s.now()).toISOString();
+    expect(await s.store.claimVerify(id, new Date(s.now() + 600_000).toISOString(), t, "job")).toBe(true);
+    await s.store.update(id, { assembled: { working: {} } }, ["verifying"], "job");
     expect((await s.alice.abort(id)).status).toBe(409);
+    // Its lease lapsed, but it is assembled: still being checked until it is stuck.
+    s.tick(700_000);
+    expect((await s.alice.abort(id)).status).toBe(409);
+  });
+
+  it("can abort a finalized upload its job hasn't started on: nothing was assembled", async () => {
+    const s = setup();
+    const { id } = await sendAll(s, bytesOf(40));
+    expect((await s.alice.finalize(id)).status).toBe(202);
+    expect((await s.alice.abort(id)).status).toBe(204);
+    expect(s.store.sessions.size).toBe(0);
+    expect(s.working.openUploads.size).toBe(0);
+    // The job, when it comes, finds nothing to do.
+    await s.verifyJob({ payload: { uploadId: id } });
+    expect(s.working.objects.size).toBe(0);
   });
 });
 
@@ -398,16 +417,23 @@ describe("recovery", () => {
     for (const bad of ["", "/abs", "a//b", "a/./b", "a/../b", "a/b/", "a\u0000b"]) expect(isSafeKey(bad), JSON.stringify(bad)).toBe(false);
   });
 
-  it("a part reserved with these bytes: the same bytes again write and complete it; other bytes are refused", async () => {
+  it("a part is reserved for one request: the same bytes meanwhile are busy, other bytes refused, a dead writer's taken over", async () => {
     const s = setup();
     const { uploadId } = await json<UploadStatus>(await s.alice.create({ name: "a", contentType: "a/b", size: 4, purpose: "media" }));
     const digest = await digestOf(bytesOf(4));
-    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("reserved");
-    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("same");
-    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest: await digestOf(bytesOf(4, 5)) })).toBe("conflict");
-    expect(await s.store.completePart(uploadId, 1, digest, "e1")).toBe(true);
-    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest })).toBe("received");
-    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("e1");
+    const at = (ms: number) => ({ now: new Date(ms).toISOString(), staleBefore: new Date(ms - 600_000).toISOString() });
+    const t0 = s.now();
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest }, "h1", at(t0))).toBe("reserved");
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest }, "h2", at(t0 + 1000))).toBe("busy");
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest: await digestOf(bytesOf(4, 5)) }, "h3", at(t0 + 1000))).toBe("conflict");
+    // Only its holder completes it.
+    expect(await s.store.completePart(uploadId, 1, "h2", "e2")).toBe(false);
+    // Ten minutes on and never completed: the next request takes it over, and the first can't complete.
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest }, "h4", at(t0 + 601_000))).toBe("reserved");
+    expect(await s.store.completePart(uploadId, 1, "h1", "e1")).toBe(false);
+    expect(await s.store.completePart(uploadId, 1, "h4", "e4")).toBe(true);
+    expect(await s.store.reservePart(uploadId, { n: 1, size: 4, digest }, "h5", at(t0 + 602_000))).toBe("received");
+    expect(s.store.sessions.get(uploadId)!.parts[0]!.etag).toBe("e4");
   });
 });
 

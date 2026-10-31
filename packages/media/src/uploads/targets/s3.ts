@@ -246,9 +246,10 @@ export function createS3Target(options: S3TargetOptions): UploadTarget {
       const lock: ObjectLock = { mode: options.objectLock.mode, retainUntil: new Date(now() + options.objectLock.days * 86_400_000).toISOString().replace(/\.\d{3}Z$/, "Z") };
       const xml = `<Retention xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Mode>${lock.mode}</Mode><RetainUntilDate>${lock.retainUntil}</RetainUntilDate></Retention>`;
       const checksum = toBase64(new Uint8Array(await crypto.subtle.digest("SHA-256", utf8.encode(xml))));
-      // PutObjectRetention needs an integrity checksum; SHA-256 stands in for Content-MD5 (WebCrypto has no MD5).
+      // PutObjectRetention needs an integrity checksum: SHA-256 for S3, and Content-MD5 (from
+      // @noble/hashes, as WebCrypto has no MD5) for the S3-compatible stores that ask for that one.
       await send("PUT", versioned(key, versionId, { retention: "" }), {
-        headers: { "content-type": "application/xml", "x-amz-sdk-checksum-algorithm": "SHA256", "x-amz-checksum-sha256": checksum },
+        headers: { "content-type": "application/xml", "content-md5": toBase64(md5(utf8.encode(xml))), "x-amz-sdk-checksum-algorithm": "SHA256", "x-amz-checksum-sha256": checksum },
         body: xml,
       });
       return lock;

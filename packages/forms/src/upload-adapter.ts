@@ -24,7 +24,7 @@ export interface UploadFile {
 
 /** @stability Experimental */
 export interface UploadAdapter<F extends UploadFile = UploadFile> {
-  /** Stores the file for this field; resolves to its reference. A rejection's message is shown under the field. */
+  /** Stores the file for this field; resolves to its reference. A rejection fails that file, and the field says so. */
   upload(file: F, field: FieldBlock): Promise<PhotoRef>;
   /** A link to read a stored file (the host's storage signs it), or null when it can't be read. */
   url?(ref: PhotoRef, field?: FieldBlock): Promise<string | null>;
