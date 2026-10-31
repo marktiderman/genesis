@@ -1,5 +1,5 @@
 /**
- * The network guard for importing remote files: which addresses a server
+ * The network guard for fetching remote files: which addresses a server
  * may fetch from on an editor's say-so. Only public unicast addresses: no
  * loopback, private, link-local (cloud metadata lives at 169.254.169.254),
  * carrier-grade NAT, documentation, benchmark, multicast or reserved

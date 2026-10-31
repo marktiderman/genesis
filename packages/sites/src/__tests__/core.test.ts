@@ -64,7 +64,7 @@ describe("links and paths", () => {
 
   it("keeps page paths to lowercase segments and away from the app's reserved paths", () => {
     expect(pagePathProblems("/")).toEqual([]);
-    expect(pagePathProblems("/classes/strength-101")).toEqual([]);
+    expect(pagePathProblems("/services/repairs-101")).toEqual([]);
     expect(pagePathProblems("/About")).toHaveLength(1);
     expect(pagePathProblems("/about/")).toHaveLength(1);
     expect(pagePathProblems("/a..b")).toHaveLength(1);
@@ -98,7 +98,7 @@ describe("documents", () => {
   });
 
   it("fills a site's defaults", () => {
-    const site = SiteDoc.parse({ schemaVersion: 1, name: "Riverside Gym" });
+    const site = SiteDoc.parse({ schemaVersion: 1, name: "Riverside Works" });
     expect(site).toMatchObject({ lang: "en", theme: { colorScheme: "light" }, header: [], nav: [], footer: [], redirects: [] });
   });
 

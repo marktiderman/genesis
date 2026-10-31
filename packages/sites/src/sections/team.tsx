@@ -18,7 +18,7 @@ import { Anchor, ButtonLink, ItemTitle, SectionBand, SectionIntro, SiteImage, Te
 const Member = z.object({
   name: Line(80),
   role: Line(80).optional(),
-  /** Qualifications, as one line ("Level 2 coach, nutrition coach"). */
+  /** Qualifications, as one line ("Chartered accountant, 12 years in practice"). */
   credentials: Copy(300).optional(),
   photo: Image.optional(),
   /** A line or two, shown on the card. */
@@ -83,7 +83,7 @@ export const teamSection = defineSection({
   type: "team",
   version: 1,
   label: "Team",
-  description: "Your coaches or staff: a photo, a role, credentials and a long bio that opens in place, with a link to each person's page.",
+  description: "The people behind the business: a photo, a role, credentials and a long bio that opens in place, with a link to each person's page.",
   category: "content",
   schema,
   variants: [
@@ -96,17 +96,17 @@ export const teamSection = defineSection({
       name: "Team cards",
       variant: "cards",
       props: {
-        heading: "Meet the coaches",
+        heading: "Meet the team",
         members: [
-          { name: "Coach name", role: "Head coach", summary: "A line about what they love to coach.", bio: "Their story, in a few short paragraphs.\n\nWhat they love about coaching." },
-          { name: "Coach name", role: "Coach", summary: "A line about what they love to coach." },
+          { name: "Person's name", role: "Their role", summary: "A line about what they do best.", bio: "Their story, in a few short paragraphs.\n\nWhat they love about their work." },
+          { name: "Person's name", role: "Their role", summary: "A line about what they do best." },
         ],
       },
     },
     {
       name: "Team list",
       variant: "list",
-      props: { heading: "The team", members: [{ name: "Coach name", credentials: "Their qualifications", bio: "Their story, in a few short paragraphs." }] },
+      props: { heading: "The team", members: [{ name: "Person's name", credentials: "Their qualifications", bio: "Their story, in a few short paragraphs." }] },
     },
   ],
   render: ({ props, variant, node, ctx }) => {
@@ -147,7 +147,7 @@ export const teamSection = defineSection({
         <ul className={cn("mt-12 grid gap-6", COLUMNS[props.columns])}>
           {props.members.map((m, i) => (
             <li key={i} {...(m.anchor ? { id: m.anchor } : {})} className={cn("flex flex-col gap-4 rounded-xl border border-border bg-background p-6 text-foreground", m.anchor && "scroll-mt-20")}>
-              {m.photo ? <SiteImage image={m.photo} ctx={ctx} sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="aspect-square w-full rounded-lg object-cover" /> : null}
+              {m.photo ? <SiteImage image={m.photo} ctx={ctx} sizes="(min-width: 1280px) 320px, (min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="aspect-square w-full rounded-lg object-cover" /> : null}
               <div className="flex flex-col gap-1">
                 <ItemTitle ctx={ctx}>{m.name}</ItemTitle>
                 {m.role ? <p className="text-sm font-medium">{m.role}</p> : null}

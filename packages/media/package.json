@@ -1,0 +1,156 @@
+{
+  "name": "@marktiderman/genesis-media",
+  "version": "0.0.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "Images, files and uploads for Genesis apps: one image value (alt or decorative, size, focal point, phone crop, blur placeholder), responsive images through a host's image URL builder, byte sniffing, a server-side fetch guarded against request forgery, signed links to private media with streaming ZIP bundles, and resumable, checksummed uploads (owner-bound sessions, skip-if-identical on the whole object's SHA-256, storage targets for R2 and S3 with Object Lock, fan-out with read-back verification, browser and native clients). On fetch and WebCrypto for Node and Workers. An optional upgrade: forms takes its uploads through its own port. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "images",
+    "responsive-images",
+    "srcset",
+    "media",
+    "ssrf",
+    "signed-urls",
+    "zip",
+    "uploads",
+    "resumable-upload",
+    "multipart",
+    "s3",
+    "r2",
+    "object-lock"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/media#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/media"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "default": "./dist/server.js"
+    },
+    "./signed": {
+      "types": "./dist/signed.d.ts",
+      "workerd": "./dist/signed.js",
+      "worker": "./dist/signed.js",
+      "edge-light": "./dist/signed.js",
+      "node": "./dist/signed.js",
+      "deno": "./dist/signed.js",
+      "browser": null,
+      "import": "./dist/signed.js",
+      "default": "./dist/signed.js"
+    },
+    "./uploads": {
+      "types": "./dist/uploads/index.d.ts",
+      "import": "./dist/uploads/index.js",
+      "default": "./dist/uploads/index.js"
+    },
+    "./uploads/server": {
+      "types": "./dist/uploads/server.d.ts",
+      "import": "./dist/uploads/server.js",
+      "default": "./dist/uploads/server.js"
+    },
+    "./uploads/targets": {
+      "types": "./dist/uploads/targets.d.ts",
+      "import": "./dist/uploads/targets.js",
+      "default": "./dist/uploads/targets.js"
+    },
+    "./uploads/client": {
+      "types": "./dist/uploads/client.d.ts",
+      "react-native": "./dist/uploads/client.js",
+      "browser": "./dist/uploads/client-web.js",
+      "import": "./dist/uploads/client.js",
+      "default": "./dist/uploads/client.js"
+    },
+    "./uploads/client/browser": {
+      "types": "./dist/uploads/client-web.d.ts",
+      "import": "./dist/uploads/client-web.js",
+      "default": "./dist/uploads/client-web.js"
+    },
+    "./uploads/client/hash-worker": {
+      "import": "./dist/uploads/hash-worker.js",
+      "default": "./dist/uploads/hash-worker.js"
+    },
+    "./forms": {
+      "types": "./dist/forms.d.ts",
+      "import": "./dist/forms.js",
+      "default": "./dist/forms.js"
+    }
+  },
+  "files": [
+    "dist",
+    "migrations",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-forms": "workspace:*",
+    "@types/node": "^22.9.0",
+    "playwright": "~1.64.1",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.4",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
+    "optional": true,
+    "doctor": {
+      "enforce": false,
+      "reason": "A library that sections and screens build on, and an optional upgrade (forms takes uploads through its own port); a hand-written srcset, fetch guard or upload loop isn't reliably detectable yet.",
+      "primitives": [
+        {
+          "need": "a responsive image, or fetching a URL a person gave on the server",
+          "use": "responsiveImage with the host's image URL builder; fetchGuarded from /server",
+          "import": "@marktiderman/genesis-media",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md"
+        },
+        {
+          "need": "a short-lived link to a private file, or many files as one ZIP download",
+          "use": "createMediaSigner and createSignedMediaHandler; createZipManifest and createBundleHandler",
+          "import": "@marktiderman/genesis-media/signed",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md#signed-links-marktidermangenesis-mediasigned-server-and-edge"
+        },
+        {
+          "need": "a file upload: resumable, checksummed, to one or more storage targets",
+          "use": "createUploadHandler on the server, with a storage target per store, and createUploader on the client; never a hand-rolled PUT or TUS loop",
+          "import": "@marktiderman/genesis-media/uploads/server",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/media/README.md#uploads-marktidermangenesis-mediauploads"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.4.0",
+    "client-zip": "2.5.1"
+  }
+}

@@ -43,7 +43,7 @@ export const gallerySection = defineSection({
                 <SiteImage
                   image={image}
                   ctx={ctx}
-                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                  sizes="(min-width: 1280px) 400px, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
                   className={masonry ? "w-full rounded-lg" : "aspect-square w-full rounded-lg object-cover"}
                 />
                 {image.caption ? <figcaption className="text-sm">{image.caption}</figcaption> : null}

@@ -12,6 +12,7 @@
  * `category`, `variants`, `presets` and `sectionJsonSchema(type)`
  * (`z.toJSONSchema` of the props schema) for its fields and for AI output.
  */
+import type { ImageUrlBuilder } from "@marktiderman/genesis-media";
 import type { ReactNode } from "react";
 import { z } from "zod";
 import type { MenuItem, PageKind, SectionNode } from "./schemas";
@@ -65,6 +66,20 @@ export interface RenderContext {
    * `<path>/<slug>`), and the list's page number (`?page=`).
    */
   posts?: PostsContext;
+  /**
+   * How the page's images load: the host's image URL builder (for `srcset`)
+   * and whether the page's first large image has taken the high priority.
+   * Without it, images load at their own URL and large ones lazily.
+   */
+  media?: RenderMedia;
+}
+
+/** One page render's image state. */
+export interface RenderMedia {
+  /** The host's image URL builder (genesis-media); pass-through when the host gives none. */
+  imageUrl: ImageUrlBuilder;
+  /** Set once the page's first large image has rendered: it alone loads at high priority. */
+  firstLarge: { claimed: boolean };
 }
 
 export interface PostsContext {

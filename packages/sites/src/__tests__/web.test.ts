@@ -45,7 +45,7 @@ describe("serving a page", () => {
 
   it("omits the islands script on a page with no menu and no form", async () => {
     const store = createMemorySiteStore();
-    const t = onePageSite({ name: "Hilltop Fitness", message: { headline: "Fitness on the hill", subhead: "Classes for every level." }, colors: { primary: "#b45309" } });
+    const t = onePageSite({ name: "Hilltop Collective", message: { headline: "Made on the hill", subhead: "Sessions for every level." }, colors: { primary: "#b45309" } });
     await store.createSite({ id: "one", site: t.site, pages: t.pages });
     await store.publish("one", { brand: t.brand });
     const res = (await handleSiteRequest(get("/"), { store, brand: { getBrand: () => t.brand }, siteId: "one" }))!;
@@ -301,12 +301,12 @@ describe("the memory store", () => {
     const store = await seededStore();
     const live = (await store.getLive("landing"))!;
     live.snapshot.site.name = "Changed";
-    expect((await store.getLive("landing"))!.snapshot.site.name).toBe("Riverside Gym");
+    expect((await store.getLive("landing"))!.snapshot.site.name).toBe("Riverside Works");
   });
 
   it("records uploads under sites/<siteId>/", async () => {
     const store = await seededStore();
-    const asset = await store.putAsset!("landing", new Blob(["x"], { type: "image/png" }), { name: "Hero Photo.PNG", alt: "The gym" });
+    const asset = await store.putAsset!("landing", new Blob(["x"], { type: "image/png" }), { name: "Hero Photo.PNG", alt: "The studio" });
     expect(asset.path).toMatch(/^sites\/landing\/asset_[0-9a-z]+-hero-photo\.png$/);
   });
 });

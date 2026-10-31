@@ -82,6 +82,11 @@ import type {
 } from "../schema/brand";
 import { brandRoleVariables } from "./brand-roles";
 import { applyOverrides } from "./overrides";
+import { clampBounds } from "../schema/brand";
+import { resolveChoices, type DesignSystem } from "../design-systems/define";
+import { getDesignSystem } from "../design-systems/registry";
+import { designSystemTheme, type DesignSystemTheme } from "../design-systems/tokens";
+import { fontForStack } from "../fonts";
 
 // ---------------------------------------------------------------------------
 // Output types.
@@ -156,6 +161,13 @@ export interface NativeBrandOutput {
     /** Stops + locations for `expo-linear-gradient`. */
     gradient: Record<string, NativeGradientStops>;
   };
+  /**
+   * The design system's part, when one applies (`options.designSystem`, or
+   * the brand's `designSystem.id`): its id, the brand's choices, the colour
+   * engine's palette and the contrast pairs it promises. Its variables are
+   * already merged into `variables.light` / `variables.dark`.
+   */
+  designSystem?: DesignSystemTheme;
 }
 
 /**
@@ -194,15 +206,24 @@ export interface BrandFactoryOptions {
    * Default: 16 (browser default + RN convention).
    */
   remRoot?: number;
+  /**
+   * The design system to theme with: a definition, or an id (`crisp@1`).
+   * Default: the brand's `designSystem.id`. Either way the brand's own
+   * choices (density, corners, motion) apply. An id that isn't built in or
+   * registered is reported and left out (the brand themes as `classic@1`).
+   */
+  designSystem?: DesignSystem | string;
 }
 
 // ---------------------------------------------------------------------------
 // Internal helpers.
 // ---------------------------------------------------------------------------
 
-/** Multiply rem string by rem-root → px number. */
+/** Multiply rem string by rem-root → px number. A fluid `clamp()` gives its minimum (a phone's size). */
 function remToPx(value: string, remRoot: number): number {
   const trimmed = value.trim();
+  const bounds = clampBounds(trimmed);
+  if (bounds) return Math.round(bounds.min * remRoot);
   if (trimmed.endsWith("rem")) {
     const n = parseFloat(trimmed.slice(0, -3));
     if (Number.isFinite(n)) return Math.round(n * remRoot);
@@ -662,9 +683,16 @@ export function themeFromBrand(
     }
   }
 
+  const design = designSystemFor(merged, options.designSystem);
+  if (design) {
+    Object.assign(lightVars, design.variables.light);
+    Object.assign(darkVars, design.variables.dark);
+  }
+
   return {
     css: tw.css,
     variables: { light: lightVars, dark: darkVars },
+    ...(design ? { designSystem: design } : {}),
     theme: {
       colors: themeColors,
       spacing: themeSpacing,
@@ -677,6 +705,39 @@ export function themeFromBrand(
       gradient: themeGradient,
     },
   };
+}
+
+const HEX_COLOR = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
+const reportedMissing = new Set<string>();
+
+/** The brand's design system as variables, or undefined when none applies. */
+function designSystemFor(brand: CanonicalBrand, option: DesignSystem | string | undefined): DesignSystemTheme | undefined {
+  const wanted = option ?? brand.designSystem?.id;
+  if (!wanted) return undefined;
+  const ds = typeof wanted === "string" ? getDesignSystem(wanted) : wanted;
+  if (!ds) {
+    // Once per id and process: a page renders per request, and one line says it.
+    if (!reportedMissing.has(String(wanted))) {
+      reportedMissing.add(String(wanted));
+      // genesis-allow-console: a configuration mistake, not a caught error; design-system has no dependency on core's reportError.
+      console.error(`[genesis-design-system] brand "${brand.name}" names design system "${wanted}", which isn't built in or registered (registerDesignSystem); theming it without one.`);
+    }
+    return undefined;
+  }
+  const fonts = brand.typography?.fontFamily;
+  const hex = (v: string | undefined) => (v && HEX_COLOR.test(v) ? v : undefined);
+  const primary = hex(brand.accent.light ?? brand.accent.DEFAULT);
+  if (ds.surfaces && !primary) {
+    // genesis-allow-console: a configuration mistake, not a caught error; design-system has no dependency on core's reportError.
+    console.error(`[genesis-design-system] brand "${brand.name}": the colour engine needs a #rrggbb accent; ${ds.id} keeps the brand's own colours.`);
+  }
+  const primaryDark = hex(brand.accent.dark);
+  const secondary = hex(brand.accent.secondary);
+  return designSystemTheme(ds, {
+    choices: resolveChoices(ds, brand.designSystem),
+    displayClass: fontForStack(fonts?.display ?? fonts?.heading ?? fonts?.body)?.class,
+    ...(primary ? { colors: { primary, ...(primaryDark ? { primaryDark } : {}), ...(secondary ? { secondary } : {}) } } : {}),
+  });
 }
 
 function fillVarsForScale(

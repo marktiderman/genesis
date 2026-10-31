@@ -1,7 +1,7 @@
 /**
  * What a downloaded file is, from its first bytes (never from its name or
  * the server's Content-Type), and an image's size from its header. Only the
- * types a site stores: PNG, JPEG, GIF, WebP, AVIF and PDF. SVG, HTML and
+ * types an app stores from outside: PNG, JPEG, GIF, WebP, AVIF and PDF. SVG, HTML and
  * everything else are refused, since a browser runs them as a page.
  */
 
@@ -49,7 +49,7 @@ function webpSize(b: Uint8Array): { width: number; height: number } | null {
   return null;
 }
 
-/** The file's type and size, or null when it isn't one a site stores. */
+/** The file's type and size, or null when it isn't one of those types. */
 export function sniff(bytes: Uint8Array): Sniffed | null {
   const b = bytes;
   if (b.length >= 24 && b[0] === 0x89 && ascii(b, 1, 3) === "PNG" && b[4] === 0x0d && b[5] === 0x0a && b[6] === 0x1a && b[7] === 0x0a) {
