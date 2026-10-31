@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 4055 other exports · 3223 standalone types across 189 entry points in 29 packages.
+**Totals:** 589 components · 4055 other exports · 3225 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -10807,12 +10807,14 @@ export type { ButtonAsChildProps };
 
 **Barrel:** [`packages/ui/src/components/ui/chart.tsx`](../packages/ui/src/components/ui/chart.tsx)
 
-### Types (1)
+### Types (3)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { ChartConfig };
+export type { ChartPayloadItem };
+export type { ChartTooltipContentProps };
 ```
 
 ---
