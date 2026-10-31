@@ -1,0 +1,61 @@
+packages/genesis-cli/src/introspect/comments.ts
+  s_36f3212387dbf7::t_9c399229812efc 11,15-16,18,47,53-60,77-89
+  s_36f3212387dbf7::t_32d481b1333388 90
+packages/genesis-cli/src/doctor/primitives.ts
+  s_36f3212387dbf7::t_39b35159b93a15 42
+packages/genesis-cli/src/blocks/notification-types.ts
+  s_36f3212387dbf7::t_171bf73602fc9a 1-104
+packages/genesis-cli/src/introspect/postgres.ts
+  s_36f3212387dbf7::t_a6ec32e1ea8aa8 8,52-65,99-107,113-115,188-194,308
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_a2692f6d5dc839 546-547,550-556,560,562
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_36f3212387dbf7::t_b329074f0c31ed 94-109,115-142
+  s_36f3212387dbf7::t_6d1e17a079d7d0 110-114
+packages/genesis-cli/README.md
+  s_36f3212387dbf7::t_13d1314078e307 62-67
+  s_36f3212387dbf7::t_dcdec6d8f3233f 222-228
+packages/notifications/package.json
+  s_36f3212387dbf7::t_74339d4f1c1061 211
+packages/notifications/README.md
+  s_36f3212387dbf7::t_76e3708952df97 74-79
+packages/genesis-cli/src/introspect/openapi.ts
+  s_36f3212387dbf7::t_9c399229812efc 6-8,10,83,91
+packages/genesis-cli/src/introspect/model.ts
+  s_36f3212387dbf7::t_9c399229812efc 58-59
+packages/genesis-cli/test/doctor-package-rules.test.ts
+  s_36f3212387dbf7::t_f083481a50c7e2 392-406
+.changeset/notifications-types-at-migration.md
+  s_36f3212387dbf7::t_23e549b5f8da4f 1-5
+packages/genesis-cli/test/doctor-structure.test.ts
+  s_36f3212387dbf7::t_18913aadebd53d 386-387
+packages/ui/package.json
+  s_36f3212387dbf7::t_b25a0ff3cadb17 526-527,532
+.changeset/ui-lists-hook-fed-board.md
+  s_36f3212387dbf7::t_23e549b5f8da4f 1-5
+packages/genesis-cli/src/doctor/structure.ts
+  s_36f3212387dbf7::t_18913aadebd53d 24-25,27,35
+packages/genesis-cli/test/introspect.test.ts
+  s_36f3212387dbf7::t_dac429ab883a80 14,61-96,338-348,362-363,372,378,488-498
+  s_36f3212387dbf7::t_054e3cce3913a5 499
+.changeset/cli-doctor-introspect-gaps.md
+  s_36f3212387dbf7::t_23e549b5f8da4f 1-10
+packages/genesis-cli/src/blocks/migrate.ts
+  s_36f3212387dbf7::t_a2692f6d5dc839 20-21,31-32,41-42,83-94,96-99,102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4516ead0bd0e96e7ba677160031e562ab96b2d34",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
