@@ -6,7 +6,9 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { genesisNativewindPreset } from "../nativewind";
+import { createGenesisNativewindPreset, genesisNativewindPreset } from "../nativewind";
+import { brandRoleVariables } from "../../factories/brand-roles";
+import { genesisBrand } from "../brand-genesis";
 import { GENESIS_THEME_BRAND, fontFamiliesFromDtcg, renderThemeCss } from "../../tokens/theme-css";
 
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
@@ -47,5 +49,24 @@ describe("genesisNativewindPreset", () => {
     expect(added[":root"]).toEqual(block(css, ":root"));
     expect(added["@media (prefers-color-scheme: dark)"][":root"]).toEqual(block(css, ".dark"));
     expect(added[":root"]["--radius"]).toBe("0.625rem");
+  });
+});
+
+describe("createGenesisNativewindPreset", () => {
+  it("declares the brand's role variables on :root, light and dark", () => {
+    const brand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e", light: "#0f766e", dark: "#5eead4" } };
+    const added: Record<string, unknown>[] = [];
+    const preset = createGenesisNativewindPreset({ brand });
+    for (const plugin of preset.plugins) plugin({ addBase: (b) => added.push(b) });
+    const roles = brandRoleVariables(brand);
+    expect(added[0]).toEqual({ ":root": roles.light, "@media (prefers-color-scheme: dark)": { ":root": roles.dark } });
+    expect(roles.light["--primary"]).not.toBe(base()[":root"]["--primary"]);
+    expect(preset.theme.extend.colors).toBe(genesisNativewindPreset.theme.extend.colors);
+  });
+
+  it("is the Genesis preset without a brand", () => {
+    const added: Record<string, unknown>[] = [];
+    for (const plugin of createGenesisNativewindPreset().plugins) plugin({ addBase: (b) => added.push(b) });
+    expect(added[0]).toEqual(base());
   });
 });

@@ -240,6 +240,48 @@ describe("NativeRecordView", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
+  it("keeps the whole screen, the top included, in a scroll view iOS insets below the navigation bar", async () => {
+    const { unmount } = render(<NativeRecordView view={page} row={brand} section="settings" />, { wrapper: wrap(provider()) });
+    const scroll = screen.getByTestId("native-resource-workspace-scroll");
+    expect(scroll.getAttribute("contentInsetAdjustmentBehavior")).toBe("automatic");
+    expect(within(scroll).getByTestId("native-resource-workspace-sections")).toBeTruthy();
+    expect(within(scroll).getByTestId("native-resource-workspace-settings-website-input")).toBeTruthy();
+    unmount();
+
+    // A list section is its own (inset) list, with the top as its header.
+    render(<NativeRecordView view={page} row={brand} lists={{ products: { header: <span data-testid="extra-header" /> } }} />, {
+      wrapper: wrap(provider()),
+    });
+    expect(await screen.findByText("Kettle")).toBeTruthy();
+    expect(screen.queryByTestId("native-resource-workspace-scroll")).toBeNull();
+    const list = screen.getByTestId("native-resource-workspace-list");
+    expect(within(list).getByTestId("native-resource-workspace-sections")).toBeTruthy();
+    expect(within(list).getByTestId("extra-header")).toBeTruthy();
+  });
+
+  it("lets taps through to a section's buttons while the keyboard is up, and lets a slot own its scroll view", () => {
+    const { unmount } = render(<NativeRecordView view={page} row={brand} section="activity" slots={{ activity: <span data-testid="feed" /> }} />, {
+      wrapper: wrap(provider()),
+    });
+    const scroll = screen.getByTestId("native-resource-workspace-scroll");
+    expect(scroll.getAttribute("keyboardShouldPersistTaps")).toBe("handled");
+    expect(within(scroll).getByTestId("feed")).toBeTruthy();
+    unmount();
+
+    // A function slot gets the top for its own list's header; no outer scroll view to nest it in.
+    render(
+      <NativeRecordView
+        view={page}
+        row={brand}
+        section="activity"
+        slots={{ activity: (top) => <div data-testid="own-list">{top}</div> }}
+      />,
+      { wrapper: wrap(provider()) },
+    );
+    expect(screen.queryByTestId("native-resource-workspace-scroll")).toBeNull();
+    expect(within(screen.getByTestId("own-list")).getByTestId("native-resource-workspace-sections")).toBeTruthy();
+  });
+
   it("shows a zero-row save as a refusal, inline", async () => {
     const p = provider({ update: vi.fn(async () => ({ data: null })) as unknown as DataProvider["update"] });
     render(<NativeRecordView view={page} row={brand} section="settings" />, { wrapper: wrap(p) });
