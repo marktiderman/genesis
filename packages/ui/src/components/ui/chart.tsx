@@ -118,6 +118,38 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+/**
+ * One series entry Recharts hands a tooltip or legend. Written out here, not taken from
+ * Recharts' types, so the chart doesn't depend on either version's prop types, which differ between
+ * Recharts 2 and 3 (the entries they pass at runtime don't). Only 3 is type-checked in CI.
+ */
+export interface ChartPayloadItem {
+  name?: string | number;
+  value?: unknown;
+  dataKey?: string | number | ((obj: any) => unknown);
+  color?: string;
+  type?: string;
+  payload?: unknown;
+}
+
+/** What `<ChartTooltip content={<ChartTooltipContent />} />` passes in, plus the display options. */
+export type ChartTooltipContentProps = Omit<React.ComponentProps<"div">, "color"> & {
+  active?: boolean;
+  payload?: readonly ChartPayloadItem[];
+  label?: React.ReactNode;
+  labelFormatter?: (label: any, payload: any[]) => React.ReactNode;
+  formatter?: (value: any, name: any, item: any, index: number, payload: any) => React.ReactNode;
+  color?: string;
+  labelClassName?: string;
+  hideLabel?: boolean;
+  hideIndicator?: boolean;
+  indicator?: "line" | "dot" | "dashed";
+  nameKey?: string;
+  labelKey?: string;
+  /** Anything else Recharts hands its content (`cursor`, `wrapperStyle`, …): accepted and ignored, as it was before. */
+  [prop: string]: unknown;
+};
+
 function ChartTooltipContent({
   active,
   payload,
@@ -132,14 +164,7 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-  React.ComponentProps<"div"> & {
-    hideLabel?: boolean;
-    hideIndicator?: boolean;
-    indicator?: "line" | "dot" | "dashed";
-    nameKey?: string;
-    labelKey?: string;
-  }) {
+}: ChartTooltipContentProps) {
   const { config } = useChart();
 
   const tooltipLabel = React.useMemo(() => {
@@ -158,7 +183,7 @@ function ChartTooltipContent({
     if (labelFormatter) {
       return (
         <div className={cn("font-medium", labelClassName)}>
-          {labelFormatter(value as string, payload)}
+          {labelFormatter(value, [...payload])}
         </div>
       );
     }
@@ -276,11 +301,12 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean;
-    nameKey?: string;
-  }) {
+}: React.ComponentProps<"div"> & {
+  payload?: readonly ChartPayloadItem[];
+  verticalAlign?: "top" | "middle" | "bottom";
+  hideIcon?: boolean;
+  nameKey?: string;
+}) {
   const { config } = useChart();
 
   if (!payload?.length) {

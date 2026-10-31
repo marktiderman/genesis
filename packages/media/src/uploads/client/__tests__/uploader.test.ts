@@ -9,6 +9,8 @@ import { UploadClientError, createUploader, type UploaderOptions } from "../uplo
 import { createWorkerFileHasher } from "../worker-hasher";
 
 const ENDPOINT = "https://app.example.com/uploads";
+/** A resume key as the uploader stores it: the SHA-256 of [endpoint, owner, purpose, file key]. */
+const resumeKey = async (...parts: string[]) => toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(parts)))));
 
 /** An uploader talking to the test handler in-process, as Alice. */
 function client(s: ReturnType<typeof setup>, over: Partial<UploaderOptions> & { failAfterParts?: number } = {}) {
@@ -103,7 +105,7 @@ describe("createUploader", () => {
     const created = await (await s.alice.create({ name: "a", contentType: "a/b", size: 10, sha256: await sha256Hex(bytes), purpose: "media" })).json() as { uploadId: string };
     // An earlier run (a changed file) left other bytes for part 1; the client trusts the server's part list.
     await s.alice.part(created.uploadId, 1, bytesOf(4, 77));
-    await resumeStore.set(JSON.stringify([ENDPOINT, "", "media", "k"]), { uploadId: created.uploadId, expiresAt: "2099-01-01T00:00:00.000Z" });
+    await resumeStore.set(await resumeKey(ENDPOINT, "", "media", "k"), { uploadId: created.uploadId, expiresAt: "2099-01-01T00:00:00.000Z" });
     const { uploader, log } = client(s, { resumeStore });
     const result = await uploader.upload(fromBytes(bytes, "k"), { name: "a", contentType: "a/b", purpose: "media" }).done;
     // The read-back found the wrong identity: that session is gone, nothing of it was locked, and a new one sent the file.
@@ -112,7 +114,7 @@ describe("createUploader", () => {
     expect(result.uploadId).not.toBe(created.uploadId);
     expect(s.store.sessions.has(created.uploadId)).toBe(false);
     expect(s.archive.locks.size).toBe(1);
-    expect(await resumeStore.get(JSON.stringify([ENDPOINT, "", "media", "k"]))).toBeNull();
+    expect(await resumeStore.get(await resumeKey(ENDPOINT, "", "media", "k"))).toBeNull();
   });
 
   it("restarts once when a part is refused as part_conflict", async () => {

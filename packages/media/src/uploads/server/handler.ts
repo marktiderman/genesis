@@ -412,6 +412,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     const hash = createSha256();
     let size = 0;
     let over = false;
+    // The request's body reached its end: a short count then is a short part, whatever the target did.
+    let ended = false;
     const counted = (request.body ?? new ReadableStream<Uint8Array>({ start: (c) => c.close() })).pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
         transform(chunk, c) {
@@ -424,6 +426,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
           hash.update(chunk);
           c.enqueue(chunk);
         },
+        flush() {
+          ended = true;
+        },
       }),
     );
     // The reservation is this request's own, so its failure gives it back; nobody else's is touched.
@@ -434,6 +439,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     } catch (error) {
       await release();
       if (over) return refuse(413, "too_large");
+      // The body ended short and the store refused it (S3 checks the length): the part is the wrong
+      // size, not a server failure. A store that failed mid-stream never let the body end.
+      if (ended && size < expected) return refuse(409, "part_size");
       // The bytes didn't match their digest, and the store checked (S3): the same answer as below.
       if (size === expected && toBase64(hash.digest()) !== digest) return refuse(422, "digest_mismatch");
       throw error;
@@ -474,8 +482,12 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
 
   async function finalize(request: Request, s: UploadSession): Promise<Response> {
     // Verifying already: queue (or run) it again. The job is safe to run twice, and a queue
-    // call that failed after the state changed would otherwise leave it verifying forever.
-    if (s.state === "verifying") return verify(s);
+    // call that failed after the state changed would otherwise leave it verifying forever. While a
+    // run holds a live lease, it is being verified now: nothing to queue, poll Resume.
+    if (s.state === "verifying") {
+      if (s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now()) return json(202, statusOf(s));
+      return verify(s);
+    }
     if (s.state === "done") return json(200, statusOf(s));
     if (s.state === "identity_mismatch") return refuse(422, "identity_mismatch");
     if (s.state === "partial") {

@@ -466,8 +466,8 @@ The design, the protocol messages and the failure cases are in
 | `/uploads/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
 | `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
-The session table's migration is `migrations/0001_genesis_media.sql` (schema
-`genesis_media`), shipped in the package.
+The session table's migrations are `migrations/0001_genesis_media.sql` (schema
+`genesis_media`) and `0002_genesis_media_targets_key_grants.sql`, shipped in the package.
 
 ### The route
 
@@ -601,15 +601,18 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   the package's `hash-worker.js` (one standalone file) with a literal
   `new Worker(new URL("./hash-worker.js", import.meta.url), { type: "module" })`, which Vite and
   webpack bundle as a worker; it falls back to this thread if the worker fails or goes silent,
-  and a cancel terminates it. `createBrowserFileHasher()` is that hasher on its own. Elsewhere
+  and a cancel terminates it (the other files it was hashing go to a fresh worker). `createBrowserFileHasher()` is that hasher on its own. Elsewhere
   it runs with `@noble/hashes` (plain JS, fine on Hermes). Pass `hash` for another incremental
   SHA-256 (hash-wasm in a browser app). `hashFirst: false` reads the file once, hashing as it
   sends, and declares the SHA-256 at finalize: no skip, half the reading (a phone with a big file).
 - **Resume.** The server's part list is the truth: after any failure, a reload or a relaunch,
   the client asks Resume and sends only what's missing. A file's upload id is remembered in the
   `resumeStore` under the endpoint, `ownerHint`, purpose and the file's `key` (name, size, last
-  modified), lapses with its session, and `clearResume()` forgets all of them (sign-out). A
-  remembered session is used only while its size, targets and SHA-256 (when known) still match;
+  modified), stored as their SHA-256 so the store never holds the user id or the file name; it
+  lapses with its session, and `clearResume()` forgets all of them (sign-out). A remembered
+  session is forgotten when the server answers 404 or 410; any other refusal (an expired token)
+  fails the upload and keeps it for next time. It is used only while its size, targets and
+  SHA-256 (when known) still match;
   one whose file changed under the same name ends in `identity_mismatch`, and the client aborts
   it and sends the file on a new one. A create carries an id the client chose, so a create retried
   after a lost answer finds the session the first try made.
@@ -626,7 +629,8 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   browsing) never stops an upload. With the Web Worker hasher, a pause during hashing takes
   effect once the whole-file hash is done (the worker hashes the file in one go; a cancel stops
   it at once); with in-thread hashing it holds before the next slice. The speed cap is paced by
-  bytes (a cancel ends its wait), and back-off has jitter.
+  bytes (a cancel ends its wait), and back-off has jitter; a `Retry-After` on a 429 or 503 is
+  waited instead (up to 30 seconds).
 
 #### Supabase Storage's TUS endpoint
 
@@ -683,8 +687,10 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
   row level security (only the service role writes; a signed-in person may read their own
   sessions and change nothing, so no one can claim a state or a copy verification didn't find;
   anon gets nothing), and `add_part` and `update_upload`, which record a part and change a state
-  atomically, for the service role only. Its pgTAP test is in `migrations/tests/`: copy both into
-  the app's `supabase/` and run `supabase test db`. Add `genesis_media` to the project's
+  atomically, for the service role only. `0002_genesis_media_targets_key_grants.sql` makes
+  `targets_key` (which the one-open-session index uses) the service role's only too. Their pgTAP
+  tests are in `migrations/tests/`: copy the migrations, in order, and the tests into the app's
+  `supabase/` and run `supabase test db`. Add `genesis_media` to the project's
   exposed schemas, and pass the service-role client: the handler binds every operation to its
   owner itself.
 - `createMemorySessionStore()`, for tests.
@@ -724,6 +730,23 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 
 - Direct mode (presigned S3 part URLs, so the bytes skip the handler).
 - Background transfers on iOS and Android, and upload UI parts in genesis-ui.
+
+### Known limitations
+
+- **Finished sessions stay.** The sweep (`stale_uploads`) clears `open` and stuck `verifying`
+  sessions only; `done`, `partial` and `identity_mismatch` rows, with their parts, are kept, and a
+  `partial` one can keep copies that were never locked. Delete them on the app's own schedule for
+  now. Follow-up: a retention period for finished sessions in the sweep.
+- **Polling has no deadline.** A 202 `verifying` is polled until it ends, or until a cancel or the
+  `signal`. Follow-up: a deadline that stops waiting but leaves the session for
+  `uploader.finalize(id)`, since a big read-back can rightly take long.
+- **`ownerHint` is optional.** Without it every person on a device shares one resume key space
+  (the server still refuses another owner's session, so nothing leaks; a resume just misses). Pass
+  it whenever someone is signed in. Follow-up: require it, or warn, at the next major.
+- **One open session per content, not per name.** Two creates of the same bytes (owner, purpose,
+  size, SHA-256 and targets) share one open session, whatever their name and content type: the
+  first create's name and type are the ones recorded. That is deliberate, as skip-if-identical
+  works on the content too. Follow-up only if an app needs one session per name.
 
 ## Used by
 
