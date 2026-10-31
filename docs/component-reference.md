@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 589 components · 4055 other exports · 3217 standalone types across 189 entry points in 29 packages.
+**Totals:** 589 components · 4055 other exports · 3223 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -5278,7 +5278,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (60)
+### Types (62)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -5301,6 +5301,8 @@ export type { GenesisImageProps };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
+export type { GenesisNavigationModule };
+export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
@@ -11249,7 +11251,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useThemeRoles`](../packages/ui-native/src/hooks/use-theme-roles.ts) | function | — | _(no summary)_ |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (60)
+### Types (62)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11272,6 +11274,8 @@ export type { GenesisImageProps };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
+export type { GenesisNavigationModule };
+export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };
@@ -11437,7 +11441,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useReduceTransparency`](../packages/ui-native/src/components/glass-surface.tsx) | function | — | True while the user has Reduce Transparency on (iOS), `null` until the first answer. Always false elsewhere, and on a runtime that can't say. |
 | [`useToast`](../packages/ui-native/src/components/toast.tsx) | function | — | _(no summary)_ |
 
-### Types (31)
+### Types (33)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -11455,6 +11459,8 @@ export type { GenesisImageProps };
 export type { GenesisListComponent };
 export type { GenesisListProps };
 export type { GenesisModules };
+export type { GenesisNavigationModule };
+export type { GenesisNavigationTheme };
 export type { GenesisReanimatedModule };
 export type { GenesisSymbolComponent };
 export type { GenesisSymbolProps };

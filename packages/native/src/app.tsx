@@ -4,7 +4,8 @@
  *
  *   last-resort boundary (React Native primitives only)
  *   └ theme (GenesisThemeProvider, owning the platform color scheme; with `brandVariables`,
- *     role variables on a view around the app for NativeWind's role classes)
+ *     role variables on a view around the app for NativeWind's role classes; with
+ *     `modules.navigation`, React Navigation's theme in the same colors and mode)
  *     └ keyboard (`keyboardProvider`, once, then `keyboardScroll` for form screens)
  *       └ toasts (`NativeToastProvider`, so `useToast()` works on every screen; `toast={null}` drops it)
  *       └ data (GenesisProvider over the Supabase client, the QueryClient)
@@ -39,6 +40,8 @@ import {
   NativeSheetProvider,
   NativeToastProvider,
   type GenesisModules,
+  type GenesisNavigationModule,
+  type GenesisNavigationTheme,
   type NativeSheetLibrary,
   type NativeToastProviderProps,
 } from "@marktiderman/genesis-ui-native/components";
@@ -139,6 +142,15 @@ export interface GenesisNativeAppProps {
    * sets the app's own, one map for both modes or `{ light, dark }`.
    */
   brandVariables?: boolean | Record<string, string> | { light: Record<string, string>; dark: Record<string, string> };
+  /**
+   * React Navigation's theme (headers, tab bars, the screen background), when
+   * `modules.navigation` is given. Default: worked out from the same role
+   * variables as `brandVariables` (the app's own when it passes them,
+   * `brandRoleVariables(brand)` otherwise), for the current mode, so a header
+   * is never light in dark mode. Pass a theme (or `{ light, dark }`) to use
+   * your own, or `false` to set none.
+   */
+  navigationTheme?: false | GenesisNavigationTheme | { light: GenesisNavigationTheme; dark: GenesisNavigationTheme };
   /** `KeyboardAwareScrollView` from react-native-keyboard-controller, for form screens. Needs `keyboardProvider`. */
   keyboardScroll?: ComponentType<KeyboardScrollProps>;
   /**
@@ -311,6 +323,13 @@ function ThemedShell(props: GenesisNativeAppProps) {
   if (modules) body = <GenesisModulesProvider modules={modules}>{body}</GenesisModulesProvider>;
   if (keyboardScroll) body = <KeyboardScrollProvider component={keyboardScroll} toolbar={keyboardToolbar}>{body}</KeyboardScrollProvider>;
   if (Keyboard) body = <Keyboard>{body}</Keyboard>;
+  if (modules?.navigation && props.navigationTheme !== false) {
+    body = (
+      <NavigationTheme module={modules.navigation} brand={brand} brandVariables={props.brandVariables} given={props.navigationTheme}>
+        {body}
+      </NavigationTheme>
+    );
+  }
   return (
     <ThemeProvider brand={brand} syncNativeAppearance>
       {props.brandVariables ? (
@@ -353,6 +372,64 @@ function BrandVariables({
       {children}
     </View>
   );
+}
+
+/** `"240 10% 3.9%"` (a role variable's value) → `"hsl(240, 10%, 3.9%)"`; anything else as it is. */
+function roleColor(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  const parts = value.trim().split(/\s+/);
+  return parts.length === 3 ? `hsl(${parts.join(", ")})` : value;
+}
+
+/**
+ * React Navigation's theme for the current mode, in the app's role colors: the
+ * variables `brandVariables` sets (or `brandRoleVariables(brand)`) over React
+ * Navigation's own light or dark theme, which keeps its fonts.
+ */
+function NavigationTheme({
+  module,
+  brand,
+  brandVariables,
+  given,
+  children,
+}: {
+  module: GenesisNavigationModule;
+  brand: CanonicalBrand;
+  brandVariables: GenesisNativeAppProps["brandVariables"];
+  given: GenesisNativeAppProps["navigationTheme"];
+  children: ReactNode;
+}) {
+  const { resolvedMode } = useTheme();
+  const theme = useMemo((): GenesisNavigationTheme => {
+    if (given) {
+      const perMode = given as { light?: GenesisNavigationTheme; dark?: GenesisNavigationTheme };
+      return perMode.light && perMode.dark ? perMode[resolvedMode]! : (given as GenesisNavigationTheme);
+    }
+    let variables: Record<string, string>;
+    if (brandVariables && brandVariables !== true) {
+      const perMode = brandVariables as { light?: unknown; dark?: unknown };
+      variables = typeof perMode.light === "object" && typeof perMode.dark === "object" ? (brandVariables as Record<"light" | "dark", Record<string, string>>)[resolvedMode] : (brandVariables as Record<string, string>);
+    } else {
+      variables = brandRoleVariables(brand)[resolvedMode];
+    }
+    const base = resolvedMode === "dark" ? module.DarkTheme : module.DefaultTheme;
+    const pick = (name: string, fallback: GenesisNavigationTheme["colors"]["text"]) => roleColor(variables[`--${name}`]) ?? fallback;
+    return {
+      ...base,
+      dark: resolvedMode === "dark",
+      colors: {
+        ...base.colors,
+        primary: pick("primary", base.colors.primary),
+        background: pick("background", base.colors.background),
+        card: pick("card", base.colors.card),
+        text: pick("foreground", base.colors.text),
+        border: pick("border", base.colors.border),
+        notification: pick("destructive", base.colors.notification),
+      },
+    };
+  }, [module, brand, brandVariables, given, resolvedMode]);
+  const Provider = module.ThemeProvider;
+  return <Provider value={theme}>{children}</Provider>;
 }
 
 const SESSION_STEP_MARGIN_MS = 15_000;

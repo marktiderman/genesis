@@ -11,10 +11,12 @@
  *   import { SymbolView } from "expo-symbols";
  *   import DateTimePicker from "@expo/ui/community/datetime-picker";
  *   import { lucideIcons } from "@marktiderman/genesis-ui-native/icons/lucide";
+ *   import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
  *
  *   // At module scope, not inline:
  *   const modules = { list: FlashList, image: Image, reanimated: Reanimated, glass: GlassEffect,
- *                     symbol: SymbolView, icons: lucideIcons, datePicker: DateTimePicker };
+ *                     symbol: SymbolView, icons: lucideIcons, datePicker: DateTimePicker,
+ *                     navigation: { ThemeProvider, DefaultTheme, DarkTheme } };
  *   <GenesisModulesProvider modules={modules}>…</GenesisModulesProvider>
  *
  * (`GenesisNativeApp` from `@marktiderman/genesis-native` takes the same
@@ -29,6 +31,7 @@
  * | `symbol` (expo-symbols)        | NativeIcon on iOS                        | `icons` (lucide)              |
  * | `icons` (a lucide icon set)    | NativeIcon on Android, web, and as the SF Symbol fallback | a blank space of the icon's size |
  * | `datePicker` (@expo/ui)        | NativeDatePicker, NativeTimePicker       | @react-native-community/datetimepicker |
+ * | `navigation` (React Navigation's theming, from expo-router or @react-navigation/native) | GenesisNativeApp: headers and tab bars in the brand's light and dark colors | React Navigation's default (light) theme |
  *
  * The props below are written structurally (no import of the optional
  * packages), so this package builds and type-checks without any of them.
@@ -148,6 +151,20 @@ export interface GenesisDatePickerProps {
 /** The default export of `@expo/ui/community/datetime-picker`. */
 export type GenesisDatePickerComponent = ComponentType<GenesisDatePickerProps>;
 
+/** A React Navigation theme (`ReactNavigation.Theme`): the colors Genesis sets, and the fonts it keeps. */
+export interface GenesisNavigationTheme {
+  dark: boolean;
+  colors: { primary: ColorValue; background: ColorValue; card: ColorValue; text: ColorValue; border: ColorValue; notification: ColorValue };
+  fonts?: unknown;
+}
+
+/** React Navigation's theming, as `expo-router` and `@react-navigation/native` both export it. */
+export interface GenesisNavigationModule {
+  ThemeProvider: ComponentType<{ value: any; children: ReactNode }>;
+  DefaultTheme: GenesisNavigationTheme;
+  DarkTheme: GenesisNavigationTheme;
+}
+
 /** Every optional native module Genesis components can use. Each is optional on its own. */
 export interface GenesisModules {
   list?: GenesisListComponent;
@@ -157,6 +174,7 @@ export interface GenesisModules {
   symbol?: GenesisSymbolComponent;
   icons?: GenesisIconSet;
   datePicker?: GenesisDatePickerComponent;
+  navigation?: GenesisNavigationModule;
 }
 
 const EMPTY: GenesisModules = Object.freeze({});

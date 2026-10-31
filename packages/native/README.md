@@ -43,7 +43,13 @@ From the outside in:
    The shell sets none by default, since NativeWind can't tell which `:root`
    variables are the app's. `brandVariables` opts in: `true` sets
    `brandRoleVariables(brand)` on a view around the app for the current mode,
-   and an object (one map, or `{ light, dark }`) sets your own. The app
+   and an object (one map, or `{ light, dark }`) sets your own. With
+   `modules.navigation` (`{ ThemeProvider, DefaultTheme, DarkTheme }` from
+   `expo-router`), the shell also themes React Navigation (headers, tab bars,
+   the screen background) in the same role colors for the current mode, so a
+   header is never light in dark mode. It reads your `brandVariables` when you
+   pass a map, `brandRoleVariables(brand)` otherwise; `navigationTheme` takes
+   a theme of your own (or `{ light, dark }`), and `false` sets none. The app
    installs `@marktiderman/genesis-core` and `nativewind` itself (peer
    dependencies, so one copy of each loads).
 3. **Keyboard**: your `keyboardProvider` (react-native-keyboard-controller's
