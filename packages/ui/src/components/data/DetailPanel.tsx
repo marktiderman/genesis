@@ -22,28 +22,28 @@ export interface DetailPanelProps<T> {
   /** Close handler */
   onClose: () => void;
   /** Header title */
-  title?: string;
+  title?: string | undefined;
   /** Header subtitle */
-  subtitle?: string;
+  subtitle?: string | undefined;
   /** Shows edit button if provided */
-  onEdit?: (item: T) => void;
+  onEdit?: ((item: T) => void) | undefined;
   /** Shows delete button if provided */
-  onDelete?: (item: T) => void;
+  onDelete?: ((item: T) => void) | undefined;
   /** Custom content renderer */
-  children?: (item: T) => ReactNode;
+  children?: ((item: T) => ReactNode) | undefined;
   /** Field definitions for auto-rendering */
   fields?: Array<{
     key: string;
     label: string;
-    render?: (value: unknown, item: T) => ReactNode;
-  }>;
+    render?: ((value: unknown, item: T) => ReactNode) | undefined;
+  }> | undefined;
   /**
    * Panel width. For `"sheet"` / `"inline"` this is a fixed pixel width
    * (matching this component's original, pre-`layout` sizing exactly). For
    * `"dialog"` it maps to Tailwind's modal max-width scale instead, since a
    * centered modal has a different sizing idiom than an edge-anchored panel.
    */
-  width?: "sm" | "md" | "lg";
+  width?: "sm" | "md" | "lg" | undefined;
   /**
    * Rendering shell for the header + content below.
    * - `"sheet"` (default): fixed, right-anchored slide-in panel, composed

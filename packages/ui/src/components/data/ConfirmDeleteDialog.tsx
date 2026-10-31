@@ -30,7 +30,7 @@ export interface ConfirmDeleteDialogProps {
    */
   onConfirm: () => void | Promise<void>;
   /** Default "Delete this record?". */
-  title?: string;
+  title?: string | undefined;
   /**
    * What happens to the record: `"permanent"` (default) or `"recycle"` when
    * a delete moves it to a recycle bin. Sets the default description.
@@ -40,11 +40,11 @@ export interface ConfirmDeleteDialogProps {
    * Default by `kind`: "This can't be undone.", or "It moves to the recycle
    * bin, where it can be restored."
    */
-  description?: ReactNode;
+  description?: ReactNode | undefined;
   /** Default "Delete". */
-  confirmLabel?: string;
+  confirmLabel?: string | undefined;
   /** Default "Cancel". */
-  cancelLabel?: string;
+  cancelLabel?: string | undefined;
 }
 
 /**

@@ -45,11 +45,11 @@ export interface BandProps
    */
   as?: "section" | "header" | "footer" | "div" | "aside";
   /** The inner column's width (Container's named widths). Default `lg`. */
-  width?: "sm" | "md" | "lg" | "full" | "prose";
+  width?: "sm" | "md" | "lg" | "full" | "prose" | undefined;
   /** Classes for the inner column, after the width and gutter. */
   innerClassName?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -119,7 +119,7 @@ export interface DisplayProps
   /** The heading level: document structure, not a size. Default `h2`. */
   as?: "h1" | "h2" | "h3" | "h4" | "p";
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -162,7 +162,7 @@ const leadVariants = cva("text-lg leading-relaxed sm:text-xl text-pretty", {
 export interface BandLeadProps
   extends React.HTMLAttributes<HTMLParagraphElement>,
     VariantProps<typeof leadVariants> {
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /** @stability Beta */

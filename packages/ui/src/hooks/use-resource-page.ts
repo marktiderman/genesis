@@ -25,44 +25,44 @@ export interface ResourceColumnDef<T> {
   key: string;
   header?: string;
   sortable?: boolean;
-  hideBelow?: "sm" | "md" | "lg" | "xl";
+  hideBelow?: "sm" | "md" | "lg" | "xl" | undefined;
   /** Starting width, passed straight through to `DataTable` (a number is px). */
-  width?: DataTableColumn<T>["width"];
+  width?: DataTableColumn<T>["width"] | undefined;
   /** Smallest width the user can resize to, in px. Passed through to `DataTable`. */
-  minWidth?: number;
+  minWidth?: number | undefined;
   /** Whether the column shows before the user picks columns. Default true. */
-  defaultVisible?: boolean;
-  render?: (
+  defaultVisible?: boolean | undefined;
+  render?: ((
     item: T,
     value: unknown,
     actions: ResourceActions<T>,
-  ) => ReactNode;
+  ) => ReactNode) | undefined;
   /** In-place cell editing, passed straight through to `DataTable`. */
-  editable?: DataTableColumn<T>["editable"];
+  editable?: DataTableColumn<T>["editable"] | undefined;
   /**
    * The cell's value, when it isn't `item[key]`. Passed straight through to
    * `DataTable`, which also starts an edit from `String(accessor(item))`.
    */
-  accessor?: (item: T) => unknown;
+  accessor?: ((item: T) => unknown) | undefined;
 }
 
 export interface UseResourcePageProps<T> {
   /** Resource name — used for view-preference storage key. */
-  resource?: string;
+  resource?: string | undefined;
   /** The data to display (pre-fetched or from useResource). */
   data: T[];
   /** Total count of records (before client-side filtering). */
   total: number;
   /** Column definitions. Strings are expanded to `{ key, header, sortable }`. Omit to auto-generate from data keys. */
-  columns?: Array<string | ResourceColumnDef<T>>;
+  columns?: Array<string | ResourceColumnDef<T>> | undefined;
   /** Status filter config. String = field name (options auto-derived). Object = explicit field + options. */
-  statusFilter?: string | { field: string; options?: string[] };
+  statusFilter?: (string | { field: string; options?: string[] }) | undefined;
   /** Fields to search across. Defaults to all string-valued fields in data. */
-  searchFields?: string[];
+  searchFields?: string[] | undefined;
   /** Initial filter params applied on mount. */
-  initialFilters?: FilterParam[];
+  initialFilters?: FilterParam[] | undefined;
   /** Callback when filters change. */
-  onFiltersChange?: (filters: FilterParam[]) => void;
+  onFiltersChange?: ((filters: FilterParam[]) => void) | undefined;
   /**
    * Default view mode, used until the user picks one. Pass
    * `{ mobile, desktop }` for a viewport-dependent default (cards on phones,
@@ -78,9 +78,9 @@ export interface UseResourcePageProps<T> {
   /** Detail interaction mode. */
   detail?: "panel" | "modal" | "route" | "none";
   /** Field used for the detail title. Defaults to first column key. */
-  titleField?: string;
+  titleField?: string | undefined;
   /** Field used for the detail subtitle. Defaults to second column key. */
-  subtitleField?: string;
+  subtitleField?: string | undefined;
   /**
    * Server-controlled mode. The `data` handed in has ALREADY been searched,
    * sorted and paginated by the server, so this hook must not do any of it a
@@ -135,11 +135,11 @@ export interface UseResourcePageReturn<T> {
     sort: string;
     onSortChange: (sort: string) => void;
     sortOptions: Array<{ value: string; label: string }>;
-    statusChips?: {
+    statusChips?: ({
       options: string[];
       selected: string[];
       onChange: (values: string[]) => void;
-    };
+    }) | undefined;
   };
   viewMode: ViewMode;
   setViewMode: (mode: ViewMode) => void;
@@ -392,7 +392,7 @@ export function useResourcePage<T = Record<string, unknown>>(
   const getParentId = treeProp?.getParentId;
   const keyRef = useRef(getKeyProp);
   keyRef.current = getKeyProp;
-  const treeKey = useCallback((item: T) => (keyRef.current ? keyRef.current(item) : String((item as Record<string, unknown>).id)), []);
+  const treeKey = useCallback((item: T) => (keyRef.current ? keyRef.current(item) : String((item as Record<string, unknown>)["id"])), []);
   const [ownExpanded, setOwnExpanded] = useState<ReadonlySet<string> | null>(null);
   const defaultExpanded = treeProp?.defaultExpanded;
   const controlledExpanded = treeProp?.expanded;
@@ -499,7 +499,7 @@ export function useResourcePage<T = Record<string, unknown>>(
       setSort(null);
       return;
     }
-    const [field, order] = value.split(":");
+    const [field = "", order] = value.split(":");
     setSort({ field, order: order as "asc" | "desc" });
   }, []);
 

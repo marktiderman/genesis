@@ -57,7 +57,7 @@ export interface StackProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof stackVariants> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

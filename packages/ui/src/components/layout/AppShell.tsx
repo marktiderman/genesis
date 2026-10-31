@@ -61,7 +61,7 @@ export interface NavItem {
   icon: LucideIcon;
   label: string;
   /** Nested items — rendered as a collapsible group when the rail is expanded */
-  children?: NavItem[];
+  children?: NavItem[] | undefined;
   /**
    * A count (`3`) or a short status (`"New"`), shown as a chip: in the
    * sidebar, the sub-navigation tabs and the mobile bar; as a dot on the
@@ -69,7 +69,7 @@ export interface NavItem {
    * is hidden.
    */
   badge?: string | number;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /**
    * Exact-match active state (e.g. overview `/`). Exact on the path only, so
    * an `activePath` carrying `?search#hash` still matches.
@@ -135,7 +135,7 @@ export interface AppShellOptions {
    * Show the in-sidebar Sidebar options popover so users can customize chrome.
    * Default true when collapse / secondary / theme / slots are available.
    */
-  configurable?: boolean;
+  configurable?: boolean | undefined;
   /**
    * Toggle keys the developer has decided on and users may not override —
    * e.g. hiding `showThemeToggle` for a brand that manages theme elsewhere.
@@ -144,7 +144,7 @@ export interface AppShellOptions {
    */
   lockedOptions?: (keyof AppShellOptions)[];
   /** Comfortable (default) vs compact row padding */
-  density?: "comfortable" | "compact";
+  density?: "comfortable" | "compact" | undefined;
   /** Expanded rail width in rem-ish tokens: narrow ≈ 13rem, wide ≈ 16rem */
   railWidth?: "narrow" | "wide";
   /**
@@ -290,7 +290,7 @@ export interface AppShellProps {
   /** App name shown in sidebar header */
   appName: string;
   /** App logo letter or short text (ignored when `logo` is set) */
-  appLogo?: string;
+  appLogo?: string | undefined;
   /** Custom logo node — preferred over `appLogo` letter tile */
   logo?: ReactNode;
   /**
@@ -321,7 +321,7 @@ export interface AppShellProps {
    */
   parentNavigation?: ParentNavigation | null;
   /** Secondary nav (e.g. “More”) — rendered below a divider when shown */
-  secondaryNavItems?: NavItem[];
+  secondaryNavItems?: NavItem[] | undefined;
   /** Label above secondary nav (default “More”) */
   secondaryNavLabel?: string;
   /**
@@ -410,7 +410,7 @@ export interface AppShellProps {
    * active. A pathname alone still works for path-only items, `end` included.
    * Omit to disable active highlighting.
    */
-  activePath?: string;
+  activePath?: string | undefined;
   /**
    * Optional custom active-state matcher. Defaults to a prefix match (with `/`
    * treated as exact), mirroring React Router `NavLink`.
@@ -541,14 +541,14 @@ function NavLinkRow({
   item: SubNavItem;
   collapsed: boolean;
   density: "comfortable" | "compact";
-  onNavClick?: () => void;
+  onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
-  activePath?: string;
+  activePath?: string | undefined;
   isActive: (to: string, activePath?: string) => boolean;
   /** Highlight as usual but never claim `aria-current` (another section holds it). */
   notCurrent?: boolean;
   /** Decided by the caller (most specific of siblings) instead of by `isActive`. */
-  active?: boolean;
+  active?: boolean | undefined;
 }) {
   const active = activeOverride ?? itemIsActive(item, activePath, isActive);
   const pad = density === "compact" ? "px-2.5 py-1.5" : "px-3 py-2";
@@ -646,7 +646,7 @@ function RailGroup({
   item: SubNavItem;
   density: "comfortable" | "compact";
   linkComponent: LinkComponent;
-  activePath?: string;
+  activePath?: string | undefined;
   isActive: (to: string, activePath?: string) => boolean;
   notCurrent: boolean;
 }) {
@@ -733,9 +733,9 @@ function NavGroup({
   item: SubNavItem;
   collapsed: boolean;
   density: "comfortable" | "compact";
-  onNavClick?: () => void;
+  onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
-  activePath?: string;
+  activePath?: string | undefined;
   isActive: (to: string, activePath?: string) => boolean;
   /** Highlight as usual but never claim `aria-current` (another section holds it). */
   notCurrent?: boolean;
@@ -892,8 +892,8 @@ function SidebarNav({
 }: {
   navItems: SubNavItem[];
   /** The page's children, in `subNav: "sidebar"` mode only. */
-  contextualNavItems?: SubNavItem[];
-  contextualNavLabel?: string;
+  contextualNavItems?: SubNavItem[] | undefined;
+  contextualNavLabel?: string | undefined;
   /** A sub-navigation item (wherever it renders) is the current page. */
   subActive?: boolean;
   /**
@@ -901,15 +901,15 @@ function SidebarNav({
    * the rail), and mark only the most specific one current. Off, they keep
    * the legacy section below the global items.
    */
-  nest?: boolean;
-  secondaryNavItems?: SubNavItem[];
+  nest?: boolean | undefined;
+  secondaryNavItems?: SubNavItem[] | undefined;
   secondaryNavLabel: string;
   showSecondary: boolean;
   collapsed: boolean;
   density: "comfortable" | "compact";
-  onNavClick?: () => void;
+  onNavClick?: (() => void) | undefined;
   linkComponent: LinkComponent;
-  activePath?: string;
+  activePath?: string | undefined;
   isActive: (to: string, activePath?: string) => boolean;
 }) {
   const contextualLabelId = useId();
@@ -1068,7 +1068,7 @@ function SidebarBrand({
   collapsed,
 }: {
   appName: string;
-  appLogo?: string;
+  appLogo?: string | undefined;
   logo?: ReactNode;
   showLogo: boolean;
   showAppName: boolean;

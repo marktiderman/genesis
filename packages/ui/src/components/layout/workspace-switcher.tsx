@@ -218,7 +218,7 @@ export interface WorkspaceSwitcherImageProps<W extends Workspace = Workspace> {
   workspace: W;
   size: "sm" | "md";
   /** The kind's icon, for a workspace with no image. */
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   className?: string;
   /** The workspace's brand variables (`workspaceThemeStyle`). */
   style?: CSSProperties;
@@ -234,8 +234,8 @@ export interface WorkspaceSwitcherItemProps<W extends Workspace = Workspace> {
   image: ReactNode;
   badge: ReactNode;
   /** The jump shortcut's hint ("⌘3"), when jumping is on and it has one. */
-  shortcut?: string;
-  classNames?: WorkspaceSwitcherClassNames;
+  shortcut?: string | undefined;
+  classNames?: WorkspaceSwitcherClassNames | undefined;
 }
 
 /** What `slots.badge` receives. A replacement owns its screen-reader text: use `label`. */
@@ -268,8 +268,8 @@ export interface WorkspaceSwitcherSearchProps {
   comboboxProps: {
     role: "combobox";
     "aria-expanded": boolean;
-    "aria-controls"?: string;
-    "aria-activedescendant"?: string;
+    "aria-controls"?: string | undefined;
+    "aria-activedescendant"?: string | undefined;
     "aria-autocomplete": "list";
   };
   className?: string;
@@ -312,7 +312,7 @@ export interface WorkspaceSwitcherProps<W extends Workspace = Workspace> {
    * `sidebar` (default): the full row for `headerSlot`. `rail`: the picture alone, for the
    * collapsed rail's `collapsedHeaderSlot`. `bar`: the name and a chevron, for the phone's top bar.
    */
-  variant?: WorkspaceSwitcherVariant;
+  variant?: WorkspaceSwitcherVariant | undefined;
   /** Every workspace; defaults to the nearest WorkspaceScope's. */
   workspaces?: readonly W[];
   /** The current workspace; defaults to the nearest WorkspaceScope's. */

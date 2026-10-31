@@ -24,7 +24,7 @@ function FormField({
 
 interface FormLabelProps extends React.ComponentPropsWithoutRef<typeof Label> {
   error?: boolean;
-  required?: boolean;
+  required?: boolean | undefined;
 }
 
 const FormLabel = React.forwardRef<

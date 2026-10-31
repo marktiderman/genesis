@@ -122,7 +122,7 @@ export interface KeyboardNavOptions {
   /** Called when Enter is pressed on focused item */
   onOpen?: (index: number) => void;
   /** Called when x is pressed on focused item */
-  onToggleSelect?: (index: number) => void;
+  onToggleSelect?: ((index: number) => void) | undefined;
   /**
    * Called when Backspace (⌫) is pressed — the conventional "go back" key,
    * e.g. to close an open detail panel/modal and return to the list. Fires
@@ -137,7 +137,7 @@ export interface KeyboardNavOptions {
    * text-entry surfaces and for composite widgets that use Backspace
    * themselves (see `KEEPS_BACKSPACE_SELECTOR`).
    */
-  onBack?: (focusedIndex: number) => void;
+  onBack?: ((focusedIndex: number) => void) | undefined;
   /** Ref to the search input to focus on "/" */
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Whether navigation is enabled. Default true */
@@ -153,7 +153,7 @@ export interface KeyboardNavOptions {
    * only to override that measurement. Either way a single-column container
    * behaves exactly as a flat list: stride 1, Left/Right inert.
    */
-  columns?: number;
+  columns?: number | undefined;
   /**
    * An overlay (detail panel, modal, form) is open above the list. Cursor
    * movement and activation keys are suspended so they can't drive the list

@@ -16,7 +16,7 @@ const colorMap: Record<StatCardColor, string> = {
 export interface StatCardProps {
   label: string;
   value: string | number;
-  icon?: LucideIcon;
+  icon?: LucideIcon | undefined;
   /** Semantic color key or raw Tailwind class */
   color?: StatCardColor | string;
   /** When set, the card renders as a link to this path. */

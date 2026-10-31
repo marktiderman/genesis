@@ -14,7 +14,7 @@ export type ChartConfig = Record<
   string,
   {
     label?: React.ReactNode;
-    icon?: React.ComponentType;
+    icon?: React.ComponentType | undefined;
   } & (
     | { color?: string; theme?: never }
     | { color?: never; theme: Record<keyof typeof THEMES, string> }
@@ -199,7 +199,7 @@ function ChartTooltipContent({
             const key = `${nameKey ?? item.name ?? item.dataKey ?? "value"}`;
             const itemConfig = getPayloadConfigFromPayload(config, item, key);
             const indicatorColor =
-              color ?? (item.payload as Record<string, string>)?.fill ?? item.color;
+              color ?? (item.payload as Record<string, string>)?.["fill"] ?? item.color;
 
             return (
               <div
@@ -298,7 +298,7 @@ function ChartLegendContent({
       {payload
         .filter((item) => item.type !== "none")
         .map((item, index) => {
-          const key = `${nameKey ?? (item as unknown as Record<string, unknown>).dataKey ?? "value"}`;
+          const key = `${nameKey ?? (item as unknown as Record<string, unknown>)["dataKey"] ?? "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (

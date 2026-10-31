@@ -13,7 +13,7 @@ export function SummaryCard({
   className,
   testID,
 }: {
-  icon?: ReactNode;
+  icon?: ReactNode | undefined;
   title: string;
   meta?: ReactNode;
   children?: ReactNode;

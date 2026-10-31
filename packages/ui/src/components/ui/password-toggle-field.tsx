@@ -12,7 +12,7 @@ export interface PasswordToggleFieldProps
   /** Class names for the field wrapper (the positioned box, see below). */
   className?: string;
   /** Stable test/automation selector for the wrapper (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -84,7 +84,7 @@ export interface PasswordToggleFieldInputProps
     typeof PasswordToggleFieldPrimitive.Input
   > {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
@@ -119,7 +119,7 @@ export interface PasswordToggleFieldToggleProps
     typeof PasswordToggleFieldPrimitive.Toggle
   > {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

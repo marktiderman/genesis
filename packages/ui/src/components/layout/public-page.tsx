@@ -17,9 +17,9 @@ export interface PublicPageProps extends Omit<React.HTMLAttributes<HTMLDivElemen
    */
   brand?: PublicBrand;
   /** Optional page heading, rendered as the page's `<h1>` above the content. Leave it out when the content brings its own (a form's title). */
-  title?: React.ReactNode;
+  title?: React.ReactNode | undefined;
   /** Supporting copy under `title`. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /** Width of the content column: a `Container` size. Default `"sm"`. */
   maxWidth?: NonNullable<ContainerProps["size"]>;
   /**
@@ -40,7 +40,7 @@ export interface PublicPageProps extends Omit<React.HTMLAttributes<HTMLDivElemen
   /** More props for a default part, merged over what the page passes. */
   slotProps?: SlotPropsFor<PublicPageSlotMap>;
   /** testID on the root. Default `"public-page"`; parts use `${testID}-header`, `-main`, `-footer`. */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

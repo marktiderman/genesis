@@ -6,20 +6,20 @@ import { Switch } from "../ui/switch";
 
 export interface ToggleRowProps {
   label: React.ReactNode;
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   checked?: boolean;
   defaultChecked?: boolean;
   onCheckedChange?: (checked: boolean) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /** Switch/label `id`. Auto-generated via `useId` when omitted. */
-  id?: string;
+  id?: string | undefined;
   className?: string;
   /**
    * Stable test/automation selector for the **Switch** — emitted as
    * `data-testid` on the control itself, since that is the node automation
    * has to click to toggle. Use `rowTestID` to select the surrounding row.
    */
-  testID?: string;
+  testID?: string | undefined;
   /** Stable test/automation selector for the row wrapper. */
   rowTestID?: string;
 }

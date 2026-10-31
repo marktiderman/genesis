@@ -35,7 +35,7 @@ export interface DataFilterConfig {
   options: FilterOption[];
   selected: string[];
   onChange: (values: string[]) => void;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   allLabel?: string;
   labelMap?: Record<string, string>;
 }
@@ -53,7 +53,7 @@ export interface SavedViewItem {
 export interface StatusChipOption {
   value: string;
   label?: string;
-  count?: number;
+  count?: number | undefined;
 }
 
 /** Rendering of the status chips — a row of pills, or one segmented strip. */
@@ -62,11 +62,11 @@ export type StatusChipsVariant = "chips" | "tabs";
 interface DataFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
-  searchPlaceholder?: string;
+  searchPlaceholder?: string | undefined;
   sort: string;
   onSortChange: (sort: string) => void;
   sortOptions: Array<{ value: string; label: string }>;
-  filters?: DataFilterConfig[];
+  filters?: DataFilterConfig[] | undefined;
   /** Status chip toggles */
   statusChips?: {
     options: Array<string | StatusChipOption>;
@@ -78,20 +78,20 @@ interface DataFiltersProps {
      * the same border-and-fill look as `ViewToggle`. Selection is
      * multi-select in both.
      */
-    variant?: StatusChipsVariant;
-  };
+    variant?: StatusChipsVariant | undefined;
+  } | undefined;
   /** Saved views */
-  savedViews?: SavedViewItem[];
-  onLoadView?: (filters: Record<string, unknown>) => void;
-  onSaveView?: (name: string) => void;
-  onDeleteView?: (id: string) => void;
-  canSaveViews?: boolean;
+  savedViews?: SavedViewItem[] | undefined;
+  onLoadView?: ((filters: Record<string, unknown>) => void) | undefined;
+  onSaveView?: ((name: string) => void) | undefined;
+  onDeleteView?: ((id: string) => void) | undefined;
+  canSaveViews?: boolean | undefined;
   /** Called after a view is saved successfully */
   onViewSaved?: (name: string) => void;
   /** Called when an error occurs */
-  onError?: (message: string) => void;
+  onError?: ((message: string) => void) | undefined;
   /** Called when "Clear all" is clicked */
-  onClearAll?: () => void;
+  onClearAll?: (() => void) | undefined;
   /** Expose the search input ref for keyboard nav "/" shortcut */
   searchInputRef?: React.RefObject<HTMLInputElement | null>;
   /** Show the search box. Default `true`; turn off when the data source can't search. */
@@ -134,7 +134,7 @@ export function DataFilters({
 
   // Plain strings and option objects normalise to one shape so both render
   // paths below read `value`/`label`/`count` without re-checking.
-  const statusOptions: Array<{ value: string; label: string; count?: number }> =
+  const statusOptions: Array<{ value: string; label: string; count?: number | undefined }> =
     (statusChips?.options ?? []).map((o) =>
       typeof o === "string"
         ? { value: o, label: o }

@@ -5,6 +5,7 @@ import { useDropzone, type FileRejection } from "react-dropzone";
 import { Upload, X, FileIcon, ImageIcon, AlertCircle } from "lucide-react";
 import { cn } from "../../utils";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
+import { compact } from "./compact";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,17 +47,17 @@ export interface FileUploadFieldProps {
   field: ResourceFormFieldDef;
   value: File | File[] | null;
   onChange: (value: File | File[] | null) => void;
-  disabled?: boolean;
+  disabled?: boolean | undefined;
   /** Id for the file input, so a `<label htmlFor>` names it. */
-  id?: string;
+  id?: string | undefined;
   /**
    * The label's id. The drop zone is what takes keyboard focus (the input
    * is hidden), so it is named by `aria-labelledby` rather than `htmlFor`.
    */
   "aria-labelledby"?: string;
-  "aria-describedby"?: string;
-  "aria-invalid"?: boolean;
-  "aria-required"?: boolean;
+  "aria-describedby"?: string | undefined;
+  "aria-invalid"?: boolean | undefined;
+  "aria-required"?: boolean | undefined;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +126,7 @@ export function FileUploadField({
         const merged = [...files, ...accepted];
         onChange(merged);
       } else {
-        onChange(accepted[0]);
+        onChange(accepted[0] ?? null);
       }
     },
     [files, maxSize, multiple, onChange],
@@ -146,13 +147,15 @@ export function FileUploadField({
     [files, multiple, onChange],
   );
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: acceptObj,
-    maxSize,
-    multiple,
-    disabled,
-  });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone(
+    compact({
+      onDrop,
+      accept: acceptObj,
+      maxSize,
+      multiple,
+      disabled,
+    }),
+  );
 
   const hasFiles = files.length > 0;
 

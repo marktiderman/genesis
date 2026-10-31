@@ -68,20 +68,20 @@ interface ButtonOwnProps extends VariantProps<typeof buttonVariants> {
    * injected — there is no button chrome to put it in — but the control is
    * still made inert, so a "loading" link can't be activated mid-flight.
    */
-  loading?: boolean;
+  loading?: boolean | undefined;
   /** Optional leading icon slot (replaced by the spinner while loading). Ignored when `asChild`. */
   startIcon?: React.ReactNode;
   /** Optional trailing icon slot. Ignored when `asChild`. */
   endIcon?: React.ReactNode;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
   /**
    * Makes the control inert. On a real `<button>` this is the native
    * `disabled` attribute; in `asChild` mode it becomes `aria-disabled` plus
    * activation blocking, because `disabled` is a button-only attribute that
    * anchors and router links ignore entirely. See `asChild`.
    */
-  disabled?: boolean;
+  disabled?: boolean | undefined;
 }
 
 /**

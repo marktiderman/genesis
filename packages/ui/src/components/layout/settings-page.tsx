@@ -32,7 +32,7 @@ export interface SettingsPageSection {
    */
   title: string;
   /** Supporting copy under the section heading. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /** The rows themselves — `SettingsRow` / `ToggleRow` are the natural ones. */
   content: React.ReactNode;
 }
@@ -44,7 +44,7 @@ export interface SettingsPageProps
   /** Page title. Rendered as the page's single `<h1>`. */
   title: React.ReactNode;
   /** Supporting copy under the title. */
-  description?: React.ReactNode;
+  description?: React.ReactNode | undefined;
   /** Page-level trailing controls — "Save all", a workspace switcher. */
   actions?: React.ReactNode;
   /** The settings regions, in the order they appear in the rail. */
@@ -56,7 +56,7 @@ export interface SettingsPageProps
    */
   navAt?: SplitBreakpoint;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

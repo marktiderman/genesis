@@ -37,20 +37,20 @@ export interface GenesisLinkProps {
   /** Destination path or URL. */
   href: string;
   className?: string;
-  onClick?: () => void;
+  onClick?: (() => void) | undefined;
   children?: ReactNode;
   /** Set to "page" when the link points at the active route. */
   "aria-current"?: AnchorHTMLAttributes<HTMLAnchorElement>["aria-current"];
   /** Accessible name — useful when the visible label is hidden (icon rail). */
-  "aria-label"?: string;
+  "aria-label"?: string | undefined;
   /** Native tooltip / title attribute. */
-  title?: string;
+  title?: string | undefined;
   /**
    * Stable test/automation selector. {@link DefaultLink} renders it as
    * `data-testid`; injected router adapters (`next/link`, RR `Link`) forward it
    * to the underlying `<a>` too.
    */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**

@@ -22,11 +22,11 @@ export interface ResourceDetailPageProps<T extends BaseRecord = BaseRecord> {
    * Field used as the page title. Defaults to `name`, then `title`, then the
    * id — the same fallback chain `ResourcePage` uses for a row's label.
    */
-  titleField?: string;
+  titleField?: string | undefined;
   /** Field used as the line under the title. */
-  subtitleField?: string;
+  subtitleField?: string | undefined;
   /** Provider select/join syntax, e.g. `"*, owner:profiles(name)"`. */
-  select?: string;
+  select?: string | undefined;
   /** Slot above the title: a `Breadcrumb`, a back link, a `StatusBadge`. */
   breadcrumb?: ReactNode;
   /** Record-scoped controls, built from the loaded record. */
@@ -37,12 +37,12 @@ export interface ResourceDetailPageProps<T extends BaseRecord = BaseRecord> {
   children: (record: T) => ReactNode;
   className?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /** `name` -> `title` -> id. Mirrors `ResourcePage`'s row-label fallback. */
 function pick(record: BaseRecord, field: string | undefined): string {
-  const value = field ? record[field] : record.name ?? record.title ?? record.id;
+  const value = field ? record[field] : record["name"] ?? record["title"] ?? record.id;
   return value == null ? "" : String(value);
 }
 
@@ -146,7 +146,7 @@ export function ResourceDetailPage<T extends BaseRecord = BaseRecord>({
   testID,
 }: ResourceDetailPageProps<T>) {
   const { data, isLoading, isError, error } = useOne<T>(resource, id, {
-    select,
+    ...(select !== undefined ? { select } : {}),
     // `useOne` defaults to `enabled: !!id`, which is wrong for a numeric
     // primary key: id `0` is falsy, so the query would never run and the page
     // would report a record that exists as missing, without ever asking the

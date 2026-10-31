@@ -41,7 +41,7 @@ export interface GridProps
   extends React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof gridVariants> {
   /** Stable test/automation selector (emitted as `data-testid`). */
-  testID?: string;
+  testID?: string | undefined;
 }
 
 /**
