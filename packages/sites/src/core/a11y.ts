@@ -370,16 +370,70 @@ export function checkPost(slug: string, doc: unknown, hosts: AssetHostOptions = 
  */
 export function checkHtmlOutline(html: string): SiteIssue[] {
   const issues: SiteIssue[] = [];
-  const body = html.replace(/<script\b[\s\S]*?<\/script>/gi, "").replace(/<style\b[\s\S]*?<\/style>/gi, "");
-  const levels = [...body.matchAll(/<h([1-6])\b/gi)].map((m) => Number(m[1]));
+  const { levels, images } = outlineTags(html);
   const h1 = levels.filter((l) => l === 1).length;
   if (h1 !== 1) issues.push({ severity: "error", code: "h1-count", message: `The page has ${h1} h1 elements; it needs exactly one.` });
   if (levels[0] !== undefined && levels[0] !== 1) issues.push({ severity: "error", code: "heading-order", message: `The first heading is an h${levels[0]}, not the h1.` });
   for (let i = 1; i < levels.length; i++) {
     if (levels[i]! > levels[i - 1]! + 1) issues.push({ severity: "error", code: "heading-order", message: `An h${levels[i]} follows an h${levels[i - 1]}.` });
   }
-  for (const m of body.matchAll(/<img\b[^>]*>/gi)) {
-    if (!/\salt=/.test(m[0])) issues.push({ severity: "error", code: "image-alt", message: `An image has no alt attribute: ${m[0].slice(0, 120)}` });
+  for (const tag of images) {
+    if (!/\salt=/i.test(tag)) issues.push({ severity: "error", code: "image-alt", message: `An image has no alt attribute: ${tag.slice(0, 120)}` });
   }
   return issues;
+}
+
+const WORD_CHAR = /\w/;
+/** Elements whose content is raw text: a `<h1>` inside one is not a heading. */
+const RAW_TEXT = ["script", "style"] as const;
+
+/** `name` starts at `at` in `lower` (an already lowercased string) and ends there: `<h1` but not `<h1x`. */
+function tagAt(lower: string, at: number, name: string): boolean {
+  if (!lower.startsWith(name, at)) return false;
+  const next = lower[at + name.length];
+  return next === undefined || !WORD_CHAR.test(next);
+}
+
+/**
+ * The heading levels and `<img>` tags of a page, in order, skipping the
+ * content of `<script>` and `<style>`. One linear pass over the HTML: nothing
+ * is stripped or rebuilt, so the result never carries markup to render, and
+ * end tags match case-insensitively with any whitespace or junk before their
+ * `>` (`</SCRIPT >`), as browsers parse them. An unclosed raw-text element
+ * runs to the end of the document, as it does in a browser.
+ */
+function outlineTags(html: string): { levels: number[]; images: string[] } {
+  // ASCII-only lowering keeps every index the same as in `html`.
+  const lower = html.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  const levels: number[] = [];
+  const images: string[] = [];
+  let unclosed = false;
+  let i = lower.indexOf("<");
+  while (i >= 0 && i < lower.length) {
+    const raw = RAW_TEXT.find((name) => tagAt(lower, i + 1, name));
+    if (raw) {
+      let close = lower.indexOf(`</${raw}`, i + 1 + raw.length);
+      while (close >= 0 && !tagAt(lower, close + 2, raw)) close = lower.indexOf(`</${raw}`, close + 2);
+      if (close < 0) break;
+      const end = lower.indexOf(">", close);
+      if (end < 0) break;
+      i = lower.indexOf("<", end + 1);
+      continue;
+    }
+    const h = lower[i + 1] === "h" ? lower[i + 2] : undefined;
+    if (h !== undefined && h >= "1" && h <= "6" && tagAt(lower, i + 1, `h${h}`)) {
+      levels.push(Number(h));
+    } else if (!unclosed && tagAt(lower, i + 1, "img")) {
+      const end = lower.indexOf(">", i);
+      // No `>` from here on: no later `<img` closes either, so stop looking (keeps the pass linear).
+      if (end < 0) unclosed = true;
+      if (end >= 0) {
+        images.push(html.slice(i, end + 1));
+        i = lower.indexOf("<", end + 1);
+        continue;
+      }
+    }
+    i = lower.indexOf("<", i + 1);
+  }
+  return { levels, images };
 }

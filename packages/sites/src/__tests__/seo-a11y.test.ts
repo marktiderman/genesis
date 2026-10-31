@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import "../sections/index";
 import {
   ReleaseSnapshot,
+  absoluteUrl,
   breadcrumbJsonLd,
   checkContrast,
   checkHtmlOutline,
@@ -249,6 +250,50 @@ describe("publish checks", () => {
     expect(checkHtmlOutline("<h1>a</h1><h2>b</h2><h3>c</h3><h2>d</h2><img alt=\"\" src=x>")).toEqual([]);
     expect(checkHtmlOutline("<h1>a</h1><h1>b</h1>").map((i) => i.code)).toEqual(["h1-count"]);
     expect(checkHtmlOutline("<h1>a</h1><h3>b</h3><img src=x>").map((i) => i.code)).toEqual(["heading-order", "image-alt"]);
+  });
+
+  it("skips script and style content in any case, with whitespace in the end tag", () => {
+    const html = [
+      "<h1>a</h1>",
+      "<script>document.write('<h1>x</h1><img src=y>')</script>",
+      "<SCRIPT type=module>'<h4>'</SCRIPT >",
+      "<style>h3::before { content: '<h3>' }</style\n>",
+      "<Style>'<h5>'</STYLE\t>",
+      "<h2>b</h2><IMG ALT=\"\" src=z>",
+    ].join("");
+    expect(checkHtmlOutline(html)).toEqual([]);
+    // `<scripts>` and `<h1x>` are other tags; `</scriptx>` doesn't close a script.
+    expect(checkHtmlOutline("<scripts></scripts><h1>a</h1><h1x>").map((i) => i.code)).toEqual([]);
+    expect(checkHtmlOutline("<h1>a</h1><script></scriptx><h2>b</h2></script><h3>c</h3>").map((i) => i.code)).toEqual(["heading-order"]);
+    // An unclosed script runs to the end, as in a browser.
+    expect(checkHtmlOutline("<h1>a</h1><script><h1>b</h1>")).toEqual([]);
+  });
+
+  it("audits a pathological outline in linear time", () => {
+    const n = 100_000;
+    const inputs = ["<script".repeat(n), "<script>" + "</script".repeat(n), "<img".repeat(n), "<h".repeat(n), "<h1".repeat(n)];
+    for (const html of inputs) {
+      const started = performance.now();
+      checkHtmlOutline(html);
+      expect(performance.now() - started).toBeLessThan(500);
+    }
+  });
+});
+
+describe("absoluteUrl", () => {
+  it("joins origin, base path and path, trimming trailing slashes", () => {
+    expect(absoluteUrl(ORIGIN, "", "/")).toBe(`${ORIGIN}/`);
+    expect(absoluteUrl(`${ORIGIN}/`, "", "/about")).toBe(`${ORIGIN}/about`);
+    expect(absoluteUrl(`${ORIGIN}///`, "/sites/acme//", "/")).toBe(`${ORIGIN}/sites/acme/`);
+    expect(absoluteUrl(ORIGIN, "/sites/acme", "/about")).toBe(`${ORIGIN}/sites/acme/about`);
+  });
+
+  it("trims a long run of slashes in linear time", () => {
+    const slashes = "/".repeat(200_000);
+    const started = performance.now();
+    expect(absoluteUrl(`${ORIGIN}${slashes}x`, `/b${slashes}x`, "/")).toBe(`${ORIGIN}${slashes}x/b${slashes}x/`);
+    expect(absoluteUrl(`${ORIGIN}${slashes}`, slashes, "/p")).toBe(`${ORIGIN}/p`);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 });
 

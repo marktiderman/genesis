@@ -33,9 +33,16 @@ export interface PageMeta {
   twitter: Record<string, string>;
 }
 
+/** `s` without its trailing slashes. A loop, not `/\/+$/`, which backtracks on a long run of slashes. */
+function trimTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47 /* "/" */) end--;
+  return s.slice(0, end);
+}
+
 /** The absolute URL of a site path. */
 export function absoluteUrl(origin: string, basePath: string, path: string): string {
-  const base = origin.replace(/\/+$/, "") + (basePath ?? "").replace(/\/+$/, "");
+  const base = trimTrailingSlashes(origin) + trimTrailingSlashes(basePath ?? "");
   return path === "/" ? `${base}/` : `${base}${path}`;
 }
 
