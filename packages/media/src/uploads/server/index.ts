@@ -1,5 +1,5 @@
 /**
- * @marktiderman/genesis-media-library/server: the upload protocol's server
+ * @marktiderman/genesis-media/uploads/server: the upload protocol's server
  * half. Fetch and WebCrypto (Node 20+ and Workers).
  *
  * - `createUploadHandler({ store, targets, owner, authorize, keyFor, readable?, enqueueVerify? })`:
@@ -9,7 +9,7 @@
  * - `UploadSessionStore`, with `createSupabaseSessionStore` (the default, a
  *   table with RLS on the owner) and `createMemorySessionStore` for tests.
  *
- * Storage targets are in `@marktiderman/genesis-media-library/targets`.
+ * Storage targets are in `@marktiderman/genesis-media/uploads/targets`.
  *
  * @packageDocumentation
  */

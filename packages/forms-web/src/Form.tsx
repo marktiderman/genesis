@@ -558,7 +558,7 @@ export interface FormProps {
   onUpload?: ((file: File, field: FieldBlock) => Promise<PhotoRef>) | undefined;
   /**
    * The upload adapter (genesis-forms' `UploadAdapter`): `signedUploadHost`, or any object of
-   * that shape, such as genesis-media-library's `/forms` adapter. Unlike `onUpload` it brings
+   * that shape, such as genesis-media's `/forms` adapter. Unlike `onUpload` it brings
    * `url` too, for thumbnails. It wins over `onUpload` and an `UploadContext` above the form.
    */
   uploads?: UploadHost | undefined;

@@ -1,5 +1,5 @@
 /**
- * @marktiderman/genesis-media-library/client: the upload client, one core for
+ * @marktiderman/genesis-media/uploads/client: the upload client, one core for
  * browser, React Native and Node.
  *
  * - `createUploader({ endpoint, headers?, hash?, resumeStore?, filesAtOnce?, partsAtOnce?, bytesPerSecond? })`:

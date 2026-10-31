@@ -1,5 +1,5 @@
 /**
- * The client's browser entry: `@marktiderman/genesis-media-library/client`
+ * The client's browser entry: `@marktiderman/genesis-media/uploads/client`
  * resolves here under the `browser` condition. The same API, except that
  * `createUploader` hashes files in the package's own Web Worker by default,
  * so checking a big file doesn't freeze the page. (It is a separate entry

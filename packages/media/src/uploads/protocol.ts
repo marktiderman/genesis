@@ -1,7 +1,7 @@
 /**
  * The upload protocol's shapes, shared by the server handler and the
  * clients: the JSON of each message, the part plan, and the digests. See
- * docs/media-library-uploads.md for the protocol itself.
+ * docs/media-uploads.md for the protocol itself.
  */
 
 /** Who an upload is for, as the app's auth names it: a person, a service, a form respondent. */

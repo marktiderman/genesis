@@ -1,6 +1,6 @@
 /**
  * The upload protocol's server half: one request handler for the route the
- * app mounts (`/uploads` by default). See docs/media-library-uploads.md.
+ * app mounts (`/uploads` by default). See docs/media-uploads.md.
  *
  *   POST   /uploads                   create (or skip, or resume an open session)
  *   GET    /uploads/:id               resume: the state and the parts the server has

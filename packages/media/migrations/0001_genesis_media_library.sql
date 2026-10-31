@@ -1,6 +1,6 @@
--- Genesis media-library: upload sessions
+-- Genesis media uploads: upload sessions
 --
--- The default home of `@marktiderman/genesis-media-library`'s upload sessions
+-- The default home of `@marktiderman/genesis-media/uploads`' upload sessions
 -- (createSupabaseSessionStore), in the app's own Supabase, in the
 -- genesis_media_library schema:
 --
@@ -64,7 +64,7 @@ create table genesis_media_library.uploads (
   expires_at timestamptz not null
 );
 
-comment on table genesis_media_library.uploads is 'Upload sessions of @marktiderman/genesis-media-library: one per upload, bound to its owner.';
+comment on table genesis_media_library.uploads is 'Upload sessions of @marktiderman/genesis-media/uploads: one per upload, bound to its owner.';
 
 -- One open session per owner, identity, purpose and target set: a second create (another tab)
 -- conflicts here and resumes the first.

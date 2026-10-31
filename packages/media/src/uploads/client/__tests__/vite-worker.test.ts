@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-const pkg = resolve(__dirname, "../../..");
-const built = existsSync(join(pkg, "dist", "client-web.js")) && existsSync(join(pkg, "dist", "hash-worker.js"));
+const pkg = resolve(__dirname, "../../../..");
+const built = existsSync(join(pkg, "dist", "uploads", "client-web.js")) && existsSync(join(pkg, "dist", "uploads", "hash-worker.js"));
 
 async function chromium() {
   try {
@@ -23,14 +23,14 @@ async function chromium() {
 describe.runIf(built)("the hashing worker in a Vite build", () => {
   it("is emitted as its own self-contained file, and runs in Chromium", { timeout: 120_000 }, async () => {
     const browserType = await chromium();
-    const dir = mkdtempSync(join(tmpdir(), "genesis-media-library-vite-"));
+    const dir = mkdtempSync(join(tmpdir(), "genesis-media-uploads-vite-"));
     try {
       mkdirSync(join(dir, "node_modules", "@marktiderman"), { recursive: true });
-      symlinkSync(pkg, join(dir, "node_modules", "@marktiderman", "genesis-media-library"), "dir");
+      symlinkSync(pkg, join(dir, "node_modules", "@marktiderman", "genesis-media"), "dir");
       writeFileSync(join(dir, "index.html"), `<!doctype html><html><body><script type="module" src="./main.js"></script></body></html>`);
       writeFileSync(
         join(dir, "main.js"),
-        `import { createBrowserFileHasher, fromBlob } from "@marktiderman/genesis-media-library/client";
+        `import { createBrowserFileHasher, fromBlob } from "@marktiderman/genesis-media/uploads/client";
          const bytes = new Uint8Array(5 * 1024 * 1024).map((_, i) => i & 255);
          const hash = createBrowserFileHasher({ silentMs: 60000 });
          hash(fromBlob(new Blob([bytes])), () => {}).then((sha) => (window.__result = { sha }), (e) => (window.__result = { error: String(e) }));`,

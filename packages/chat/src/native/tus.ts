@@ -17,8 +17,8 @@
  * expects; the upload finishes before the send (the outbox orders that).
  *
  * What moves the bytes is a port (`transport`): this file's own TUS client by
- * default, or any `TusTransport`, such as genesis-media-library's `/chat`
- * adapter. chat's paths, file checks and errors stay here either way.
+ * default, or any `TusTransport` an app passes. chat's paths, file checks and
+ * errors stay here either way.
  */
 import { CHAT_BUCKET, ChatError } from "../core/client";
 import { fileExtension, isAllowedExtension, randomId } from "../core/media";

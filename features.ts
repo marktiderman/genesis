@@ -2316,8 +2316,8 @@ export const features = defineFeatures({
     visibility: "internal",
   },
   "media-resumable-uploads": {
-    name: "Resumable uploads (media-library)",
-    summary: "One upload contract for browser, native and server (ADR 0012, primitive 4): resumable, checksummed multipart uploads bound to their owner, skip-if-identical on the whole object's SHA-256 and size, storage targets as adapters (R2, S3-compatible with Object Lock) with fan-out and a read-back check per target. Forms' signed-upload protocol and chat's TUS uploads fold into it behind deprecated re-exports. Design in docs/media-library-uploads.md, for review.",
+    name: "Resumable uploads (genesis-media)",
+    summary: "One upload contract for browser, native and server (ADR 0012, primitive 4): resumable, checksummed multipart uploads bound to their owner, skip-if-identical on the whole object's SHA-256 and size, storage targets as adapters (R2, S3-compatible with Object Lock) with fan-out and a read-back check per target. An optional upgrade in @marktiderman/genesis-media/uploads: forms takes it through its own upload port (UploadAdapter, with the /forms adapter), and chat keeps its own TUS client behind its transport port. Design in docs/media-uploads.md.",
     category: "Platform",
     status: "building",
     claimedBy: "mark",
@@ -2325,7 +2325,7 @@ export const features = defineFeatures({
     keywords: ["file upload", "signed upload", "resumable upload", "multipart", "checksum", "storage", "attachments", "media", "object lock"],
     aliases: ["upload-protocol"],
     platforms: { server: "building", web: "building", native: "building" },
-    entry: { server: "@marktiderman/genesis-media-library/server", web: "@marktiderman/genesis-media-library/client", native: "@marktiderman/genesis-media-library/client" },
+    entry: { server: "@marktiderman/genesis-media/uploads/server", web: "@marktiderman/genesis-media/uploads/client", native: "@marktiderman/genesis-media/uploads/client" },
     owner: "mark",
     apps: ["web", "native", "server"],
     audience: ["developer"],
@@ -2337,7 +2337,7 @@ export const features = defineFeatures({
       "A copy is recorded, and locked, only after it was read back with the declared size and SHA-256; big uploads are read back in a genesis_jobs job.",
     ],
     reviewedAt: "2026-10-29",
-    links: { code: ["packages/media-library"], docs: ["docs/media-library-uploads.md", "packages/media-library/README.md", "docs/PACKAGE-STRATEGY.md"] },
+    links: { code: ["packages/media/src/uploads", "packages/media/src/forms"], docs: ["docs/media-uploads.md", "packages/media/README.md", "docs/PACKAGE-STRATEGY.md"] },
   },
   "rate-limits": {
     name: "One rate limiter",

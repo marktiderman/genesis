@@ -1,5 +1,5 @@
 /**
- * @marktiderman/genesis-media-library/targets: storage targets for uploads.
+ * @marktiderman/genesis-media/uploads/targets: storage targets for uploads.
  *
  * - `createMemoryTarget`: in memory, for tests.
  * - `createR2Target(env.BUCKET)`: an R2 bucket through its Worker binding.

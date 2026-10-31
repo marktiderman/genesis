@@ -6,7 +6,7 @@
  *
  * The built-in one is genesis-forms-web's `signedUploadHost`: the signed
  * single upload this package's `createUploadHandler` serves. Any object with
- * this shape fits, so a host can opt into another store (genesis-media-library's
+ * this shape fits, so a host can opt into another store (genesis-media's
  * `/forms` adapter, for resumable, checksummed uploads) by passing it, with no
  * dependency from forms on it.
  */

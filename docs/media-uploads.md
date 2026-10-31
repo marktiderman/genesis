@@ -1,6 +1,6 @@
-# media-library uploads: design
+# genesis-media uploads: design
 
-Status: **v0.3, approved in review** (with the changes in "Decided in review"). The server half is in `packages/media-library` (#550); the clients and the adapters for forms' and chat's upload ports follow (#551).
+Status: **v0.3, approved in review** (with the changes in "Decided in review"). It lives in `@marktiderman/genesis-media` under `/uploads` (the server half from #550 and the clients from #551, folded into one package), with the adapter for forms' upload port at `/forms`.
 
 This is primitive 4 of ADR 0012 (media primitives, `docs/adr/0012-media-primitives.md`, accepted
 in #542): resumable, checksummed uploads with one contract for browser, native and
@@ -28,19 +28,22 @@ set of verified copies, which the media value (ADR 0012, primitive 3) records in
 
 ## Where it lives
 
-A new package, `@marktiderman/genesis-media-library`, as ADR 0012 creates it ("media-library,
-primitive, data"). On ADR 0005's two axes its `package.json` sets `genesis.layer: "primitive"`
-and `genesis.group: "data"`, plus `genesis.owner`, and declares its doctor rule ("a file upload:
-use media-library's client, never a hand-rolled PUT or TUS loop").
+In `@marktiderman/genesis-media`, beside the media value, responsive images and signed links
+(ADR 0012's primitives 3 and 4 in one package). On ADR 0005's two axes its `package.json` sets
+`genesis.layer: "primitive"` and `genesis.group: "data"`, plus `genesis.owner`, and
+`genesis.optional: true`: it is an upgrade apps opt into, and no primitive imports it (forms
+takes it through its own port). Its doctor rule: "a file upload: use createUploadHandler and
+createUploader, never a hand-rolled PUT or TUS loop".
 
 Subpaths, so each runtime takes only what it runs:
 
 | Entry | Runs on | Holds |
 | --- | --- | --- |
-| `.` | anywhere | the protocol types, the part plan, digest helpers, errors |
-| `/client` | browser, React Native, Node | `createUploader` (create, parts, resume, finalize) |
-| `/server` | Node 20+, Workers | `createUploadHandler` (the protocol over `Request`/`Response`), the session store interface |
-| `/targets` | Node 20+, Workers | `r2Target` (a binding, or a Worker over fetch), `s3Target` (SigV4) |
+| `/uploads` | anywhere | the protocol types, the part plan, digest helpers, errors |
+| `/uploads/client` | browser, React Native, Node | `createUploader` (create, parts, resume, finalize), sources, resume stores, the hashing worker |
+| `/uploads/server` | Node 20+, Workers | `createUploadHandler` (the protocol over `Request`/`Response`), the session stores, the verify and sweep jobs |
+| `/uploads/targets` | Node 20+, Workers | `createR2Target` (a binding), `createS3Target` (SigV4), `createMemoryTarget` |
+| `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
 Fetch and WebCrypto only, like genesis-connect and `/signed`, except where noted under Digests.
 
@@ -307,8 +310,9 @@ the app's.
 
 ## Merge: forms and chat plug in through their upload ports
 
-forms and chat never depend on media-library. Each keeps its own upload, built in, behind a
-small port; media-library ships an adapter for each port, and an app opts in by passing it.
+forms and chat never depend on genesis-media. Each keeps its own upload, built in, behind a
+small port. genesis-media ships the adapter for forms' port, and an app opts in by passing it;
+chat keeps its own TUS client.
 
 - **forms' upload protocol** (`packages/forms/src/upload-protocol.ts`, `upload-handler.ts`): a
   single signed PUT per answer file, with forms' own checks (the form takes answers, the field
@@ -316,7 +320,7 @@ small port; media-library ships an adapter for each port, and an app opts in by 
   built-in implementation of forms' port, `UploadAdapter` (`upload(file, field)` resolving to
   the `PhotoRef` the answer keeps, and `url?`), which genesis-forms-web's `<Form uploads>` and
   `UploadContext` take; `signedUploadHost` is the built-in adapter.
-  `@marktiderman/genesis-media-library/forms`'s `createFormsUploadAdapter({ uploader })` fits the
+  `@marktiderman/genesis-media/forms`'s `createFormsUploadAdapter({ uploader })` fits the
   port: a form's files then go through this contract, with forms' checks in the route's
   `authorize` and the attempt id or edit link as the respondent owner (see The protocol).
 - **chat's resumable uploads** (`packages/chat/src/native/tus.ts`, `createTusUpload`): Supabase
@@ -325,21 +329,20 @@ small port; media-library ships an adapter for each port, and an app opts in by 
   (one `PATCH` at a time, in order, never parallel or out-of-order parts), chunks are a fixed
   6 MiB, and Supabase's upload URL expires after 24 hours. `createTusUpload` stays, undeprecated, with its own TUS client
   built in, behind a port: its `transport` option (`TusTransport`: send a file's bytes to chat's
-  path in chat's bucket). `@marktiderman/genesis-media-library/chat`'s `createChatTusTransport`
-  fits it, on this package's `createSupabaseTusTransport`, with today's guarantees (resume within
-  the session, the same path on retry), not the full contract's. chat keeps its paths, file
-  checks and errors either way, and the outbox's ordering (upload, then send) is unchanged. The
-  part protocol itself can't sit behind this port: chat's contract is an object at a path chat
+  path in chat's bucket), for an app that wants another one. genesis-media ships no adapter for
+  it: its own `createSupabaseTusTransport` is the same TUS protocol, so it would add nothing.
+  chat keeps its paths, file checks and errors either way, and the outbox's ordering (upload,
+  then send) is unchanged. The part protocol itself can't sit behind this port: chat's contract is an object at a path chat
   names, in Supabase Storage, and the protocol's server chooses the key and the targets.
 - **The `upload-protocol` feature** folds into `media-resumable-uploads`: renamed, with
   `upload-protocol` kept in `aliases`, so ADR 0012's and PACKAGE-STRATEGY's references still
   resolve.
 - support's screenshots and sites' `putAsset` move onto it afterwards, each in its own change.
 - PACKAGE-STRATEGY's move M4 put the shared protocol in `core` (types) and `supabase` (the
-  handler). ADR 0012 gives it media-library instead; M4's line should point here when this lands.
+  handler). ADR 0012 gives it genesis-media (`/uploads`) instead; M4's line points here.
 
-Nothing breaks: every existing export keeps its name and behaviour for a deprecation window;
-the doctor points new code at media-library.
+Nothing breaks: forms' and chat's exports keep their names and behaviour, undeprecated; the
+doctor points new upload code at genesis-media's `/uploads`.
 
 ## Video providers
 
@@ -409,7 +412,7 @@ with its own transport. Either is media-video-value's decision.
 - **Sessions:** a table by default, through the app's provider (a Supabase migration with RLS on
   the owner, and pgTAP), behind the store interface so a Durable Object store can replace it.
 - **A re-sent part with a different digest:** refused, 409 `part_conflict`; abort and create again.
-- **The package:** `@marktiderman/genesis-media-library`.
+- **The package:** `@marktiderman/genesis-media`, under `/uploads` (first planned as its own package, `genesis-media-library`).
 
 ## Hardened in review (v0.3)
 

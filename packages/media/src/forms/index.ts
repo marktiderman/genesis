@@ -1,5 +1,5 @@
 /**
- * @marktiderman/genesis-media-library/forms: an adapter for genesis-forms'
+ * @marktiderman/genesis-media/forms: an adapter for genesis-forms'
  * upload port (`UploadAdapter`), so a form's `photo` answers upload through
  * this package's resumable, checksummed protocol instead of forms' built-in
  * signed single upload. A host opts in by passing it:
@@ -14,8 +14,8 @@
  *
  * @packageDocumentation
  */
-import { fromBlob } from "../client/sources";
-import type { Uploader } from "../client/uploader";
+import { fromBlob } from "../uploads/client/sources";
+import type { Uploader } from "../uploads/client/uploader";
 
 /** The field, as forms passes it: only its id is read. */
 export interface FormsUploadField {
