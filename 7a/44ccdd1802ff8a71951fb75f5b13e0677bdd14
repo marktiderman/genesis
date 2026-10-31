@@ -1,0 +1,27 @@
+.changeset/ui-strict-typescript.md
+  s_d4b9f2a19d9170::t_b430b43dbc39c5 7-8
+.github/workflows/ci.yml
+  s_d4b9f2a19d9170::t_8f1c6a8cc1b56e 84-88
+packages/ui/package.json
+  s_d4b9f2a19d9170::t_5395f8b9269f11 47-48
+packages/ui/src/components/data/ResourceForm.tsx
+  s_d4b9f2a19d9170::t_800c184d99c6ee 31,352-356,378
+packages/ui/tsconfig.strict.json
+  s_d4b9f2a19d9170::t_30fcf3662cf210 1-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7a44ccdd1802ff8a71951fb75f5b13e0677bdd14",
+  "prompts": {},
+  "sessions": {
+    "s_d4b9f2a19d9170": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3542c701-8199-4093-b68c-4e0a1f56807a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
