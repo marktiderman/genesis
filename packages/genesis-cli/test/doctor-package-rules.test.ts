@@ -389,6 +389,21 @@ describe("the real package declarations", () => {
     ]);
   });
 
+  it("ui accepts a KanbanBoard or a calendar fed by useResourceView or useResourceTable in the same file, and still flags one that isn't", async () => {
+    const root = makeApp(null, {
+      ...install("ui", "genesis-ui-rules"),
+      "src/routes/board.tsx": "export const B = () => { const t = useResourceTable(view); return <KanbanBoard columns={t.rows} />; };\n",
+      "src/routes/typed.tsx": "export const T = () => { const v = useResourceView<Task>(tasks); return <KanbanBoard columns={v.rows} />; };\n",
+      "src/routes/calendar.tsx": "export const C = () => { const v = useResourceView(events); return <EventCalendar events={v.rows} />; };\n",
+      "src/routes/loose.tsx": "export const L = () => <KanbanBoard columns={[]} />;\n",
+      "src/routes/table.tsx": "export const T = () => { const t = useResourceTable(view); return <DataTable rows={t.rows} />; };\n",
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/lists")).toEqual([
+      "ui-rules/lists-use-resource-view warn src/routes/loose.tsx:1 KanbanBoard",
+      "ui-rules/lists-use-resource-view warn src/routes/table.tsx:1 DataTable",
+    ]);
+  });
+
   it("ui checks record screens named [id] and .jsx routes too, and a list inside a record view doesn't exempt it", async () => {
     const root = makeApp(null, {
       ...install("ui", "genesis-ui-rules"),

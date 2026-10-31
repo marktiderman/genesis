@@ -55,6 +55,8 @@ export interface TableSettings {
   /** What one row is called ("brand"), and several when not `noun` + "s". */
   noun?: string;
   nounPlural?: string;
+  /** The key, by column name, for a relation the catalog gives none (a view that joins tables). */
+  key?: string[];
 }
 
 /** The storage type for a Postgres type name (the element type, for an array). */

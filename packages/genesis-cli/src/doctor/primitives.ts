@@ -39,7 +39,7 @@ const CORE: PrimitiveRow[] = [
   },
   {
     need: "a page inside the app shell",
-    use: "a Genesis page layout (`DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`, from `@marktiderman/genesis-ui`) or `ResourceView` (from `@marktiderman/genesis-ui/data`)",
+    use: "a Genesis page layout (`DashboardPage`, `SettingsPage`, `FormPage`, `DetailPage`, from `@marktiderman/genesis-ui`) or `ResourceView` / `RecordView` (from `@marktiderman/genesis-ui/data`)",
     import: "@marktiderman/genesis-ui",
     rule: "page-layout",
     from: "genesis-cli",

@@ -383,6 +383,8 @@ describe("page-layout", () => {
         "src/routes/_shell/brands.tsx": route(`<ResourceView view={brandsView} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
         "src/routes/_shell/embedded.tsx": route(`<ResourceView view={v} layout="embedded" />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
         "src/routes/_shell/framed.tsx": route(`<DetailPage title="x"><ResourceView view={v} layout="embedded" /></DetailPage>`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
+        // RecordView is a record's page (it replaced ResourceWorkspace), so a record route needs no allow entry.
+        "src/routes/_shell/brands.$id.{-$section}.tsx": route(`<RecordView view={brandsView} id={id} />`, `import { RecordView } from "@marktiderman/genesis-ui/data";`),
         "src/routes/_shell/chosen.tsx": route(`<ResourceView view={v} layout={mode} />`, `import { ResourceView } from "@marktiderman/genesis-ui";`),
         "src/routes/_shell/crumbs.tsx": route(`<BreadcrumbPage />`),
         "src/routes/_shell/go.tsx": route(`<Navigate to="/" />`),

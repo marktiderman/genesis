@@ -543,15 +543,23 @@ program
   .option("--block <id...>", "Also check these blocks (beyond genesis.lock.json's)")
   .option("--dry-run", "Report only", false)
   .option("--forward", "Write a forward migration stub for each edited or changed migration", false)
-  .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean }) => {
+  .option("--notifications <file>", "The app's defineNotifications registry, mirrored into a types migration when the notifications block is installed (default: src/notifications.ts and the like)")
+  .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean; notifications?: string }) => {
     const { runMigrate } = await import("./blocks/migrate.js");
     const { formatMigrationRows } = await import("./blocks/migrations.js");
-    const report = await runMigrate({ root: path.resolve(opts.dir), ...(opts.block ? { blocks: opts.block } : {}), dryRun: opts.dryRun, forward: opts.forward });
+    const report = await runMigrate({
+      root: path.resolve(opts.dir),
+      ...(opts.block ? { blocks: opts.block } : {}),
+      ...(opts.notifications ? { notifications: opts.notifications } : {}),
+      dryRun: opts.dryRun,
+      forward: opts.forward,
+    });
     for (const w of report.warnings) logger.warn(w);
     console.log(formatMigrationRows(report.plan.rows));
     for (const c of report.plan.creates) if (c.kind !== "migration") console.log(`+ ${c.path} (${c.kind === "test" ? "pgTAP test" : "forward migration: fill it in"})`);
+    if (report.notificationTypes) console.log(`+ ${report.notificationTypes} (the notification types, from the registry)`);
     console.log("");
-    const count = report.plan.creates.length;
+    const count = report.plan.creates.length + (report.notificationTypes ? 1 : 0);
     console.log(opts.dryRun ? `Dry run: ${count} file${count === 1 ? "" : "s"} would be created.` : `✔ ${report.written.length} file${report.written.length === 1 ? "" : "s"} created. Nothing existing was changed.`);
     if (report.attention) {
       console.log(opts.forward ? "Fill in the forward migrations, review them, then apply them." : "Some migrations need you (above): an applied migration is never rewritten. Run genesis migrate --forward to add a forward migration for each.");

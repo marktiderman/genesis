@@ -71,7 +71,12 @@ test, and the `functions/genesis-notifications` Edge Function template.
    });
    ```
 
-4. Mirror it on deploy: `await syncNotificationTypes(admin, notifications)` (types left out are
+4. Mirror it at migration time: `genesis migrate` loads the registry (`src/notifications.ts`, or
+   `--notifications <file>`) and, when its types differ from the last types migration, writes a new
+   `<timestamp>_genesis_notification_types.sql` that runs `genesis_notifications_sync_types`. The
+   types are then in the database as soon as the migrations are, so a trigger a migration adds never
+   queues a type the database doesn't know. Run it after changing the registry, and commit the file.
+   Keep `await syncNotificationTypes(admin, notifications)` on deploy too (types left out are
    retired, never deleted).
 5. Deploy `functions/genesis-notifications` (`--no-verify-jwt`), and schedule `POST …/run`
    every minute and `POST …/receipts` every 15 minutes with

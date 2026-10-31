@@ -523,12 +523,13 @@
               "ResourceView",
               "RecordView",
               "ResourceWorkspace"
-            ]
+            ],
+            "pattern": "^(?=[\\s\\S]*<(?:KanbanBoard|[A-Z]\\w*Calendar)\\b)(?=[\\s\\S]*\\buseResource(?:View|Table)\\s*[<(])"
           },
           "use": "a view (defineView from @marktiderman/genesis-core/resource-view) rendered by <ResourceView>",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md",
-          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView."
+          "why": "A list is one description of its resource: columns, filters, saved views, permissions and the phone screen come from the view, not per-screen code. ResourcePage is the escape hatch inside a component that renders ResourceView. A board or calendar over a list (KanbanBoard, a …Calendar) is fine when the same file feeds it from useResourceView or useResourceTable."
         },
         {
           "id": "records-use-record-view",

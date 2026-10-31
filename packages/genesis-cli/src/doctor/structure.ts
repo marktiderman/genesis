@@ -21,9 +21,10 @@ const SHELL = /<AppShell(?=[\s>/])/;
 const GENESIS_PACKAGE = /^@marktiderman\/genesis(?:-[\w-]+)?(?:\/|$)/;
 /**
  * A web page layout: an exported component named `…Page` or `…PageShell` (not the breadcrumb's
- * `BreadcrumbPage`), or `ResourceView`, which draws a ResourcePage from a view.
+ * `BreadcrumbPage`), `ResourceView`, which draws a ResourcePage from a view, or `RecordView`, a
+ * record's page from the same view (it replaced ResourceWorkspace in genesis-ui 2.24).
  */
-const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView)$/;
+const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView|RecordView)$/;
 /** A package screen built on a Genesis layout: a `…Page` / `…Screen` / `…Record view` imported from a Genesis package. */
 /**
  * A `<ResourceView … layout="embedded" …>` tag, up to its first `>`. The trail blanks string contents
@@ -31,7 +32,7 @@ const PAGE_LAYOUT = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell)|ResourceView)$
  * characters is `"embedded"` (as a string or `{"embedded"}`).
  */
 const EMBEDDED_RESOURCE_VIEW = /<ResourceView\b[^>]*?\blayout\s*=\s*(?:(["'`]) {8}\1|\{\s*(["'`]) {8}\2\s*\})[^>]*>/g;
-const PACKAGE_SCREEN = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)|ResourceView)$/;
+const PACKAGE_SCREEN = /^(?:(?!Breadcrumb)[A-Z]\w*(?:Page|PageShell|Screen|Workspace)|ResourceView|RecordView)$/;
 
 const isNative = (ctx: DoctorContext) => ctx.config.packs?.includes("native") ?? false;
 const rendersRe = (names: Iterable<string>) => {

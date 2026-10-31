@@ -11,6 +11,7 @@ import {
   parseTableComment,
   type IntrospectedTable,
 } from "../src/introspect/index.js";
+import { linkOf } from "../src/introspect/postgres.js";
 
 /** Type-check generated source on its own, as a consumer's compiler would. */
 function compileErrors(source: string): string[] {
@@ -54,6 +55,42 @@ describe("@genesis comment settings", () => {
       sensitive: true,
       label: "Coach notes",
     });
+  });
+});
+
+describe("view keys and composite links", () => {
+  it("reads a key setting, one column or a list, and refuses anything else", () => {
+    expect(parseTableComment('Joined. @genesis {"key": "id"}', "t").settings).toEqual({ key: ["id"] });
+    expect(parseTableComment('@genesis {"key": ["org_id", "id"]}', "t").settings).toEqual({ key: ["org_id", "id"] });
+    expect(() => parseTableComment('@genesis {"key": []}', "t")).toThrow(/column name or a list/);
+    expect(() => parseTableComment('@genesis {"key": 1}', "t")).toThrow(/column name or a list/);
+    expect(() => parseColumnComment('@genesis {"key": "id"}', "c")).toThrow(/unknown @genesis setting "key"/);
+  });
+
+  it("keys a view from its comment over OpenAPI too, and refuses a key that isn't a column", () => {
+    const view = (key: string) => ({
+      swagger: "2.0",
+      definitions: {
+        gallery_cards: {
+          description: `Galleries with counts. @genesis {"key": "${key}"}`,
+          properties: { id: { format: "uuid", type: "string" }, photos: { format: "bigint", type: "integer" } },
+        },
+      },
+    });
+    const [cards] = introspectOpenApi(view("id"));
+    expect(cards!.key).toEqual(["id"]);
+    expect(cards!.description).toBe("Galleries with counts.");
+    expect(emitContracts([cards!], { source: "x" })).toContain('  key: "id",');
+    expect(() => introspectOpenApi(view("nope"))).toThrow(/key "nope" isn't one of its columns/);
+  });
+
+  it("links one column of a composite key when every other column references its namesake", () => {
+    expect(linkOf(["gallery_id"], ["id"])).toBe(0);
+    expect(linkOf(["gallery_id", "org_id"], ["id", "org_id"])).toBe(0);
+    expect(linkOf(["org_id", "gallery_id"], ["org_id", "id"])).toBe(1);
+    // Nothing of its own (an extension table), or two of its own: not one row's field.
+    expect(linkOf(["id", "org_id"], ["id", "org_id"])).toBe(-1);
+    expect(linkOf(["a_id", "b_id"], ["id", "other_id"])).toBe(-1);
   });
 });
 
@@ -298,6 +335,17 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       create type public.mood as enum ('calm', 'busy', 'away');
       create table public.moods (id int primary key, mood public.mood not null check (mood in ('calm', 'busy')));
       create view public.my_moods as select * from public.moods;
+      create table public.orgs (id int primary key);
+      create table public.galleries (id int primary key, org_id int not null references public.orgs (id), name text not null, unique (id, org_id));
+      create table public.photos (
+        id int primary key,
+        org_id int not null references public.orgs (id),
+        gallery_id int not null,
+        foreign key (gallery_id, org_id) references public.galleries (id, org_id)
+      );
+      create view public.gallery_cards as
+        select g.id, g.name, count(p.id) as photos from public.galleries g left join public.photos p on p.gallery_id = g.id group by g.id, g.name;
+      comment on view public.gallery_cards is 'Galleries with counts. @genesis {"key": "id"}';
     `);
   });
   afterAll(async () => {
@@ -311,6 +359,8 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     expect(tables.map((t) => t.name)).toEqual([
       'public."a.b"',
       "public.customers",
+      "public.galleries",
+      "public.gallery_cards",
       "public.goal_counts",
       "public.goal_titles",
       "public.goals",
@@ -319,11 +369,13 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       "public.my_goals",
       "public.my_moods",
       "public.odd_checks",
+      "public.orgs",
       "public.owner_customers",
       "public.owner_pets",
       "public.owners",
       "public.pairs",
       "public.pets",
+      "public.photos",
       "public.programs",
       "public.swapped",
     ]);
@@ -431,6 +483,18 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     const dotted = (await introspectPostgres(sql, ["public"])).find((t) => t.table === "a.b")!;
     expect(dotted.name).toBe('public."a.b"');
     expect(dotted.columns.find((c) => c.name === "w")!.references).toEqual({ resource: '"my.s"."we.ird"', field: "id" });
+  });
+
+  it("links the column of a tenant-safe composite key, and keys a joined view from its comment", async () => {
+    const tables = await introspectPostgres(sql, ["public"]);
+    const photos = tables.find((t) => t.name === "public.photos")!;
+    const col = (n: string) => photos.columns.find((c) => c.name === n)!;
+    expect(col("gallery_id").references).toEqual({ resource: "public.galleries", field: "id" });
+    // The tenant column keeps its own single-column link.
+    expect(col("org_id").references).toEqual({ resource: "public.orgs", field: "id" });
+    const cards = tables.find((t) => t.name === "public.gallery_cards")!;
+    expect(cards).toMatchObject({ key: ["id"], description: "Galleries with counts." });
+    expect(emitContracts(tables, { source: "x" })).toContain('name: "public.gallery_cards",\n  key: "id",');
   });
 
   it("emits the same bytes on a re-run", async () => {

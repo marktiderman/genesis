@@ -91,3 +91,52 @@ describe("genesis migrate", () => {
     expect(() => nextTimestamps(["9_late.sql"], NOW, 1)).toThrow(/sort after/);
   });
 });
+
+describe("genesis migrate: notification types", () => {
+  const registry = (types: string[]) =>
+    `export const notifications = { toTypeRows: () => ${JSON.stringify(types.map((key) => ({ key, category: "messages", channels: { in_app: true }, critical: false, transactional: false, email_delay_seconds: 0, secret_link: false, push_privacy: "default", ios_category: null })))} };\n`;
+  const notificationsApp = (types: string[]) => {
+    const root = makeApp({
+      "genesis.lock.json": JSON.stringify({ version: 1, blocks: { notifications: { package: "@marktiderman/genesis-notifications" } }, files: {} }),
+      "src/notifications.ts": registry(types),
+    });
+    linkWorkspacePackage(root, "@marktiderman/genesis-notifications", "notifications");
+    return root;
+  };
+
+  it("mirrors the registry's types in a migration after the block's own, and again only when they change", async () => {
+    const root = notificationsApp(["chat.message", "billing.receipt"]);
+    const first = await runMigrate({ root, now: NOW });
+    expect(first.written).toEqual([
+      "supabase/migrations/20261101120000_genesis_notifications.sql",
+      "supabase/tests/database/genesis_notifications.test.sql",
+      "supabase/migrations/20261101120001_genesis_notification_types.sql",
+    ]);
+    const sql = read(root, first.notificationTypes!);
+    expect(sql).toMatch(/^-- genesis-notification-types: src\/notifications\.ts\n/);
+    expect(sql).toContain("select public.genesis_notifications_sync_types('[");
+    // Rows by key, whatever order the registry lists them in.
+    expect(sql.indexOf('"billing.receipt"')).toBeLessThan(sql.indexOf('"chat.message"'));
+    expect((await runMigrate({ root, now: NOW })).written).toEqual([]);
+
+    writeFileSync(path.join(root, "src/notifications.ts"), registry(["chat.message", "billing.receipt", "it's.new"]));
+    const dry = await runMigrate({ root, now: NOW, dryRun: true });
+    expect(dry).toMatchObject({ written: [], notificationTypes: "supabase/migrations/20261101120002_genesis_notification_types.sql" });
+    const next = await runMigrate({ root, now: NOW });
+    expect(next.written).toEqual(["supabase/migrations/20261101120002_genesis_notification_types.sql"]);
+    // A quote in a key is doubled, so the literal stays one string.
+    expect(read(root, next.written[0]!)).toContain(`"it''s.new"`);
+  });
+
+  it("warns, and writes no types migration, when it can't find the registry; --notifications names it", async () => {
+    const root = notificationsApp(["chat.message"]);
+    writeFileSync(path.join(root, "src/notifications.ts"), "export const nothing = 1;\n");
+    const report = await runMigrate({ root, now: NOW, dryRun: true });
+    expect(report.notificationTypes).toBeUndefined();
+    expect(report.warnings.join("\n")).toMatch(/exports no defineNotifications registry/);
+    writeFileSync(path.join(root, "src/registry.ts"), registry(["chat.message"]));
+    expect((await runMigrate({ root, now: NOW, dryRun: true, notifications: "src/registry.ts" })).notificationTypes).toMatch(/_genesis_notification_types\.sql$/);
+    // No notifications block: nothing to mirror.
+    expect((await runMigrate({ root: makeApp(), now: NOW, dryRun: true })).notificationTypes).toBeUndefined();
+  });
+});

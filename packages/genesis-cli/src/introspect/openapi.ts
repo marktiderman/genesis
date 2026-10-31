@@ -3,8 +3,11 @@
 // property's `format`, and marks keys and links inside the description:
 // `<pk/>` and `<fk table='programs' column='id'/>`. Table and column
 // comments arrive as descriptions, so `@genesis` settings work here too.
+// PostgREST notes single-column foreign keys only, so a composite one (the
+// tenant-safe `(gallery_id, org_id)`) isn't a link here: introspect from
+// Postgres for those.
 
-import { parseColumnComment, parseTableComment } from "./comments.js";
+import { parseColumnComment, parseTableComment, withKeySetting } from "./comments.js";
 import { qualifiedName, storageTypeOf, type IntrospectedColumn, type IntrospectedTable } from "./model.js";
 
 interface OpenApiProperty {
@@ -77,7 +80,7 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
         };
       });
       const comment = parseTableComment(def.description, name);
-      return {
+      return withKeySetting({
         name,
         schema,
         table: tableName,
@@ -85,6 +88,6 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
         columns,
         ...(comment.description ? { description: comment.description } : {}),
         ...(comment.settings ? { settings: comment.settings } : {}),
-      };
+      });
     });
 }

@@ -59,7 +59,12 @@ Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for th
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
-table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). Review it like code, and pass `contracts` to `createStudioHandler`. It
+table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). A read-only view
+that joins tables has no key the catalog can see: name it in the view's comment,
+`@genesis {"key": "id"}` (or a list of columns). A foreign key is a link when it's one column, or a
+composite key whose other columns reference their namesakes: the tenant-safe
+`(gallery_id, org_id) references galleries (id, org_id)` makes `gallery_id` a link to galleries.
+PostgREST's OpenAPI notes single-column keys only, so `--openapi` links those alone. Review it like code, and pass `contracts` to `createStudioHandler`. It
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 
@@ -213,6 +218,13 @@ deleted stays deleted. `--forward` writes one forward migration stub
 (`<timestamp>_<name>_forward.sql`, with a `genesis-forward` header) for each edited or changed
 copy, holding the package's current text commented out, for you to turn into the change; later
 runs count that copy as handled. It exits 1 when something still needs you.
+
+With the notifications block, it also mirrors the app's `defineNotifications` registry
+(`src/notifications.ts`, `src/lib/notifications.ts`, or `--notifications <file>`): when the
+registry's types differ from the newest `*_genesis_notification_types.sql`, it writes a new one
+that runs `genesis_notifications_sync_types`, after this run's other migrations. A type is then in
+the database as soon as the migrations are, so a trigger that queues it never meets an unknown type
+before the deploy-time sync runs. A registry it can't find or load is a warning.
 
 ### genesis upgrade
 
