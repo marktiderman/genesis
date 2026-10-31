@@ -1,0 +1,40 @@
+.changeset/upstream-root-register.md
+  s_36f3212387dbf7::t_e0eaa8b414bd72 1-5
+packages/design-system/src/factories/brand-roles.ts
+  s_36f3212387dbf7::t_7c56e2cbe42372 26,31-33,142,144-145
+  s_36f3212387dbf7::t_cd20893fdf46da 27-28,141,143
+packages/core/src/navigation.ts
+  s_36f3212387dbf7::t_e32d81de0a71b1 14-17
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_36f3212387dbf7::t_7160cf92d15be0 91-101
+  s_36f3212387dbf7::t_cd20893fdf46da 90
+.changeset/core-navigation-doc-order.md
+  s_36f3212387dbf7::t_e0eaa8b414bd72 1-5
+docs/component-reference.md
+  s_36f3212387dbf7::t_e0eaa8b414bd72 8565,8568
+packages/genesis-cli/src/upstream.ts
+  s_36f3212387dbf7::t_f912af6197872e 12-14,26-27,95-96,104-108,110-113,116-121,124
+.changeset/brand-muted-text-contrast.md
+  s_36f3212387dbf7::t_e0eaa8b414bd72 1-5
+packages/genesis-cli/src/cli.ts
+  s_36f3212387dbf7::t_676caaa2aa6563 401
+packages/genesis-cli/test/upstream.test.ts
+  s_36f3212387dbf7::t_c7feaa308fb362 33,35,51-61
+  s_36f3212387dbf7::t_4bdaf8214371eb 62-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0368ab9a7ee84b49b0e38a8211f338c42a6d5ffc",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
