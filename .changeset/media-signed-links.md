@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-media": minor
+"@marktiderman/genesis-media": patch
 ---
 
 New subpath `@marktiderman/genesis-media/signed` (server and edge only; it resolves to nothing for browser bundles): signed links to private media and streaming ZIP bundles, on fetch and WebCrypto (Node 20+ and Workers).

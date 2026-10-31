@@ -495,11 +495,13 @@ const handle = createUploadHandler({
   // The app's rules, asked for every operation (create, resume, part, finalize, abort).
   // Each purpose has its own size cap (and the app's quota per owner, if it keeps one).
   authorize: ({ op, owner, purpose, size, contentType }) =>
-    purpose === "media" && contentType.startsWith("image/") && size <= 2 * 2 ** 30
-      ? { allow: true, targets: ["working", "archive"] }
-      : purpose === "forms" && contentType.startsWith("image/") && size <= 25 * 2 ** 20
-        ? { allow: true, targets: ["working"] }
-        : { allow: false, status: 413 },
+    purpose !== "media" && purpose !== "forms"
+      ? { allow: false } // 403
+      : !contentType.startsWith("image/")
+        ? { allow: false, status: 415 }
+        : size > (purpose === "media" ? 2 * 2 ** 30 : 25 * 2 ** 20)
+          ? { allow: false, status: 413 }
+          : { allow: true, targets: purpose === "media" ? ["working", "archive"] : ["working"] },
   // Where the object goes. The client never names a key.
   keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${safeName(name)}`,
   // Objects with this identity the owner may already read: the only ones a skip compares against.

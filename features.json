@@ -1637,6 +1637,7 @@
       "category": "Sites",
       "status": "building",
       "claimedBy": "mark",
+      "kind": "service",
       "keywords": [
         "images",
         "srcset",
@@ -1678,7 +1679,6 @@
           "packages/media/README.md"
         ]
       },
-      "kind": "service",
       "access": "all",
       "flags": []
     },
@@ -1689,6 +1689,7 @@
       "category": "Platform",
       "status": "building",
       "claimedBy": "mark",
+      "kind": "service",
       "keywords": [
         "signed url",
         "signed link",
@@ -1730,7 +1731,6 @@
           "packages/media/README.md"
         ]
       },
-      "kind": "service",
       "access": "all",
       "flags": []
     },
@@ -1741,6 +1741,7 @@
       "category": "Platform",
       "status": "building",
       "claimedBy": "mark",
+      "kind": "service",
       "keywords": [
         "private images",
         "signed srcset",
@@ -1781,7 +1782,6 @@
           "packages/media/README.md"
         ]
       },
-      "kind": "service",
       "access": "all",
       "flags": []
     },
@@ -1792,6 +1792,7 @@
       "category": "Platform",
       "status": "building",
       "claimedBy": "mark",
+      "kind": "service",
       "keywords": [
         "zip",
         "bundle",
@@ -1831,7 +1832,6 @@
           "packages/media/README.md"
         ]
       },
-      "kind": "service",
       "access": "all",
       "flags": []
     },
@@ -2974,6 +2974,7 @@
       "summary": "Versioned look rules attached to a brand (defineDesignSystem: a fluid type ramp, weights and case per font class, space, corners, surfaces, image treatment and CSS-only motion), plus an OKLCH colour engine that turns any brand colour into tinted neutrals, a warm or cool ground and an accent with fill and text forms, solved to pass WCAG AA in light and dark. Swapping one re-themes a site through CSS variables only.",
       "category": "Design system",
       "status": "building",
+      "kind": "token",
       "keywords": [
         "defineDesignSystem",
         "design system",
@@ -3014,7 +3015,6 @@
           "packages/sites/src/templates/design-systems.ts"
         ]
       },
-      "kind": "token",
       "access": "all",
       "flags": []
     },
