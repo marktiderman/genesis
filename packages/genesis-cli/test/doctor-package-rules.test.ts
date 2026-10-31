@@ -389,6 +389,27 @@ describe("the real package declarations", () => {
     ]);
   });
 
+  it("ui accepts a KanbanBoard fed by useResourceView or useResourceTable in the same file, and nothing else it would flag", async () => {
+    const root = makeApp(null, {
+      ...install("ui", "genesis-ui-rules"),
+      "src/routes/board.tsx": "export const B = () => { const t = useResourceTable(view); return <KanbanBoard columns={t.rows} />; };\n",
+      "src/routes/typed.tsx": "export const T = () => { const v = useResourceView<Task>(tasks); return <KanbanBoard columns={v.rows} />; };\n",
+      "src/routes/loose.tsx": "export const L = () => <KanbanBoard columns={[]} />;\n",
+      "src/routes/table.tsx": "export const T = () => { const t = useResourceTable(view); return <DataTable rows={t.rows} />; };\n",
+      // A calendar is no exemption: the hook and a calendar beside a raw DataTable is still flagged.
+      "src/routes/calendar.tsx": "export const C = () => { const v = useResourceView(events); return <><MiniCalendar /><DataTable rows={raw} /></>; };\n",
+      // A banned list beside an exempted board: the exemption is off for the file, so both are flagged.
+      "src/routes/mixed.tsx": "export const M = () => { const v = useResourceView(tasks); return <><KanbanBoard columns={v.rows} /><DataTable rows={raw} /></>; };\n",
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "ui-rules/lists")).toEqual([
+      "ui-rules/lists-use-resource-view warn src/routes/calendar.tsx:1 DataTable",
+      "ui-rules/lists-use-resource-view warn src/routes/loose.tsx:1 KanbanBoard",
+      "ui-rules/lists-use-resource-view warn src/routes/mixed.tsx:1 KanbanBoard",
+      "ui-rules/lists-use-resource-view warn src/routes/mixed.tsx:1 DataTable",
+      "ui-rules/lists-use-resource-view warn src/routes/table.tsx:1 DataTable",
+    ]);
+  });
+
   it("core keeps *.view.ts files platform-neutral: no router, react-dom, react-native or UI imports", async () => {
     const root = makeApp(null, {
       ...install("core", "genesis-core-rules"),

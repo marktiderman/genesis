@@ -59,7 +59,15 @@ Writes `resources.genesis.ts` (or `contracts.out`), a checked-in contract for th
 schemas, with its key, fields (type, database type, nullability, defaults, enum values, links)
 and a row type per table. Enum values come from enum types and from single-column `CHECK`s that
 list values (`status in ('open', 'done')`). A view Postgres can update on its own takes its
-table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). Review it like code, and pass `contracts` to `createStudioHandler`. It
+table's key and column facts, and its table's `noun` (see `docs/RESOURCE-VIEW.md`). A read-only view
+that joins tables has no key the catalog can see: name it in the view's comment,
+`@genesis {"key": "id"}` (or a list of columns, no repeats; one that differs from a primary key
+is used, with a warning). A foreign key is a link when it's one column, or a composite key whose
+other columns reference their namesakes and whose own column references a column unique on its own
+(the primary key or a unique index): the tenant-safe `(gallery_id, org_id) references galleries
+(id, org_id)` makes `gallery_id` a link to galleries, while `(doc_id, version) references
+doc_versions (id, version)` is not a link.
+PostgREST's OpenAPI notes single-column keys only, so `--openapi` links those alone. Review it like code, and pass `contracts` to `createStudioHandler`. It
 wins over discovery for labels, widgets and descriptions; types, keys and permissions still come
 from the live database.
 
@@ -310,6 +318,22 @@ copy, holding the package's current text commented out, for you to turn into the
 runs count that copy as handled. It exits 1 when something still needs you (a deleted copy was your
 choice, so it doesn't). `genesis add`, `genesis migrate` and `init --template native` record each
 copy in the lock; a run on an older lock records the copies it finds.
+
+With the notifications block and a named registry (`--notifications <file>`, or
+`"notifications": { "registry": "src/notifications.ts" }` in `genesis.config.json`; a relative
+path is resolved against the app's root, `--dir`), it also mirrors the app's `defineNotifications`
+types: when they differ from the newest `*_genesis_notification_types.sql` (the JSON only, not its
+header), it writes a new one after this run's other migrations. That migration adds and updates
+types and never retires one: each is one branch's snapshot, and two branches merged would
+otherwise retire each other's types. Retiring stays with `syncNotificationTypes` on deploy. The
+types are in place once every migration has run, so a trigger that fires after the migrations
+meets no unknown type before the deploy; a migration that queues a notification while it runs
+needs its type added earlier in that migration.
+
+Loading the registry runs the app's code, so it happens only when the registry is named, never on
+`--dry-run` (reported as not checked), and the registry module must have no side effects on
+import (no network, database or writes). A registry it can't find or load, or a timestamp that
+doesn't fit, is a warning.
 
 ### genesis upgrade
 
