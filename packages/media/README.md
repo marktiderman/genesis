@@ -451,17 +451,18 @@ Resumable, checksummed uploads: primitive 4 of ADR 0012 ("media primitives").
 One protocol for browser, native and server; every operation bound to its owner; skip-if-identical
 on the whole object's SHA-256; storage targets as adapters, with fan-out to several stores and a
 read-back check on each; and upload sessions in the app's own Supabase, with row level security
-on the owner. Fetch and WebCrypto: Node 20+ and Workers.
+on the owner. Fetch and WebCrypto: Node 20.19+ (`@noble/hashes` needs it) and Workers.
 
 The design, the protocol messages and the failure cases are in
-[docs/media-uploads.md](../../docs/media-uploads.md).
+[docs/media-uploads.md](https://github.com/marktiderman/genesis/blob/main/docs/media-uploads.md).
 
 | Entry | Runs on | Holds |
 | --- | --- | --- |
 | `/uploads` | anywhere | the protocol's shapes, the part plan, `content-digest`, incremental SHA-256 |
-| `/uploads/server` | Node 20+, Workers | `createUploadHandler`, the verify and sweep jobs, the session stores |
-| `/uploads/targets` | Node 20+, Workers | `createMemoryTarget`, `createR2Target`, `createS3Target` |
+| `/uploads/server` | Node 20.19+, Workers | `createUploadHandler`, the verify and sweep jobs, the session stores |
+| `/uploads/targets` | Node 20.19+, Workers | `createMemoryTarget`, `createR2Target`, `createS3Target` |
 | `/uploads/client` | browser, React Native (Hermes), Node | `createUploader`, the sources, resume stores, the Web Worker hasher, `createSupabaseTusTransport`; under the `browser` condition, hashing in the package's worker by default |
+| `/uploads/client/browser` | browser | the browser build on its own, with its types: `createBrowserFileHasher` too |
 | `/uploads/client/hash-worker` | a browser's Web Worker | the hashing worker the uploader starts |
 | `/forms` | browser | `createFormsUploadAdapter`, for genesis-forms' upload port |
 
@@ -471,9 +472,9 @@ The session table's migration is `migrations/0001_genesis_media.sql` (schema
 ### The route
 
 ```ts
-import { createSupabaseSessionStore, createUploadHandler, UPLOAD_VERIFY_JOB } from "@marktiderman/genesis-media/uploads/server";
+import { createSupabaseSessionStore, createUploadHandler, safeName, UPLOAD_VERIFY_JOB } from "@marktiderman/genesis-media/uploads/server";
 import { createR2Target, createS3Target } from "@marktiderman/genesis-media/uploads/targets";
-import { enqueueJob } from "@marktiderman/genesis-supabase";
+import { enqueueJob } from "@marktiderman/genesis-supabase/jobs";
 
 const handle = createUploadHandler({
   store: createSupabaseSessionStore(admin), // the service-role client
@@ -492,8 +493,13 @@ const handle = createUploadHandler({
     return user ? { kind: "person", id: user.id } : null;
   },
   // The app's rules, asked for every operation (create, resume, part, finalize, abort).
+  // Each purpose has its own size cap (and the app's quota per owner, if it keeps one).
   authorize: ({ op, owner, purpose, size, contentType }) =>
-    purpose === "media" && contentType.startsWith("image/") ? { allow: true, targets: ["working", "archive"] } : { allow: false },
+    purpose === "media" && contentType.startsWith("image/") && size <= 2 * 2 ** 30
+      ? { allow: true, targets: ["working", "archive"] }
+      : purpose === "forms" && contentType.startsWith("image/") && size <= 25 * 2 ** 20
+        ? { allow: true, targets: ["working"] }
+        : { allow: false, status: 413 },
   // Where the object goes. The client never names a key.
   keyFor: ({ owner, uploadId, name }) => `media/${owner.id}/${uploadId}/${safeName(name)}`,
   // Objects with this identity the owner may already read: the only ones a skip compares against.
@@ -531,8 +537,12 @@ export const POST = ({ request }) => handle(request); // and GET, PUT, DELETE: t
 - **Parts** stream through: each is hashed and counted on its way to the target, never held
   whole. A part number is reserved for its bytes (a compare-and-set on the part row) before
   anything is written, so other bytes for it are refused with 409 `part_conflict` before they
-  reach the target (abort and create again); the same bytes again are a no-op. Only the request
-  that reserved a part gives it back when its write fails; a request writing the same bytes
+  reach the target (abort and create again); the same bytes again, once received, are a no-op.
+  A reservation belongs to the one request that made it (a random token): only it records or
+  gives back the part. Another request for the same part while it is being written writes
+  nothing and answers 503 (send it again shortly), and a reservation left for
+  `partReserveSeconds` (10 minutes; its server died mid-write) is taken over. A request writing
+  the same bytes
   alongside it leaves it alone, and if the reservation goes from under it, answers 409
   `part_conflict` rather than recording a part the target may not hold. A part whose bytes
   don't match their `content-digest` (RFC 9530) isn't recorded (422).
@@ -633,10 +643,18 @@ import { createFormsUploadAdapter } from "@marktiderman/genesis-media/forms";
 ```
 
 - **forms** (`UploadAdapter`, from genesis-forms): the adapter uploads each file through
-  `uploader` (`purpose` default `"forms"`) and resolves to the `PhotoRef` the answer keeps: the
-  upload id, or the app's own `ref` for a file it already holds. The route's `owner` and
-  `authorize` take forms' respondent (attempt id or edit link) and checks. A `partial` store is
-  a failed upload.
+  `uploader` and resolves to the `PhotoRef` the answer keeps: the upload id, or the app's own
+  `ref` for a file it already holds (so `readable` must give every object a `ref`). A `partial`
+  store is retried once, then is a failed upload.
+  - **The route** authorizes the purpose the adapter sends: `"forms"` by default, or one per
+    field (`purpose: (field) => \`forms.${field.id}\``, for field ids that fit a purpose), so
+    `authorize` can apply that field's type and size rules. Its `owner` is forms' respondent:
+    the visit's attempt id or the edit link, from the uploader's `headers`.
+  - **The submit check.** forms' `submitResponse` checks each answer's file ids through its
+    upload store's `uploadRefs(formId, ids)`, with their field and their respondent. Give it a
+    store that answers from the upload sessions: for each id, the session's field (its purpose),
+    owner, name, type, size, and `done` (or the app's own record for a skipped file's `ref`).
+    Without that, a file uploaded this way is refused at submit.
 - **chat** keeps its own TUS client (`createTusUpload`); its `transport` port takes another one
   if an app has it. There is no chat adapter here: `createSupabaseTusTransport` is the same
   protocol, so it would add nothing.
@@ -695,7 +713,7 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 | **Configure** | purposes, size and type limits (`authorize`), targets per purpose, part size (`maxPartBytes`), `verifyInlineBytes`, `sessionTtlSeconds`, lock mode and retention per target; on the client, priority, pause, files and parts at once, the speed cap, `hashFirst` |
 | **Brand** | none: the protocol has no UI |
 | **Compose** | none yet: upload UI parts (a drop zone, a progress row) come later in genesis-ui |
-| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object), the client's source, hash and resume store, the Supabase TUS transport, the forms and chat adapters |
+| **Adapt** | storage targets (R2, S3-compatible, memory, your own `UploadTarget`), the session store (the Supabase table, memory, a Durable Object), the client's source, hash and resume store, the Supabase TUS transport, the forms adapter |
 | **Own** (stays in the app) | who may upload what (`owner`, `authorize`, `readable`), where it goes (`keyFor`), scheduling, the desktop or capture app |
 
 ### Not in this release

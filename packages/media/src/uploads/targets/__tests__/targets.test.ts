@@ -253,6 +253,9 @@ describe("createR2Target", () => {
     expect(await target.head("k")).toEqual({ size: 5 });
     expect((await sha256Stream((await target.read("k"))!)).size).toBe(5);
     expect(target.lock).toBeUndefined();
+    // After a finish whose answer was lost: the key is the upload's own, so an object there is its assembly.
+    expect(await target.assembled!("k", id, [a, b])).toEqual({});
+    expect(await target.assembled!("other", id, [a, b])).toBeUndefined();
   });
 });
 

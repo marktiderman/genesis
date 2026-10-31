@@ -17,7 +17,7 @@ export interface R2BucketLike {
     abort(): Promise<void>;
   };
   get(key: string): Promise<{ body: ReadableStream<Uint8Array> } | null>;
-  head(key: string): Promise<{ size: number } | null>;
+  head(key: string): Promise<{ size: number; etag?: string } | null>;
   delete(key: string): Promise<void>;
 }
 
@@ -48,6 +48,12 @@ export function createR2Target(bucket: R2BucketLike, options: { tier?: UploadTar
     },
     async abort(key, uploadId) {
       await bucket.resumeMultipartUpload(key, uploadId).abort();
+    },
+    async assembled(key) {
+      // The key is this upload's own (the handler makes every key unique to its upload), so an
+      // object there is the one it assembled. The read-back still checks its size and SHA-256.
+      const o = await bucket.head(key);
+      return o ? (o.etag ? { etag: o.etag } : {}) : undefined;
     },
     async read(key) {
       return (await bucket.get(key))?.body ?? null;

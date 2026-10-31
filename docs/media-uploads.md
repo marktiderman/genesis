@@ -393,8 +393,8 @@ with its own transport. Either is media-video-value's decision.
   - a browser run (Playwright) with a reload mid-upload;
   - React Native through the existing chat outbox tests, unchanged.
 - **Never delete the source**: no client API moves or deletes a source (a type test).
-- **Merge**: forms' and chat's existing upload tests pass unchanged; each adapter is tested
-  against its port.
+- **Merge**: forms' and chat's existing upload tests pass unchanged; the forms adapter is
+  tested against forms' port, and chat's `transport` port against a transport of its own.
 - **Large files**: a 5 GB upload through the in-memory target with flat memory; part counts at
   the 10,000 limit.
 
@@ -425,8 +425,17 @@ with its own transport. Either is media-video-value's decision.
 - **Finalize leaves `open` before anything is assembled** (a compare-and-set to `verifying`);
   the verify run assembles under its lease. An abort racing a finalize either came first, and
   nothing was assembled, or is refused, so an object never outlives its session.
-- **Only the request that reserved a part gives it back** when its write fails. Another
-  request writing the same bytes leaves it, and answers 409 `part_conflict` if it went.
+- **A part's reservation belongs to one request** (a random token): only it records the part or
+  gives it back when its write fails. Another request for that part while it is written writes
+  nothing and answers 503 (send it again shortly); a reservation left for `partReserveSeconds`
+  (10 minutes, its server died mid-write) is taken over, and the late writer's answer isn't
+  recorded.
+- **A finalize that loses the race to another** answers 202 while the upload is checked, and a
+  client never treats a 200 `verifying` as done.
+- **Abort** works on a finalized upload that nothing has assembled yet (its job hasn't started),
+  in the same step that checks no run has taken it.
+- **Each verified copy is recorded as soon as it is locked**, and a target's earlier copy that
+  didn't verify is removed, by its version, before it is copied again.
 - **Abort and the sweep** remove a session only in the state they found it in; a session stuck
   in `verifying` with no live lease can be aborted and is swept, with its unverified objects.
 - **Parts** stream through and are reserved for their bytes before they are written; other bytes

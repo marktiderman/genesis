@@ -215,6 +215,10 @@ describe("8. small items", () => {
     const s = setup();
     const { id } = await sendAll(s, bytesOf(40));
     await s.alice.finalize(id); // 202: queued, and the job never runs
+    // As if a run assembled it and died before it finished.
+    const session = s.store.sessions.get(id)!;
+    const made = await s.working.finish(session.key, session.targetUploadId, session.parts.map((p) => ({ n: p.n, etag: p.etag! })));
+    await s.store.update(id, { assembled: { working: made ?? {} } });
     expect((await s.alice.abort(id)).status).toBe(409);
     s.tick(2 * 3600_000);
     expect((await s.alice.abort(id)).status).toBe(204);

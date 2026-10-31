@@ -82,6 +82,10 @@ create table genesis_media.upload_parts (
   digest text not null check (digest ~ '^sha-256=:[A-Za-z0-9+/]{43}=:$'),
   -- Null while reserved and being written.
   etag text,
+  -- The request that reserved it (a random token), and when: only it completes or releases it,
+  -- and a reservation left long enough (its writer died) can be taken over.
+  holder text,
+  reserved_at timestamptz,
   primary key (upload_id, n)
 );
 
@@ -103,12 +107,14 @@ grant select on table genesis_media.upload_parts to authenticated;
 grant select, insert, update, delete on table genesis_media.uploads to service_role;
 grant select, insert, update, delete on table genesis_media.upload_parts to service_role;
 
--- Reserves part p_n for these bytes before they are written, in one step with the check:
--- 'reserved' (it's the caller's to write); 'same' (reserved or received with these bytes, not
--- yet received: write it and complete it); 'received' (already in, nothing to write); or
--- 'conflict' (other bytes hold it; nothing changes). Only while the session is open: otherwise
--- P0002. The session row is locked meanwhile, so a finalize waits.
-create function genesis_media.reserve_part(p_upload text, p_n integer, p_size bigint, p_digest text)
+-- Reserves part p_n for these bytes before they are written, in one step with the check, for the
+-- request p_holder (a random token per request): 'reserved' (it's the caller's to write and
+-- complete); 'busy' (another request is writing these bytes now: nothing to write, ask again
+-- soon); 'received' (already in, nothing to write); or 'conflict' (other bytes hold it; nothing
+-- changes). A reservation older than p_stale_before (its writer died) is taken over: 'reserved'.
+-- Only while the session is open: otherwise P0002. The session row is locked meanwhile, so a
+-- finalize waits.
+create function genesis_media.reserve_part(p_upload text, p_n integer, p_size bigint, p_digest text, p_holder text, p_now timestamptz, p_stale_before timestamptz)
 returns text
 language plpgsql
 security invoker
@@ -121,43 +127,55 @@ begin
   if not found then
     raise exception 'no open upload %', p_upload using errcode = 'P0002';
   end if;
-  insert into genesis_media.upload_parts (upload_id, n, size, digest, etag)
-  values (p_upload, p_n, p_size, p_digest, null)
+  insert into genesis_media.upload_parts (upload_id, n, size, digest, etag, holder, reserved_at)
+  values (p_upload, p_n, p_size, p_digest, null, p_holder, p_now)
   on conflict (upload_id, n) do nothing;
   if found then
     return 'reserved';
   end if;
-  select digest, etag into had from genesis_media.upload_parts where upload_id = p_upload and n = p_n;
+  select digest, etag, reserved_at into had from genesis_media.upload_parts where upload_id = p_upload and n = p_n;
   if had.digest <> p_digest then
     return 'conflict';
   end if;
-  return case when had.etag is null then 'same' else 'received' end;
+  if had.etag is not null then
+    return 'received';
+  end if;
+  if had.reserved_at > p_stale_before then
+    return 'busy';
+  end if;
+  update genesis_media.upload_parts set holder = p_holder, reserved_at = p_now where upload_id = p_upload and n = p_n;
+  return 'reserved';
 end
 $$;
 
--- Records the target's etag for a part reserved with this digest. False when it's gone.
-create function genesis_media.complete_part(p_upload text, p_n integer, p_digest text, p_etag text)
+-- Records the target's etag for a part p_holder reserved, while the session is still open (its
+-- row is shared-locked, so a finalize can't move it on meanwhile). False when the reservation
+-- went (taken over, or the session left open).
+create function genesis_media.complete_part(p_upload text, p_n integer, p_holder text, p_etag text)
 returns boolean
 language plpgsql
 security invoker
 set search_path = ''
 as $$
 begin
-  update genesis_media.upload_parts p set etag = p_etag
-  from genesis_media.uploads u
-  where p.upload_id = p_upload and p.n = p_n and p.digest = p_digest and u.id = p.upload_id and u.state = 'open';
+  perform 1 from genesis_media.uploads where id = p_upload and state = 'open' for share;
+  if not found then
+    return false;
+  end if;
+  update genesis_media.upload_parts set etag = p_etag
+  where upload_id = p_upload and n = p_n and holder = p_holder and etag is null;
   return found;
 end
 $$;
 
--- Drops a reservation with this digest that never received an etag (its write failed).
-create function genesis_media.release_part(p_upload text, p_n integer, p_digest text)
+-- Drops p_holder's reservation when its write failed (it never received an etag).
+create function genesis_media.release_part(p_upload text, p_n integer, p_holder text)
 returns void
 language sql
 security invoker
 set search_path = ''
 as $$
-  delete from genesis_media.upload_parts where upload_id = p_upload and n = p_n and digest = p_digest and etag is null
+  delete from genesis_media.upload_parts where upload_id = p_upload and n = p_n and holder = p_holder and etag is null
 $$;
 
 -- Applies a patch when the session is still in one of p_when (any state when null) and, with
@@ -232,14 +250,14 @@ as $$
   limit p_limit
 $$;
 
-revoke execute on function genesis_media.reserve_part(text, integer, bigint, text) from public, anon, authenticated;
+revoke execute on function genesis_media.reserve_part(text, integer, bigint, text, text, timestamptz, timestamptz) from public, anon, authenticated;
 revoke execute on function genesis_media.complete_part(text, integer, text, text) from public, anon, authenticated;
 revoke execute on function genesis_media.release_part(text, integer, text) from public, anon, authenticated;
 revoke execute on function genesis_media.update_upload(text, jsonb, text[], text) from public, anon, authenticated;
 revoke execute on function genesis_media.claim_verify(text, timestamptz, timestamptz, text) from public, anon, authenticated;
 revoke execute on function genesis_media.remove_upload(text, text[], timestamptz) from public, anon, authenticated;
 revoke execute on function genesis_media.stale_uploads(timestamptz, integer, timestamptz) from public, anon, authenticated;
-grant execute on function genesis_media.reserve_part(text, integer, bigint, text) to service_role;
+grant execute on function genesis_media.reserve_part(text, integer, bigint, text, text, timestamptz, timestamptz) to service_role;
 grant execute on function genesis_media.complete_part(text, integer, text, text) to service_role;
 grant execute on function genesis_media.release_part(text, integer, text) to service_role;
 grant execute on function genesis_media.update_upload(text, jsonb, text[], text) to service_role;

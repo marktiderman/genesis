@@ -33,8 +33,8 @@ export interface FormsFileRef {
 
 /** @stability Experimental */
 export interface FormsUploadAdapterOptions {
-  /** `createUploader` from `/client`, pointed at the app's upload route. */
-  uploader: Pick<Uploader, "upload">;
+  /** `createUploader` from `/uploads/client`, pointed at the app's upload route. */
+  uploader: Pick<Uploader, "upload"> & Partial<Pick<Uploader, "finalize">>;
   /** The upload's purpose, for the route's rules. Default `"forms"`. */
   purpose?: string | ((field: FormsUploadField) => string) | undefined;
   /** The type to declare. Default the file's own (forms-web's `photoFileType` also names HEIC from its extension). */
@@ -55,11 +55,14 @@ export function createFormsUploadAdapter(options: FormsUploadAdapterOptions): Fo
     async upload(file, field) {
       const contentType = options.contentType?.(file) || file.type || "application/octet-stream";
       const purpose = typeof options.purpose === "function" ? options.purpose(field) : (options.purpose ?? "forms");
-      const result = await options.uploader.upload(fromBlob(file), { name: file.name, contentType, purpose }).done;
-      // A copy that didn't verify everywhere isn't stored yet: the respondent tries again.
+      let result = await options.uploader.upload(fromBlob(file), { name: file.name, contentType, purpose }).done;
+      // A copy that didn't verify everywhere: retry its failed targets once, then the respondent tries again.
+      if (result.state === "partial" && result.uploadId && options.uploader.finalize) result = await options.uploader.finalize(result.uploadId);
       if (result.state === "partial") throw new Error("The file wasn't stored. Try again.");
+      // A file the respondent already sent is skipped, and the answer keeps the app's own reference:
+      // for forms, the route's `readable` must give each object a `ref`.
       const id = result.ref ?? result.uploadId;
-      if (!id) throw new Error("The upload route gave no reference for the file.");
+      if (!id) throw new Error("The upload was skipped as a file already stored, but the upload route's `readable` gave it no `ref` to keep.");
       return { id, name: file.name, type: contentType, size: file.size };
     },
     async url(ref, field) {

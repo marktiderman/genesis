@@ -84,6 +84,11 @@
       "import": "./dist/uploads/client.js",
       "default": "./dist/uploads/client.js"
     },
+    "./uploads/client/browser": {
+      "types": "./dist/uploads/client-web.d.ts",
+      "import": "./dist/uploads/client-web.js",
+      "default": "./dist/uploads/client-web.js"
+    },
     "./uploads/client/hash-worker": {
       "import": "./dist/uploads/hash-worker.js",
       "default": "./dist/uploads/hash-worker.js"

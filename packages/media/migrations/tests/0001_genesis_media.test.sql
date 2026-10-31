@@ -7,7 +7,7 @@
 -- the service role, which is the only writer.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(49);
+select plan(53);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000ab0' || n)::uuid, 'authenticated', 'authenticated', 'genesis-media-' || n || '@example.test', '00000000-0000-0000-0000-000000000000'
@@ -46,11 +46,11 @@ select has_table('genesis_media', 'uploads', 'uploads exists');
 select has_table('genesis_media', 'upload_parts', 'upload_parts exists');
 select ok((select relrowsecurity from pg_class where oid = 'genesis_media.uploads'::regclass), 'uploads has RLS on');
 select ok((select relrowsecurity from pg_class where oid = 'genesis_media.upload_parts'::regclass), 'upload_parts has RLS on');
-select ok(not has_function_privilege('authenticated', 'genesis_media.reserve_part(text, integer, bigint, text)', 'execute'), 'a person cannot call reserve_part');
+select ok(not has_function_privilege('authenticated', 'genesis_media.reserve_part(text, integer, bigint, text, text, timestamptz, timestamptz)', 'execute'), 'a person cannot call reserve_part');
 select ok(not has_function_privilege('authenticated', 'genesis_media.update_upload(text, jsonb, text[], text)', 'execute'), 'a person cannot call update_upload');
 select ok(not has_function_privilege('authenticated', 'genesis_media.claim_verify(text, timestamptz, timestamptz, text)', 'execute'), 'a person cannot call claim_verify');
 select ok(not has_function_privilege('authenticated', 'genesis_media.remove_upload(text, text[], timestamptz)', 'execute'), 'a person cannot call remove_upload');
-select ok(not has_function_privilege('anon', 'genesis_media.reserve_part(text, integer, bigint, text)', 'execute'), 'anon cannot call reserve_part');
+select ok(not has_function_privilege('anon', 'genesis_media.reserve_part(text, integer, bigint, text, text, timestamptz, timestamptz)', 'execute'), 'anon cannot call reserve_part');
 select ok(not has_function_privilege('anon', 'genesis_media.update_upload(text, jsonb, text[], text)', 'execute'), 'anon cannot call update_upload');
 select ok(not has_table_privilege('anon', 'genesis_media.upload_parts', 'select'), 'anon cannot read upload_parts');
 select ok(not has_table_privilege('authenticated', 'genesis_media.uploads', 'insert, update, delete'), 'a person cannot write uploads');
@@ -61,18 +61,22 @@ select pg_temp.as_server();
 select lives_ok($$ insert into genesis_media.uploads select (pg_temp.upload_row('AAAAAAAAAAAAAAAAAAAAA1', 'person', pg_temp.person('a1')::text)).* $$, 'the server starts a1''s upload');
 insert into genesis_media.uploads select (pg_temp.upload_row('RRRRRRRRRRRRRRRRRRRRR1', 'respondent', pg_temp.person('b2')::text)).*;
 select throws_ok($$ insert into genesis_media.uploads select (pg_temp.upload_with('AAAAAAAAAAAAAAAAAAAAA9', 'k/AAAAAAAAAAAAAAAAAAAAA1', null, array['working'])).* $$, '23505', null, 'no two uploads share a storage key');
-select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A')), 'reserved', 'a part is reserved before it is written');
-select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A')), 'same', 'the same bytes while it is being written are "same"');
-select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('B')), 'conflict', 'other bytes for a reserved part are a conflict, before anything is written');
-select is(genesis_media.complete_part('AAAAAAAAAAAAAAAAAAAAA1', 1, pg_temp.d('B'), 'eB'), false, 'the conflicting bytes can''t complete the part');
-select is(genesis_media.complete_part('AAAAAAAAAAAAAAAAAAAAA1', 1, pg_temp.d('A'), 'e1'), true, 'the reserved bytes complete it');
-select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A')), 'received', 'a received part again is "received"');
-select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 5, pg_temp.d('C')), 'reserved', 'part 2 is reserved');
-select lives_ok($$ select genesis_media.release_part('AAAAAAAAAAAAAAAAAAAAA1', 2, pg_temp.d('C')) $$, 'a failed write releases its reservation');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A'), 'h1', now(), now() - interval '10 minutes'), 'reserved', 'a part is reserved for one request before it is written');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A'), 'h2', now(), now() - interval '10 minutes'), 'busy', 'another request for the same bytes while it is written is "busy" and writes nothing');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('B'), 'h3', now(), now() - interval '10 minutes'), 'conflict', 'other bytes for a reserved part are a conflict, before anything is written');
+select is(genesis_media.complete_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 'h2', 'e2'), false, 'only the request that reserved it can complete the part');
+select is(genesis_media.complete_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 'h1', 'e1'), true, 'the request that reserved it completes it');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 1, 5, pg_temp.d('A'), 'h4', now(), now() - interval '10 minutes'), 'received', 'a received part again is "received"');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 5, pg_temp.d('C'), 'h5', now(), now() - interval '10 minutes'), 'reserved', 'part 2 is reserved');
+select lives_ok($$ select genesis_media.release_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 'h5') $$, 'a failed write releases its own reservation');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 5, pg_temp.d('D'), 'h6', now() - interval '20 minutes', now() - interval '30 minutes'), 'reserved', 'part 3 is reserved, twenty minutes ago');
+select is(genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 5, pg_temp.d('D'), 'h7', now(), now() - interval '10 minutes'), 'reserved', 'a reservation left past the limit (its writer died) is taken over');
+select is(genesis_media.complete_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 'h6', 'e6'), false, 'the writer it was taken from can''t complete it');
+select lives_ok($$ select genesis_media.release_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 'h7') $$, 'the new holder gives it back');
 select is((select count(*)::int from genesis_media.upload_parts where upload_id = 'AAAAAAAAAAAAAAAAAAAAA1'), 1, 'only the received part is left');
 select is(genesis_media.update_upload('AAAAAAAAAAAAAAAAAAAAA1', ('{"state":"verifying","sha256":"' || repeat('0', 64) || '","verifying_since":"2026-11-01T00:00:00Z"}')::jsonb, array['open']), true, 'the upload moves to verifying');
 select is(genesis_media.update_upload('AAAAAAAAAAAAAAAAAAAAA1', '{"state":"done"}'::jsonb, array['open']), false, 'a guarded update that no longer matches does nothing');
-select throws_ok($$ select genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 5, pg_temp.d('A')) $$, 'P0002', null, 'no part is reserved once it is verifying');
+select throws_ok($$ select genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 2, 5, pg_temp.d('A'), 'h8', now(), now() - interval '10 minutes') $$, 'P0002', null, 'no part is reserved once it is verifying');
 select is(genesis_media.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now(), 'run-1'), true, 'one run takes the lease');
 select is(genesis_media.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '10 minutes', now(), 'run-2'), false, 'a second run can''t while it is live');
 select is(genesis_media.claim_verify('AAAAAAAAAAAAAAAAAAAAA1', now() + interval '30 minutes', now() + interval '20 minutes', 'run-2'), true, 'it can once the lease lapsed');
@@ -94,7 +98,7 @@ select is((select count(*)::int from genesis_media.uploads), 1, 'a1 sees their u
 select is((select count(*)::int from genesis_media.upload_parts), 1, 'a1 sees their part');
 select throws_ok($$ update genesis_media.uploads set state = 'done', copies = '[{"target":"working"}]' $$, '42501', null, 'a1 cannot mark their own upload done or claim copies');
 select throws_ok($$ insert into genesis_media.uploads select (pg_temp.upload_row('AAAAAAAAAAAAAAAAAAAAA2', 'person', pg_temp.person('a1')::text)).* $$, '42501', null, 'a1 cannot start a session directly');
-select throws_ok($$ select genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 5, pg_temp.d('A')) $$, '42501', null, 'a1 cannot reserve parts directly');
+select throws_ok($$ select genesis_media.reserve_part('AAAAAAAAAAAAAAAAAAAAA1', 3, 5, pg_temp.d('A'), 'h9', now(), now() - interval '10 minutes') $$, '42501', null, 'a1 cannot reserve parts directly');
 
 -- Someone else sees nothing
 select pg_temp.sign_in('b2');

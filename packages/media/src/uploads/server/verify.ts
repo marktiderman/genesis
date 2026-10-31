@@ -109,12 +109,28 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
       if (name !== primaryName) {
         // A copy an earlier run started and never finished (it died): abort it first.
         if (pendingCopies[name]) await target.abort(s.key, pendingCopies[name]!).catch(() => {});
+        // A copy an earlier run made that didn't verify (a `partial` retry): remove that exact
+        // object before copying again, or on a versioned bucket nothing would point at it. A
+        // delete that fails leaves it recorded, and this target failed for now.
+        if (assembled[name]) {
+          await target.delete(s.key, assembled[name]!.versionId);
+          delete assembled[name];
+          await save();
+        }
         pendingCopies[name] = await target.start(s.key, { contentType: s.contentType });
         await save();
         const made = await copyBetweenTargets(primary, target, s.key, { partSize: s.partSize, uploadId: pendingCopies[name]!, versionId: assembled[primaryName]?.versionId, onPart: renew });
         assembled[name] = made ?? {};
         delete pendingCopies[name];
-        await save();
+        try {
+          await save();
+        } catch (error) {
+          // The lease went just as the copy finished: the run that holds it copies again, so this
+          // version would point nowhere. Only a version is removed: on an unversioned store the
+          // key may already hold that run's copy.
+          if (error instanceof LeaseLostError && made?.versionId) await target.delete(s.key, made.versionId).catch(() => {});
+          throw error;
+        }
       }
       const version = assembled[name]?.versionId;
       const stream = await target.read(s.key, version);
@@ -163,6 +179,9 @@ export async function verifyUpload(uploadId: string, options: UploadVerifyOption
         ...(lock ? { lockMode: lock.mode, lockedUntil: lock.retainUntil } : {}),
         verifiedAt: iso(now()),
       });
+      // Recorded at once: a locked copy is media now, and a run that dies after this point must
+      // never leave it for the sweep to treat as unverified.
+      await held({ copies, assembled, pendingCopies, leaseUntil: iso(now() + leaseMs) });
     } catch (error) {
       if (error instanceof LeaseLostError) return { session: await store.get(uploadId), busy: true };
       failed.push({ target: name, code: "target_error" });

@@ -96,7 +96,8 @@ export interface UploaderOptions {
   /**
    * A new upload's id: 22 characters of `A-Z a-z 0-9 _ -`, from a secure random source. Default
    * 16 bytes of `crypto.getRandomValues`. Pass one where the runtime has none (a React Native
-   * app without a `getRandomValues` polyfill, such as expo-crypto's `getRandomBytes`).
+   * app without a `getRandomValues` polyfill): 16 random bytes, such as expo-crypto's
+   * `getRandomBytes(16)`, in URL-safe base64 without padding.
    */
   randomId?: (() => string) | undefined;
 }
@@ -243,7 +244,19 @@ export function createUploader(options: UploaderOptions) {
   /** Waits while paused (this upload or all), unless it is cancelled meanwhile. */
   const holdIfPaused = async (run: Run | undefined) => {
     if (!run) return allPaused.wait();
-    await Promise.race([Promise.all([run.pause.wait(), allPaused.wait()]), new Promise<void>((r) => run.abort.signal.addEventListener("abort", () => r(), { once: true }))]);
+    if (run.abort.signal.aborted) throw cancelledError();
+    // Not paused: nothing to wait for, and no listener to leave behind (this runs per slice and part).
+    if (run.pause.open && allPaused.open) return;
+    let stop = () => {};
+    const cancelled = new Promise<void>((r) => {
+      stop = () => r();
+      run.abort.signal.addEventListener("abort", stop, { once: true });
+    });
+    try {
+      await Promise.race([Promise.all([run.pause.wait(), allPaused.wait()]), cancelled]);
+    } finally {
+      run.abort.signal.removeEventListener("abort", stop);
+    }
     if (run.abort.signal.aborted) throw cancelledError();
   };
 
@@ -323,6 +336,8 @@ export function createUploader(options: UploaderOptions) {
   }
 
   const resultOf = (s: UploadStatus): UploadResult => {
+    // Still being checked is never done: the callers poll first; this is the backstop.
+    if (s.state === "verifying" || s.state === "open") throw new UploadClientError("The upload isn't finished yet.", "server_error", 0);
     if (s.state === "identity_mismatch") throw new UploadClientError("The file that arrived isn't the one described. Start the upload again.", "identity_mismatch", 422);
     return { state: s.state === "partial" ? "partial" : "done", uploadId: s.uploadId, copies: s.copies ?? [], ...(s.failed?.length ? { failed: s.failed } : {}) };
   };
@@ -333,6 +348,8 @@ export function createUploader(options: UploaderOptions) {
     if (r.status === 409 && (r.body as UploadError)?.code === "missing_parts") return (r.body as UploadError).parts ?? [];
     if (r.status === 202) return resultOf(await poll(id, progress, size, run));
     if (r.status !== 200) fail(r.status, r.body);
+    // Another finalize of this session got there first and it is still being checked: wait for it.
+    if ((r.body as UploadStatus).state === "verifying") return resultOf(await poll(id, progress, size, run));
     return resultOf(r.body as UploadStatus);
   }
 
@@ -520,6 +537,10 @@ export function createUploader(options: UploaderOptions) {
         if (!run.abort.signal.aborted) {
           waiting.push(entry);
           pump();
+        } else {
+          // Cancelled before it was queued (its signal had already fired): it never starts.
+          // cancel() has closed the source already.
+          reject(cancelledError());
         }
       });
       return { done, pause: () => run.pause.close(), resume: () => run.pause.release(), cancel };
