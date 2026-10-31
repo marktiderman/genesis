@@ -1,5 +1,34 @@
 # @marktiderman/genesis-forms
 
+## 0.11.0
+
+### Minor Changes
+
+- 92d335e: Upload ports, so another upload implementation can plug in without forms or chat depending on it.
+
+  - genesis-forms: `UploadAdapter` (and `UploadFile`), the port a form's uploads go through: `upload(file, field)` resolving to the `PhotoRef` the answer keeps, and `url?`. The signed single upload (`createUploadHandler`, `UploadRequest`, `UploadGrant`) is unchanged and stays the built-in one.
+  - genesis-forms-web: `<Form uploads={adapter}>` takes any `UploadAdapter` (it wins over `onUpload` and an `UploadContext`); `UploadHost` is `UploadAdapter<File>`, and `signedUploadHost` is the built-in adapter.
+  - genesis-chat: `createTusUpload({ transport })` takes any `TusTransport` (exported with `TusUploadRecord`, `TusUploadSource` and `TusSendInfo`). Without it, its own TUS client sends, as before. chat's paths, file checks and errors stay the same either way, and a transport's refusals (`failure: "forbidden" | "invalid"`) become chat's.
+
+### Patch Changes
+
+- 6dc4594: `UploadAdapter.upload`'s documentation says what a rejection does: that file fails, and the field says so.
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
 ## 0.10.1
 
 ### Patch Changes

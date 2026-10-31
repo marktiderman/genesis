@@ -1,5 +1,43 @@
 # @marktiderman/genesis-ui
 
+## 2.25.1
+
+### Patch Changes
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+- 4516ead: `ui/lists-use-resource-view` accepts a `KanbanBoard` when the same file feeds it from `useResourceView` or `useResourceTable` and renders no other forbidden list, the catalogue's answer for a board over a list.
+- c9fcb99: genesis-ui type-checks under `exactOptionalPropertyTypes` and `noPropertyAccessFromIndexSignature`; no behaviour change. Optional props an app may pass as `undefined` now say so (`?: T | undefined`), index-signature reads use brackets, and settings handed to hooks drop their `undefined` values first. genesis-forms-studio's `NavItemShape` widens `icon` and `disabled` the same way, so a `SubNavItem` still fits it under `exactOptionalPropertyTypes`.
+
+  A consumer with `exactOptionalPropertyTypes` that copies one of these exported types into its own `?: T` fields may need to add `| undefined` there too: `filterProps.statusChips`, `ViewSettings.defaultSort`, the WorkspaceSwitcher slot props `shortcut` and `classNames`, and `SubNavItem.icon` and `children`. `packages/ui/tsconfig.strict.json` now runs in CI so the source stays strict-clean.
+
+- Updated dependencies [a8c3ae8]
+- Updated dependencies [9551c52]
+- Updated dependencies [1ed0cba]
+- Updated dependencies [84dc6c8]
+  - @marktiderman/genesis-core@2.4.0
+
 ## 2.25.0
 
 ### Minor Changes

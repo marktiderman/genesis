@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-product",
-  "version": "0.0.7",
+  "version": "0.1.0",
   "type": "module",
   "sideEffects": false,
   "description": "The product system for a Genesis repo: a Now / Next / Later board from features.ts with demand from ideas and feedback, a triage inbox, and release notes that close the loop with the people who asked. Ideas and feedback come from GitHub issues today, behind a SignalSource contract. Part of the Genesis framework.",

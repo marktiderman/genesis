@@ -1,5 +1,75 @@
 # @marktiderman/genesis-cli
 
+## 1.17.0
+
+### Minor Changes
+
+- 6eb984b: App overlays: a consumer app's marked local copy of a Genesis package. A local package with a `@marktiderman/genesis-*` name now needs a `genesis.overlay` marker (`upstream`, `since`, `owner`, `reason`), and the doctor adds `overlay-unmarked` and `overlay-invalid` (errors), `overlay-age` (info after 14 days, which never fails a run; a warning after 30, which fails `--strict`) and `overlay-version` (a warning when the version isn't the upstream version, `<upstream>+local.N` (recommended) or `<upstream>-local.N`). A marked overlay is treated as the package it shadows: `shadowed-export`, `raw-tag`, `local-genesis-copy` and `native-raw-primitive` skip that package's names inside it, and `version-skew` and the packages pack's change gate skip it. Two fixes found with overlays: `package-migration-test` looks a block migration's test up in the package its `package` field names, and a component package whose exports point at TypeScript source with no `types` condition is read from that source. The README gains an Overlays section (wiring, Vite and Vitest settings, manual promotion).
+
+  Features: app-overlays, local-packages, cli-doctor
+
+- 4516ead: Doctor and introspect gaps from a consumer app:
+
+  - `page-layout` counts `RecordView` as a page layout, as it counted `ResourceWorkspace`, so record routes need no `allow` entries.
+  - `genesis introspect` links a column of a composite foreign key whose other columns reference their namesakes and whose own column references a column unique on its own (the tenant-safe `(gallery_id, org_id) references galleries (id, org_id)` makes `gallery_id` a link), from Postgres. PostgREST notes single-column keys only, so `--openapi` is unchanged.
+  - `genesis introspect` reads a key from a table or view comment, `@genesis {"key": "id"}` (or a list, no repeats), for a read-only view that joins tables; one that differs from a primary key is used with a warning.
+  - `genesis migrate` mirrors a named notifications registry (`--notifications <file>` or `notifications.registry` in genesis.config.json; never on `--dry-run`) into a `<timestamp>_genesis_notification_types.sql` migration that adds and updates its types when they change, never retiring one.
+
+- 9551c52: First-run fixes from a fresh `genesis init --template native`:
+
+  - `genesis.lock.json` remembers where each package migration was copied (`migrations`), written by `genesis add`, `genesis migrate` and `init --template native`; a run on an older lock records the copies it finds. A copy the app deleted is reported as `deleted` by `genesis migrate` and `genesis add`, the way an edited copy is, and is never copied again (before, it looked new and `genesis upgrade` listed it to copy back). It doesn't make `genesis migrate` exit 1.
+  - An Edge Function's `npm:@marktiderman/genesis-*@<range>` imports are pinned to the versions the app has installed when `genesis add` copies the function, and `genesis upgrade` refreshes them the same way. The notifications function's own imports now name `^0.3.0`, not `^0.1.0`.
+  - The native starter's Metro test (which reads the monorepo's `metro.config.js`) runs only inside the Genesis monorepo, so `vitest` passes right after `init --template native`.
+
+- b028861: A feature's `kind` replaces its `layer` field. `kind` takes the same values (token, element, pattern, layout, hook, provider, block, service, tool); `layer` is still read as a kind until the next major (`"primitive"` as `"element"`), `features check` warns on it, and a feature that sets both to different kinds fails. A feature's layer is now its owning package's (foundation, primitive, module, tooling), derived from its `entry` imports or its `links.code` paths: `featurePackageLayer(def, packages)`, and `findFeatures(…, { packageLayer, packages })`. New exports: `FEATURE_KINDS`, `FeatureKind`, `featureKind`, `featurePackageLayer`, `FeaturePackage`; `FEATURE_LAYERS` and `FeatureLayer` are deprecated aliases.
+
+  `genesis features find` gains `--kind`; `--layer` now filters by the owning package's layer (foundation, module or tooling), and a kind passed to `--layer` still works with a warning until the next major (so `--layer primitive` still means the element kind until then); a kind passed to both that disagrees is refused. Records (`toRecords`, `features.json`) carry the resolved `kind` and no longer the deprecated `layer`. `genesis add` writes `kind:` into features.ts when the app's genesis-features reads it (0.8 and later; `layer:` before), and a block manifest's `feature.kind` (or its deprecated `feature.layer`) sets it.
+
+- 4dbc637: `genesis catalog` prints the need→use catalog (what to use for each need, its import and docs) from the installed packages' declarations; `genesis primitives` still works, with a deprecation note, and its JSON keeps the `primitives` key until the next major (`genesis catalog --json` uses `catalog`). A package's `genesis.doctor` declaration may now call its list `catalog`; `primitives` is read as its old name until the next major, and a declaration with both is refused. Genesis's own packages keep `primitives` for now, so apps on an older genesis-cli still read them.
+
+  The agent guide `genesis agents` writes now says `genesis catalog`, so an app's `genesis agents --check` reports it stale once after upgrading: run `genesis agents` and commit the result.
+
+- e288706: `genesis upstream check` validates an app's register of what it needed from Genesis (`docs/genesis-upstream.md`: id, kind gap/extension/invention, status, feature, package, local, need) and warns when a promoted entry's local copy is still there. `genesis upstream export <id>` prints the link to Genesis's new gap issue form, filled in from the entry without its local path; it sends nothing.
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- 156f5dc: `genesis agents --rules` checks a repo against the agent rules of engagement a script can check from the repository alone (docs/agents/RULES.md): **first-version** (a public package never released is at 0.1.0 and its changesets are patches) and **batch-ci** (a workflow on pull requests into main also runs on pull requests into the staging batches; `--batch` sets the pattern, default `staging/**`). Exits 1 on a break. The private `packages/agents`, which held only RULES.md, is retired: the rules now live in `docs/agents/RULES.md`.
+- 0d3559e: Two doctor rules read export maturity from the JSDoc tags in the installed Genesis packages' published declarations: `deprecated-import` (warn) for a named import of an export tagged `@deprecated` or `@stability Deprecated`, with the tag's advice, and `beta-import` (info) for one tagged `@stability Beta` or `Experimental`. Only top-level declarations count; a deprecated prop stays the type checker's to show.
+
+### Patch Changes
+
+- 5951c42: `deprecated-import` ratchets by default: under `--base`, a deprecated import in a file that didn't change is reported as `info`, so upgrading Genesis never fails an app's strict CI on files nobody touched. Changed files still get the warning.
+- b61bdd9: `genesis introspect` now follows the app's `doctor.contracts` settings (`out`, `schemas`, `databaseEnv`) when no flag is given, so it rewrites the contract the doctor checks instead of writing `resources.genesis.ts` into the current folder. Flags still win; a `--config` option names another config file.
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+- Updated dependencies [6eb984b]
+- Updated dependencies [b11005b]
+- Updated dependencies [b028861]
+- Updated dependencies [c0c573f]
+- Updated dependencies [37972e2]
+- Updated dependencies [1ed0cba]
+- Updated dependencies [f9a11f2]
+  - @marktiderman/genesis-features@0.8.0
+  - @marktiderman/genesis-studio-server@0.5.2
+
 ## 1.16.2
 
 ### Patch Changes

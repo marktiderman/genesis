@@ -1,5 +1,46 @@
 # @marktiderman/genesis-design-system
 
+## 1.6.0
+
+### Minor Changes
+
+- c2ba64f: Design systems and an OKLCH colour engine. `defineDesignSystem` defines versioned look rules (`crisp@1`): a fluid type ramp (a `clamp()` per step), weights, tracking and case per font class, section density, corners, border and shadows, surfaces, image treatment, and CSS-only motion levels (none, calm, lively, bold). A brand names one with the new optional `CanonicalBrand.designSystem` (`{ id, density?, corners?, motion? }`), and `themeFromBrand(brand, { designSystem })` adds its `--ds-*` tokens to the variables, plus, for a design system with `surfaces`, colour roles from `palette()`: brand-tinted neutrals on a warm, cool, pure or night ground, the accent as a fill and as solved text, and every text pair solved to pass WCAG AA in light and dark. The output's new `designSystem` field carries the palette and the contrast pairs. Ships `classic@1` (no tokens: today's look, the default), `crisp@1` and `soft@1`, with `registerDesignSystem` / `getDesignSystem` for more. Brand lengths may now be fluid: `LENGTH_REGEX` (and the JSON Schema) accept `clamp(<rem>, <rem> + <n>vw, <rem>)` and nothing else, with min not above max; native reads the minimum. The font list (`FONT_CHOICES`, `SELF_HOSTED_FONTS`, with each font's class) moves here from genesis-sites, at the new `/fonts` entry; `/design-systems` is also a new entry. The package has a README.
+- 9551c52: The brand passed to `GenesisNativeApp` now reaches NativeWind's role classes. Before, `bg-primary` and the other role classes read the Genesis variables the preset declares, so an app's own brand stayed Genesis purple on screen.
+
+  - design-system: `brandRoleVariables(brand)` returns the theme role variables (`--primary`, `--background`, `--border`, …, light and dark) worked out from a brand, after its native `platformOverrides` (`{ platform: "web" }` for the web ones). `themeFromBrand(brand).variables` now includes them beside the `--color-*` scales. `createGenesisNativewindPreset({ brand })` (`presets/nativewind`) declares a brand's role variables instead of the Genesis ones; `genesisNativewindPreset` is unchanged.
+  - native: `GenesisNativeApp` can set the brand's role variables on a view around the app (NativeWind's `vars()`), opt-in with `brandVariables`. `nativewind` is now a peer dependency, as it already was for ui-native.
+
+### Patch Changes
+
+- d48d7e9: Brand role variables no longer read a color's `light` / `dark` keys as light and dark mode. Those keys are emphasis tints, so an app whose text tint was a light taupe got taupe body text on a white tint (under 4.5:1).
+
+  - design-system: `brandRoleVariables` takes a brand's colors from its `DEFAULT`s, as `tailwindFromBrand` emits them for web. Dark mode keeps the Genesis dark theme, with the brand's accent as the primary only where it reaches 4.5:1 on the dark background.
+  - native: `GenesisNativeApp` no longer sets role variables over the app's own by default. Opt in with `brandVariables`: `true` sets `brandRoleVariables(brand)`, and an object (one map, or `{ light, dark }`) sets the app's own. For your brand's classes, use `createGenesisNativewindPreset({ brand })` or your brand package's variables in `tailwind.config`.
+
+- 1ed0cba: Package layers. Every package's package.json now says where it sits: `genesis.layer`
+  (`foundation`, `primitive`, `module` or `tooling`), `genesis.group` (`core`, `data`, `ai`,
+  `forms`, `collaboration`, `shells` or `modules`) and, on the foundation packages, `essential`.
+  Dependencies only point down, and the repo's CI fails when one doesn't (docs/PACKAGE-STRATEGY.md,
+  "Layers").
+
+  - genesis-features: `PackageMeta`, `ModuleMeta`, `PACKAGE_LAYERS`, `PACKAGE_GROUPS`,
+    `readPackageMeta` and `packageLayerProblems` (also from `/blocks`). The feature `layer` that
+    meant one component is now `"element"`; `"primitive"` is still accepted as its deprecated name,
+    and `findFeatures(…, { layer: "element" })` finds both, until the next major.
+  - genesis-sites, genesis-support and genesis-product are modules: each declares a
+    `genesis.module` card (name, summary, blocks, schema, install line, docs) and ships a
+    `SKILL.md`. genesis-product gains a `product-board` block (`genesis add product-board`), and
+    marks `/node` and its `genesis-product` bin as tooling.
+  - genesis-cli: `genesis features find --layer element` (`--layer primitive` still works).
+
+- 84dc6c8: Package housekeeping, no code changes. genesis-ui and genesis-design-system ship a README (their
+  npm pages were empty). chat, collab, native, notifications, sites and supabase ship the MIT
+  LICENSE. core, design-system, ui, ui-native, the umbrella and genesis-cli export
+  `./package.json`, so tools can read a package's metadata through `exports`. genesis-switchboard's
+  repository folder is now `packages/switchboard` (the package name is unchanged). genesis-studio and
+  genesis-forms-studio no longer call themselves a "workspace", which in Genesis means where the
+  viewer is working.
+
 ## 1.5.1
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-forms-native",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "type": "module",
   "sideEffects": false,
