@@ -1,0 +1,65 @@
+.changeset/media-uploads.md
+  s_ba8cb54dbea75a::t_61b43f1038a0fa 2,5,7-25
+docs/PACKAGE-STRATEGY.md
+  s_ba8cb54dbea75a::t_96a9e8960d6047 149
+docs/media-uploads.md
+  s_ba8cb54dbea75a::t_80917ac5b61202 1,3,31-36,42-46,313-315,323,332-335,342,344-345,415
+features.json
+  s_ba8cb54dbea75a::t_2ae9cd759a606a 5304-5305,5330-5332,5353-5354,5357-5358
+features.ts
+  s_ba8cb54dbea75a::t_9479863f285fce 2319-2320,2328,2340
+packages/chat/src/native/tus.ts
+  s_ba8cb54dbea75a::t_9f001831909dd3 20-21
+packages/forms-web/src/Form.tsx
+  s_ba8cb54dbea75a::t_65626e56824c74 561
+packages/forms/src/upload-adapter.ts
+  s_ba8cb54dbea75a::t_9f78307fe092fe 9
+packages/media/README.md
+  s_ba8cb54dbea75a::t_db4793333c49ba 5-7,448-705,719-720
+packages/media/migrations/0001_genesis_media_library.sql
+  s_ba8cb54dbea75a::t_3cee6571ab3e16 1,3,67
+packages/media/package.json
+  s_ba8cb54dbea75a::t_71ab668590a071 7,17-23,64-94,99,103,109,111,114,121,124,137-142,148
+packages/media/src/forms/__tests__/forms.test.ts
+  s_ba8cb54dbea75a::t_851d4ef29eff53 5-6
+packages/media/src/forms/index.ts
+  s_ba8cb54dbea75a::t_fafca90931e2b1 2,17-18
+packages/media/src/uploads/client/__tests__/vite-worker.test.ts
+  s_ba8cb54dbea75a::t_42860e506ea2d3 11-12,26,29,33
+packages/media/src/uploads/client/hash-worker.ts
+  s_ba8cb54dbea75a::t_84181b55ef2830 5
+packages/media/src/uploads/client/index.ts
+  s_ba8cb54dbea75a::t_348eddabd04a31 2
+packages/media/src/uploads/client/web.ts
+  s_ba8cb54dbea75a::t_077da062b51138 2
+packages/media/src/uploads/index.ts
+  s_ba8cb54dbea75a::t_b5af0754291070 2,6-7
+packages/media/src/uploads/protocol.ts
+  s_ba8cb54dbea75a::t_98211c490b8638 4
+packages/media/src/uploads/server/handler.ts
+  s_ba8cb54dbea75a::t_60be074ff3abf2 3
+packages/media/src/uploads/server/index.ts
+  s_ba8cb54dbea75a::t_4c3725b81c92ea 2,12
+packages/media/src/uploads/targets/index.ts
+  s_ba8cb54dbea75a::t_e0ed23325e7e76 2
+packages/media/tsup.config.ts
+  s_ba8cb54dbea75a::t_28aa0453853527 3-41
+pnpm-lock.yaml
+  s_ba8cb54dbea75a::t_027e55cf57ba59 1288-1290
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4240f39793f29df45293fd90cb7e5dbca6b28291",
+  "prompts": {},
+  "sessions": {
+    "s_ba8cb54dbea75a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "bf887e7e-1906-4028-9d09-a4e1f2672539",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
