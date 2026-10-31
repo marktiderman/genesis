@@ -44,6 +44,25 @@ Rules:
 5. **The words are the glossary's**: configure, brand, compose, adapt, own. Docs, the catalog
    (`genesis catalog`), the agent guide and reviews use them.
 
+### Upgrades plug in; primitives never import them (added 2026-10-30)
+
+An optional or premium capability (a media library, a video player, a payments provider) reaches
+a primitive at level 4, **Adapt**, never as a dependency:
+
+1. **The primitive owns the port.** It defines the interface (for example an uploader for forms
+   and chat), and it keeps a built-in default so it works with nothing else installed.
+2. **The upgrade ships the adapter.** The optional package exports adapters for the primitives it
+   serves (`<upgrade>/forms`, `<upgrade>/chat`), and it may depend on those primitives.
+3. **The app opts in** by passing the adapter in config. Removing the upgrade never breaks the
+   primitive.
+4. **Enforced by the layering check.** A package marks itself `"genesis": { "optional": true }`.
+   No foundation package or primitive may use it; an optional peer dependency
+   (`peerDependenciesMeta.<name>.optional`) is the one allowed edge. Modules are already out of
+   a primitive's reach by layer.
+
+This is how a public engine and premium parts can coexist: the engine is complete on its own,
+and premium parts plug into ports it defines.
+
 ## Consequences
 
 - The 80% path is levels 1–4 everywhere; an app's uniqueness is level 5, and visible as such.

@@ -131,6 +131,10 @@ Foundation   design-system · core · ui · ui-native · features     (essential
 | module | foundation, primitive, and a module only when its `genesis.module.requiresModules` lists it |
 | tooling | anything; no runtime package depends on tooling, nor on a package's `toolingEntries` |
 
+A package marked `genesis.optional` (an upgrade) is off limits to foundation packages and
+primitives except as an optional peer dependency: the primitive owns a port and the upgrade ships
+the adapter (ADR 0013, "Upgrades plug in").
+
 "Depends on" is the package's `dependencies` and `peerDependencies` plus every Genesis import in
 its source, tests aside, so an undeclared import still counts. The rule for where a package goes:
 if another package or app embeds it as a part, it is a **primitive**; if someone installs it and
@@ -168,6 +172,9 @@ gets a working product surface to switch on for tenants, it is a **module**.
     "skill": "SKILL.md"
   },
   "toolingEntries": ["./node"],    // optional: entry points that are tooling inside a runtime package
+  "optional": true,                // optional; an upgrade apps opt into (a primitive or module). No
+                                   // foundation package or primitive uses it except as an optional
+                                   // peer: it plugs into ports they own (ADR 0013)
   "blocks": { … }, "doctor": { … } // unchanged
 }
 ```
