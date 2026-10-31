@@ -1,0 +1,21 @@
+packages/core/src/navigation.ts
+  s_36f3212387dbf7::t_5f87613cb8887e 11-17,25
+.changeset/core-navigation-linear-trim.md
+  s_36f3212387dbf7::t_5f87613cb8887e 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a8c3ae83a530d53bf79dac1d7f2f9f8241adf907",
+  "prompts": {},
+  "sessions": {
+    "s_36f3212387dbf7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "6a48ad61-d4d8-4c78-b2f4-7e4f80c653e1",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
