@@ -153,7 +153,7 @@ program
         headers.push(`apikey: ${key}`, `Authorization: Bearer ${key}`);
       }
       const doc = await readOpenApi(opts.openapi, headers);
-      tables = introspectOpenApi(doc, schemas[0]);
+      tables = introspectOpenApi(doc, schemas[0], { warn: (m) => logger.warn(m) });
       source = `OpenAPI ${redactUrl(opts.openapi)}`;
     } else {
       // The URL comes from the environment, never the command line, so it
@@ -163,7 +163,7 @@ program
       const { default: postgres } = await import("postgres");
       const sql = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
       try {
-        tables = await introspectPostgres(sql, schemas);
+        tables = await introspectPostgres(sql, schemas, { warn: (m) => logger.warn(m) });
       } finally {
         await sql.end();
       }
@@ -543,7 +543,7 @@ program
   .option("--block <id...>", "Also check these blocks (beyond genesis.lock.json's)")
   .option("--dry-run", "Report only", false)
   .option("--forward", "Write a forward migration stub for each edited or changed migration", false)
-  .option("--notifications <file>", "The app's defineNotifications registry, mirrored into a types migration when the notifications block is installed (default: src/notifications.ts and the like)")
+  .option("--notifications <file>", "The app's defineNotifications registry (relative to --dir), loaded to write a types migration when the notifications block is installed; default: notifications.registry in genesis.config.json. Runs app code; skipped on --dry-run")
   .action(async (opts: { dir: string; block?: string[]; dryRun: boolean; forward: boolean; notifications?: string }) => {
     const { runMigrate } = await import("./blocks/migrate.js");
     const { formatMigrationRows } = await import("./blocks/migrations.js");

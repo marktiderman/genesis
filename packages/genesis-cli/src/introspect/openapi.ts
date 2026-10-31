@@ -46,7 +46,7 @@ function clean(description: string | undefined): string | undefined {
  * Tables from the document, all in `schema` (PostgREST serves one schema
  * per document; a Supabase project's is `public`).
  */
-export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): IntrospectedTable[] {
+export function introspectOpenApi(doc: OpenApiDocument, schema = "public", options: { warn?: (message: string) => void } = {}): IntrospectedTable[] {
   const definitions = doc.definitions ?? doc.components?.schemas;
   if (!definitions) throw new Error("This OpenAPI document has no definitions. Is it a PostgREST (Supabase /rest/v1/) spec?");
   return Object.keys(definitions)
@@ -88,6 +88,6 @@ export function introspectOpenApi(doc: OpenApiDocument, schema = "public"): Intr
         columns,
         ...(comment.description ? { description: comment.description } : {}),
         ...(comment.settings ? { settings: comment.settings } : {}),
-      });
+      }, options.warn);
     });
 }

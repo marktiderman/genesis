@@ -65,6 +65,7 @@ describe("view keys and composite links", () => {
     expect(() => parseTableComment('@genesis {"key": []}', "t")).toThrow(/column name or a list/);
     expect(() => parseTableComment('@genesis {"key": 1}', "t")).toThrow(/column name or a list/);
     expect(() => parseColumnComment('@genesis {"key": "id"}', "c")).toThrow(/unknown @genesis setting "key"/);
+    expect(() => parseTableComment('@genesis {"key": ["id", "id"]}', "t")).toThrow(/names "id" twice/);
   });
 
   it("keys a view from its comment over OpenAPI too, and refuses a key that isn't a column", () => {
@@ -82,15 +83,32 @@ describe("view keys and composite links", () => {
     expect(cards!.description).toBe("Galleries with counts.");
     expect(emitContracts([cards!], { source: "x" })).toContain('  key: "id",');
     expect(() => introspectOpenApi(view("nope"))).toThrow(/key "nope" isn't one of its columns/);
+    // A key setting that differs from a primary key the document has is used, with a warning.
+    const warnings: string[] = [];
+    const [keyed] = introspectOpenApi(
+      {
+        swagger: "2.0",
+        definitions: {
+          t: { description: '@genesis {"key": "code"}', properties: { id: { format: "integer", type: "integer", description: "<pk/>" }, code: { format: "text", type: "string" } } },
+        },
+      },
+      "public",
+      { warn: (m) => warnings.push(m) },
+    );
+    expect(keyed!.key).toEqual(["code"]);
+    expect(warnings).toEqual(["public.t: @genesis key (code) differs from its primary key (id); the comment's key is used."]);
   });
 
   it("links one column of a composite key when every other column references its namesake", () => {
     expect(linkOf(["gallery_id"], ["id"])).toBe(0);
-    expect(linkOf(["gallery_id", "org_id"], ["id", "org_id"])).toBe(0);
-    expect(linkOf(["org_id", "gallery_id"], ["org_id", "id"])).toBe(1);
+    expect(linkOf(["gallery_id", "org_id"], ["id", "org_id"], [true, false])).toBe(0);
+    expect(linkOf(["org_id", "gallery_id"], ["org_id", "id"], [false, true])).toBe(1);
+    // The referenced column isn't unique on its own (a version of a document): not a link.
+    expect(linkOf(["doc_id", "version"], ["id", "version"], [false, false])).toBe(-1);
+    expect(linkOf(["gallery_id", "org_id"], ["id", "org_id"])).toBe(-1);
     // Nothing of its own (an extension table), or two of its own: not one row's field.
-    expect(linkOf(["id", "org_id"], ["id", "org_id"])).toBe(-1);
-    expect(linkOf(["a_id", "b_id"], ["id", "other_id"])).toBe(-1);
+    expect(linkOf(["id", "org_id"], ["id", "org_id"], [true, false])).toBe(-1);
+    expect(linkOf(["a_id", "b_id"], ["id", "other_id"], [true, true])).toBe(-1);
   });
 });
 
@@ -346,6 +364,9 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
       create view public.gallery_cards as
         select g.id, g.name, count(p.id) as photos from public.galleries g left join public.photos p on p.gallery_id = g.id group by g.id, g.name;
       comment on view public.gallery_cards is 'Galleries with counts. @genesis {"key": "id"}';
+      create table public.doc_versions (id int not null, version int not null, body text, primary key (id, version));
+      create table public.doc_comments (id int primary key, doc_id int not null, version int not null,
+        foreign key (doc_id, version) references public.doc_versions (id, version));
     `);
   });
   afterAll(async () => {
@@ -359,6 +380,8 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     expect(tables.map((t) => t.name)).toEqual([
       'public."a.b"',
       "public.customers",
+      "public.doc_comments",
+      "public.doc_versions",
       "public.galleries",
       "public.gallery_cards",
       "public.goal_counts",
@@ -492,6 +515,9 @@ describe.skipIf(!ADMIN_URL)("introspect from Postgres", () => {
     expect(col("gallery_id").references).toEqual({ resource: "public.galleries", field: "id" });
     // The tenant column keeps its own single-column link.
     expect(col("org_id").references).toEqual({ resource: "public.orgs", field: "id" });
+    // (doc_id, version) -> doc_versions (id, version): id alone names no one row, so no link.
+    const comments = tables.find((t) => t.name === "public.doc_comments")!;
+    expect(comments.columns.every((c) => !c.references)).toBe(true);
     const cards = tables.find((t) => t.name === "public.gallery_cards")!;
     expect(cards).toMatchObject({ key: ["id"], description: "Galleries with counts." });
     expect(emitContracts(tables, { source: "x" })).toContain('name: "public.gallery_cards",\n  key: "id",');

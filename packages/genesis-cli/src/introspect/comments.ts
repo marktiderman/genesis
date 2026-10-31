@@ -55,6 +55,8 @@ function parse<S>(
       if (!Array.isArray(list) || list.length === 0 || !list.every((c) => typeof c === "string" && c !== "")) {
         throw new CommentSettingsError(`${where}: ${MARKER} "${key}" must be a column name or a list of them.`);
       }
+      const twice = (list as string[]).find((c, i) => (list as string[]).indexOf(c) !== i);
+      if (twice) throw new CommentSettingsError(`${where}: ${MARKER} "${key}" names "${twice}" twice.`);
       settings[key] = list as string[];
       continue;
     }
@@ -78,13 +80,17 @@ export function parseColumnComment(comment: string | null | undefined, column: s
 /**
  * A table or view whose comment names its key (`@genesis {"key": "id"}`) takes that key: the way to
  * key a read-only view that joins tables, which the catalog gives none. The setting wins over the
- * catalog's key, and every column it names must be one of the relation's.
+ * catalog's key, and every column it names must be one of the relation's. One that differs from a
+ * primary key the catalog has is passed to `warn`: usually a mistake, but the comment is explicit.
  */
-export function withKeySetting(table: IntrospectedTable): IntrospectedTable {
+export function withKeySetting(table: IntrospectedTable, warn?: (message: string) => void): IntrospectedTable {
   const key = table.settings?.key;
   if (!key) return table;
   const columns = new Set(table.columns.map((c) => c.name));
   const missing = key.filter((k) => !columns.has(k));
   if (missing.length) throw new CommentSettingsError(`${table.name}: ${MARKER} key "${missing.join('", "')}" isn't one of its columns.`);
+  if (table.key.length && table.key.join("\0") !== key.join("\0")) {
+    warn?.(`${table.name}: ${MARKER} key (${key.join(", ")}) differs from its primary key (${table.key.join(", ")}); the comment's key is used.`);
+  }
   return { ...table, key: [...key] };
 }

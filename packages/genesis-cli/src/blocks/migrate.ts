@@ -28,7 +28,7 @@ export interface MigrateOptions {
   /** Write a forward migration stub for each edited or changed-upstream copy. */
   forward?: boolean;
   now?: Date;
-  /** The app's defineNotifications registry, when the notifications block is installed (default: found by name). */
+  /** The app's defineNotifications registry (default: genesis.config.json notifications.registry). Loading it runs app code; never on a dry run. */
   notifications?: string;
 }
 
@@ -87,6 +87,7 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
         ...(options.notifications ? { registry: options.notifications } : {}),
         now: options.now ?? new Date(),
         pending: plan.creates.filter((c) => c.kind !== "test").map((c) => c.path.split("/").pop()!),
+        ...(options.dryRun ? { dryRun: true } : {}),
       })
     : undefined;
   warnings.push(...(types?.warnings ?? []));

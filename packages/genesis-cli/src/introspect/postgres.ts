@@ -54,13 +54,15 @@ function where(sql: Sql, scope: Scope) {
  * A single-column key is that column. A composite key is a link too when every other column
  * references the column of the same name: the scope or tenant column carried along, as in the
  * tenant-safe `(gallery_id, org_id) references galleries (id, org_id)`, where `gallery_id` links to
- * galleries. Any other composite key isn't a link to one row's field.
+ * galleries, but only when the column it references is unique on its own (the primary key or a
+ * unique index, `refUnique`): `(doc_id, version) references doc_versions (id, version)` names no
+ * one row by `id`, so it isn't a link. Any other composite key isn't a link to one row's field.
  */
-export function linkOf(columns: readonly string[], refColumns: readonly string[]): number {
+export function linkOf(columns: readonly string[], refColumns: readonly string[], refUnique: readonly boolean[] = []): number {
   if (columns.length === 1) return 0;
   if (columns.length !== refColumns.length) return -1;
   const own = columns.flatMap((c, i) => (c === refColumns[i] ? [] : [i]));
-  return own.length === 1 ? own[0]! : -1;
+  return own.length === 1 && refUnique[own[0]!] === true ? own[0]! : -1;
 }
 
 /** Read the relations in `scope` into `into`; returns the new ones' oids in name order. */
@@ -98,12 +100,17 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
 
   // Every foreign key, its columns paired in order with the ones it references. A single-column key
   // is a link; so is a composite one that carries a scope column along (see linkOf).
-  const links = await sql<{ oid: string; attnums: number[]; columns: string[]; ref_columns: string[]; ref_schema: string; ref_table: string }[]>`
+  // `ref_unique`: whether each referenced column is, on its own, the primary key or a unique index.
+  const links = await sql<{ oid: string; attnums: number[]; columns: string[]; ref_columns: string[]; ref_unique: boolean[]; ref_schema: string; ref_table: string }[]>`
     select c.oid::text as oid, con.conkey::int[] as attnums,
            array(select a.attname::text from unnest(con.conkey) with ordinality k(attnum, ord)
                    join pg_attribute a on a.attrelid = c.oid and a.attnum = k.attnum order by k.ord) as columns,
            array(select ra.attname::text from unnest(con.confkey) with ordinality k(attnum, ord)
                    join pg_attribute ra on ra.attrelid = con.confrelid and ra.attnum = k.attnum order by k.ord) as ref_columns,
+           array(select exists (select 1 from pg_index i
+                                 where i.indrelid = con.confrelid and i.indisunique and i.indpred is null
+                                   and i.indnkeyatts = 1 and i.indkey[0] = k.attnum)
+                   from unnest(con.confkey) with ordinality k(attnum, ord) order by k.ord) as ref_unique,
            rn.nspname as ref_schema, rc.relname as ref_table
       from pg_constraint con
       join pg_class c on c.oid = con.conrelid
@@ -188,7 +195,7 @@ async function readRelations(sql: Sql, scope: Scope, into: Map<string, Relation>
   // Single-column keys first, so one on the same column wins over a composite key's guess.
   const ordered = [...links].sort((a, b) => a.attnums.length - b.attnums.length);
   for (const l of ordered) {
-    const at = linkOf(l.columns, l.ref_columns);
+    const at = linkOf(l.columns, l.ref_columns, l.ref_unique);
     if (at < 0) continue;
     const column = into.get(l.oid)?.columns.get(l.attnums[at]!);
     if (column && !column.references) column.references = { resource: qualifiedName(l.ref_schema, l.ref_table), field: l.ref_columns[at]! };
@@ -287,7 +294,7 @@ function resolveViews(relations: Map<string, Relation>): void {
   for (const relation of relations.values()) resolve(relation, 0);
 }
 
-export async function introspectPostgres(sql: Sql, schemas: readonly string[]): Promise<IntrospectedTable[]> {
+export async function introspectPostgres(sql: Sql, schemas: readonly string[], options: { warn?: (message: string) => void } = {}): Promise<IntrospectedTable[]> {
   const relations = new Map<string, Relation>();
   const wanted = await readRelations(sql, { schemas: [...schemas] }, relations);
   // A view's source may sit in a schema that wasn't asked for: read it too, but don't emit it.
@@ -305,6 +312,6 @@ export async function introspectPostgres(sql: Sql, schemas: readonly string[]): 
   resolveViews(relations);
   return wanted.map((oid) => {
     const relation = relations.get(oid)!;
-    return withKeySetting({ ...relation.table, key: relation.key.map((attnum) => relation.columns.get(attnum)!.name) });
+    return withKeySetting({ ...relation.table, key: relation.key.map((attnum) => relation.columns.get(attnum)!.name) }, options.warn);
   });
 }

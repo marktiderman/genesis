@@ -1,9 +1,10 @@
 // @feat:cli-migrate
-import { readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
 import { runMigrate } from "../src/blocks/migrate.js";
+import { planNotificationTypes } from "../src/blocks/notification-types.js";
 import { applyMigrationPlan, formatMigrationRows, nextTimestamps, planMigrations } from "../src/blocks/migrations.js";
 import { expoApp, fixturePackage, linkWorkspacePackage, makeApp, NOW, read, snapshot, SQL_A, SQL_B } from "./blocks-helpers.js";
 
@@ -113,51 +114,103 @@ describe("genesis migrate", () => {
   });
 });
 
+/** JSON safe to embed in generated source: the characters that could end a string or a script are escaped. */
+const UNSAFE: Record<string, string> = { "<": "\\u003C", ">": "\\u003E", "/": "\\u002F", "\u2028": "\\u2028", "\u2029": "\\u2029" };
+const toCode = (value: unknown) => JSON.stringify(value).replace(/[<>/\u2028\u2029]/g, (c) => UNSAFE[c]!);
+
 describe("genesis migrate: notification types", () => {
   const registry = (types: string[]) =>
-    `export const notifications = { toTypeRows: () => ${JSON.stringify(types.map((key) => ({ key, category: "messages", channels: { in_app: true }, critical: false, transactional: false, email_delay_seconds: 0, secret_link: false, push_privacy: "default", ios_category: null })))} };\n`;
-  const notificationsApp = (types: string[]) => {
+    `export const notifications = { toTypeRows: () => ${toCode(types.map((key) => ({ key, category: "messages", channels: { in_app: true }, critical: false, transactional: false, email_delay_seconds: 0, secret_link: false, push_privacy: "default", ios_category: null })))} };\n`;
+  const notificationsApp = (types: string[], config?: Record<string, unknown>) => {
     const root = makeApp({
       "genesis.lock.json": JSON.stringify({ version: 1, blocks: { notifications: { package: "@marktiderman/genesis-notifications" } }, files: {} }),
       "src/notifications.ts": registry(types),
+      ...(config ? { "genesis.config.json": JSON.stringify(config) } : {}),
     });
     linkWorkspacePackage(root, "@marktiderman/genesis-notifications", "notifications");
     return root;
   };
+  const OPT_IN = { notifications: { registry: "src/notifications.ts" } };
 
-  it("mirrors the registry's types in a migration after the block's own, and again only when they change", async () => {
-    const root = notificationsApp(["chat.message", "billing.receipt"]);
+  it("mirrors the registry's types in an add-and-update migration after the block's own, and again only when they change", async () => {
+    const root = notificationsApp(["chat.message", "billing.receipt"], OPT_IN);
     const first = await runMigrate({ root, now: NOW });
-    expect(first.written).toEqual([
+    expect(first.written.filter((p) => p.startsWith("supabase/migrations/"))).toEqual([
       "supabase/migrations/20261101120000_genesis_notifications.sql",
-      "supabase/tests/database/genesis_notifications.test.sql",
       "supabase/migrations/20261101120001_genesis_notification_types.sql",
     ]);
     const sql = read(root, first.notificationTypes!);
     expect(sql).toMatch(/^-- genesis-notification-types: src\/notifications\.ts\n/);
-    expect(sql).toContain("select public.genesis_notifications_sync_types('[");
+    expect(sql).toContain("insert into public.notification_types as t");
+    expect(sql).toContain("on conflict (key) do update");
     // Rows by key, whatever order the registry lists them in.
     expect(sql.indexOf('"billing.receipt"')).toBeLessThan(sql.indexOf('"chat.message"'));
     expect((await runMigrate({ root, now: NOW })).written).toEqual([]);
 
     writeFileSync(path.join(root, "src/notifications.ts"), registry(["chat.message", "billing.receipt", "it's.new"]));
-    const dry = await runMigrate({ root, now: NOW, dryRun: true });
-    expect(dry).toMatchObject({ written: [], notificationTypes: "supabase/migrations/20261101120002_genesis_notification_types.sql" });
     const next = await runMigrate({ root, now: NOW });
     expect(next.written).toEqual(["supabase/migrations/20261101120002_genesis_notification_types.sql"]);
-    // A quote in a key is doubled, so the literal stays one string.
-    expect(read(root, next.written[0]!)).toContain(`"it''s.new"`);
+    // A quote in a key is a JSON escape, never raw, so the literal stays one string.
+    expect(read(root, next.written[0]!)).toContain(`"it\\u0027s.new"`);
   });
 
-  it("warns, and writes no types migration, when it can't find the registry; --notifications names it", async () => {
-    const root = notificationsApp(["chat.message"]);
-    writeFileSync(path.join(root, "src/notifications.ts"), "export const nothing = 1;\n");
-    const report = await runMigrate({ root, now: NOW, dryRun: true });
-    expect(report.notificationTypes).toBeUndefined();
-    expect(report.warnings.join("\n")).toMatch(/exports no defineNotifications registry/);
+  it("never retires a type, so two branches' migrations merged keep both branches' types", async () => {
+    const base = notificationsApp(["chat.message"], OPT_IN);
+    await runMigrate({ root: base, now: NOW });
+    const branch = (type: string, now: Date) => {
+      const root = notificationsApp(["chat.message", type], OPT_IN);
+      mkdirSync(path.join(root, "supabase/migrations"), { recursive: true });
+      for (const name of readdirSync(path.join(base, "supabase/migrations"))) writeFileSync(path.join(root, "supabase/migrations", name), read(base, `supabase/migrations/${name}`));
+      return runMigrate({ root, now }).then((r) => ({ root, file: r.notificationTypes! }));
+    };
+    const a = await branch("billing.receipt", new Date("2026-11-02T00:00:00Z"));
+    const b = await branch("team.invite", new Date("2026-11-03T00:00:00Z"));
+    // Merged: B's migration runs last. It lists only its own types and retires nothing.
+    const later = read(b.root, b.file);
+    expect(later).not.toContain("billing.receipt");
+    expect(later).not.toMatch(/retired_at\s*=\s*now\(\)|genesis_notifications_sync_types|delete /);
+    expect(later).toContain("retired_at = null");
+    expect(read(a.root, a.file)).toContain('"billing.receipt"');
+  });
+
+  it("compares the payload only: moving the registry file writes nothing new", async () => {
+    const root = notificationsApp(["chat.message"], OPT_IN);
+    await runMigrate({ root, now: NOW });
     writeFileSync(path.join(root, "src/registry.ts"), registry(["chat.message"]));
-    expect((await runMigrate({ root, now: NOW, dryRun: true, notifications: "src/registry.ts" })).notificationTypes).toMatch(/_genesis_notification_types\.sql$/);
-    // No notifications block: nothing to mirror.
-    expect((await runMigrate({ root: makeApp(), now: NOW, dryRun: true })).notificationTypes).toBeUndefined();
+    expect((await runMigrate({ root, now: NOW, notifications: "src/registry.ts" })).written).toEqual([]);
+  });
+
+  it("loads app code only when asked, never on a dry run, and resolves --notifications against the app's root", async () => {
+    // Not named: not loaded, reported as not checked.
+    const quiet = notificationsApp(["chat.message"]);
+    writeFileSync(path.join(quiet, "src/notifications.ts"), 'throw new Error("must not run");\n');
+    const unnamed = await runMigrate({ root: quiet, now: NOW });
+    expect(unnamed.notificationTypes).toBeUndefined();
+    expect(unnamed.warnings.join("\n")).toMatch(/Notification types: not checked\. Name the defineNotifications registry/);
+    // A dry run never loads it, even when named.
+    const dry = await runMigrate({ root: quiet, now: NOW, dryRun: true, notifications: "src/notifications.ts" });
+    expect(dry.notificationTypes).toBeUndefined();
+    expect(dry.warnings.join("\n")).toMatch(/not checked on a dry run/);
+    // An absolute path works; a relative one is the app root's.
+    const root = notificationsApp(["chat.message"]);
+    const absolute = await runMigrate({ root, now: NOW, notifications: path.join(root, "src/notifications.ts") });
+    expect(read(root, absolute.notificationTypes!)).toMatch(/^-- genesis-notification-types: src\/notifications\.ts\n/);
+    expect((await runMigrate({ root, now: NOW, notifications: "src/missing.ts" })).warnings.join("\n")).toMatch(/resolved against the app's root/);
+    writeFileSync(path.join(root, "src/nothing.ts"), "export const nothing = 1;\n");
+    expect((await runMigrate({ root, now: NOW, notifications: "src/nothing.ts" })).warnings.join("\n")).toMatch(/exports no defineNotifications registry/);
+    // No notifications block: nothing to mirror, nothing said.
+    expect((await runMigrate({ root: makeApp(), now: NOW })).warnings.join("\n")).not.toMatch(/Notification types/);
+  });
+
+  it("warns instead of failing when no timestamp fits, and keeps newlines out of the header", async () => {
+    const root = notificationsApp(["chat.message"]);
+    writeFileSync(path.join(root, "src/odd\nname.ts"), registry(["chat.message"]));
+    const ok = await runMigrate({ root, now: NOW, notifications: "src/odd\nname.ts" });
+    expect(read(root, ok.notificationTypes!).split("\n")[0]).toBe("-- genesis-notification-types: src/odd name.ts");
+    // A file that would sort after any new timestamp: a warning, not a crash.
+    writeFileSync(path.join(root, "src/notifications.ts"), registry(["chat.message", "team.invite"]));
+    const blocked = await planNotificationTypes(root, { registry: "src/notifications.ts", now: NOW, pending: ["9_late.sql"] });
+    expect(blocked.create).toBeUndefined();
+    expect(blocked.warnings.join("\n")).toMatch(/Notification types: no migration written \(.*sort after/);
   });
 });
