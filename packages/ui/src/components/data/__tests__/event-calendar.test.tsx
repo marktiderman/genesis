@@ -8,7 +8,7 @@
  * - keyboard: arrow keys between days, Enter on an event selects it;
  * - ResourceView mode="calendar": one request per window, scope and filters kept, a click opens the peek.
  */
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -27,7 +27,7 @@ import {
   windowBounds,
   type CalendarEvent,
 } from "../calendar";
-import { ResourceView } from "../resource-view";
+import { ResourceView, useResourceView } from "../resource-view";
 
 const Z = "America/Denver";
 const at = (iso: string) => new Date(iso);
@@ -496,6 +496,11 @@ describe("ResourceView mode=calendar: review fixes", () => {
       { field: "starts_at", operator: "gte", value: "2026-11-01T00:00:00" },
       { field: "starts_at", operator: "lt", value: "2026-11-08T00:00:00" },
     ]);
+  });
+
+  it("refuses calendar mode in the headless hook rather than returning table state", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => renderHook(() => useResourceView({ view: eventsView, mode: "calendar" }), { wrapper: wrap(filtering(ROWS).p) })).toThrow(/calendar mode has no table state/);
   });
 
   it("refuses a preset the view doesn't have", () => {

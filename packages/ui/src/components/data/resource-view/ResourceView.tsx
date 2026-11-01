@@ -331,5 +331,8 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
 
 /** The headless form: the same state as `useResourceTable`, from a view. */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
+  if (props.mode === "calendar") {
+    throw new Error(`useResourceView(${props.view.resource}): calendar mode has no table state; render <ResourceView mode="calendar"> or <ResourceCalendar>`);
+  }
   return useResourceTable<T>(useResourceViewProps(props));
 }
