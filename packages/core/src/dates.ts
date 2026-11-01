@@ -305,6 +305,11 @@ export type WallTime = string;
 
 const WALL_TIME = /^(\d{2}):(\d{2})(?::(\d{2}))?$/;
 
+function validWallTime(time: string): boolean {
+  const m = WALL_TIME.exec(time);
+  return Boolean(m) && Number(m![1]) <= 23 && Number(m![2]) <= 59 && Number(m![3] ?? 0) <= 59;
+}
+
 function parseWallTime(time: WallTime, where: string): [number, number, number] {
   const m = WALL_TIME.exec(time);
   if (!m || Number(m[1]) > 23 || Number(m[2]) > 59 || Number(m[3] ?? 0) > 59) {
@@ -490,6 +495,20 @@ function checkRule(rule: RRule, where: string): RRule {
   for (const d of rule.byMonthDay ?? []) if (!intIn(Math.abs(d), 1, 31)) throw new RangeError(`${where}: BYMONTHDAY=${d} is out of range`);
   if (rule.byMonthDay && rule.freq === "WEEKLY") throw new RangeError(`${where}: BYMONTHDAY can't be used with FREQ=WEEKLY`);
   for (const m of rule.byMonth ?? []) if (!intIn(m, 1, 12)) throw new RangeError(`${where}: BYMONTH=${m} is out of range`);
+  const until = rule.until as unknown;
+  if (until !== undefined) {
+    const ok =
+      typeof until === "string"
+        ? isDay(until)
+        : until instanceof Date
+          ? !Number.isNaN(until.getTime())
+          : Boolean(until) &&
+            typeof until === "object" &&
+            isDay((until as { day?: unknown }).day) &&
+            typeof (until as { time?: unknown }).time === "string" &&
+            validWallTime((until as { time: string }).time);
+    if (!ok) throw new RangeError(`${where}: UNTIL isn't a day, an instant or a { day, time } wall time`);
+  }
   for (const key of Object.keys(rule)) {
     if (!["freq", "interval", "count", "until", "byDay", "byMonthDay", "byMonth", "weekStart"].includes(key)) throw new RangeError(`${where}: ${key} isn't supported`);
   }
@@ -513,8 +532,12 @@ export interface Occurrence {
   start?: Date;
 }
 
-/** The occurrences in order, and whether `limit` cut them short. @stability Beta */
-export type Occurrences = Occurrence[] & { readonly truncated: boolean };
+/** What `expandRecurrence` returns: the occurrences in order, and whether `limit` cut them short. @stability Beta */
+export interface RecurrenceResult {
+  occurrences: Occurrence[];
+  /** True when there were more than `limit` in the window. */
+  truncated: boolean;
+}
 
 /** What `expandRecurrence` takes. @stability Beta */
 export interface RecurrenceOptions {
@@ -663,7 +686,7 @@ function startOf(start: RecurrenceStart): { day: Day; time?: WallTime; zone?: st
  *
  * @stability Beta
  */
-export function expandRecurrence(options: RecurrenceOptions): Occurrences {
+export function expandRecurrence(options: RecurrenceOptions): RecurrenceResult {
   const rule = typeof options.rule === "string" ? parseRRule(options.rule) : checkRule(options.rule, "expandRecurrence");
   const given = options.start;
   const { day: firstDay, time, zone } = startOf(given);
@@ -679,8 +702,11 @@ export function expandRecurrence(options: RecurrenceOptions): Occurrences {
   const first = assertDay(firstDay, "expandRecurrence");
   const timed = Boolean(time && zone);
   // The first occurrence is the start itself: an `at` in a repeated hour keeps its own instant.
-  const firstAt = typeof given === "object" && "at" in given ? given.at : timed ? instantIn(firstDay, time!, zone!) : undefined;
-  const at = (day: Day) => (day === firstDay ? firstAt : timed ? instantIn(day, time!, zone!) : undefined);
+  // Its milliseconds (a wall time has whole seconds) carry through to every occurrence.
+  const givenAt = typeof given === "object" && "at" in given ? given.at : undefined;
+  const ms = givenAt ? ((givenAt.getTime() % 1000) + 1000) % 1000 : 0;
+  const firstAt = givenAt ?? (timed ? instantIn(firstDay, time!, zone!) : undefined);
+  const at = (day: Day) => (day === firstDay ? firstAt : timed ? new Date(instantIn(day, time!, zone!).getTime() + ms) : undefined);
 
   const exDays = new Set<string>();
   const exInstants = new Set<number>();
@@ -715,8 +741,7 @@ export function expandRecurrence(options: RecurrenceOptions): Occurrences {
     rule.freq === "WEEKLY" ? startOfWeek(firstDay, rule.weekStart) : rule.freq === "DAILY" ? firstDay : rule.freq === "MONTHLY" ? startOfMonth(firstDay) : dayOf(first[0], 1, 1);
   const out: Occurrence[] = [];
   let truncated = false;
-  // Not enumerable: the result still compares and spreads as a plain list.
-  const done = () => Object.defineProperty(out, "truncated", { value: truncated, enumerable: false }) as Occurrences;
+  const done = (): RecurrenceResult => ({ occurrences: out, truncated });
   let counted = 0;
   // Counted (COUNT) before EXDATE removes it; an instant is worked out only for a day that's shown.
   const take = (day: Day): boolean => {

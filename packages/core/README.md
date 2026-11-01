@@ -707,13 +707,13 @@ Ranges are `{ start, end }` days, `end` exclusive, for the windows a calendar sh
 ```ts
 import { expandRecurrence } from "@marktiderman/genesis-core/dates";
 
-const meetings = expandRecurrence({
+const { occurrences, truncated } = expandRecurrence({
   rule: "FREQ=MONTHLY;BYDAY=2MO;COUNT=10",
   start: { day: "2026-11-09", time: "18:30", timeZone: "America/Denver" },
   exdates: ["2026-12-14"],
   window: { start: "2026-11-01", end: "2027-03-01" },
-}); // [{ day, start }…], 18:30 in Denver whatever the daylight saving
-if (meetings.truncated) {
+}); // occurrences: [{ day, start }…], 18:30 in Denver whatever the daylight saving
+if (truncated) {
   // more than `limit` (default 1,000) in the window
 }
 ```

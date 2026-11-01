@@ -297,18 +297,17 @@ describe("ResourceView mode=calendar", () => {
     );
     expect(await screen.findByText("Swim meet")).toBeTruthy();
     const sent = getList.mock.calls.map((c) => (c as unknown as [string, { filters: FilterParam[] }])[1].filters);
-    // Rows that overlap the window (starting before its end, ending after its start), and rows
-    // with no end that start inside it. No look-back.
-    expect(sent).toContainEqual([
-      { field: "household_id", operator: "eq", value: "h1" },
-      { field: "starts_at", operator: "lt", value: "2026-11-15T07:00:00.000Z" },
-      { field: "ends_at", operator: "gt", value: "2026-11-01T06:00:00.000Z" },
-    ]);
+    // Rows that start in the window, whatever their end, and rows that started before it and run
+    // into it. No look-back, no overlap, no gap.
     expect(sent).toContainEqual([
       { field: "household_id", operator: "eq", value: "h1" },
       { field: "starts_at", operator: "gte", value: "2026-11-01T06:00:00.000Z" },
       { field: "starts_at", operator: "lt", value: "2026-11-15T07:00:00.000Z" },
-      { field: "ends_at", operator: "is_null" },
+    ]);
+    expect(sent).toContainEqual([
+      { field: "household_id", operator: "eq", value: "h1" },
+      { field: "starts_at", operator: "lt", value: "2026-11-01T06:00:00.000Z" },
+      { field: "ends_at", operator: "gt", value: "2026-11-01T06:00:00.000Z" },
     ]);
     // 18:00 on 9 November in Denver.
     const recital = screen.getByRole("button", { name: /Recital/ });
@@ -702,5 +701,38 @@ describe("ResourceCalendar: a screen's overrides get the view's checks", () => {
     expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ endField: "nope" }} />, { wrapper: wrap(p) })).toThrow(/calendar\.endField names "nope"/);
     expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ field: "title" }} />, { wrapper: wrap(p) })).toThrow(/calendar\.field "title" isn't a date or timestamp field/);
     expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ weeks: 6 as never }} />, { wrapper: wrap(p) })).toThrow(/calendar\.weeks is 1 to 4/);
+  });
+});
+
+describe("calendar follow-up: URL values and the window's first midnight", () => {
+  it("shows the month and today for a layout or anchor no calendar has, warning in development", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "year" as never, onLayoutChange: () => {}, anchor: "2026-13-45", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(filtering(ROWS).p) },
+    );
+    expect(screen.getByTestId("resource-calendar").getAttribute("data-layout")).toBe("month");
+    expect(warn.mock.calls.map((c) => String(c[0]))).toEqual(
+      expect.arrayContaining([expect.stringMatching(/layout "year"/), expect.stringMatching(/anchor "2026-13-45"/)]),
+    );
+  });
+
+  it("does the same on EventCalendar itself", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(<EventCalendar events={[]} layout={"year" as never} anchor="nope" timeZone={Z} />);
+    expect(screen.getByTestId("event-calendar").getAttribute("data-layout")).toBe("month");
+  });
+
+  it("still throws for a configuration mistake", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ weekStartsOn: 3 as never }} />, { wrapper: wrap(filtering(ROWS).p) })).toThrow(/weekStartsOn/);
+  });
+
+  it("fetches a zero-length event at the window's first midnight", async () => {
+    const moment: Event = { ...ROWS[0]!, id: "m", title: "Midnight", starts_at: "2026-11-01T06:00:00Z", ends_at: "2026-11-01T06:00:00Z" };
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, {
+      wrapper: wrap(filtering([moment]).p),
+    });
+    expect((await screen.findByText("Midnight")).closest("[data-day]")!.getAttribute("data-day")).toBe("2026-11-01");
   });
 });

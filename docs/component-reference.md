@@ -1772,10 +1772,10 @@ Type-only exports not consumed as a component's `Props`.
 export type { Day };
 export type { DayRange };
 export type { Occurrence };
-export type { Occurrences };
 export type { PersonClock };
 export type { RRule };
 export type { RecurrenceOptions };
+export type { RecurrenceResult };
 export type { RecurrenceStart };
 export type { RuleWeekday };
 export type { WallClock };

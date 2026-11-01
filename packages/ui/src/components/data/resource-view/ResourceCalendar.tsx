@@ -4,7 +4,7 @@
 // date field, one request per visible window. Drawn by EventCalendar; a click opens the same peek
 // the list does, or the screen's `onSelect`.
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
@@ -18,6 +18,7 @@ import { EventCalendar } from "../calendar/EventCalendar";
 import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
 import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
+import { anchorOr, layoutOr } from "../calendar/guard";
 import { useDisplayCell } from "./display";
 
 type Row = Record<string, unknown>;
@@ -57,7 +58,8 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   colorsOf?: (row: T) => readonly string[];
   /**
    * Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar
-   * makes two (rows that overlap the window, and open-ended rows starting in it), each capped.
+   * makes two (rows starting in the window, and rows that started before it and run into it),
+   * each capped.
    */
   limit?: number;
   /** The agenda shows empty days too. */
@@ -114,72 +116,66 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const cell = useDisplayCell();
   const viewerScope = useOptionalViewerScope();
   if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs a calendar field: the view's calendar.field, or calendar={{ field }}`);
-  // The screen's overrides get the checks the view's own block got in defineView.
-  const problems = calendarProblems(view.contract.fields, settings);
+  // The screen's overrides get the checks the view's own block got in defineView. Layout and
+  // anchor are left out: they often come from the URL, so a bad one falls back instead of throwing.
+  const problems = calendarProblems(view.contract.fields, { ...settings, layout: undefined });
   if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
   const field = view.field(fieldName)!;
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
   const storage = timeStorage(field);
   const endStorage = endField ? timeStorage(view.field(endField)) : storage;
+  const where = `ResourceView(${view.resource})`;
 
   const [ownLayout, setOwnLayout] = useFollowedState<CalendarLayout>(layoutProp, () => "month");
-  const layout = onLayoutChange ? (layoutProp ?? "month") : ownLayout;
+  const layout = layoutOr(onLayoutChange ? layoutProp : ownLayout, where);
   const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => dayIn(zone));
-  const anchor = onAnchorChange ? (anchorProp ?? dayIn(zone)) : ownAnchor;
+  const anchor = anchorOr(onAnchorChange ? anchorProp : ownAnchor, dayIn(zone), where);
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
   const { from, to } = windowBounds(range, storage, zone);
   const end = endField ? windowBounds(range, endStorage, zone) : undefined;
 
-  // Two requests at most, each one plain filter list the provider rules apply to:
-  // - rows that overlap the window: start before its end, and end after its start (a long event
-  //   that began weeks ago is in; no guessing how far back to look). A timestamp end is
-  //   exclusive, so one at the window's first midnight is out (`gt`); a date end is the last day,
-  //   so one on the window's first day is in (`gte`);
-  // - with an end field, rows without an end that start inside it.
+  // At most two lists, each a plain filter list the provider rules apply to, that neither overlap
+  // nor leave a gap:
+  // - rows that start in the window, whatever their end (a moment at its first midnight included);
+  // - with an end field, rows that started before it and end inside or after it (a long event that
+  //   began weeks ago; no guessing how far back to look). A timestamp end is exclusive, so one
+  //   exactly at the window's first midnight is out (`gt`); a date end is the last day (`gte`).
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const } };
-  const overlapping: ListParams = {
+  const starting: ListParams = {
     ...base,
-    filters: end
-      ? [...filters, { field: fieldName, operator: "lt", value: to }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }]
-      : [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
+    filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
   };
-  const openEnded: ListParams = {
+  const running: ListParams | undefined = end && {
     ...base,
-    filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }, { field: endField ?? fieldName, operator: "is_null" }],
+    filters: [...filters, { field: fieldName, operator: "lt", value: from }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }],
   };
-  // Under core's list keys, so a save to the resource refreshes the calendar like any list.
-  const main = useQuery({
-    queryKey: resourceKeys(view.resource).list(overlapping),
+  // One query for both, so they load, refresh and show placeholder data together: two windows'
+  // rows never mix. Under core's list keys, so a save to the resource refreshes it like any list.
+  const query = useQuery({
+    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting] }],
     placeholderData: keepPreviousData,
-    queryFn: () => provider.getList<BaseRecord>(view.resource, overlapping),
+    queryFn: async () => {
+      const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
+      return {
+        rows: lists.flatMap((l) => l.data) as unknown as T[],
+        total: lists.reduce((n, l) => n + (l.total ?? l.data.length), 0),
+      };
+    },
   });
-  const extra = useQuery({
-    queryKey: resourceKeys(view.resource).list(openEnded),
-    placeholderData: keepPreviousData,
-    enabled: Boolean(endField),
-    queryFn: () => provider.getList<BaseRecord>(view.resource, openEnded),
-  });
-  // While one request still shows the last window's rows and the other the new window's, the two
-  // don't belong together: keep showing the last pair that did.
-  const consistent = !endField || main.isPlaceholderData === extra.isPlaceholderData;
-  const loading = main.isPending || main.isPlaceholderData || (Boolean(endField) && (extra.isPending || extra.isPlaceholderData));
-  const lastPair = useRef<{ main: typeof main.data; extra: typeof extra.data }>({ main: undefined, extra: undefined });
-  if (consistent) lastPair.current = { main: main.data, extra: extra.data };
-  const shownMain = lastPair.current.main;
-  const shownExtra = lastPair.current.extra;
+  const loading = query.isPending || query.isPlaceholderData;
   // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
   const rows = useMemo(() => {
     const seen = new Set<string>();
-    return [...((shownMain?.data ?? []) as unknown as T[]), ...(endField ? ((shownExtra?.data ?? []) as unknown as T[]) : [])].filter((row) => {
+    return (query.data?.rows ?? []).filter((row) => {
       const key = String(encodeRecordKey(view.contract, row as DataRow));
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  }, [shownMain, shownExtra, endField, view]);
+  }, [query.data, view]);
   const loaded = rows.length;
-  const total = (shownMain?.total ?? shownMain?.data.length ?? 0) + (endField ? (shownExtra?.total ?? shownExtra?.data.length ?? 0) : 0);
-  const error = main.error ?? (endField ? extra.error : null);
+  const total = query.data?.total ?? 0;
+  const error = query.error;
 
   const events = useMemo(
     () =>

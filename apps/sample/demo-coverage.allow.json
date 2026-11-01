@@ -20,6 +20,7 @@
   "web/filter-combobox": "The filter picker inside the list screens.",
   "web/form-field": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/grid": "No story or demo page yet: add a story under apps/sample/stories/.",
+  "web/guard": "Internal fallbacks for a calendar's layout and anchor, not exported: shown by the EventCalendar stories.",
   "web/input-group": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/menubar": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/messages": "The UI's default copy catalogue: text, not a component.",
