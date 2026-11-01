@@ -39,8 +39,11 @@ Nothing in the templates names a real account. Before the first run:
 
    `preview` also takes `PREVIEW_IOS=true` (a plain variable) once an iOS device is registered;
    see [Build cost](#build-cost).
-4. **Preview paths.** Replace `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml` with the app's
-   folder (`src` at the repository root, `apps/<name>` in a monorepo).
+4. **Preview paths.** `genesis init --template native` fills in the app's code folder in
+   `pr-preview.yml` (`src`). In a copy made by hand, replace `REPLACE_WITH_APP_FOLDER` with it
+   (`src`, or `apps/<name>` in a monorepo; an app with code in other top-level folders, such as
+   `app/` and `components/`, lists each). `genesis doctor` warns about any `REPLACE_WITH_…` left in
+   `eas.json` or `.eas/workflows/` (rule `eas-placeholder`).
 5. **Store credentials.** Replace every `REPLACE_WITH_…` in `eas.json` `submit.production`
    (App Store Connect app id, Apple team id, the path of the Google service account key) and set up
    signing (`eas credentials`). A placeholder left in fails the submit job; it can't submit
@@ -126,14 +129,35 @@ run on each push. The templates start narrow; widen them in the app's copy when 
 
 | Workflow | Runs by default | Why | To widen it |
 | --- | --- | --- | --- |
-| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's folder (`REPLACE_WITH_APP_FOLDER`), `app.json`, `app.config.*`, `eas.json`, `package.json` or `pnpm-lock.yaml`; and any pull request labeled `Preview`. Android only. | A docs-only or tooling-only pull request has nothing to install, and every push would otherwise repack (or build) both platforms. An iOS preview is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS job fails. | Add branches or paths under `on.pull_request`, or delete both to run on every pull request. Turn iOS on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
+| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's code folder, `app.json`, `app.config.*`, `eas.json`, `package.json` or a lockfile (pnpm, yarn, npm, bun); and any pull request labeled `Preview`. Android only. One run per branch at a time. | A docs-only or tooling-only pull request has nothing to install, and every push would otherwise repack (or build) both platforms. An iOS preview is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS job fails. | Add branches or paths under `on.pull_request`, or delete both to run on every pull request. Turn iOS on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
 | `e2e.yml` | Only by hand: `eas workflow:run e2e.yml --ref <branch>`. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Once the plan includes Maestro, add the `pull_request` trigger in the file's header comment (into `main`, the app's paths and `.maestro/**`). |
 | `deploy-production.yml` | A pushed `v*.*.*` tag. | A store build only when the native fingerprint changed. | Not needed. |
 | `rollout.yml` | Only by hand. | No build. | Not needed. |
 
 `pull_request_labeled` takes no `paths` in EAS's syntax, so adding the `Preview` label starts one
 run whatever the pull request changes. It fires when the label is added, not on later pushes: those
-still need a matching path, or remove and add the label again.
+still need a matching path, or remove and add the label again. Labeling a pull request that already
+matches the paths can start a second run; `pr-preview.yml`'s `concurrency`
+(`${{ workflow.filename }}-${{ github.ref }}`, `cancel_in_progress: true`) keeps one run per
+branch, so the newer cancels the older, and a new push cancels a run it supersedes. A cancelled run
+can still have spent some build minutes.
+
+**What is verified, and what isn't.** The templates validate against EAS's public workflow schema,
+and the triggers, `concurrency` and the iOS gate follow docs.expo.dev/eas/workflows/syntax. None of
+it has been checked on a live EAS run yet. In particular:
+
+- The iOS gate (`if: ${{ env.PREVIEW_IOS == 'true' … }}` on `get_ios_build`, `repack_ios` and
+  `build_ios`, each with `environment: preview`) assumes the job's `env` context carries the
+  preview EAS environment's variables. The docs say `env` is available to a job's `if` once its
+  environment is resolved, but don't say outright that environment variables are in it. If they
+  aren't, the gate reads unset and iOS stays off (it never turns on by mistake). Check the first
+  run after setting `PREVIEW_IOS=true` builds iOS.
+- The fingerprint job hashes both platforms in one job and isn't gated; it builds nothing.
+- The docs describe `github.event.pull_request` for `pull_request` events and don't say it's set
+  for `pull_request_labeled`. The update channel (`pr-<number>`) and the comment read it; check
+  the first labeled run's channel name.
+- That `github.ref` is the same for both triggers of one pull request, which the `concurrency`
+  group relies on to fold the two runs into one.
 
 ## Fingerprints
 

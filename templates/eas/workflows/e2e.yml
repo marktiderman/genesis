@@ -25,6 +25,9 @@
 #     branches: [main]
 #     paths: ["REPLACE_WITH_APP_FOLDER/**", "app.json", "app.config.*", "eas.json", "package.json", "pnpm-lock.yaml", ".maestro/**"]
 #
+#   (the first path is the app's code folder, as in pr-preview.yml; list your package manager's
+#   lockfile.)
+#
 # Genesis template (templates/eas/workflows/e2e.yml). Edit the copy in your app; see
 # docs/NATIVE-RELEASE.md in the Genesis repository.
 name: E2E

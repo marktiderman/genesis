@@ -77,7 +77,7 @@ describe("packs config", () => {
   });
 
   it("pack rule ids are built-in, so rules and allow work and patterns can't take them", async () => {
-    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness"]) {
+    for (const id of ["native-raw-primitive", "native-literal-color", "native-custom-header", "native-screen-layout", "store-readiness", "eas-placeholder"]) {
       expect(BUILTIN_RULES).toContain(id);
     }
     for (const id of ["migration-grants", "migration-rls", "migration-definer-search-path", "migration-edited", "migration-testing-kit", "migration-view-rls"]) expect(BUILTIN_RULES).toContain(id);
@@ -217,6 +217,22 @@ describe("native pack", () => {
     expect(apple.message).toContain("Supabase google sign-in, expo-auth-session");
     expect(apple.message).toContain("guideline 4.8 asks for an equivalent login");
     expect(r.findings.find((f) => f.subject === "NSCameraUsageDescription")!.message).toContain("Expo's generic default string");
+  });
+
+  it("eas-placeholder: flags REPLACE_WITH_ left in eas.json and EAS workflows, not in comments (warn)", async () => {
+    const r = await nativeApp({
+      "eas.json": '{\n  "submit": {\n    "production": { "ios": { "ascAppId": "REPLACE_WITH_APP_STORE_CONNECT_APP_ID" } }\n  }\n}\n',
+      ".eas/workflows/pr-preview.yml": 'on:\n  pull_request:\n    paths:\n      - "REPLACE_WITH_APP_FOLDER/**"\n',
+      ".eas/workflows/e2e.yml": '# paths: ["REPLACE_WITH_APP_FOLDER/**"]\non:\n  workflow_dispatch: {}\n',
+    });
+    expect(brief(r.findings, "eas-placeholder")).toEqual([
+      "eas-placeholder .eas/workflows/pr-preview.yml:4 REPLACE_WITH_APP_FOLDER",
+      "eas-placeholder eas.json:3 REPLACE_WITH_APP_STORE_CONNECT_APP_ID",
+    ]);
+    expect(levels(r.findings, "eas-placeholder")).toEqual(["warn", "warn"]);
+    expect(r.findings.find((f) => f.subject === "REPLACE_WITH_APP_FOLDER")!.message).toContain("only config changes start a preview");
+    const filled = await nativeApp({ ".eas/workflows/pr-preview.yml": 'on:\n  pull_request:\n    paths:\n      - "src/**"\n' });
+    expect(brief(filled.findings, "eas-placeholder")).toEqual([]);
   });
 
   it("store-readiness: a ready app.json passes", async () => {
