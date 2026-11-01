@@ -73,6 +73,26 @@ const splitKey = (key) => {
   return [key.slice(0, at), key.slice(at + 1).split("(")[0]];
 };
 
+/** `name@version → peer dependency names`, from the `packages:` section. */
+function peerNames(lockfile) {
+  const out = new Map();
+  const section = lockfile.split(/^packages:$/m)[1]?.split(/^\S/m)[0] ?? "";
+  let key = "";
+  let inPeers = false;
+  for (const line of section.split("\n")) {
+    let m;
+    if ((m = /^ {2}(\S.*):$/.exec(line)))
+      [key, inPeers] = [unquote(m[1]), false];
+    else if (/^ {4}peerDependencies:$/.test(line)) inPeers = true;
+    else if (/^ {4}\S/.test(line)) inPeers = false;
+    else if (inPeers && (m = /^ {6}(\S+?): /.exec(line))) {
+      if (!out.has(key)) out.set(key, new Set());
+      out.get(key).add(unquote(m[1]));
+    }
+  }
+  return out;
+}
+
 /**
  * What each dependent resolves each dependency to, from a pnpm 9 lockfile's `importers` and
  * `snapshots`: `dependent → dependency → versions`. A dependent is a workspace path, or a
@@ -81,6 +101,7 @@ const splitKey = (key) => {
  */
 export function lockedEdges(lockfile) {
   const out = new Map();
+  const peers = peerNames(lockfile);
   let section = "";
   let dependent = "";
   let dependency = "";
@@ -94,7 +115,7 @@ export function lockedEdges(lockfile) {
     if (!deps.has(name)) deps.set(name, new Set());
     deps.get(name).add(version);
   };
-  for (const line of lockfile.split("\n")) {
+  for (const line of lockfile.split(/\r?\n/)) {
     if (/^\S/.test(line)) {
       section = line.replace(/:.*/, "");
       continue;
@@ -108,7 +129,8 @@ export function lockedEdges(lockfile) {
       if ((m = /^ {2}(\S.*?):(?: \{\})?$/.exec(line))) {
         dependent = splitKey(unquote(m[1])).join("@");
       } else if ((m = /^ {6}([^\s-].*?): (.+)$/.exec(line)))
-        add(unquote(m[1]), m[2]);
+        // A peer is the consumer's choice, checked on the consumer's own edge.
+        if (!peers.get(dependent)?.has(unquote(m[1]))) add(unquote(m[1]), m[2]);
     }
   }
   return out;

@@ -1,5 +1,15 @@
 # @marktiderman/genesis-sites
 
+## 0.5.1
+
+### Patch Changes
+
+- Updated dependencies [eeedad0]
+- Updated dependencies [6e306e1]
+- Updated dependencies [b564bfd]
+  - @marktiderman/genesis-features@0.8.1
+  - @marktiderman/genesis-media@0.2.0
+
 ## 0.5.0
 
 ### Minor Changes

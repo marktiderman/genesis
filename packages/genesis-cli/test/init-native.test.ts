@@ -57,6 +57,10 @@ describe("genesis init --template native", () => {
     expect(lock.files["supabase/tests/database/genesis_push.test.sql"]).toBeUndefined();
     expect(lock.files["supabase/tests/database/genesis_notifications.test.sql"]?.source).toBe("@marktiderman/genesis-notifications:migrations/tests/0001_genesis_notifications.test.sql");
     expect(lock.substitutions?.["com.example.genesisstarter"]).toBe("com.acmeco.trailnotes");
+    // pr-preview's paths name the app's code folder: nothing is left to replace.
+    expect(lock.substitutions?.REPLACE_WITH_APP_FOLDER).toBe("src");
+    expect(files[".eas/workflows/pr-preview.yml"]).toContain('- "src/**"');
+    expect(Object.entries(files).filter(([f, t]) => f.startsWith(".eas/") && t.includes("REPLACE_WITH_")).map(([f]) => f)).toEqual([]);
     // Migrations stay the package's bytes, so the starter's own drift tests pass in the app.
     expect(Object.keys(files).filter((f) => f.startsWith("supabase/migrations/")).every((f) => !files[f]!.startsWith("-- genesis-migration"))).toBe(true);
   });

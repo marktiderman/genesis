@@ -1,7 +1,8 @@
 # Maestro flows
 
 Smoke flows for the starter, run against the development variant on a simulator or emulator.
-`.eas/workflows/e2e.yml` runs them on EAS for each pull request.
+`.eas/workflows/e2e.yml` runs them on EAS when started by hand (`eas workflow:run e2e.yml --ref <branch>`);
+it can run on pull requests once the EAS plan includes Maestro (see its header).
 
 | Flow | Tags | What it checks |
 | --- | --- | --- |

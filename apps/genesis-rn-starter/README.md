@@ -216,8 +216,8 @@ flows; [docs/NATIVE-RELEASE.md](../../docs/NATIVE-RELEASE.md) has the setup and 
 
 | Workflow | When | What |
 | --- | --- | --- |
-| `pr-preview.yml` | each pull request | Repack a preview build with the same fingerprint (or build one), publish an update to `pr-<number>`, comment the install link and QR code. |
-| `e2e.yml` | each pull request | The Maestro flows on an iOS simulator build. |
+| `pr-preview.yml` | a pull request into `main` that changes the app, or one labeled `Preview` | Repack a preview build with the same fingerprint (or build one), publish an update to `pr-<number>`, comment the install link and QR code. iOS once `PREVIEW_IOS=true`. |
+| `e2e.yml` | by hand (Maestro needs a paid EAS plan) | The Maestro flows on an iOS simulator build. |
 | `deploy-production.yml` | a pushed `v*.*.*` tag | A store build where native code changed, else an update to `production` at 10%; both after a person approves. |
 | `rollout.yml` | by hand | Promote the staged update after a failed-launch check, or roll it back. |
 
@@ -225,7 +225,8 @@ Profiles: `development`, `preview` and `production` build the `APP_VARIANT` of t
 the channel of the same name; `e2e` is a development build for the simulator. Store ids in
 `eas.json` are `REPLACE_WITH_…` placeholders. These files are copies of
 [`templates/eas/`](../../templates/eas) and [`templates/maestro/`](../../templates/maestro); a test
-fails if they drift.
+fails if they drift. What each workflow builds by default, and how to widen it:
+[Build cost](../../docs/NATIVE-RELEASE.md#build-cost).
 
 ## Not covered yet
 

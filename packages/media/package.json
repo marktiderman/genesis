@@ -1,6 +1,6 @@
 {
   "name": "@marktiderman/genesis-media",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": false,
   "type": "module",
   "sideEffects": false,
@@ -113,6 +113,7 @@
   "devDependencies": {
     "@marktiderman/genesis-forms": "workspace:*",
     "@types/node": "^22.9.0",
+    "fake-indexeddb": "^6.2.7",
     "playwright": "~1.64.1",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",
