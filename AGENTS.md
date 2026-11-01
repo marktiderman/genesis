@@ -84,6 +84,20 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
 
+## Releasing, and how apps get a release
+
+- **Release:** the maintainer merges the batch's release PR into `main`; the Release workflow
+  then opens or updates "chore: version packages", and merging that publishes to npm
+  (`docs/RELEASING.md`). Nothing is published before that second merge, so a blocker found after
+  the first is fixed in a PR into `main` first.
+- **A change to a shared contract** (core types, ResourceView, the data layer, a published
+  package's API) also gets an adversarial review from reviewers that didn't write it, before
+  triage merges it into the batch.
+- **Apps take published versions only**, with `genesis upgrade` and `genesis doctor` in a version
+  bump PR. To try an unreleased change, link a Genesis checkout locally (`pnpm link` or a `link:`
+  override) and never commit it; merge the app's PR once the release is on npm. Genesis has no
+  prerelease channel.
+
 <!-- genesis-features:start -->
 ## Features
 

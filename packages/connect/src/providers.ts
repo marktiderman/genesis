@@ -10,6 +10,11 @@ export interface OAuthProvider {
   readonly authorizeUrl: string;
   /** The token endpoint (code and refresh-token grants). */
   readonly tokenUrl: string;
+  /**
+   * The OpenID Connect issuer(s) its ID tokens name in `iss`. Without it, no `identity` is read
+   * from an ID token.
+   */
+  readonly issuer?: string | readonly string[] | undefined;
   /** The revocation endpoint (RFC 7009), when the provider has one. */
   readonly revokeUrl?: string | undefined;
   /** Scopes asked for when neither the connector nor `start` names any. */
@@ -43,6 +48,7 @@ export const googleProvider: OAuthProvider = {
   authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
   tokenUrl: "https://oauth2.googleapis.com/token",
   revokeUrl: "https://oauth2.googleapis.com/revoke",
+  issuer: ["https://accounts.google.com", "accounts.google.com"],
   defaultScopes: [],
   authorizeParams: {
     access_type: "offline",
@@ -71,8 +77,16 @@ export const GOOGLE_SCOPES = {
   driveFile: "https://www.googleapis.com/auth/drive.file",
   /** Every spreadsheet the person can reach. Prefer `driveFile`. */
   spreadsheets: "https://www.googleapis.com/auth/spreadsheets",
-  /** Events on the person's calendars. */
+  /** Read and change events on the person's calendars. Prefer `calendarEventsReadonly` to only read. */
   calendarEvents: "https://www.googleapis.com/auth/calendar.events",
+  /** Read events on every calendar the person can see, and nothing else. */
+  calendarEventsReadonly:
+    "https://www.googleapis.com/auth/calendar.events.readonly",
+  /** The list of calendars the person has (names, colors, which are shown), not their events. */
+  calendarListReadonly:
+    "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+  /** Read everything on the person's calendars (calendars, events, settings). Prefer the two above. */
+  calendarReadonly: "https://www.googleapis.com/auth/calendar.readonly",
   /** Send mail as the person. */
   gmailSend: "https://www.googleapis.com/auth/gmail.send",
 } as const;

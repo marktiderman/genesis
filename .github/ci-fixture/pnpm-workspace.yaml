@@ -1,10 +1,8 @@
 # Makes this folder its own pnpm root, apart from the Genesis workspace above it.
 # The doctor reads genesis-ui's type declarations only, so its React peers are not installed.
 autoInstallPeers: false
+# Genesis's own packages, as `genesis upgrade` writes them (one pattern, not a pin per version,
+# which pnpm 11.1.3's frozen install doesn't honour); nothing else is excluded.
 minimumReleaseAgeExclude:
-  - '@marktiderman/genesis-cli@1.4.0'
-  - '@marktiderman/genesis-core@1.7.0'
-  - '@marktiderman/genesis-design-system@1.4.0'
-  - '@marktiderman/genesis-features@0.2.0'
-  - '@marktiderman/genesis-ui@2.12.1'
+  - '@marktiderman/genesis-*'
 strictPeerDependencies: false

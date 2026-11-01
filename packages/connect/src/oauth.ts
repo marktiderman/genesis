@@ -184,13 +184,106 @@ export interface ConnectedAccount<D extends StateData = StateData> {
   scope: string;
   /** The granted scopes. */
   scopes: string[];
-  /** The OpenID Connect ID token, when the provider sent one (an `openid` scope). */
+  /**
+   * The OpenID Connect ID token, when the provider sent one (an `openid` scope), as it came.
+   * Its claims are NOT checked here: read who the account is from `identity`, which is.
+   */
   idToken?: string | undefined;
+  /**
+   * Who the account is, read from the ID token: to show "connected as …" and to tell two
+   * accounts of one person apart. Only with an `openid` scope (add `email` for the address) and a
+   * provider with an `issuer`; left out when the token's issuer, audience or expiry don't check
+   * out (the connection itself still succeeds).
+   */
+  identity?: AccountIdentity | undefined;
   /** From `start`. */
   subject: string;
   intent: string;
   returnTo: string;
   data: D;
+}
+
+/** The account an ID token names. `subject` is the provider's stable id for it; the rest may change. */
+export interface AccountIdentity {
+  /** The provider's id for the account (`sub`): stable, unique per provider. */
+  subject: string;
+  /** Only when the provider says it's verified. Never key an account on it: use `subject`. */
+  email?: string | undefined;
+  emailVerified?: boolean | undefined;
+  /** As the person set them: untrusted text and an untrusted URL. Escape or check before use. */
+  name?: string | undefined;
+  picture?: string | undefined;
+}
+
+/** What the callback checks an ID token's claims against. */
+interface IdTokenExpectations {
+  /** The provider's issuer(s): `iss` must be one. */
+  issuers: readonly string[];
+  /** This connector's client id: `aud` must name it (and `azp` must be it when `aud` names several). */
+  clientId: string;
+  /** Now, in milliseconds: `exp` must be later. */
+  now: number;
+}
+
+/**
+ * The account the ID token from the token endpoint names, or undefined. It never checks the
+ * signature, which OpenID Connect allows only for a token taken straight from the token endpoint
+ * over TLS (Core 3.1.3.7, step 6); the claims are still checked (steps 2, 3 and 9): the issuer is
+ * the provider's, the audience is this client (and `azp` is, when there are several), and the
+ * token hasn't expired. Anything else is undefined. Internal to the callback on purpose: never
+ * export it, or apps would trust tokens from elsewhere.
+ */
+function identityFromTokenEndpoint(
+  idToken: string,
+  expect: IdTokenExpectations,
+): AccountIdentity | { reason: string } {
+  if (expect.issuers.length === 0)
+    return { reason: "the provider names no issuer" };
+  const part = idToken.split(".")[1];
+  if (!part) return { reason: "not a JWT" };
+  let claims: Record<string, unknown>;
+  try {
+    const value = JSON.parse(
+      new TextDecoder().decode(fromBase64(part)),
+    ) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return { reason: "unreadable claims" };
+    claims = value as Record<string, unknown>;
+  } catch {
+    return { reason: "unreadable claims" };
+  }
+  if (
+    typeof claims["iss"] !== "string" ||
+    !expect.issuers.includes(claims["iss"])
+  )
+    return { reason: "issuer mismatch" };
+  const aud = claims["aud"];
+  const audiences =
+    typeof aud === "string" ? [aud] : Array.isArray(aud) ? aud : [];
+  if (!audiences.includes(expect.clientId))
+    return { reason: "audience mismatch" };
+  if (audiences.length > 1 && claims["azp"] !== expect.clientId)
+    return { reason: "authorized party mismatch" };
+  const exp = claims["exp"];
+  if (typeof exp !== "number" || exp * 1000 <= expect.now)
+    return { reason: "expired" };
+  const text = (key: string) =>
+    typeof claims[key] === "string" && claims[key]
+      ? (claims[key] as string)
+      : undefined;
+  const subject = text("sub");
+  if (!subject) return { reason: "no subject" };
+  const verified =
+    claims["email_verified"] === true || claims["email_verified"] === "true";
+  return {
+    subject,
+    // The address only when the provider says it's verified: never key an account on it.
+    ...(verified && text("email")
+      ? { email: text("email"), emailVerified: true }
+      : {}),
+    ...(text("name") ? { name: text("name") } : {}),
+    ...(text("picture") ? { picture: text("picture") } : {}),
+  };
 }
 
 /** What `store` may add to the way back, as query parameters (a grant id to finish with). */
@@ -253,6 +346,12 @@ export interface ConnectorConfig<
   aad?: ((id: string) => string) | undefined;
   /** Fail with `failed` when the provider sends no refresh token. Default true. */
   requireRefreshToken?: boolean | undefined;
+  /**
+   * Fail with `failed` when no `identity` can be read (no ID token, or one whose issuer,
+   * audience or expiry don't check out). Default false: the connection succeeds without one,
+   * and the reason is logged.
+   */
+  requireIdentity?: boolean | undefined;
   /**
    * Keeps the new account: the app's row, under `account.id`, for
    * `account.subject` (the user who started). Use that, never a session read
@@ -1198,6 +1297,22 @@ export function createConnector<D extends StateData = StateData>(
         );
       }
 
+      const idToken =
+        typeof body["id_token"] === "string" ? body["id_token"] : undefined;
+      const issuer = config.provider.issuer;
+      const read = idToken
+        ? identityFromTokenEndpoint(idToken, {
+            issuers: typeof issuer === "string" ? [issuer] : (issuer ?? []),
+            clientId: config.clientId,
+            now: now(),
+          })
+        : { reason: "no ID token (is openid asked for?)" };
+      const identity = "subject" in read ? read : undefined;
+      const identityNote =
+        "reason" in read ? `no identity: ${read.reason}` : undefined;
+      if (!identity && config.requireIdentity)
+        return back(request, state, "failed", {}, identityNote);
+
       let extra: StoreResult;
       try {
         const id = config.randomId?.() ?? crypto.randomUUID();
@@ -1215,9 +1330,8 @@ export function createConnector<D extends StateData = StateData>(
             expiresIn: expiresIn(body),
             scope,
             scopes,
-            ...(typeof body["id_token"] === "string"
-              ? { idToken: body["id_token"] }
-              : {}),
+            ...(idToken ? { idToken } : {}),
+            ...(identity ? { identity } : {}),
             subject: state.subject,
             intent: state.intent,
             returnTo: state.returnTo,
@@ -1228,7 +1342,7 @@ export function createConnector<D extends StateData = StateData>(
       } catch {
         return back(request, state, "failed", {}, "store threw");
       }
-      return back(request, state, "connected", extra ?? {});
+      return back(request, state, "connected", extra ?? {}, identityNote);
     },
 
     async refresh(sealedRefreshToken, aad, options = {}) {
