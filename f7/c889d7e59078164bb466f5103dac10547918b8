@@ -1,0 +1,22 @@
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_318cb635985f4b::t_5177d96d8aeeb0 121-122,154-155,162,171
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_aadfe768b33963 15,739-761
+  s_318cb635985f4b::t_9ca8c280de73f1 762-763
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f7c889d7e59078164bb466f5103dac10547918b8",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
