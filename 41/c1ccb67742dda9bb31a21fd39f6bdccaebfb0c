@@ -1,0 +1,27 @@
+packages/ui/src/components/data/DataTable.tsx
+  s_1feb538f59bf88::t_ede7c59fd0dc2b 13-18,65-85,873,879-880,884,888-891,893,899-900,902-904,906,910
+.changeset/data-table-tanstack-9.md
+  s_1feb538f59bf88::t_c283554208b952 1-5
+packages/ui/package.json
+  s_1feb538f59bf88::t_5ee91014faaa39 421
+apps/sample/package.json
+  s_1feb538f59bf88::t_5ee91014faaa39 67
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_d0490296161b3c 412-413,1796-1797,6149-6151,6168-6170,16075,16077-16078,16080-16081,16098-16100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "41c1ccb67742dda9bb31a21fd39f6bdccaebfb0c",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
