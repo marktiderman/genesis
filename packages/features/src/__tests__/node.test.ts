@@ -156,17 +156,46 @@ describe("build and check", () => {
     );
   });
 
+  it("reads every hunk of a conflict git wrote in several places, unlabelled and with CRLF", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const lines = readFileSync(file, "utf8").split("\n");
+    // Ours dropped the line holding "wins"; theirs changed the first line. Two hunks, no labels.
+    const at = lines.findIndex((l) => l.includes('"id": "wins"'));
+    expect(at).toBeGreaterThan(1);
+    const conflicted = [
+      "<<<<<<<", lines[0], "=======", lines[0], ">>>>>>>",
+      ...lines.slice(1, at),
+      "<<<<<<<", `    "id": "gone-on-ours",`, "=======", lines[at], ">>>>>>>",
+      ...lines.slice(at + 1),
+    ].join("\r\n");
+    writeFileSync(file, conflicted);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
+  });
+
   it("refuses a features.json it can't read, rather than skip the permanent-id check", () => {
     const root = repo();
     buildFeatureOutputs(opts(root));
     const file = join(root, "features.json");
+    const built = readFileSync(file, "utf8");
     writeFileSync(file, "{ not json");
     const message = /features\.json can't be read as JSON, so the check that feature ids are permanent can't run/;
     expect(checkFeatureOutputs(opts(root)).errors.some((e) => message.test(e))).toBe(true);
     expect(() => buildFeatureOutputs(opts(root))).toThrow(message);
     expect(readFileSync(file, "utf8")).toBe("{ not json");
     writeFileSync(file, `<<<<<<< HEAD\n{ not json\n=======\n{"features":[]}\n>>>>>>> theirs\n`);
-    expect(() => buildFeatureOutputs(opts(root))).toThrow(/on one side of its merge conflict/);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(/on the ours side of its merge conflict/);
+    // An unterminated hunk still reads each side: an id on either one is kept.
+    writeFileSync(file, `<<<<<<<\n{"features":[]}\n=======\n${built}`);
+    const { wins: _gone, ...rest } = features;
+    expect(() => buildFeatureOutputs(opts(root, { features: rest }))).toThrow(/"wins" was removed/);
+    // An emptied file is unreadable too; a BOM is not.
+    writeFileSync(file, "");
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(message);
+    writeFileSync(file, `\uFEFF{}`);
+    expect(checkFeatureOutputs(opts(root)).errors.some((e) => message.test(e))).toBe(false);
   });
 
   it("fails on a missing code path; warns on missing docs, reviews due and untested live features", () => {

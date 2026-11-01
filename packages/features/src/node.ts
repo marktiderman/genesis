@@ -350,15 +350,15 @@ function removedIds(options: FeatureProjectOptions): string[] {
   const json = options.json === undefined ? "features.json" : options.json;
   if (!json) return [];
   const doc = read(join(options.root, json));
-  if (!doc) return [];
+  if (doc === null) return [];
   // A merge can leave the JSON with conflict markers: every side's ids still count.
-  const sides = conflictSides(doc) ?? [doc];
+  const sides = conflictSides(doc) ?? [{ side: "", text: doc }];
   const previous: string[] = [];
-  for (const side of sides) {
-    const recorded = recordedIds(side);
+  for (const { side, text } of sides) {
+    const recorded = recordedIds(text);
     if (!recorded) {
       throw new Error(
-        `${json} can't be read as JSON${sides.length > 1 ? " on one side of its merge conflict" : ""}, so the check that feature ids are permanent can't run. Fix it, or restore it from git, and run again`,
+        `${json} can't be read as JSON${side ? ` on the ${side} side of its merge conflict` : ""}, so the check that feature ids are permanent can't run. Fix it, or restore it from git, and run again`,
       );
     }
     previous.push(...recorded);
@@ -371,7 +371,7 @@ function removedIds(options: FeatureProjectOptions): string[] {
 function recordedIds(doc: string): string[] | null {
   try {
     return (
-      (JSON.parse(doc) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
+      (JSON.parse(doc.replace(/^\uFEFF/, "")) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
         // An alias is always kept: it may name a built feature that was renamed onto this one.
         ?.flatMap((f) => [...(f.status === "idea" || f.status === "planned" ? [] : [f.id]), ...(f.aliases ?? [])]) ?? []
     );
@@ -381,33 +381,45 @@ function recordedIds(doc: string): string[] | null {
 }
 
 /**
- * A file git left mid-merge, as the whole text of each side (ours, the diff3
- * base when there is one, theirs). Null when the file has no conflict markers.
+ * A file git left mid-merge, as the whole text of each side: ours, the diff3
+ * base when any hunk has one (a hunk without one reads as ours there), and
+ * theirs. Null when the file has no conflict markers.
  */
-function conflictSides(doc: string): string[] | null {
+function conflictSides(doc: string): { side: string; text: string }[] | null {
   const ours: string[] = [];
   const base: string[] = [];
   const theirs: string[] = [];
   let state: "both" | "ours" | "base" | "theirs" = "both";
+  let hunkOurs: string[] = [];
+  let hunkHasBase = false;
   let conflicted = false;
   let hasBase = false;
   for (const line of doc.split("\n")) {
     if (state === "both" && line.startsWith("<<<<<<<")) {
       state = "ours";
       conflicted = true;
+      hunkOurs = [];
+      hunkHasBase = false;
     } else if (state === "ours" && line.startsWith("|||||||")) {
       state = "base";
-      hasBase = true;
-    } else if ((state === "ours" || state === "base") && line.startsWith("=======")) state = "theirs";
-    else if (state === "theirs" && line.startsWith(">>>>>>>")) state = "both";
+      hasBase = hunkHasBase = true;
+    } else if ((state === "ours" || state === "base") && line.startsWith("=======")) {
+      if (!hunkHasBase) base.push(...hunkOurs);
+      state = "theirs";
+    } else if (state === "theirs" && line.startsWith(">>>>>>>")) state = "both";
     else {
+      if (state === "ours") hunkOurs.push(line);
       if (state === "both" || state === "ours") ours.push(line);
       if (state === "both" || state === "base") base.push(line);
       if (state === "both" || state === "theirs") theirs.push(line);
     }
   }
   if (!conflicted) return null;
-  return [ours, ...(hasBase ? [base] : []), theirs].map((lines) => lines.join("\n"));
+  return [
+    { side: "ours", text: ours.join("\n") },
+    ...(hasBase ? [{ side: "base", text: base.join("\n") }] : []),
+    { side: "theirs", text: theirs.join("\n") },
+  ];
 }
 
 /** Each id and alias, mapped to its feature's id. */
