@@ -77,6 +77,11 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 3. **Triage brings load-bearing decisions to the maintainer:** declining a major finding, changing
    a contract, or anything that touches production. **Only the maintainer merges into `main`.**
    Agents prepare each release PR (green, reviewed, what it carries in the body) and ask.
+4. **One staging batch at a time.** Open every PR meant for `main` into the current batch,
+   `staging/<YYYY-MM-DD>/<letter>` (the open release PR into `main` names it); triage cuts a new one
+   from `main` once the last is released. Keep work in a branch of its own only for a reason
+   you'd defend to the maintainer (a launch hold, say), written in its PR, and fold it in when
+   that ends.
 
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
