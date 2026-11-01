@@ -501,6 +501,9 @@ describe("readEventTime", () => {
     expect(readEventTime("2026-02-30")).toBeNull();
     expect(readEventTime(42)).toBeNull();
     expect(readEventTime(new Date("nope"))).toBeNull();
+  });
+});
+
 describe("expandRecurrence: review findings", () => {
   const wide = { start: "1996-01-01", end: "2040-01-01" };
   const ny = "America/New_York";
