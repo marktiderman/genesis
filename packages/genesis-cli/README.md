@@ -352,7 +352,18 @@ doesn't fit, is a warning.
    | Codemod | Runs when | Changes |
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
-3. Reinstalls, then refreshes every file in `genesis.lock.json` from the newly installed package:
+3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
+   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads (the nearest one at or above the app, else beside the lockfile)
+   (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen install honours only the first pinned
+   version of a package, so a second pin (this upgrade's next to an earlier one's, or two versions
+   of one package) fails `pnpm install --frozen-lockfile` in CI with
+   `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade replaces every Genesis entry with one
+   pattern, `'@marktiderman/genesis-*'` (and the umbrella by its bare name), which both a resolving
+   and a frozen install honour on pnpm 11; every other entry, comment and line is left as it is,
+   since the list is the app's supply-chain guard. Then it runs `pnpm dedupe` (`npm dedupe` with
+   npm; bun and yarn are skipped), so a Genesis package isn't left installed at two versions
+   (`duplicate-genesis-package`), and commits pnpm-workspace.yaml with `--pr`.
+   Then it refreshes every file in `genesis.lock.json` from the newly installed package:
    unchanged in the app, it takes the new version; changed by both, it is merged with `git
    merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
    your file is kept. `--keep-mine` never merges: the new text goes to `.genesis-next`. A file you
