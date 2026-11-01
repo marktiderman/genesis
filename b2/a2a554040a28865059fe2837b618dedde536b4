@@ -1,0 +1,21 @@
+packages/genesis-cli/src/doctor/supabase.ts
+  s_1feb538f59bf88::t_7267fda541f167 332
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_1feb538f59bf88::t_a24ca190b2db4f 483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b2a2a554040a28865059fe2837b618dedde536b4",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
