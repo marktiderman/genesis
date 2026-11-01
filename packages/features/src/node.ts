@@ -381,6 +381,18 @@ function recordedIds(doc: string): string[] | null {
 }
 
 /**
+ * A conflict marker git writes: exactly seven characters, then a space and a label or the end of
+ * the line (`=======` stands alone). Longer runs are not markers: diff3 on a criss-cross merge
+ * nests the conflict between merge bases, with nine-character markers, inside the base section.
+ */
+const markers = {
+  ours: /^<{7}(?: .*)?\r?$/,
+  base: /^\|{7}(?: .*)?\r?$/,
+  theirs: /^={7}\r?$/,
+  end: /^>{7}(?: .*)?\r?$/,
+};
+
+/**
  * A file git left mid-merge, as the whole text of each side: ours and theirs; diff3 base lines
  * are skipped. Null when the file has no conflict markers.
  */
@@ -390,12 +402,12 @@ function conflictSides(doc: string): { side: string; text: string }[] | null {
   let state: "both" | "ours" | "base" | "theirs" = "both";
   let conflicted = false;
   for (const line of doc.split("\n")) {
-    if (state === "both" && line.startsWith("<<<<<<<")) {
+    if (state === "both" && markers.ours.test(line)) {
       state = "ours";
       conflicted = true;
-    } else if (state === "ours" && line.startsWith("|||||||")) state = "base";
-    else if ((state === "ours" || state === "base") && line.startsWith("=======")) state = "theirs";
-    else if (state === "theirs" && line.startsWith(">>>>>>>")) state = "both";
+    } else if (state === "ours" && markers.base.test(line)) state = "base";
+    else if ((state === "ours" || state === "base") && markers.theirs.test(line)) state = "theirs";
+    else if (state === "theirs" && markers.end.test(line)) state = "both";
     else {
       if (state === "both" || state === "ours") ours.push(line);
       if (state === "both" || state === "theirs") theirs.push(line);
