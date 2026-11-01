@@ -1,0 +1,19 @@
+AGENTS.md
+  s_1ad08d0c80c7fb::t_cf5208afdae2e8 80-81
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1baeae6ed48309e2cce8b055f8706bf5d194ab7",
+  "prompts": {},
+  "sessions": {
+    "s_1ad08d0c80c7fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8317e46-f1f8-419e-a319-ae3730260685",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
