@@ -40,6 +40,26 @@ declare function Untagged(): void;
     ]);
   });
 
+  it("reads tags on named re-exports, by the exported name", () => {
+    const dts = `/** @deprecated Use \`New\`. */\nexport { Old } from "./old";\n/** @stability Beta */\nexport type { A, B as Bee } from "./ab";\nexport { Plain } from "./plain";\n`;
+    const tags = stabilityTagsIn(dts);
+    expect(tags.get("Old")).toEqual({ stability: "deprecated", note: "Use `New`." });
+    expect(tags.get("A")).toEqual({ stability: "beta" });
+    expect(tags.get("Bee")).toEqual({ stability: "beta" });
+    expect(tags.has("B")).toBe(false);
+    expect(tags.has("Plain")).toBe(false);
+  });
+
+  it("ignores import examples inside strings and comments", () => {
+    const code = [
+      'const example = "import { OldList } from \'@marktiderman/genesis-ui\'";',
+      "const doc = `import { OldList } from \"@marktiderman/genesis-ui\"`;",
+      '// import { OldList } from "@marktiderman/genesis-ui";',
+      'import { Button } from "@marktiderman/genesis-ui";',
+    ].join("\n");
+    expect(genesisNamedImports(code)).toEqual([{ pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button"], line: 4 }]);
+  });
+
   it("finds the tags genesis-ui actually publishes", () => {
     const dist = path.resolve(__dirname, "../../ui/dist");
     const files: string[] = [];
@@ -92,6 +112,18 @@ describe("checkStabilityImports", () => {
       report: (f: { rule: string }) => second.push(f),
     } as never);
     expect(second.map((f) => f.rule)).toEqual(["deprecated-import"]);
+
+    // A tag on a named re-export marks the name, though its source declaration has none.
+    writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "1.0.0", exports: { ".": { types: "./dist/index.d.ts" } } }));
+    writeFileSync(path.join(pkg, "dist/old.d.ts"), "declare function Old(): void;\n");
+    writeFileSync(path.join(pkg, "dist/index.d.ts"), "/** @deprecated Use `New`. */\nexport { Old } from './old';\n");
+    const third: Array<{ rule: string; subject?: string; message: string }> = [];
+    checkStabilityImports({
+      root,
+      files: [{ path: "src/d.tsx", ext: ".tsx", code: 'import { Old } from "@marktiderman/genesis-widgets";\n' }],
+      report: (f: { rule: string; subject?: string; message: string }) => third.push(f),
+    } as never);
+    expect(third).toEqual([expect.objectContaining({ rule: "deprecated-import", subject: "Old", message: "Old from @marktiderman/genesis-widgets is deprecated and goes at the next major: Use `New`." })]);
   });
 });
 

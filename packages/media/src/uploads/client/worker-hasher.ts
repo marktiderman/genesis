@@ -48,8 +48,8 @@ export interface WorkerFileHasherOptions {
  * A `hashFile` for `createUploader` that hashes blobs in a Web Worker (one
  * worker for every file, started on first use by `createWorker`). After the
  * worker fails or goes silent once, its jobs and every later one are hashed
- * in this thread. A cancelled hash terminates the worker; the next one
- * starts a fresh worker.
+ * in this thread. A cancelled hash terminates the worker; the files it was
+ * still hashing go to a fresh worker, as does the next one.
  */
 export function createWorkerFileHasher(createWorker: () => WorkerLike | undefined, options: WorkerFileHasherOptions = {}): HashFile {
   const silentMs = options.silentMs ?? 15_000;
@@ -124,15 +124,22 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
         "abort",
         () => {
           if (!pending.has(id)) return;
-          // The worker is mid-file: end it, and the next file gets a fresh one.
+          // The worker is mid-file: end it, and give the other files to a fresh one.
           clearTimeout(job.timer);
           pending.delete(id);
-          for (const other of pending.values()) {
+          stop();
+          const fresh = pending.size ? start() : undefined;
+          for (const [otherId, other] of [...pending]) {
+            if (other.signal?.aborted) continue; // its own abort handler rejects it
+            if (fresh && other.source.blob) {
+              watch(other);
+              fresh.postMessage({ id: otherId, blob: other.source.blob });
+              continue;
+            }
             clearTimeout(other.timer);
+            pending.delete(otherId);
             inThread(other.source, other.onBytes, other.signal).then(other.resolve, other.reject);
           }
-          pending.clear();
-          stop();
           reject(aborted());
         },
         { once: true },

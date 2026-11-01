@@ -16,6 +16,8 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
+import { findPackageDir } from "./genesis.js";
+import { stripForImports } from "./trail.js";
 import type { DoctorContext } from "./types.js";
 
 export type Stability = "experimental" | "beta" | "stable" | "deprecated";
@@ -30,24 +32,49 @@ const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs
 const DECLARATION =
   /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\n(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/g;
 
-/** The tags of the top-level declarations in one declaration file. */
+/** A named re-export with its own doc comment: `/** @deprecated … *\/ export { Old } from "./old"`. */
+const REEXPORT = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\nexport\s+(?:type\s+)?\{([^}]*)\}/g;
+
+/** The tag one doc comment carries, if any. */
+function tagOf(comment: string): StabilityTag | undefined {
+  const doc = comment.replace(/^[ \t]*\*?[ \t]*/gm, "");
+  // A tag starts a line; "see the `@deprecated` block" in prose isn't one. The advice runs to the next tag.
+  const deprecated = /^@deprecated\b[ \t]*([\s\S]*?)(?=^@|(?![\s\S]))/m.exec(doc);
+  const stability = /^@stability\s+(Experimental|Beta|Stable|Deprecated)\b/im.exec(doc)?.[1]?.toLowerCase() as Stability | undefined;
+  const note = deprecated?.[1]!.replace(/\s+/g, " ").trim();
+  if (deprecated) return { stability: "deprecated", ...(note ? { note } : {}) };
+  return stability ? { stability } : undefined;
+}
+
+/**
+ * The tags of the top-level declarations in one declaration file, and of its named re-exports
+ * (by the name they export, so `export { Old as Legacy }` tags `Legacy`).
+ */
 export function stabilityTagsIn(dts: string): Map<string, StabilityTag> {
   const tags = new Map<string, StabilityTag>();
   for (const m of dts.matchAll(DECLARATION)) {
-    const doc = m[1]!.replace(/^[ \t]*\*?[ \t]*/gm, "");
-    // A tag starts a line; "see the `@deprecated` block" in prose isn't one. The advice runs to the next tag.
-    const deprecated = /^@deprecated\b[ \t]*([\s\S]*?)(?=^@|(?![\s\S]))/m.exec(doc);
-    const stability = /^@stability\s+(Experimental|Beta|Stable|Deprecated)\b/im.exec(doc)?.[1]?.toLowerCase() as Stability | undefined;
-    const note = deprecated?.[1]!.replace(/\s+/g, " ").trim();
-    if (deprecated) tags.set(m[2]!, { stability: "deprecated", ...(note ? { note } : {}) });
-    else if (stability) tags.set(m[2]!, { stability });
+    const tag = tagOf(m[1]!);
+    if (tag) tags.set(m[2]!, tag);
+  }
+  for (const m of dts.matchAll(REEXPORT)) {
+    const tag = tagOf(m[1]!);
+    if (!tag) continue;
+    for (const spec of m[2]!.split(",")) {
+      const name = spec.trim().replace(/^type\s+/, "").split(/\s+as\s+/).pop()!.trim();
+      if (name) tags.set(name, tag);
+    }
   }
   return tags;
 }
 
-/** Named imports from Genesis packages in one file: the package, the imported names and the line. */
-export function genesisNamedImports(code: string): Array<{ pkg: string; specifier: string; names: string[]; line: number }> {
+/**
+ * Named imports from Genesis packages in one file: the package, the imported names and the line.
+ * String, template and comment contents are blanked first, so an import written as an example in a
+ * string isn't read as one; a file whose literals can't be told apart is read as written.
+ */
+export function genesisNamedImports(source: string): Array<{ pkg: string; specifier: string; names: string[]; line: number }> {
   const out: Array<{ pkg: string; specifier: string; names: string[]; line: number }> = [];
+  const code = stripForImports(source) ?? source;
   const re = /import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']((@marktiderman\/genesis[\w-]*)(?:\/[^"']*)?)["']/g;
   for (const m of code.matchAll(re)) {
     const names = m[1]!
@@ -68,15 +95,6 @@ function declarationFiles(dir: string, out: string[] = []): string[] {
   return out;
 }
 
-/** The installed package's folder, looking up from the app root. */
-function packageDir(root: string, pkg: string): string | null {
-  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
-    const candidate = path.join(dir, "node_modules", ...pkg.split("/"));
-    if (existsSync(path.join(candidate, "package.json"))) return candidate;
-    if (path.dirname(dir) === dir) return null;
-  }
-}
-
 /** One package's declarations: each file's tags, every file that declares a name, and its exports. */
 interface PackageTags {
   dir: string;
@@ -92,11 +110,18 @@ function readPackageTags(dir: string): PackageTags {
   if (!existsSync(dist)) return tags;
   for (const file of declarationFiles(dist)) {
     const text = readFileSync(file, "utf8");
-    tags.byFile.set(file, stabilityTagsIn(text));
+    const fileTags = stabilityTagsIn(text);
+    tags.byFile.set(file, fileTags);
+    // A tagged re-export counts as a declaration of its name in that file; an untagged one doesn't,
+    // so a chunk's tag still shows through a plain `export { X } from "./chunk"`.
+    const names = [...fileTags.keys()];
     for (const m of text.matchAll(/^(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm)) {
-      const files = tags.declaredIn.get(m[1]!) ?? [];
+      names.push(m[1]!);
+    }
+    for (const name of names) {
+      const files = tags.declaredIn.get(name) ?? [];
       if (!files.includes(file)) files.push(file);
-      tags.declaredIn.set(m[1]!, files);
+      tags.declaredIn.set(name, files);
     }
   }
   return tags;
@@ -126,7 +151,7 @@ export function checkStabilityImports(ctx: DoctorContext): void {
   const cache = new Map<string, PackageTags | null>();
   const tagsOf = (pkg: string) => {
     if (!cache.has(pkg)) {
-      const dir = packageDir(ctx.root, pkg);
+      const dir = findPackageDir(ctx.root, pkg);
       cache.set(pkg, dir ? readPackageTags(dir) : null);
     }
     return cache.get(pkg)!;
