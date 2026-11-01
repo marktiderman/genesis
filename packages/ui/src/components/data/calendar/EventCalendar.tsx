@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, dayIn, deviceTimeZone, eachDay, weekdayOf, type Day } from "@marktiderman/genesis-core/dates";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
+import { useFollowedState } from "./use-followed-state";
 import { fillMessage, useUiMessages } from "../../../messages";
 import {
   calendarLanes,
@@ -67,12 +68,16 @@ function useFormats(locale: string | undefined, zone: string) {
     const longDay = f({ weekday: "long", month: "long", day: "numeric" });
     const month = f({ month: "long", year: "numeric" });
     const short = f({ month: "short", day: "numeric" });
+    const shortYear = f({ month: "short", day: "numeric", year: "numeric" });
+    const fullDay = f({ weekday: "long", month: "long", day: "numeric", year: "numeric" });
     const time = f({ hour: "numeric", minute: "2-digit" }, zone);
     return {
       weekday: (d: Day) => weekday.format(utc(d)),
       longDay: (d: Day) => longDay.format(utc(d)),
       month: (d: Day) => month.format(utc(d)),
       short: (d: Day) => short.format(utc(d)),
+      shortYear: (d: Day) => shortYear.format(utc(d)),
+      fullDay: (d: Day) => fullDay.format(utc(d)),
       time: (at: Date) => time.format(at),
     };
   }, [locale, zone]);
@@ -120,7 +125,7 @@ export function EventCalendar<T = unknown>({
   const m = useUiMessages().calendar;
   const zone = timeZone ?? deviceTimeZone();
   const today = dayIn(zone);
-  const [ownAnchor, setOwnAnchor] = useState<Day>(anchorProp ?? today);
+  const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => today);
   const anchor = onAnchorChange ? (anchorProp ?? today) : ownAnchor;
   const setAnchor = (d: Day) => (onAnchorChange ? onAnchorChange(d) : setOwnAnchor(d));
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
@@ -129,13 +134,28 @@ export function EventCalendar<T = unknown>({
   const lanes = useMemo(() => calendarLanes(events, laneDefs), [events, laneDefs]);
   const fmt = useFormats(locale, zone);
 
+  const last = addDays(range.end, -1);
+  // A window across New Year names both years; otherwise the dates alone.
+  const crossesYear = range.start.slice(0, 4) !== last.slice(0, 4);
   const title =
-    layout === "month" ? fmt.month(anchor) : `${fmt.short(range.start)} – ${fmt.short(addDays(range.end, -1))}`;
+    layout === "month"
+      ? fmt.month(anchor)
+      : crossesYear
+        ? `${fmt.shortYear(range.start)} – ${fmt.shortYear(last)}`
+        : `${fmt.short(range.start)} – ${fmt.short(last)}`;
+  const dayLabel = (day: Day, count: number) =>
+    `${fmt.fullDay(day)}${count ? `, ${count === 1 ? m.eventsOne : fillMessage(m.eventsOther, { count })}` : ""}`;
+  // PageUp/PageDown, or an arrow past the grid's edge: move the window, and return the day to focus.
+  const page = (step: number, day: Day, by?: number) => {
+    setAnchor(shiftAnchor(layout, anchor, step, weeks));
+    return by !== undefined ? addDays(day, by) : shiftAnchor(layout, day, step, weeks);
+  };
   const monthOf = anchor.slice(0, 7);
 
-  const item = (p: PlacedEvent<T>, compact: boolean) => (
+  const item = (p: PlacedEvent<T>, compact: boolean, className?: string) => (
     <EventItem
       key={`${p.event.key}@${p.day}`}
+      className={className}
       placed={p}
       lanes={lanes}
       compact={compact}
@@ -205,7 +225,10 @@ export function EventCalendar<T = unknown>({
           today={today}
           label={`${label ?? ""}${label ? ", " : ""}${title}`}
           laneHeader={m.lane}
+          unassigned={m.unassigned}
           weekday={fmt.weekday}
+          dayLabel={dayLabel}
+          onPage={page}
           item={(p) => item(p, true)}
           testID={testID}
         />
@@ -215,17 +238,14 @@ export function EventCalendar<T = unknown>({
           placed={placed}
           today={today}
           monthOf={layout === "month" ? monthOf : undefined}
-          dayLabel={(day, count) =>
-            `${fmt.longDay(day)}${count ? `, ${count === 1 ? m.eventsOne : fillMessage(m.eventsOther, { count })}` : ""}`
-          }
-          onPage={(step, day) => {
-            setAnchor(shiftAnchor(layout, anchor, step, weeks));
-            return shiftAnchor(layout, day, step, weeks);
-          }}
+          dayLabel={dayLabel}
+          onPage={page}
+          perDay={layout === "month" ? 3 : weeks <= 2 ? 6 : 4}
+          moreLabel={m.more}
           label={`${label ?? ""}${label ? ", " : ""}${title}`}
           weekday={fmt.weekday}
           tall={layout === "weeks" && weeks <= 2}
-          item={(p) => item(p, true)}
+          item={(p, className) => item(p, true, className)}
           testID={testID}
         />
       )}
@@ -234,6 +254,7 @@ export function EventCalendar<T = unknown>({
 }
 
 interface EventItemProps<T> {
+  className?: string | undefined;
   placed: PlacedEvent<T>;
   lanes: readonly CalendarLane[];
   compact: boolean;
@@ -245,7 +266,7 @@ interface EventItemProps<T> {
   testID: string;
 }
 
-function EventItem<T>({ placed, lanes, compact, time, allDayLabel, continuedLabel, withLabel, onSelect, testID }: EventItemProps<T>) {
+function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, continuedLabel, withLabel, onSelect, testID }: EventItemProps<T>) {
   const { event } = placed;
   const dots = eventDots(event, lanes);
   const names = (event.lanes ?? []).map((k) => lanes.find((l) => l.key === k)?.label ?? k);
@@ -278,7 +299,7 @@ function EventItem<T>({ placed, lanes, compact, time, allDayLabel, continuedLabe
     compact ? "" : "text-sm",
   );
   return (
-    <li data-event={event.key}>
+    <li data-event={event.key} className={className}>
       {onSelect ? (
         <button
           type="button"
@@ -298,31 +319,41 @@ function EventItem<T>({ placed, lanes, compact, time, allDayLabel, continuedLabe
 }
 
 /**
- * Arrow keys between day cells: one roving tab stop for the grid, the events still in tab order.
- * PageUp and PageDown ask `onPage` to move the window and give the day to focus there.
+ * Arrow keys between a grid's cells, `perRow` to a row, with one roving tab stop; the events
+ * inside stay in tab order. PageUp and PageDown, and an arrow past the first or last cell, ask
+ * `onPage` to move the window: it returns the cell to focus there (or nothing, to stay put).
  */
-function useDayFocus(days: readonly Day[], today: Day, perRow: number, onPage?: (step: number, day: Day) => Day) {
-  const [focusDay, setFocusDay] = useState<Day | null>(null);
-  const pending = useRef<Day | null>(null);
-  const refs = useRef(new Map<Day, HTMLElement>());
-  const active = focusDay && days.includes(focusDay) ? focusDay : days.includes(today) ? today : days[0];
-  // After a page, focus the day once its cell exists.
+function useGridFocus(keys: readonly string[], initial: string | undefined, perRow: number, onPage?: (step: number, key: string, by?: number) => string | undefined) {
+  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const pending = useRef<string | null>(null);
+  const refs = useRef(new Map<string, HTMLElement>());
+  const active = focusKey && keys.includes(focusKey) ? focusKey : initial && keys.includes(initial) ? initial : keys[0];
+  // After a page, focus the cell once it exists.
   useEffect(() => {
     if (pending.current && refs.current.has(pending.current)) {
       refs.current.get(pending.current)!.focus();
       pending.current = null;
     }
   });
-  const onKeyDown = (e: KeyboardEvent<HTMLElement>, day: Day) => {
-    if (e.target !== e.currentTarget) return;
-    if ((e.key === "PageUp" || e.key === "PageDown") && onPage) {
-      e.preventDefault();
-      const next = onPage(e.key === "PageUp" ? -1 : 1, day);
+  const go = (next: string | undefined) => {
+    if (!next) return;
+    if (refs.current.has(next)) {
+      setFocusKey(next);
+      refs.current.get(next)!.focus();
+    } else {
       pending.current = next;
-      setFocusDay(next);
+      setFocusKey(next);
+    }
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLElement>, key: string) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === "PageUp" || e.key === "PageDown") {
+      if (!onPage) return;
+      e.preventDefault();
+      go(onPage(e.key === "PageUp" ? -1 : 1, key));
       return;
     }
-    const i = days.indexOf(day);
+    const i = keys.indexOf(key);
     const col = i % perRow;
     const step: Record<string, number> = {
       ArrowLeft: -1,
@@ -334,24 +365,48 @@ function useDayFocus(days: readonly Day[], today: Day, perRow: number, onPage?: 
     };
     const by = step[e.key];
     if (by === undefined) return;
-    const next = days[i + by];
-    if (!next) return;
     e.preventDefault();
-    setFocusDay(next);
-    refs.current.get(next)?.focus();
+    // Left and right stay within a row; past its ends (or past the grid's top or bottom) the window moves.
+    const sameRow = Math.abs(by) !== 1 || Math.floor((i + by) / perRow) === Math.floor(i / perRow);
+    const next = sameRow ? keys[i + by] : undefined;
+    if (next !== undefined) go(next);
+    else if (onPage) go(onPage(by < 0 ? -1 : 1, key, by));
   };
-  const cellProps = (day: Day) => ({
+  return (key: string) => ({
     ref: (el: HTMLElement | null) => {
-      if (el) refs.current.set(day, el);
-      else refs.current.delete(day);
+      if (el) refs.current.set(key, el);
+      else refs.current.delete(key);
     },
-    tabIndex: day === active ? 0 : -1,
+    tabIndex: key === active ? 0 : -1,
     onFocus: (e: { target: EventTarget; currentTarget: EventTarget }) => {
-      if (e.target === e.currentTarget) setFocusDay(day);
+      if (e.target === e.currentTarget) setFocusKey(key);
     },
-    onKeyDown: (e: KeyboardEvent<HTMLElement>) => onKeyDown(e, day),
+    onKeyDown: (e: KeyboardEvent<HTMLElement>) => onKeyDown(e, key),
   });
-  return cellProps;
+}
+
+/** A day's events, the first `perDay` shown and the rest behind "+N more" (all of them in print). */
+function DayEvents<T>({ list, perDay, moreLabel, item, tall }: { list: PlacedEvent<T>[]; perDay: number; moreLabel: string; item: (p: PlacedEvent<T>, className?: string) => ReactNode; tall?: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (!list.length) return null;
+  const hidden = open ? 0 : Math.max(0, list.length - perDay);
+  return (
+    <>
+      <ul className={cn("space-y-0.5", open && (tall ? "max-h-36 overflow-y-auto" : "max-h-24 overflow-y-auto"), "print:max-h-none print:overflow-visible")}>
+        {list.map((p, i) => (i < list.length - hidden ? item(p) : item(p, "hidden print:list-item")))}
+      </ul>
+      {hidden > 0 && (
+        <button
+          type="button"
+          className="w-full rounded px-1.5 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden"
+          onClick={() => setOpen(true)}
+          data-testid="event-calendar-more"
+        >
+          {fillMessage(moreLabel, { count: hidden })}
+        </button>
+      )}
+    </>
+  );
 }
 
 interface GridProps<T> {
@@ -364,18 +419,21 @@ interface GridProps<T> {
   weekday: (d: Day) => string;
   /** A day cell's name: its date and how many events it has. */
   dayLabel: (d: Day, count: number) => string;
-  /** PageUp (−1) or PageDown (1) from `day`: move the window, return the day to focus. */
-  onPage?: (step: number, day: Day) => Day;
+  /** Move the window back (−1) or on (1) from `day`; `by` is the arrow's step past the edge. Returns the day to focus. */
+  onPage?: (step: number, day: Day, by?: number) => Day;
+  /** Events a cell shows before "+N more". */
+  perDay: number;
+  moreLabel: string;
   tall: boolean;
-  item: (p: PlacedEvent<T>) => ReactNode;
+  item: (p: PlacedEvent<T>, className?: string) => ReactNode;
   testID: string;
 }
 
-function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, onPage, tall, item, testID }: GridProps<T>) {
-  const cellProps = useDayFocus(days, today, 7, onPage);
+function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, onPage, perDay, moreLabel, tall, item, testID }: GridProps<T>) {
+  const cellProps = useGridFocus(days, today, 7, onPage);
   const weeks = Array.from({ length: days.length / 7 }, (_, w) => days.slice(w * 7, w * 7 + 7));
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto print:overflow-visible">
       <table role="grid" className="w-full min-w-[42rem] table-fixed border-collapse text-sm" aria-label={label}>
         <thead>
           <tr>
@@ -414,7 +472,7 @@ function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, on
                       >
                         {Number(day.slice(8))}
                       </span>
-                      {list.length > 0 && <ul className={cn("space-y-0.5 overflow-y-auto", tall ? "max-h-36" : "max-h-24")}>{list.map(item)}</ul>}
+                      <DayEvents list={list} perDay={perDay} moreLabel={moreLabel} item={item} tall={tall} />
                     </div>
                   </td>
                 );
@@ -434,15 +492,35 @@ interface LanesProps<T> {
   today: Day;
   label: string;
   laneHeader: string;
+  /** The lane for events that name none. */
+  unassigned: string;
   weekday: (d: Day) => string;
+  dayLabel: (d: Day, count: number) => string;
+  onPage?: (step: number, day: Day, by?: number) => Day;
   item: (p: PlacedEvent<T>) => ReactNode;
   testID: string;
 }
 
-function Lanes<T>({ days, placed, lanes, today, label, laneHeader, weekday, item, testID }: LanesProps<T>) {
+const UNASSIGNED = "\u0000unassigned";
+const cellKey = (lane: string, day: Day) => `${lane}\u0001${day}`;
+const dayOfKey = (key: string) => key.slice(key.indexOf("\u0001") + 1);
+const laneOfKey = (key: string) => key.slice(0, key.indexOf("\u0001"));
+
+/** A row per lane, a column per day: a grid like the day grid, each cell a lane's day. */
+function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassigned, weekday, dayLabel, onPage, item, testID }: LanesProps<T>) {
+  const anyUnassigned = [...placed.values()].some((list) => list.some((p) => !p.event.lanes?.length));
+  const lanes: CalendarLane[] = anyUnassigned ? [...given, { key: UNASSIGNED, label: unassigned }] : [...given];
+  const keys = lanes.flatMap((l) => days.map((d) => cellKey(l.key, d)));
+  const initial = days.includes(today) ? cellKey(lanes[0]?.key ?? "", today) : undefined;
+  const cellProps = useGridFocus(keys, initial, days.length, (step, key, by) => {
+    // Up and down past the first or last lane stay put; left, right and paging move the window.
+    if (by !== undefined && Math.abs(by) !== 1) return undefined;
+    return onPage ? cellKey(laneOfKey(key), onPage(step, dayOfKey(key), by)) : undefined;
+  });
+  const inLane = (lane: string, p: PlacedEvent<T>) => (lane === UNASSIGNED ? !p.event.lanes?.length : Boolean(p.event.lanes?.includes(lane)));
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full table-fixed border-collapse text-sm" style={{ minWidth: `${8 + days.length * 6}rem` }} aria-label={label}>
+    <div className="overflow-x-auto print:overflow-visible">
+      <table role="grid" className="w-full table-fixed border-collapse text-sm" style={{ minWidth: `${8 + days.length * 6}rem` }} aria-label={label}>
         <thead>
           <tr>
             <th scope="col" className="w-32 py-1 text-left text-xs font-medium text-muted-foreground">
@@ -462,7 +540,7 @@ function Lanes<T>({ days, placed, lanes, today, label, laneHeader, weekday, item
         </thead>
         <tbody>
           {lanes.map((lane) => (
-            <tr key={lane.key} data-lane={lane.key} data-testid={`${testID}-lane`}>
+            <tr key={lane.key} data-lane={lane.key === UNASSIGNED ? "" : lane.key} data-testid={`${testID}-lane`}>
               <th scope="row" className="border px-2 py-1 text-left align-top text-xs font-medium">
                 <span className="flex items-center gap-1.5">
                   {lane.color && <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: lane.color }} aria-hidden />}
@@ -470,9 +548,16 @@ function Lanes<T>({ days, placed, lanes, today, label, laneHeader, weekday, item
                 </span>
               </th>
               {days.map((day) => {
-                const list = (placed.get(day) ?? []).filter((p) => p.event.lanes?.includes(lane.key));
+                const list = (placed.get(day) ?? []).filter((p) => inLane(lane.key, p));
                 return (
-                  <td key={day} className="h-16 border p-1 align-top" data-day={day}>
+                  <td
+                    key={day}
+                    role="gridcell"
+                    aria-label={`${lane.label}, ${dayLabel(day, list.length)}`}
+                    className="h-16 border p-1 align-top focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    data-day={day}
+                    {...cellProps(cellKey(lane.key, day))}
+                  >
                     {list.length > 0 && <ul className="space-y-0.5">{list.map(item)}</ul>}
                   </td>
                 );

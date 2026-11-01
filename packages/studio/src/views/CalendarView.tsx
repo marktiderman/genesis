@@ -29,8 +29,9 @@ export interface CalendarViewProps {
 
 /**
  * A month of the table's rows, placed by a date field and drawn by Genesis UI's EventCalendar.
- * One request per month (a `gte`/`lt` range on the field, with the table's filters, search and
- * sort), up to 200 rows. A timestamp shows on the day it falls in the viewer's time zone.
+ * One request per month grid (a `gte`/`lt` range on the field covering the month's whole weeks,
+ * so the days shown from the months either side are filled too, with the table's filters, search
+ * and sort), up to 200 rows. A timestamp shows on the day it falls in the viewer's time zone.
  */
 export function CalendarView({
   provider,
@@ -75,7 +76,7 @@ export function CalendarView({
   const events = useMemo(
     () =>
       rows.flatMap((row): CalendarEvent<Row>[] => {
-        const start = readEventTime(row[field.name], dateOnly);
+        const start = readEventTime(row[field.name], { dateOnly });
         if (start === null) return [];
         const key = String(encodeRecordKey(schema, row));
         return [{ key, title: displayText(labelField ? row[labelField] : undefined) ?? key, start, row }];
@@ -88,6 +89,7 @@ export function CalendarView({
     <EventCalendar<Row>
       events={events}
       layout="month"
+      weekStartsOn={1}
       anchor={`${month}-01`}
       onAnchorChange={(day) => onMonthChange(day.slice(0, 7))}
       label={`${schema.label ?? schema.name} by ${fieldLabel(field)}`}

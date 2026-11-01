@@ -13,4 +13,6 @@ export {
   type CalendarWindowOptions,
   type PlacedEvent,
 } from "./placement";
-export { readEventTime, windowBounds } from "./values";
+export { timeStorage, windowBounds, type TimeStorage } from "./values";
+// Reading stored dates lives in core; here too so a calendar's helpers come from one place.
+export { readEventTime } from "@marktiderman/genesis-core/dates";

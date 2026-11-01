@@ -296,15 +296,21 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
  * (`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.
  */
 export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
+  // Two components, so switching `mode` to and from calendar swaps children rather than hooks.
   if (props.mode === "calendar") return <ResourceViewCalendar<T> {...props} />;
+  return <ResourceViewPage<T> {...props} />;
+}
+
+function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
   return <ResourcePage<T> {...useResourceViewProps(props)} />;
 }
 
 /** `mode="calendar"`: the same view, scope and filters, placed by a date field. */
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className } = props;
+  const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className, cells } = props;
   const viewer = useViewer();
   const tab = preset ? view.definition.presets?.[preset] : undefined;
+  if (preset && !tab) throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
   const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
   const filters = [
     ...filterParams(tab?.filter as Filter | undefined),
@@ -316,6 +322,7 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
       {...(calendar ?? {})}
       view={view}
       filters={filters}
+      {...(cells ? { cells } : {})}
       title={title ?? view.title}
       {...(className ? { className } : {})}
     />

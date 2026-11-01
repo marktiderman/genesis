@@ -4,11 +4,11 @@
 // date field, one request per visible window. Drawn by EventCalendar; a click opens the same peek
 // the list does, or the screen's `onSelect`.
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { encodeRecordKey, type FieldSchema } from "@marktiderman/genesis-core/schema";
-import { dayIn, deviceTimeZone, isTimeZone, type Day } from "@marktiderman/genesis-core/dates";
+import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
+import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
+import { dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
 import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import type { ResourceView as View, ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
@@ -16,7 +16,8 @@ import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
 import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
-import { readEventTime, windowBounds } from "../calendar/values";
+import { timeStorage, windowBounds } from "../calendar/values";
+import { useFollowedState } from "../calendar/use-followed-state";
 import { useDisplayCell } from "./display";
 
 type Row = Record<string, unknown>;
@@ -53,8 +54,6 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   lanes?: readonly CalendarLane[];
   /** A row's dot colours, when not its lanes'. */
   colorsOf?: (row: T) => readonly string[];
-  /** Longest a row runs, in days: how far before the window to look. Default 0, or 31 with `endField`. */
-  maxSpanDays?: number;
   /** Most rows one window loads. Default {@link CALENDAR_LIMIT}. */
   limit?: number;
   /** The agenda shows empty days too. */
@@ -66,6 +65,8 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
 export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCalendarOptions<T> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
   view: View<ResourceContract<any>, T & DataRow>;
+  /** Draw some peek fields the screen's own way, by column key (ResourceView's `cells`). */
+  cells?: Partial<Record<string, (row: T) => ReactNode>>;
   /** Server filters (the view's scope and the screen's), already as params. */
   filters?: readonly FilterParam[];
   title?: string;
@@ -84,7 +85,6 @@ function withoutUndefined<O extends object>(o: O): Partial<O> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<O>;
 }
 
-const isDateOnly = (field: FieldSchema | undefined) => field?.dbType === "date" || field?.widget === "date";
 
 function laneKeys(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((v) => v !== null && v !== undefined).map(String);
@@ -98,12 +98,12 @@ function laneKeys(value: unknown): string[] {
  * @stability Beta
  */
 export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarProps<T>) {
-  const { view, filters = [], title, className, testID = "resource-calendar" } = props;
+  const { view, filters = [], title, className, cells, testID = "resource-calendar" } = props;
   // The view's block, then the screen's settings over it.
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
     field: fieldName, endField, allDayField, layout: layoutProp, layouts, onLayoutChange, weeks = 2, weekStartsOn = 1, timeZone,
-    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, maxSpanDays, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
+    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
   } = settings;
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -113,46 +113,80 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const field = view.field(fieldName);
   if (!field) throw new Error(`ResourceView(${view.resource}): calendar field "${fieldName}" isn't in the view`);
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
-  const dateOnly = isDateOnly(field);
-  const endDateOnly = endField ? isDateOnly(view.field(endField)) : dateOnly;
+  const storage = timeStorage(field);
+  const endStorage = endField ? timeStorage(view.field(endField)) : storage;
 
-  const [ownLayout, setOwnLayout] = useState<CalendarLayout>(layoutProp ?? "month");
+  const [ownLayout, setOwnLayout] = useFollowedState<CalendarLayout>(layoutProp, () => "month");
   const layout = onLayoutChange ? (layoutProp ?? "month") : ownLayout;
-  const [ownAnchor, setOwnAnchor] = useState<Day>(() => anchorProp ?? dayIn(zone));
+  const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => dayIn(zone));
   const anchor = onAnchorChange ? (anchorProp ?? dayIn(zone)) : ownAnchor;
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
-  const { from, to } = windowBounds(range, dateOnly, zone, maxSpanDays ?? (endField ? 31 : 0));
-  const filterKey = JSON.stringify(filters);
+  const { from, to } = windowBounds(range, storage, zone);
+  const end = endField ? windowBounds(range, endStorage, zone) : undefined;
 
-  const query = useQuery({
-    queryKey: ["genesis-calendar", provider, view.resource, fieldName, from, to, filterKey, limit],
+  // Two requests at most, each one plain filter list the provider rules apply to:
+  // - rows that overlap the window: start before its end, and end at or after its start (a long
+  //   event that began weeks ago is in; no guessing how far back to look);
+  // - with an end field, rows without an end that start inside it.
+  const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const } };
+  const overlapping: ListParams = {
+    ...base,
+    filters: end
+      ? [...filters, { field: fieldName, operator: "lt", value: to }, { field: endField!, operator: "gte", value: end.from }]
+      : [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
+  };
+  const openEnded: ListParams = {
+    ...base,
+    filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }, { field: endField ?? fieldName, operator: "is_null" }],
+  };
+  // Under core's list keys, so a save to the resource refreshes the calendar like any list.
+  const main = useQuery({
+    queryKey: resourceKeys(view.resource).list(overlapping),
     placeholderData: keepPreviousData,
-    queryFn: () =>
-      provider.getList<BaseRecord>(view.resource, {
-        pagination: { page: 1, perPage: limit },
-        sort: { field: fieldName, order: "asc" },
-        filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
-      }),
+    queryFn: () => provider.getList<BaseRecord>(view.resource, overlapping),
   });
-  const rows = (query.data?.data ?? []) as unknown as T[];
-  const total = query.data?.total ?? rows.length;
+  const extra = useQuery({
+    queryKey: resourceKeys(view.resource).list(openEnded),
+    placeholderData: keepPreviousData,
+    enabled: Boolean(endField),
+    queryFn: () => provider.getList<BaseRecord>(view.resource, openEnded),
+  });
+  // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
+  const rows = useMemo(() => {
+    const seen = new Set<string>();
+    return [...((main.data?.data ?? []) as unknown as T[]), ...(endField ? ((extra.data?.data ?? []) as unknown as T[]) : [])].filter((row) => {
+      const key = String(encodeRecordKey(view.contract, row as DataRow));
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [main.data, extra.data, endField, view]);
+  const loaded = rows.length;
+  const total = (main.data?.total ?? main.data?.data.length ?? 0) + (endField ? (extra.data?.total ?? extra.data?.data.length ?? 0) : 0);
+  const error = main.error ?? (endField ? extra.error : null);
 
   const events = useMemo(
     () =>
       rows.flatMap((row): CalendarEvent<T>[] => {
-        const start = readEventTime(row[fieldName], dateOnly);
+        const start = readEventTime(row[fieldName], { dateOnly: storage === "date", timeZone: zone });
         if (start === null) return [];
-        const end = endField ? readEventTime(row[endField], endDateOnly) : null;
+        const rowEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
         const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
-        const own = (v: Day | Date) => (allDay && v instanceof Date ? dayIn(zone, v) : v);
+        const startDay = typeof start === "string" ? start : dayIn(zone, start);
+        // An all-day row stored as instants runs to an exclusive end: its last day is the one
+        // before the end instant, and never before its first.
+        const lastDay = (v: Day | Date) => {
+          const d = typeof v === "string" ? v : dayIn(zone, new Date(v.getTime() - 1));
+          return d < startDay ? startDay : d;
+        };
         const rowLanes = lanesOf ? lanesOf(row) : laneBy ? laneKeys(row[laneBy]) : undefined;
         const colors = colorsOf?.(row);
         return [
           {
             key: String(encodeRecordKey(view.contract, row as DataRow)),
             title: view.summary(row as T & DataRow).title,
-            start: own(start),
-            ...(end !== null ? { end: own(end) } : {}),
+            start: allDay ? startDay : start,
+            ...(rowEnd !== null ? { end: allDay ? lastDay(rowEnd) : rowEnd } : {}),
             allDay,
             ...(rowLanes ? { lanes: rowLanes } : {}),
             ...(colors ? { colors } : {}),
@@ -160,13 +194,18 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
           },
         ];
       }),
-    [rows, fieldName, endField, allDayField, dateOnly, endDateOnly, zone, lanesOf, laneBy, colorsOf, view],
+    [rows, fieldName, endField, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, view],
   );
 
   const [open, setOpen] = useState<T | null>(null);
   const detailFields = useMemo(
-    () => view.columns().map((c) => ({ key: c.key, label: c.label, render: (_v: unknown, row: T) => cell(c as never, row) })),
-    [view, cell],
+    () =>
+      view.columns().map((c) => ({
+        key: c.key,
+        label: c.label,
+        render: (_v: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
+      })),
+    [view, cell, cells],
   );
 
   const switcher =
@@ -206,14 +245,14 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         toolbar={switcher}
         notice={
           <>
-            {total > rows.length && (
+            {total > loaded && (
               <p role="status" className="text-xs text-muted-foreground print:hidden" data-testid={`${testID}-capped`}>
-                {fillMessage(m.calendar.capped, { more: (total - rows.length).toLocaleString(), shown: rows.length.toLocaleString(), total: total.toLocaleString() })}
+                {fillMessage(m.calendar.capped, { more: (total - loaded).toLocaleString(), shown: loaded.toLocaleString(), total: total.toLocaleString() })}
               </p>
             )}
-            {query.isError && (
+            {error && (
               <p role="alert" className="text-sm text-destructive">
-                {query.error instanceof Error ? query.error.message : String(query.error)}
+                {error instanceof Error ? error.message : String(error)}
               </p>
             )}
           </>

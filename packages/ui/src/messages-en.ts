@@ -182,6 +182,10 @@ export const uiMessages = {
     /** A day cell's count, read after its date: "Tuesday, November 3, 2 events". */
     eventsOne: "1 event",
     eventsOther: "{count} events",
+    /** A day cell's button for the events it doesn't show yet. */
+    more: "+{count} more",
+    /** The lanes layout's row for events that name no lane. */
+    unassigned: "Unassigned",
     /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */
     with: "with {names}",
     /** An event that started on an earlier day. */
