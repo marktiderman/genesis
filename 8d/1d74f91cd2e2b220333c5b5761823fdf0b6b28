@@ -1,0 +1,33 @@
+packages/genesis-cli/src/upgrade/release-age.ts
+  s_1feb538f59bf88::t_8c5658aff0aa69 1-100
+.changeset/upgrade-release-age-excludes.md
+  s_1feb538f59bf88::t_7e4651d233f823 1-5
+.github/ci-fixture/pnpm-workspace.yaml
+  s_1feb538f59bf88::t_a4e49ea389ce8f 4-5,7
+docs/APP-CI.md
+  s_1feb538f59bf88::t_4f03500d000ba7 120-122
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_cd9e21243771c6 355-366
+packages/genesis-cli/src/blocks/pm.ts
+  s_1feb538f59bf88::t_d09b48846177cc 14-15,18-21,23,28-32,43-52
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_fd801ba98bf3f2 11-12,31,35,53-57,123-140,227,229,231-237,243-253,338
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_72cde275099380 2,11-12,125-201
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8d1d74f91cd2e2b220333c5b5761823fdf0b6b28",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
