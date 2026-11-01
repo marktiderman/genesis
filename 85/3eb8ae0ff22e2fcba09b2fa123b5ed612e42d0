@@ -1,0 +1,41 @@
+.changeset/connect-calendar-identity.md
+  s_f5dc1a94da0ec7::t_25c7fabb1dd83c 5
+packages/connect/README.md
+  s_c922289064746d::t_98b22296aa913c 97-98,100-102,106-107,118-123,281
+packages/connect/src/__tests__/oauth.test.ts
+  s_6a4659246591cd::t_9f86d894105a33 1126-1184
+packages/connect/src/oauth.ts
+  s_f5dc1a94da0ec7::t_8ae047c1582b12 187-190,210,213,239-241,243,250,253,259,263-264,266,268-269,275-277,280-283,349-354,1300-1315,1345
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "853eb8ae0ff22e2fcba09b2fa123b5ed612e42d0",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_c922289064746d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c6102c78-ed0e-4421-af2c-b595ca84c900",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_f5dc1a94da0ec7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5a2e48fb-f183-47e8-8428-6c2d1d19924a",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
