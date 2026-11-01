@@ -1,0 +1,24 @@
+packages/features/src/node.ts
+  s_1feb538f59bf88::t_48f7f45445a489 353,355,357-358,361,374,384-386,388,393-394,401-402,405-409,411,418-422
+packages/features/src/__tests__/node.test.ts
+  s_1feb538f59bf88::t_9e4e6d95feb86c 182,190-193
+  s_1feb538f59bf88::t_48f7f45445a489 159-177,189,194-198
+.changeset/features-conflicted-json.md
+  s_1feb538f59bf88::t_22669d243c68b2 5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ba5d6f1d484a369b1c314678725207240d0cc825",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
