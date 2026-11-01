@@ -219,3 +219,46 @@ describe("DataTable follow-ups (#105 review)", () => {
     set.mockRestore();
   });
 });
+
+describe("DataTable with primitive items", () => {
+  // The engine wraps each item as `{ item }` (TanStack Table needs object rows);
+  // nothing outside the table may see the wrapper.
+  const numbers = [30, 4, 15, 8, 23, 42];
+  const numberColumns: DataTableColumn<number>[] = [
+    { key: "n", header: "Number", sortable: true, accessor: (n) => n },
+  ];
+
+  it("sorts and pages numbers through an accessor column", () => {
+    render(
+      <DataTable items={numbers} columns={numberColumns} getKey={(n) => String(n)} pageSize={2} columnVisibility={false} />,
+    );
+    expect(firstColumn()).toEqual(["30", "4"]);
+    sortBy("number");
+    expect(firstColumn()).toEqual(["4", "8"]);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(firstColumn()).toEqual(["15", "23"]);
+    // Descending, still on the second page.
+    sortBy("number");
+    expect(firstColumn()).toEqual(["23", "15"]);
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(firstColumn()).toEqual(["42", "30"]);
+  });
+
+  it("hands onRowClick the primitive itself, not the engine's wrapper", () => {
+    const onRowClick = vi.fn();
+    render(
+      <DataTable
+        items={["pear", "apple", "fig"]}
+        columns={[{ key: "s", header: "Fruit", sortable: true, accessor: (s: string) => s }]}
+        getKey={(s) => s}
+        onRowClick={onRowClick}
+        columnVisibility={false}
+      />,
+    );
+    sortBy("fruit");
+    expect(firstColumn()).toEqual(["apple", "fig", "pear"]);
+    fireEvent.click(screen.getAllByRole("row")[1]!);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+    expect(onRowClick).toHaveBeenCalledWith("apple");
+  });
+});
