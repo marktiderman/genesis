@@ -480,6 +480,7 @@ describe("supabase pack", () => {
     expect(dynamicGrants("execute format('grant usage on schema x to authenticated');")).toEqual([]);
     expect(dynamicGrants("/* execute 'grant all on t to anon'; */ perform 1;")).toEqual([]);
     expect(dynamicGrants("raise notice 'grant all on t to anon'; execute 'grant select on t to public';")).toEqual(["public"]);
+    expect(dynamicGrants(`execute 'grant select on table public."raise" to anon';`)).toEqual(["anon"]);
   });
 
   it("migration-rls: dynamic enables, disable, rename and set schema", async () => {

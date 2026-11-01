@@ -329,7 +329,7 @@ export function dynamicGrants(body: string): Array<string | null> {
   const code = body
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/--[^\n]*/g, "")
-    .replace(/\braise\b[^;]*;/gi, ";");
+    .replace(/(?<![\w."'$])raise\s+(?:debug|log|info|notice|warning|exception)\b[^;]*;/gi, ";");
   // Single-quoted ('…', E'…') and dollar-quoted ($q$…$q$) strings.
   for (const m of code.matchAll(/(?:'|\$\w*\$)\s*grant\b[^;]*/g)) {
     const to = /\bto\s+([^']*?)(?:'|\$\w*\$|$)/.exec(m[0]);
