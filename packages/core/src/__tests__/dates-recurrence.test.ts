@@ -477,3 +477,135 @@ describe("expandRecurrence: COUNT with EXDATE, 29 February, and the window guard
     expect(expandRecurrence({ rule: "FREQ=DAILY", start: "2026-01-01", window: { start: "2026-01-01", end: "2036-01-01" } })).toHaveLength(1000);
   });
 });
+
+describe("expandRecurrence: review findings", () => {
+  const wide = { start: "1996-01-01", end: "2040-01-01" };
+  const ny = "America/New_York";
+  const run = (rule: string, day: string, window = wide) => days(expandRecurrence({ rule, start: { day, time: "09:00", timeZone: ny }, window }));
+
+  it("counts a BYDAY position within the month when BYMONTHDAY is set too", () => {
+    expect(days(expandRecurrence({ rule: "FREQ=MONTHLY;BYDAY=1FR;BYMONTHDAY=13,6", start: "2026-02-13", window: { start: "2026-01-01", end: "2027-01-01" } }))).toEqual([
+      "2026-02-13",
+      "2026-03-06",
+      "2026-11-06",
+    ]);
+  });
+
+  it("counts a BYDAY position through the year for a YEARLY rule without BYMONTH", () => {
+    // The year's 1st Monday that is also the 1st to 7th of its month: only January's.
+    expect(days(expandRecurrence({ rule: "FREQ=YEARLY;BYDAY=1MO;BYMONTHDAY=1,2,3,4,5,6,7;COUNT=3", start: "2026-01-05", window: wide }))).toEqual([
+      "2026-01-05",
+      "2027-01-04",
+      "2028-01-03",
+    ]);
+  });
+
+  it("keeps a sparse DAILY rule going: 29 February every leap year", () => {
+    expect(days(expandRecurrence({ rule: "FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29", start: "2024-02-29", window: { start: "2024-01-01", end: "2033-01-01" } }))).toEqual([
+      "2024-02-29",
+      "2028-02-29",
+      "2032-02-29",
+    ]);
+  });
+
+  it("reads a floating UNTIL on the series' own clock", () => {
+    const got = expandRecurrence({ rule: "FREQ=DAILY;UNTIL=20261105T090000", start: { day: "2026-11-03", time: "09:00", timeZone: "America/Denver" }, window: wide });
+    expect(days(got)).toEqual(["2026-11-03", "2026-11-04", "2026-11-05"]);
+    expect(days(expandRecurrence({ rule: "FREQ=DAILY;UNTIL=20261103T090000", start: { day: "2026-11-01", time: "09:00", timeZone: ny }, window: wide }))).toEqual([
+      "2026-11-01",
+      "2026-11-02",
+      "2026-11-03",
+    ]);
+    // An all-day series takes a floating UNTIL's day.
+    expect(days(expandRecurrence({ rule: "FREQ=DAILY;UNTIL=20261103T000000", start: "2026-11-01", window: wide }))).toEqual(["2026-11-01", "2026-11-02", "2026-11-03"]);
+  });
+
+  it("keeps an `at` start in the repeated hour at its own instant", () => {
+    // 01:30 EST on 1 November 2026, the second 01:30 in New York.
+    const second = new Date("2026-11-01T06:30:00Z");
+    const got = expandRecurrence({ rule: "FREQ=DAILY;COUNT=2", start: { at: second, timeZone: ny }, window: wide });
+    expect(iso(got)).toEqual(["2026-11-01T06:30:00.000Z", "2026-11-02T06:30:00.000Z"]);
+  });
+
+  it("returns nothing when UNTIL is before the start", () => {
+    expect(expandRecurrence({ rule: "FREQ=DAILY;UNTIL=20260101", start: "2026-02-01", window: wide })).toEqual([]);
+  });
+
+  it("refuses an instant EXDATE on an all-day series", () => {
+    expect(() => expandRecurrence({ rule: "FREQ=DAILY;COUNT=3", start: "2026-11-01", exdates: [new Date("2026-11-02T00:00:00Z")], window: wide })).toThrow(/EXDATE is a day/);
+  });
+
+  it("stops before year 10000", () => {
+    expect(expandRecurrence({ rule: "FREQ=YEARLY", start: "9990-06-01", window: { start: "9990-01-01", end: "9999-12-31" } })).toHaveLength(10);
+  });
+
+  it("says when the limit cut the result", () => {
+    const cut = expandRecurrence({ rule: "FREQ=DAILY", start: "2026-01-01", window: { start: "2026-01-01", end: "2026-02-01" }, limit: 5 });
+    expect(cut).toHaveLength(5);
+    expect(cut.truncated).toBe(true);
+    const whole = expandRecurrence({ rule: "FREQ=DAILY", start: "2026-01-01", window: { start: "2026-01-01", end: "2026-01-06" }, limit: 5 });
+    expect(whole).toHaveLength(5);
+    expect(whole.truncated).toBe(false);
+  });
+
+  it("refuses combinations RFC 5545 forbids, and repeated parts, naming them", () => {
+    expect(() => parseRRule("FREQ=WEEKLY;BYDAY=1MO")).toThrow(/BYDAY with a position \(1MO\) needs FREQ=MONTHLY or YEARLY/);
+    expect(() => parseRRule("FREQ=DAILY;BYDAY=1MO")).toThrow(/BYDAY with a position/);
+    expect(() => parseRRule("FREQ=WEEKLY;BYMONTHDAY=1")).toThrow(/BYMONTHDAY can't be used with FREQ=WEEKLY/);
+    expect(() => parseRRule("FREQ=DAILY;FREQ=WEEKLY")).toThrow(/FREQ is set twice/);
+  });
+
+  it("checks a rule given as an object the same way as text", () => {
+    const window = { start: "2026-01-01", end: "2026-02-01" };
+    expect(() => expandRecurrence({ rule: { freq: "DAILY", interval: 0, weekStart: 1 }, start: "2026-01-01", window })).toThrow(/INTERVAL=0/);
+    expect(() => expandRecurrence({ rule: { freq: "HOURLY" as never, interval: 1, weekStart: 1 }, start: "2026-01-01", window })).toThrow(/FREQ=HOURLY isn't supported/);
+    expect(() => expandRecurrence({ rule: { freq: "WEEKLY", interval: 1, weekStart: 1, byDay: [{ weekday: 1, nth: 2 }] }, start: "2026-01-01", window })).toThrow(/needs FREQ=MONTHLY/);
+  });
+
+  it("works out instants only for occurrences it returns", () => {
+    // 100,000 counted occurrences before a small window: fast because only the window's get instants.
+    const t = Date.now();
+    const got = expandRecurrence({ rule: "FREQ=DAILY;COUNT=40000", start: { day: "1950-01-01", time: "09:00", timeZone: ny }, window: { start: "2026-11-01", end: "2026-11-03" } });
+    expect(got).toHaveLength(2);
+    expect(Date.now() - t).toBeLessThan(2000);
+  });
+
+  // RFC 5545 section 3.8.5.3, more of its examples (09:00 New York).
+  it("monthly on the second-to-last Monday for 6 months", () => {
+    expect(run("FREQ=MONTHLY;COUNT=6;BYDAY=-2MO", "1997-09-22")).toEqual(["1997-09-22", "1997-10-20", "1997-11-17", "1997-12-22", "1998-01-19", "1998-02-16"]);
+  });
+
+  it("monthly on the first and last day of the month for 10 occurrences", () => {
+    expect(run("FREQ=MONTHLY;COUNT=10;BYMONTHDAY=1,-1", "1997-09-30")).toEqual([
+      "1997-09-30", "1997-10-01", "1997-10-31", "1997-11-01", "1997-11-30", "1997-12-01", "1997-12-31", "1998-01-01", "1998-01-31", "1998-02-01",
+    ]);
+  });
+
+  it("every other year on January, February and March for 10 occurrences", () => {
+    expect(run("FREQ=YEARLY;INTERVAL=2;COUNT=10;BYMONTH=1,2,3", "1997-03-10")).toEqual([
+      "1997-03-10", "1999-01-10", "1999-02-10", "1999-03-10", "2001-01-10", "2001-02-10", "2001-03-10", "2003-01-10", "2003-02-10", "2003-03-10",
+    ]);
+  });
+
+  it("the 20th Monday of the year", () => {
+    expect(run("FREQ=YEARLY;BYDAY=20MO", "1997-05-19", { start: "1997-01-01", end: "2000-01-01" })).toEqual(["1997-05-19", "1998-05-18", "1999-05-17"]);
+  });
+
+  it("every Thursday in March, forever", () => {
+    expect(run("FREQ=YEARLY;BYMONTH=3;BYDAY=TH", "1997-03-13", { start: "1997-01-01", end: "2000-01-01" })).toEqual([
+      "1997-03-13", "1997-03-20", "1997-03-27", "1998-03-05", "1998-03-12", "1998-03-19", "1998-03-26", "1999-03-04", "1999-03-11", "1999-03-18", "1999-03-25",
+    ]);
+  });
+
+  it("the first Saturday that follows the first Sunday of the month", () => {
+    expect(run("FREQ=MONTHLY;BYDAY=SA;BYMONTHDAY=7,8,9,10,11,12,13", "1997-09-13", { start: "1997-01-01", end: "1998-07-01" })).toEqual([
+      "1997-09-13", "1997-10-11", "1997-11-08", "1997-12-13", "1998-01-10", "1998-02-07", "1998-03-07", "1998-04-11", "1998-05-09", "1998-06-13",
+    ]);
+  });
+
+  it("every 18 months on the 10th to 15th for 10 occurrences", () => {
+    expect(run("FREQ=MONTHLY;INTERVAL=18;COUNT=10;BYMONTHDAY=10,11,12,13,14,15", "1997-09-10")).toEqual([
+      "1997-09-10", "1997-09-11", "1997-09-12", "1997-09-13", "1997-09-14", "1997-09-15", "1999-03-10", "1999-03-11", "1999-03-12", "1999-03-13",
+    ]);
+  });
+});

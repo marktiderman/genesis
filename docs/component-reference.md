@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 591 components · 4053 other exports · 3227 standalone types across 189 entry points in 29 packages.
+**Totals:** 591 components · 4068 other exports · 3235 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1728,34 +1728,57 @@ export type { FixtureUser };
 
 **Barrel:** [`packages/core/src/dates.ts`](../packages/core/src/dates.ts)
 
-### Other exports (13)
+### Other exports (28)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`addDays`](../packages/core/src/dates.ts) | function | Beta | `day` moved by `days` (negative goes back). Calendar arithmetic: no zone, no daylight saving. @stability Beta |
+| [`addMonths`](../packages/core/src/dates.ts) | function | Beta | `day` moved by `months`, keeping its day of the month where the month has it and taking the month's last day where it doesn't (31 January + 1 is 28 or 29 February). @stability Beta |
+| [`addWeeks`](../packages/core/src/dates.ts) | function | Beta | `day` moved by whole weeks. @stability Beta |
 | [`dayIn`](../packages/core/src/dates.ts) | function | Beta | The day on `zone`'s clock at `at` (default now). @stability Beta |
 | [`dayRangeIn`](../packages/core/src/dates.ts) | function | Beta | The `[start, end)` instants of `day` on `zone`'s clock (23 or 25 hours on daylight-saving days). @stability Beta |
 | [`daysBetween`](../packages/core/src/dates.ts) | function | Beta | Whole days from `from` to `to` (`to` − `from`; negative when `to` is earlier). @stability Beta |
+| [`daysInMonth`](../packages/core/src/dates.ts) | function | Beta | Days in `day`'s month (28 to 31). @stability Beta |
 | [`deviceTimeZone`](../packages/core/src/dates.ts) | function | Beta | The device's (or server's) zone, `"UTC"` when the runtime can't say. @stability Beta |
+| [`eachDay`](../packages/core/src/dates.ts) | function | Beta | Every day of a range, in order. @stability Beta |
+| [`expandRecurrence`](../packages/core/src/dates.ts) | function | Beta | The occurrences of a repeating series inside a window, in order. No dependencies; daylight saving is right because each occurrence keeps the series' wall time on its own zone's clock (a 09:00 meeting is 09:00 in Denver in both January an... |
+| [`instantIn`](../packages/core/src/dates.ts) | function | Beta | The instant `zone`'s clock shows `time` on `day`. A time the clock skips (the hour lost when daylight saving starts) is read with the offset before the jump, so 02:30 becomes 03:30; a time it shows twice (the hour repeated when it ends) ... |
 | [`isDay`](../packages/core/src/dates.ts) | function | Beta | Whether `value` is a real `YYYY-MM-DD` day (not `2026-02-30`). @stability Beta |
 | [`isTimeZone`](../packages/core/src/dates.ts) | function | Beta | Whether the runtime knows `zone` (`"America/Denver"`). @stability Beta |
+| [`monthGridRange`](../packages/core/src/dates.ts) | function | Beta | The whole weeks that cover `day`'s month: what a month grid shows, leading and trailing days included. @stability Beta |
+| [`monthRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s month as a range: its first day to the next month's first. @stability Beta |
+| [`parseRRule`](../packages/core/src/dates.ts) | function | Beta | Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Supports FREQ (DAILY, WEEKLY, MONTHLY, YEARLY), INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY, BYMONTH and WKST. Any other part (BYSETPOS, BYWEEKNO, BYYEARDAY,... |
 | [`personDay`](../packages/core/src/dates.ts) | function | Beta | Today (or the day at `at`) for this person: `dayIn(personTimeZone(person), at)`. |
 | [`personTimeZone`](../packages/core/src/dates.ts) | function | Beta | The zone a person's days are counted in: their saved zone if the runtime knows it, else the device's, else UTC. On a server, pass the person's zone: the server's own is rarely theirs. |
+| [`quarterRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s quarter as a range. @stability Beta |
+| [`rangeIn`](../packages/core/src/dates.ts) | function | Beta | The `[start, end)` instants of a range of days on `zone`'s clock: what to filter a timestamp column by for a calendar's visible window. @stability Beta |
 | [`startOfDayIn`](../packages/core/src/dates.ts) | function | Beta | The instant `day` starts on `zone`'s clock: what to compare `created_at` with for "since midnight". Where midnight doesn't exist (a daylight-saving jump at 00:00), it's the first instant of the day that does. |
+| [`startOfMonth`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s month. @stability Beta |
+| [`startOfQuarter`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s quarter (1 January, 1 April, 1 July or 1 October). @stability Beta |
 | [`startOfWeek`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s week, with weeks starting on `weekStartsOn` (0 Sunday … 6 Saturday; default 1, Monday). @stability Beta |
 | [`wallClock`](../packages/core/src/dates.ts) | function | Beta | What the clock on the wall in `zone` says at `at`. @stability Beta |
+| [`wallTimeIn`](../packages/core/src/dates.ts) | function | Beta | The day and wall time `zone`'s clock shows at `at`. @stability Beta |
 | [`weekdayOf`](../packages/core/src/dates.ts) | function | Beta | The weekday of a day, 0 for Sunday. @stability Beta |
+| [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks (1 or more) from the week `day` is in: what a 1-to-4-week calendar shows. |
 
-### Types (3)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Day };
+export type { DayRange };
+export type { Occurrence };
+export type { Occurrences };
 export type { PersonClock };
+export type { RRule };
+export type { RecurrenceOptions };
+export type { RecurrenceStart };
+export type { RuleWeekday };
 export type { WallClock };
+export type { WallTime };
 ```
 
 ---
