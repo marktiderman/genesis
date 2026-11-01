@@ -895,7 +895,6 @@ export function DataTable<T>({
       sorting,
       pagination: { pageIndex: currentPage, pageSize: currentPageSize },
     },
-    enableMultiSort: true,
     // The page is held here and reset by the effects above, never by the engine.
     autoResetPageIndex: false,
     // A tree's rows come in the tree's order: sorting them flat would part children from parents.
