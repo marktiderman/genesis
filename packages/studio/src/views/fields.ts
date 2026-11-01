@@ -2,6 +2,7 @@
 // handler sends (Postgres text, e.g. `2026-10-19 09:30:00.123456+00`).
 
 import type { FieldSchema, ResourceSchema } from "@marktiderman/genesis-core/schema";
+import { readEventTime } from "@marktiderman/genesis-ui/data";
 import { choicesFor } from "../values";
 
 /** Fields with a fixed set of values: an enum, or a yes/no. */
@@ -19,26 +20,14 @@ export function isDateOnly(field: FieldSchema): boolean {
   return field.dbType === "date" || field.widget === "date";
 }
 
-const DB_DATE = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?)(\.\d+)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/;
-
 /**
  * The local calendar day (`YYYY-MM-DD`) a stored value falls on, or null.
  * A `date` is that day wherever you are; a timestamp is placed on the day it
  * is in the viewer's time zone.
  */
 export function localDay(value: unknown, dateOnly: boolean): string | null {
-  if (typeof value !== "string") return null;
-  const m = DB_DATE.exec(value.trim());
-  if (!m) return null;
-  if (dateOnly || !m[2]) return m[1]!;
-  let zone = m[4] ?? "";
-  if (/^[+-]\d{2}$/.test(zone)) zone += ":00";
-  else if (/^[+-]\d{4}$/.test(zone)) zone = `${zone.slice(0, 3)}:${zone.slice(3)}`;
-  const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
-  const ms = m[3] ? m[3].slice(0, 4).padEnd(4, "0") : "";
-  const date = new Date(`${m[1]}T${time}${ms}${zone}`);
-  if (Number.isNaN(date.getTime())) return null;
-  return dayKey(date);
+  const read = readEventTime(value, dateOnly);
+  return read === null ? null : typeof read === "string" ? read : dayKey(read);
 }
 
 export function dayKey(date: Date): string {
@@ -67,9 +56,4 @@ export function monthBounds(month: string, field: FieldSchema): { from: string; 
 
 export function currentMonth(now = new Date()): string {
   return dayKey(now).slice(0, 7);
-}
-
-export function shiftMonth(month: string, by: number): string {
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  return currentMonth(new Date(y, m - 1 + by, 1));
 }

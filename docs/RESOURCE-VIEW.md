@@ -323,6 +323,59 @@ On phones:
   - A user toggle for it sits behind the feature gate and an admin permission. Otherwise every
     list grows a spreadsheet button.
 
+## Calendar
+
+`mode="calendar"` places a view's rows by a date or timestamp field instead of listing them. The
+scope, the screen's `filter` and a preset's filter apply as they do to the list; the calendar asks
+the provider for the visible window only (a `gte`/`lt` range on the field, up to 500 rows, with a
+notice past that).
+
+```tsx
+<ResourceView
+  view={eventsView}
+  mode="calendar"
+  calendar={{
+    field: "starts_at",
+    endField: "ends_at",
+    layout: "weeks",
+    weeks: 2,
+    weekStartsOn: 0,
+    layouts: ["month", "weeks", "agenda", "lanes"],
+    laneField: "people",
+    lanes: [{ key: "ana", label: "Ana", color: "var(--chart-1)" }],
+  }}
+/>
+```
+
+- **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
+  by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
+  `layouts` adds a switch to the toolbar.
+- **Days.** A `date` field is that day everywhere; a timestamp lands on the day it is on
+  `timeZone`'s clock (default the device's). Weeks start Monday, or Sunday with `weekStartsOn={0}`.
+  An event with an `endField` shows on every day it covers (a date end is the last day, a
+  timestamp end is exclusive), and `maxSpanDays` (31 with an end) is how far before the window to
+  look for one that started earlier. All-day events sit above timed ones; `allDayField` marks a
+  timestamp row as all day.
+- **People and dots.** `laneField` (a value or a list) or `lanesOf(row)` names a row's lanes. An
+  event shows once on the grid with a dot per lane in the lane's `color` (or `colorsOf(row)`), and
+  the lanes are read out to screen readers: colour is never the only cue. In `lanes`, a shared
+  event sits in each person's row.
+- **Opening.** A click opens the view's peek (the same fields the list's peek shows), or calls
+  `calendar.onSelect(row)`.
+- **Keyboard.** The day grid is one tab stop: arrow keys move a day or a week, Home and End go to
+  the week's ends, and Tab reaches each event's button.
+- **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split
+  across pages. For a printed week per person, filter the view to that person and render
+  `layout: "agenda", weeks: 1`.
+- **Controlled.** `anchor` with `onAnchorChange`, and `layout` with `onLayoutChange`, let the
+  screen keep them in the URL.
+
+`EventCalendar` (`/data`) is the same calendar for events that aren't one view's rows (a merged
+feed, an expanded recurring series): give it `CalendarEvent`s (`start`/`end` as days or instants,
+`lanes`, `colors`). Recurring series expand with `expandRecurrence` from
+`@marktiderman/genesis-core/dates`, and the window helpers (`monthGridRange`, `weeksRange`,
+`rangeIn`) are there too. Studio's calendar is drawn by it.
+
 ## Security model
 
 ResourceView adds **no authority**. The layers, in order:

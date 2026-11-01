@@ -170,6 +170,26 @@ export const uiMessages = {
     instructions:
       "Space or Enter picks the item up. Up and down arrows, Home and End move it. Space or Enter drops it, Escape puts it back. Alt with an arrow moves it one step.",
   },
+  calendar: {
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    previousWeeks: "Previous weeks",
+    nextWeeks: "Next weeks",
+    today: "Today",
+    /** A day with nothing on it (agenda and lanes). */
+    nothing: "Nothing scheduled",
+    allDay: "All day",
+    /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */
+    with: "with {names}",
+    /** An event that started on an earlier day. */
+    continued: "continued",
+    /** The lanes layout's first column. */
+    lane: "Who",
+    /** `{shown}` of `{total}`: when the window holds more rows than one request loads. */
+    capped: "Showing the first {shown} of {total}. Narrow the calendar to see the rest.",
+    /** The layout switch's buttons. */
+    layouts: { month: "Month", weeks: "Weeks", agenda: "Agenda", lanes: "Lanes" },
+  },
   workspace: {
     /** Settings section footer. */
     save: "Save changes",
