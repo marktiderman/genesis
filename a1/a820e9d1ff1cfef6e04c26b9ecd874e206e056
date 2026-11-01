@@ -1,0 +1,25 @@
+.changeset/ui-chart-recharts-3.md
+  s_1feb538f59bf88::t_06a2a3d35b72b8 5
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_e05079ebdb895c 2
+packages/ui/src/components/ui/chart.tsx
+  s_1feb538f59bf88::t_996228ba55663d 136,324
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_c7e62d028cac67 49,290,709,1599,1816,1960,3418-3419,13475,22430,22446,22462
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a1a820e9d1ff1cfef6e04c26b9ecd874e206e056",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
