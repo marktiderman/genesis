@@ -253,6 +253,26 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   }
   for (const name of scope) known(name, "scope");
   if (definition.groupBy) known(definition.groupBy, "groupBy");
+  const calendar = definition.calendar;
+  if (calendar) {
+    const typed = (name: string | undefined, where: string, type: string) => {
+      if (name === undefined) return;
+      known(name, where);
+      const f = byName.get(name);
+      if (f && (f.type !== type || f.array)) problems.push(`${where} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "yes/no"} field`);
+    };
+    typed(calendar.field, "calendar.field", "datetime");
+    typed(calendar.endField, "calendar.endField", "datetime");
+    typed(calendar.allDayField, "calendar.allDayField", "boolean");
+    if (calendar.laneBy !== undefined) known(calendar.laneBy, "calendar.laneBy");
+    if (calendar.layout !== undefined && !["month", "weeks", "agenda", "lanes"].includes(calendar.layout)) {
+      problems.push(`calendar.layout "${String(calendar.layout)}" isn't month, weeks, agenda or lanes`);
+    }
+    if (calendar.weeks !== undefined && ![1, 2, 3, 4].includes(calendar.weeks)) problems.push(`calendar.weeks is 1 to 4, not ${String(calendar.weeks)}`);
+    if (calendar.weekStartsOn !== undefined && calendar.weekStartsOn !== 0 && calendar.weekStartsOn !== 1) {
+      problems.push(`calendar.weekStartsOn is 0 (Sunday) or 1 (Monday), not ${String(calendar.weekStartsOn)}`);
+    }
+  }
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
   for (const [name, preset] of Object.entries(presets)) {
     if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {

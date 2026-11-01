@@ -179,14 +179,17 @@ export const uiMessages = {
     /** A day with nothing on it (agenda and lanes). */
     nothing: "Nothing scheduled",
     allDay: "All day",
+    /** A day cell's count, read after its date: "Tuesday, November 3, 2 events". */
+    eventsOne: "1 event",
+    eventsOther: "{count} events",
     /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */
     with: "with {names}",
     /** An event that started on an earlier day. */
     continued: "continued",
     /** The lanes layout's first column. */
     lane: "Who",
-    /** `{shown}` of `{total}`: when the window holds more rows than one request loads. */
-    capped: "Showing the first {shown} of {total}. Narrow the calendar to see the rest.",
+    /** When the window holds more rows than one request loads. `{more}` left out; `{shown}` of `{total}`. */
+    capped: "+{more} more not shown. Narrow the calendar or filter it to see them.",
     /** The layout switch's buttons. */
     layouts: { month: "Month", weeks: "Weeks", agenda: "Agenda", lanes: "Lanes" },
   },

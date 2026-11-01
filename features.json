@@ -503,7 +503,7 @@
     {
       "id": "resource-view-calendar",
       "name": "Calendar mode for lists",
-      "summary": "ResourceView's `mode=\"calendar\"` places a view's rows by a date or timestamp field: a month grid, 1–4 weeks, a printable agenda or one lane per person, one request per visible window, multi-day events on each day, all-day first, a dot per person, keyboard-navigable days and the list's peek on click. EventCalendar draws events that aren't a view's rows; Studio's calendar uses it.",
+      "summary": "A view's `calendar` block (defineView) and ResourceView's `mode=\"calendar\"` place a view's rows by a date or timestamp field: a month grid, 1–4 weeks, a printable agenda or one lane per person, one request per visible window with a +N more notice past the cap, days on the field's display clock, multi-day events on each day, all-day first, a dot per person, keyboard-navigable days and the list's peek on click. EventCalendar draws events that aren't a view's rows; Studio's calendar uses it.",
       "status": "building",
       "kind": "pattern",
       "keywords": [

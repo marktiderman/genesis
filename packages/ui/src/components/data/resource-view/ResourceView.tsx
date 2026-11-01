@@ -44,8 +44,9 @@ export interface ResourceViewOptions {
    */
   defaults?: Defaults;
   /**
-   * How rows show first. The user's own pick is remembered. `calendar` places the rows by a date
-   * field instead (it needs `calendar`): one request per visible window, a click opens the peek.
+   * How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's
+   * `calendar` block instead: one request per visible window, a click opens the peek. Calendar is
+   * never stored as the user's pick, so other lists of the resource don't open in it.
    */
   mode?: "table" | "grid" | "list" | "calendar" | undefined;
   title?: string | undefined;
@@ -59,7 +60,10 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * before a slot: the column, its label, sorting and visibility stay the view's.
      */
     cells?: Partial<Record<string, (row: T) => ReactNode>>;
-    /** With `mode="calendar"`: the date field that places each row, the layout, lanes and dots. */
+    /**
+     * With `mode="calendar"`: overrides the view's `calendar` block (layout, weeks, the anchor) and
+     * adds what it can't hold (dot colours, `onSelect`, lanes' labels).
+     */
     calendar?: ResourceCalendarOptions<T>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
@@ -300,7 +304,6 @@ export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
   const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className } = props;
   const viewer = useViewer();
-  if (!calendar) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs calendar={{ field }}`);
   const tab = preset ? view.definition.presets?.[preset] : undefined;
   const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
   const filters = [
@@ -310,7 +313,7 @@ function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
   ];
   return (
     <ResourceCalendar<T>
-      {...calendar}
+      {...(calendar ?? {})}
       view={view}
       filters={filters}
       title={title ?? view.title}

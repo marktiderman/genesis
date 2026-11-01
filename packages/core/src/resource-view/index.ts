@@ -23,6 +23,8 @@ export type {
   ViewColumn,
   ViewCopy,
   ViewAction,
+  ViewCalendar,
+  ViewCalendarLayout,
   ViewDefinition,
   ViewField,
   ViewFormItem,

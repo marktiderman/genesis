@@ -4,7 +4,7 @@
 // Presentational: it places the events it is given. ResourceCalendar (resource-view) loads them
 // for a view's visible window; Studio's calendar draws its month with it too.
 
-import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { addDays, dayIn, deviceTimeZone, eachDay, weekdayOf, type Day } from "@marktiderman/genesis-core/dates";
 import { Button } from "../../ui/button";
@@ -88,8 +88,9 @@ function useFormats(locale: string | undefined, zone: string) {
  *
  * An event spanning days shows on each; all-day events sit above timed ones; an event's dots are
  * its `colors`, else its lanes' colours, and its lanes are named for screen readers. Days are a
- * grid: arrow keys move between them, Home and End go to the week's ends, and Tab reaches the
- * events.
+ * grid with one tab stop: arrow keys move a day or a week, Home and End go to the week's ends,
+ * PageUp and PageDown move the window back or on (keeping the focused day's place), and Tab
+ * reaches the events. Each day is read with its date and how many events it has.
  *
  * ```tsx
  * <EventCalendar layout="weeks" weeks={2} weekStartsOn={0} events={events} lanes={people} onSelect={open} />
@@ -214,9 +215,15 @@ export function EventCalendar<T = unknown>({
           placed={placed}
           today={today}
           monthOf={layout === "month" ? monthOf : undefined}
+          dayLabel={(day, count) =>
+            `${fmt.longDay(day)}${count ? `, ${count === 1 ? m.eventsOne : fillMessage(m.eventsOther, { count })}` : ""}`
+          }
+          onPage={(step, day) => {
+            setAnchor(shiftAnchor(layout, anchor, step, weeks));
+            return shiftAnchor(layout, day, step, weeks);
+          }}
           label={`${label ?? ""}${label ? ", " : ""}${title}`}
           weekday={fmt.weekday}
-          longDay={fmt.longDay}
           tall={layout === "weeks" && weeks <= 2}
           item={(p) => item(p, true)}
           testID={testID}
@@ -290,13 +297,31 @@ function EventItem<T>({ placed, lanes, compact, time, allDayLabel, continuedLabe
   );
 }
 
-/** Arrow keys between day cells: one roving tab stop for the grid, the events still in tab order. */
-function useDayFocus(days: readonly Day[], today: Day, perRow: number) {
+/**
+ * Arrow keys between day cells: one roving tab stop for the grid, the events still in tab order.
+ * PageUp and PageDown ask `onPage` to move the window and give the day to focus there.
+ */
+function useDayFocus(days: readonly Day[], today: Day, perRow: number, onPage?: (step: number, day: Day) => Day) {
   const [focusDay, setFocusDay] = useState<Day | null>(null);
+  const pending = useRef<Day | null>(null);
   const refs = useRef(new Map<Day, HTMLElement>());
   const active = focusDay && days.includes(focusDay) ? focusDay : days.includes(today) ? today : days[0];
+  // After a page, focus the day once its cell exists.
+  useEffect(() => {
+    if (pending.current && refs.current.has(pending.current)) {
+      refs.current.get(pending.current)!.focus();
+      pending.current = null;
+    }
+  });
   const onKeyDown = (e: KeyboardEvent<HTMLElement>, day: Day) => {
     if (e.target !== e.currentTarget) return;
+    if ((e.key === "PageUp" || e.key === "PageDown") && onPage) {
+      e.preventDefault();
+      const next = onPage(e.key === "PageUp" ? -1 : 1, day);
+      pending.current = next;
+      setFocusDay(next);
+      return;
+    }
     const i = days.indexOf(day);
     const col = i % perRow;
     const step: Record<string, number> = {
@@ -337,14 +362,17 @@ interface GridProps<T> {
   monthOf: string | undefined;
   label: string;
   weekday: (d: Day) => string;
-  longDay: (d: Day) => string;
+  /** A day cell's name: its date and how many events it has. */
+  dayLabel: (d: Day, count: number) => string;
+  /** PageUp (−1) or PageDown (1) from `day`: move the window, return the day to focus. */
+  onPage?: (step: number, day: Day) => Day;
   tall: boolean;
   item: (p: PlacedEvent<T>) => ReactNode;
   testID: string;
 }
 
-function DayGrid<T>({ days, placed, today, monthOf, label, weekday, longDay, tall, item, testID }: GridProps<T>) {
-  const cellProps = useDayFocus(days, today, 7);
+function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, onPage, tall, item, testID }: GridProps<T>) {
+  const cellProps = useDayFocus(days, today, 7, onPage);
   const weeks = Array.from({ length: days.length / 7 }, (_, w) => days.slice(w * 7, w * 7 + 7));
   return (
     <div className="overflow-x-auto">
@@ -368,7 +396,7 @@ function DayGrid<T>({ days, placed, today, monthOf, label, weekday, longDay, tal
                   <td
                     key={day}
                     role="gridcell"
-                    aria-label={longDay(day)}
+                    aria-label={dayLabel(day, list.length)}
                     aria-current={day === today ? "date" : undefined}
                     className={cn(
                       "border align-top focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",

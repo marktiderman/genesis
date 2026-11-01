@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4077 other exports · 3241 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4077 other exports · 3243 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1749,7 +1749,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isTimeZone`](../packages/core/src/dates.ts) | function | Beta | Whether the runtime knows `zone` (`"America/Denver"`). @stability Beta |
 | [`monthGridRange`](../packages/core/src/dates.ts) | function | Beta | The whole weeks that cover `day`'s month: what a month grid shows, leading and trailing days included. @stability Beta |
 | [`monthRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s month as a range: its first day to the next month's first. @stability Beta |
-| [`parseRRule`](../packages/core/src/dates.ts) | function | Beta | Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Throws a `RangeError` for a part outside the supported subset (BYHOUR, BYWEEKNO, BYYEARDAY, sub-daily frequencies…), so a caller can show the series' first... |
+| [`parseRRule`](../packages/core/src/dates.ts) | function | Beta | Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Supports FREQ (DAILY, WEEKLY, MONTHLY, YEARLY), INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY, BYMONTH and WKST. Any other part (BYSETPOS, BYWEEKNO, BYYEARDAY,... |
 | [`personDay`](../packages/core/src/dates.ts) | function | Beta | Today (or the day at `at`) for this person: `dayIn(personTimeZone(person), at)`. |
 | [`personTimeZone`](../packages/core/src/dates.ts) | function | Beta | The zone a person's days are counted in: their saved zone if the runtime knows it, else the device's, else UTC. On a server, pass the person's zone: the server's own is rarely theirs. |
 | [`quarterRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s quarter as a range. @stability Beta |
@@ -1847,7 +1847,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
 | [`ViewDefinitionError`](../packages/core/src/resource-view/define-view.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
 
-### Types (46)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1885,6 +1885,8 @@ export type { TreeNode };
 export type { TreeOptions };
 export type { TreeResult };
 export type { ViewAction };
+export type { ViewCalendar };
+export type { ViewCalendarLayout };
 export type { ViewColumn };
 export type { ViewCopy };
 export type { ViewDefinition };
@@ -10045,7 +10047,7 @@ export type { UiMessagesOverrides };
 | [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
-| [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar. Prefer `<ResourceView view={v} mode="calendar" calendar={{ field }} />`, which passes the scope and the screen's filters. |
+| [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
 | [`ResourceForm`](../packages/ui/src/components/data/ResourceForm.tsx) | `ResourceFormProps` | — | _(no summary)_ |
 | [`ResourcePage`](../packages/ui/src/components/data/ResourcePage.tsx) | `ResourcePageProps` | — | A list page for a resource: header, filters, table or cards, paging, the open record's panel, and the built-in form and confirmed delete. {@link useResourceTable} is the same behaviour without this markup. |
@@ -10062,7 +10064,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AppShell`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`BadgeCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | BadgeCell -- status badge with configurable color map. |
-| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one window loads. |
+| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one window loads. A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar says how many it left out ("+N more") rather than dropping them ... |
 | [`calendarLanes`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
 | [`calendarWindow`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`CurrencyCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | CurrencyCell -- currency formatting with string-safe parsing. |

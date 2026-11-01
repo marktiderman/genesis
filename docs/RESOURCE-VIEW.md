@@ -325,50 +325,61 @@ On phones:
 
 ## Calendar
 
-`mode="calendar"` places a view's rows by a date or timestamp field instead of listing them. The
-scope, the screen's `filter` and a preset's filter apply as they do to the list; the calendar asks
-the provider for the visible window only (a `gte`/`lt` range on the field, up to 500 rows, with a
-notice past that).
+A view's `calendar` block says how its rows show on a calendar. It is part of the description, so
+ResourceView draws it on the web and NativeResourceView will on the phone, with no change to the
+type. `mode="calendar"` shows it.
+
+```ts
+export const eventsView = defineView(contracts["public.events"], {
+  scope: ["household_id"],
+  calendar: { field: "starts_at", endField: "ends_at", laneBy: "people", layout: "weeks", weeks: 2, weekStartsOn: 0 },
+});
+```
 
 ```tsx
+<ResourceView view={eventsView} mode="calendar" />
 <ResourceView
   view={eventsView}
   mode="calendar"
-  calendar={{
-    field: "starts_at",
-    endField: "ends_at",
-    layout: "weeks",
-    weeks: 2,
-    weekStartsOn: 0,
-    layouts: ["month", "weeks", "agenda", "lanes"],
-    laneField: "people",
-    lanes: [{ key: "ana", label: "Ana", color: "var(--chart-1)" }],
-  }}
+  calendar={{ layout: "agenda", weeks: 1, layouts: ["month", "weeks", "agenda", "lanes"], lanes, onSelect: openEvent }}
 />
 ```
 
+- **The block** (`ViewCalendar`, plain values only): `field` (a date or timestamp), `endField`,
+  `allDayField` (yes/no), `laneBy` (a field whose value or list of values names a row's lanes),
+  `layout`, `weeks` (1–4) and `weekStartsOn` (0 Sunday, 1 Monday). `defineView` checks the field
+  names and types.
+- **The screen** overrides any of those through `calendar={…}` and adds what a description can't
+  hold: `anchor`/`onAnchorChange` and `layout`/`onLayoutChange` (to keep them in the URL),
+  `layouts` (a switch in the toolbar), `lanes` (labels and colours), `lanesOf(row)`,
+  `colorsOf(row)`, `onSelect(row)`, `timeZone`, `limit`, `maxSpanDays`, `showEmptyDays`.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
-  `layouts` adds a switch to the toolbar.
-- **Days.** A `date` field is that day everywhere; a timestamp lands on the day it is on
-  `timeZone`'s clock (default the device's). Weeks start Monday, or Sunday with `weekStartsOn={0}`.
-  An event with an `endField` shows on every day it covers (a date end is the last day, a
-  timestamp end is exclusive), and `maxSpanDays` (31 with an end) is how far before the window to
-  look for one that started earlier. All-day events sit above timed ones; `allDayField` marks a
-  timestamp row as all day.
-- **People and dots.** `laneField` (a value or a list) or `lanesOf(row)` names a row's lanes. An
-  event shows once on the grid with a dot per lane in the lane's `color` (or `colorsOf(row)`), and
-  the lanes are read out to screen readers: colour is never the only cue. In `lanes`, a shared
-  event sits in each person's row.
+- **Data** goes through the view's provider rules: the scope, the screen's `filter` and a preset's
+  filter, plus a `gte`/`lt` range on the field for the visible window, in one `getList`. At most
+  500 rows per window (`limit`); past that the calendar says "+N more not shown" rather than
+  dropping rows silently.
+- **Days.** A `date` field is that day everywhere. A timestamp lands on the day on the same clock
+  its cells use: the field's own `timeZone` (the scope's or a fixed zone), else the viewer's
+  (ViewerScope's `timeZone`), else the device's. An event with an `endField` shows on every day it
+  covers (a date end is the last day, a timestamp end is exclusive); `maxSpanDays` (31 with an
+  end) is how far before the window to look for one that started earlier. All-day events sit
+  above timed ones.
+- **People and dots.** An event shows once on the grid with a dot per lane in the lane's `color`
+  (or `colorsOf(row)`), and its lanes are read out to screen readers: colour is never the only
+  cue. In `lanes`, a shared event sits in each person's row.
 - **Opening.** A click opens the view's peek (the same fields the list's peek shows), or calls
-  `calendar.onSelect(row)`.
-- **Keyboard.** The day grid is one tab stop: arrow keys move a day or a week, Home and End go to
-  the week's ends, and Tab reaches each event's button.
+  `onSelect(row)`.
+- **Keyboard.** The day grid (`role="grid"`) is one tab stop: arrow keys move a day or a week,
+  Home and End go to the week's ends, PageUp and PageDown move the window back or on, and Tab
+  reaches each event's button. A day is read with its date and count: "Tuesday, November 3, 2
+  events".
 - **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split
-  across pages. For a printed week per person, filter the view to that person and render
+  across pages. For a printed week per person, filter the view to that person and use
   `layout: "agenda", weeks: 1`.
-- **Controlled.** `anchor` with `onAnchorChange`, and `layout` with `onLayoutChange`, let the
-  screen keep them in the URL.
+- **Not a list mode.** Calendar is ResourceView's own `mode`, not one of the list's view modes:
+  it isn't in the header's toggle, and it is never stored as the user's remembered view, so other
+  lists of the resource don't open in it.
 
 `EventCalendar` (`/data`) is the same calendar for events that aren't one view's rows (a merged
 feed, an expanded recurring series): give it `CalendarEvent`s (`start`/`end` as days or instants,

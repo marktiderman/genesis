@@ -667,3 +667,19 @@ describe("review fixes: actions and pictures", () => {
     }
   });
 });
+
+describe("defineView: calendar", () => {
+  it("keeps a calendar block every platform reads", () => {
+    const view = defineView(brands, { calendar: { field: "launched_on", laneBy: "status", layout: "weeks", weeks: 2, weekStartsOn: 0 } });
+    expect(view.definition.calendar).toEqual({ field: "launched_on", laneBy: "status", layout: "weeks", weeks: 2, weekStartsOn: 0 });
+  });
+
+  it("refuses a calendar on a field that isn't a date, and settings out of range", () => {
+    expect(() => defineView(brands, { calendar: { field: "name" } })).toThrow(/calendar\.field "name" isn't a date or timestamp field/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", allDayField: "name" } })).toThrow(/calendar\.allDayField "name" isn't a yes\/no field/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", laneBy: "nope" as never } })).toThrow(/calendar\.laneBy names "nope"/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", weeks: 6 as never } })).toThrow(/calendar\.weeks is 1 to 4/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", weekStartsOn: 3 as never } })).toThrow(/weekStartsOn is 0 \(Sunday\) or 1/);
+    expect(() => defineView(brands, { calendar: { field: "launched_on", layout: "year" as never } })).toThrow(/calendar\.layout "year"/);
+  });
+});

@@ -7,51 +7,47 @@
 import { useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { dayIn, deviceTimeZone, type Day } from "@marktiderman/genesis-core/dates";
 import { encodeRecordKey, type FieldSchema } from "@marktiderman/genesis-core/schema";
-import type { ResourceView as View } from "@marktiderman/genesis-core/resource-view";
+import { dayIn, deviceTimeZone, isTimeZone, type Day } from "@marktiderman/genesis-core/dates";
+import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import type { ResourceView as View, ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
-import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
+import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
 import { readEventTime, windowBounds } from "../calendar/values";
 import { useDisplayCell } from "./display";
 
 type Row = Record<string, unknown>;
 
-/** Most rows one window loads. */
+/**
+ * Most rows one window loads. A month grid is six weeks: 500 is about a dozen a day, more than a
+ * busy shared calendar holds, and still one quick request. Past it the calendar says how many it
+ * left out ("+N more") rather than dropping them silently.
+ */
 export const CALENDAR_LIMIT = 500;
 
 /**
- * How a view shows as a calendar. Only `field` is required.
+ * A screen's calendar settings. The view's `calendar` block (`defineView`) is the default for every
+ * key it has; these override it, and add what a description can't hold (functions, the anchor).
  *
  * @stability Beta
  */
-export interface ResourceCalendarOptions<T extends Row = Row> {
-  /** The date or timestamp field that places each row. */
-  field: string;
-  /** Where a row ends: the last day for a date field, the end instant for a timestamp. */
-  endField?: string;
-  /** A yes/no field: the row is all day (a timestamp shown without its time). */
-  allDayField?: string;
-  /** Default `month`. */
-  layout?: CalendarLayout;
+export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<ViewCalendar> {
   /** The layouts the toolbar offers to switch between. Without two or more, no switch. */
   layouts?: readonly CalendarLayout[];
   onLayoutChange?: (layout: CalendarLayout) => void;
-  /** 1 to 4, for `weeks`, `agenda` and `lanes`. Default 2. */
-  weeks?: CalendarWeeks;
-  /** 0 Sunday or 1 Monday (default). */
-  weekStartsOn?: 0 | 1;
-  /** The clock days are counted on. Default the device's. */
+  /**
+   * The clock timestamps land on days by. Default the field's own (`fields.<field>.timeZone`:
+   * the scope's or a fixed zone), else the viewer's (ViewerScope's `timeZone`), else the device's:
+   * the same clock the field's cells use.
+   */
   timeZone?: string;
   /** A day in the window (default today). With `onAnchorChange` the screen owns it (put it in the URL). */
   anchor?: Day;
   onAnchorChange?: (anchor: Day) => void;
-  /** The field whose value (or list of values) names a row's lanes: one dot each, one lane each. */
-  laneField?: string;
-  /** A row's lanes, when a field doesn't say (several people on one event). Wins over `laneField`. */
+  /** A row's lanes, when a field doesn't say (several people on one event). Wins over `laneBy`. */
   lanesOf?: (row: T) => readonly string[];
   /** The lanes, in order, with their labels and colours. */
   lanes?: readonly CalendarLane[];
@@ -59,7 +55,7 @@ export interface ResourceCalendarOptions<T extends Row = Row> {
   colorsOf?: (row: T) => readonly string[];
   /** Longest a row runs, in days: how far before the window to look. Default 0, or 31 with `endField`. */
   maxSpanDays?: number;
-  /** Most rows one window loads. Default 500. */
+  /** Most rows one window loads. Default {@link CALENDAR_LIMIT}. */
   limit?: number;
   /** The agenda shows empty days too. */
   showEmptyDays?: boolean;
@@ -77,6 +73,17 @@ export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCale
   testID?: string;
 }
 
+/** The clock a field's cells use (display.tsx): its own zone, the scope's, the viewer's, the device's. */
+function displayZone(own: string | undefined, viewer: string | undefined, scope: string | undefined): string {
+  if (own && own !== "viewer" && own !== "scope" && isTimeZone(own)) return own;
+  const picked = own === "scope" ? (scope ?? viewer) : viewer;
+  return picked && isTimeZone(picked) ? picked : deviceTimeZone();
+}
+
+function withoutUndefined<O extends object>(o: O): Partial<O> {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<O>;
+}
+
 const isDateOnly = (field: FieldSchema | undefined) => field?.dbType === "date" || field?.widget === "date";
 
 function laneKeys(value: unknown): string[] {
@@ -85,23 +92,27 @@ function laneKeys(value: unknown): string[] {
 }
 
 /**
- * A view's rows on a calendar. Prefer `<ResourceView view={v} mode="calendar" calendar={{ field }} />`,
- * which passes the scope and the screen's filters.
+ * A view's rows on a calendar, as its `calendar` block describes them. Prefer
+ * `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters.
  *
  * @stability Beta
  */
 export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarProps<T>) {
+  const { view, filters = [], title, className, testID = "resource-calendar" } = props;
+  // The view's block, then the screen's settings over it.
+  const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
-    view, filters = [], title, className, testID = "resource-calendar",
     field: fieldName, endField, allDayField, layout: layoutProp, layouts, onLayoutChange, weeks = 2, weekStartsOn = 1, timeZone,
-    anchor: anchorProp, onAnchorChange, laneField, lanesOf, lanes, colorsOf, maxSpanDays, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
-  } = props;
+    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, maxSpanDays, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
+  } = settings;
   const m = useUiMessages();
   const provider = useDataProvider();
   const cell = useDisplayCell();
-  const zone = timeZone ?? deviceTimeZone();
+  const viewerScope = useOptionalViewerScope();
+  if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs a calendar field: the view's calendar.field, or calendar={{ field }}`);
   const field = view.field(fieldName);
   if (!field) throw new Error(`ResourceView(${view.resource}): calendar field "${fieldName}" isn't in the view`);
+  const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
   const dateOnly = isDateOnly(field);
   const endDateOnly = endField ? isDateOnly(view.field(endField)) : dateOnly;
 
@@ -134,7 +145,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         const end = endField ? readEventTime(row[endField], endDateOnly) : null;
         const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
         const own = (v: Day | Date) => (allDay && v instanceof Date ? dayIn(zone, v) : v);
-        const rowLanes = lanesOf ? lanesOf(row) : laneField ? laneKeys(row[laneField]) : undefined;
+        const rowLanes = lanesOf ? lanesOf(row) : laneBy ? laneKeys(row[laneBy]) : undefined;
         const colors = colorsOf?.(row);
         return [
           {
@@ -149,7 +160,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
           },
         ];
       }),
-    [rows, fieldName, endField, allDayField, dateOnly, endDateOnly, zone, lanesOf, laneField, colorsOf, view],
+    [rows, fieldName, endField, allDayField, dateOnly, endDateOnly, zone, lanesOf, laneBy, colorsOf, view],
   );
 
   const [open, setOpen] = useState<T | null>(null);
@@ -197,7 +208,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
           <>
             {total > rows.length && (
               <p role="status" className="text-xs text-muted-foreground print:hidden" data-testid={`${testID}-capped`}>
-                {fillMessage(m.calendar.capped, { shown: rows.length.toLocaleString(), total: total.toLocaleString() })}
+                {fillMessage(m.calendar.capped, { more: (total - rows.length).toLocaleString(), shown: rows.length.toLocaleString(), total: total.toLocaleString() })}
               </p>
             )}
             {query.isError && (

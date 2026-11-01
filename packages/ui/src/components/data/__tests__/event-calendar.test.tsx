@@ -10,7 +10,7 @@
  */
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type FilterParam } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
@@ -222,7 +222,11 @@ const events = defineResource<Event>()({
     { name: "who", type: "string", array: true },
   ],
 });
-const eventsView = defineView(events, { scope: ["household_id"], columns: { default: ["title", "starts_at"] } });
+const eventsView = defineView(events, {
+  scope: ["household_id"],
+  columns: { default: ["title", "starts_at"] },
+  calendar: { field: "starts_at", endField: "ends_at", laneBy: "who", layout: "weeks", weeks: 2, weekStartsOn: 0 },
+});
 const ROWS: Event[] = [
   { id: "e1", household_id: "h1", title: "Swim meet", starts_at: "2026-11-07 15:00:00+00", ends_at: "2026-11-07 18:00:00+00", who: ["ana"] },
   { id: "e2", household_id: "h1", title: "Recital", starts_at: "2026-11-10T01:00:00Z", ends_at: null, who: ["ana", "ben"] },
@@ -263,7 +267,7 @@ describe("ResourceView mode=calendar", () => {
       <ResourceView
         view={eventsView}
         mode="calendar"
-        calendar={{ field: "starts_at", endField: "ends_at", layout: "weeks", weeks: 2, weekStartsOn: 0, timeZone: Z, anchor: "2026-11-04", onAnchorChange: () => {}, laneField: "who", lanes: people, maxSpanDays: 1 }}
+        calendar={{ timeZone: Z, anchor: "2026-11-04", onAnchorChange: () => {}, lanes: people, maxSpanDays: 1 }}
       />,
       { wrapper: wrap(p, { household_id: "h1" }) },
     );
@@ -313,7 +317,99 @@ describe("ResourceView mode=calendar", () => {
   it("refuses calendar mode without a field, and a field the view lacks", () => {
     const { p } = provider();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<ResourceView view={eventsView} mode="calendar" />, { wrapper: wrap(p) })).toThrow(/needs calendar/);
+    const plain = defineView(events, { columns: { default: ["title"] } });
+    expect(() => render(<ResourceView view={plain} mode="calendar" />, { wrapper: wrap(p) })).toThrow(/needs a calendar field/);
     expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ field: "nope" }} />, { wrapper: wrap(p) })).toThrow(/"nope"/);
+  });
+});
+
+describe("ResourceView mode=calendar: the view's block, the cap, the clock", () => {
+  function listing(data: Event[], total = data.length) {
+    const getList = vi.fn(async () => ({ data, total }));
+    return { getList, p: { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider };
+  }
+
+  it("draws from the view's calendar block alone, and the screen overrides its layout", async () => {
+    const { p } = listing(ROWS);
+    const { unmount } = render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    expect(await screen.findByText("Swim meet")).toBeTruthy();
+    expect(screen.getByTestId("resource-calendar").getAttribute("data-layout")).toBe("weeks");
+    // Sunday first, two weeks: 1 to 14 November.
+    expect(screen.getAllByRole("gridcell")).toHaveLength(14);
+    expect(screen.getAllByRole("gridcell")[0]!.getAttribute("data-day")).toBe("2026-11-01");
+    unmount();
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "agenda", weeks: 1, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(listing(ROWS).p) });
+    await screen.findByText("Swim meet");
+    expect(screen.getByTestId("resource-calendar").getAttribute("data-layout")).toBe("agenda");
+  });
+
+  it("says how many rows it left out past the cap", async () => {
+    const { p, getList } = listing(ROWS, 7);
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ limit: 2, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    expect((await screen.findByTestId("resource-calendar-capped")).textContent).toBe("+5 more not shown. Narrow the calendar or filter it to see them.");
+    expect((getList.mock.calls[0] as unknown as [string, { pagination: { perPage: number } }])[1].pagination.perPage).toBe(2);
+  });
+
+  it("shows nothing about a cap when everything fits", async () => {
+    const { p } = listing(ROWS);
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    await screen.findByText("Swim meet");
+    expect(screen.queryByTestId("resource-calendar-capped")).toBeNull();
+  });
+
+  it("lands timestamps on the viewer's day, or the scope's when the field says so", async () => {
+    // 01:00 UTC on 10 November: the 9th in Denver, the 10th in Tokyo.
+    const { p } = listing(ROWS);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { unmount } = render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ViewerScope viewer="u1" timeZone="Asia/Tokyo">
+          <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {} }} />
+        </ViewerScope>
+      </GenesisProvider>,
+    );
+    expect((await screen.findByRole("button", { name: /Recital/ })).closest("[data-day]")!.getAttribute("data-day")).toBe("2026-11-10");
+    unmount();
+    const scoped = defineView(events, { columns: { default: ["title"] }, fields: { starts_at: { timeZone: "scope" } }, calendar: { field: "starts_at", layout: "weeks" } });
+    render(
+      <GenesisProvider provider={listing(ROWS).p} queryClient={new QueryClient()}>
+        <ViewerScope viewer="u1" timeZone="Asia/Tokyo" scopeTimeZone={Z}>
+          <ResourceView view={scoped} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {} }} />
+        </ViewerScope>
+      </GenesisProvider>,
+    );
+    expect((await screen.findByRole("button", { name: /Recital/ })).closest("[data-day]")!.getAttribute("data-day")).toBe("2026-11-09");
+  });
+
+  it("never stores calendar as the list's remembered view", async () => {
+    localStorage.clear();
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(listing(ROWS).p) });
+    await screen.findByText("Swim meet");
+    const stored = Object.keys(localStorage).map((k) => localStorage.getItem(k));
+    expect(stored.some((v) => v?.includes("calendar"))).toBe(false);
+  });
+});
+
+describe("EventCalendar day cells", () => {
+  it("names each day with its date and how many events it has", () => {
+    render(<EventCalendar events={family} layout="weeks" weeks={1} weekStartsOn={0} anchor="2026-11-04" timeZone={Z} locale="en-US" />);
+    const label = (day: string) => document.querySelector(`[data-day="${day}"]`)!.getAttribute("aria-label");
+    expect(label("2026-11-02")).toBe("Monday, November 2, 1 event");
+    expect(label("2026-11-01")).toBe("Sunday, November 1");
+  });
+
+  it("pages the window with PageUp and PageDown, keeping the focused day's place", async () => {
+    function Controlled() {
+      const [anchor, setAnchor] = useState("2026-11-04");
+      return <EventCalendar events={[]} layout="month" weekStartsOn={0} anchor={anchor} onAnchorChange={setAnchor} timeZone={Z} locale="en-US" />;
+    }
+    render(<Controlled />);
+    const cell = document.querySelector('[data-day="2026-11-17"]') as HTMLElement;
+    cell.focus();
+    fireEvent.keyDown(cell, { key: "PageDown" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-day")).toBe("2026-12-17"));
+    expect(screen.getByRole("heading").textContent).toBe("December 2026");
+    fireEvent.keyDown(document.activeElement!, { key: "PageUp" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-17"));
   });
 });
