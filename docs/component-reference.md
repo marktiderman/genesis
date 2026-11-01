@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4080 other exports · 3245 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4080 other exports · 3246 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1066,11 +1066,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SecretError`](../packages/connect/src/secrets.ts) | class | — | A failure whose message is safe to log: never a key, a plaintext or a ciphertext. |
 | [`secretKeyBytes`](../packages/connect/src/secrets.ts) | function | — | The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32` prints), or the bytes themselves. |
 
-### Types (22)
+### Types (23)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AccountIdentity };
 export type { ConnectErrorCode };
 export type { ConnectLogEvent };
 export type { ConnectResult };
@@ -8592,10 +8593,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
+| `ASSET_SIZES` | value | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| [`FONT_FILES`](../packages/sites/src/web/assets.generated.ts) | const | — | Each self-hosted font file's name under the assets prefix, by its key (`inter-700`). |
+| `FONT_FILES` | value | — | _(no summary)_ |
 | [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
 | [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |
