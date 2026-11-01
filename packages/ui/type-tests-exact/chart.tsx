@@ -46,6 +46,9 @@ export const spreads = (
   </R.LineChart>
 );
 
+// Recharts 2 typed `label` as `any`, so a non-node label still compiles.
+export const dateLabel = <ChartTooltipContent label={new Date()} />;
+
 // Our own props are still checked.
 // @ts-expect-error a misspelled prop
 export const typo = <ChartTooltipContent hideLable />;

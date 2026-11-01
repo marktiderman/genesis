@@ -611,8 +611,8 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   `resumeStore` under the endpoint, `ownerHint`, purpose and the file's `key` (name, size, last
   modified), stored as their SHA-256 so the store never holds the user id or the file name; it
   lapses with its session, and `clearResume()` forgets all of them (sign-out). Entries an older
-  client stored under plain keys are deleted by `createIndexedDbResumeStore` itself, once, when it
-  first opens the database after the upgrade. A remembered
+  client stored under plain keys are deleted by `createIndexedDbResumeStore` itself when it opens
+  the database (still version 1, so a tab running an older client is never blocked). A remembered
   session is kept when the server answers 401 (an expired token) or is still down after the
   retries: the upload fails and resumes next time. Any other refusal forgets it and starts a new
   session. It is used only while its size, targets and SHA-256 (when known) still match; one

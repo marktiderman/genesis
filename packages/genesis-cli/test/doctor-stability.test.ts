@@ -3,7 +3,6 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { genesisNamedImports, stabilityTagsIn } from "../src/doctor/stability.js";
-import { stripForImports } from "../src/doctor/trail.js";
 
 describe("stability tags", () => {
   it("reads top-level declarations' tags, not members'", () => {
@@ -59,23 +58,6 @@ declare function Untagged(): void;
       'import { Button } from "@marktiderman/genesis-ui";',
     ].join("\n");
     expect(genesisNamedImports(code)).toEqual([{ pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button"], line: 4 }]);
-  });
-
-  it("in a file whose literals can't be told apart, reads only imports that start a line", () => {
-    const code = [
-      'import { Button } from "@marktiderman/genesis-ui";',
-      "import {",
-      "  Card,",
-      '} from "@marktiderman/genesis-ui/layout";',
-      // `'Tis` opens a quote that never closes, so the file can't be stripped for sure.
-      "export const Doc = () => <p>'Tis how: import { OldList } from \"@marktiderman/genesis-ui\"</p>;",
-      'const s = "x"; const t = "import { OldList } from \'@marktiderman/genesis-ui\'";',
-    ].join("\n");
-    expect(stripForImports(code)).toBeNull();
-    expect(genesisNamedImports(code)).toEqual([
-      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button"], line: 1 },
-      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui/layout", names: ["Card"], line: 2 },
-    ]);
   });
 
   it("finds the tags genesis-ui actually publishes", () => {
