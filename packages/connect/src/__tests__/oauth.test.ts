@@ -1056,3 +1056,138 @@ describe("review follow-ups", () => {
     );
   });
 });
+
+describe("the connected account's identity", () => {
+  const nowSec = Math.floor(Date.parse("2026-10-26T12:00:00Z") / 1000);
+  const idToken = (claims: Record<string, unknown>) =>
+    [
+      "e30",
+      btoa(JSON.stringify(claims))
+        .replace(/=+$/, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_"),
+      "sig",
+    ].join(".");
+  const good = {
+    iss: "https://accounts.google.com",
+    aud: "client-id",
+    exp: nowSec + 3600,
+    sub: "1234",
+    email: "pat@example.com",
+    email_verified: true,
+    name: "Pat",
+  };
+  const withToken = (claims: Record<string, unknown>) =>
+    setup({}, () => tokenOk({ id_token: idToken(claims) }));
+
+  it("reads who the account is from the ID token the token endpoint sent", async () => {
+    const t = withToken(good);
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toEqual({
+      subject: "1234",
+      email: "pat@example.com",
+      emailVerified: true,
+      name: "Pat",
+    });
+  });
+
+  it("accepts several audiences only when azp is this client", async () => {
+    const ok = withToken({
+      ...good,
+      aud: ["other", "client-id"],
+      azp: "client-id",
+    });
+    await roundTrip(ok);
+    expect(ok.stored[0]!.identity?.subject).toBe("1234");
+    const bad = withToken({
+      ...good,
+      aud: ["other", "client-id"],
+      azp: "other",
+    });
+    await roundTrip(bad);
+    expect(bad.stored[0]!.identity).toBeUndefined();
+  });
+
+  it.each([
+    ["another audience", { aud: "someone-else" }],
+    ["another issuer", { iss: "https://evil.example" }],
+    ["an expired token", { exp: nowSec - 1 }],
+    ["no subject", { sub: undefined }],
+  ])(
+    "leaves identity out for %s, and still connects",
+    async (_label, change) => {
+      const t = withToken({ ...good, ...change });
+      const { result } = await roundTrip(t);
+      expect(result).toBe("connected");
+      expect(t.stored[0]!.identity).toBeUndefined();
+    },
+  );
+
+  it("accepts Google's short issuer form", async () => {
+    const t = withToken({ ...good, iss: "accounts.google.com" });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity?.subject).toBe("1234");
+  });
+
+  it("gives no identity when the provider names no issuer", async () => {
+    const t = setup(
+      { provider: { ...googleProvider, issuer: undefined } },
+      () => tokenOk({ id_token: idToken(good) }),
+    );
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toBeUndefined();
+  });
+
+  it("drops an unverified email", async () => {
+    const t = withToken({ ...good, email_verified: false });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toEqual({ subject: "1234", name: "Pat" });
+  });
+
+  it("logs why the identity was left out", async () => {
+    const t = withToken({ ...good, aud: "someone-else" });
+    await roundTrip(t);
+    expect(t.logs).toContainEqual({
+      step: "callback",
+      result: "connected",
+      detail: "no identity: audience mismatch",
+    });
+  });
+
+  it("fails the connection without an identity when requireIdentity is set", async () => {
+    const http = (claims: Record<string, unknown>) => () =>
+      tokenOk({ id_token: idToken(claims) });
+    const strict = setup(
+      { requireIdentity: true },
+      http({ ...good, exp: nowSec - 1 }),
+    );
+    const { result } = await roundTrip(strict);
+    expect(result).toBe("failed");
+    expect(strict.stored).toHaveLength(0);
+    expect(strict.logs).toContainEqual({
+      step: "callback",
+      result: "failed",
+      detail: "no identity: expired",
+    });
+    const ok = setup({ requireIdentity: true }, http(good));
+    expect((await roundTrip(ok)).result).toBe("connected");
+  });
+
+  it("names only read-only Calendar scopes as such", () => {
+    for (const key of [
+      "calendarEventsReadonly",
+      "calendarListReadonly",
+      "calendarReadonly",
+    ] as const)
+      expect(GOOGLE_SCOPES[key]).toMatch(/\.readonly$/);
+  });
+
+  it("has no identity without an ID token, or with one that isn't", async () => {
+    const plain = setup();
+    await roundTrip(plain);
+    expect(plain.stored[0]!.identity).toBeUndefined();
+    const junk = setup({}, () => tokenOk({ id_token: "not-a-token" }));
+    await roundTrip(junk);
+    expect(junk.stored[0]!.identity).toBeUndefined();
+  });
+});
