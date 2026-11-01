@@ -67,21 +67,19 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 ## Owning a pull request
 
 1. **The session that opens a PR owns it until it merges.** Turn on Auto-fix for it (the Claude
-   desktop app's CI monitor), keep its required checks green, merge its base in whenever it falls behind or
-   conflicts (merge, never rebase), and answer every review finding: fix it, or decline it with
-   the reason.
+   desktop app's CI monitor), keep its required checks green, merge its base in whenever it falls
+   behind or conflicts, and answer every review finding: fix it, or decline it with the reason.
 2. **Hand it to triage when it's ready.** Triage is the session that reviews PRs into staging
    batches. It runs an independent, adversarial review (a reviewer that didn't write the code),
-   checks that every finding is addressed, approves the PR and merges it into the batch. A PR
-   whose owner has stopped goes to triage, which finds it a new owner.
+   checks that every finding is addressed, approves the PR and merges it into the batch. A PR whose
+   owner has stopped goes to triage, which finds it a new owner.
 3. **Triage brings load-bearing decisions to the maintainer:** declining a major finding, changing
    a contract, or anything that touches production. **Only the maintainer merges into `main`.**
    Agents prepare each release PR (green, reviewed, what it carries in the body) and ask.
 4. **One staging batch at a time.** Open every PR meant for `main` into the current batch,
-   `staging/<YYYY-MM-DD>/<letter>` (the open release PR into `main` names it); triage cuts a new one
-   from `main` once the last is released. Keep work in a branch of its own only for a reason
-   you'd defend to the maintainer (a launch hold, say), written in its PR, and fold it in when
-   that ends.
+   `staging/<YYYY-MM-DD>/<letter>` (the open release PR into `main` names it); triage cuts a new
+   one from `main` once the last is released. Keep a separate branch only for a reason written in
+   its PR (a launch hold, say), and fold it in when that ends.
 
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.

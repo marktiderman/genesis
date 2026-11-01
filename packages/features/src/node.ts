@@ -381,43 +381,29 @@ function recordedIds(doc: string): string[] | null {
 }
 
 /**
- * A file git left mid-merge, as the whole text of each side: ours, the diff3
- * base when any hunk has one (a hunk without one reads as ours there), and
- * theirs. Null when the file has no conflict markers.
+ * A file git left mid-merge, as the whole text of each side: ours and theirs; diff3 base lines
+ * are skipped. Null when the file has no conflict markers.
  */
 function conflictSides(doc: string): { side: string; text: string }[] | null {
   const ours: string[] = [];
-  const base: string[] = [];
   const theirs: string[] = [];
   let state: "both" | "ours" | "base" | "theirs" = "both";
-  let hunkOurs: string[] = [];
-  let hunkHasBase = false;
   let conflicted = false;
-  let hasBase = false;
   for (const line of doc.split("\n")) {
     if (state === "both" && line.startsWith("<<<<<<<")) {
       state = "ours";
       conflicted = true;
-      hunkOurs = [];
-      hunkHasBase = false;
-    } else if (state === "ours" && line.startsWith("|||||||")) {
-      state = "base";
-      hasBase = hunkHasBase = true;
-    } else if ((state === "ours" || state === "base") && line.startsWith("=======")) {
-      if (!hunkHasBase) base.push(...hunkOurs);
-      state = "theirs";
-    } else if (state === "theirs" && line.startsWith(">>>>>>>")) state = "both";
+    } else if (state === "ours" && line.startsWith("|||||||")) state = "base";
+    else if ((state === "ours" || state === "base") && line.startsWith("=======")) state = "theirs";
+    else if (state === "theirs" && line.startsWith(">>>>>>>")) state = "both";
     else {
-      if (state === "ours") hunkOurs.push(line);
       if (state === "both" || state === "ours") ours.push(line);
-      if (state === "both" || state === "base") base.push(line);
       if (state === "both" || state === "theirs") theirs.push(line);
     }
   }
   if (!conflicted) return null;
   return [
     { side: "ours", text: ours.join("\n") },
-    ...(hasBase ? [{ side: "base", text: base.join("\n") }] : []),
     { side: "theirs", text: theirs.join("\n") },
   ];
 }
