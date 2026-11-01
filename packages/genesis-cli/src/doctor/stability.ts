@@ -80,16 +80,12 @@ function* taggedReexports(dts: string): Generator<[string, StabilityTag]> {
 /**
  * Named imports from Genesis packages in one file: the package, the imported names and the line.
  * String, template and comment contents are blanked first, so an import written as an example in a
- * string isn't read as one. A file whose literals can't be told apart (`stripForImports` gives up)
- * is read as written, but only from imports that start a line: an example inside a string or JSX
- * text sits after other text on its line, and isn't read as one.
+ * string isn't read as one; a file whose literals can't be told apart is read as written.
  */
 export function genesisNamedImports(source: string): Array<{ pkg: string; specifier: string; names: string[]; line: number }> {
   const out: Array<{ pkg: string; specifier: string; names: string[]; line: number }> = [];
-  const stripped = stripForImports(source);
-  const code = stripped ?? source;
-  const named = String.raw`import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']((@marktiderman\/genesis[\w-]*)(?:\/[^"']*)?)["']`;
-  const re = stripped === null ? new RegExp(`^[ \\t]*${named}`, "gm") : new RegExp(named, "g");
+  const code = stripForImports(source) ?? source;
+  const re = /import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']((@marktiderman\/genesis[\w-]*)(?:\/[^"']*)?)["']/g;
   for (const m of code.matchAll(re)) {
     const names = m[1]!
       .split(",")

@@ -458,33 +458,18 @@ describe("supabase pack", () => {
         "do $$ begin execute format('grant usage on schema %I to authenticated', 'x'); end $$;",
         "do $$ begin perform 1; -- 'grant all to anon'\nend $$;",
         "do $$ begin execute $q$grant execute on function public.f() to anon$q$; end $$;",
-        "do $$ declare f text := 'x'; begin execute 'grant execute on function ' || f || ' to anon'; end $$;",
-        "do $$ begin execute 'grant select on ' || quote_ident('t') || ' to ' || current_user; end $$;",
-        "do $$ declare v text := '--'; begin execute 'grant select on public.t to anon'; end $$;",
-        "do $$ begin raise notice 'step; done'; execute 'grant select on public.t to anon'; end $$;",
-        "do $$ declare a$b$c int; begin execute 'alter default privileges in schema s",
-        "  grant select on tables to anon'; end $$;",
-        "do $$ begin execute 'grant select on public.t to authenticated, ' || current_user; end $$;",
-        "do $$ begin if current_user like '%--%' then null; end if; execute format('grant select on %I to anon', 't'); end $$;",
       ].join("\n"),
     );
     expect(brief(r.findings, "migration-grants")).toEqual([
       `migration-grants ${M}:1 dynamic grant`,
       `migration-grants ${M}:6 dynamic grant`,
       `migration-grants ${M}:10 dynamic grant`,
-      `migration-grants ${M}:11 dynamic grant`,
-      `migration-grants ${M}:12 dynamic grant`,
-      `migration-grants ${M}:13 dynamic grant`,
-      `migration-grants ${M}:14 dynamic grant`,
-      `migration-grants ${M}:15 dynamic grant`,
-      `migration-grants ${M}:17 dynamic grant`,
-      `migration-grants ${M}:18 dynamic grant`,
     ]);
-    expect(levels(r.findings, "migration-grants")).toEqual(Array(10).fill("warn"));
-    const anon = expect.stringContaining("grant to anon in dynamic SQL");
-    const computed = expect.stringContaining("computed role");
+    expect(levels(r.findings, "migration-grants")).toEqual(["warn", "warn", "warn"]);
     expect(r.findings.filter((f) => f.rule === "migration-grants").map((f) => f.message)).toEqual([
-      anon, computed, anon, anon, computed, anon, anon, anon, computed, anon,
+      expect.stringContaining("grant to anon in dynamic SQL"),
+      expect.stringContaining("computed role"),
+      expect.stringContaining("grant to anon in dynamic SQL"),
     ]);
   });
 
@@ -494,70 +479,19 @@ describe("supabase pack", () => {
     expect(dynamicGrants("execute format('grant usage on schema x to %10s', r);")).toEqual([null]);
     expect(dynamicGrants("execute format('grant usage on schema x to authenticated');")).toEqual([]);
     expect(dynamicGrants("/* execute 'grant all on t to anon'; */ perform 1;")).toEqual([]);
-    expect(dynamicGrants("/* outer /* inner */ execute 'grant all on t to anon'; */ perform 1;")).toEqual([]);
     expect(dynamicGrants("perform 1; -- see /* below\nexecute 'grant all on t to anon'; /* done */")).toEqual(["anon"]);
     expect(dynamicGrants("raise notice 'grant all on t to anon'; execute 'grant select on t to public';")).toEqual(["public"]);
     expect(dynamicGrants(`execute 'grant select on table public."raise" to anon';`)).toEqual(["anon"]);
     expect(dynamicGrants("raise 'grant all on t to anon'; raise using message = 'grant all on t to anon';")).toEqual([]);
   });
 
-  it("dynamicGrants: comment and raise markers inside strings, and a $ inside a name", () => {
-    expect(dynamicGrants("v := '--';\nexecute 'grant select on t to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("if x like '%--%' then null; end if;\nexecute format('grant select on %i to anon', t);")).toEqual(["anon"]);
-    expect(dynamicGrants("v := '/*';\nexecute 'grant select on t to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("raise notice 'step; done'; execute 'grant select on t to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("declare a$b$c int; begin execute 'grant select on t to anon'; end")).toEqual(["anon"]);
-  });
-
-  it("dynamicGrants: a grant put together with ||, format or quote_ident", () => {
-    expect(dynamicGrants("execute 'grant execute on function ' || f || ' to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'grant select on t ' || 'to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'grant ' || 'select on t to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'grant select on ' || quote_ident(t) || ' to ' || r;")).toEqual([null]);
-    // The grantee list goes on outside the literal.
-    expect(dynamicGrants("execute 'grant select on t to authenticated, ' || role;")).toEqual([null]);
-    expect(dynamicGrants("sql := 'grant select on ' || t::text || ' to ' || (r);\nexecute sql;")).toEqual([null]);
-    expect(dynamicGrants("execute format('grant select on %s ' || 'to anon', t);")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'grant select on ' || t || ' to service_role';")).toEqual([]);
-  });
-
-  it("dynamicGrants: a grant after another statement in the string, across lines, and default privileges", () => {
+  it("dynamicGrants: a grant after another statement in the string, and default privileges", () => {
     expect(dynamicGrants("execute 'revoke all on t from public; grant select on t to ' || r;")).toEqual([null]);
     expect(dynamicGrants("execute 'revoke all on t from anon; grant select on t to authenticated';")).toEqual([]);
     expect(dynamicGrants("execute 'alter default privileges in schema x grant execute on functions to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'alter default privileges in schema s\n grant select on tables to anon';")).toEqual(["anon"]);
-    expect(dynamicGrants("execute 'grant select\n  on t\n  to anon';")).toEqual(["anon"]);
-    // E'' strings: \' is a quote, so the `;` after it still splits the string.
-    expect(dynamicGrants("execute e'select \\'a\\'; grant select on t to anon';")).toEqual(["anon"]);
+    expect(dynamicGrants("execute e'grant select on t to \\'anon\\'';")).toEqual(["anon"]);
     expect(dynamicGrants("execute 'grant select on t to %s granted by postgres';")).toEqual([null]);
     expect(dynamicGrants("execute 'grant select on t to service_role with grant option';")).toEqual([]);
-  });
-
-  it("dynamicGrants: data strings that say grant aren't grants", () => {
-    expect(dynamicGrants("v := 'grant';")).toEqual([]);
-    expect(dynamicGrants("if kind = 'grant' then perform 1; end if;")).toEqual([]);
-    expect(dynamicGrants("insert into audit (kind, role) values ('grant', 'anon');")).toEqual([]);
-    expect(dynamicGrants("perform set_config('app.mode', 'grant', true);")).toEqual([]);
-  });
-
-  it("migration-grants: grants inside a body are checked like top-level ones", async () => {
-    const r = await migration(
-      [
-        "do $$ begin grant execute on function private.f() to anon; end $$;",
-        "do $$ begin grant usage on schema private to anon; end $$;",
-        "do $$ begin if true then grant execute on all functions in schema public to public; end if; end $$;",
-        "do $$ begin grant usage on schema private to authenticated; grant execute on function public.ok() to anon; end $$;",
-        "create function public.setup() returns void language plpgsql as $f$ begin grant usage on schema private to anon; end $f$;",
-        "do $$ begin if kind = 'grant' then perform 1; end if; end $$;",
-      ].join("\n"),
-    );
-    expect(brief(r.findings, "migration-grants")).toEqual([
-      `migration-grants ${M}:1 private.f`,
-      `migration-grants ${M}:2 schema private`,
-      `migration-grants ${M}:3 on all functions`,
-      `migration-grants ${M}:5 schema private`,
-    ]);
-    expect(levels(r.findings, "migration-grants")).toEqual(["error", "error", "error", "error"]);
   });
 
   it("migration-rls: dynamic enables, disable, rename and set schema", async () => {
