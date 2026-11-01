@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 138
+      "count": 139
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -13369,7 +13369,7 @@
               "name": "layout",
               "type": "enum",
               "required": false,
-              "defaultValue": "month",
+              "defaultValue": null,
               "description": "Default `month`."
             },
             {
@@ -13834,6 +13834,28 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "guard",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/guard.ts",
+      "stability": "stable",
+      "summary": "`value` when it's a layout; else `month`, saying so in development.",
+      "primaryComponent": "layoutOr",
+      "components": [
+        {
+          "name": "layoutOr",
+          "summary": "`value` when it's a layout; else `month`, saying so in development.",
+          "props": []
+        },
+        {
+          "name": "anchorOr",
+          "summary": "`value` when it's a real `YYYY-MM-DD` day; else `today`, saying so in development.",
+          "props": []
         }
       ]
     },
@@ -16122,7 +16144,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows that overlap the window, and open-ended rows starting in it), each capped."
+              "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
             },
             {
               "name": "onAnchorChange",

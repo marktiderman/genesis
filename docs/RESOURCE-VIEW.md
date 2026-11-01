@@ -358,9 +358,11 @@ export const eventsView = defineView(contracts["public.events"], {
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
 - **Data** goes through the view's provider rules: the scope, the screen's `filter` and a preset's
   filter, plus the visible window. Without an `endField` that is one `getList` for rows starting in
-  the window. With one, it is the rows that overlap it (`start < windowEnd` and `end >= windowStart`,
-  so an event that began weeks ago is there) and, in a second `getList`, rows with no end that
-  start in it. The queries sit under core's list keys (`resourceKeys(resource).list(params)`), so a
+  the window. With one, a second `getList` adds the rows that started before the window and run
+  into it (`start < windowStart` and `end > windowStart`, `>=` for a date end), so an event that
+  began weeks ago is there. The two never overlap and leave no gap. A `layout` or `anchor` that
+  isn't valid (a hand-edited URL) shows the month and today, with a warning in development.
+  Both load as one query under core's list keys (`[resource, "list", …]`), so a
   save to the resource refreshes the calendar like any list. At most 500 rows per request
   (`limit`; with an `endField`, two requests); past that the calendar says "+N more not shown",
   in print too, rather than dropping rows silently. While a window loads the calendar is

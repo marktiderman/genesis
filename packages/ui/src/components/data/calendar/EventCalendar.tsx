@@ -10,6 +10,7 @@ import { addDays, dayIn, deviceTimeZone, eachDay, weekdayOf, type Day } from "@m
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { useFollowedState } from "./use-followed-state";
+import { anchorOr, layoutOr } from "./guard";
 import { fillMessage, useUiMessages } from "../../../messages";
 import {
   calendarLanes,
@@ -107,7 +108,7 @@ function useFormats(locale: string | undefined, zone: string) {
  */
 export function EventCalendar<T = unknown>({
   events,
-  layout = "month",
+  layout: layoutProp,
   anchor: anchorProp,
   onAnchorChange,
   weeks = 2,
@@ -129,7 +130,8 @@ export function EventCalendar<T = unknown>({
   const zone = timeZone ?? deviceTimeZone();
   const today = dayIn(zone);
   const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => today);
-  const anchor = onAnchorChange ? (anchorProp ?? today) : ownAnchor;
+  const anchor = anchorOr(onAnchorChange ? anchorProp : ownAnchor, today, "EventCalendar");
+  const layout = layoutOr(layoutProp, "EventCalendar");
   const setAnchor = (d: Day) => (onAnchorChange ? onAnchorChange(d) : setOwnAnchor(d));
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
   const days = eachDay(range);
