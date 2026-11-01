@@ -1,0 +1,35 @@
+.changeset/eas-templates-build-cost.md
+  s_1feb538f59bf88::t_7d657fc466213a 1-5
+apps/genesis-rn-starter/.eas/workflows/e2e.yml
+  s_1feb538f59bf88::t_cf542c983af2d5 12,15-27
+apps/genesis-rn-starter/.eas/workflows/pr-preview.yml
+  s_1feb538f59bf88::t_1ab3039dba2554 9-21,34-43,77,103
+apps/genesis-rn-starter/.maestro/README.md
+  s_1feb538f59bf88::t_fafc35f2808e1a 4-5
+apps/genesis-rn-starter/README.md
+  s_1feb538f59bf88::t_817b181db68365 219-220,228-229
+apps/genesis-rn-starter/__tests__/release.test.ts
+  s_1feb538f59bf88::t_f08f2a3f86821e 201-223
+docs/NATIVE-RELEASE.md
+  s_1feb538f59bf88::t_9aeaa44a455ed4 11,14,39-44,48,56-57,122-137
+templates/eas/workflows/e2e.yml
+  s_1feb538f59bf88::t_91e6d9fa7c582b 12,15-27
+templates/eas/workflows/pr-preview.yml
+  s_1feb538f59bf88::t_96c407720698b6 9-21,34-43,77,103
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6f48aad5a585f3a072935e269bdb8528afa9884c",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
