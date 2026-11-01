@@ -1,0 +1,29 @@
+packages/core/README.md
+  s_318cb635985f4b::t_7facd404322e61 689-728
+.changeset/dates-ranges-recurrence.md
+  s_318cb635985f4b::t_7facd404322e61 5
+docs/component-reference.md
+  s_318cb635985f4b::t_7facd404322e61 7,1731,1738-1739,1743,1745-1747,1750-1752,1755-1756,1758-1759,1762,1764,1766,1772-1774,1776-1779,1781
+packages/core/src/dates.ts
+  s_318cb635985f4b::t_7c90043436dc7c 263,303,366-370,393,399-404,420,427-428,466-496,504,516-518,525-526,535,555-560,564-566,597-599,666-669,680-683,688-690,696-711,717,721-722,724-734,737-739,747-750,753-756,758,760-762,765
+  s_318cb635985f4b::t_22804ad5f5b9f0 691-694
+  s_318cb635985f4b::t_963d5da36611dc 718-719
+packages/core/src/__tests__/dates-recurrence.test.ts
+  s_318cb635985f4b::t_22804ad5f5b9f0 480-611
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "03f583b13fd23c8481487cdb42bacc89ae7a2dc1",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
