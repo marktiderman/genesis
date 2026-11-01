@@ -10,10 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import {
-  getCoreRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  createPaginatedRowModel,
+  createSortedRowModel,
+  rowPaginationFeature,
+  rowSortingFeature,
+  tableFeatures,
+  useTable,
   type ColumnDef as TanStackColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
@@ -59,6 +61,27 @@ import { TreeIndent } from "./TreeIndent";
 import { cn } from "../../utils";
 import { fillMessage, useUiMessages } from "../../messages";
 import type { Density } from "../../hooks/use-view-settings";
+
+/* ── TanStack Table features ── */
+
+/**
+ * The table engine sorts and pages; nothing else. Registered once, outside
+ * render, so the feature set stays stable.
+ */
+const tableEngineFeatures = tableFeatures({
+  rowSortingFeature,
+  rowPaginationFeature,
+  sortedRowModel: createSortedRowModel(),
+  paginatedRowModel: createPaginatedRowModel(),
+});
+
+/**
+ * TanStack Table wants each row to be an object or an array; DataTable takes
+ * any item, so each one is held in a small box on its way through.
+ */
+interface EngineRow<T> {
+  item: T;
+}
 
 /* ── Density row / cell rhythm ── */
 
@@ -847,41 +870,44 @@ export function DataTable<T>({
         .map((s) => ({ id: s.key, desc: s.dir === "desc" })),
     [sorts, columns],
   );
-  const tanstackColumns = useMemo<TanStackColumnDef<T>[]>(
+  const tanstackColumns = useMemo<TanStackColumnDef<typeof tableEngineFeatures, EngineRow<T>>[]>(
     () =>
       columns.map((col) => ({
         id: col.key,
         // Blanks read as undefined here, so `sortUndefined` keeps them last
         // whichever way the column sorts.
-        accessorFn: (row: T) => {
-          const v = col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
+        accessorFn: ({ item }: EngineRow<T>) => {
+          const v = col.accessor ? col.accessor(item) : (item as Record<string, unknown>)[col.key];
           return v == null || v === "" ? undefined : v;
         },
         sortUndefined: "last" as const,
-        sortingFn: (a, b, id) => compareValues(a.getValue(id), b.getValue(id)),
+        sortFn: (a, b, id) => compareValues(a.getValue(id), b.getValue(id)),
       })),
     [columns],
   );
-  const table = useReactTable<T>({
-    data: items,
+  const engineRows = useMemo<EngineRow<T>[]>(() => items.map((item) => ({ item })), [items]);
+  const table = useTable({
+    features: tableEngineFeatures,
+    data: engineRows,
     columns: tanstackColumns,
-    getRowId: (row) => getKey(row),
+    getRowId: (row) => getKey(row.item),
     state: {
       sorting,
       pagination: { pageIndex: currentPage, pageSize: currentPageSize },
     },
     enableMultiSort: true,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
+    // The page is held here and reset by the effects above, never by the engine.
+    autoResetPageIndex: false,
     // A tree's rows come in the tree's order: sorting them flat would part children from parents.
-    ...(tree ? { manualSorting: true } : {}),
-    ...(pagination ? { getPaginationRowModel: getPaginationRowModel() } : {}),
+    manualSorting: !!tree,
+    // Unpaged: every sorted row is drawn.
+    manualPagination: !pagination,
   });
-  const totalItems = table.getPrePaginationRowModel().rows.length;
+  const totalItems = table.getPrePaginatedRowModel().rows.length;
   const totalPages = pagination
     ? Math.max(1, Math.ceil(totalItems / currentPageSize))
     : 1;
-  const displayItems = table.getRowModel().rows.map((row) => row.original);
+  const displayItems = table.getRowModel().rows.map((row) => row.original.item);
   /** The tree node behind a drawn row, in tree mode. */
   const nodeOf = (id: string): TreeNode<T> | undefined => tree?.node(id);
   const setRowExpanded = (id: string, open: boolean) => tree?.setExpanded(id, open);
