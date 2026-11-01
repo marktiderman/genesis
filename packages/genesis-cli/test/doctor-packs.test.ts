@@ -473,15 +473,25 @@ describe("supabase pack", () => {
     ]);
   });
 
-  it("dynamicGrants: positional and uppercase specifiers, comments and raise messages", () => {
-    expect(dynamicGrants("execute format('grant execute on function public.f() to %1$I', 'anon');")).toEqual([null]);
-    expect(dynamicGrants("execute format('grant usage on schema x to %I', r);")).toEqual([null]);
-    expect(dynamicGrants("execute format('grant usage on schema x to %L', r);")).toEqual([null]);
+  it("dynamicGrants: format specifiers, comments and raise messages", () => {
+    expect(dynamicGrants("execute format('grant execute on function public.f() to %1$i', 'anon');")).toEqual([null]);
+    expect(dynamicGrants("execute format('grant usage on schema x to %i', r);")).toEqual([null]);
+    expect(dynamicGrants("execute format('grant usage on schema x to %10s', r);")).toEqual([null]);
     expect(dynamicGrants("execute format('grant usage on schema x to authenticated');")).toEqual([]);
     expect(dynamicGrants("/* execute 'grant all on t to anon'; */ perform 1;")).toEqual([]);
+    expect(dynamicGrants("perform 1; -- see /* below\nexecute 'grant all on t to anon'; /* done */")).toEqual(["anon"]);
     expect(dynamicGrants("raise notice 'grant all on t to anon'; execute 'grant select on t to public';")).toEqual(["public"]);
     expect(dynamicGrants(`execute 'grant select on table public."raise" to anon';`)).toEqual(["anon"]);
     expect(dynamicGrants("raise 'grant all on t to anon'; raise using message = 'grant all on t to anon';")).toEqual([]);
+  });
+
+  it("dynamicGrants: a grant after another statement in the string, and default privileges", () => {
+    expect(dynamicGrants("execute 'revoke all on t from public; grant select on t to ' || r;")).toEqual([null]);
+    expect(dynamicGrants("execute 'revoke all on t from anon; grant select on t to authenticated';")).toEqual([]);
+    expect(dynamicGrants("execute 'alter default privileges in schema x grant execute on functions to anon';")).toEqual(["anon"]);
+    expect(dynamicGrants("execute e'grant select on t to \\'anon\\'';")).toEqual(["anon"]);
+    expect(dynamicGrants("execute 'grant select on t to %s granted by postgres';")).toEqual([null]);
+    expect(dynamicGrants("execute 'grant select on t to service_role with grant option';")).toEqual([]);
   });
 
   it("migration-rls: dynamic enables, disable, rename and set schema", async () => {
