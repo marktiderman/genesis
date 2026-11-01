@@ -106,8 +106,13 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    release, since they release on their own. The range prefix (`^`, `~`, exact) is kept.
    `workspace:`, `file:`, `link:` and `npm:` specs, wider ranges, peer dependencies and anything
    already newer are left alone and listed in the pull request;
-3. reinstalls and runs `genesis doctor`;
-4. commits the package.json files and the lockfile to `branch` (default
+3. reinstalls and runs `genesis doctor`. With pnpm it then does what `genesis upgrade` does, with
+   the same embedded code (`normaliseReleaseAgeExcludes` in bump-core.mjs): every Genesis entry
+   pnpm pinned in pnpm-workspace.yaml's `minimumReleaseAgeExclude` becomes one
+   `'@marktiderman/genesis-*'` pattern, which app-ci's `pnpm install --frozen-lockfile` honours on
+   pnpm 11.1.3, other entries left as they are, and `pnpm dedupe` runs (`npm dedupe` with npm);
+4. commits the package.json files, the lockfile and, when pnpm or the tidy changed it,
+   pnpm-workspace.yaml to `branch` (default
    `genesis-upgrade/<base branch>`), rebuilt from the branch the workflow ran on, and opens or
    updates one pull request into that branch. When nothing changed since the last run the branch
    is left as it is. Once anyone else pushes to the branch (say, a fix for a doctor finding), runs
@@ -117,9 +122,7 @@ The bump is the same code `genesis upgrade` runs (`packages/genesis-cli/src/upgr
 embedded in the workflow by `scripts/sync-genesis-bump.mjs`). The workflow doesn't call `genesis
 upgrade` itself: its pull request job runs no dependency code, and the CLI is one. So the workflow
 moves versions only; run `genesis upgrade` on its branch to also refresh the templates, functions
-and skills Genesis owns in the app (see the CLI's README). `genesis upgrade` also keeps pnpm's `minimumReleaseAgeExclude` to one
-`'@marktiderman/genesis-*'` entry and dedupes, so app-ci's `pnpm install --frozen-lockfile` passes
-on a release younger than the app's `minimumReleaseAge` (see the README's step 3).
+and skills Genesis owns in the app (see the CLI's README).
 
 A doctor failure is written into the pull request and fails the run. `dry-run: true` does steps
 1 to 3, writes the run summary and pushes nothing. The secret `npm-token` works as in app-ci.

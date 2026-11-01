@@ -24,3 +24,8 @@ export declare function bumpPackageJson(
   wanted: (name: string) => string | null | undefined,
 ): { text: string | null; changes: BumpChange[]; skipped: BumpSkip[] };
 export declare function bumpSummary(version: string, changes: BumpChange[], skipped: BumpSkip[]): string;
+
+/** The `minimumReleaseAgeExclude` entry that stands for every Genesis package but the umbrella. */
+export declare const GENESIS_PATTERN: "@marktiderman/genesis-*";
+/** pnpm-workspace.yaml's text with each Genesis release-age exclude replaced by its pattern, once. */
+export declare function normaliseReleaseAgeExcludes(text: string): string;

@@ -28,8 +28,9 @@
 # Two jobs, so the job that holds a write token never runs dependency code:
 # `bump` (read-only) bumps, installs (install scripts run here) and runs the
 # doctor; `pr` makes the same bump again from the same release, writes the
-# lockfile with install scripts off, commits only those files and opens the
-# pull request. Nothing `bump` wrote reaches the commit; only the doctor's
+# lockfile with install scripts off (with pnpm, tidying Genesis's release-age
+# excludes in pnpm-workspace.yaml and deduping, as `genesis upgrade` does),
+# commits only those files and opens the pull request. Nothing `bump` wrote reaches the commit; only the doctor's
 # output reaches the pull request, as escaped text.
 #
 # A pull request opened with the default GITHUB_TOKEN does not start other
@@ -172,6 +173,67 @@ env:
         ...(skipped.length ? ["", "Left alone:", "", ...skipped.map((s) => `- \`${s.name}\` ${s.spec} in ${s.file}: ${s.why}`)] : []),
       ].join("\n");
     }
+
+    // pnpm's minimumReleaseAgeExclude after the install. A Genesis release younger than the app's
+    // minimumReleaseAge is installed in loose mode and pnpm pins it in pnpm-workspace.yaml
+    // ('@marktiderman/genesis-ui@2.26.0'). pnpm 11.1.3 reads that list first match per package name, so
+    // a second pinned version of one package fails `pnpm install --frozen-lockfile` with
+    // ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION. Every Genesis entry becomes one name pattern (the umbrella
+    // its bare name), which pnpm 11 honours for a resolving and a frozen install. Only Genesis's own
+    // names are touched: every other entry is the app's supply-chain guard. Other lines, comments and
+    // order are kept, and the text is unchanged when there is nothing to replace.
+    export const GENESIS_PATTERN = "@marktiderman/genesis-*";
+
+    function excludeReplacement(entry) {
+      if (entry === GENESIS_PATTERN) return GENESIS_PATTERN;
+      const at = entry.startsWith("@") ? entry.indexOf("@", 1) : entry.indexOf("@");
+      const name = at === -1 ? entry : entry.slice(0, at);
+      if (!GENESIS.test(name)) return null;
+      return name === UMBRELLA ? UMBRELLA : GENESIS_PATTERN;
+    }
+
+    function unquoteScalar(raw) {
+      const s = raw.trim();
+      if (s.length >= 2 && s.startsWith("'") && s.endsWith("'")) return s.slice(1, -1).replace(/''/g, "'");
+      if (s.length >= 2 && s.startsWith('"') && s.endsWith('"')) return s.slice(1, -1);
+      return s;
+    }
+
+    export function normaliseReleaseAgeExcludes(text) {
+      const eol = text.includes("\r\n") ? "\r\n" : "\n";
+      const lines = text.split(/\r?\n/);
+      const key = /^minimumReleaseAgeExclude:(.*)$/;
+      const start = lines.findIndex((l) => key.test(l));
+      if (start === -1) return text;
+      const seen = new Set();
+      const out = lines.slice(0, start);
+      // The flow form on one line: minimumReleaseAgeExclude: ['a', 'b'] # comment
+      const flow = /^(\s*)\[(.*)\](\s*(?:#.*)?)$/.exec(key.exec(lines[start])[1]);
+      if (flow) {
+        const kept = [];
+        for (const raw of flow[2].split(",").map((s) => s.trim()).filter(Boolean)) {
+          const replacement = excludeReplacement(unquoteScalar(raw));
+          if (replacement === null) kept.push(raw);
+          else if (!seen.has(replacement)) { seen.add(replacement); kept.push(`'${replacement}'`); }
+        }
+        return [...out, `minimumReleaseAgeExclude:${flow[1]}[${kept.join(", ")}]${flow[3]}`, ...lines.slice(start + 1)].join(eol);
+      }
+      // The block form: the key, then its `- entry` lines (blank lines and comments between them kept).
+      const item = /^(\s*-\s+)('(?:[^']|'')*'|"[^"]*"|[^#\s][^#]*?)(\s+#.*)?\s*$/;
+      out.push(lines[start]);
+      let i = start + 1;
+      for (; i < lines.length; i++) {
+        const m = item.exec(lines[i]);
+        if (!m) {
+          if (/^\s*(#.*)?$/.test(lines[i])) { out.push(lines[i]); continue; }
+          break;
+        }
+        const replacement = excludeReplacement(unquoteScalar(m[2]));
+        if (replacement === null) out.push(lines[i]);
+        else if (!seen.has(replacement)) { seen.add(replacement); out.push(`${m[1]}'${replacement}'${m[3] ?? ""}`); }
+      }
+      return [...out, ...lines.slice(i)].join(eol);
+    }
     // </genesis-bump-core>
 
     const env = process.env;
@@ -185,6 +247,30 @@ env:
         fail(`${cmd} ${args.join(" ")} failed: ${String(err.stderr || err.message).trim().split("\n").slice(-3).join(" ")}`);
       }
     };
+
+    // GENESIS_STEP=tidy, run in the install root after a pnpm install: Genesis's pinned release-age
+    // excludes in pnpm-workspace.yaml become one pattern (normaliseReleaseAgeExcludes, above), and the
+    // file joins the files to commit when the install or the tidy changed it.
+    if (env.GENESIS_STEP === "tidy") {
+      const file = path.resolve("pnpm-workspace.yaml");
+      let text = null;
+      try { text = readFileSync(file, "utf8"); } catch {}
+      if (text !== null) {
+        const next = normaliseReleaseAgeExcludes(text);
+        if (next !== text) {
+          writeFileSync(file, next);
+          console.log(`pnpm-workspace.yaml: minimumReleaseAgeExclude names Genesis packages by '${GENESIS_PATTERN}', not one entry per version.`);
+        }
+      }
+      if (run("git", ["status", "--porcelain", "--", file])) {
+        const list = path.join(out, "files");
+        let listed = [];
+        try { listed = readFileSync(list, "utf8").split("\n").filter(Boolean); } catch {}
+        const rel = path.relative(env.GITHUB_WORKSPACE, file);
+        if (!listed.includes(rel)) writeFileSync(list, [...listed, rel].join("\n"));
+      }
+      process.exit(0);
+    }
     // The release: an exact version or a dist-tag, never a range.
     const target = env.TARGET || "latest";
     if (!/^[0-9A-Za-z][0-9A-Za-z.+-]*$/.test(target)) fail(`version must be an exact version or a dist-tag, not "${target}"`);
@@ -320,10 +406,17 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
         run: |
           set -euo pipefail
+          # pnpm pins young Genesis releases in pnpm-workspace.yaml; the tidy keeps them readable by
+          # a frozen install, and the dedupe leaves no Genesis package installed at two versions.
           case "$PM" in
-            pnpm) pnpm install --no-frozen-lockfile ;;
+            pnpm)
+              pnpm install --no-frozen-lockfile
+              GENESIS_STEP=tidy node --input-type=module -e "$GENESIS_BUMP"
+              pnpm dedupe
+              GENESIS_STEP=tidy node --input-type=module -e "$GENESIS_BUMP"
+              ;;
             bun) bun install ;;
-            npm) npm install ;;
+            npm) npm install && npm dedupe ;;
           esac
 
       - name: genesis doctor
@@ -444,10 +537,17 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.npm-token }}
         run: |
           set -euo pipefail
+          # As in the bump job: the tidy and the dedupe, lockfile-only. The tidy adds
+          # pnpm-workspace.yaml to the files to commit when pnpm wrote to it.
           case "$PM" in
-            pnpm) pnpm install --lockfile-only --ignore-scripts ;;
+            pnpm)
+              pnpm install --lockfile-only --ignore-scripts
+              GENESIS_STEP=tidy node --input-type=module -e "$GENESIS_BUMP"
+              pnpm dedupe --lockfile-only --ignore-scripts
+              GENESIS_STEP=tidy node --input-type=module -e "$GENESIS_BUMP"
+              ;;
             bun) bun install --lockfile-only --ignore-scripts ;;
-            npm) npm install --package-lock-only --ignore-scripts ;;
+            npm) npm install --package-lock-only --ignore-scripts && npm dedupe --package-lock-only --ignore-scripts ;;
           esac
 
       - name: Get the doctor's output

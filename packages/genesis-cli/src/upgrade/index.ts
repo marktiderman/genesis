@@ -30,9 +30,8 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { bumpPackageJson, bumpSummary, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
+import { bumpPackageJson, bumpSummary, GENESIS_PATTERN, normaliseReleaseAgeExcludes, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
-import { GENESIS_PATTERN, normaliseReleaseAgeExcludes } from "./release-age.js";
 
 export interface ReleaseLookup {
   /** The umbrella's version and versions.json for a version or dist-tag. */

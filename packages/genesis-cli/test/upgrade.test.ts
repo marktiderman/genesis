@@ -5,10 +5,9 @@ import { describe, expect, it } from "vitest";
 import { sha256 } from "../src/blocks/files.js";
 import { readLock, writeLock } from "../src/blocks/lock.js";
 import { mergeThreeWay } from "../src/blocks/owned.js";
-import { bumpPackageJson, compareVersions } from "../src/upgrade/bump-core.mjs";
+import { bumpPackageJson, compareVersions, normaliseReleaseAgeExcludes } from "../src/upgrade/bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
-import { normaliseReleaseAgeExcludes } from "../src/upgrade/release-age.js";
 import { fakePackage, makeApp, PACKAGES, read, snapshot } from "./blocks-helpers.js";
 
 const lookup = (packages: Record<string, string>, latest: Record<string, string> = {}): ReleaseLookup => ({
