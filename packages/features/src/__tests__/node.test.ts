@@ -122,6 +122,53 @@ describe("build and check", () => {
     expect(checkFeatureOutputs(opts(root, { features: gone })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
   });
 
+  it("reads both sides of a features.json left mid-merge, so a conflict can't hide a removed id", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const built = readFileSync(file, "utf8");
+    // Their side added a feature, ours didn't: git wrote conflict markers around the whole file.
+    const theirs = JSON.parse(built) as { features: { id: string }[] };
+    theirs.features.push({ ...theirs.features[0], id: "streaks" });
+    writeFileSync(file, `<<<<<<< HEAD\n${built}=======\n${JSON.stringify(theirs, null, 2)}\n>>>>>>> theirs\n`);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('"wins" was removed'), expect.stringContaining('"streaks" was removed')]),
+    );
+    expect(() => buildFeatureOutputs(opts(root, { features: rest }))).toThrow(/"wins" was removed/);
+    expect(readFileSync(file, "utf8")).toContain("<<<<<<< HEAD");
+    // With every id still in the registry, build resolves the conflict by regenerating the file.
+    const both = { ...features, streaks: features.wins };
+    expect(buildFeatureOutputs(opts(root, { features: both }))).toContain("features.json");
+    expect(readFileSync(file, "utf8")).not.toContain("<<<<<<<");
+  });
+
+  it("reads the diff3 base of a conflict too", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const built = readFileSync(file, "utf8");
+    const empty = JSON.stringify({ features: [] });
+    writeFileSync(file, `<<<<<<< HEAD\n${empty}\n||||||| base\n${built}=======\n${empty}\n>>>>>>> theirs\n`);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors).toContain(
+      'the feature id "wins" was removed. Ids are permanent once a feature is being built: keep the entry with status "retired", or list "wins" in the new entry\'s aliases',
+    );
+  });
+
+  it("refuses a features.json it can't read, rather than skip the permanent-id check", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    writeFileSync(file, "{ not json");
+    const message = /features\.json can't be read as JSON, so the check that feature ids are permanent can't run/;
+    expect(checkFeatureOutputs(opts(root)).errors.some((e) => message.test(e))).toBe(true);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(message);
+    expect(readFileSync(file, "utf8")).toBe("{ not json");
+    writeFileSync(file, `<<<<<<< HEAD\n{ not json\n=======\n{"features":[]}\n>>>>>>> theirs\n`);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(/on one side of its merge conflict/);
+  });
+
   it("fails on a missing code path; warns on missing docs, reviews due and untested live features", () => {
     const root = repo({ "src/tasks.test.ts": "" });
     const broken = {
