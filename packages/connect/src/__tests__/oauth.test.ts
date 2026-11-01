@@ -10,6 +10,7 @@ import {
   type ConnectedAccount,
   type ConnectLogEvent,
   type ConnectorConfig,
+  readIdToken,
 } from "../oauth";
 import {
   googleProvider,
@@ -1054,5 +1055,47 @@ describe("review follow-ups", () => {
     expect(isConnectError({ name: "ConnectError", code: "failed" })).toBe(
       false,
     );
+  });
+});
+
+describe("the connected account's identity", () => {
+  const idToken = (claims: Record<string, unknown>) =>
+    [
+      "e30",
+      btoa(JSON.stringify(claims))
+        .replace(/=+$/, "")
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_"),
+      "sig",
+    ].join(".");
+
+  it("reads who the account is from the ID token the token endpoint sent", async () => {
+    const t = setup({}, () =>
+      tokenOk({
+        id_token: idToken({
+          sub: "1234",
+          email: "pat@example.com",
+          email_verified: true,
+          name: "Pat",
+        }),
+      }),
+    );
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toEqual({
+      subject: "1234",
+      email: "pat@example.com",
+      emailVerified: true,
+      name: "Pat",
+    });
+  });
+
+  it("has no identity without an ID token, or with one that isn't", async () => {
+    const t = setup();
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toBeUndefined();
+    expect(readIdToken("not-a-token")).toBeUndefined();
+    expect(
+      readIdToken(idToken({ email: "no-subject@example.com" })),
+    ).toBeUndefined();
   });
 });

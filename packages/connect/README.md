@@ -73,6 +73,46 @@ On the way back the page reads `?connect=`: `connected`, `expired` (start again)
 the app needs) or `failed`. Register `https://<your origin>/api/connect/google/callback` as an
 authorized redirect URI in the Google Cloud console.
 
+## Connect Google Calendar (read only)
+
+Each person connects their own Google account and the app reads their calendars. Ask for the
+two narrow read scopes plus `openid` and `email`, so the account says who it is:
+
+```ts
+export const googleCalendar = createConnector({
+  provider: googleProvider,
+  clientId: process.env.GOOGLE_OAUTH_CLIENT_ID!,
+  clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
+  stateSecret: process.env.CONNECT_STATE_SECRET!,
+  secrets: createSecrets(process.env.CONNECT_KEYRING!, { purpose: "google-refresh-token" }),
+  callbackPath: "/api/connect/google/callback",
+  scopes: [
+    GOOGLE_SCOPES.openid,
+    GOOGLE_SCOPES.email,
+    GOOGLE_SCOPES.calendarListReadonly,
+    GOOGLE_SCOPES.calendarEventsReadonly,
+  ],
+  store: async (account) => {
+    // account.identity: { subject, email, emailVerified, name, picture } from the ID token.
+    await db.insert("google_grants", {
+      id: account.id,
+      user_id: account.subject,
+      google_account: account.identity?.subject,
+      email: account.identity?.email,
+      refresh_token: account.sealedRefreshToken,
+      scope: account.scope,
+    });
+  },
+});
+```
+
+`identity` is read from the ID token the token endpoint sent over TLS; `readIdToken(idToken)`
+does the same for that token, and must never be used on one a browser handed over. The kit
+fetches no calendar data: with `accessToken(...)`, the app calls the Calendar API
+(`calendarList`, then `events` with `singleEvents=true` and a sync token) and keeps the rows.
+Calendar scopes are sensitive: until Google verifies the app, only its test users can connect,
+and their grants end after seven days.
+
 ## Secrets and key rotation
 
 ```ts

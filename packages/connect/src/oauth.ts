@@ -186,11 +186,66 @@ export interface ConnectedAccount<D extends StateData = StateData> {
   scopes: string[];
   /** The OpenID Connect ID token, when the provider sent one (an `openid` scope). */
   idToken?: string | undefined;
+  /**
+   * Who the account is, read from the ID token: to show "connected as …" and to tell two
+   * accounts of one person apart. Only with an `openid` scope (add `email` for the address).
+   */
+  identity?: AccountIdentity | undefined;
   /** From `start`. */
   subject: string;
   intent: string;
   returnTo: string;
   data: D;
+}
+
+/** The account an ID token names. `subject` is the provider's stable id for it; the rest may change. */
+export interface AccountIdentity {
+  /** The provider's id for the account (`sub`): stable, unique per provider. */
+  subject: string;
+  email?: string | undefined;
+  emailVerified?: boolean | undefined;
+  name?: string | undefined;
+  picture?: string | undefined;
+}
+
+/**
+ * The account an OpenID Connect ID token names, or undefined when it isn't one. It reads the
+ * claims without checking the signature, which OpenID Connect allows only for a token that came
+ * straight from the token endpoint over TLS (Core 3.1.3.7): use it on `account.idToken`, never on
+ * a token a browser or another party handed over.
+ */
+export function readIdToken(idToken: string): AccountIdentity | undefined {
+  const part = idToken.split(".")[1];
+  if (!part) return undefined;
+  let claims: Record<string, unknown>;
+  try {
+    const value = JSON.parse(
+      new TextDecoder().decode(fromBase64(part)),
+    ) as unknown;
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      return undefined;
+    claims = value as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  const text = (key: string) =>
+    typeof claims[key] === "string" && claims[key]
+      ? (claims[key] as string)
+      : undefined;
+  const subject = text("sub");
+  if (!subject) return undefined;
+  const verified = claims["email_verified"];
+  return {
+    subject,
+    ...(text("email") ? { email: text("email") } : {}),
+    ...(typeof verified === "boolean"
+      ? { emailVerified: verified }
+      : verified === "true"
+        ? { emailVerified: true }
+        : {}),
+    ...(text("name") ? { name: text("name") } : {}),
+    ...(text("picture") ? { picture: text("picture") } : {}),
+  };
 }
 
 /** What `store` may add to the way back, as query parameters (a grant id to finish with). */
@@ -1202,6 +1257,9 @@ export function createConnector<D extends StateData = StateData>(
       try {
         const id = config.randomId?.() ?? crypto.randomUUID();
         const aad = aadFor(id);
+        const idToken =
+          typeof body["id_token"] === "string" ? body["id_token"] : undefined;
+        const identity = idToken ? readIdToken(idToken) : undefined;
         const sealedRefreshToken =
           typeof refreshToken === "string" && refreshToken
             ? await config.secrets.seal(refreshToken, aad)
@@ -1215,9 +1273,8 @@ export function createConnector<D extends StateData = StateData>(
             expiresIn: expiresIn(body),
             scope,
             scopes,
-            ...(typeof body["id_token"] === "string"
-              ? { idToken: body["id_token"] }
-              : {}),
+            ...(idToken ? { idToken } : {}),
+            ...(identity ? { identity } : {}),
             subject: state.subject,
             intent: state.intent,
             returnTo: state.returnTo,
