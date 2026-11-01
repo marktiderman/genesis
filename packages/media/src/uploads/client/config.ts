@@ -50,25 +50,24 @@ type IdbStore = {
   clear(): IdbRequest<unknown>;
   openCursor(): IdbRequest<IdbCursor | null>;
 };
+type IdbTransaction = {
+  objectStore(name: string): IdbStore;
+  oncomplete?: (() => void) | null;
+  onerror?: (() => void) | null;
+  onabort?: (() => void) | null;
+};
 type IdbDatabase = {
   objectStoreNames: { contains(name: string): boolean };
   createObjectStore(name: string): unknown;
-  transaction(store: string, mode: "readonly" | "readwrite"): { objectStore(name: string): IdbStore };
+  transaction(store: string, mode: "readonly" | "readwrite"): IdbTransaction;
+  close?(): void;
+  onversionchange?: (() => void) | null;
 };
 /** The part of `indexedDB` this uses. */
 export type IdbFactoryLike = {
-  open(
-    name: string,
-    version?: number,
-  ): IdbRequest<IdbDatabase> & {
-    /** The upgrade's own transaction, while `onupgradeneeded` runs. */
-    transaction: { objectStore(name: string): IdbStore } | null;
-    onupgradeneeded: ((e: { oldVersion: number }) => void) | null;
-  };
+  open(name: string, version?: number): IdbRequest<IdbDatabase> & { onupgradeneeded: (() => void) | null };
 };
 
-/** The database's version. 2: keys are SHA-256 hex; version 1 clients keyed by plain JSON. */
-const IDB_VERSION = 2;
 /** A resume key as the uploader writes it: the SHA-256 of what it names, in hex. */
 const DIGEST_KEY = /^[0-9a-f]{64}$/;
 
@@ -88,25 +87,35 @@ export function createIndexedDbResumeStore(name = "genesis-media-uploads", optio
   let db: Promise<IdbDatabase> | undefined;
   const open = () =>
     (db ??= new Promise<IdbDatabase>((resolve, reject) => {
-      const req = idb.open(name, IDB_VERSION);
-      req.onupgradeneeded = (e) => {
-        if (!req.result.objectStoreNames.contains(STORE)) {
-          req.result.createObjectStore(STORE);
-          return;
-        }
-        // From version 1: older clients keyed entries by plain JSON (the user id and file name).
-        // They are never read again, so the upgrade sweeps them, once, in its own transaction.
-        if (e.oldVersion < 2 && req.transaction) {
-          const sweep = req.transaction.objectStore(STORE).openCursor();
+      // Version 1, as older clients open it: a version bump would wait on (or lock out) any tab
+      // still running one.
+      const req = idb.open(name, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+      };
+      req.onsuccess = () => {
+        const d = req.result;
+        // Never hold up another tab's open.
+        d.onversionchange = () => {
+          d.close?.();
+          db = undefined;
+        };
+        // Older clients keyed entries by plain JSON (the user id and file name); they are never
+        // read again, so the first open sweeps them. Best effort: the store opens either way.
+        try {
+          const tx = d.transaction(STORE, "readwrite");
+          const sweep = tx.objectStore(STORE).openCursor();
           sweep.onsuccess = () => {
             const cursor = sweep.result;
             if (!cursor) return;
             if (typeof cursor.key !== "string" || !DIGEST_KEY.test(cursor.key)) cursor.delete();
             cursor.continue();
           };
+          tx.oncomplete = tx.onerror = tx.onabort = () => resolve(d);
+        } catch {
+          resolve(d);
         }
       };
-      req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     }).catch((e: unknown) => {
       // Not opened (private browsing, blocked): let a later call try again.
