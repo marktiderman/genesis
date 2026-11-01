@@ -45,6 +45,7 @@ export const BUILTIN_RULES = [
   "native-custom-header",
   "native-screen-layout",
   "store-readiness",
+  "eas-placeholder",
   // supabase pack
   "migration-grants",
   "migration-rls",

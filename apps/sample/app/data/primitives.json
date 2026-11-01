@@ -9176,7 +9176,7 @@
             },
             {
               "name": "label",
-              "type": "ReactNode",
+              "type": "unknown",
               "required": false,
               "defaultValue": null,
               "description": ""

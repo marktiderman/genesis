@@ -3,19 +3,17 @@
  * `doctor.packs: ["supabase"]`.
  *
  * - migration-grants: blanket function grants and grants of unexposed
- *   functions or schemas to anon/public, in new or changed migrations, at the
- *   top level or inside a body (`do $$ begin grant …; end $$`); a grant built as
- *   a string for `execute` (to anon/public, or to a computed role) is a warning,
- *   since what it grants can't be read.
+ *   functions or schemas to anon/public, in new or changed migrations; a grant
+ *   built as a string for `execute` (to anon/public, or to a computed role) is
+ *   a warning, since what it grants can't be read.
  * - migration-rls: a table in an exposed schema whose row level security is off
  *   after every migration has run.
  * - migration-definer-search-path: a security definer function without a pinned search_path.
  * - migration-edited: a migration that already exists on the base ref was changed.
  *
- * The SQL is read by one tokenizer (`sqlTokens`), statement by statement with
- * comments removed and string and dollar-quoted bodies blanked, so text inside a
- * function body never matches by accident (dollar-quoted bodies are kept aside
- * for the rules that look inside them, which read them with the same tokenizer).
+ * The SQL is read statement by statement with comments removed and string and
+ * dollar-quoted bodies blanked, so text inside a function body never matches
+ * (dollar-quoted bodies are kept aside for the one rule that looks inside them).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -36,123 +34,12 @@ export interface SqlStatement {
   bodies: string[];
 }
 
-/**
- * One token of SQL or PL/pgSQL. `string` is a quoted literal (`'…'`, `E'…'`) and `dollar` a
- * dollar-quoted one (`$tag$…$tag$`), each with its `value` decoded; `ident` is a quoted identifier
- * with its name; `word` an unquoted name, keyword or number (`$` included, so `a$b$c` is one word);
- * `op` any other character (`||` and `::` are one op).
- */
-type SqlToken =
-  | { kind: "space" | "comment" | "word" | "op" | "semi"; text: string; line: number }
-  | { kind: "string"; text: string; line: number; value: string; prefix: string }
-  | { kind: "dollar"; text: string; line: number; value: string; tag: string }
-  | { kind: "ident"; text: string; line: number; value: string };
-
-const WORD = /[\p{L}\p{N}_][\p{L}\p{N}_$]*/uy;
-const DOLLAR_TAG = /\$(?:[\p{L}_][\p{L}\p{N}_]*)?\$/uy;
-
-/**
- * Read SQL left to right into tokens, the way Postgres does: `--` and nested `/* *\/` comments
- * only outside quotes, `''` inside a string, backslash escapes in an `E'…'` string, and a dollar
- * quote only where a token can start (never inside a word, so `a$b$c` isn't one). A literal or
- * comment the text cuts off runs to the end.
- */
-function sqlTokens(text: string): SqlToken[] {
-  const out: SqlToken[] = [];
-  let line = 1;
-  let i = 0;
-  const take = (end: number) => {
-    const t = text.slice(i, end);
-    const at = line;
-    for (const c of t) if (c === "\n") line++;
-    i = end;
-    return { text: t, line: at };
-  };
-  /** Where a match of the sticky `re` at `i` ends, or -1. */
-  const matchEnd = (re: RegExp) => {
-    re.lastIndex = i;
-    return re.test(text) ? re.lastIndex : -1;
-  };
-  while (i < text.length) {
-    const ch = text[i]!;
-    if (/\s/.test(ch)) {
-      let k = i;
-      while (k < text.length && /\s/.test(text[k]!)) k++;
-      out.push({ kind: "space", ...take(k) });
-    } else if (text.startsWith("--", i)) {
-      const nl = text.indexOf("\n", i);
-      out.push({ kind: "comment", ...take(nl === -1 ? text.length : nl) });
-    } else if (text.startsWith("/*", i)) {
-      let depth = 0;
-      let k = i;
-      while (k < text.length) {
-        if (text.startsWith("/*", k)) {
-          depth++;
-          k += 2;
-        } else if (text.startsWith("*/", k)) {
-          k += 2;
-          if (--depth === 0) break;
-        } else k++;
-      }
-      out.push({ kind: "comment", ...take(k) });
-    } else if (ch === "'" || ((ch === "e" || ch === "E") && text[i + 1] === "'")) {
-      // E'…' strings take backslash escapes; standard strings only double the quote.
-      const prefix = ch === "'" ? "" : ch;
-      let k = i + prefix.length + 1;
-      let value = "";
-      while (k < text.length) {
-        const c = text[k]!;
-        if (prefix && c === "\\") {
-          const e = text[k + 1] ?? "";
-          value += e === "n" ? "\n" : e === "t" ? "\t" : e === "r" ? "\r" : e;
-          k += 2;
-        } else if (c === "'" && text[k + 1] === "'") {
-          value += "'";
-          k += 2;
-        } else if (c === "'") {
-          k++;
-          break;
-        } else {
-          value += c;
-          k++;
-        }
-      }
-      out.push({ kind: "string", ...take(Math.min(k, text.length)), value, prefix });
-    } else if (ch === '"') {
-      let k = i + 1;
-      let value = "";
-      while (k < text.length) {
-        if (text[k] === '"' && text[k + 1] === '"') {
-          value += '"';
-          k += 2;
-        } else if (text[k] === '"') {
-          k++;
-          break;
-        } else value += text[k++];
-      }
-      out.push({ kind: "ident", ...take(Math.min(k, text.length)), value });
-    } else if (ch === "$" && !/[\p{L}\p{N}_$]/u.test(text[i - 1] ?? "") && matchEnd(DOLLAR_TAG) !== -1) {
-      const tag = text.slice(i, matchEnd(DOLLAR_TAG));
-      const end = text.indexOf(tag, i + tag.length);
-      const value = text.slice(i + tag.length, end === -1 ? text.length : end);
-      out.push({ kind: "dollar", ...take(end === -1 ? text.length : end + tag.length), value, tag });
-    } else if (matchEnd(WORD) !== -1) {
-      out.push({ kind: "word", ...take(matchEnd(WORD)) });
-    } else if (ch === ";") {
-      out.push({ kind: "semi", ...take(i + 1) });
-    } else {
-      const two = text.slice(i, i + 2);
-      out.push({ kind: "op", ...take(i + (two === "||" || two === "::" ? 2 : 1)) });
-    }
-  }
-  return out;
-}
-
 /** Split SQL into statements, dropping comments and blanking quoted literals and dollar-quoted bodies. */
 export function sqlStatements(text: string): SqlStatement[] {
   const out: SqlStatement[] = [];
   let buf = "";
   let bodies: string[] = [];
+  let line = 1;
   let start = 0;
   const flush = () => {
     const sql = buf.replace(/\s+/g, " ").trim().toLowerCase();
@@ -161,22 +48,72 @@ export function sqlStatements(text: string): SqlStatement[] {
     bodies = [];
     start = 0;
   };
-  for (const t of sqlTokens(text)) {
-    if (t.kind === "semi") {
-      flush();
-      continue;
-    }
-    if (t.kind === "space" || t.kind === "comment") {
+  const put = (s: string) => {
+    if (!start && /\S/.test(s)) start = line;
+    buf += s;
+  };
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    const two = text.slice(i, i + 2);
+    if (ch === "\n") {
       buf += " ";
-      continue;
+      line++;
+      i++;
+    } else if (two === "--") {
+      while (i < text.length && text[i] !== "\n") i++;
+    } else if (two === "/*") {
+      let depth = 0;
+      while (i < text.length) {
+        if (text.startsWith("/*", i)) {
+          depth++;
+          i += 2;
+        } else if (text.startsWith("*/", i)) {
+          depth--;
+          i += 2;
+          if (depth === 0) break;
+        } else {
+          if (text[i] === "\n") line++;
+          i++;
+        }
+      }
+      buf += " ";
+    } else if (ch === "'") {
+      // E'…' strings take backslash escapes; standard strings only double the quote.
+      const escapes = /[eE]/.test(text[i - 1] ?? "") && !/[\w$]/.test(text[i - 2] ?? "");
+      put("'");
+      i++;
+      while (i < text.length) {
+        if (escapes && text[i] === "\\") i += 2;
+        else if (text[i] === "'" && text[i + 1] === "'") i += 2;
+        else if (text[i] === "'") break;
+        else {
+          if (text[i] === "\n") line++;
+          i++;
+        }
+      }
+      put("'");
+      i++;
+    } else if (ch === '"') {
+      // Quoted identifiers keep their name, minus the quotes.
+      i++;
+      while (i < text.length && text[i] !== '"') put(text[i++]);
+      i++;
+    } else if (ch === "$" && !/[\w$]/.test(text[i - 1] ?? "") && /^\$(?:[A-Za-z_]\w*)?\$/.test(text.slice(i))) {
+      const tag = /^\$(?:[A-Za-z_]\w*)?\$/.exec(text.slice(i))![0];
+      const end = text.indexOf(tag, i + tag.length);
+      const stop = end === -1 ? text.length : end + tag.length;
+      bodies.push(text.slice(i + tag.length, end === -1 ? text.length : end).toLowerCase());
+      for (let k = i; k < stop; k++) if (text[k] === "\n") line++;
+      put(`${tag} ${tag}`);
+      i = stop;
+    } else if (ch === ";") {
+      flush();
+      i++;
+    } else {
+      put(ch);
+      i++;
     }
-    if (!start) start = t.line;
-    if (t.kind === "string") buf += `${t.prefix}''`;
-    else if (t.kind === "ident") buf += t.value;
-    else if (t.kind === "dollar") {
-      bodies.push(t.value.toLowerCase());
-      buf += `${t.tag} ${t.tag}`;
-    } else buf += t.text;
   }
   flush();
   return out;
@@ -380,234 +317,49 @@ function granteesOf(s: string): string[] {
     .filter(Boolean);
 }
 
-/** A string expression read from a body: its text, and whether any part of it is a literal. */
-interface Operand {
-  text: string;
-  literal: boolean;
-  /** Index of the token after it. */
-  end: number;
-}
-
-type Code = SqlToken[];
-
-/** The index after the `)` that closes the `(` at `open`. */
-function closeParen(toks: Code, open: number): number {
-  let depth = 0;
-  for (let k = open; k < toks.length; k++) {
-    if (toks[k]!.text === "(") depth++;
-    else if (toks[k]!.text === ")" && --depth === 0) return k + 1;
-  }
-  return toks.length;
-}
-
-/** Split call arguments on top-level commas. */
-function callArgs(toks: Code): Code[] {
-  const args: Code[] = [[]];
-  let depth = 0;
-  for (const t of toks) {
-    if (t.text === "(" || t.text === "[") depth++;
-    else if (t.text === ")" || t.text === "]") depth--;
-    if (t.text === "," && depth === 0) args.push([]);
-    else args[args.length - 1]!.push(t);
-  }
-  return args.filter((a) => a.length);
-}
-
-/**
- * One operand of a `||` chain at `i`: a literal as its text; `format('…', …)` as its format text; a
- * parenthesized chain as that chain; anything else (a name, `$1`, a call) as a `%s` placeholder.
- * Literals inside the arguments of other calls are chains of their own, and go to `found`.
- */
-function operand(toks: Code, i: number, found: string[]): Operand | null {
-  const t = toks[i];
-  if (!t) return null;
-  let op: Operand | null = null;
-  if (t.kind === "string" || t.kind === "dollar") op = { text: t.value, literal: true, end: i + 1 };
-  else if (t.text === "(") {
-    const close = closeParen(toks, i);
-    const inner = toks.slice(i + 1, close - 1);
-    const nested: string[] = [];
-    const c = chain(inner, 0, nested);
-    if (c && c.end === inner.length) {
-      found.push(...nested);
-      op = { ...c, end: close };
-    } else {
-      scanChains(inner, found);
-      op = { text: "%s", literal: false, end: close };
-    }
-  } else if (t.kind === "word" || t.kind === "ident" || t.text === "$") {
-    let k = t.text === "$" && toks[i + 1]?.kind === "word" ? i + 2 : i + 1;
-    while (toks[k]?.text === "." && (toks[k + 1]?.kind === "word" || toks[k + 1]?.kind === "ident")) k += 2;
-    if (toks[k]?.text !== "(") op = { text: "%s", literal: false, end: k };
-    else {
-      const close = closeParen(toks, k);
-      const args = callArgs(toks.slice(k + 1, close - 1));
-      const nested: string[] = [];
-      const first = t.kind === "word" && t.text.toLowerCase() === "format" && k === i + 1 && args[0] ? chain(args[0], 0, nested) : null;
-      if (first?.literal && first.end === args[0]!.length) {
-        found.push(...nested);
-        for (const a of args.slice(1)) scanChains(a, found);
-        op = { text: first.text, literal: true, end: close };
-      } else {
-        for (const a of args) scanChains(a, found);
-        op = { text: "%s", literal: false, end: close };
-      }
-    }
-  }
-  if (!op) return null;
-  // A cast (`::text`, `::varchar(10)`, `::text[]`) is part of its operand.
-  while (toks[op.end]?.text === "::" && toks[op.end + 1]?.kind === "word") {
-    let k = op.end + 2;
-    if (toks[k]?.text === "(") k = closeParen(toks, k);
-    while (toks[k]?.text === "[" && toks[k + 1]?.text === "]") k += 2;
-    op.end = k;
-  }
-  return op;
-}
-
-/** The `||` chain that starts at `i`, as one text. */
-function chain(toks: Code, i: number, found: string[]): Operand | null {
-  const first = operand(toks, i, found);
-  if (!first) return null;
-  const c = { ...first };
-  while (toks[c.end]?.text === "||") {
-    const next = operand(toks, c.end + 1, found);
-    if (!next) break;
-    c.text += next.text;
-    c.literal ||= next.literal;
-    c.end = next.end;
-  }
-  return c;
-}
-
-/** Every chain in `toks` that holds a literal, as its text. */
-function scanChains(toks: Code, found: string[]): void {
-  let i = 0;
-  while (i < toks.length) {
-    const c = chain(toks, i, found);
-    if (!c) i++;
-    else {
-      if (c.literal) found.push(c.text);
-      i = c.end;
-    }
-  }
-}
-
-/**
- * The grant a statement runs: from a `grant` or `alter default privileges … grant` that starts it,
- * or that follows a PL/pgSQL block word (`begin grant …`, `then grant …`). `sql` is a
- * `SqlStatement.sql`.
- */
-function grantIn(sql: string): string | null {
-  const m = /(?:^|\b(?:begin|then|else|loop) )((?:grant|alter default privileges\b.*?\bgrant)\b.*)$/.exec(sql);
-  return m ? m[1]! : null;
-}
-
 /**
  * Grants built as strings inside a body (`execute format('grant … to anon', f)` in a loop, or
- * `'grant … on ' || f || ' to ' || role`): the grantee when it is anon or public, or `null` when
- * it is computed. The body is read as tokens (so a `--` or `;` inside a string is text, and a
- * `raise` statement is skipped); each `||` chain is put together as one text, a literal as written
- * and anything else (a name, a call) as `%s`, with `format('…', …)` read as its format text. Each
- * grant statement in that text counts, `alter default privileges … grant` included. Grants to a
- * named role other than anon and public aren't returned, nor are strings that aren't a grant
- * with a grantee (`if kind = 'grant'`). Dollar-quoted bodies inside the body are read too.
+ * `'grant … to ' || role`): the grantee when it is anon or public, or `null` when it is computed.
+ * Each statement in a string counts (`'revoke …; grant … to ' || r`), and so does
+ * `alter default privileges … grant`. Grants to a named role other than anon and public aren't
+ * returned. `body` is lowercased, as `SqlStatement.bodies` are.
  */
 export function dynamicGrants(body: string): Array<string | null> {
   const out: Array<string | null> = [];
-  const statements: Code[] = [[]];
-  for (const t of sqlTokens(body)) {
-    if (t.kind === "semi") statements.push([]);
-    else if (t.kind !== "space" && t.kind !== "comment") statements[statements.length - 1]!.push(t);
-  }
-  for (const toks of statements) {
-    // A raise message runs nothing.
-    if (toks[0]?.kind === "word" && toks[0].text.toLowerCase() === "raise") continue;
-    const texts: string[] = [];
-    scanChains(toks, texts);
-    for (const text of texts) {
-      for (const { sql } of sqlStatements(text)) {
-        const grant = grantIn(sql);
-        const to = grant && /\bto(?:\s+|$)(.*)$/.exec(grant);
-        if (!to) continue;
-        const roles = to[1]!.replace(/\s+(?:with grant option|granted by)\b.*$/, "").trim();
-        const open = /\b(anon|public)\b/.exec(roles);
-        if (open) out.push(open[1]!);
-        // Any format specifier (%s, %I, %1$L, %10s, %-I, %*s) or placeholder in the grantee list computes the role.
-        else if (!roles || roles.includes("%")) out.push(null);
-      }
+  // Comments and `raise` messages run nothing. Best effort: a `--` or `/*` inside a string is
+  // read as a comment.
+  const code = body
+    .replace(/\/\*[\s\S]*?\*\/|--[^\n]*/g, "")
+    .replace(/(?<![\w."'$])raise\s+(?:(?:debug|log|info|notice|warning|exception|sqlstate|using)\b|')[^;]*;/g, ";");
+  // The text of each string: E'…' (backslash escapes), '…' and dollar-quoted $q$…$q$. A string
+  // the body cuts off runs to its end.
+  const strings = /(?<![\w$])e'((?:[^'\\]|\\[\s\S]|'')*)(?:'|$)|'((?:[^']|'')*)(?:'|$)|\$(\w*)\$([\s\S]*?)(?:\$\3\$|$)/g;
+  for (const m of code.matchAll(strings)) {
+    for (const stmt of (m[1] ?? m[2] ?? m[4] ?? "").split(";")) {
+      if (!/^\s*(?:grant|alter default privileges\b.*?\bgrant)\b/.test(stmt)) continue;
+      const to = /\bto(?:\s+|$)([\s\S]*)$/.exec(stmt);
+      if (!to) continue;
+      const roles = to[1]!.replace(/\s+(?:with grant option|granted by)\b[\s\S]*$/, "").trim();
+      const open = /\b(anon|public)\b/.exec(roles);
+      if (open) out.push(open[1]!);
+      // Any format specifier (%s, %I, %1$L, %10s, %-I, %*s) in the grantee list computes the role.
+      else if (!roles || roles.includes("%")) out.push(null);
     }
-    for (const t of toks) if (t.kind === "dollar") out.push(...dynamicGrants(t.value));
   }
   return out;
 }
 
-interface GrantFinding {
-  level?: Level;
-  subject: string;
-  message: string;
-}
-
-const openRoles = (roles: string[]) => roles.filter((r) => r === "anon" || r === "public");
-
-/**
- * The static grant checks on one grant statement: blanket function grants, default privileges on
- * functions, and grants of functions or schemas outside the exposed schemas to anon or public.
- */
-function staticGrantFindings(sql: string, exposed: Set<string>): GrantFinding[] {
+/** `migration-grants`: grant function privileges by name, and never expose an unexposed schema to anon/public. */
+function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<string>): void {
   const fix = "grant by name (grant execute on function schema.fn(args) to role) so an earlier revoke survives";
+  const open = (roles: string[]) => roles.filter((r) => r === "anon" || r === "public");
   /** error for anon/public, warn for authenticated, nothing for other roles (service_role, postgres, …). */
   const blanket = (roles: string[]): { level: Level; who: string } | null => {
-    const o = openRoles(roles);
+    const o = open(roles);
     if (o.length) return { level: "error", who: o.join(" and ") };
     if (roles.includes("authenticated")) return { level: "warn", who: "authenticated" };
     return null;
   };
-  const all = /^grant\b.*\bon all (?:functions|routines|procedures) in schema .+? to (.+)$/.exec(sql);
-  if (all) {
-    const hit = blanket(granteesOf(all[1]!));
-    return hit ? [{ level: hit.level, subject: "on all functions", message: `grants every function in a schema to ${hit.who}, which re-grants functions an earlier migration revoked; ${fix}` }] : [];
-  }
-  const defaults = /^alter default privileges\b.*?\bgrant\b.*\bon (?:functions|routines) to (.+)$/.exec(sql);
-  if (defaults) {
-    const hit = blanket(granteesOf(defaults[1]!));
-    return hit ? [{ level: hit.level, subject: "alter default privileges", message: `grants default privileges on functions to ${hit.who}, so every future function is callable by them; ${fix}` }] : [];
-  }
-  const fn = /^grant\b.*?\bon (?:function|procedure|routine)s? (.+?) to (.+)$/.exec(sql);
-  if (fn) {
-    const roles = openRoles(granteesOf(fn[2]!));
-    if (!roles.length) return [];
-    return splitTop(fn[1]!)
-      .map((n) => qualify(stripParens(n)))
-      .filter((name) => !exposed.has(schemaOf(name)))
-      .map((name) => ({
-        subject: name,
-        message: `grants ${name} to ${roles.join(" and ")}; a function outside the exposed schemas is never callable by anon or public (grant it to authenticated, or expose a wrapper)`,
-      }));
-  }
-  const schema = /^grant\b.*?\bon schema (.+?) to (.+)$/.exec(sql);
-  if (schema) {
-    const roles = openRoles(granteesOf(schema[2]!));
-    if (!roles.length) return [];
-    return schema[1]!
-      .split(/\s*,\s*/)
-      .map((x) => x.trim())
-      .filter((s) => !exposed.has(s))
-      .map((s) => ({ subject: `schema ${s}`, message: `grants schema ${s} to ${roles.join(" and ")}; a schema outside the exposed ones stays closed to anon and public` }));
-  }
-  return [];
-}
-
-/** The static grant checks on the grants written directly in a body (`do $$ begin grant …; end $$`), and in the bodies inside it. */
-function bodyGrantFindings(body: string, exposed: Set<string>): GrantFinding[] {
-  return sqlStatements(body).flatMap(({ sql, bodies }) => {
-    const grant = grantIn(sql);
-    return [...(grant ? staticGrantFindings(grant, exposed) : []), ...bodies.flatMap((b) => bodyGrantFindings(b, exposed))];
-  });
-}
-
-/** `migration-grants`: grant function privileges by name, and never expose an unexposed schema to anon/public. */
-function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<string>): void {
   for (const { file, statements } of migrations) {
     for (const { sql, line, bodies } of statements) {
       const dynamic = bodies.flatMap(dynamicGrants);
@@ -624,8 +376,52 @@ function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<s
             : "builds a grant to a computed role in dynamic SQL (execute), so the doctor can't check it isn't anon or public; name the role in the grant",
         });
       }
-      for (const finding of [...staticGrantFindings(sql, exposed), ...bodies.flatMap((b) => bodyGrantFindings(b, exposed))]) {
-        ctx.report({ rule: "migration-grants", file, line, ...finding });
+      const all = /^grant\b.*\bon all (?:functions|routines|procedures) in schema .+? to (.+)$/.exec(sql);
+      if (all) {
+        const hit = blanket(granteesOf(all[1]));
+        if (hit) {
+          ctx.report({ rule: "migration-grants", level: hit.level, file, line, subject: "on all functions", message: `grants every function in a schema to ${hit.who}, which re-grants functions an earlier migration revoked; ${fix}` });
+        }
+        continue;
+      }
+      const defaults = /^alter default privileges\b.*?\bgrant\b.*\bon (?:functions|routines) to (.+)$/.exec(sql);
+      if (defaults) {
+        const hit = blanket(granteesOf(defaults[1]));
+        if (hit) {
+          ctx.report({ rule: "migration-grants", level: hit.level, file, line, subject: "alter default privileges", message: `grants default privileges on functions to ${hit.who}, so every future function is callable by them; ${fix}` });
+        }
+        continue;
+      }
+      const fn = /^grant\b.*?\bon (?:function|procedure|routine)s? (.+?) to (.+)$/.exec(sql);
+      if (fn) {
+        const roles = open(granteesOf(fn[2]));
+        if (!roles.length) continue;
+        for (const name of splitTop(fn[1]).map((n) => qualify(stripParens(n)))) {
+          if (exposed.has(schemaOf(name))) continue;
+          ctx.report({
+            rule: "migration-grants",
+            file,
+            line,
+            subject: name,
+            message: `grants ${name} to ${roles.join(" and ")}; a function outside the exposed schemas is never callable by anon or public (grant it to authenticated, or expose a wrapper)`,
+          });
+        }
+        continue;
+      }
+      const schema = /^grant\b.*?\bon schema (.+?) to (.+)$/.exec(sql);
+      if (schema) {
+        const roles = open(granteesOf(schema[2]));
+        if (!roles.length) continue;
+        for (const s of schema[1].split(/\s*,\s*/).map((x) => x.trim())) {
+          if (exposed.has(s)) continue;
+          ctx.report({
+            rule: "migration-grants",
+            file,
+            line,
+            subject: `schema ${s}`,
+            message: `grants schema ${s} to ${roles.join(" and ")}; a schema outside the exposed ones stays closed to anon and public`,
+          });
+        }
       }
     }
   }

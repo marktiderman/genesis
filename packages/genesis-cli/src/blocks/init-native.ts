@@ -49,6 +49,8 @@ export interface InitNativeResult {
   steps: string[];
 }
 
+/** The EAS workflow templates' placeholder for the app's code folder (pr-preview.yml `paths`). */
+export const APP_FOLDER_PLACEHOLDER = "REPLACE_WITH_APP_FOLDER";
 const SLUG = /^[a-z][a-z0-9-]{1,40}$/;
 const BUNDLE = /^[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z][a-zA-Z0-9]*)+$/;
 const SCHEME = /^[a-z][a-z0-9+.-]*$/;
@@ -126,7 +128,15 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   const source = starterDir();
   const read = (rel: string) => readFileSync(path.join(source, rel), "utf8");
   const was = starterIdentity(read("starter.config.ts"));
-  const substitutions: Record<string, string> = { [was.bundleId]: bundleId, [was.slug]: slug, [was.scheme]: scheme, [was.name]: display };
+  // The app is the new repository's root and keeps its code in src/, so pr-preview.yml's paths can
+  // name it: nothing is left to replace (and `genesis upgrade` fills it the same way).
+  const substitutions: Record<string, string> = {
+    [was.bundleId]: bundleId,
+    [was.slug]: slug,
+    [was.scheme]: scheme,
+    [was.name]: display,
+    [APP_FOLDER_PLACEHOLDER]: "src",
+  };
   const files = new Map<string, string>();
   for (const rel of walk(source, STARTER_EXCLUDE)) {
     const to = rel.replace(new RegExp(`(^|/)${PACKED_GITIGNORE}$`), "$1.gitignore");

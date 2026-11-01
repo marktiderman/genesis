@@ -153,7 +153,8 @@ type RechartsTooltipProps = React.ComponentProps<typeof RechartsPrimitive.Toolti
 type ChartTooltipOwnProps = {
   active?: boolean | undefined;
   payload?: readonly ChartPayloadItem[] | undefined;
-  label?: React.ReactNode | undefined;
+  // Recharts 2 types it `any`; only a string is read.
+  label?: unknown;
   labelFormatter?: ((label: any, payload: any[]) => React.ReactNode) | undefined;
   formatter?: ((value: any, name: any, item: any, index: number, payload: any) => React.ReactNode) | undefined;
   labelClassName?: string | undefined;

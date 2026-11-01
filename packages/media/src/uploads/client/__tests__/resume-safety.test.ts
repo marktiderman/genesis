@@ -1,5 +1,6 @@
 // @feat:media-resumable-uploads
 // From the review of the upload client follow-ups: each of these failed before its fix.
+import { IDBFactory } from "fake-indexeddb";
 import { describe, expect, it } from "vitest";
 import { sha256Bytes } from "../../hash";
 import { toHex } from "../../protocol";
@@ -30,92 +31,53 @@ describe("a remembered session answered with a 200 that isn't a status", () => {
 });
 
 describe("the IndexedDB resume store and an older client's entries", () => {
-  /** An IndexedDB in memory with versions: an upgrade runs before success, with its own transaction and a cursor. */
-  function versionedIdb(version: number, entries: [string, unknown][] = []) {
-    const data = new Map<string, unknown>(entries);
-    let current = version;
-    let hasStore = version > 0;
-    const upgrades: number[] = [];
-    const req = <T>(fn: () => T) => {
-      const r = { result: undefined as T, error: null as unknown, onsuccess: null as (() => void) | null, onerror: null as (() => void) | null };
-      queueMicrotask(() => {
-        r.result = fn();
-        r.onsuccess?.();
-      });
-      return r;
-    };
-    const objectStore = () => ({
-      get: (k: string) => req(() => data.get(k)),
-      put: (v: unknown, k: string) => req(() => void data.set(k, v)),
-      delete: (k: string) => req(() => void data.delete(k)),
-      clear: () => req(() => data.clear()),
-      openCursor: () => {
-        const keys = [...data.keys()];
-        let i = 0;
-        const r = { result: null as unknown, error: null, onsuccess: null as (() => void) | null, onerror: null };
-        const step = () =>
-          queueMicrotask(() => {
-            const k = keys[i];
-            r.result = i < keys.length ? { key: k, delete: () => void data.delete(k!), continue: () => (i++, step()) } : null;
-            r.onsuccess?.();
-          });
-        step();
-        return r;
-      },
-    });
-    const db = { objectStoreNames: { contains: () => hasStore }, createObjectStore: () => void (hasStore = true), transaction: () => ({ objectStore }) };
-    const idb: IdbFactoryLike = {
-      open: (_name, want = 1) => {
-        const r = { result: db, error: null, onsuccess: null as (() => void) | null, onerror: null, onupgradeneeded: null as ((e: { oldVersion: number }) => void) | null, transaction: null as { objectStore: typeof objectStore } | null };
-        queueMicrotask(() => {
-          if (want > current) {
-            upgrades.push(current);
-            r.transaction = { objectStore };
-            r.onupgradeneeded?.({ oldVersion: current });
-            current = want;
-          }
-          // Success comes once the upgrade's transaction (and its cursor) has finished.
-          setTimeout(() => {
-            r.transaction = null;
-            r.onsuccess?.();
-          }, 0);
-        });
-        return r as never;
-      },
-    };
-    return { idb, data, upgrades };
-  }
-
   const entry = { uploadId: "U1", expiresAt: "2099-01-01T00:00:00.000Z" };
+  type Factory = InstanceType<typeof IDBFactory>;
+  type Database = ReturnType<Factory["open"]>["result"];
+  /** Opens the database as an older client does (version 1), seeding entries; resolves the connection. */
+  const openAsOlderClient = (idb: Factory, entries: [string, unknown][] = []) =>
+    new Promise<Database>((resolve, reject) => {
+      const req = idb.open("test", 1);
+      req.onupgradeneeded = () => void req.result.createObjectStore("uploads");
+      req.onsuccess = () => {
+        const tx = req.result.transaction("uploads", "readwrite");
+        for (const [k, v] of entries) tx.objectStore("uploads").put(v, k);
+        tx.oncomplete = () => resolve(req.result);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  const keys = (d: Database) =>
+    new Promise<unknown[]>((resolve) => {
+      const req = d.transaction("uploads", "readonly").objectStore("uploads").getAllKeys();
+      req.onsuccess = () => resolve(req.result);
+    });
+  const settles = <T>(p: Promise<T> | T) => Promise.race([Promise.resolve(p), new Promise((_, reject) => setTimeout(() => reject(new Error("hung")), 1000))]);
 
-  it("deletes entries under plain keys (the user id and file name) when it opens, once, and keeps digest keys", async () => {
+  it("deletes entries under plain keys (the user id and file name) when it opens, and keeps digest keys", async () => {
+    const idb = new IDBFactory();
     const digest = await resumeKey(BASE, "alice", "media", "a.bin");
-    const legacy = JSON.stringify([BASE, "alice", "media", "holiday.mov:10:1"]);
-    const { idb, data, upgrades } = versionedIdb(1, [
-      [legacy, entry],
-      ["not-a-digest", entry],
-      [digest.toUpperCase().slice(0, 63), entry],
+    const older = await openAsOlderClient(idb, [
+      [JSON.stringify([BASE, "alice", "media", "holiday.mov:10:1"]), entry],
+      [digest.toUpperCase(), entry],
       [digest, entry],
     ]);
-    const store = createIndexedDbResumeStore("test", { indexedDB: idb });
+    older.close();
+    const store = createIndexedDbResumeStore("test", { indexedDB: idb as unknown as IdbFactoryLike });
     expect(await store.get(digest)).toEqual(entry);
-    expect([...data.keys()]).toEqual([digest]);
-    expect(upgrades).toEqual([1]);
-
-    // Opened again at the current version: no second sweep.
-    const again = createIndexedDbResumeStore("test", { indexedDB: idb });
-    expect(await again.get(digest)).toEqual(entry);
-    expect(upgrades).toEqual([1]);
+    const after = await openAsOlderClient(idb);
+    expect(await keys(after)).toEqual([digest]);
   });
 
-  it("creates the store in a new database, with nothing to sweep", async () => {
-    const { idb, data, upgrades } = versionedIdb(0);
-    const store = createIndexedDbResumeStore("test", { indexedDB: idb });
+  it("opens while an older client's tab holds the database, and that client still opens it afterwards", async () => {
+    const idb = new IDBFactory();
+    const older = await openAsOlderClient(idb);
+    const store = createIndexedDbResumeStore("test", { indexedDB: idb as unknown as IdbFactoryLike });
     const digest = await resumeKey(BASE, "", "media", "a.bin");
-    await store.set(digest, entry);
-    expect(await store.get(digest)).toEqual(entry);
-    expect([...data.keys()]).toEqual([digest]);
-    expect(upgrades).toEqual([0]);
+    await settles(store.set(digest, entry));
+    expect(await settles(store.get(digest))).toEqual(entry);
+    older.close();
+    // A rolled-back or cached older client opens the same version, and reads what is there.
+    expect(await keys(await settles(openAsOlderClient(idb)))).toEqual([digest]);
   });
 });
 

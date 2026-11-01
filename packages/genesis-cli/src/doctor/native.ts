@@ -8,7 +8,7 @@
  * gate. Literal colors in native code are reported by rules.ts checkColors
  * as `native-literal-color`.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import * as path from "node:path";
 import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scripts/lib/native-primitives.mjs";
 import { privacyApisFor } from "../expo.js";
@@ -48,6 +48,44 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkCustomHeaders(ctx, pkg);
   checkScreenLayouts(ctx, pkg);
   checkStoreReadiness(ctx);
+  checkEasPlaceholders(ctx);
+}
+
+/** A `REPLACE_WITH_…` placeholder the EAS templates ship (store ids in eas.json, the app folder in pr-preview.yml). */
+const EAS_PLACEHOLDER = /\bREPLACE_WITH_[A-Z0-9_]+/g;
+
+/**
+ * `eas-placeholder`: a `REPLACE_WITH_…` placeholder left in eas.json or `.eas/workflows/*.yml`.
+ * Left in, it fails quietly: a submit job that can't find the app, or pr-preview paths that match
+ * nothing, so code changes never start a preview. YAML comment lines are skipped (a template's
+ * commented-out trigger may name one).
+ */
+export function checkEasPlaceholders(ctx: DoctorContext): void {
+  const files: string[] = [];
+  if (existsSync(path.join(ctx.root, "eas.json"))) files.push("eas.json");
+  const workflows = path.join(ctx.root, ".eas", "workflows");
+  if (existsSync(workflows)) {
+    for (const name of readdirSync(workflows).sort()) if (/\.ya?ml$/.test(name)) files.push(`.eas/workflows/${name}`);
+  }
+  for (const file of files) {
+    const lines = readFileSync(path.join(ctx.root, file), "utf8").split("\n");
+    lines.forEach((text, i) => {
+      if (!file.endsWith(".json") && /^\s*#/.test(text)) return;
+      for (const m of text.matchAll(EAS_PLACEHOLDER)) {
+        ctx.report({
+          rule: "eas-placeholder",
+          level: "warn",
+          file,
+          line: i + 1,
+          subject: m[0],
+          message:
+            m[0] === "REPLACE_WITH_APP_FOLDER"
+              ? "still names REPLACE_WITH_APP_FOLDER, so only config changes start a preview; replace it with the app's code folder (src, or apps/<name> in a monorepo)"
+              : `still has the template placeholder ${m[0]}; replace it before the job that reads it runs (see docs/NATIVE-RELEASE.md in the Genesis repository)`,
+        });
+      }
+    });
+  }
 }
 
 const RN = String.raw`["']react-native["']`;
