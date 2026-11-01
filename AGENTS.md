@@ -64,6 +64,23 @@ entries to it.
 New design decisions (ADRs) and new primitives also start outside this repository; a public ADR
 is written here when a contract ships. Don't open a PR here that only proposes a new design.
 
+## Owning a pull request
+
+1. **The session that opens a PR owns it until it merges.** Turn on Auto-fix for it (the Claude
+   desktop app's CI monitor), keep its required checks green, merge its base in whenever it falls behind or
+   conflicts (merge, never rebase), and answer every review finding: fix it, or decline it with
+   the reason.
+2. **Hand it to triage when it's ready.** Triage is the session that reviews PRs into staging
+   batches. It runs an independent, adversarial review (a reviewer that didn't write the code),
+   checks that every finding is addressed, approves the PR and merges it into the batch. A PR
+   whose owner has stopped goes to triage, which finds it a new owner.
+3. **Triage brings load-bearing decisions to the maintainer:** declining a major finding, changing
+   a contract, or anything that touches production. **Only the maintainer merges into `main`.**
+   Agents prepare each release PR (green, reviewed, what it carries in the body) and ask.
+
+Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
+whenever nobody owned them.
+
 <!-- genesis-features:start -->
 ## Features
 
