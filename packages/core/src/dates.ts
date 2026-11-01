@@ -370,8 +370,6 @@ export interface RRule {
   byMonthDay?: number[];
   /** 1 to 12. */
   byMonth?: number[];
-  /** Positions in each period's set (`BYSETPOS=-1`: the last one). */
-  bySetPos?: number[];
   /** The week's first day, 0 Sunday … 6 Saturday. Default 1 (Monday), as RFC 5545 says. */
   weekStart: number;
 }
@@ -400,9 +398,11 @@ function ruleDate(value: string): Day | Date {
 }
 
 /**
- * Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Throws a
- * `RangeError` for a part outside the supported subset (BYHOUR, BYWEEKNO, BYYEARDAY, sub-daily
- * frequencies…), so a caller can show the series' first instance rather than a wrong pattern.
+ * Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Supports
+ * FREQ (DAILY, WEEKLY, MONTHLY, YEARLY), INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY, BYMONTH and
+ * WKST. Any other part (BYSETPOS, BYWEEKNO, BYYEARDAY, BYHOUR, BYMINUTE, BYSECOND, sub-daily
+ * frequencies…) throws a `RangeError` naming it, so a caller can show the series' first instance
+ * rather than a wrong pattern.
  *
  * @stability Beta
  */
@@ -443,9 +443,6 @@ export function parseRRule(text: string): RRule {
         break;
       case "BYMONTH":
         rule.byMonth = ruleInts(value, key, 1, 12, false);
-        break;
-      case "BYSETPOS":
-        rule.bySetPos = ruleInts(value, key, 1, 366, true);
         break;
       case "WKST":
         if (!RULE_DAYS.includes(value)) throw new RangeError(`parseRRule: WKST=${value} isn't a weekday`);
@@ -488,7 +485,8 @@ export interface RecurrenceOptions {
   exdates?: readonly (Day | Date)[];
   /**
    * Which occurrences to return, by their day on the series' clock: `[start, end)`. Widen the start
-   * by an event's length to catch ones that began earlier and still run into it.
+   * by an event's length to catch ones that began earlier and still run into it. Required: a rule
+   * without COUNT or UNTIL never ends.
    */
   window: DayRange;
   /** Most occurrences returned. Default 1,000. */
@@ -552,12 +550,7 @@ function periodCandidates(rule: RRule, period: Day, first: [number, number, numb
       break;
   }
   if (rule.byMonth) days = days.filter((d) => rule.byMonth!.includes(Number(d.slice(5, 7))));
-  days = [...new Set(days)].sort();
-  if (rule.bySetPos) {
-    const set = days;
-    days = [...new Set(rule.bySetPos.map((p) => (p > 0 ? set[p - 1] : set[set.length + p])).filter((d): d is Day => d !== undefined))].sort();
-  }
-  return days;
+  return [...new Set(days)].sort();
 }
 
 /** The start of the `k`th period from the first one. */
@@ -623,6 +616,11 @@ export function expandRecurrence(options: RecurrenceOptions): Occurrence[] {
   const rule = typeof options.rule === "string" ? parseRRule(options.rule) : options.rule;
   const { day: firstDay, time, zone } = startOf(options.start);
   const { window } = options;
+  // A rule with neither COUNT nor UNTIL never ends: the window and the limit are what stop it.
+  if (!window) throw new RangeError("expandRecurrence: a window is required");
+  if (options.limit !== undefined && (!Number.isInteger(options.limit) || options.limit < 1)) {
+    throw new RangeError(`expandRecurrence: limit ${options.limit} is not a whole number, 1 or more`);
+  }
   assertDay(window.start, "expandRecurrence");
   assertDay(window.end, "expandRecurrence");
   const limit = options.limit ?? 1000;
