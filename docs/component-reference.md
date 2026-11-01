@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4079 other exports · 3244 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4079 other exports · 3245 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1762,9 +1762,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`wallClock`](../packages/core/src/dates.ts) | function | Beta | What the clock on the wall in `zone` says at `at`. @stability Beta |
 | [`wallTimeIn`](../packages/core/src/dates.ts) | function | Beta | The day and wall time `zone`'s clock shows at `at`. @stability Beta |
 | [`weekdayOf`](../packages/core/src/dates.ts) | function | Beta | The weekday of a day, 0 for Sunday. @stability Beta |
-| [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks from the week `day` is in: what a one-to-four-week calendar shows. |
+| [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks (1 or more) from the week `day` is in: what a 1-to-4-week calendar shows. |
 
-### Types (10)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1772,6 +1772,7 @@ Type-only exports not consumed as a component's `Props`.
 export type { Day };
 export type { DayRange };
 export type { Occurrence };
+export type { Occurrences };
 export type { PersonClock };
 export type { RRule };
 export type { RecurrenceOptions };
