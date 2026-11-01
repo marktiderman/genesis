@@ -198,6 +198,29 @@ describe("EAS workflows", () => {
     }
   });
 
+  it("pr-preview runs only for app changes into main, or a Preview label", () => {
+    const { on } = workflow("pr-preview.yml");
+    expect(Object.keys(on).sort()).toEqual(["pull_request", "pull_request_labeled"]);
+    const pr = on.pull_request as { branches?: string[]; paths?: string[] };
+    expect(pr.branches).toEqual(["main"]);
+    expect(pr.paths).toContain("REPLACE_WITH_APP_FOLDER/**");
+    expect(pr.paths).not.toContain("**");
+    expect(on.pull_request_labeled).toEqual({ labels: ["Preview"] });
+  });
+
+  it("pr-preview builds iOS only once PREVIEW_IOS is on", () => {
+    const { jobs } = workflow("pr-preview.yml");
+    for (const id of ["repack_ios", "build_ios"]) {
+      expect(jobs[id]?.environment, id).toBe("preview");
+      expect(jobs[id]?.if, id).toMatch(/^\$\{\{ env\.PREVIEW_IOS == 'true' && /);
+    }
+    for (const id of ["repack_android", "build_android"]) expect(jobs[id]?.if, id).not.toContain("PREVIEW_IOS");
+  });
+
+  it("e2e runs only by hand", () => {
+    expect(Object.keys(workflow("e2e.yml").on)).toEqual(["workflow_dispatch"]);
+  });
+
   it("pr-preview publishes to the pull request's own channel", () => {
     expect(workflow("pr-preview.yml").jobs.publish_update?.params?.channel).toBe("pr-${{ github.event.pull_request.number }}");
   });

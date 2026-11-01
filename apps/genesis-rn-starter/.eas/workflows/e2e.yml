@@ -9,16 +9,27 @@
 # The `account` flows sign in, so they are left out (`exclude_tags: account`) until the
 # development EAS environment has MAESTRO_TEST_EMAIL and MAESTRO_TEST_PASSWORD (a test account on
 # the development Supabase project) as secret variables; then delete that line. Maestro reads
-# MAESTRO_* variables from the environment. This runs the pull request's code with that
+# MAESTRO_* variables from the environment. This runs the branch's code with that
 # environment's variables: keep nothing there that production depends on.
+#
+# It runs only when started by hand: Maestro jobs need a paid EAS plan, and each run is a
+# simulator build or repack. Start it from git, always with --ref (without it, eas workflow:run
+# uploads your working directory as it is):
+#
+#   eas workflow:run e2e.yml --ref <branch>
+#
+# Once the plan includes Maestro, run it on pull requests too by adding, under `on:`, a
+# pull_request trigger narrowed the way pr-preview.yml narrows it (into main, the app's paths):
+#
+#   pull_request:
+#     branches: [main]
+#     paths: ["REPLACE_WITH_APP_FOLDER/**", "app.json", "app.config.*", "eas.json", "package.json", "pnpm-lock.yaml", ".maestro/**"]
 #
 # Genesis template (templates/eas/workflows/e2e.yml). Edit the copy in your app; see
 # docs/NATIVE-RELEASE.md in the Genesis repository.
 name: E2E
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize]
   workflow_dispatch: {}
 
 jobs:

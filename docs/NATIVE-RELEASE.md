@@ -8,10 +8,10 @@ builds, store submissions and staged over-the-air updates, and Maestro smoke flo
 | File | What it does |
 | --- | --- |
 | `eas.json` | Build profiles `development` (a release build of the development variant, not a dev client: the starter has no `expo-dev-client`), `preview`, `e2e` (a development simulator build) and `production`, each with its `APP_VARIANT`, EAS environment and channel; app versions from EAS (`appVersionSource: remote`); store submission with placeholder ids. |
-| `.eas/workflows/pr-preview.yml` | Each pull request: fingerprint, then repack a preview build with the same fingerprint (or build one when native code changed), publish an update to the channel `pr-<number>`, and comment the install link and QR code. |
+| `.eas/workflows/pr-preview.yml` | A pull request into `main` that changes the app, or one labeled `Preview` ([Build cost](#build-cost)): fingerprint, then repack a preview build with the same fingerprint (or build one when native code changed), publish an update to the channel `pr-<number>`, and comment the install link and QR code. iOS only once `PREVIEW_IOS=true`. |
 | `.eas/workflows/deploy-production.yml` | A pushed `v*.*.*` tag: per platform, a new store build only when the native fingerprint changed, otherwise an over-the-air update to `production` at 10%. Both wait for a person's approval. |
 | `.eas/workflows/rollout.yml` | By hand: promote the staged update (after a failed-launch check) or roll it back. |
-| `.eas/workflows/e2e.yml` | Each pull request: the Maestro flows on an iOS simulator build (repacked when the fingerprint matches). The `account` flow is left out until its secrets exist. |
+| `.eas/workflows/e2e.yml` | By hand (Maestro needs a paid EAS plan): the Maestro flows on an iOS simulator build (repacked when the fingerprint matches). The `account` flow is left out until its secrets exist. |
 | `.eas/scripts/rollout-health.mjs` | The check `rollout.yml` runs before promoting. |
 | `.maestro/` | Smoke flows: launch, the sign-in screen, Settings' version row (after signing in). |
 
@@ -36,11 +36,16 @@ Nothing in the templates names a real account. Before the first run:
    The workflows also set `APP_VARIANT` on every job that evaluates the config, and `eas.json` sets
    it per build profile, but `eas update` and fingerprints run from your laptop read only the EAS
    environment ([Setting APP_VARIANT](../packages/genesis-cli/README.md#setting-app_variant)).
-4. **Store credentials.** Replace every `REPLACE_WITH_…` in `eas.json` `submit.production`
+
+   `preview` also takes `PREVIEW_IOS=true` (a plain variable) once an iOS device is registered;
+   see [Build cost](#build-cost).
+4. **Preview paths.** Replace `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml` with the app's
+   folder (`src` at the repository root, `apps/<name>` in a monorepo).
+5. **Store credentials.** Replace every `REPLACE_WITH_…` in `eas.json` `submit.production`
    (App Store Connect app id, Apple team id, the path of the Google service account key) and set up
    signing (`eas credentials`). A placeholder left in fails the submit job; it can't submit
    somewhere else.
-5. **Release policy.** Apply `supabase/migrations` (the `app_release_policy` table the updates
+6. **Release policy.** Apply `supabase/migrations` (the `app_release_policy` table the updates
    block reads; see the [updates block](../packages/native/README.md#updates-force-upgrade-maintenance-update-banner-whats-new)).
 
 ## The release path
@@ -48,7 +53,8 @@ Nothing in the templates names a real account. Before the first run:
 1. **Pull request.** `pr-preview.yml` comments a build to install. A preview build already on a
    phone can take the pull request's update instead: `useUpdates().channels.switchTo("pr-42")`
    (the starter turns channel switching on only in the development and preview variants, by their
-   bundle id suffix, so a production build never can; it has no screen for it yet). `e2e.yml` runs the Maestro flows.
+   bundle id suffix, so a production build never can; it has no screen for it yet). Run `e2e.yml`
+   by hand for the Maestro flows (`eas workflow:run e2e.yml --ref <branch>`).
 2. **Merge**, then tag the release: `git tag v1.4.0 && git push origin v1.4.0`. A release that
    changes native code is a new store version: bump `version` in `app.config.ts` in the same
    change. The version isn't part of the fingerprint, so a bump on its own starts no build, and a
@@ -112,6 +118,22 @@ and compare crash-free sessions with the update before it. Promote only if it is
 - **No secrets in the files.** Tokens and test passwords are EAS environment secrets; the
   workflows pass inputs to shell steps only through `env`. The test fails on a secret-looking `env`
   key or a token in a workflow file.
+
+## Build cost
+
+Every workflow run that builds or repacks uses EAS build minutes, and a pull request gets a new
+run on each push. The templates start narrow; widen them in the app's copy when the plan allows.
+
+| Workflow | Runs by default | Why | To widen it |
+| --- | --- | --- | --- |
+| `pr-preview.yml` | Pull requests into `main` whose changes touch the app's folder (`REPLACE_WITH_APP_FOLDER`), `app.json`, `app.config.*`, `eas.json`, `package.json` or `pnpm-lock.yaml`; and any pull request labeled `Preview`. Android only. | A docs-only or tooling-only pull request has nothing to install, and every push would otherwise repack (or build) both platforms. An iOS preview is an ad hoc build, which installs only on devices registered before it was built: with none, every iOS job fails. | Add branches or paths under `on.pull_request`, or delete both to run on every pull request. Turn iOS on with `PREVIEW_IOS=true` in the `preview` EAS environment after `eas device:create`. |
+| `e2e.yml` | Only by hand: `eas workflow:run e2e.yml --ref <branch>`. | Maestro jobs need a paid EAS plan, and each run is a simulator build or repack. | Once the plan includes Maestro, add the `pull_request` trigger in the file's header comment (into `main`, the app's paths and `.maestro/**`). |
+| `deploy-production.yml` | A pushed `v*.*.*` tag. | A store build only when the native fingerprint changed. | Not needed. |
+| `rollout.yml` | Only by hand. | No build. | Not needed. |
+
+`pull_request_labeled` takes no `paths` in EAS's syntax, so adding the `Preview` label starts one
+run whatever the pull request changes. It fires when the label is added, not on later pushes: those
+still need a matching path, or remove and add the label again.
 
 ## Fingerprints
 
