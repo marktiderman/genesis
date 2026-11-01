@@ -184,6 +184,42 @@ describe("check-lockfile-downgrades", () => {
     expect(lockfileDowngrades(base, head)).toEqual(none);
   });
 
+  it("ignores a peer's version when one of a package's peer variants goes", () => {
+    const raw = (variants) =>
+      [
+        "lockfileVersion: '9.0'",
+        "",
+        "packages:",
+        "",
+        "  core@1.10.0:",
+        "    resolution: {integrity: x}",
+        "",
+        "  core@1.11.0:",
+        "    resolution: {integrity: x}",
+        "",
+        "  wasm@1.2.2:",
+        "    resolution: {integrity: x}",
+        "    peerDependencies:",
+        "      core: ^1.7.1",
+        "",
+        "snapshots:",
+        "",
+        "  core@1.10.0: {}",
+        "",
+        "  core@1.11.0: {}",
+        "",
+        ...variants.flatMap((v) => [
+          `  wasm@1.2.2(core@${v}):`,
+          "    dependencies:",
+          `      core: ${v}`,
+          "",
+        ]),
+      ].join("\n");
+    expect(
+      lockfileDowngrades(raw(["1.10.0", "1.11.0"]), raw(["1.10.0"])),
+    ).toEqual({ downgrades: [], copies: [] });
+  });
+
   it("orders prereleases by semver precedence, not as text", () => {
     expect(compare("1.0.0-rc.9", "1.0.0-rc.10")).toBeLessThan(0);
     expect(compare("1.0.0-beta.2", "1.0.0-beta.11")).toBeLessThan(0);
