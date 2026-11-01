@@ -41,11 +41,20 @@ declare const __DEV__: boolean | undefined;
  * True in a development build: `__DEV__` on React Native, else `NODE_ENV` when the bundler sets it,
  * else true (a browser dev build with no `process`). For development-only hints.
  *
+ * `process.env.NODE_ENV` is written out literally, with no optional chaining: Vite and webpack
+ * replace only that exact expression, so a production browser build (no `process` at all) reads
+ * "production" here. Without a bundler and without `process`, the read throws and counts as development.
+ *
  * @stability Beta
  */
 export function isDevelopment(): boolean {
   if (typeof __DEV__ !== "undefined") return Boolean(__DEV__);
-  const env = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
+  let env: string | undefined;
+  try {
+    env = process.env.NODE_ENV;
+  } catch {
+    // No `process` and no bundler to replace the expression: a development run.
+  }
   return env !== "production";
 }
 

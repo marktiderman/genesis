@@ -4,6 +4,7 @@ import {
   defaultErrorReporter,
   errorMessages,
   getErrorReporter,
+  isDevelopment,
   reportError,
   setErrorReporter,
 } from "../errors";
@@ -156,5 +157,30 @@ describe("classifyError", () => {
   it("never throws on a value whose getters throw", () => {
     const hostile = new Proxy({}, { get: () => { throw new Error("getter"); } });
     expect(classifyError(hostile)).toMatchObject({ kind: "unexpected", report: true });
+  });
+});
+
+describe("isDevelopment", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  });
+
+  it("reads process.env.NODE_ENV, the literal bundlers replace", () => {
+    vi.stubGlobal("process", { env: { NODE_ENV: "production" } });
+    expect(isDevelopment()).toBe(false);
+    vi.stubGlobal("process", { env: { NODE_ENV: "development" } });
+    expect(isDevelopment()).toBe(true);
+  });
+
+  it("counts a run with no process and no bundler as development", () => {
+    vi.stubGlobal("process", undefined);
+    expect(isDevelopment()).toBe(true);
+  });
+
+  it("lets __DEV__ win where it's defined (React Native)", () => {
+    vi.stubGlobal("__DEV__", false);
+    vi.stubEnv("NODE_ENV", "development");
+    expect(isDevelopment()).toBe(false);
   });
 });
