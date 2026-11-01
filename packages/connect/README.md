@@ -94,13 +94,17 @@ export const googleCalendar = createConnector({
     GOOGLE_SCOPES.calendarListReadonly,
     GOOGLE_SCOPES.calendarEventsReadonly,
   ],
+  // Without a checked identity the connection fails, so every grant names its Google account.
+  requireIdentity: true,
   store: async (account) => {
-    // account.identity: { subject, email, emailVerified, name, picture } from the ID token.
+    // account.identity: { subject, email?, emailVerified?, name?, picture? } from the ID token.
+    // Key the account on identity.subject, never on the email.
+    const google = account.identity!;
     await db.insert("google_grants", {
       id: account.id,
       user_id: account.subject,
-      google_account: account.identity?.subject,
-      email: account.identity?.email,
+      google_account: google.subject,
+      email: google.email ?? null,
       refresh_token: account.sealedRefreshToken,
       scope: account.scope,
     });
@@ -111,8 +115,12 @@ export const googleCalendar = createConnector({
 `identity` is read from the ID token the token endpoint sent over TLS. Its signature isn't
 checked (OpenID Connect allows that only for a token taken straight from the token endpoint),
 but its claims are: the issuer is the provider's `issuer`, the audience is this client, and it
-hasn't expired. When any of those fail, `identity` is left out and the connection still
-succeeds. The kit
+hasn't expired. When any of those fail (or no ID token comes), `identity` is left out, the
+reason is logged (`callback` event), and the connection still succeeds unless
+`requireIdentity` is set, which fails it instead. `email` is there only when the provider says
+it's verified; never key an account on it, use `subject`. `name` and `picture` are whatever
+the person set: treat them as untrusted (escape the name, check the URL before loading it).
+`account.idToken` is the raw token with unchecked claims; read `identity` instead. The kit
 fetches no calendar data: with `accessToken(...)`, the app calls the Calendar API
 (`calendarList`, then `events` with `singleEvents=true` and a sync token) and keeps the rows.
 Calendar scopes are sensitive: until Google verifies the app, only its test users can connect,
@@ -270,5 +278,6 @@ const acme: OAuthProvider = {
 | `fallbackPath`                                 | `/`                             | Where `expired` goes when there is no state to read `returnTo` from.                        |
 | `aad(id)`                                      | `<provider id>-grant:<id>`      | The associated data a grant's refresh token is sealed to.                                   |
 | `requireRefreshToken`                          | true                            | Fail when the provider sends none.                                                          |
+| `requireIdentity`                              | false                           | Fail when no checked `identity` can be read from the ID token (the reason is logged).       |
 | `isPublicSuffix(domain)`                       |                                 | A Public Suffix List lookup for the `sharedDomain` check.                                   |
 | `fetch`, `timeoutMs`, `now`, `randomId`, `log` |                                 | For tests and logging.                                                                      |

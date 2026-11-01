@@ -1123,6 +1123,65 @@ describe("the connected account's identity", () => {
     },
   );
 
+  it("accepts Google's short issuer form", async () => {
+    const t = withToken({ ...good, iss: "accounts.google.com" });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity?.subject).toBe("1234");
+  });
+
+  it("gives no identity when the provider names no issuer", async () => {
+    const t = setup(
+      { provider: { ...googleProvider, issuer: undefined } },
+      () => tokenOk({ id_token: idToken(good) }),
+    );
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toBeUndefined();
+  });
+
+  it("drops an unverified email", async () => {
+    const t = withToken({ ...good, email_verified: false });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity).toEqual({ subject: "1234", name: "Pat" });
+  });
+
+  it("logs why the identity was left out", async () => {
+    const t = withToken({ ...good, aud: "someone-else" });
+    await roundTrip(t);
+    expect(t.logs).toContainEqual({
+      step: "callback",
+      result: "connected",
+      detail: "no identity: audience mismatch",
+    });
+  });
+
+  it("fails the connection without an identity when requireIdentity is set", async () => {
+    const http = (claims: Record<string, unknown>) => () =>
+      tokenOk({ id_token: idToken(claims) });
+    const strict = setup(
+      { requireIdentity: true },
+      http({ ...good, exp: nowSec - 1 }),
+    );
+    const { result } = await roundTrip(strict);
+    expect(result).toBe("failed");
+    expect(strict.stored).toHaveLength(0);
+    expect(strict.logs).toContainEqual({
+      step: "callback",
+      result: "failed",
+      detail: "no identity: expired",
+    });
+    const ok = setup({ requireIdentity: true }, http(good));
+    expect((await roundTrip(ok)).result).toBe("connected");
+  });
+
+  it("names only read-only Calendar scopes as such", () => {
+    for (const key of [
+      "calendarEventsReadonly",
+      "calendarListReadonly",
+      "calendarReadonly",
+    ] as const)
+      expect(GOOGLE_SCOPES[key]).toMatch(/\.readonly$/);
+  });
+
   it("has no identity without an ID token, or with one that isn't", async () => {
     const plain = setup();
     await roundTrip(plain);
