@@ -1,0 +1,49 @@
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_318cb635985f4b::t_f870193159dd94 7,91-93,218-224,300-304,306,309-315,318-324,365-368,374-375,399
+packages/core/src/resource-view/define-view.ts
+  s_318cb635985f4b::t_7a1c12ab1d39aa 256-275
+packages/ui/SKILL.md
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 137
+packages/core/src/__tests__/resource-view.test.ts
+  s_318cb635985f4b::t_e2cfc412a1f42e 670-685
+docs/component-reference.md
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 7,1752,1850,1888-1889,10050,10067
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_318cb635985f4b::t_6abcfdd60a3448 47-49,63-66,316
+.changeset/resource-view-calendar.md
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 2,7
+packages/core/src/resource-view/types.ts
+  s_318cb635985f4b::t_7a1c12ab1d39aa 204-228,250-251
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_0c5fff5f5c98a2 13,225-229,270,320-321,325-415
+docs/RESOURCE-VIEW.md
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 328-337,340,344,348-355,358-370,372-376,378,380-382
+features.ts
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 235
+packages/ui/src/messages-en.ts
+  s_318cb635985f4b::t_6abcfdd60a3448 191-192
+  s_318cb635985f4b::t_f870193159dd94 182-184
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_318cb635985f4b::t_6abcfdd60a3448 12-13,18,24-28,32-33,37,41-45,50,58,76-86,95-96,101-103,106-107,111-112,115,148,163,211
+  s_318cb635985f4b::t_f870193159dd94 11
+features.json
+  s_318cb635985f4b::t_5ccc00dc9d1bf5 506
+packages/core/src/resource-view/index.ts
+  s_318cb635985f4b::t_96f000d4f7d28a 26-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bd30c248ba70ef9fb11c13421ca32ff611256f35",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
