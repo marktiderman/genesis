@@ -761,3 +761,25 @@ describe("calendar follow-up: optimistic writes reach the calendar", () => {
     expect(screen.queryByText("Swim meet")).toBeNull();
   });
 });
+
+describe("calendar follow-up: the URL warning", () => {
+  it("warns once per bad value, not on every render", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { rerender } = render(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-04" timeZone={Z} />);
+    rerender(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-05" timeZone={Z} />);
+    rerender(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-06" timeZone={Z} />);
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('layout "decade"'))).toHaveLength(1);
+  });
+
+  it("says nothing in a production build", () => {
+    const g = globalThis as unknown as { __DEV__?: boolean };
+    g.__DEV__ = false;
+    try {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<EventCalendar events={[]} layout={"century" as never} anchor="2026-11-04" timeZone={Z} />);
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes("century"))).toHaveLength(0);
+    } finally {
+      delete g.__DEV__;
+    }
+  });
+});

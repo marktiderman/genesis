@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4080 other exports · 3245 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4081 other exports · 3246 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1066,11 +1066,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SecretError`](../packages/connect/src/secrets.ts) | class | — | A failure whose message is safe to log: never a key, a plaintext or a ciphertext. |
 | [`secretKeyBytes`](../packages/connect/src/secrets.ts) | function | — | The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32` prints), or the bytes themselves. |
 
-### Types (22)
+### Types (23)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AccountIdentity };
 export type { ConnectErrorCode };
 export type { ConnectLogEvent };
 export type { ConnectResult };
@@ -1951,7 +1952,7 @@ export type { ExportOptions };
 
 **Barrel:** [`packages/core/src/errors.ts`](../packages/core/src/errors.ts)
 
-### Other exports (6)
+### Other exports (7)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1961,6 +1962,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
+| [`isDevelopment`](../packages/core/src/errors.ts) | function | Beta | True in a development build: `__DEV__` on React Native, else `NODE_ENV` when the bundler sets it, else true (a browser dev build with no `process`). For development-only hints. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 
