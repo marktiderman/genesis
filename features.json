@@ -4456,7 +4456,7 @@
     {
       "id": "person-day",
       "name": "Person days and time zones",
-      "summary": "@marktiderman/genesis-core/dates: calendar days on the right clock. personDay(person) is today in the person's saved zone, else the device's, else UTC; dayIn, wallClock, startOfDayIn and dayRangeIn (23- and 25-hour days, skipped midnights) for server code; addDays, daysBetween, startOfWeek and isDay for YYYY-MM-DD arithmetic. No dependencies.",
+      "summary": "@marktiderman/genesis-core/dates: calendar days on the right clock. personDay(person) is today in the person's saved zone, else the device's, else UTC; dayIn, wallClock, startOfDayIn and dayRangeIn (23- and 25-hour days, skipped midnights) for server code; addDays, daysBetween, startOfWeek and isDay for YYYY-MM-DD arithmetic; month, quarter and 1-4 week ranges (monthRange, weeksRange, monthGridRange, rangeIn) for calendars; expandRecurrence for RRULE series (RFC 5545 subset, wall time kept across daylight saving). No dependencies.",
       "category": "Data",
       "status": "building",
       "horizon": "now",
@@ -4470,7 +4470,12 @@
         "daylight saving",
         "dst",
         "YYYY-MM-DD",
-        "toISOString slice"
+        "toISOString slice",
+        "rrule",
+        "recurrence",
+        "exdate",
+        "month range",
+        "quarter"
       ],
       "platforms": {
         "web": "building",
