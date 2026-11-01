@@ -418,7 +418,7 @@
   },
   "dependencies": {
     "@marktiderman/genesis-core": "workspace:^",
-    "@tanstack/react-table": "^8.21.3",
+    "@tanstack/react-table": "^9.3.1",
     "@tanstack/react-virtual": "^3.14.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
