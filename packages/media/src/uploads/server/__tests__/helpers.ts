@@ -1,3 +1,4 @@
+import { createUploader, type UploaderOptions } from "../../client/uploader";
 import { toBase64, toHex, type UploadOwner } from "../../protocol";
 import { createMemoryTarget, type MemoryTarget } from "../../targets/memory";
 import { createUploadHandler, type ReadableObject, type UploadAuthorizeContext, type UploadHandlerOptions } from "../handler";
@@ -74,6 +75,26 @@ export function setup(over: Partial<UploadHandlerOptions> & { lock?: boolean; re
     bob: as(BOB),
     anon: as(null),
   };
+}
+
+/** A request the test can delay, fail or watch; `forward` sends it on to the handler. */
+export type ClientHook = (method: string, path: string, init: RequestInit, forward: () => Promise<Response>) => Promise<Response>;
+
+/** An uploader talking to the test handler in-process, as Alice; `hook` sees every request. */
+export function client(s: ReturnType<typeof setup>, { hook, ...over }: Partial<UploaderOptions> & { hook?: ClientHook } = {}) {
+  const log: string[] = [];
+  const fetch = (async (input: string, init: RequestInit = {}) => {
+    const method = init.method ?? "GET";
+    const path = String(input).slice(BASE.length) || "/";
+    log.push(`${method} ${path}`);
+    const forward = () => s.handler(new Request(String(input), { ...init, signal: undefined, headers: { ...(init.headers as Record<string, string>), "x-test-owner": "alice" } }));
+    return hook ? hook(method, path, init, forward) : forward();
+  }) as unknown as typeof globalThis.fetch;
+  // A wait runs the verify jobs queued meanwhile, as the job runner would.
+  const sleep = async () => {
+    for (const id of s.queued.splice(0)) await s.verifyJob({ payload: { uploadId: id } });
+  };
+  return { uploader: createUploader({ endpoint: BASE, fetch, sleep, retries: 3, ...over }), log };
 }
 
 function hdr(owner: UploadOwner | null, extra: Record<string, string> = {}): Record<string, string> {

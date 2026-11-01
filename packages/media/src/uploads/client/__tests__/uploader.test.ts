@@ -1,31 +1,16 @@
 // @feat:media-resumable-uploads
 import { describe, expect, it } from "vitest";
+import { sha256Bytes } from "../../hash";
 import { toHex } from "../../protocol";
-import { bytesOf, setup, sha256Hex } from "../../server/__tests__/helpers";
+import { BASE, bytesOf, client, setup, sha256Hex } from "../../server/__tests__/helpers";
 import { createMemoryResumeStore, createSpeedLimiter } from "../config";
 import { hashBlob, type HashReply } from "../hash-core";
 import { fromBlob, fromBytes, fromFileHandle } from "../sources";
-import { UploadClientError, createUploader, type UploaderOptions } from "../uploader";
+import { UploadClientError, createUploader } from "../uploader";
 import { createWorkerFileHasher } from "../worker-hasher";
 
-const ENDPOINT = "https://app.example.com/uploads";
 /** A resume key as the uploader stores it: the SHA-256 of [endpoint, owner, purpose, file key]. */
-const resumeKey = async (...parts: string[]) => toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(parts)))));
-
-/** An uploader talking to the test handler in-process, as Alice. */
-function client(s: ReturnType<typeof setup>, over: Partial<UploaderOptions> & { failAfterParts?: number } = {}) {
-  const log: string[] = [];
-  let parts = 0;
-  const fetch = (async (input: string, init: RequestInit = {}) => {
-    const method = init.method ?? "GET";
-    const path = String(input).slice(ENDPOINT.length) || "/";
-    log.push(`${method} ${path}`);
-    if (method === "PUT" && over.failAfterParts !== undefined && parts++ >= over.failAfterParts) throw new TypeError("network down");
-    return s.handler(new Request(String(input), { ...init, headers: { ...(init.headers as Record<string, string>), "x-test-owner": "alice" } }));
-  }) as unknown as typeof globalThis.fetch;
-  const uploader = createUploader({ endpoint: ENDPOINT, fetch, sleep: async () => {}, retries: 2, ...over });
-  return { uploader, log };
-}
+const resumeKey = async (...parts: string[]) => toHex(await sha256Bytes(new TextEncoder().encode(JSON.stringify(parts))));
 
 describe("createUploader", () => {
   it("hashes, creates, sends every part (in parallel) and finalizes", async () => {
@@ -72,7 +57,8 @@ describe("createUploader", () => {
     const bytes = bytesOf(10);
     const source = () => fromBytes(bytes, "a.bin:10:1");
     // One part at a time, so exactly part 1 lands before the network goes.
-    const first = client(s, { resumeStore, failAfterParts: 1, partsAtOnce: 1 });
+    let parts = 0;
+    const first = client(s, { resumeStore, partsAtOnce: 1, hook: (m, _p, _i, f) => (m === "PUT" && parts++ >= 1 ? Promise.reject(new TypeError("network down")) : f()) });
     await expect(first.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done).rejects.toBeInstanceOf(UploadClientError);
     const second = client(s, { resumeStore });
     const result = await second.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done;
@@ -80,7 +66,7 @@ describe("createUploader", () => {
     expect(second.log[0]).toMatch(/^GET \//);
     expect(second.log.filter((l) => l.startsWith("PUT"))).toEqual(expect.arrayContaining([expect.stringMatching(/\/parts\/2$/), expect.stringMatching(/\/parts\/3$/)]));
     expect(second.log.some((l) => /\/parts\/1$/.test(l))).toBe(false);
-    expect(await resumeStore.get(JSON.stringify([ENDPOINT, "", "media", "a.bin:10:1"]))).toBeNull();
+    expect(await resumeStore.get(JSON.stringify([BASE, "", "media", "a.bin:10:1"]))).toBeNull();
   });
 
   it("polls a big upload's read-back until the job has run", async () => {
@@ -105,7 +91,7 @@ describe("createUploader", () => {
     const created = await (await s.alice.create({ name: "a", contentType: "a/b", size: 10, sha256: await sha256Hex(bytes), purpose: "media" })).json() as { uploadId: string };
     // An earlier run (a changed file) left other bytes for part 1; the client trusts the server's part list.
     await s.alice.part(created.uploadId, 1, bytesOf(4, 77));
-    await resumeStore.set(await resumeKey(ENDPOINT, "", "media", "k"), { uploadId: created.uploadId, expiresAt: "2099-01-01T00:00:00.000Z" });
+    await resumeStore.set(await resumeKey(BASE, "", "media", "k"), { uploadId: created.uploadId, expiresAt: "2099-01-01T00:00:00.000Z" });
     const { uploader, log } = client(s, { resumeStore });
     const result = await uploader.upload(fromBytes(bytes, "k"), { name: "a", contentType: "a/b", purpose: "media" }).done;
     // The read-back found the wrong identity: that session is gone, nothing of it was locked, and a new one sent the file.
@@ -114,7 +100,7 @@ describe("createUploader", () => {
     expect(result.uploadId).not.toBe(created.uploadId);
     expect(s.store.sessions.has(created.uploadId)).toBe(false);
     expect(s.archive.locks.size).toBe(1);
-    expect(await resumeStore.get(await resumeKey(ENDPOINT, "", "media", "k"))).toBeNull();
+    expect(await resumeStore.get(await resumeKey(BASE, "", "media", "k"))).toBeNull();
   });
 
   it("restarts once when a part is refused as part_conflict", async () => {
@@ -128,7 +114,7 @@ describe("createUploader", () => {
       }
       return s.handler(new Request(String(input), { ...init, headers: { ...(init.headers as Record<string, string>), "x-test-owner": "alice" } }));
     }) as unknown as typeof globalThis.fetch;
-    const uploader = createUploader({ endpoint: ENDPOINT, fetch, sleep: async () => {}, partsAtOnce: 1 });
+    const uploader = createUploader({ endpoint: BASE, fetch, sleep: async () => {}, partsAtOnce: 1 });
     const result = await uploader.upload(fromBytes(bytes), { name: "a", contentType: "a/b", purpose: "media" }).done;
     expect(result.state).toBe("done");
     expect([...s.store.sessions.values()].filter((x) => x.state === "done")).toHaveLength(1);

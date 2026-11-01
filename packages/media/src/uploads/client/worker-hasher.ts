@@ -128,17 +128,22 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
           clearTimeout(job.timer);
           pending.delete(id);
           stop();
-          const fresh = pending.size ? start() : undefined;
-          for (const [otherId, other] of [...pending]) {
-            if (other.signal?.aborted) continue; // its own abort handler rejects it
-            if (fresh && other.source.blob) {
-              watch(other);
-              fresh.postMessage({ id: otherId, blob: other.source.blob });
-              continue;
-            }
+          // Others cancelled by the same abort end here, so their own handlers find nothing to stop.
+          for (const [otherId, other] of pending) {
+            if (!other.signal?.aborted) continue;
             clearTimeout(other.timer);
             pending.delete(otherId);
-            inThread(other.source, other.onBytes, other.signal).then(other.resolve, other.reject);
+            other.reject(aborted());
+          }
+          if (pending.size) {
+            const fresh = start();
+            if (!fresh) fail();
+            else {
+              for (const [otherId, other] of pending) {
+                watch(other);
+                fresh.postMessage({ id: otherId, blob: other.source.blob });
+              }
+            }
           }
           reject(aborted());
         },

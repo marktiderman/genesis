@@ -265,6 +265,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
   const maxPartBytes = options.maxPartBytes ?? 32 * MiB;
   const partReserveMs = (options.partReserveSeconds ?? 600) * 1000;
   const expiresAt = () => new Date(now() + ttlMs).toISOString();
+  /** Whether a verify run holds a live lease on this session now. */
+  const leased = (s: UploadSession) => s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now();
 
   /** The owner's session, or a 404 for anything else. Then the app's rules, for this operation. */
   async function load(request: Request, owner: UploadOwner, id: string, op: UploadOperation): Promise<UploadSession | Response> {
@@ -412,7 +414,6 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     const hash = createSha256();
     let size = 0;
     let over = false;
-    // The request's body reached its end: a short count then is a short part, whatever the target did.
     let ended = false;
     const counted = (request.body ?? new ReadableStream<Uint8Array>({ start: (c) => c.close() })).pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
@@ -485,7 +486,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     // call that failed after the state changed would otherwise leave it verifying forever. While a
     // run holds a live lease, it is being verified now: nothing to queue, poll Resume.
     if (s.state === "verifying") {
-      if (s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now()) return json(202, statusOf(s));
+      if (leased(s)) return json(202, statusOf(s));
       return verify(s);
     }
     if (s.state === "done") return json(200, statusOf(s));
@@ -527,8 +528,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     // Being checked, by a live run or a job still to come: not now. Stuck (no lease for long): yes.
     // Nothing assembled yet and no run at it (its job hasn't started, or its assembly failed): yes,
     // since removal checks in the same step that no run has taken the lease meanwhile.
-    const leased = s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now();
-    const unassembled = s.state === "verifying" && !isAssembled(s) && !leased;
+    const unassembled = s.state === "verifying" && !isAssembled(s) && !leased(s);
     if (s.state === "verifying" && !unassembled && !isStuckVerifying(s, { ...options, store, targets, now })) {
       return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
     }

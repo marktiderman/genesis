@@ -155,12 +155,13 @@ function randomUploadId(): string {
   return toBase64(source.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** A `Retry-After` header in ms: delay-seconds or an HTTP date; undefined when absent, unreadable or past. */
-function retryAfterMs(value: string | null | undefined): number | undefined {
+/** A `Retry-After` header in ms: delay-seconds or a future HTTP date, otherwise undefined. */
+function retryAfterMs(header: string | null | undefined): number | undefined {
+  const value = header?.trim();
   if (!value) return undefined;
-  if (/^\d+$/.test(value.trim())) return Number(value.trim()) * 1000;
-  const at = Date.parse(value);
-  return Number.isNaN(at) || at <= Date.now() ? undefined : at - Date.now();
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const wait = Date.parse(value) - Date.now();
+  return wait > 0 ? wait : undefined;
 }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
@@ -270,7 +271,7 @@ export function createUploader(options: UploaderOptions) {
 
   /**
    * Exponential back-off with jitter (half to the full wait), cut short by a cancel. A server's
-   * `Retry-After` (seconds or a date, on a 429 or 503) is waited instead, up to the same 30 s cap.
+   * `Retry-After` (seconds or a date) on any retried status is waited instead, up to the same 30 s cap.
    */
   const backoff = (attempt: number, signal?: AbortSignal, retryAfter?: string | null) => {
     const asked = retryAfterMs(retryAfter);
@@ -296,7 +297,7 @@ export function createUploader(options: UploaderOptions) {
       }
       if (transient(res.status) && attempt < retries) {
         await res.body?.cancel().catch(() => {});
-        await backoff(attempt, signal, res.headers?.get("retry-after"));
+        await backoff(attempt, signal, res.headers.get("retry-after"));
         continue;
       }
       const text = res.status === 204 ? "" : await res.text();
@@ -387,9 +388,9 @@ export function createUploader(options: UploaderOptions) {
       const remembered = memo ? await resumeStore.get(memo) : null;
       if (remembered) {
         const r = await call("GET", `/${remembered.uploadId}`, {}, signal);
-        // Gone (404, 410) or not this file: forget it. Any other refusal (an expired token, a server
-        // still down after the retries) keeps it for next time, and fails as a create would.
-        if (r.status !== 200 && r.status !== 404 && r.status !== 410) fail(r.status, r.body);
+        // An expired token or a server still down after the retries: keep it for next time, and fail
+        // as a create would. Any other refusal (gone, forbidden, not this file) forgets it and starts fresh.
+        if (r.status === 401 || transient(r.status)) fail(r.status, r.body);
         if (r.status === 200 && fits(r.body as UploadStatus, source, sha256, o)) status = r.body as UploadStatus;
         else {
           // Not this upload any more (other targets, another file under the same name): leave it.

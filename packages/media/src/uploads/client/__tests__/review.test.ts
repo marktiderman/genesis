@@ -1,33 +1,10 @@
 // @feat:media-resumable-uploads
 // From the review of #551: each of these failed on 6aaa6d60.
 import { describe, expect, it } from "vitest";
-import { bytesOf, setup, sha256Hex } from "../../server/__tests__/helpers";
+import { bytesOf, client, setup, sha256Hex } from "../../server/__tests__/helpers";
 import { createIndexedDbResumeStore, createMemoryResumeStore, createSpeedLimiter, type IdbFactoryLike } from "../config";
 import { fromBlob, fromBytes } from "../sources";
-import { UploadClientError, createUploader, type UploaderOptions } from "../uploader";
 import { createWorkerFileHasher, type WorkerLike } from "../worker-hasher";
-
-const ENDPOINT = "https://app.example.com/uploads";
-
-type Hook = (method: string, path: string, init: RequestInit, forward: () => Promise<Response>) => Promise<Response>;
-
-/** An uploader talking to the test handler in-process, as Alice; `hook` can delay, fail or watch any request. */
-function client(s: ReturnType<typeof setup>, over: Partial<UploaderOptions> & { hook?: Hook } = {}) {
-  const log: string[] = [];
-  const fetch = (async (input: string, init: RequestInit = {}) => {
-    const method = init.method ?? "GET";
-    const path = String(input).slice(ENDPOINT.length) || "/";
-    log.push(`${method} ${path}`);
-    const forward = () => s.handler(new Request(String(input), { ...init, signal: undefined, headers: { ...(init.headers as Record<string, string>), "x-test-owner": "alice" } }));
-    return over.hook ? over.hook(method, path, init, forward) : forward();
-  }) as unknown as typeof globalThis.fetch;
-  // A wait runs the verify jobs queued meanwhile, as the job runner would.
-  const sleep = async () => {
-    for (const id of s.queued.splice(0)) await s.verifyJob({ payload: { uploadId: id } });
-  };
-  const uploader = createUploader({ endpoint: ENDPOINT, fetch, sleep, retries: 3, ...over });
-  return { uploader, log };
-}
 
 const waitFor = async (check: () => boolean) => {
   for (let i = 0; i < 200 && !check(); i++) await new Promise((r) => setTimeout(r, 1));
@@ -158,7 +135,6 @@ describe("5. resume entries are private and lapse", () => {
     expect(keys).toHaveLength(1);
     // The key is a SHA-256 of [endpoint, owner, purpose, file]: the store never holds the user id or file name.
     expect(keys[0]).toMatch(/^[0-9a-f]{64}$/);
-    expect(keys[0]).not.toContain("alice");
     expect((idb.data.get(keys[0]!) as { expiresAt: string }).expiresAt).toMatch(/^2026-11-08/);
     await alice.uploader.clearResume();
     expect(idb.data.size).toBe(0);
@@ -338,5 +314,3 @@ describe("6. smaller items", () => {
     expect((await handle.done).state).toBe("done");
   });
 });
-
-void UploadClientError;
