@@ -35,6 +35,11 @@ const DECLARATION =
 /** A named re-export with its own doc comment: `/** @deprecated … *\/ export { Old } from "./old"`. */
 const REEXPORT = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\nexport\s+(?:type\s+)?\{([^}]*)\}/g;
 
+/** One `{ … }` specifier as `[name]` or `[name, alias]`: `type A as B` gives `["A", "B"]`. */
+function specifierParts(spec: string): string[] {
+  return spec.trim().replace(/^type\s+/, "").split(/\s+as\s+/).map((part) => part.trim());
+}
+
 /** The tag one doc comment carries, if any. */
 function tagOf(comment: string): StabilityTag | undefined {
   const doc = comment.replace(/^[ \t]*\*?[ \t]*/gm, "");
@@ -56,15 +61,20 @@ export function stabilityTagsIn(dts: string): Map<string, StabilityTag> {
     const tag = tagOf(m[1]!);
     if (tag) tags.set(m[2]!, tag);
   }
+  for (const [name, tag] of taggedReexports(dts)) tags.set(name, tag);
+  return tags;
+}
+
+/** Each name a tagged named re-export exports, with its tag. */
+function* taggedReexports(dts: string): Generator<[string, StabilityTag]> {
   for (const m of dts.matchAll(REEXPORT)) {
     const tag = tagOf(m[1]!);
     if (!tag) continue;
     for (const spec of m[2]!.split(",")) {
-      const name = spec.trim().replace(/^type\s+/, "").split(/\s+as\s+/).pop()!.trim();
-      if (name) tags.set(name, tag);
+      const name = specifierParts(spec).pop()!;
+      if (name) yield [name, tag];
     }
   }
-  return tags;
 }
 
 /**
@@ -79,7 +89,7 @@ export function genesisNamedImports(source: string): Array<{ pkg: string; specif
   for (const m of code.matchAll(re)) {
     const names = m[1]!
       .split(",")
-      .map((n) => n.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim())
+      .map((n) => specifierParts(n)[0]!)
       .filter(Boolean);
     out.push({ pkg: m[3]!, specifier: m[2]!, names, line: code.slice(0, m.index).split("\n").length });
   }
@@ -110,19 +120,15 @@ function readPackageTags(dir: string): PackageTags {
   if (!existsSync(dist)) return tags;
   for (const file of declarationFiles(dist)) {
     const text = readFileSync(file, "utf8");
-    const fileTags = stabilityTagsIn(text);
-    tags.byFile.set(file, fileTags);
+    tags.byFile.set(file, stabilityTagsIn(text));
+    const names = new Set<string>();
+    for (const m of text.matchAll(/^(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm)) {
+      names.add(m[1]!);
+    }
     // A tagged re-export counts as a declaration of its name in that file; an untagged one doesn't,
     // so a chunk's tag still shows through a plain `export { X } from "./chunk"`.
-    const names = [...fileTags.keys()];
-    for (const m of text.matchAll(/^(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm)) {
-      names.push(m[1]!);
-    }
-    for (const name of names) {
-      const files = tags.declaredIn.get(name) ?? [];
-      if (!files.includes(file)) files.push(file);
-      tags.declaredIn.set(name, files);
-    }
+    for (const [name] of taggedReexports(text)) names.add(name);
+    for (const name of names) tags.declaredIn.set(name, [...(tags.declaredIn.get(name) ?? []), file]);
   }
   return tags;
 }

@@ -320,24 +320,31 @@ function granteesOf(s: string): string[] {
 /**
  * Grants built as strings inside a body (`execute format('grant … to anon', f)` in a loop, or
  * `'grant … to ' || role`): the grantee when it is anon or public, or `null` when it is computed.
- * Grants to a named role other than anon and public aren't returned.
+ * Each statement in a string counts (`'revoke …; grant … to ' || r`), and so does
+ * `alter default privileges … grant`. Grants to a named role other than anon and public aren't
+ * returned. `body` is lowercased, as `SqlStatement.bodies` are.
  */
 export function dynamicGrants(body: string): Array<string | null> {
   const out: Array<string | null> = [];
   // Comments and `raise` messages run nothing. Best effort: a `--` or `/*` inside a string is
   // read as a comment.
   const code = body
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/--[^\n]*/g, "")
-    .replace(/(?<![\w."'$])raise\s+(?:(?:debug|log|info|notice|warning|exception|sqlstate|using)\b|')[^;]*;/gi, ";");
-  // Single-quoted ('…', E'…') and dollar-quoted ($q$…$q$) strings.
-  for (const m of code.matchAll(/(?:'|\$\w*\$)\s*grant\b[^;]*/g)) {
-    const to = /\bto\s+([^']*?)(?:'|\$\w*\$|$)/.exec(m[0]);
-    if (!to) continue;
-    const roles = to[1]!.replace(/\s+with grant option[\s\S]*$/, "").trim();
-    const open = /\b(anon|public)\b/.exec(roles);
-    if (open) out.push(open[1]!);
-    else if (!roles || /%(?:\d+\$)?[sil]/i.test(roles)) out.push(null);
+    .replace(/\/\*[\s\S]*?\*\/|--[^\n]*/g, "")
+    .replace(/(?<![\w."'$])raise\s+(?:(?:debug|log|info|notice|warning|exception|sqlstate|using)\b|')[^;]*;/g, ";");
+  // The text of each string: E'…' (backslash escapes), '…' and dollar-quoted $q$…$q$. A string
+  // the body cuts off runs to its end.
+  const strings = /(?<![\w$])e'((?:[^'\\]|\\[\s\S]|'')*)(?:'|$)|'((?:[^']|'')*)(?:'|$)|\$(\w*)\$([\s\S]*?)(?:\$\3\$|$)/g;
+  for (const m of code.matchAll(strings)) {
+    for (const stmt of (m[1] ?? m[2] ?? m[4] ?? "").split(";")) {
+      if (!/^\s*(?:grant|alter default privileges\b.*?\bgrant)\b/.test(stmt)) continue;
+      const to = /\bto(?:\s+|$)([\s\S]*)$/.exec(stmt);
+      if (!to) continue;
+      const roles = to[1]!.replace(/\s+(?:with grant option|granted by)\b[\s\S]*$/, "").trim();
+      const open = /\b(anon|public)\b/.exec(roles);
+      if (open) out.push(open[1]!);
+      // Any format specifier (%s, %I, %1$L, %10s, %-I, %*s) in the grantee list computes the role.
+      else if (!roles || roles.includes("%")) out.push(null);
+    }
   }
   return out;
 }
@@ -365,7 +372,7 @@ function checkGrants(ctx: DoctorContext, migrations: Migration[], exposed: Set<s
           line,
           subject: "dynamic grant",
           message: named.length
-            ? `builds a grant to ${named.join(" and ")} in dynamic SQL (execute), so the doctor can't check what it grants; grant each function by name, or make sure every target is in an exposed schema`
+            ? `builds a grant to ${named.join(" and ")} in dynamic SQL (execute), so the doctor can't check what it grants; name each object and role in a static grant, or make sure every target is in an exposed schema`
             : "builds a grant to a computed role in dynamic SQL (execute), so the doctor can't check it isn't anon or public; name the role in the grant",
         });
       }
