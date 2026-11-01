@@ -1,5 +1,5 @@
 ---
-"@marktiderman/genesis-media": patch
+"@marktiderman/genesis-media": minor
 ---
 
 Migration `0002_genesis_media_targets_key_grants.sql`: `genesis_media.targets_key` is for the

@@ -14,7 +14,7 @@ import {
   type DoctorConfig,
   type Finding,
 } from "../src/doctor/index.js";
-import { argTypes } from "../src/doctor/supabase.js";
+import { argTypes, dynamicGrants } from "../src/doctor/supabase.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -471,6 +471,15 @@ describe("supabase pack", () => {
       expect.stringContaining("computed role"),
       expect.stringContaining("grant to anon in dynamic SQL"),
     ]);
+  });
+
+  it("dynamicGrants: positional and uppercase specifiers, comments and raise messages", () => {
+    expect(dynamicGrants("execute format('grant execute on function public.f() to %1$I', 'anon');")).toEqual([null]);
+    expect(dynamicGrants("execute format('grant usage on schema x to %I', r);")).toEqual([null]);
+    expect(dynamicGrants("execute format('grant usage on schema x to %L', r);")).toEqual([null]);
+    expect(dynamicGrants("execute format('grant usage on schema x to authenticated');")).toEqual([]);
+    expect(dynamicGrants("/* execute 'grant all on t to anon'; */ perform 1;")).toEqual([]);
+    expect(dynamicGrants("raise notice 'grant all on t to anon'; execute 'grant select on t to public';")).toEqual(["public"]);
   });
 
   it("migration-rls: dynamic enables, disable, rename and set schema", async () => {

@@ -609,7 +609,9 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   the client asks Resume and sends only what's missing. A file's upload id is remembered in the
   `resumeStore` under the endpoint, `ownerHint`, purpose and the file's `key` (name, size, last
   modified), stored as their SHA-256 so the store never holds the user id or the file name; it
-  lapses with its session, and `clearResume()` forgets all of them (sign-out). A remembered
+  lapses with its session, and `clearResume()` forgets all of them (sign-out). An app that ran an
+  older client can still hold its plain keys (user id and file name): the client never reads them,
+  and an entry is only dropped when it's read, so call `clearResume()` once after upgrading. A remembered
   session is forgotten when the server answers 404 or 410; any other refusal (an expired token)
   fails the upload and keeps it for next time. It is used only while its size, targets and
   SHA-256 (when known) still match;

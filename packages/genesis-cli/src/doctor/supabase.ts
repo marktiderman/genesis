@@ -324,16 +324,20 @@ function granteesOf(s: string): string[] {
  */
 export function dynamicGrants(body: string): Array<string | null> {
   const out: Array<string | null> = [];
-  const code = body.replace(/--[^\n]*/g, "");
-  // Single-quoted ('…', E'…') and dollar-quoted ($q$…$q$) strings. Best effort: a `--` inside a
-  // string is read as a comment.
+  // Comments and `raise` messages run nothing. Best effort: a `--` or `/*` inside a string is
+  // read as a comment.
+  const code = body
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/--[^\n]*/g, "")
+    .replace(/\braise\b[^;]*;/gi, ";");
+  // Single-quoted ('…', E'…') and dollar-quoted ($q$…$q$) strings.
   for (const m of code.matchAll(/(?:'|\$\w*\$)\s*grant\b[^;]*/g)) {
-    const to = /\bto\s+([^'$]*)/.exec(m[0]);
+    const to = /\bto\s+([^']*?)(?:'|\$\w*\$|$)/.exec(m[0]);
     if (!to) continue;
     const roles = to[1]!.replace(/\s+with grant option[\s\S]*$/, "").trim();
     const open = /\b(anon|public)\b/.exec(roles);
     if (open) out.push(open[1]!);
-    else if (!roles || /%[sil]/.test(roles)) out.push(null);
+    else if (!roles || /%(?:\d+\$)?[sil]/i.test(roles)) out.push(null);
   }
   return out;
 }

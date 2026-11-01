@@ -155,12 +155,12 @@ function randomUploadId(): string {
   return toBase64(source.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** A `Retry-After` header in ms: delay-seconds or an HTTP date; undefined when absent or unreadable. */
+/** A `Retry-After` header in ms: delay-seconds or an HTTP date; undefined when absent, unreadable or past. */
 function retryAfterMs(value: string | null | undefined): number | undefined {
   if (!value) return undefined;
   if (/^\d+$/.test(value.trim())) return Number(value.trim()) * 1000;
   const at = Date.parse(value);
-  return Number.isNaN(at) ? undefined : Math.max(0, at - Date.now());
+  return Number.isNaN(at) || at <= Date.now() ? undefined : at - Date.now();
 }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");

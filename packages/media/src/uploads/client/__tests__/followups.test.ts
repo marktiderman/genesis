@@ -95,4 +95,19 @@ describe("back-off", () => {
     expect(result.state).toBe("done");
     expect(waits[0]).toBe(7000);
   });
+
+  it("backs off as usual when Retry-After is a past date", async () => {
+    const s = setup();
+    const waits: number[] = [];
+    const timed = client(s, {
+      sleep: async (ms) => void waits.push(ms),
+      hook: async (m, _p, f) => {
+        if (m === "POST" && waits.length === 0) return new Response("{}", { status: 503, headers: { "retry-after": "Wed, 21 Oct 2015 07:28:00 GMT" } });
+        return f();
+      },
+    });
+    const result = await timed.uploader.upload(fromBytes(bytesOf(10)), { name: "a", contentType: "a/b", purpose: "media" }).done;
+    expect(result.state).toBe("done");
+    expect(waits[0]).toBeGreaterThan(0);
+  });
 });
