@@ -98,7 +98,7 @@ export function CalendarView({
         <>
           {total > rows.length && (
             <p role="status" className="text-xs text-muted-foreground" data-testid="studio-calendar-capped">
-              Showing the first {rows.length.toLocaleString()} of {total.toLocaleString()} rows this month. Filter the table to see the rest.
+              Showing the first {rows.length.toLocaleString()} of {total.toLocaleString()} rows in this view. Filter the table to see the rest.
             </p>
           )}
           {query.isError && !signedOut && (
@@ -108,6 +108,7 @@ export function CalendarView({
           )}
         </>
       }
+      loading={query.isPending}
       onSelect={(event) => onOpenRecord(event.key)}
       testID="studio-calendar"
     />

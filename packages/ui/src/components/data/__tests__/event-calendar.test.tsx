@@ -251,6 +251,8 @@ function filtering(rows: Event[], total?: (matched: Event[]) => number, limitTo?
             return v === null || v === undefined;
           case "gte":
             return v !== null && at(v) >= at(f.value);
+          case "gt":
+            return v !== null && at(v) > at(f.value);
           case "lt":
             return v !== null && at(v) < at(f.value);
           default:
@@ -300,7 +302,7 @@ describe("ResourceView mode=calendar", () => {
     expect(sent).toContainEqual([
       { field: "household_id", operator: "eq", value: "h1" },
       { field: "starts_at", operator: "lt", value: "2026-11-15T07:00:00.000Z" },
-      { field: "ends_at", operator: "gte", value: "2026-11-01T06:00:00.000Z" },
+      { field: "ends_at", operator: "gt", value: "2026-11-01T06:00:00.000Z" },
     ]);
     expect(sent).toContainEqual([
       { field: "household_id", operator: "eq", value: "h1" },
@@ -599,5 +601,96 @@ describe("EventCalendar: review fixes", () => {
   it("lets a printed grid grow instead of scrolling", () => {
     render(<EventCalendar events={family} layout="month" anchor="2026-11-04" timeZone={Z} />);
     expect(screen.getByRole("grid").parentElement!.className).toContain("print:overflow-visible");
+  });
+});
+
+describe("EventCalendar and ResourceCalendar: second review", () => {
+  function Controlled(props: { layout: "month" | "weeks"; weeks?: 1 | 2 | 3 | 4; weekStartsOn: 0 | 1 }) {
+    const [anchor, setAnchor] = useState("2026-11-04");
+    return <EventCalendar events={[]} {...props} anchor={anchor} onAnchorChange={setAnchor} timeZone={Z} locale="en-US" />;
+  }
+
+  it("runs Left and Right on into the next or previous week instead of paging, in a month grid", async () => {
+    render(<Controlled layout="month" weekStartsOn={1} />);
+    const sun = document.querySelector('[data-day="2026-11-08"]') as HTMLElement;
+    sun.focus();
+    fireEvent.keyDown(sun, { key: "ArrowRight" });
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-09");
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowLeft" });
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-08");
+    expect(screen.getByRole("heading").textContent).toBe("November 2026");
+  });
+
+  it("does the same in a two-week grid, and pages only past its last day", async () => {
+    render(<Controlled layout="weeks" weeks={2} weekStartsOn={0} />);
+    const sat = document.querySelector('[data-day="2026-11-07"]') as HTMLElement;
+    sat.focus();
+    fireEvent.keyDown(sat, { key: "ArrowRight" });
+    expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-08");
+    expect(screen.getByRole("heading").textContent).toBe("Nov 1 – Nov 14");
+    const last = document.querySelector('[data-day="2026-11-14"]') as HTMLElement;
+    last.focus();
+    fireEvent.keyDown(last, { key: "ArrowRight" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-15"));
+  });
+
+  it("keeps focus on PageDown from a day the next window doesn't hold", async () => {
+    render(<Controlled layout="month" weekStartsOn={1} />);
+    // 26 October leads November's grid; 26 November isn't in December's, so focus takes the same cell.
+    const lead = document.querySelector('[data-day="2026-10-26"]') as HTMLElement;
+    lead.focus();
+    fireEvent.keyDown(lead, { key: "PageDown" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("data-day")).toBe("2026-11-30"));
+    expect(screen.getByRole("heading").textContent).toBe("December 2026");
+  });
+
+  it("names the +N more button after the calendar's test id", () => {
+    const busy: CalendarEvent[] = Array.from({ length: 5 }, (_, i) => ({ key: `b${i}`, title: `Busy ${i}`, start: at(`2026-11-02T1${i}:00:00Z`) }));
+    render(<EventCalendar events={busy} layout="month" anchor="2026-11-04" timeZone={Z} testID="family" />);
+    expect(screen.getByTestId("family-more").textContent).toBe("+2 more");
+  });
+
+  it("says nothing is scheduled on lanes with no lanes and no events", () => {
+    render(<EventCalendar events={[]} layout="lanes" anchor="2026-11-04" timeZone={Z} />);
+    expect(screen.getByText("Nothing scheduled")).toBeTruthy();
+    expect(screen.queryByRole("grid")).toBeNull();
+  });
+
+  it("is busy, not empty, while loading", () => {
+    const { rerender } = render(<EventCalendar events={[]} layout="agenda" anchor="2026-11-04" timeZone={Z} loading />);
+    expect(screen.getByTestId("event-calendar").getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByText("Nothing scheduled")).toBeNull();
+    rerender(<EventCalendar events={[]} layout="agenda" anchor="2026-11-04" timeZone={Z} />);
+    expect(screen.getByTestId("event-calendar").getAttribute("aria-busy")).toBeNull();
+    expect(screen.getByText("Nothing scheduled")).toBeTruthy();
+  });
+
+  it("is busy while its first request is pending", async () => {
+    let resolve: (v: { data: Event[]; total: number }) => void = () => {};
+    const getList = vi.fn(() => new Promise<{ data: Event[]; total: number }>((r) => (resolve = r)));
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const plain = defineView(events, { columns: { default: ["title"] }, calendar: { field: "starts_at", layout: "agenda", weeks: 1 } });
+    render(<ResourceView view={plain} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    expect(screen.getByTestId("resource-calendar").getAttribute("aria-busy")).toBe("true");
+    expect(screen.queryByText("Nothing scheduled")).toBeNull();
+    resolve({ data: [], total: 0 });
+    await waitFor(() => expect(screen.getByText("Nothing scheduled")).toBeTruthy());
+    expect(screen.getByTestId("resource-calendar").getAttribute("aria-busy")).toBeNull();
+  });
+
+  it("doesn't spend the cap on rows that end exactly at the window's first midnight", async () => {
+    const ended = (id: string): Event => ({ ...ROWS[0]!, id, title: `Ended ${id}`, starts_at: "2026-10-31T20:00:00Z", ends_at: "2026-11-01T06:00:00Z" });
+    const real: Event = { ...ROWS[0]!, id: "real", title: "Real", starts_at: "2026-11-05T15:00:00Z", ends_at: "2026-11-05T16:00:00Z" };
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ limit: 2, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, {
+      wrapper: wrap(filtering([ended("a"), ended("b"), real]).p),
+    });
+    expect(await screen.findByText("Real")).toBeTruthy();
+    expect(screen.queryByTestId("resource-calendar-capped")).toBeNull();
+  });
+
+  it("keeps the cap notice when printing", async () => {
+    const swims: Event[] = Array.from({ length: 3 }, (_, i) => ({ ...ROWS[0]!, id: `s${i}`, title: `Swim ${i}`, starts_at: `2026-11-0${i + 2}T15:00:00Z`, ends_at: `2026-11-0${i + 2}T16:00:00Z` }));
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ limit: 1, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(filtering(swims).p) });
+    expect((await screen.findByTestId("resource-calendar-capped")).className).not.toContain("print:hidden");
   });
 });

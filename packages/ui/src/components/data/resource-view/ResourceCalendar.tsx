@@ -4,7 +4,7 @@
 // date field, one request per visible window. Drawn by EventCalendar; a click opens the same peek
 // the list does, or the screen's `onSelect`.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
@@ -23,7 +23,8 @@ import { useDisplayCell } from "./display";
 type Row = Record<string, unknown>;
 
 /**
- * Most rows one window loads. A month grid is six weeks: 500 is about a dozen a day, more than a
+ * Most rows one request loads (a calendar with an `endField` makes two, so up to twice this).
+ * A month grid is six weeks: 500 is about a dozen a day, more than a
  * busy shared calendar holds, and still one quick request. Past it the calendar says how many it
  * left out ("+N more") rather than dropping them silently.
  */
@@ -54,7 +55,10 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   lanes?: readonly CalendarLane[];
   /** A row's dot colours, when not its lanes'. */
   colorsOf?: (row: T) => readonly string[];
-  /** Most rows one window loads. Default {@link CALENDAR_LIMIT}. */
+  /**
+   * Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar
+   * makes two (rows that overlap the window, and open-ended rows starting in it), each capped.
+   */
   limit?: number;
   /** The agenda shows empty days too. */
   showEmptyDays?: boolean;
@@ -125,14 +129,16 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const end = endField ? windowBounds(range, endStorage, zone) : undefined;
 
   // Two requests at most, each one plain filter list the provider rules apply to:
-  // - rows that overlap the window: start before its end, and end at or after its start (a long
-  //   event that began weeks ago is in; no guessing how far back to look);
+  // - rows that overlap the window: start before its end, and end after its start (a long event
+  //   that began weeks ago is in; no guessing how far back to look). A timestamp end is
+  //   exclusive, so one at the window's first midnight is out (`gt`); a date end is the last day,
+  //   so one on the window's first day is in (`gte`);
   // - with an end field, rows without an end that start inside it.
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const } };
   const overlapping: ListParams = {
     ...base,
     filters: end
-      ? [...filters, { field: fieldName, operator: "lt", value: to }, { field: endField!, operator: "gte", value: end.from }]
+      ? [...filters, { field: fieldName, operator: "lt", value: to }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }]
       : [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
   };
   const openEnded: ListParams = {
@@ -151,18 +157,26 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     enabled: Boolean(endField),
     queryFn: () => provider.getList<BaseRecord>(view.resource, openEnded),
   });
+  // While one request still shows the last window's rows and the other the new window's, the two
+  // don't belong together: keep showing the last pair that did.
+  const consistent = !endField || main.isPlaceholderData === extra.isPlaceholderData;
+  const loading = main.isPending || main.isPlaceholderData || (Boolean(endField) && (extra.isPending || extra.isPlaceholderData));
+  const lastPair = useRef<{ main: typeof main.data; extra: typeof extra.data }>({ main: undefined, extra: undefined });
+  if (consistent) lastPair.current = { main: main.data, extra: extra.data };
+  const shownMain = lastPair.current.main;
+  const shownExtra = lastPair.current.extra;
   // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
   const rows = useMemo(() => {
     const seen = new Set<string>();
-    return [...((main.data?.data ?? []) as unknown as T[]), ...(endField ? ((extra.data?.data ?? []) as unknown as T[]) : [])].filter((row) => {
+    return [...((shownMain?.data ?? []) as unknown as T[]), ...(endField ? ((shownExtra?.data ?? []) as unknown as T[]) : [])].filter((row) => {
       const key = String(encodeRecordKey(view.contract, row as DataRow));
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
-  }, [main.data, extra.data, endField, view]);
+  }, [shownMain, shownExtra, endField, view]);
   const loaded = rows.length;
-  const total = (main.data?.total ?? main.data?.data.length ?? 0) + (endField ? (extra.data?.total ?? extra.data?.data.length ?? 0) : 0);
+  const total = (shownMain?.total ?? shownMain?.data.length ?? 0) + (endField ? (shownExtra?.total ?? shownExtra?.data.length ?? 0) : 0);
   const error = main.error ?? (endField ? extra.error : null);
 
   const events = useMemo(
@@ -246,7 +260,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         notice={
           <>
             {total > loaded && (
-              <p role="status" className="text-xs text-muted-foreground print:hidden" data-testid={`${testID}-capped`}>
+              <p role="status" className="text-xs text-muted-foreground" data-testid={`${testID}-capped`}>
                 {fillMessage(m.calendar.capped, { more: (total - loaded).toLocaleString(), shown: loaded.toLocaleString(), total: total.toLocaleString() })}
               </p>
             )}
@@ -258,6 +272,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
           </>
         }
         onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpen(e.row as T))}
+        loading={loading}
         testID={testID}
       />
       <DetailPanel<T>

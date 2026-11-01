@@ -361,8 +361,10 @@ export const eventsView = defineView(contracts["public.events"], {
   the window. With one, it is the rows that overlap it (`start < windowEnd` and `end >= windowStart`,
   so an event that began weeks ago is there) and, in a second `getList`, rows with no end that
   start in it. The queries sit under core's list keys (`resourceKeys(resource).list(params)`), so a
-  save to the resource refreshes the calendar like any list. At most 500 rows per window (`limit`);
-  past that the calendar says "+N more not shown" rather than dropping rows silently.
+  save to the resource refreshes the calendar like any list. At most 500 rows per request
+  (`limit`; with an `endField`, two requests); past that the calendar says "+N more not shown",
+  in print too, rather than dropping rows silently. While a window loads the calendar is
+  `aria-busy` and never says "Nothing scheduled".
 - **Days.** A `date` field is that day everywhere. A timestamp lands on the day on the same clock
   its cells use: the field's own `timeZone` (the scope's or a fixed zone), else the viewer's
   (ViewerScope's `timeZone`), else the device's; the window's bounds use that clock too. A
@@ -377,8 +379,10 @@ export const eventsView = defineView(contracts["public.events"], {
 - **Opening.** A click opens the view's peek (the same fields the list's peek shows), or calls
   `onSelect(row)`.
 - **Keyboard.** The day grid and the lanes are each a `role="grid"` with one tab stop: arrow
-  keys move a day or a week (a lane in `lanes`), Home and End go to the row's ends, PageUp and
-  PageDown move the window back or on, an arrow past the edge moves it too, and Tab reaches each
+  keys move a day or a week (a lane in `lanes`; Left and Right run on to the next week in the day
+  grid), Home and End go to the row's ends, PageUp and PageDown move the window back or on
+  (keeping the focused cell's place when its day isn't in the new window), an arrow past the
+  grid's edge moves it too, and Tab reaches each
   event's button. A day is read with its date, year and count: "Tuesday, November 3, 2026, 2
   events". A title across New Year names both years.
 - **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split

@@ -13373,6 +13373,13 @@
               "description": "Default `month`."
             },
             {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The events are still loading: the calendar is `aria-busy` and never says \"Nothing scheduled\"."
+            },
+            {
               "name": "locale",
               "type": "string",
               "required": false,
@@ -16115,7 +16122,7 @@
               "type": "number",
               "required": false,
               "defaultValue": null,
-              "description": "Most rows one window loads. Default {@link CALENDAR_LIMIT}."
+              "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows that overlap the window, and open-ended rows starting in it), each capped."
             },
             {
               "name": "onAnchorChange",
@@ -16184,7 +16191,7 @@
         },
         {
           "name": "CALENDAR_LIMIT",
-          "summary": "Most rows one window loads. A month grid is six weeks: 500 is about a dozen a day, more than a\nbusy shared calendar holds, and still one quick request. Past it the calendar says how many it\nleft out (\"+N more\") rather than dropping them silently.",
+          "summary": "Most rows one request loads (a calendar with an `endField` makes two, so up to twice this).\nA month grid is six weeks: 500 is about a dozen a day, more than a\nbusy shared calendar holds, and still one quick request. Past it the calendar says how many it\nleft out (\"+N more\") rather than dropping them silently.",
           "props": []
         }
       ]

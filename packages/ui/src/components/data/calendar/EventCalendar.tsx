@@ -52,6 +52,8 @@ export interface EventCalendarProps<T = unknown> {
   notice?: ReactNode;
   /** The table's name for screen readers, e.g. "Family events". */
   label?: string;
+  /** The events are still loading: the calendar is `aria-busy` and never says "Nothing scheduled". */
+  loading?: boolean;
   /** Hide the arrows and Today (a printed sheet, an embedded week). */
   hideNavigation?: boolean;
   className?: string;
@@ -119,6 +121,7 @@ export function EventCalendar<T = unknown>({
   notice,
   label,
   hideNavigation = false,
+  loading = false,
   className,
   testID = "event-calendar",
 }: EventCalendarProps<T>) {
@@ -147,8 +150,14 @@ export function EventCalendar<T = unknown>({
     `${fmt.fullDay(day)}${count ? `, ${count === 1 ? m.eventsOne : fillMessage(m.eventsOther, { count })}` : ""}`;
   // PageUp/PageDown, or an arrow past the grid's edge: move the window, and return the day to focus.
   const page = (step: number, day: Day, by?: number) => {
-    setAnchor(shiftAnchor(layout, anchor, step, weeks));
-    return by !== undefined ? addDays(day, by) : shiftAnchor(layout, day, step, weeks);
+    const next = shiftAnchor(layout, anchor, step, weeks);
+    setAnchor(next);
+    const nextDays = eachDay(calendarWindow(layout, next, { weeks, weekStartsOn }));
+    const target = by !== undefined ? addDays(day, by) : shiftAnchor(layout, day, step, weeks);
+    if (nextDays.includes(target)) return target;
+    // A day the new window doesn't hold (PageDown from a dimmed day): the same cell there instead.
+    const at = Math.max(0, days.indexOf(day));
+    return nextDays[Math.min(at, nextDays.length - 1)]!;
   };
   const monthOf = anchor.slice(0, 7);
 
@@ -169,7 +178,7 @@ export function EventCalendar<T = unknown>({
   );
 
   return (
-    <div className={cn("space-y-2", className)} data-testid={testID} data-layout={layout}>
+    <div className={cn("space-y-2", className)} data-testid={testID} data-layout={layout} aria-busy={loading || undefined}>
       <div className="flex flex-wrap items-center gap-2">
         {!hideNavigation && (
           <div className="flex items-center gap-1 print:hidden">
@@ -213,7 +222,7 @@ export function EventCalendar<T = unknown>({
           showEmptyDays={showEmptyDays}
           today={today}
           longDay={fmt.longDay}
-          nothing={m.nothing}
+          nothing={loading ? "" : m.nothing}
           item={(p) => item(p, false)}
           testID={testID}
         />
@@ -226,6 +235,7 @@ export function EventCalendar<T = unknown>({
           label={`${label ?? ""}${label ? ", " : ""}${title}`}
           laneHeader={m.lane}
           unassigned={m.unassigned}
+          nothing={loading ? "" : m.nothing}
           weekday={fmt.weekday}
           dayLabel={dayLabel}
           onPage={page}
@@ -323,7 +333,14 @@ function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, co
  * inside stay in tab order. PageUp and PageDown, and an arrow past the first or last cell, ask
  * `onPage` to move the window: it returns the cell to focus there (or nothing, to stay put).
  */
-function useGridFocus(keys: readonly string[], initial: string | undefined, perRow: number, onPage?: (step: number, key: string, by?: number) => string | undefined) {
+function useGridFocus(
+  keys: readonly string[],
+  initial: string | undefined,
+  perRow: number,
+  onPage?: (step: number, key: string, by?: number) => string | undefined,
+  /** Left and Right run on into the next or previous row (a day grid); without it, a row's ends page (lanes, where a row is the window). */
+  wrapRows = false,
+) {
   const [focusKey, setFocusKey] = useState<string | null>(null);
   const pending = useRef<string | null>(null);
   const refs = useRef(new Map<string, HTMLElement>());
@@ -366,8 +383,9 @@ function useGridFocus(keys: readonly string[], initial: string | undefined, perR
     const by = step[e.key];
     if (by === undefined) return;
     e.preventDefault();
-    // Left and right stay within a row; past its ends (or past the grid's top or bottom) the window moves.
-    const sameRow = Math.abs(by) !== 1 || Math.floor((i + by) / perRow) === Math.floor(i / perRow);
+    // Past the grid's first or last cell the window moves. Without `wrapRows`, so do Left and Right
+    // past a row's ends.
+    const sameRow = wrapRows || Math.abs(by) !== 1 || Math.floor((i + by) / perRow) === Math.floor(i / perRow);
     const next = sameRow ? keys[i + by] : undefined;
     if (next !== undefined) go(next);
     else if (onPage) go(onPage(by < 0 ? -1 : 1, key, by));
@@ -386,7 +404,7 @@ function useGridFocus(keys: readonly string[], initial: string | undefined, perR
 }
 
 /** A day's events, the first `perDay` shown and the rest behind "+N more" (all of them in print). */
-function DayEvents<T>({ list, perDay, moreLabel, item, tall }: { list: PlacedEvent<T>[]; perDay: number; moreLabel: string; item: (p: PlacedEvent<T>, className?: string) => ReactNode; tall?: boolean }) {
+function DayEvents<T>({ list, perDay, moreLabel, item, tall, testID }: { list: PlacedEvent<T>[]; perDay: number; moreLabel: string; item: (p: PlacedEvent<T>, className?: string) => ReactNode; tall?: boolean; testID: string }) {
   const [open, setOpen] = useState(false);
   if (!list.length) return null;
   const hidden = open ? 0 : Math.max(0, list.length - perDay);
@@ -400,7 +418,7 @@ function DayEvents<T>({ list, perDay, moreLabel, item, tall }: { list: PlacedEve
           type="button"
           className="w-full rounded px-1.5 text-left text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring print:hidden"
           onClick={() => setOpen(true)}
-          data-testid="event-calendar-more"
+          data-testid={`${testID}-more`}
         >
           {fillMessage(moreLabel, { count: hidden })}
         </button>
@@ -430,7 +448,7 @@ interface GridProps<T> {
 }
 
 function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, onPage, perDay, moreLabel, tall, item, testID }: GridProps<T>) {
-  const cellProps = useGridFocus(days, today, 7, onPage);
+  const cellProps = useGridFocus(days, today, 7, onPage, true);
   const weeks = Array.from({ length: days.length / 7 }, (_, w) => days.slice(w * 7, w * 7 + 7));
   return (
     <div className="overflow-x-auto print:overflow-visible">
@@ -472,7 +490,7 @@ function DayGrid<T>({ days, placed, today, monthOf, label, weekday, dayLabel, on
                       >
                         {Number(day.slice(8))}
                       </span>
-                      <DayEvents list={list} perDay={perDay} moreLabel={moreLabel} item={item} tall={tall} />
+                      <DayEvents list={list} perDay={perDay} moreLabel={moreLabel} item={item} tall={tall} testID={testID} />
                     </div>
                   </td>
                 );
@@ -494,6 +512,8 @@ interface LanesProps<T> {
   laneHeader: string;
   /** The lane for events that name none. */
   unassigned: string;
+  /** Said when there are no lanes and no events (empty while loading). */
+  nothing: string;
   weekday: (d: Day) => string;
   dayLabel: (d: Day, count: number) => string;
   onPage?: (step: number, day: Day, by?: number) => Day;
@@ -507,7 +527,7 @@ const dayOfKey = (key: string) => key.slice(key.indexOf("\u0001") + 1);
 const laneOfKey = (key: string) => key.slice(0, key.indexOf("\u0001"));
 
 /** A row per lane, a column per day: a grid like the day grid, each cell a lane's day. */
-function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassigned, weekday, dayLabel, onPage, item, testID }: LanesProps<T>) {
+function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassigned, nothing, weekday, dayLabel, onPage, item, testID }: LanesProps<T>) {
   const anyUnassigned = [...placed.values()].some((list) => list.some((p) => !p.event.lanes?.length));
   const lanes: CalendarLane[] = anyUnassigned ? [...given, { key: UNASSIGNED, label: unassigned }] : [...given];
   const keys = lanes.flatMap((l) => days.map((d) => cellKey(l.key, d)));
@@ -517,6 +537,7 @@ function Lanes<T>({ days, placed, lanes: given, today, label, laneHeader, unassi
     if (by !== undefined && Math.abs(by) !== 1) return undefined;
     return onPage ? cellKey(laneOfKey(key), onPage(step, dayOfKey(key), by)) : undefined;
   });
+  if (!lanes.length) return nothing ? <p className="py-6 text-center text-sm text-muted-foreground">{nothing}</p> : null;
   const inLane = (lane: string, p: PlacedEvent<T>) => (lane === UNASSIGNED ? !p.event.lanes?.length : Boolean(p.event.lanes?.includes(lane)));
   return (
     <div className="overflow-x-auto print:overflow-visible">
@@ -588,7 +609,7 @@ interface AgendaProps<T> {
 function Agenda<T>({ days, placed, showEmptyDays, today, longDay, nothing, item, testID }: AgendaProps<T>) {
   const shown = days.filter((d) => showEmptyDays || (placed.get(d) ?? []).length > 0);
   if (!shown.length) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">{nothing}</p>;
+    return nothing ? <p className="py-6 text-center text-sm text-muted-foreground">{nothing}</p> : null;
   }
   return (
     <ol className="divide-y rounded-md border print:divide-foreground/30 print:rounded-none print:border-0 print:text-foreground">
@@ -599,7 +620,7 @@ function Agenda<T>({ days, placed, showEmptyDays, today, longDay, nothing, item,
             <h4 className={cn("text-sm font-medium", day === today && "text-primary print:text-foreground")} aria-current={day === today ? "date" : undefined}>
               {longDay(day)}
             </h4>
-            {list.length ? <ul className="space-y-0.5">{list.map(item)}</ul> : <p className="text-sm text-muted-foreground">{nothing}</p>}
+            {list.length ? <ul className="space-y-0.5">{list.map(item)}</ul> : nothing && <p className="text-sm text-muted-foreground">{nothing}</p>}
           </li>
         );
       })}

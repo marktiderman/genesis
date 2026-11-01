@@ -10066,7 +10066,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AppShell`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`BadgeCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | BadgeCell -- status badge with configurable color map. |
-| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one window loads. A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar says how many it left out ("+N more") rather than dropping them ... |
+| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
 | [`calendarLanes`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
 | [`calendarWindow`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`CurrencyCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | CurrencyCell -- currency formatting with string-safe parsing. |
