@@ -111,6 +111,18 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
     return worker;
   };
 
+  /** Gives jobs to a worker; one it refuses (`postMessage` throws) means it's broken, so they're hashed here. */
+  const post = (to: WorkerLike, jobs: [number, Job][]) => {
+    try {
+      for (const [id, job] of jobs) {
+        watch(job);
+        to.postMessage({ id, blob: job.source.blob });
+      }
+    } catch {
+      fail();
+    }
+  };
+
   return (source, onBytes, signal) => {
     if (signal?.aborted) return Promise.reject(aborted());
     const w = source.blob ? start() : undefined;
@@ -119,7 +131,6 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
     return new Promise<string>((resolve, reject) => {
       const job: Job = { source, resolve, reject, onBytes, signal };
       pending.set(id, job);
-      watch(job);
       signal?.addEventListener(
         "abort",
         () => {
@@ -135,21 +146,17 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
             pending.delete(otherId);
             other.reject(aborted());
           }
+          // This job settles first, so nothing below can leave it hanging.
+          reject(aborted());
           if (pending.size) {
             const fresh = start();
             if (!fresh) fail();
-            else {
-              for (const [otherId, other] of pending) {
-                watch(other);
-                fresh.postMessage({ id: otherId, blob: other.source.blob });
-              }
-            }
+            else post(fresh, [...pending]);
           }
-          reject(aborted());
         },
         { once: true },
       );
-      w.postMessage({ id, blob: source.blob });
+      post(w, [[id, job]]);
     });
   };
 }

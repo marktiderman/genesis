@@ -60,13 +60,17 @@ describe("createUploader", () => {
     let parts = 0;
     const first = client(s, { resumeStore, partsAtOnce: 1, hook: (m, _p, _i, f) => (m === "PUT" && parts++ >= 1 ? Promise.reject(new TypeError("network down")) : f()) });
     await expect(first.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done).rejects.toBeInstanceOf(UploadClientError);
+    // The interrupted upload is remembered under this key, so the check after the resume means something.
+    const key = await resumeKey(BASE, "", "media", "a.bin:10:1");
+    expect(await resumeStore.get(key)).not.toBeNull();
     const second = client(s, { resumeStore });
     const result = await second.uploader.upload(source(), { name: "a.bin", contentType: "a/b", purpose: "media" }).done;
     expect(result.state).toBe("done");
     expect(second.log[0]).toMatch(/^GET \//);
     expect(second.log.filter((l) => l.startsWith("PUT"))).toEqual(expect.arrayContaining([expect.stringMatching(/\/parts\/2$/), expect.stringMatching(/\/parts\/3$/)]));
     expect(second.log.some((l) => /\/parts\/1$/.test(l))).toBe(false);
-    expect(await resumeStore.get(JSON.stringify([BASE, "", "media", "a.bin:10:1"]))).toBeNull();
+    // Done: the entry is forgotten.
+    expect(await resumeStore.get(key)).toBeNull();
   });
 
   it("polls a big upload's read-back until the job has run", async () => {

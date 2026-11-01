@@ -11,5 +11,8 @@ the others to a fresh worker instead of this thread. The handler answers a short
 a run holds a live lease. The README lists what's still open under "Known limitations".
 
 Upgrading: resume entries saved by an older client under plain keys (user id and file name) are
-never read again, so an upload interrupted before this release starts over once. They are only
-dropped when read, so call `clearResume()` once after upgrading to clear them.
+never read again, so an upload interrupted before this release starts over once. The IndexedDB
+resume store deletes them itself, once, the first time it opens after the upgrade; there's
+nothing to call. A remembered session answered with a 200 that isn't a status (no body, not
+JSON) is forgotten and the file goes on a new session, and a worker that refuses a job hands its
+files to this thread instead of leaving a cancelled hash unsettled.

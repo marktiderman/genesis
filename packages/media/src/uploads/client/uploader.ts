@@ -368,6 +368,9 @@ export function createUploader(options: UploaderOptions) {
     return resultOf(r.body as UploadStatus);
   }
 
+  /** Whether a response body is a session's status at all: an object with its id. */
+  const isStatus = (b: unknown): b is UploadStatus => typeof b === "object" && b !== null && typeof (b as UploadStatus).uploadId === "string";
+
   /** Whether a remembered session is still this upload's: the same size, SHA-256 (when both know it) and targets (when asked). */
   const fits = (s: UploadStatus, source: UploadSource, sha256: string | undefined, o: UploadOptions) =>
     s.size === source.size && !(sha256 && s.sha256 && s.sha256 !== sha256) && !(o.targets && !sameSet(s.targets, o.targets));
@@ -391,10 +394,12 @@ export function createUploader(options: UploaderOptions) {
         // An expired token or a server still down after the retries: keep it for next time, and fail
         // as a create would. Any other refusal (gone, forbidden, not this file) forgets it and starts fresh.
         if (r.status === 401 || transient(r.status)) fail(r.status, r.body);
-        if (r.status === 200 && fits(r.body as UploadStatus, source, sha256, o)) status = r.body as UploadStatus;
+        // A 200 without a status (no body, not JSON, not an object) isn't this upload either.
+        const found = r.status === 200 && isStatus(r.body) ? r.body : undefined;
+        if (found && fits(found, source, sha256, o)) status = found;
         else {
           // Not this upload any more (other targets, another file under the same name): leave it.
-          if (r.status === 200 && (r.body as UploadStatus).state === "open") await call("DELETE", `/${remembered.uploadId}`, {}, signal).catch(() => {});
+          if (found?.state === "open") await call("DELETE", `/${remembered.uploadId}`, {}, signal).catch(() => {});
           if (memo) await resumeStore.delete(memo);
         }
       }
