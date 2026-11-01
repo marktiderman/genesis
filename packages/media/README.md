@@ -601,21 +601,20 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   the package's `hash-worker.js` (one standalone file) with a literal
   `new Worker(new URL("./hash-worker.js", import.meta.url), { type: "module" })`, which Vite and
   webpack bundle as a worker; it falls back to this thread if the worker fails or goes silent,
-  and a cancel terminates it (the other files it was hashing go to a fresh worker). `createBrowserFileHasher()` is that hasher on its own. Elsewhere
-  it runs with `@noble/hashes` (plain JS, fine on Hermes). Pass `hash` for another incremental
-  SHA-256 (hash-wasm in a browser app). `hashFirst: false` reads the file once, hashing as it
-  sends, and declares the SHA-256 at finalize: no skip, half the reading (a phone with a big file).
+  and a cancel terminates it (the other files it was hashing go to a fresh worker).
+  `createBrowserFileHasher()` is that hasher on its own. Elsewhere it runs with `@noble/hashes`
+  (plain JS, fine on Hermes). Pass `hash` for another incremental SHA-256 (hash-wasm in a browser
+  app). `hashFirst: false` reads the file once, hashing as it sends, and declares the SHA-256 at
+  finalize: no skip, half the reading (a phone with a big file).
 - **Resume.** The server's part list is the truth: after any failure, a reload or a relaunch,
   the client asks Resume and sends only what's missing. A file's upload id is remembered in the
   `resumeStore` under the endpoint, `ownerHint`, purpose and the file's `key` (name, size, last
   modified), stored as their SHA-256 so the store never holds the user id or the file name; it
-  lapses with its session, and `clearResume()` forgets all of them (sign-out). An app that ran an
-  older client can still hold its plain keys (user id and file name): the client never reads them,
-  and an entry is only dropped when it's read, so call `clearResume()` once after upgrading. A remembered
-  session is forgotten when the server answers 404 or 410; any other refusal (an expired token)
-  fails the upload and keeps it for next time. It is used only while its size, targets and
-  SHA-256 (when known) still match;
-  one whose file changed under the same name ends in `identity_mismatch`, and the client aborts
+  lapses with its session, and `clearResume()` forgets all of them (sign-out). A remembered
+  session is kept when the server answers 401 (an expired token) or is still down after the
+  retries: the upload fails and resumes next time. Any other refusal forgets it and starts a new
+  session. It is used only while its size, targets and SHA-256 (when known) still match; one
+  whose file changed under the same name ends in `identity_mismatch`, and the client aborts
   it and sends the file on a new one. A create carries an id the client chose, so a create retried
   after a lost answer finds the session the first try made.
 - **Parts in parallel**, each with its `content-digest`; one that arrived changed goes again. A
@@ -631,8 +630,9 @@ const result = await upload.done; // { state: "done" | "partial" | "skipped", co
   browsing) never stops an upload. With the Web Worker hasher, a pause during hashing takes
   effect once the whole-file hash is done (the worker hashes the file in one go; a cancel stops
   it at once); with in-thread hashing it holds before the next slice. The speed cap is paced by
-  bytes (a cancel ends its wait), and back-off has jitter; a `Retry-After` on a 429 or 503 is
-  waited instead (up to 30 seconds).
+  bytes (a cancel ends its wait), and back-off has jitter; a `Retry-After` on any status it
+  retries (408, 425, 429, 5xx) is waited instead (up to 30 seconds). A cross-origin server must
+  send `Access-Control-Expose-Headers: Retry-After`, or the browser hides it.
 
 #### Supabase Storage's TUS endpoint
 
@@ -738,17 +738,16 @@ limit: on Workers, a 50 GB file in two targets is 100 GB to read back.
 - **Finished sessions stay.** The sweep (`stale_uploads`) clears `open` and stuck `verifying`
   sessions only; `done`, `partial` and `identity_mismatch` rows, with their parts, are kept, and a
   `partial` one can keep copies that were never locked. Delete them on the app's own schedule for
-  now. Follow-up: a retention period for finished sessions in the sweep.
+  now.
 - **Polling has no deadline.** A 202 `verifying` is polled until it ends, or until a cancel or the
-  `signal`. Follow-up: a deadline that stops waiting but leaves the session for
-  `uploader.finalize(id)`, since a big read-back can rightly take long.
+  `signal`.
 - **`ownerHint` is optional.** Without it every person on a device shares one resume key space
   (the server still refuses another owner's session, so nothing leaks; a resume just misses). Pass
-  it whenever someone is signed in. Follow-up: require it, or warn, at the next major.
+  it whenever someone is signed in.
 - **One open session per content, not per name.** Two creates of the same bytes (owner, purpose,
   size, SHA-256 and targets) share one open session, whatever their name and content type: the
   first create's name and type are the ones recorded. That is deliberate, as skip-if-identical
-  works on the content too. Follow-up only if an app needs one session per name.
+  works on the content too.
 
 ## Used by
 
