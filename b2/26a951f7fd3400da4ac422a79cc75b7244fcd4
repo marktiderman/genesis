@@ -1,0 +1,24 @@
+.changeset/calendar-followups.md
+  s_318cb635985f4b::t_9bb06001f1b399 6
+packages/core/src/errors.ts
+  s_318cb635985f4b::t_304db254d59ca9 44-47,52-57
+packages/core/src/__tests__/errors.test.ts
+  s_318cb635985f4b::t_9bb06001f1b399 7,162-185
+  s_318cb635985f4b::t_f3dc051e76d94a 186
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b226a951f7fd3400da4ac422a79cc75b7244fcd4",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
