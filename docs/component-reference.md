@@ -1962,7 +1962,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
-| [`isDevelopment`](../packages/core/src/errors.ts) | function | Beta | True in a development build: `__DEV__` on React Native, else `NODE_ENV` when the bundler sets it, else true (a browser dev build with no `process`). For development-only hints. |
+| [`isDevelopment`](../packages/core/src/errors.ts) | function | Beta | True in a development build: `__DEV__` on React Native, else `NODE_ENV`, else true (no bundler and no `process`). For development-only hints. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 

@@ -38,14 +38,21 @@ export type ErrorReporter = (error: unknown, context: ErrorReportContext) => voi
 declare const __DEV__: boolean | undefined;
 
 /**
- * True in a development build: `__DEV__` on React Native, else `NODE_ENV` when the bundler sets it,
- * else true (a browser dev build with no `process`). For development-only hints.
+ * True in a development build: `__DEV__` on React Native, else `NODE_ENV`, else true (no bundler
+ * and no `process`). For development-only hints.
  *
  * @stability Beta
  */
 export function isDevelopment(): boolean {
   if (typeof __DEV__ !== "undefined") return Boolean(__DEV__);
-  const env = typeof process !== "undefined" ? process.env?.NODE_ENV : undefined;
+  let env: string | undefined;
+  try {
+    // Written out in full: bundlers (Vite, webpack, esbuild) replace exactly `process.env.NODE_ENV`
+    // at build time, and a browser has no `process` to read at run time.
+    env = process.env.NODE_ENV;
+  } catch {
+    env = undefined;
+  }
   return env !== "production";
 }
 
