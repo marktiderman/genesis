@@ -1,0 +1,19 @@
+packages/core/src/__tests__/dates-recurrence.test.ts
+  s_318cb635985f4b::t_f0cd093b893a09 504-506
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e2c599a065acbf9e639645b72a9b4cf49b85b785",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
