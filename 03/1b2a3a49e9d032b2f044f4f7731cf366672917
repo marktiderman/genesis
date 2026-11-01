@@ -1,0 +1,23 @@
+packages/genesis-cli/src/doctor/stability.ts
+  s_1feb538f59bf88::t_dbd2cb24b8db36 38-42,64-69,74-75,92,123-124,126,128-131
+packages/genesis-cli/src/doctor/supabase.ts
+  s_1feb538f59bf88::t_c480bad2280ba7 323-325,332-347,375
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_1feb538f59bf88::t_ebf225e7ff3aaf 476-479,482,488-496
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "031b2a3a49e9d032b2f044f4f7731cf366672917",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
