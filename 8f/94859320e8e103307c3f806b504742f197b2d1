@@ -1,0 +1,27 @@
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_f8180f6bddaaf2 764-785
+packages/ui/src/components/data/calendar/guard.ts
+  s_318cb635985f4b::t_f8180f6bddaaf2 5,8-9,11-15,23,31
+packages/core/src/errors.ts
+  s_318cb635985f4b::t_f8180f6bddaaf2 40-46
+.changeset/calendar-followups.md
+  s_318cb635985f4b::t_bcc9bbc8f53cae 6
+docs/component-reference.md
+  s_318cb635985f4b::t_d3ee298f643ee6 7,1069,1074,1955,1965
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8f94859320e8e103307c3f806b504742f197b2d1",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
