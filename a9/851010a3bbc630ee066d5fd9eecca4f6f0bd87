@@ -1,0 +1,32 @@
+packages/media/src/uploads/client/__tests__/resume-safety.test.ts
+  s_1feb538f59bf88::t_8599dcb554ab15 1-163
+packages/media/src/uploads/client/uploader.ts
+  s_1feb538f59bf88::t_c18b542f5e0029 371-373
+  s_1feb538f59bf88::t_fab3a2927920a8 397-399,402
+.changeset/media-upload-client-followups.md
+  s_1feb538f59bf88::t_dc176df305ddce 14-18
+packages/media/README.md
+  s_1feb538f59bf88::t_b37ce7d6cc6157 613-615
+packages/media/src/uploads/client/__tests__/uploader.test.ts
+  s_1feb538f59bf88::t_b69f2059f3e1cf 63-65,72-73
+packages/media/src/uploads/client/config.ts
+  s_1feb538f59bf88::t_43947f473d436e 45,51,60-67,70-74,79-81,91-107
+packages/media/src/uploads/client/worker-hasher.ts
+  s_1feb538f59bf88::t_fa9031e34dae13 114-125,149-150,154,159
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a9851010a3bbc630ee066d5fd9eecca4f6f0bd87",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
