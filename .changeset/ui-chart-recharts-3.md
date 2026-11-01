@@ -2,4 +2,4 @@
 "@marktiderman/genesis-ui": minor
 ---
 
-The chart (`ChartTooltipContent`, `ChartLegendContent`) type-checks against Recharts 3; its peer range stays `^2.12.0 || ^3.0.0`. Genesis no longer type-checks against Recharts 2 in CI, so 2 is supported but not checked. Its props are written out rather than taken from Recharts' own types, which changed in 3. `ChartPayloadItem` and `ChartTooltipContentProps` are exported, from the root entry too. Props Recharts passes that the content doesn't use (`cursor`, `wrapperStyle`, …) are still accepted, so no existing code stops compiling. Genesis now develops against Recharts 3.
+The chart's `ChartTooltipContent` and `ChartLegendContent` are typed for Recharts 3; the peer range stays `^2.12.0 || ^3.0.0`, but only 3 is type-checked. New exported types: `ChartPayloadItem`, `ChartTooltipContentProps`.

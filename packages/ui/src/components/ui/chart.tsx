@@ -133,21 +133,18 @@ export interface ChartPayloadItem {
 }
 
 /** What `<ChartTooltip content={<ChartTooltipContent />} />` passes in, plus the display options. */
-export type ChartTooltipContentProps = Omit<React.ComponentProps<"div">, "color"> & {
+export type ChartTooltipContentProps = React.ComponentProps<"div"> & {
   active?: boolean;
   payload?: readonly ChartPayloadItem[];
   label?: React.ReactNode;
   labelFormatter?: (label: any, payload: any[]) => React.ReactNode;
   formatter?: (value: any, name: any, item: any, index: number, payload: any) => React.ReactNode;
-  color?: string;
   labelClassName?: string;
   hideLabel?: boolean;
   hideIndicator?: boolean;
   indicator?: "line" | "dot" | "dashed";
   nameKey?: string;
   labelKey?: string;
-  /** Anything else Recharts hands its content (`cursor`, `wrapperStyle`, …): accepted and ignored, as it was before. */
-  [prop: string]: unknown;
 };
 
 function ChartTooltipContent({
@@ -324,7 +321,7 @@ function ChartLegendContent({
       {payload
         .filter((item) => item.type !== "none")
         .map((item, index) => {
-          const key = `${nameKey ?? (item as unknown as Record<string, unknown>)["dataKey"] ?? "value"}`;
+          const key = `${nameKey ?? item.dataKey ?? "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (

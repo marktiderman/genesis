@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-31",
+  "generatedAt": "2026-11-01",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -9072,13 +9072,6 @@
             {
               "name": "active",
               "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "color",
-              "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
