@@ -6772,7 +6772,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`base64Utf8`](../packages/media/src/uploads/client/supabase-tus.ts) | function | — | Base64 of a UTF-8 string, for TUS's Upload-Metadata (no `btoa`, which isn't on every Hermes build). |
-| [`createIndexedDbResumeStore`](../packages/media/src/uploads/client/config.ts) | function | — | In the browser's IndexedDB: survives a reload, so closing the tab and coming back resumes the upload (the server's Resume says which parts it has). Entries lapse with their session; `clear()` forgets them all, for sign-out. Falls back to... |
+| [`createIndexedDbResumeStore`](../packages/media/src/uploads/client/config.ts) | function | — | In the browser's IndexedDB: survives a reload, so closing the tab and coming back resumes the upload (the server's Resume says which parts it has). Entries lapse with their session; `clear()` forgets them all, for sign-out. Opening a dat... |
 | [`createMemoryResumeStore`](../packages/media/src/uploads/client/config.ts) | function | — | In memory: survives a retry, not a reload. The default. |
 | [`createSpeedLimiter`](../packages/media/src/uploads/client/config.ts) | function | — | A speed cap shared by every part of every upload on one uploader, paced by bytes: each send takes its bytes from a bucket filling at `rate()` bytes a second (0 is no cap), and waits off any debt, so a part bigger than the bucket still av... |
 | [`createSupabaseTusTransport`](../packages/media/src/uploads/client/supabase-tus.ts) | function | Experimental | _(no summary)_ |
