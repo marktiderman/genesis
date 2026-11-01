@@ -265,6 +265,8 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
   const maxPartBytes = options.maxPartBytes ?? 32 * MiB;
   const partReserveMs = (options.partReserveSeconds ?? 600) * 1000;
   const expiresAt = () => new Date(now() + ttlMs).toISOString();
+  /** Whether a verify run holds a live lease on this session now. */
+  const leased = (s: UploadSession) => s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now();
 
   /** The owner's session, or a 404 for anything else. Then the app's rules, for this operation. */
   async function load(request: Request, owner: UploadOwner, id: string, op: UploadOperation): Promise<UploadSession | Response> {
@@ -412,6 +414,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     const hash = createSha256();
     let size = 0;
     let over = false;
+    let ended = false;
     const counted = (request.body ?? new ReadableStream<Uint8Array>({ start: (c) => c.close() })).pipeThrough(
       new TransformStream<Uint8Array, Uint8Array>({
         transform(chunk, c) {
@@ -424,6 +427,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
           hash.update(chunk);
           c.enqueue(chunk);
         },
+        flush() {
+          ended = true;
+        },
       }),
     );
     // The reservation is this request's own, so its failure gives it back; nobody else's is touched.
@@ -434,6 +440,9 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     } catch (error) {
       await release();
       if (over) return refuse(413, "too_large");
+      // The body ended short and the store refused it (S3 checks the length): the part is the wrong
+      // size, not a server failure. A store that failed mid-stream never let the body end.
+      if (ended && size < expected) return refuse(409, "part_size");
       // The bytes didn't match their digest, and the store checked (S3): the same answer as below.
       if (size === expected && toBase64(hash.digest()) !== digest) return refuse(422, "digest_mismatch");
       throw error;
@@ -474,8 +483,12 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
 
   async function finalize(request: Request, s: UploadSession): Promise<Response> {
     // Verifying already: queue (or run) it again. The job is safe to run twice, and a queue
-    // call that failed after the state changed would otherwise leave it verifying forever.
-    if (s.state === "verifying") return verify(s);
+    // call that failed after the state changed would otherwise leave it verifying forever. While a
+    // run holds a live lease, it is being verified now: nothing to queue, poll Resume.
+    if (s.state === "verifying") {
+      if (leased(s)) return json(202, statusOf(s));
+      return verify(s);
+    }
     if (s.state === "done") return json(200, statusOf(s));
     if (s.state === "identity_mismatch") return refuse(422, "identity_mismatch");
     if (s.state === "partial") {
@@ -515,8 +528,7 @@ export function createUploadHandler(options: UploadHandlerOptions): (request: Re
     // Being checked, by a live run or a job still to come: not now. Stuck (no lease for long): yes.
     // Nothing assembled yet and no run at it (its job hasn't started, or its assembly failed): yes,
     // since removal checks in the same step that no run has taken the lease meanwhile.
-    const leased = s.leaseUntil !== undefined && Date.parse(s.leaseUntil) > now();
-    const unassembled = s.state === "verifying" && !isAssembled(s) && !leased;
+    const unassembled = s.state === "verifying" && !isAssembled(s) && !leased(s);
     if (s.state === "verifying" && !unassembled && !isStuckVerifying(s, { ...options, store, targets, now })) {
       return refuse(409, "finalized", {}, "This upload is being checked; it can't be cancelled now.");
     }

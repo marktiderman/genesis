@@ -56,6 +56,10 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"
         update-types: ["version-update:semver-major"]
+      # A peer of genesis-ui: apps install it, so its next major (new component names and props)
+      # comes with a genesis-ui major, made by hand.
+      - dependency-name: "react-resizable-panels"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /

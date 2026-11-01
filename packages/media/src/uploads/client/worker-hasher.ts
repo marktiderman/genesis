@@ -48,8 +48,8 @@ export interface WorkerFileHasherOptions {
  * A `hashFile` for `createUploader` that hashes blobs in a Web Worker (one
  * worker for every file, started on first use by `createWorker`). After the
  * worker fails or goes silent once, its jobs and every later one are hashed
- * in this thread. A cancelled hash terminates the worker; the next one
- * starts a fresh worker.
+ * in this thread. A cancelled hash terminates the worker; the files it was
+ * still hashing go to a fresh worker, as does the next one.
  */
 export function createWorkerFileHasher(createWorker: () => WorkerLike | undefined, options: WorkerFileHasherOptions = {}): HashFile {
   const silentMs = options.silentMs ?? 15_000;
@@ -111,6 +111,18 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
     return worker;
   };
 
+  /** Gives jobs to a worker; one it refuses (`postMessage` throws) means it's broken, so they're hashed here. */
+  const post = (to: WorkerLike, jobs: [number, Job][]) => {
+    try {
+      for (const [id, job] of jobs) {
+        watch(job);
+        to.postMessage({ id, blob: job.source.blob });
+      }
+    } catch {
+      fail();
+    }
+  };
+
   return (source, onBytes, signal) => {
     if (signal?.aborted) return Promise.reject(aborted());
     const w = source.blob ? start() : undefined;
@@ -119,25 +131,32 @@ export function createWorkerFileHasher(createWorker: () => WorkerLike | undefine
     return new Promise<string>((resolve, reject) => {
       const job: Job = { source, resolve, reject, onBytes, signal };
       pending.set(id, job);
-      watch(job);
       signal?.addEventListener(
         "abort",
         () => {
           if (!pending.has(id)) return;
-          // The worker is mid-file: end it, and the next file gets a fresh one.
+          // The worker is mid-file: end it, and give the other files to a fresh one.
           clearTimeout(job.timer);
           pending.delete(id);
-          for (const other of pending.values()) {
-            clearTimeout(other.timer);
-            inThread(other.source, other.onBytes, other.signal).then(other.resolve, other.reject);
-          }
-          pending.clear();
           stop();
+          // Others cancelled by the same abort end here, so their own handlers find nothing to stop.
+          for (const [otherId, other] of pending) {
+            if (!other.signal?.aborted) continue;
+            clearTimeout(other.timer);
+            pending.delete(otherId);
+            other.reject(aborted());
+          }
+          // This job settles first, so nothing below can leave it hanging.
           reject(aborted());
+          if (pending.size) {
+            const fresh = start();
+            if (!fresh) fail();
+            else post(fresh, [...pending]);
+          }
         },
         { once: true },
       );
-      w.postMessage({ id, blob: source.blob });
+      post(w, [[id, job]]);
     });
   };
 }

@@ -350,18 +350,74 @@ function removedIds(options: FeatureProjectOptions): string[] {
   const json = options.json === undefined ? "features.json" : options.json;
   if (!json) return [];
   const doc = read(join(options.root, json));
-  if (!doc) return [];
-  let previous: string[];
-  try {
-    previous =
-      (JSON.parse(doc) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
-        // An alias is always kept: it may name a built feature that was renamed onto this one.
-        ?.flatMap((f) => [...(f.status === "idea" || f.status === "planned" ? [] : [f.id]), ...(f.aliases ?? [])]) ?? [];
-  } catch {
-    return [];
+  if (doc === null) return [];
+  // A merge can leave the JSON with conflict markers: every side's ids still count.
+  const sides = conflictSides(doc) ?? [{ side: "", text: doc }];
+  const previous: string[] = [];
+  for (const { side, text } of sides) {
+    const recorded = recordedIds(text);
+    if (!recorded) {
+      throw new Error(
+        `${json} can't be read as JSON${side ? ` on the ${side} side of its merge conflict` : ""}, so the check that feature ids are permanent can't run. Fix it, or restore it from git, and run again`,
+      );
+    }
+    previous.push(...recorded);
   }
   const now = ids(options.features);
-  return previous.filter((id) => !now.has(id));
+  return [...new Set(previous)].filter((id) => !now.has(id));
+}
+
+/** The ids a features.json records that must stay, or null when it isn't JSON. */
+function recordedIds(doc: string): string[] | null {
+  try {
+    return (
+      (JSON.parse(doc.replace(/^\uFEFF/, "")) as { features?: { id: string; status?: string; aliases?: string[] }[] }).features
+        // An alias is always kept: it may name a built feature that was renamed onto this one.
+        ?.flatMap((f) => [...(f.status === "idea" || f.status === "planned" ? [] : [f.id]), ...(f.aliases ?? [])]) ?? []
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A conflict marker git writes: exactly seven characters, then a space and a label or the end of
+ * the line (`=======` stands alone). Longer runs are not markers: diff3 on a criss-cross merge
+ * nests the conflict between merge bases, with nine-character markers, inside the base section.
+ */
+const markers = {
+  ours: /^<{7}(?: .*)?\r?$/,
+  base: /^\|{7}(?: .*)?\r?$/,
+  theirs: /^={7}\r?$/,
+  end: /^>{7}(?: .*)?\r?$/,
+};
+
+/**
+ * A file git left mid-merge, as the whole text of each side: ours and theirs; diff3 base lines
+ * are skipped. Null when the file has no conflict markers.
+ */
+function conflictSides(doc: string): { side: string; text: string }[] | null {
+  const ours: string[] = [];
+  const theirs: string[] = [];
+  let state: "both" | "ours" | "base" | "theirs" = "both";
+  let conflicted = false;
+  for (const line of doc.split("\n")) {
+    if (state === "both" && markers.ours.test(line)) {
+      state = "ours";
+      conflicted = true;
+    } else if (state === "ours" && markers.base.test(line)) state = "base";
+    else if ((state === "ours" || state === "base") && markers.theirs.test(line)) state = "theirs";
+    else if (state === "theirs" && markers.end.test(line)) state = "both";
+    else {
+      if (state === "both" || state === "ours") ours.push(line);
+      if (state === "both" || state === "theirs") theirs.push(line);
+    }
+  }
+  if (!conflicted) return null;
+  return [
+    { side: "ours", text: ours.join("\n") },
+    { side: "theirs", text: theirs.join("\n") },
+  ];
 }
 
 /** Each id and alias, mapped to its feature's id. */
@@ -426,7 +482,8 @@ const hasImport = (doc: string | null, line: string) =>
  * Writes every generated output (the AGENTS.md block, the JSON, the flag
  * manifest, the skill, the marketing block) and adds `@AGENTS.md` to
  * CLAUDE.md when it's missing. Refuses, writing nothing, when an id recorded
- * in the JSON has disappeared. Returns the paths it changed.
+ * in the JSON has disappeared, or the JSON can't be read (each side of a merge
+ * conflict is read). Returns the paths it changed.
  *
  * @stability Beta
  */
@@ -504,7 +561,11 @@ export function checkFeatureOutputs(options: FeatureProjectOptions): FeatureChec
   if (claude && !hasImport(read(join(root, claude.path)), claude.line)) {
     errors.push(`${claude.path} must import the agent notes with a line \`${claude.line}\` (\`build\` adds it).`);
   }
-  for (const id of removedIds(options)) errors.push(removedMessage(id));
+  try {
+    for (const id of removedIds(options)) errors.push(removedMessage(id));
+  } catch (error) {
+    errors.push((error as Error).message);
+  }
 
   const reviewCutoff = new Date(Date.parse(today) - (options.reviewDays ?? 90) * 86_400_000).toISOString().slice(0, 10);
   const claims: [string, string][] = [];

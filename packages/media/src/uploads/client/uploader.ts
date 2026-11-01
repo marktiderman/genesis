@@ -155,6 +155,15 @@ function randomUploadId(): string {
   return toBase64(source.getRandomValues(new Uint8Array(16))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
+/** A `Retry-After` header in ms: delay-seconds or a future HTTP date, otherwise undefined. */
+function retryAfterMs(header: string | null | undefined): number | undefined {
+  const value = header?.trim();
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const wait = Date.parse(value) - Date.now();
+  return wait > 0 ? wait : undefined;
+}
+
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join("\n") === [...b].sort().join("\n");
 
 /** A gate a paused upload waits at. */
@@ -260,8 +269,14 @@ export function createUploader(options: UploaderOptions) {
     if (run.abort.signal.aborted) throw cancelledError();
   };
 
-  /** Exponential back-off with jitter (half to the full wait), cut short by a cancel. */
-  const backoff = (attempt: number, signal?: AbortSignal) => sleep(Math.min(30_000, 500 * 2 ** attempt) * (0.5 + random() / 2), signal);
+  /**
+   * Exponential back-off with jitter (half to the full wait), cut short by a cancel. A server's
+   * `Retry-After` (seconds or a date) on any retried status is waited instead, up to the same 30 s cap.
+   */
+  const backoff = (attempt: number, signal?: AbortSignal, retryAfter?: string | null) => {
+    const asked = retryAfterMs(retryAfter);
+    return sleep(asked !== undefined ? Math.min(30_000, asked) : Math.min(30_000, 500 * 2 ** attempt) * (0.5 + random() / 2), signal);
+  };
 
   async function call(
     method: string,
@@ -282,7 +297,7 @@ export function createUploader(options: UploaderOptions) {
       }
       if (transient(res.status) && attempt < retries) {
         await res.body?.cancel().catch(() => {});
-        await backoff(attempt, signal);
+        await backoff(attempt, signal, res.headers.get("retry-after"));
         continue;
       }
       const text = res.status === 204 ? "" : await res.text();
@@ -353,6 +368,9 @@ export function createUploader(options: UploaderOptions) {
     return resultOf(r.body as UploadStatus);
   }
 
+  /** Whether a response body is a session's status at all: an object with its id. */
+  const isStatus = (b: unknown): b is UploadStatus => typeof b === "object" && b !== null && typeof (b as UploadStatus).uploadId === "string";
+
   /** Whether a remembered session is still this upload's: the same size, SHA-256 (when both know it) and targets (when asked). */
   const fits = (s: UploadStatus, source: UploadSource, sha256: string | undefined, o: UploadOptions) =>
     s.size === source.size && !(sha256 && s.sha256 && s.sha256 !== sha256) && !(o.targets && !sameSet(s.targets, o.targets));
@@ -362,7 +380,8 @@ export function createUploader(options: UploaderOptions) {
     if (signal.aborted) throw cancelledError();
     const progress = (p: UploadProgress) => o.onProgress?.({ ...p, bytesDone: Math.min(p.bytesDone, p.size) });
     // By endpoint, who is signed in, purpose and file: never another person's or another app's entry.
-    const memo = source.key ? JSON.stringify([endpoint, options.ownerHint ?? "", o.purpose, source.key]) : undefined;
+    // Stored as its SHA-256, so the store (IndexedDB) never holds the user id or the file name.
+    const memo = source.key ? toHex(await sha256Bytes(new TextEncoder().encode(JSON.stringify([endpoint, options.ownerHint ?? "", o.purpose, source.key])))) : undefined;
     const hashFirst = o.hashFirst ?? true;
     const sha256 = hashFirst ? await hashWhole(source, (n) => progress({ phase: "hashing", bytesDone: n, size: source.size }), run) : undefined;
 
@@ -372,10 +391,15 @@ export function createUploader(options: UploaderOptions) {
       const remembered = memo ? await resumeStore.get(memo) : null;
       if (remembered) {
         const r = await call("GET", `/${remembered.uploadId}`, {}, signal);
-        if (r.status === 200 && fits(r.body as UploadStatus, source, sha256, o)) status = r.body as UploadStatus;
+        // An expired token or a server still down after the retries: keep it for next time, and fail
+        // as a create would. Any other refusal (gone, forbidden, not this file) forgets it and starts fresh.
+        if (r.status === 401 || transient(r.status)) fail(r.status, r.body);
+        // A 200 without a status (no body, not JSON, not an object) isn't this upload either.
+        const found = r.status === 200 && isStatus(r.body) ? r.body : undefined;
+        if (found && fits(found, source, sha256, o)) status = found;
         else {
           // Not this upload any more (other targets, another file under the same name): leave it.
-          if (r.status === 200 && (r.body as UploadStatus).state === "open") await call("DELETE", `/${remembered.uploadId}`, {}, signal).catch(() => {});
+          if (found?.state === "open") await call("DELETE", `/${remembered.uploadId}`, {}, signal).catch(() => {});
           if (memo) await resumeStore.delete(memo);
         }
       }

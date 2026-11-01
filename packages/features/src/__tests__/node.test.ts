@@ -122,6 +122,103 @@ describe("build and check", () => {
     expect(checkFeatureOutputs(opts(root, { features: gone })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
   });
 
+  it("reads both sides of a features.json left mid-merge, so a conflict can't hide a removed id", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const built = readFileSync(file, "utf8");
+    // Their side added a feature, ours didn't: git wrote conflict markers around the whole file.
+    const theirs = JSON.parse(built) as { features: { id: string }[] };
+    theirs.features.push({ ...theirs.features[0], id: "streaks" });
+    // diff3 style: the base section between ||||||| and ======= is skipped, so its unparseable text is no error.
+    writeFileSync(file, `<<<<<<< HEAD\n${built}||||||| base\n{ not json\n=======\n${JSON.stringify(theirs, null, 2)}\n>>>>>>> theirs\n`);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors).toEqual(
+      expect.arrayContaining([expect.stringContaining('"wins" was removed'), expect.stringContaining('"streaks" was removed')]),
+    );
+    expect(() => buildFeatureOutputs(opts(root, { features: rest }))).toThrow(/"wins" was removed/);
+    expect(readFileSync(file, "utf8")).toContain("<<<<<<< HEAD");
+    // With every id still in the registry, build resolves the conflict by regenerating the file.
+    const both = { ...features, streaks: features.wins };
+    expect(buildFeatureOutputs(opts(root, { features: both }))).toContain("features.json");
+    expect(readFileSync(file, "utf8")).not.toContain("<<<<<<<");
+  });
+
+  it("reads every hunk of a conflict git wrote in several places, unlabelled and with CRLF", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const lines = readFileSync(file, "utf8").split("\n");
+    // Ours dropped the line holding "wins"; theirs changed the first line. Two hunks, no labels.
+    const at = lines.findIndex((l) => l.includes('"id": "wins"'));
+    expect(at).toBeGreaterThan(1);
+    const conflicted = [
+      "<<<<<<<", lines[0], "=======", lines[0], ">>>>>>>",
+      ...lines.slice(1, at),
+      "<<<<<<<", `    "id": "gone-on-ours",`, "=======", lines[at], ">>>>>>>",
+      ...lines.slice(at + 1),
+    ].join("\r\n");
+    writeFileSync(file, conflicted);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
+  });
+
+  it("skips the nested conflict a diff3 criss-cross merge writes inside the base section", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const lines = readFileSync(file, "utf8").split("\n");
+    const at = lines.findIndex((l) => l.includes('"id": "wins"'));
+    // As `git merge` writes it with merge.conflictstyle=diff3 when the merge bases conflict too:
+    // nine-character markers between the merge bases, inside the seven-character base section.
+    const conflicted = [
+      ...lines.slice(0, at),
+      "<<<<<<< HEAD",
+      lines[at],
+      "||||||| merged common ancestors",
+      "<<<<<<<<< Temporary merge branch 1",
+      `    "id": "first-base",`,
+      "||||||||| b00bafc",
+      "{ not json",
+      "=========",
+      `    "id": "second-base",`,
+      ">>>>>>>>> Temporary merge branch 2",
+      "=======",
+      lines[at],
+      ">>>>>>> theirs",
+      ...lines.slice(at + 1),
+    ].join("\n");
+    writeFileSync(file, conflicted);
+    const { wins: _gone, ...rest } = features;
+    expect(checkFeatureOutputs(opts(root, { features: rest })).errors.some((e) => e.includes('"wins" was removed'))).toBe(true);
+    // Both sides read as JSON, so with every id kept build regenerates the file.
+    expect(buildFeatureOutputs(opts(root))).toContain("features.json");
+    expect(readFileSync(file, "utf8")).not.toContain("<<<<<<");
+  });
+
+  it("refuses a features.json it can't read, rather than skip the permanent-id check", () => {
+    const root = repo();
+    buildFeatureOutputs(opts(root));
+    const file = join(root, "features.json");
+    const built = readFileSync(file, "utf8");
+    writeFileSync(file, "{ not json");
+    const message = /features\.json can't be read as JSON, so the check that feature ids are permanent can't run/;
+    expect(checkFeatureOutputs(opts(root)).errors.some((e) => message.test(e))).toBe(true);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(message);
+    expect(readFileSync(file, "utf8")).toBe("{ not json");
+    writeFileSync(file, `<<<<<<< HEAD\n{ not json\n=======\n{"features":[]}\n>>>>>>> theirs\n`);
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(/on the ours side of its merge conflict/);
+    // An unterminated hunk still reads each side: an id on either one is kept.
+    writeFileSync(file, `<<<<<<<\n{"features":[]}\n=======\n${built}`);
+    const { wins: _gone, ...rest } = features;
+    expect(() => buildFeatureOutputs(opts(root, { features: rest }))).toThrow(/"wins" was removed/);
+    // An emptied file is unreadable too; a BOM is not.
+    writeFileSync(file, "");
+    expect(() => buildFeatureOutputs(opts(root))).toThrow(message);
+    writeFileSync(file, `\uFEFF{}`);
+    expect(checkFeatureOutputs(opts(root)).errors.some((e) => message.test(e))).toBe(false);
+  });
+
   it("fails on a missing code path; warns on missing docs, reviews due and untested live features", () => {
     const root = repo({ "src/tasks.test.ts": "" });
     const broken = {

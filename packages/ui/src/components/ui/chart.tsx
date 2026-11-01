@@ -118,6 +118,61 @@ ${colorConfig
 
 const ChartTooltip = RechartsPrimitive.Tooltip;
 
+/**
+ * One series entry Recharts hands a tooltip or legend: the fields either Recharts 2 or 3 sets.
+ * Recharts' own tooltip entries extend the SVG attributes (`fill`, `stroke`, `id`, …), so these
+ * do too, and an object-literal payload written for either version still type-checks.
+ */
+export interface ChartPayloadItem
+  extends Omit<React.SVGProps<SVGElement>, "name" | "type" | "ref"> {
+  name?: string | number | undefined;
+  value?: unknown;
+  dataKey?: string | number | ((obj: any) => unknown) | undefined;
+  nameKey?: string | number | ((obj: any) => unknown) | undefined;
+  color?: string | undefined;
+  /** `"none"` hides the entry; legends also carry their icon type (`"square"`, `"line"`, …). */
+  type?: string | undefined;
+  payload?: any;
+  unit?: React.ReactNode | undefined;
+  fill?: string | undefined;
+  stroke?: string | undefined;
+  strokeDasharray?: string | number | undefined;
+  strokeWidth?: string | number | undefined;
+  formatter?: ((...args: any[]) => unknown) | undefined;
+  chartType?: string | undefined;
+  hide?: boolean | undefined;
+  graphicalItemId?: string | undefined;
+  id?: string | undefined;
+  inactive?: boolean | undefined;
+  legendIcon?: React.ReactNode | undefined;
+}
+
+type RechartsTooltipProps = React.ComponentProps<typeof RechartsPrimitive.Tooltip>;
+
+/** The props the chart reads itself, typed the same whichever Recharts is installed. */
+type ChartTooltipOwnProps = {
+  active?: boolean | undefined;
+  payload?: readonly ChartPayloadItem[] | undefined;
+  label?: React.ReactNode | undefined;
+  labelFormatter?: ((label: any, payload: any[]) => React.ReactNode) | undefined;
+  formatter?: ((value: any, name: any, item: any, index: number, payload: any) => React.ReactNode) | undefined;
+  labelClassName?: string | undefined;
+  hideLabel?: boolean | undefined;
+  hideIndicator?: boolean | undefined;
+  indicator?: "line" | "dot" | "dashed" | undefined;
+  nameKey?: string | undefined;
+  labelKey?: string | undefined;
+};
+
+/**
+ * What `<ChartTooltip content={<ChartTooltipContent />} />` passes in, plus the display options.
+ * The rest of `<Tooltip>`'s props (`cursor`, `separator`, `wrapperStyle`, …) come from the Recharts
+ * the app has installed, 2 or 3, so they keep their own types and a misspelled prop is still an error.
+ */
+export type ChartTooltipContentProps = Omit<RechartsTooltipProps, keyof ChartTooltipOwnProps> &
+  Omit<React.ComponentProps<"div">, keyof ChartTooltipOwnProps | keyof RechartsTooltipProps> &
+  ChartTooltipOwnProps;
+
 function ChartTooltipContent({
   active,
   payload,
@@ -132,14 +187,7 @@ function ChartTooltipContent({
   color,
   nameKey,
   labelKey,
-}: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
-  React.ComponentProps<"div"> & {
-    hideLabel?: boolean;
-    hideIndicator?: boolean;
-    indicator?: "line" | "dot" | "dashed";
-    nameKey?: string;
-    labelKey?: string;
-  }) {
+}: ChartTooltipContentProps) {
   const { config } = useChart();
 
   const tooltipLabel = React.useMemo(() => {
@@ -158,7 +206,7 @@ function ChartTooltipContent({
     if (labelFormatter) {
       return (
         <div className={cn("font-medium", labelClassName)}>
-          {labelFormatter(value as string, payload)}
+          {labelFormatter(value, [...payload])}
         </div>
       );
     }
@@ -276,11 +324,12 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean;
-    nameKey?: string;
-  }) {
+}: React.ComponentProps<"div"> & {
+  payload?: readonly ChartPayloadItem[] | undefined;
+  verticalAlign?: "top" | "middle" | "bottom" | undefined;
+  hideIcon?: boolean | undefined;
+  nameKey?: string | undefined;
+}) {
   const { config } = useChart();
 
   if (!payload?.length) {
@@ -298,7 +347,7 @@ function ChartLegendContent({
       {payload
         .filter((item) => item.type !== "none")
         .map((item, index) => {
-          const key = `${nameKey ?? (item as unknown as Record<string, unknown>)["dataKey"] ?? "value"}`;
+          const key = `${nameKey ?? item.dataKey ?? "value"}`;
           const itemConfig = getPayloadConfigFromPayload(config, item, key);
 
           return (

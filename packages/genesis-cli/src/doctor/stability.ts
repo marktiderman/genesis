@@ -16,6 +16,8 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
+import { findPackageDir } from "./genesis.js";
+import { stripForImports } from "./trail.js";
 import type { DoctorContext } from "./types.js";
 
 export type Stability = "experimental" | "beta" | "stable" | "deprecated";
@@ -30,29 +32,68 @@ const SCRIPT_EXTS = new Set([".ts", ".tsx", ".js", ".jsx", ".mts", ".cts", ".mjs
 const DECLARATION =
   /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\n(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/g;
 
-/** The tags of the top-level declarations in one declaration file. */
+/** A named re-export with its own doc comment: `/** @deprecated … *\/ export { Old } from "./old"`. */
+const REEXPORT = /\/\*\*((?:(?!\*\/)[\s\S])*)\*\/\s*\nexport\s+(?:type\s+)?\{([^}]*)\}/g;
+
+/** One `{ … }` specifier as `[name]` or `[name, alias]`: `type A as B` gives `["A", "B"]`. */
+function specifierParts(spec: string): string[] {
+  return spec.trim().replace(/^type\s+/, "").split(/\s+as\s+/).map((part) => part.trim());
+}
+
+/** The tag one doc comment carries, if any. */
+function tagOf(comment: string): StabilityTag | undefined {
+  const doc = comment.replace(/^[ \t]*\*?[ \t]*/gm, "");
+  // A tag starts a line; "see the `@deprecated` block" in prose isn't one. The advice runs to the next tag.
+  const deprecated = /^@deprecated\b[ \t]*([\s\S]*?)(?=^@|(?![\s\S]))/m.exec(doc);
+  const stability = /^@stability\s+(Experimental|Beta|Stable|Deprecated)\b/im.exec(doc)?.[1]?.toLowerCase() as Stability | undefined;
+  const note = deprecated?.[1]!.replace(/\s+/g, " ").trim();
+  if (deprecated) return { stability: "deprecated", ...(note ? { note } : {}) };
+  return stability ? { stability } : undefined;
+}
+
+/**
+ * The tags of the top-level declarations in one declaration file, and of its named re-exports
+ * (by the name they export, so `export { Old as Legacy }` tags `Legacy`).
+ */
 export function stabilityTagsIn(dts: string): Map<string, StabilityTag> {
   const tags = new Map<string, StabilityTag>();
   for (const m of dts.matchAll(DECLARATION)) {
-    const doc = m[1]!.replace(/^[ \t]*\*?[ \t]*/gm, "");
-    // A tag starts a line; "see the `@deprecated` block" in prose isn't one. The advice runs to the next tag.
-    const deprecated = /^@deprecated\b[ \t]*([\s\S]*?)(?=^@|(?![\s\S]))/m.exec(doc);
-    const stability = /^@stability\s+(Experimental|Beta|Stable|Deprecated)\b/im.exec(doc)?.[1]?.toLowerCase() as Stability | undefined;
-    const note = deprecated?.[1]!.replace(/\s+/g, " ").trim();
-    if (deprecated) tags.set(m[2]!, { stability: "deprecated", ...(note ? { note } : {}) });
-    else if (stability) tags.set(m[2]!, { stability });
+    const tag = tagOf(m[1]!);
+    if (tag) tags.set(m[2]!, tag);
   }
+  for (const [name, tag] of taggedReexports(dts)) tags.set(name, tag);
   return tags;
 }
 
-/** Named imports from Genesis packages in one file: the package, the imported names and the line. */
-export function genesisNamedImports(code: string): Array<{ pkg: string; specifier: string; names: string[]; line: number }> {
+/** Each name a tagged named re-export exports, with its tag. */
+function* taggedReexports(dts: string): Generator<[string, StabilityTag]> {
+  for (const m of dts.matchAll(REEXPORT)) {
+    const tag = tagOf(m[1]!);
+    if (!tag) continue;
+    for (const spec of m[2]!.split(",")) {
+      const name = specifierParts(spec).pop()!;
+      if (name) yield [name, tag];
+    }
+  }
+}
+
+/**
+ * Named imports from Genesis packages in one file: the package, the imported names and the line.
+ * String, template and comment contents are blanked first, so an import written as an example in a
+ * string isn't read as one. A file whose literals can't be told apart (`stripForImports` gives up)
+ * is read as written, but only from imports that start a line: an example inside a string or JSX
+ * text sits after other text on its line, and isn't read as one.
+ */
+export function genesisNamedImports(source: string): Array<{ pkg: string; specifier: string; names: string[]; line: number }> {
   const out: Array<{ pkg: string; specifier: string; names: string[]; line: number }> = [];
-  const re = /import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']((@marktiderman\/genesis[\w-]*)(?:\/[^"']*)?)["']/g;
+  const stripped = stripForImports(source);
+  const code = stripped ?? source;
+  const named = String.raw`import\s+(?:type\s+)?(?:[\w$]+\s*,\s*)?\{([^}]*)\}\s*from\s*["']((@marktiderman\/genesis[\w-]*)(?:\/[^"']*)?)["']`;
+  const re = stripped === null ? new RegExp(`^[ \\t]*${named}`, "gm") : new RegExp(named, "g");
   for (const m of code.matchAll(re)) {
     const names = m[1]!
       .split(",")
-      .map((n) => n.trim().replace(/^type\s+/, "").split(/\s+as\s+/)[0]!.trim())
+      .map((n) => specifierParts(n)[0]!)
       .filter(Boolean);
     out.push({ pkg: m[3]!, specifier: m[2]!, names, line: code.slice(0, m.index).split("\n").length });
   }
@@ -66,15 +107,6 @@ function declarationFiles(dir: string, out: string[] = []): string[] {
     else if (/\.d\.[cm]?ts$/.test(name)) out.push(full);
   }
   return out;
-}
-
-/** The installed package's folder, looking up from the app root. */
-function packageDir(root: string, pkg: string): string | null {
-  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
-    const candidate = path.join(dir, "node_modules", ...pkg.split("/"));
-    if (existsSync(path.join(candidate, "package.json"))) return candidate;
-    if (path.dirname(dir) === dir) return null;
-  }
 }
 
 /** One package's declarations: each file's tags, every file that declares a name, and its exports. */
@@ -93,11 +125,14 @@ function readPackageTags(dir: string): PackageTags {
   for (const file of declarationFiles(dist)) {
     const text = readFileSync(file, "utf8");
     tags.byFile.set(file, stabilityTagsIn(text));
+    const names = new Set<string>();
     for (const m of text.matchAll(/^(?:export\s+)?(?:declare\s+)?(?:abstract\s+)?(?:function|const|let|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm)) {
-      const files = tags.declaredIn.get(m[1]!) ?? [];
-      if (!files.includes(file)) files.push(file);
-      tags.declaredIn.set(m[1]!, files);
+      names.add(m[1]!);
     }
+    // A tagged re-export counts as a declaration of its name in that file; an untagged one doesn't,
+    // so a chunk's tag still shows through a plain `export { X } from "./chunk"`.
+    for (const [name] of taggedReexports(text)) names.add(name);
+    for (const name of names) tags.declaredIn.set(name, [...(tags.declaredIn.get(name) ?? []), file]);
   }
   return tags;
 }
@@ -126,7 +161,7 @@ export function checkStabilityImports(ctx: DoctorContext): void {
   const cache = new Map<string, PackageTags | null>();
   const tagsOf = (pkg: string) => {
     if (!cache.has(pkg)) {
-      const dir = packageDir(ctx.root, pkg);
+      const dir = findPackageDir(ctx.root, pkg);
       cache.set(pkg, dir ? readPackageTags(dir) : null);
     }
     return cache.get(pkg)!;

@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { genesisNamedImports, stabilityTagsIn } from "../src/doctor/stability.js";
+import { stripForImports } from "../src/doctor/trail.js";
 
 describe("stability tags", () => {
   it("reads top-level declarations' tags, not members'", () => {
@@ -37,6 +38,43 @@ declare function Untagged(): void;
     expect(genesisNamedImports(code)).toEqual([
       { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button", "OldButton"], line: 1 },
       { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui/data", names: ["Fresh"], line: 2 },
+    ]);
+  });
+
+  it("reads tags on named re-exports, by the exported name", () => {
+    const dts = `/** @deprecated Use \`New\`. */\nexport { Old } from "./old";\n/** @stability Beta */\nexport type { A, B as Bee } from "./ab";\nexport { Plain } from "./plain";\n`;
+    const tags = stabilityTagsIn(dts);
+    expect(tags.get("Old")).toEqual({ stability: "deprecated", note: "Use `New`." });
+    expect(tags.get("A")).toEqual({ stability: "beta" });
+    expect(tags.get("Bee")).toEqual({ stability: "beta" });
+    expect(tags.has("B")).toBe(false);
+    expect(tags.has("Plain")).toBe(false);
+  });
+
+  it("ignores import examples inside strings and comments", () => {
+    const code = [
+      'const example = "import { OldList } from \'@marktiderman/genesis-ui\'";',
+      "const doc = `import { OldList } from \"@marktiderman/genesis-ui\"`;",
+      '// import { OldList } from "@marktiderman/genesis-ui";',
+      'import { Button } from "@marktiderman/genesis-ui";',
+    ].join("\n");
+    expect(genesisNamedImports(code)).toEqual([{ pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button"], line: 4 }]);
+  });
+
+  it("in a file whose literals can't be told apart, reads only imports that start a line", () => {
+    const code = [
+      'import { Button } from "@marktiderman/genesis-ui";',
+      "import {",
+      "  Card,",
+      '} from "@marktiderman/genesis-ui/layout";',
+      // `'Tis` opens a quote that never closes, so the file can't be stripped for sure.
+      "export const Doc = () => <p>'Tis how: import { OldList } from \"@marktiderman/genesis-ui\"</p>;",
+      'const s = "x"; const t = "import { OldList } from \'@marktiderman/genesis-ui\'";',
+    ].join("\n");
+    expect(stripForImports(code)).toBeNull();
+    expect(genesisNamedImports(code)).toEqual([
+      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui", names: ["Button"], line: 1 },
+      { pkg: "@marktiderman/genesis-ui", specifier: "@marktiderman/genesis-ui/layout", names: ["Card"], line: 2 },
     ]);
   });
 
@@ -92,6 +130,18 @@ describe("checkStabilityImports", () => {
       report: (f: { rule: string }) => second.push(f),
     } as never);
     expect(second.map((f) => f.rule)).toEqual(["deprecated-import"]);
+
+    // A tag on a named re-export marks the name, though its source declaration has none.
+    writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "@marktiderman/genesis-widgets", version: "1.0.0", exports: { ".": { types: "./dist/index.d.ts" } } }));
+    writeFileSync(path.join(pkg, "dist/old.d.ts"), "declare function Old(): void;\n");
+    writeFileSync(path.join(pkg, "dist/index.d.ts"), "/** @deprecated Use `New`. */\nexport { Old } from './old';\n");
+    const third: Array<{ rule: string; subject?: string; message: string }> = [];
+    checkStabilityImports({
+      root,
+      files: [{ path: "src/d.tsx", ext: ".tsx", code: 'import { Old } from "@marktiderman/genesis-widgets";\n' }],
+      report: (f: { rule: string; subject?: string; message: string }) => third.push(f),
+    } as never);
+    expect(third).toEqual([expect.objectContaining({ rule: "deprecated-import", subject: "Old", message: "Old from @marktiderman/genesis-widgets is deprecated and goes at the next major: Use `New`." })]);
   });
 });
 

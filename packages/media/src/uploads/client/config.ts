@@ -42,11 +42,13 @@ export function createMemoryResumeStore(now: () => number = Date.now): ResumeSto
 }
 
 type IdbRequest<T> = { result: T; error: unknown; onsuccess: (() => void) | null; onerror: (() => void) | null };
+type IdbCursor = { key: unknown; delete(): unknown; continue(): void };
 type IdbStore = {
   get(key: string): IdbRequest<unknown>;
   put(value: unknown, key: string): IdbRequest<unknown>;
   delete(key: string): IdbRequest<unknown>;
   clear(): IdbRequest<unknown>;
+  openCursor(): IdbRequest<IdbCursor | null>;
 };
 type IdbDatabase = {
   objectStoreNames: { contains(name: string): boolean };
@@ -55,14 +57,28 @@ type IdbDatabase = {
 };
 /** The part of `indexedDB` this uses. */
 export type IdbFactoryLike = {
-  open(name: string, version?: number): IdbRequest<IdbDatabase> & { onupgradeneeded: (() => void) | null };
+  open(
+    name: string,
+    version?: number,
+  ): IdbRequest<IdbDatabase> & {
+    /** The upgrade's own transaction, while `onupgradeneeded` runs. */
+    transaction: { objectStore(name: string): IdbStore } | null;
+    onupgradeneeded: ((e: { oldVersion: number }) => void) | null;
+  };
 };
+
+/** The database's version. 2: keys are SHA-256 hex; version 1 clients keyed by plain JSON. */
+const IDB_VERSION = 2;
+/** A resume key as the uploader writes it: the SHA-256 of what it names, in hex. */
+const DIGEST_KEY = /^[0-9a-f]{64}$/;
 
 /**
  * In the browser's IndexedDB: survives a reload, so closing the tab and
  * coming back resumes the upload (the server's Resume says which parts it
  * has). Entries lapse with their session; `clear()` forgets them all, for
- * sign-out. Falls back to memory where there is no IndexedDB.
+ * sign-out. Opening a database an older client wrote deletes its entries
+ * under plain keys (the user id and file name), once. Falls back to memory
+ * where there is no IndexedDB.
  */
 export function createIndexedDbResumeStore(name = "genesis-media-uploads", options: { indexedDB?: IdbFactoryLike; now?: () => number } = {}): ResumeStore {
   const idb = options.indexedDB ?? (globalThis as { indexedDB?: IdbFactoryLike }).indexedDB;
@@ -72,9 +88,23 @@ export function createIndexedDbResumeStore(name = "genesis-media-uploads", optio
   let db: Promise<IdbDatabase> | undefined;
   const open = () =>
     (db ??= new Promise<IdbDatabase>((resolve, reject) => {
-      const req = idb.open(name, 1);
-      req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+      const req = idb.open(name, IDB_VERSION);
+      req.onupgradeneeded = (e) => {
+        if (!req.result.objectStoreNames.contains(STORE)) {
+          req.result.createObjectStore(STORE);
+          return;
+        }
+        // From version 1: older clients keyed entries by plain JSON (the user id and file name).
+        // They are never read again, so the upgrade sweeps them, once, in its own transaction.
+        if (e.oldVersion < 2 && req.transaction) {
+          const sweep = req.transaction.objectStore(STORE).openCursor();
+          sweep.onsuccess = () => {
+            const cursor = sweep.result;
+            if (!cursor) return;
+            if (typeof cursor.key !== "string" || !DIGEST_KEY.test(cursor.key)) cursor.delete();
+            cursor.continue();
+          };
+        }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);

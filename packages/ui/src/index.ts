@@ -66,7 +66,7 @@ export { ButtonGroup, type ButtonGroupProps } from "./components/ui/button-group
 export { InputGroup, InputGroupInput, InputGroupPrefix, InputGroupSuffix, type InputGroupProps } from "./components/ui/input-group";
 export { Calendar, CalendarDayButton } from "./components/ui/calendar";
 export { DatePicker, type DatePickerProps } from "./components/ui/date-picker";
-export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle, type ChartConfig } from "./components/ui/chart";
+export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle, type ChartConfig, type ChartPayloadItem, type ChartTooltipContentProps } from "./components/ui/chart";
 export { FormField, FormLabel, FormError, FormDescription } from "./components/patterns/form-field";
 export { Toolbar, ToolbarButton, ToolbarLink, ToolbarSeparator, ToolbarToggleGroup, ToolbarToggleItem, toolbarVariants, type ToolbarProps, type ToolbarButtonProps, type ToolbarLinkProps, type ToolbarSeparatorProps, type ToolbarToggleItemProps } from "./components/ui/toolbar";
 export { VisuallyHidden, type VisuallyHiddenProps } from "./components/ui/visually-hidden";
