@@ -1,0 +1,33 @@
+.changeset/core-is-development-bundlers.md
+  s_1feb538f59bf88::t_076f9fc2e5f4b2 1-8
+docs/component-reference.md
+  s_1ad08d0c80c7fb::t_c7dcceb2a6957f 1965
+packages/core/src/__tests__/errors.test.ts
+  s_1feb538f59bf88::t_4a8181460b8e7b 67-84
+packages/core/src/errors.ts
+  s_1feb538f59bf88::t_f8e2e258bd9b70 41-42,48-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2c9d42bb337a42a409b9c0a5ec41999fb29a2747",
+  "prompts": {},
+  "sessions": {
+    "s_1ad08d0c80c7fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8317e46-f1f8-419e-a319-ae3730260685",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
