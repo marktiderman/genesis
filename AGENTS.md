@@ -89,7 +89,7 @@ whenever nobody owned them.
 - **Release:** the maintainer merges the batch's release PR into `main`; the Release workflow
   then opens or updates "chore: version packages", and merging that publishes to npm
   (`docs/RELEASING.md`). Nothing is published before that second merge, so a blocker found after
-  the first is fixed in a PR into `main` first.
+  the first is fixed through a staging batch into `main` before the version PR merges, as #586 was.
 - **A change to a shared contract** (core types, ResourceView, the data layer, a published
   package's API) also gets an adversarial review from reviewers that didn't write it, before
   triage merges it into the batch.
