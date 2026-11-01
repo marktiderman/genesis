@@ -84,7 +84,9 @@ export const googleCalendar = createConnector({
   clientId: process.env.GOOGLE_OAUTH_CLIENT_ID!,
   clientSecret: process.env.GOOGLE_OAUTH_CLIENT_SECRET!,
   stateSecret: process.env.CONNECT_STATE_SECRET!,
-  secrets: createSecrets(process.env.CONNECT_KEYRING!, { purpose: "google-refresh-token" }),
+  secrets: createSecrets(process.env.CONNECT_KEYRING!, {
+    purpose: "google-refresh-token",
+  }),
   callbackPath: "/api/connect/google/callback",
   scopes: [
     GOOGLE_SCOPES.openid,
@@ -106,8 +108,11 @@ export const googleCalendar = createConnector({
 });
 ```
 
-`identity` is read from the ID token the token endpoint sent over TLS; `readIdToken(idToken)`
-does the same for that token, and must never be used on one a browser handed over. The kit
+`identity` is read from the ID token the token endpoint sent over TLS. Its signature isn't
+checked (OpenID Connect allows that only for a token taken straight from the token endpoint),
+but its claims are: the issuer is the provider's `issuer`, the audience is this client, and it
+hasn't expired. When any of those fail, `identity` is left out and the connection still
+succeeds. The kit
 fetches no calendar data: with `accessToken(...)`, the app calls the Calendar API
 (`calendarList`, then `events` with `singleEvents=true` and a sync token) and keeps the rows.
 Calendar scopes are sensitive: until Google verifies the app, only its test users can connect,

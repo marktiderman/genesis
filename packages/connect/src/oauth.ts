@@ -188,7 +188,9 @@ export interface ConnectedAccount<D extends StateData = StateData> {
   idToken?: string | undefined;
   /**
    * Who the account is, read from the ID token: to show "connected as …" and to tell two
-   * accounts of one person apart. Only with an `openid` scope (add `email` for the address).
+   * accounts of one person apart. Only with an `openid` scope (add `email` for the address) and a
+   * provider with an `issuer`; left out when the token's issuer, audience or expiry don't check
+   * out (the connection itself still succeeds).
    */
   identity?: AccountIdentity | undefined;
   /** From `start`. */
@@ -208,15 +210,30 @@ export interface AccountIdentity {
   picture?: string | undefined;
 }
 
+/** What the callback checks an ID token's claims against. */
+interface IdTokenExpectations {
+  /** The provider's issuer(s): `iss` must be one. */
+  issuers: readonly string[];
+  /** This connector's client id: `aud` must name it (and `azp` must be it when `aud` names several). */
+  clientId: string;
+  /** Now, in milliseconds: `exp` must be later. */
+  now: number;
+}
+
 /**
- * The account an OpenID Connect ID token names, or undefined when it isn't one. It reads the
- * claims without checking the signature, which OpenID Connect allows only for a token that came
- * straight from the token endpoint over TLS (Core 3.1.3.7): use it on `account.idToken`, never on
- * a token a browser or another party handed over.
+ * The account the ID token from the token endpoint names, or undefined. It never checks the
+ * signature, which OpenID Connect allows only for a token taken straight from the token endpoint
+ * over TLS (Core 3.1.3.7, step 6); the claims are still checked (steps 2, 3 and 9): the issuer is
+ * the provider's, the audience is this client (and `azp` is, when there are several), and the
+ * token hasn't expired. Anything else is undefined. Internal to the callback on purpose: never
+ * export it, or apps would trust tokens from elsewhere.
  */
-export function readIdToken(idToken: string): AccountIdentity | undefined {
+function identityFromTokenEndpoint(
+  idToken: string,
+  expect: IdTokenExpectations,
+): AccountIdentity | undefined {
   const part = idToken.split(".")[1];
-  if (!part) return undefined;
+  if (!part || expect.issuers.length === 0) return undefined;
   let claims: Record<string, unknown>;
   try {
     const value = JSON.parse(
@@ -228,6 +245,19 @@ export function readIdToken(idToken: string): AccountIdentity | undefined {
   } catch {
     return undefined;
   }
+  if (
+    typeof claims["iss"] !== "string" ||
+    !expect.issuers.includes(claims["iss"])
+  )
+    return undefined;
+  const aud = claims["aud"];
+  const audiences =
+    typeof aud === "string" ? [aud] : Array.isArray(aud) ? aud : [];
+  if (!audiences.includes(expect.clientId)) return undefined;
+  if (audiences.length > 1 && claims["azp"] !== expect.clientId)
+    return undefined;
+  const exp = claims["exp"];
+  if (typeof exp !== "number" || exp * 1000 <= expect.now) return undefined;
   const text = (key: string) =>
     typeof claims[key] === "string" && claims[key]
       ? (claims[key] as string)
@@ -1259,7 +1289,14 @@ export function createConnector<D extends StateData = StateData>(
         const aad = aadFor(id);
         const idToken =
           typeof body["id_token"] === "string" ? body["id_token"] : undefined;
-        const identity = idToken ? readIdToken(idToken) : undefined;
+        const issuer = config.provider.issuer;
+        const identity = idToken
+          ? identityFromTokenEndpoint(idToken, {
+              issuers: typeof issuer === "string" ? [issuer] : (issuer ?? []),
+              clientId: config.clientId,
+              now: now(),
+            })
+          : undefined;
         const sealedRefreshToken =
           typeof refreshToken === "string" && refreshToken
             ? await config.secrets.seal(refreshToken, aad)

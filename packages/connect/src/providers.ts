@@ -10,6 +10,11 @@ export interface OAuthProvider {
   readonly authorizeUrl: string;
   /** The token endpoint (code and refresh-token grants). */
   readonly tokenUrl: string;
+  /**
+   * The OpenID Connect issuer(s) its ID tokens name in `iss`. Without it, no `identity` is read
+   * from an ID token.
+   */
+  readonly issuer?: string | readonly string[] | undefined;
   /** The revocation endpoint (RFC 7009), when the provider has one. */
   readonly revokeUrl?: string | undefined;
   /** Scopes asked for when neither the connector nor `start` names any. */
@@ -43,6 +48,7 @@ export const googleProvider: OAuthProvider = {
   authorizeUrl: "https://accounts.google.com/o/oauth2/v2/auth",
   tokenUrl: "https://oauth2.googleapis.com/token",
   revokeUrl: "https://oauth2.googleapis.com/revoke",
+  issuer: ["https://accounts.google.com", "accounts.google.com"],
   defaultScopes: [],
   authorizeParams: {
     access_type: "offline",

@@ -10,7 +10,6 @@ import {
   type ConnectedAccount,
   type ConnectLogEvent,
   type ConnectorConfig,
-  readIdToken,
 } from "../oauth";
 import {
   googleProvider,
@@ -1059,6 +1058,7 @@ describe("review follow-ups", () => {
 });
 
 describe("the connected account's identity", () => {
+  const nowSec = Math.floor(Date.parse("2026-10-26T12:00:00Z") / 1000);
   const idToken = (claims: Record<string, unknown>) =>
     [
       "e30",
@@ -1068,18 +1068,20 @@ describe("the connected account's identity", () => {
         .replace(/\//g, "_"),
       "sig",
     ].join(".");
+  const good = {
+    iss: "https://accounts.google.com",
+    aud: "client-id",
+    exp: nowSec + 3600,
+    sub: "1234",
+    email: "pat@example.com",
+    email_verified: true,
+    name: "Pat",
+  };
+  const withToken = (claims: Record<string, unknown>) =>
+    setup({}, () => tokenOk({ id_token: idToken(claims) }));
 
   it("reads who the account is from the ID token the token endpoint sent", async () => {
-    const t = setup({}, () =>
-      tokenOk({
-        id_token: idToken({
-          sub: "1234",
-          email: "pat@example.com",
-          email_verified: true,
-          name: "Pat",
-        }),
-      }),
-    );
+    const t = withToken(good);
     await roundTrip(t);
     expect(t.stored[0]!.identity).toEqual({
       subject: "1234",
@@ -1089,13 +1091,44 @@ describe("the connected account's identity", () => {
     });
   });
 
+  it("accepts several audiences only when azp is this client", async () => {
+    const ok = withToken({
+      ...good,
+      aud: ["other", "client-id"],
+      azp: "client-id",
+    });
+    await roundTrip(ok);
+    expect(ok.stored[0]!.identity?.subject).toBe("1234");
+    const bad = withToken({
+      ...good,
+      aud: ["other", "client-id"],
+      azp: "other",
+    });
+    await roundTrip(bad);
+    expect(bad.stored[0]!.identity).toBeUndefined();
+  });
+
+  it.each([
+    ["another audience", { aud: "someone-else" }],
+    ["another issuer", { iss: "https://evil.example" }],
+    ["an expired token", { exp: nowSec - 1 }],
+    ["no subject", { sub: undefined }],
+  ])(
+    "leaves identity out for %s, and still connects",
+    async (_label, change) => {
+      const t = withToken({ ...good, ...change });
+      const { result } = await roundTrip(t);
+      expect(result).toBe("connected");
+      expect(t.stored[0]!.identity).toBeUndefined();
+    },
+  );
+
   it("has no identity without an ID token, or with one that isn't", async () => {
-    const t = setup();
-    await roundTrip(t);
-    expect(t.stored[0]!.identity).toBeUndefined();
-    expect(readIdToken("not-a-token")).toBeUndefined();
-    expect(
-      readIdToken(idToken({ email: "no-subject@example.com" })),
-    ).toBeUndefined();
+    const plain = setup();
+    await roundTrip(plain);
+    expect(plain.stored[0]!.identity).toBeUndefined();
+    const junk = setup({}, () => tokenOk({ id_token: "not-a-token" }));
+    await roundTrip(junk);
+    expect(junk.stored[0]!.identity).toBeUndefined();
   });
 });
