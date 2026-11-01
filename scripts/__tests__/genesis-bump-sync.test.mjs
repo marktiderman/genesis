@@ -63,6 +63,14 @@ describe("genesis-upgrade.yml's bump", () => {
       tidy();
       expect(readFileSync(path.join(app, "pnpm-workspace.yaml"), "utf8")).toBe("minimumReleaseAgeExclude:\n  - left-pad@1.3.0\n  - '@marktiderman/genesis-*'\n");
       expect(readFileSync(path.join(temp, "genesis-upgrade", "files"), "utf8")).toBe("app/package.json\napp/pnpm-workspace.yaml");
+
+      // A project with its own lockfile in a workspace: the root's pnpm-workspace.yaml is the one pnpm wrote.
+      const project = path.join(ws, "apps", "b");
+      mkdirSync(project, { recursive: true });
+      writeFileSync(path.join(ws, "pnpm-workspace.yaml"), "packages:\n  - apps/*\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-ui@2.26.0'\n");
+      execFileSync(process.execPath, [file], { cwd: project, env: { ...process.env, GENESIS_STEP: "tidy", RUNNER_TEMP: temp, GITHUB_WORKSPACE: ws } });
+      expect(readFileSync(path.join(ws, "pnpm-workspace.yaml"), "utf8")).toBe("packages:\n  - apps/*\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n");
+      expect(readFileSync(path.join(temp, "genesis-upgrade", "files"), "utf8").split("\n")).toContain("pnpm-workspace.yaml");
     } finally {
       rmSync(ws, { recursive: true, force: true, maxRetries: 5 });
     }

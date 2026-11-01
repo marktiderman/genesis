@@ -353,7 +353,7 @@ doesn't fit, is a warning.
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
-   loose mode and pnpm pins it in pnpm-workspace.yaml's `minimumReleaseAgeExclude`
+   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads (the nearest one at or above the app, else beside the lockfile)
    (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen install honours only the first pinned
    version of a package, so a second pin (this upgrade's next to an earlier one's, or two versions
    of one package) fails `pnpm install --frozen-lockfile` in CI with

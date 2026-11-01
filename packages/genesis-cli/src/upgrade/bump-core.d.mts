@@ -29,3 +29,9 @@ export declare function bumpSummary(version: string, changes: BumpChange[], skip
 export declare const GENESIS_PATTERN: "@marktiderman/genesis-*";
 /** pnpm-workspace.yaml's text with each Genesis release-age exclude replaced by its pattern, once. */
 export declare function normaliseReleaseAgeExcludes(text: string): string;
+/** The nearest pnpm-workspace.yaml at or above `start` (as pnpm finds it), else one in `fallback`. */
+export declare function pnpmWorkspaceFile(
+  start: string,
+  fallback: string,
+  fs: { exists: (file: string) => boolean; join: (...parts: string[]) => string; dirname: (dir: string) => string },
+): string;

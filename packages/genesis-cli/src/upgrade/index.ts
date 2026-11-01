@@ -30,7 +30,7 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { bumpPackageJson, bumpSummary, GENESIS_PATTERN, normaliseReleaseAgeExcludes, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
+import { bumpPackageJson, bumpSummary, GENESIS_PATTERN, normaliseReleaseAgeExcludes, pnpmWorkspaceFile, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
 
 export interface ReleaseLookup {
@@ -227,7 +227,9 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   const pm = detectPackageManager(root);
   let tidiedExcludes: string | null = null;
   if (!options.dryRun && options.install !== false && bumped.size) {
-    const workspaceFile = pm === "pnpm" ? path.join(findLockfile(root)?.dir ?? root, "pnpm-workspace.yaml") : null;
+    // Where pnpm writes its excludes: the nearest pnpm-workspace.yaml up from the app, as pnpm finds
+    // it, else beside the lockfile (a standalone app, where pnpm creates it).
+    const workspaceFile = pm === "pnpm" ? pnpmWorkspaceFile(path.resolve(root), findLockfile(root)?.dir ?? root, { exists: existsSync, join: path.join, dirname: path.dirname }) : null;
     const workspaceBefore = workspaceFile ? readText(workspaceFile) : null;
     const tidy = () => {
       if (!workspaceFile || !tidyReleaseAgeExcludes(workspaceFile)) return;

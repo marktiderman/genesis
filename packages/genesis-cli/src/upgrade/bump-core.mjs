@@ -125,3 +125,17 @@ export function normaliseReleaseAgeExcludes(text) {
   }
   return [...out, ...lines.slice(i)].join(eol);
 }
+
+// The pnpm-workspace.yaml pnpm reads and writes for an install in `start`: the nearest one at or
+// above it, as pnpm finds it (not by the lockfile, which a workspace with
+// sharedWorkspaceLockfile: false keeps in each project), else `fallback` (where pnpm would create
+// one for a standalone app). `fs` is { exists, join, dirname }.
+export function pnpmWorkspaceFile(start, fallback, fs) {
+  for (let dir = start; ; ) {
+    const file = fs.join(dir, "pnpm-workspace.yaml");
+    if (fs.exists(file)) return file;
+    const parent = fs.dirname(dir);
+    if (parent === dir) return fs.join(fallback, "pnpm-workspace.yaml");
+    dir = parent;
+  }
+}

@@ -8,7 +8,7 @@ import { mergeThreeWay } from "../src/blocks/owned.js";
 import { bumpPackageJson, compareVersions, normaliseReleaseAgeExcludes } from "../src/upgrade/bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
-import { fakePackage, makeApp, PACKAGES, read, snapshot } from "./blocks-helpers.js";
+import { fakePackage, makeApp, PACKAGES, read, snapshot, writeTree } from "./blocks-helpers.js";
 
 const lookup = (packages: Record<string, string>, latest: Record<string, string> = {}): ReleaseLookup => ({
   release: () => ({ version: "2.0.0", packages }),
@@ -196,5 +196,27 @@ describe("pnpm's minimumReleaseAgeExclude after an upgrade", () => {
     const before = read(root, "pnpm-workspace.yaml");
     await upgrade(root, { dryRun: true, install, dedupe });
     expect(read(root, "pnpm-workspace.yaml")).toBe(before);
+  });
+
+  it("finds pnpm-workspace.yaml as pnpm does, above an app with its own lockfile, and beside the lockfile in a standalone app", async () => {
+    const pins = "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-fixture@1.0.0'\n  - '@marktiderman/genesis-fixture@1.2.0'\n";
+    // A workspace with sharedWorkspaceLockfile: false: the app's lockfile is its own, the settings are the root's.
+    const ws = makeApp({ "pnpm-workspace.yaml": "packages:\n  - apps/*\nsharedWorkspaceLockfile: false\n" });
+    const root = path.join(ws, "apps", "a");
+    writeTree(root, {
+      "package.json": JSON.stringify({ name: "a", dependencies: { "@marktiderman/genesis-fixture": "^1.0.0" } }, null, 2) + "\n",
+      "pnpm-lock.yaml": "lockfileVersion: '9.0'\n",
+    });
+    const intoRoot = (r: string) => writeFileSync(path.join(r, "..", "..", "pnpm-workspace.yaml"), `packages:\n  - apps/*\nsharedWorkspaceLockfile: false\n${pins}`);
+    const report = await upgrade(root, { install: intoRoot, dedupe: () => {} });
+    expect(read(ws, "pnpm-workspace.yaml")).toBe("packages:\n  - apps/*\nsharedWorkspaceLockfile: false\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n");
+    expect(report.files).toContain(path.join("..", "..", "pnpm-workspace.yaml"));
+
+    // A standalone app with no pnpm-workspace.yaml yet: pnpm creates it beside the lockfile.
+    const alone = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(alone, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const created = await upgrade(alone, { install: (r) => writeFileSync(path.join(r, "pnpm-workspace.yaml"), pins), dedupe: () => {} });
+    expect(read(alone, "pnpm-workspace.yaml")).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n");
+    expect(created.files).toContain("pnpm-workspace.yaml");
   });
 });
