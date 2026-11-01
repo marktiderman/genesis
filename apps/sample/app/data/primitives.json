@@ -9077,6 +9077,62 @@
               "description": ""
             },
             {
+              "name": "allowEscapeViewBox",
+              "type": "AllowInDimension",
+              "required": false,
+              "defaultValue": null,
+              "description": "This option allows the tooltip to extend beyond the viewBox of the chart itself.\n@defaultValue {\"x\":false,\"y\":false}"
+            },
+            {
+              "name": "animationDuration",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Specifies the duration of animation, the unit of this option is ms.\n@defaultValue 400"
+            },
+            {
+              "name": "animationEasing",
+              "type": "EasingInput",
+              "required": false,
+              "defaultValue": null,
+              "description": "The type of easing function.\n@defaultValue ease"
+            },
+            {
+              "name": "axisId",
+              "type": "AxisId",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tooltip always attaches itself to the \"Tooltip\" axis. Which axis is it? Depends on the layout:\n- horizontal layout -> X axis\n- vertical layout -> Y axis\n- radial layout -> radial axis\n- centric layout -> angle axis\n\nTooltip will use the default axis for the layout, unless you specify an axisId.\n@defaultValue 0"
+            },
+            {
+              "name": "content",
+              "type": "ContentType<ValueType, NameType>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Renders the content of the tooltip.\n\nThis should return HTML elements, not SVG elements.\n\n- If not set, the {@link DefaultTooltipContent } component is used.\n- If set to a React element, this element will be cloned and extra props will be passed in.\n- If set to a function, the function will be called and should return HTML elements.\n@see {@link https://recharts.github.io/en-US/examples/CustomContentOfTooltip/ Example with custom content}"
+            },
+            {
+              "name": "cursor",
+              "type": "CursorDefinition",
+              "required": false,
+              "defaultValue": null,
+              "description": "If set false, no cursor will be drawn when tooltip is active.\nIf set a object, the option is the configuration of cursor.\nIf set a React element, the option is the custom react element of drawing cursor.\n@defaultValue true"
+            },
+            {
+              "name": "defaultIndex",
+              "type": "number | TooltipIndex",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filterNull",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "When an item of the payload has value null or undefined, this item won't be displayed.\n@defaultValue true"
+            },
+            {
               "name": "formatter",
               "type": "((value: any, name: any, item: any, index: number, payload: any) => ReactNode)",
               "required": false,
@@ -9098,11 +9154,25 @@
               "description": ""
             },
             {
+              "name": "includeHidden",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "If true, the tooltip will display information about hidden series.\nDefaults to false.\nInteracting with the hide property of Area, Bar, Line, Scatter.\n@defaultValue false"
+            },
+            {
               "name": "indicator",
               "type": "enum",
               "required": false,
               "defaultValue": "dot",
               "description": ""
+            },
+            {
+              "name": "isAnimationActive",
+              "type": "boolean | \"auto\"",
+              "required": false,
+              "defaultValue": null,
+              "description": "If set false, animation of tooltip will be disabled.\nIf set \"auto\", the animation will be disabled in SSR and will respect the user's prefers-reduced-motion system preference for accessibility.\n@defaultValue auto"
             },
             {
               "name": "label",
@@ -9140,11 +9210,74 @@
               "description": ""
             },
             {
+              "name": "offset",
+              "type": "number | Coordinate",
+              "required": false,
+              "defaultValue": null,
+              "description": "The offset size between the position of tooltip and the mouse cursor position.\nWhen a number is provided, the same offset is applied to both x and y axes.\n\nWhen a Coordinate object is provided, you can specify different offsets for each axis (x and y as numbers)\n@defaultValue 10"
+            },
+            {
               "name": "payload",
               "type": "readonly ChartPayloadItem[]",
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "payloadUniqBy",
+              "type": "UniqueOption<TooltipPayloadEntry>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "portal",
+              "type": "HTMLElement | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "If portal is defined, then Tooltip will use this element as a target\nfor rendering using React Portal: https://react.dev/reference/react-dom/createPortal\n\nIf this is undefined then Tooltip renders inside the recharts-wrapper element."
+            },
+            {
+              "name": "position",
+              "type": "Partial<Coordinate>",
+              "required": false,
+              "defaultValue": null,
+              "description": "If this field is set, the tooltip will be displayed at the specified position\nregardless of the mouse position.\n\nYou can set a single field (x or y) and let the other field be calculated automatically based\non the mouse position."
+            },
+            {
+              "name": "reverseDirection",
+              "type": "AllowInDimension",
+              "required": false,
+              "defaultValue": null,
+              "description": "@defaultValue {\"x\":false,\"y\":false}"
+            },
+            {
+              "name": "shared",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Defines whether the tooltip is reacting to the current data point,\nor to all data points at the current axis coordinate.\n\n- `true`: tooltip will appear on top of all bars on an axis tick.\n- `false`: tooltip will appear on individual bars.\n\nDifferent chart types allow different modes, and have different defaults.\n@see {@link https://github.com/recharts/recharts/wiki/Tooltip-event-type-and-shared-prop Tooltip event type and shared prop wiki page}"
+            },
+            {
+              "name": "trigger",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "If `hover` then the Tooltip shows on mouse enter and hides on mouse leave.\n\nIf `click` then the Tooltip shows after clicking and stays active.\n@defaultValue hover"
+            },
+            {
+              "name": "useTranslate3d",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "@defaultValue false"
+            },
+            {
+              "name": "wrapperStyle",
+              "type": "CSSProperties",
+              "required": false,
+              "defaultValue": null,
+              "description": "CSS styles to be applied to the wrapper `div` element."
             }
           ]
         },
