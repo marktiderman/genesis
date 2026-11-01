@@ -1,0 +1,31 @@
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_a2ef18bf405328::t_604a004cfeb9d0 1-131
+.changeset/ui-mobile-overlays.md
+  s_a2ef18bf405328::t_c3b06883672e7c 1-5
+packages/ui/src/components/data/ResourceForm.tsx
+  s_a2ef18bf405328::t_efde75af0f8b5b 23,133,146-151,182,191-198,274,276-282,304,306-312,463-466,472
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_a2ef18bf405328::t_a2695917b689e0 17,42-44
+packages/ui/src/components/ui/dialog.tsx
+  s_a2ef18bf405328::t_56ba2afe65af2c 20,28-51,62-63,65,70,72-76,83-84
+packages/ui/src/components/ui/sheet.tsx
+  s_a2ef18bf405328::t_e75b33f97bb020 20,30-32,36,38-39,41,75-82
+packages/ui/src/index.ts
+  s_a2ef18bf405328::t_0e1408ee4a0c77 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cd02d942f6180a988dea17af13ef6c998a9901ca",
+  "prompts": {},
+  "sessions": {
+    "s_a2ef18bf405328": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a6c327c-2f48-4a9b-a43e-10ccdc6fdf3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
