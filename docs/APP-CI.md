@@ -117,7 +117,9 @@ The bump is the same code `genesis upgrade` runs (`packages/genesis-cli/src/upgr
 embedded in the workflow by `scripts/sync-genesis-bump.mjs`). The workflow doesn't call `genesis
 upgrade` itself: its pull request job runs no dependency code, and the CLI is one. So the workflow
 moves versions only; run `genesis upgrade` on its branch to also refresh the templates, functions
-and skills Genesis owns in the app (see the CLI's README).
+and skills Genesis owns in the app (see the CLI's README). `genesis upgrade` also keeps pnpm's `minimumReleaseAgeExclude` to one
+`'@marktiderman/genesis-*'` entry and dedupes, so app-ci's `pnpm install --frozen-lockfile` passes
+on a release younger than the app's `minimumReleaseAge` (see the README's step 3).
 
 A doctor failure is written into the pull request and fails the run. `dry-run: true` does steps
 1 to 3, writes the run summary and pushes nothing. The secret `npm-token` works as in app-ci.

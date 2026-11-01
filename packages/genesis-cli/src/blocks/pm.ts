@@ -11,18 +11,23 @@ import { readCatalog } from "./discover.js";
 
 export type PackageManager = "pnpm" | "bun" | "yarn" | "npm";
 
-/** From the nearest lockfile at or above the app; npm when there is none. */
-export function detectPackageManager(root: string): PackageManager {
+/** The nearest lockfile at or above the app: its package manager and folder (the install root). */
+export function findLockfile(root: string): { pm: PackageManager; dir: string } | null {
   let dir = path.resolve(root);
   for (;;) {
-    if (existsSync(path.join(dir, "pnpm-lock.yaml"))) return "pnpm";
-    if (existsSync(path.join(dir, "bun.lock")) || existsSync(path.join(dir, "bun.lockb"))) return "bun";
-    if (existsSync(path.join(dir, "yarn.lock"))) return "yarn";
-    if (existsSync(path.join(dir, "package-lock.json"))) return "npm";
+    if (existsSync(path.join(dir, "pnpm-lock.yaml"))) return { pm: "pnpm", dir };
+    if (existsSync(path.join(dir, "bun.lock")) || existsSync(path.join(dir, "bun.lockb"))) return { pm: "bun", dir };
+    if (existsSync(path.join(dir, "yarn.lock"))) return { pm: "yarn", dir };
+    if (existsSync(path.join(dir, "package-lock.json"))) return { pm: "npm", dir };
     const parent = path.dirname(dir);
-    if (parent === dir) return "npm";
+    if (parent === dir) return null;
     dir = parent;
   }
+}
+
+/** From the nearest lockfile at or above the app; npm when there is none. */
+export function detectPackageManager(root: string): PackageManager {
+  return findLockfile(root)?.pm ?? "npm";
 }
 
 export function addCommand(pm: PackageManager, specs: string[], dev = false): string[] {
@@ -33,6 +38,16 @@ export function addCommand(pm: PackageManager, specs: string[], dev = false): st
 
 export function installCommand(pm: PackageManager): string[] {
   return pm === "yarn" ? ["yarn", "install"] : [pm, "install"];
+}
+
+/**
+ * Collapses packages installed at more than one version where one would do, or null when the
+ * package manager has no such command Genesis runs (bun has none; yarn's differs by version).
+ */
+export function dedupeCommand(pm: PackageManager): string[] | null {
+  if (pm === "pnpm") return ["pnpm", "dedupe"];
+  if (pm === "npm") return ["npm", "dedupe"];
+  return null;
 }
 
 /** The version a Genesis package installs at, and where that came from. */

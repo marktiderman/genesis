@@ -8,7 +8,8 @@
  *    bump itself is the workflow's own code (bump-core.mjs).
  * 2. Codemods, only for a package that moves across a version a codemod is
  *    declared for (codemods.ts).
- * 3. Install, then refresh owned files (templates, Edge Functions, skills,
+ * 3. Install (then, for pnpm, Genesis's release-age excludes become one pattern a frozen install
+ *    reads, and a dedupe), then refresh owned files (templates, Edge Functions, skills,
  *    pgTAP tests) by a three-way decision (blocks/owned.ts), replace AGENTS.md
  *    fragments, copy skills a block gained, and report new package migrations
  *    (`genesis migrate` copies them).
@@ -27,10 +28,11 @@ import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../bloc
 import { planMigrations, TESTS_DIR } from "../blocks/migrations.js";
 import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from "../blocks/owned.js";
 import { localPackageNames } from "../blocks/local.js";
-import { detectPackageManager, installCommand, run, shellLine } from "../blocks/pm.js";
+import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
+import { GENESIS_PATTERN, normaliseReleaseAgeExcludes } from "./release-age.js";
 
 export interface ReleaseLookup {
   /** The umbrella's version and versions.json for a version or dist-tag. */
@@ -48,6 +50,11 @@ export interface UpgradeOptions {
   dryRun?: boolean;
   /** Reinstall after the bump (default true), or install this way (tests). */
   install?: boolean | ((root: string) => void);
+  /**
+   * After the install, collapse duplicate installs (`pnpm dedupe`, `npm dedupe`; bun and yarn are
+   * skipped). Default: on with the real install, off with an install function; or dedupe this way (tests).
+   */
+  dedupe?: boolean | ((root: string) => void);
   doctor?: boolean;
   /** Leave every owned file the app changed as it is (the new text goes to .genesis-next), without merging. */
   keepMine?: boolean;
@@ -111,6 +118,24 @@ export function npmLookup(cwd: string): ReleaseLookup {
       return latest.get(name)!;
     },
   };
+}
+
+function readText(file: string): string | null {
+  try {
+    return readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** Rewrites pnpm-workspace.yaml's Genesis release-age excludes as one pattern; true when it changed. */
+function tidyReleaseAgeExcludes(file: string): boolean {
+  const before = readText(file);
+  if (before === null) return false;
+  const after = normaliseReleaseAgeExcludes(before);
+  if (after === before) return false;
+  writeFileSync(file, after);
+  return true;
 }
 
 /** Every tracked package.json at or below the app (git), or just its own outside git. */
@@ -199,14 +224,33 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     for (const f of changed) files.add(f);
   }
 
-  // 2. Install.
+  // 2. Install, keep pnpm's release-age excludes readable by a frozen install, and dedupe.
   const pm = detectPackageManager(root);
+  let tidiedExcludes: string | null = null;
   if (!options.dryRun && options.install !== false && bumped.size) {
+    const workspaceFile = pm === "pnpm" ? path.join(findLockfile(root)?.dir ?? root, "pnpm-workspace.yaml") : null;
+    const workspaceBefore = workspaceFile ? readText(workspaceFile) : null;
+    const tidy = () => {
+      if (!workspaceFile || !tidyReleaseAgeExcludes(workspaceFile)) return;
+      tidiedExcludes = path.relative(root, workspaceFile);
+      log(`${tidiedExcludes}: minimumReleaseAgeExclude names Genesis packages by '${GENESIS_PATTERN}', not one entry per version`);
+    };
     if (typeof options.install === "function") options.install(root);
     else {
       log(`install: ${shellLine(installCommand(pm))}`);
       run(root, installCommand(pm));
     }
+    tidy();
+    const dedupe = options.dedupe ?? (typeof options.install === "function" ? false : true);
+    const dedupeArgv = dedupeCommand(pm);
+    if (typeof dedupe === "function") dedupe(root);
+    else if (dedupe && dedupeArgv) {
+      log(`dedupe: ${shellLine(dedupeArgv)}`);
+      run(root, dedupeArgv);
+    }
+    if (dedupe) tidy();
+    // pnpm writes its excludes here; the pull request must carry them, or CI's frozen install fails.
+    if (workspaceFile && readText(workspaceFile) !== workspaceBefore) files.add(path.relative(root, workspaceFile));
   }
 
   // 3. The blocks: new migrations first (a pgTAP test isn't refreshed ahead of its migration),
@@ -291,6 +335,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
   if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
+  if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`); those entries are now \`'${GENESIS_PATTERN}'\`, which \`pnpm install --frozen-lockfile\` honours. Other entries are as they were.`);
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");

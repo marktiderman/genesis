@@ -1,5 +1,5 @@
 // @feat:cli-upgrade
-import { rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { sha256 } from "../src/blocks/files.js";
@@ -8,7 +8,8 @@ import { mergeThreeWay } from "../src/blocks/owned.js";
 import { bumpPackageJson, compareVersions } from "../src/upgrade/bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
-import { fakePackage, makeApp, read, snapshot } from "./blocks-helpers.js";
+import { normaliseReleaseAgeExcludes } from "../src/upgrade/release-age.js";
+import { fakePackage, makeApp, PACKAGES, read, snapshot } from "./blocks-helpers.js";
 
 const lookup = (packages: Record<string, string>, latest: Record<string, string> = {}): ReleaseLookup => ({
   release: () => ({ version: "2.0.0", packages }),
@@ -119,5 +120,82 @@ describe("genesis upgrade", () => {
     expect(uncoveredBreaks([{ file: "p", name: "@marktiderman/genesis-ui", from: "^0.1.0", to: "^0.2.0" }], [mod])).toHaveLength(1);
     await upgrade(app(TEMPLATE_V1, TEMPLATE_V1), { codemods: [mod] });
     expect(ran).toEqual(["ran"]);
+  });
+});
+
+// What pnpm 11 writes in loose mode when an upgrade installs Genesis releases younger than
+// minimumReleaseAge. On pnpm 11.1.3 a frozen install reads the list first match per package, so a
+// second pinned version of one package (this run's, next to an earlier run's) fails CI with
+// ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION; one pattern for Genesis's own packages doesn't.
+const PINNED = `# Settings for this app.
+autoInstallPeers: false
+minimumReleaseAgeExclude:
+  - '@marktiderman/genesis-cli@1.17.2'
+  - '@marktiderman/genesis-features@0.8.0'
+  - '@marktiderman/genesis-features@0.8.1' # added by pnpm
+  - left-pad@1.3.0
+  # the umbrella
+  - "@marktiderman/genesis@3.1.0"
+  - '@marktiderman/genesis-ui@2.26.0'
+  - '@acme/genesis-ui@1.0.0'
+  - '@marktiderman/other@1.0.0'
+strictPeerDependencies: false
+`;
+
+const TIDIED = `# Settings for this app.
+autoInstallPeers: false
+minimumReleaseAgeExclude:
+  - '@marktiderman/genesis-*'
+  - left-pad@1.3.0
+  # the umbrella
+  - '@marktiderman/genesis'
+  - '@acme/genesis-ui@1.0.0'
+  - '@marktiderman/other@1.0.0'
+strictPeerDependencies: false
+`;
+
+describe("pnpm's minimumReleaseAgeExclude after an upgrade", () => {
+  it("replaces Genesis's pinned entries with one pattern, leaves every other entry and line, and is idempotent", () => {
+    expect(normaliseReleaseAgeExcludes(PINNED)).toBe(TIDIED);
+    expect(normaliseReleaseAgeExcludes(TIDIED)).toBe(TIDIED);
+    const crlf = PINNED.replace(/\n/g, "\r\n");
+    expect(normaliseReleaseAgeExcludes(crlf)).toBe(TIDIED.replace(/\n/g, "\r\n"));
+    // Nothing of Genesis's, or no list at all: unchanged.
+    const other = "minimumReleaseAgeExclude:\n  - left-pad@1.3.0\n";
+    expect(normaliseReleaseAgeExcludes(other)).toBe(other);
+    expect(normaliseReleaseAgeExcludes("autoInstallPeers: false\n")).toBe("autoInstallPeers: false\n");
+    // The flow form.
+    expect(normaliseReleaseAgeExcludes("minimumReleaseAgeExclude: ['@marktiderman/genesis-ui@2.26.0', left-pad, '@marktiderman/genesis-core@2.0.0'] # x\nfoo: 1\n"))
+      .toBe("minimumReleaseAgeExclude: ['@marktiderman/genesis-*', left-pad] # x\nfoo: 1\n");
+  });
+
+  it("matches the CI fixture's shape", () => {
+    const fixture = readFileSync(path.join(PACKAGES, "..", ".github/ci-fixture/pnpm-workspace.yaml"), "utf8");
+    expect(normaliseReleaseAgeExcludes(fixture)).toBe(fixture);
+    const pinned = fixture.replace("  - '@marktiderman/genesis-*'\n", "  - '@marktiderman/genesis-cli@1.4.0'\n  - '@marktiderman/genesis-ui@2.12.1'\n");
+    expect(pinned).not.toBe(fixture);
+    expect(normaliseReleaseAgeExcludes(pinned)).toBe(fixture);
+  });
+
+  it("tidies pnpm-workspace.yaml after the install, then dedupes, and commits the file with the upgrade", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    writeFileSync(path.join(root, "pnpm-workspace.yaml"), "autoInstallPeers: false\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-fixture@1.0.0'\n");
+    const steps: string[] = [];
+    // The install pins the new, young version next to the earlier run's pin, as pnpm's loose mode does.
+    const install = (r: string) => {
+      steps.push("install");
+      writeFileSync(path.join(r, "pnpm-workspace.yaml"), "autoInstallPeers: false\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-fixture@1.0.0'\n  - '@marktiderman/genesis-fixture@1.2.0'\n");
+    };
+    const dedupe = (r: string) => steps.push(`dedupe:${read(r, "pnpm-workspace.yaml").includes("@1.2.0") ? "pinned" : "tidied"}`);
+    const report = await upgrade(root, { install, dedupe });
+    expect(steps).toEqual(["install", "dedupe:tidied"]);
+    expect(read(root, "pnpm-workspace.yaml")).toBe("autoInstallPeers: false\nminimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n");
+    expect(report.files).toContain("pnpm-workspace.yaml");
+    expect(report.summary).toContain("'@marktiderman/genesis-*'");
+    // A dry run neither installs nor touches the file.
+    const before = read(root, "pnpm-workspace.yaml");
+    await upgrade(root, { dryRun: true, install, dedupe });
+    expect(read(root, "pnpm-workspace.yaml")).toBe(before);
   });
 });
