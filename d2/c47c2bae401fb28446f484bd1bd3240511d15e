@@ -1,0 +1,25 @@
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_a2ef18bf405328::t_266e84e7fe456d 1-123
+.changeset/ui-appshell-phone-drawer.md
+  s_a2ef18bf405328::t_13ccab566afc62 1-10
+docs/component-reference.md
+  s_a2ef18bf405328::t_d733d5127a3ce3 8596,8599
+packages/ui/src/components/layout/AppShell.tsx
+  s_a2ef18bf405328::t_4dd254e0e97e3d 25,38,287-288,1152,1213,1216-1256,1492-1501,1771,1793-1794,1796,1798-1799,1803-1805,1808,1813,1815,1823-1824,1829,1855,1940-1941,1943,1956-1957,1995-2010,2013-2048
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2c47c2bae401fb28446f484bd1bd3240511d15e",
+  "prompts": {},
+  "sessions": {
+    "s_a2ef18bf405328": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a6c327c-2f48-4a9b-a43e-10ccdc6fdf3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
