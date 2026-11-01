@@ -694,3 +694,13 @@ describe("EventCalendar and ResourceCalendar: second review", () => {
     expect((await screen.findByTestId("resource-calendar-capped")).className).not.toContain("print:hidden");
   });
 });
+
+describe("ResourceCalendar: a screen's overrides get the view's checks", () => {
+  it("refuses an override naming a missing field, a field that isn't a date, or out-of-range weeks", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const p = filtering(ROWS).p;
+    expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ endField: "nope" }} />, { wrapper: wrap(p) })).toThrow(/calendar\.endField names "nope"/);
+    expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ field: "title" }} />, { wrapper: wrap(p) })).toThrow(/calendar\.field "title" isn't a date or timestamp field/);
+    expect(() => render(<ResourceView view={eventsView} mode="calendar" calendar={{ weeks: 6 as never }} />, { wrapper: wrap(p) })).toThrow(/calendar\.weeks is 1 to 4/);
+  });
+});

@@ -234,6 +234,7 @@ export const features = defineFeatures({
     name: "Calendar mode for lists",
     summary: "A view's `calendar` block (defineView) and ResourceView's `mode=\"calendar\"` place a view's rows by a date or timestamp field: a month grid, 1–4 weeks, a printable agenda or one lane per person, one request per visible window with a +N more notice past the cap, days on the field's display clock, multi-day events on each day, all-day first, a dot per person, keyboard-navigable days and the list's peek on click. EventCalendar draws events that aren't a view's rows; Studio's calendar uses it.",
     status: "building",
+    claimedBy: "mark",
     kind: "pattern",
     keywords: ["calendar", "month view", "week view", "agenda", "schedule", "lanes", "events", "print", "date field"],
     platforms: { web: "building" },
@@ -247,7 +248,7 @@ export const features = defineFeatures({
       "An event shared by several people shows once on the grid with a dot per person, and in each person's lane.",
       "The agenda layout prints as a plain day-by-day list without controls.",
     ],
-    reviewedAt,
+    reviewedAt: "2026-11-01",
     links: { code: ["packages/ui/src/components/data/calendar", "packages/ui/src/components/data/resource-view/ResourceCalendar.tsx"], docs: ["docs/RESOURCE-VIEW.md"] },
   },
   "resource-tree": {

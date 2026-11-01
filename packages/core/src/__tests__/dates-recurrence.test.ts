@@ -501,6 +501,9 @@ describe("readEventTime", () => {
     expect(readEventTime("2026-02-30")).toBeNull();
     expect(readEventTime(42)).toBeNull();
     expect(readEventTime(new Date("nope"))).toBeNull();
+    // An out-of-range wall time drops the one row rather than throwing.
+    expect(readEventTime("2026-11-02 25:00:00", { timeZone: "America/Denver" })).toBeNull();
+    expect(readEventTime("2026-11-02 09:61:00")).toBeNull();
   });
 });
 

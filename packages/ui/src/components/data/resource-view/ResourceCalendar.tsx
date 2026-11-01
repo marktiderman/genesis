@@ -10,7 +10,7 @@ import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type Filt
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
 import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
-import type { ResourceView as View, ViewCalendar } from "@marktiderman/genesis-core/resource-view";
+import { calendarProblems, type ResourceView as View, type ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
@@ -114,8 +114,10 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const cell = useDisplayCell();
   const viewerScope = useOptionalViewerScope();
   if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs a calendar field: the view's calendar.field, or calendar={{ field }}`);
-  const field = view.field(fieldName);
-  if (!field) throw new Error(`ResourceView(${view.resource}): calendar field "${fieldName}" isn't in the view`);
+  // The screen's overrides get the checks the view's own block got in defineView.
+  const problems = calendarProblems(view.contract.fields, settings);
+  if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
+  const field = view.field(fieldName)!;
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
   const storage = timeStorage(field);
   const endStorage = endField ? timeStorage(view.field(endField)) : storage;

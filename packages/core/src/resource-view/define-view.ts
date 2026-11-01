@@ -17,6 +17,7 @@ import type {
   ResourceView,
   RowOf,
   RowSummary,
+  ViewCalendar,
   ViewDefinition,
   ViewField,
 } from "./types";
@@ -144,6 +145,36 @@ export function valueText(labels: Readonly<Record<string, string>> | undefined, 
  * Throws {@link ViewDefinitionError} when it names something the contract doesn't have, so a
  * renamed column fails at start-up, not as a blank cell.
  */
+/**
+ * What's wrong with a calendar block for these fields, one sentence each (empty when it's fine).
+ * `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged
+ * over that block with it too, so neither can name a field that isn't there or isn't a date.
+ *
+ * @stability Beta
+ */
+export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "type" | "array">[], calendar: Partial<ViewCalendar>): string[] {
+  const problems: string[] = [];
+  const byName = new Map(fields.map((f) => [f.name, f]));
+  const typed = (name: string | undefined, where: string, type: string) => {
+    if (name === undefined) return;
+    const f = byName.get(name);
+    if (!f) problems.push(`${where} names "${name}", which isn't a field`);
+    else if (f.type !== type || f.array) problems.push(`${where} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "yes/no"} field`);
+  };
+  typed(calendar.field, "calendar.field", "datetime");
+  typed(calendar.endField, "calendar.endField", "datetime");
+  typed(calendar.allDayField, "calendar.allDayField", "boolean");
+  if (calendar.laneBy !== undefined && !byName.has(calendar.laneBy)) problems.push(`calendar.laneBy names "${calendar.laneBy}", which isn't a field`);
+  if (calendar.layout !== undefined && !["month", "weeks", "agenda", "lanes"].includes(calendar.layout)) {
+    problems.push(`calendar.layout "${String(calendar.layout)}" isn't month, weeks, agenda or lanes`);
+  }
+  if (calendar.weeks !== undefined && ![1, 2, 3, 4].includes(calendar.weeks)) problems.push(`calendar.weeks is 1 to 4, not ${String(calendar.weeks)}`);
+  if (calendar.weekStartsOn !== undefined && calendar.weekStartsOn !== 0 && calendar.weekStartsOn !== 1) {
+    problems.push(`calendar.weekStartsOn is 0 (Sunday) or 1 (Monday), not ${String(calendar.weekStartsOn)}`);
+  }
+  return problems;
+}
+
 export function defineView<C extends ResourceContract, Row extends DataRow = RowOf<C>>(
   contract: C,
   definition: ViewDefinition<C, Row> = {},
@@ -253,26 +284,9 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   }
   for (const name of scope) known(name, "scope");
   if (definition.groupBy) known(definition.groupBy, "groupBy");
-  const calendar = definition.calendar;
-  if (calendar) {
-    const typed = (name: string | undefined, where: string, type: string) => {
-      if (name === undefined) return;
-      known(name, where);
-      const f = byName.get(name);
-      if (f && (f.type !== type || f.array)) problems.push(`${where} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "yes/no"} field`);
-    };
-    typed(calendar.field, "calendar.field", "datetime");
-    typed(calendar.endField, "calendar.endField", "datetime");
-    typed(calendar.allDayField, "calendar.allDayField", "boolean");
-    if (calendar.laneBy !== undefined) known(calendar.laneBy, "calendar.laneBy");
-    if (calendar.layout !== undefined && !["month", "weeks", "agenda", "lanes"].includes(calendar.layout)) {
-      problems.push(`calendar.layout "${String(calendar.layout)}" isn't month, weeks, agenda or lanes`);
-    }
-    if (calendar.weeks !== undefined && ![1, 2, 3, 4].includes(calendar.weeks)) problems.push(`calendar.weeks is 1 to 4, not ${String(calendar.weeks)}`);
-    if (calendar.weekStartsOn !== undefined && calendar.weekStartsOn !== 0 && calendar.weekStartsOn !== 1) {
-      problems.push(`calendar.weekStartsOn is 0 (Sunday) or 1 (Monday), not ${String(calendar.weekStartsOn)}`);
-    }
-  }
+  // A copy, frozen like the other blocks: changing the object passed in can't change the view.
+  const calendar = definition.calendar ? Object.freeze({ ...definition.calendar }) : undefined;
+  if (calendar) problems.push(...calendarProblems(fields, calendar));
   if (definition.orderBy) known(definition.orderBy.field, "orderBy");
   for (const [name, preset] of Object.entries(presets)) {
     if (preset.columns && preset.columns !== "default" && !own(columnLists, preset.columns)) {
@@ -469,6 +483,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
       ...(definition.form ? { form: formItems } : {}),
       ...(definition.scope ? { scope: Object.freeze([...definition.scope]) } : {}),
       ...(definition.actions ? { actions: actionList } : {}),
+      ...(calendar ? { calendar } : {}),
     }) as Readonly<ViewDefinition<C, Row>>,
     resource: contract.name,
     noun,

@@ -789,7 +789,9 @@ export function readEventTime(value: unknown, options: { dateOnly?: boolean; tim
   const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
   if (!m[4]) {
     const zone = options.timeZone && isTimeZone(options.timeZone) ? options.timeZone : deviceTimeZone();
-    if (!WALL_TIME.test(time)) return null;
+    const [h, mi, sec] = time.split(":").map(Number) as [number, number, number];
+    // Out of range (25:00) is not a time: null, like the zoned branch's invalid Date.
+    if (!WALL_TIME.test(time) || h > 23 || mi > 59 || sec > 59) return null;
     const at = instantIn(m[1], time, zone);
     return m[3] ? new Date(at.getTime() + Math.round(Number(`0${m[3]}`) * 1000)) : at;
   }
