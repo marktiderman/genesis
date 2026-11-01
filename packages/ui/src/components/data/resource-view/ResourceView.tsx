@@ -10,6 +10,7 @@ import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../Re
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
+import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { RowAvatar } from "./RowAvatar";
 
 type Row = Record<string, unknown>;
@@ -42,8 +43,12 @@ export interface ResourceViewOptions {
    * `filter`, they don't narrow the list. A field the form shows starts at the value instead.
    */
   defaults?: Defaults;
-  /** How rows show first. The user's own pick is remembered. */
-  mode?: "table" | "grid" | "list" | undefined;
+  /**
+   * How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's
+   * `calendar` block instead: one request per visible window, a click opens the peek. Calendar is
+   * never stored as the user's pick, so other lists of the resource don't open in it.
+   */
+  mode?: "table" | "grid" | "list" | "calendar" | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
 }
@@ -55,6 +60,11 @@ export type ResourceViewProps<T extends Row = Row> = ResourceViewOptions &
      * before a slot: the column, its label, sorting and visibility stay the view's.
      */
     cells?: Partial<Record<string, (row: T) => ReactNode>>;
+    /**
+     * With `mode="calendar"`: overrides the view's `calendar` block (layout, weeks, the anchor) and
+     * adds what it can't hold (dot colours, `onSelect`, lanes' labels).
+     */
+    calendar?: ResourceCalendarOptions<T>;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
     view: View<ResourceContract<any>, T & DataRow>;
   };
@@ -113,6 +123,7 @@ function singleValues(filter: Filter): Defaults {
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
   const {
     view, layout = "page", columns: columnPreset, preset, filter: screenFilter, scoped = true, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    calendar: _calendar,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
   } = props;
@@ -234,7 +245,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...((subtitle ?? copy?.subtitle) ? { subtitle: subtitle ?? copy?.subtitle } : {}),
     columns,
     variant: layout === "page" ? "page" : "embedded",
-    ...(mode ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
+    ...(mode && mode !== "calendar" ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
     getTitle: (row: T) => view.summary(row as T & DataRow).title,
     // Never ResourcePage's default (the second column's raw value, which skips `when`).
@@ -285,10 +296,43 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
  * (`slots`, `renderDetail`, `toolbar`), then `useResourceView` with your own layout.
  */
 export function ResourceView<T extends Row = Row>(props: ResourceViewProps<T>) {
+  // Two components, so switching `mode` to and from calendar swaps children rather than hooks.
+  if (props.mode === "calendar") return <ResourceViewCalendar<T> {...props} />;
+  return <ResourceViewPage<T> {...props} />;
+}
+
+function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
   return <ResourcePage<T> {...useResourceViewProps(props)} />;
+}
+
+/** `mode="calendar"`: the same view, scope and filters, placed by a date field. */
+function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
+  const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className, cells } = props;
+  const viewer = useViewer();
+  const tab = preset ? view.definition.presets?.[preset] : undefined;
+  if (preset && !tab) throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
+  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
+  const filters = [
+    ...filterParams(tab?.filter as Filter | undefined),
+    ...filterParams(filter),
+    ...(resourceOptions?.defaultFilters ?? []),
+  ];
+  return (
+    <ResourceCalendar<T>
+      {...(calendar ?? {})}
+      view={view}
+      filters={filters}
+      {...(cells ? { cells } : {})}
+      title={title ?? view.title}
+      {...(className ? { className } : {})}
+    />
+  );
 }
 
 /** The headless form: the same state as `useResourceTable`, from a view. */
 export function useResourceView<T extends Row = Row>(props: ResourceViewProps<T>): ResourceTableState<T> {
+  if (props.mode === "calendar") {
+    throw new Error(`useResourceView(${props.view.resource}): calendar mode has no table state; render <ResourceView mode="calendar"> or <ResourceCalendar>`);
+  }
   return useResourceTable<T>(useResourceViewProps(props));
 }

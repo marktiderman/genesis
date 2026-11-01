@@ -40,6 +40,8 @@ export {
 export { useResourceTable, type ResourceTableState } from "./use-resource-table";
 // A list screen from a genesis-core/resource-view view, mapped onto ResourcePage.
 export * from "./resource-view";
+// Events on a month grid, 1–4 weeks, an agenda or lanes (ResourceView's calendar mode draws with it).
+export * from "./calendar";
 export {
   ConfirmDeleteDialog,
   type ConfirmDeleteDialogProps,

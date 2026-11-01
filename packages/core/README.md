@@ -697,6 +697,8 @@ Ranges are `{ start, end }` days, `end` exclusive, for the windows a calendar sh
 - `eachDay(range)` lists the days; `rangeIn(range, zone)` gives the instants to filter a timestamp by.
 - `instantIn(day, "09:30", zone)` and `wallTimeIn(zone, at)` convert between a wall time and an
   instant. A time the clock skips moves forward by the jump; a time it shows twice is the first.
+- `readEventTime(value, { dateOnly, timeZone })` reads a stored date or timestamp as a day or an
+  instant; a timestamp without a zone is a wall time on `timeZone`'s clock.
 
 ### Repeating events
 

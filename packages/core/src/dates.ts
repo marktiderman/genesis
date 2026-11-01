@@ -764,3 +764,41 @@ export function expandRecurrence(options: RecurrenceOptions): Occurrences {
   }
   return done();
 }
+
+// ---------------------------------------------------------------------------
+// Stored values
+// ---------------------------------------------------------------------------
+
+const STORED = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?)(\.\d+)?)?\s*(Z|[+-]\d{2}(?::?\d{2})?)?$/;
+
+/**
+ * A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a
+ * value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres
+ * `timestamp without time zone`, `2026-11-02 09:30:00`) is a wall time, read on `timeZone`'s
+ * clock (default the device's). Postgres text (`2026-10-19 09:30:00.123456+00`), ISO strings and
+ * `Date`s are all read. Null when it isn't a date.
+ *
+ * @stability Beta
+ */
+export function readEventTime(value: unknown, options: { dateOnly?: boolean; timeZone?: string } = {}): Day | Date | null {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value !== "string") return null;
+  const m = STORED.exec(value.trim());
+  if (!m || !isDay(m[1])) return null;
+  if (options.dateOnly || !m[2]) return m[1];
+  const time = m[2].length === 5 ? `${m[2]}:00` : m[2];
+  if (!m[4]) {
+    const zone = options.timeZone && isTimeZone(options.timeZone) ? options.timeZone : deviceTimeZone();
+    const [h, mi, sec] = time.split(":").map(Number) as [number, number, number];
+    // Out of range (25:00) is not a time: null, like the zoned branch's invalid Date.
+    if (!WALL_TIME.test(time) || h > 23 || mi > 59 || sec > 59) return null;
+    const at = instantIn(m[1], time, zone);
+    return m[3] ? new Date(at.getTime() + Math.round(Number(`0${m[3]}`) * 1000)) : at;
+  }
+  let zone = m[4];
+  if (/^[+-]\d{2}$/.test(zone)) zone += ":00";
+  else if (/^[+-]\d{4}$/.test(zone)) zone = `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  const ms = m[3] ? m[3].slice(0, 4).padEnd(4, "0") : "";
+  const date = new Date(`${m[1]}T${time}${ms}${zone}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}

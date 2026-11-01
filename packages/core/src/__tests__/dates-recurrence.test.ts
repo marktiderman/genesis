@@ -11,6 +11,7 @@ import {
   monthRange,
   parseRRule,
   quarterRange,
+  readEventTime,
   rangeIn,
   startOfMonth,
   startOfQuarter,
@@ -475,6 +476,34 @@ describe("expandRecurrence: COUNT with EXDATE, 29 February, and the window guard
 
   it("stops an endless rule at 1,000 by default", () => {
     expect(expandRecurrence({ rule: "FREQ=DAILY", start: "2026-01-01", window: { start: "2026-01-01", end: "2036-01-01" } })).toHaveLength(1000);
+  });
+});
+
+describe("readEventTime", () => {
+  it("reads a date column as a day, whatever the value carries", () => {
+    expect(readEventTime("2026-11-02", {})).toBe("2026-11-02");
+    expect(readEventTime("2026-11-02 09:30:00+00", { dateOnly: true })).toBe("2026-11-02");
+  });
+
+  it("reads a zoned timestamp as its instant", () => {
+    expect((readEventTime("2026-11-02 09:30:00.123456+00") as Date).toISOString()).toBe("2026-11-02T09:30:00.123Z");
+    expect((readEventTime("2026-11-02T09:30:00-0700") as Date).toISOString()).toBe("2026-11-02T16:30:00.000Z");
+    expect((readEventTime("2026-11-02T09:30Z") as Date).toISOString()).toBe("2026-11-02T09:30:00.000Z");
+  });
+
+  it("reads a zoneless timestamp as a wall time on the given clock", () => {
+    expect((readEventTime("2026-11-02 09:30:00", { timeZone: "America/Denver" }) as Date).toISOString()).toBe("2026-11-02T16:30:00.000Z");
+    expect((readEventTime("2026-11-02 09:30:00.5", { timeZone: "Asia/Tokyo" }) as Date).toISOString()).toBe("2026-11-02T00:30:00.500Z");
+  });
+
+  it("is null for anything else", () => {
+    expect(readEventTime("soon")).toBeNull();
+    expect(readEventTime("2026-02-30")).toBeNull();
+    expect(readEventTime(42)).toBeNull();
+    expect(readEventTime(new Date("nope"))).toBeNull();
+    // An out-of-range wall time drops the one row rather than throwing.
+    expect(readEventTime("2026-11-02 25:00:00", { timeZone: "America/Denver" })).toBeNull();
+    expect(readEventTime("2026-11-02 09:61:00")).toBeNull();
   });
 });
 

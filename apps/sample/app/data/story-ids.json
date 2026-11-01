@@ -19,6 +19,7 @@
   "dialog": "foundation-ui-dialog--default",
   "dropdownmenu": "foundation-ui-dropdownmenu--default",
   "emptystate": "foundation-ui-emptystate--first-run",
+  "eventcalendar": "data-eventcalendar--month",
   "form": "primitives-forms-form--focus",
   "formbuilder": "primitives-forms-formbuilder--questions",
   "hovercard": "foundation-ui-hovercard--default",

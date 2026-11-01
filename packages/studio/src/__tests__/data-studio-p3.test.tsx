@@ -171,9 +171,10 @@ describe("DataStudio P3: calendar", () => {
     const day = calendar.querySelector('[data-day="2026-10-06"]') as HTMLElement;
     expect(within(day).getByText("Client 2")).toBeTruthy();
     const request = calls.find((c) => c.op === "getList" && c.args.filters?.some((f: FilterParam) => f.operator === "gte"))!;
+    // The grid's whole weeks, Monday first: 28 September to 2 November.
     expect(request.args.filters).toEqual([
-      { field: "starts_on", operator: "gte", value: "2026-10-01" },
-      { field: "starts_on", operator: "lt", value: "2026-11-01" },
+      { field: "starts_on", operator: "gte", value: "2026-09-28" },
+      { field: "starts_on", operator: "lt", value: "2026-11-02" },
     ]);
     fireEvent.click(screen.getByRole("button", { name: "Next month" }));
     await waitFor(() => expect(JSON.parse(screen.getByTestId("location").textContent!).month).toBe("2026-11"));
@@ -188,7 +189,8 @@ describe("DataStudio P3: calendar", () => {
     const expected = `${local.getFullYear()}-${String(local.getMonth() + 1).padStart(2, "0")}-${String(local.getDate()).padStart(2, "0")}`;
     expect(localDay("2026-10-19 12:00:00.123456+00", false)).toBe(expected);
     expect(localDay("not a date", false)).toBeNull();
-    expect(monthBounds("2026-12", { name: "d", type: "datetime", dbType: "date" })).toEqual({ from: "2026-12-01", to: "2027-01-01" });
+    expect(monthBounds("2026-12", { name: "d", type: "datetime", dbType: "date" })).toEqual({ from: "2026-11-30", to: "2027-01-04" });
+    expect(monthBounds("2026-12", { name: "d", type: "datetime", dbType: "timestamp without time zone" })).toEqual({ from: "2026-11-30T00:00:00", to: "2027-01-04T00:00:00" });
   });
 });
 

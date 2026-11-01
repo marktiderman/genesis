@@ -323,6 +323,81 @@ On phones:
   - A user toggle for it sits behind the feature gate and an admin permission. Otherwise every
     list grows a spreadsheet button.
 
+## Calendar
+
+A view's `calendar` block says how its rows show on a calendar. It is part of the description, so
+ResourceView draws it on the web and NativeResourceView will on the phone, with no change to the
+type. `mode="calendar"` shows it.
+
+```ts
+export const eventsView = defineView(contracts["public.events"], {
+  scope: ["household_id"],
+  calendar: { field: "starts_at", endField: "ends_at", laneBy: "people", layout: "weeks", weeks: 2, weekStartsOn: 0 },
+});
+```
+
+```tsx
+<ResourceView view={eventsView} mode="calendar" />
+<ResourceView
+  view={eventsView}
+  mode="calendar"
+  calendar={{ layout: "agenda", weeks: 1, layouts: ["month", "weeks", "agenda", "lanes"], lanes, onSelect: openEvent }}
+/>
+```
+
+- **The block** (`ViewCalendar`, plain values only): `field` (a date or timestamp), `endField`,
+  `allDayField` (yes/no), `laneBy` (a field whose value or list of values names a row's lanes),
+  `layout`, `weeks` (1–4) and `weekStartsOn` (0 Sunday, 1 Monday). `defineView` checks the field
+  names and types.
+- **The screen** overrides any of those through `calendar={…}` and adds what a description can't
+  hold: `anchor`/`onAnchorChange` and `layout`/`onLayoutChange` (to keep them in the URL),
+  `layouts` (a switch in the toolbar), `lanes` (labels and colours), `lanesOf(row)`,
+  `colorsOf(row)`, `onSelect(row)`, `timeZone`, `limit`, `showEmptyDays`. The peek honours the
+  screen's `cells`, and an unknown `preset` throws, as in the list.
+- **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
+  by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
+- **Data** goes through the view's provider rules: the scope, the screen's `filter` and a preset's
+  filter, plus the visible window. Without an `endField` that is one `getList` for rows starting in
+  the window. With one, it is the rows that overlap it (`start < windowEnd` and `end >= windowStart`,
+  so an event that began weeks ago is there) and, in a second `getList`, rows with no end that
+  start in it. The queries sit under core's list keys (`resourceKeys(resource).list(params)`), so a
+  save to the resource refreshes the calendar like any list. At most 500 rows per request
+  (`limit`; with an `endField`, two requests); past that the calendar says "+N more not shown",
+  in print too, rather than dropping rows silently. While a window loads the calendar is
+  `aria-busy` and never says "Nothing scheduled".
+- **Days.** A `date` field is that day everywhere. A timestamp lands on the day on the same clock
+  its cells use: the field's own `timeZone` (the scope's or a fixed zone), else the viewer's
+  (ViewerScope's `timeZone`), else the device's; the window's bounds use that clock too. A
+  `timestamp without time zone` is a wall time: bounded by wall-clock midnights and read on that
+  clock. An event with an `endField` shows on every day it covers (a date end is the last day, a
+  timestamp end is exclusive, also for an all-day row stored as instants). All-day events sit
+  above timed ones. A busy day shows its first few events and "+N more"; print shows them all.
+- **People and dots.** An event shows once on the grid with a dot per lane in the lane's `color`
+  (or `colorsOf(row)`), and its lanes are read out to screen readers: colour is never the only
+  cue. In `lanes`, a shared event sits in each person's row, and events with no lane get an
+  "Unassigned" row.
+- **Opening.** A click opens the view's peek (the same fields the list's peek shows), or calls
+  `onSelect(row)`.
+- **Keyboard.** The day grid and the lanes are each a `role="grid"` with one tab stop: arrow
+  keys move a day or a week (a lane in `lanes`; Left and Right run on to the next week in the day
+  grid), Home and End go to the row's ends, PageUp and PageDown move the window back or on
+  (keeping the focused cell's place when its day isn't in the new window), an arrow past the
+  grid's edge moves it too, and Tab reaches each
+  event's button. A day is read with its date, year and count: "Tuesday, November 3, 2026, 2
+  events". A title across New Year names both years.
+- **Printing.** The agenda prints as a plain list: no controls, no fills, a day never split
+  across pages. For a printed week per person, filter the view to that person and use
+  `layout: "agenda", weeks: 1`.
+- **Not a list mode.** Calendar is ResourceView's own `mode`, not one of the list's view modes:
+  it isn't in the header's toggle, and it is never stored as the user's remembered view, so other
+  lists of the resource don't open in it.
+
+`EventCalendar` (`/data`) is the same calendar for events that aren't one view's rows (a merged
+feed, an expanded recurring series): give it `CalendarEvent`s (`start`/`end` as days or instants,
+`lanes`, `colors`). Recurring series expand with `expandRecurrence` from
+`@marktiderman/genesis-core/dates`, and the window helpers (`monthGridRange`, `weeksRange`,
+`rangeIn`) are there too. Studio's calendar is drawn by it.
+
 ## Security model
 
 ResourceView adds **no authority**. The layers, in order:
