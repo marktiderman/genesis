@@ -66,8 +66,8 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 
 ## Owning a pull request
 
-1. **The session that opens a PR owns it until it merges.** Turn on Auto-fix for it (the desktop
-   app's CI monitor), keep its required checks green, merge its base in whenever it falls behind or
+1. **The session that opens a PR owns it until it merges.** Turn on Auto-fix for it (the Claude
+   desktop app's CI monitor), keep its required checks green, merge its base in whenever it falls behind or
    conflicts (merge, never rebase), and answer every review finding: fix it, or decline it with
    the reason.
 2. **Hand it to triage when it's ready.** Triage is the session that reviews PRs into staging
