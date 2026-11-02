@@ -1,5 +1,0 @@
----
-"@marktiderman/genesis-cli": patch
----
-
-`genesis upgrade` no longer leaves a pnpm app whose CI fails on its next `pnpm install --frozen-lockfile`. When the upgrade installs Genesis releases younger than the app's `minimumReleaseAge`, pnpm's loose mode pins each one in pnpm-workspace.yaml (`'@marktiderman/genesis-ui@2.26.0'`), and pnpm 11.1.3's frozen install honours only the first pinned version of a package, so a second pin failed with `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade now replaces every Genesis entry in `minimumReleaseAgeExclude` with one `'@marktiderman/genesis-*'` pattern (the umbrella by its bare name), leaving every other entry and the file's comments as they were, and `--pr` commits pnpm-workspace.yaml with the lockfile. It then runs `pnpm dedupe` (`npm dedupe` with npm), so a Genesis package is no longer left installed at two versions (`duplicate-genesis-package`). The reusable genesis-upgrade workflow runs the same code after its installs (both jobs) and commits pnpm-workspace.yaml with the package.json files and the lockfile; move your workflow ref to this release to get it.
