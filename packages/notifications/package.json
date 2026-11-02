@@ -192,7 +192,10 @@
             "provides": [
               {
                 "package": "@marktiderman/genesis-supabase",
-                "file": "migrations/0005_genesis_push.sql"
+                "file": "migrations/0005_genesis_push.sql",
+                "functions": [
+                  "functions/genesis-push-send"
+                ]
               }
             ]
           }

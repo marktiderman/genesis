@@ -516,7 +516,8 @@ program
   .option("-y, --yes", "Don't ask before writing", false)
   .option("--no-install", "Don't install packages (print the command instead)")
   .option("--no-features-build", "Don't run features build after")
-  .action(async (block: string | undefined, opts: { dir: string; package?: string; list: boolean; dryRun: boolean; yes: boolean; install: boolean; featuresBuild: boolean }) => {
+  .option("--database-only", "Only the block's migrations, pgTAP tests, Edge Functions and config.toml sections: in the app that holds another app's database", false)
+  .action(async (block: string | undefined, opts: { dir: string; package?: string; list: boolean; dryRun: boolean; yes: boolean; install: boolean; featuresBuild: boolean; databaseOnly: boolean }) => {
     const root = path.resolve(opts.dir);
     if (opts.list || !block) {
       const { allBlocks } = await import("./blocks/discover.js");
@@ -530,7 +531,7 @@ program
       return;
     }
     const { runAdd } = await import("./blocks/add.js");
-    const report = await runAdd({ root, block, ...(opts.package ? { package: opts.package } : {}), dryRun: opts.dryRun, yes: opts.yes, install: opts.install, featuresBuild: opts.featuresBuild, log: logger, confirm });
+    const report = await runAdd({ root, block, ...(opts.package ? { package: opts.package } : {}), dryRun: opts.dryRun, yes: opts.yes, install: opts.install, featuresBuild: opts.featuresBuild, ...(opts.databaseOnly ? { databaseOnly: true } : {}), log: logger, confirm });
     for (const w of report.warnings) logger.warn(w);
     for (const k of report.kept) logger.warn(`${k.path}: ${k.why}`);
     console.log("");

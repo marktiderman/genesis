@@ -146,11 +146,16 @@ When the web app has a `supabase/` folder, init writes none of the starter's `su
 the database CI workflow), sets `"supabase": { "app": "../app" }` in the new app's
 `genesis.config.json` (the web app's folder, relative to the phone app) and drops the doctor's
 supabase pack there. The lock still records the blocks that are on, with no Supabase files, and the
-summary's first line says what to run in the web app for the ones its lock doesn't list, in the
-order to run them (a block's requirements first, `notifications` before `push`):
+summary's first line says what to run in the web app for the ones whose database files it lacks
+(a migration it has no copy of, newer ones of a block it has included, or an Edge Function with no
+folder there), in the order to run them (a block's requirements first, `notifications` before
+`push`). Each is `genesis add <block> --database-only`: only the block's migrations, pgTAP tests,
+Edge Functions and `config.toml` sections, and the packages they're read from. A phone block's
+install, routes, skills, steps and feature entry stay the phone app's, and the web app's lock
+doesn't list the block (its copies are tracked by their headers and lock entries):
 
 ```text
-In ../app (it holds this app's database), run: genesis add account && genesis add notifications && genesis add push
+In ../app (it holds this app's database), run: genesis add account --database-only && genesis add chat --database-only
 ```
 
 A web app with no `supabase/` folder gets a note instead, and the phone app keeps its own, as
@@ -159,8 +164,9 @@ without `--beside`.
 The setting, on any app: `"supabase": { "app": "<folder>" }` says this app's database files live in
 that app's `supabase/`; `"supabase": false` says this app has none. With either, `genesis add`,
 `migrate` and `upgrade` never write or plan Supabase files here (migrations, pgTAP tests, Edge
-Functions, `config.toml` sections); they say where to run them instead, and which of this app's
-blocks the other app's lock doesn't list. They don't write into the other app: its lock, its
+Functions, `config.toml` sections); they say where to run them instead (`genesis add <block> --database-only`), and which of this
+app's blocks' database files the other app lacks; `upgrade` still lists new package migrations,
+to apply there. They don't write into the other app: its lock, its
 installed package versions and its doctor are its own, so the commands run there. `upgrade` leaves
 lock entries under `supabase/` alone, so an app that moves to the setting can delete its
 `supabase/` folder and those entries. The doctor's supabase pack doesn't run, and
@@ -383,13 +389,25 @@ A migration that creates or adopts another package migration's objects says so i
 manifest, `provides` on the migration entry (package.json `genesis.blocks`):
 
 ```json
-{ "file": "migrations/0001_genesis_notifications.sql", "provides": [{ "package": "@marktiderman/genesis-supabase", "file": "migrations/0005_genesis_push.sql" }] }
+{
+  "file": "migrations/0001_genesis_notifications.sql",
+  "provides": [{ "package": "@marktiderman/genesis-supabase", "file": "migrations/0005_genesis_push.sql", "functions": ["functions/genesis-push-send"] }]
+}
 ```
 
-Once the providing migration is in the app (a copy, or one the lock says was copied), or is copied
-in the same run, the provided one is `provided`, never `new`: notifications 0001 adopts the push
-tables of supabase 0005, and copying 0005 after it would fail on tables that already exist. The
-other way round needs nothing: 0001 adopts 0005's tables when they're there.
+Once the providing migration is in the app (a copy, by its header or, made before headers, by
+name; or the file the lock says it was copied to, while it's there), or is copied in the same run,
+the provided one is `provided`, never `new`: notifications 0001 adopts the push tables of supabase
+0005, and copying 0005 after it would fail on tables that already exist.
+
+`provides` doesn't mean the provider creates everything: 0001 creates 0005's tables and its
+register and forget functions, not the sender's (`genesis_push_targets`, `_status`,
+`_tickets_record`, `_receipts_claim`/`_settle`, `_devices_forget`). `functions` names the Edge
+Functions of the provided migration's package that call what only it creates: where it's provided
+they're superseded, so `genesis add push` neither copies nor deploys `genesis-push-send`, and its
+steps point at the notifications runner (`genesis-notifications`), which sends instead. Applying
+0001 after 0005 works too (it adopts the tables); then stop calling `genesis-push-send`, as
+notifications' steps say.
 
 In an app whose database files live elsewhere ([A phone app beside a web app](#a-phone-app-beside-a-web-app)),
 migrate plans nothing and says where to run it.

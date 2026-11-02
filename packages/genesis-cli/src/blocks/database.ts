@@ -11,11 +11,12 @@
  * other app either: its lock, its blocks, its installed package versions and
  * its doctor are its own, so the CLI is run there, in that app.
  */
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import * as path from "node:path";
-import { readGenesisConfig } from "../doctor/config.js";
-import { readLock } from "./lock.js";
+import { GenesisConfigError, readGenesisConfig } from "../doctor/config.js";
+import { migrationKey, readLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
+import { providingMigrations, readAppMigrations, stemOrNull, type ProvidingMigration } from "./migrations.js";
 
 export interface DatabaseElsewhere {
   /** The owning app's folder as the setting writes it (`../app`), or null for `"supabase": false`. */
@@ -31,7 +32,11 @@ export function databaseElsewhere(root: string): DatabaseElsewhere | null {
   const setting = readGenesisConfig(root)?.supabase;
   if (setting === undefined) return null;
   if (setting === false) return { app: null, dir: null, hasSupabase: false };
-  const dir = path.resolve(root, setting.app);
+  // Its real folder (a symlink resolved), which can't be this app: then the setting points nowhere else.
+  const resolved = path.resolve(root, setting.app);
+  const real = (p: string) => (existsSync(p) ? realpathSync(p) : p);
+  const dir = real(resolved);
+  if (dir === real(path.resolve(root))) throw new GenesisConfigError(`${path.join(root, "genesis.config.json")}: supabase.app "${setting.app}" is this app itself; leave "supabase" out instead`);
   return { app: setting.app, dir, hasSupabase: existsSync(path.join(dir, "supabase")) };
 }
 
@@ -47,17 +52,62 @@ export function elsewhereNote(home: DatabaseElsewhere, command = "genesis migrat
 }
 
 /**
- * Of these blocks, the ones the owning app's genesis.lock.json doesn't list, so their database
- * files may not be there yet. Read only; null when the owning app's lock can't be read.
+ * Of these blocks, the ones whose database files the owning app lacks: a migration it has no copy
+ * of (by header, by name for a copy made before headers, or where its genesis.lock.json says one
+ * went) and that nothing there provides, or an Edge Function with no folder there. So a newer
+ * migration of a block the app already has counts too. Read only; null when the owning app's lock
+ * or migrations can't be read.
  */
-export function blocksMissingThere(home: DatabaseElsewhere, ids: readonly string[]): string[] | null {
+export function blocksMissingThere(home: DatabaseElsewhere, ids: readonly string[], manifests: readonly Pick<BlockManifest, "id" | "migrations" | "functions">[]): string[] | null {
+  const missing = migrationsMissingThere(home, ids, manifests);
+  if (!missing) return null;
+  return ids.filter((id) => missing.some((m) => m.block === id));
+}
+
+export interface MissingThere {
+  block: string;
+  /** `<package> <file>` of a migration, or `<package> <dir>` of an Edge Function. */
+  what: string;
+  kind: "migration" | "function";
+}
+
+/** What {@link blocksMissingThere} counts, one row per migration or function. */
+export function migrationsMissingThere(home: DatabaseElsewhere, ids: readonly string[], manifests: readonly Pick<BlockManifest, "id" | "migrations" | "functions">[]): MissingThere[] | null {
   if (!home.dir) return null;
+  let copied: Record<string, string>;
+  let app: ReturnType<typeof readAppMigrations>;
   try {
-    const there = readLock(home.dir).blocks;
-    return ids.filter((id) => !there[id]);
+    copied = readLock(home.dir).migrations ?? {};
+    app = readAppMigrations(home.dir);
   } catch {
     return null;
   }
+  const has = (pkg: string, file: string): boolean => {
+    if (Object.hasOwn(copied, migrationKey(pkg, file))) return true;
+    const stem = stemOrNull(file);
+    return app.some((m) => !m.forward && (m.tracked ? m.tracked.package === pkg && m.tracked.file === file : stem !== null && m.name.replace(/^\d+_/, "") === `${stem}.sql`));
+  };
+  const providers: ProvidingMigration[] = providingMigrations(manifests);
+  const out: MissingThere[] = [];
+  for (const id of ids) {
+    const m = manifests.find((b) => b.id === id);
+    if (!m) continue;
+    const superseded = new Set<string>();
+    for (const mig of m.migrations) {
+      if (has(mig.package, mig.file)) continue;
+      const by = providers.find((p) => has(p.package, p.file) && p.provides.some((x) => x.package === mig.package && x.file === mig.file));
+      if (by) {
+        for (const dir of by.provides.find((x) => x.package === mig.package && x.file === mig.file)?.functions ?? []) superseded.add(`${mig.package}:${dir}`);
+        continue;
+      }
+      out.push({ block: id, what: `${mig.package} ${mig.file}`, kind: "migration" });
+    }
+    for (const fn of m.functions) {
+      if (superseded.has(`${fn.package}:${fn.dir}`)) continue;
+      if (!existsSync(path.join(home.dir, "supabase", "functions", fn.dir.split("/").pop()!))) out.push({ block: id, what: `${fn.package} ${fn.dir}`, kind: "function" });
+    }
+  }
+  return out;
 }
 
 /**
@@ -85,8 +135,16 @@ export function orderForAdding(ids: readonly string[], manifests: readonly Pick<
   return out;
 }
 
-/** `In ../app (it holds the database), run: genesis add a && genesis add b` for the blocks the owning app lacks, or null. */
+/** The command that adds only a block's database files (never its phone parts) in the app that holds them. */
+export function addThereCommand(id: string): string {
+  return `genesis add ${id} --database-only`;
+}
+
+/**
+ * `In ../app (it holds the database), run: genesis add a --database-only && …` for the blocks the
+ * owning app lacks, or null. Database only: a phone block's install, routes and steps aren't the web app's.
+ */
 export function addThereLine(home: DatabaseElsewhere, ids: readonly string[]): string | null {
   if (!home.app || !ids.length) return null;
-  return `In ${home.app} (it holds this app's database), run: ${ids.map((id) => `genesis add ${id}`).join(" && ")}`;
+  return `In ${home.app} (it holds this app's database), run: ${ids.map(addThereCommand).join(" && ")}`;
 }

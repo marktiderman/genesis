@@ -31,7 +31,7 @@ import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js
 import { APP_FOLDER_PLACEHOLDER, starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
 import { planMigrations, providingMigrations, TESTS_DIR } from "../blocks/migrations.js";
-import { databaseElsewhere, elsewhereNote, isSupabasePath } from "../blocks/database.js";
+import { addThereCommand, databaseElsewhere, elsewhereNote, isSupabasePath, migrationsMissingThere } from "../blocks/database.js";
 import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from "../blocks/owned.js";
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
@@ -299,13 +299,19 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       warnings.push(err instanceof Error ? err.message : String(err));
     }
   }
+  // The database elsewhere: its new migrations are still listed, to apply in the app that holds it.
+  if (home?.app) {
+    const missing = migrationsMissingThere(home, manifests.map((m) => m.id), [...manifests, ...catalog]);
+    if (!missing) warnings.push(`Can't read ${home.app}'s genesis.lock.json or migrations, so its new package migrations aren't listed.`);
+    for (const m of missing ?? []) if (m.kind === "migration") newMigrations.push(`${m.what} (apply in ${home.app}: ${addThereCommand(m.block)})`);
+  }
   const refreshed: RefreshOutcome[] = [];
   // The database's files are the other app's to refresh: entries under supabase/ are left alone.
   const elsewhereEntries = home ? Object.keys(lock.files).filter(isSupabasePath) : [];
   for (const [file, entry] of Object.entries(lock.files)) {
     if (home && isSupabasePath(file)) continue;
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
-    if (newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
+    if (!home && newMigrations.length && file.startsWith(`${TESTS_DIR}/`)) {
       refreshed.push({ path: file, outcome: "deferred", detail: "new package migrations are waiting: run genesis migrate, then genesis upgrade again" });
       continue;
     }
@@ -318,9 +324,18 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if (outcome.outcome === "updated" || outcome.outcome === "merged") files.add(file);
     if ((outcome.outcome === "conflict" || outcome.outcome === "kept-mine") && !outcome.detail?.includes("already there")) next.add(`${file}.genesis-next`);
   }
+  const functionsLeft: string[] = [];
   for (const manifest of manifests) {
     for (const w of ownedWrites(root, manifest, warnings)) {
       if (lock.files[w.path] || (home && isSupabasePath(w.path))) continue;
+      // An Edge Function the lock never had is genesis add's to copy, with its config.toml section
+      // and deploy steps (or it's superseded, as push's sender is where notifications provides its
+      // migration): a new file in a function the app has is still added.
+      const fnDir = /^supabase\/functions\/([^/]+)\//.exec(w.path)?.[1];
+      if (fnDir && !Object.keys(lock.files).some((f) => f.startsWith(`supabase/functions/${fnDir}/`))) {
+        if (!functionsLeft.includes(`${fnDir} (${manifest.id})`)) functionsLeft.push(`${fnDir} (${manifest.id})`);
+        continue;
+      }
       const outcome = copyOwned(root, lock, { ...w, content: substitute(w.content, lock.substitutions) }, options.dryRun);
       if (outcome === "created") {
         added.push(w.path);
@@ -367,7 +382,8 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
   if (switchedOff.length) lines.push("", "Blocks switched off (left out):", "", ...switchedOff.map((s) => `- ${s}`));
-  if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
+  if (newMigrations.length) lines.push("", home ? `New package migrations (in ${home.app ?? "the app that holds the database"}, not here):` : "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
+  if (functionsLeft.length) lines.push("", "Edge Functions the app never had, not added (genesis add <block> adds one with its config.toml section, where it isn't superseded):", "", ...functionsLeft.map((f) => `- ${f}`));
   if (home) {
     lines.push("", `Database files: ${elsewhereNote(home, "genesis upgrade (then genesis migrate)")}`);
     if (elsewhereEntries.length) lines.push("", `genesis.lock.json still lists ${elsewhereEntries.length} file${elsewhereEntries.length === 1 ? "" : "s"} under supabase/; they're left alone and can be deleted from the lock (and the folder).`);

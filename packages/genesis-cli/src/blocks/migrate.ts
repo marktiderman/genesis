@@ -60,7 +60,11 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   const home = databaseElsewhere(root);
   if (home) {
     const ids = [...new Set([...Object.keys(lock.blocks), ...(options.blocks ?? [])])];
-    const missing = orderForAdding(blocksMissingThere(home, ids) ?? [], catalogBlocks());
+    const catalog = catalogBlocks();
+    const there = blocksMissingThere(home, ids, catalog);
+    // Unreadable there: every block may be missing, as init and add say.
+    if (home.app && !there) warnings.push(`Can't read ${home.app}'s genesis.lock.json or migrations, so every block is listed.`);
+    const missing = orderForAdding(there ?? ids, catalog);
     if (home.app && !home.hasSupabase) warnings.push(`${home.app} has no supabase folder: genesis.config.json supabase.app should name the app that holds it.`);
     const line = addThereLine(home, missing);
     const note = [elsewhereNote(home), ...(line ? [line] : [])].join(" ");

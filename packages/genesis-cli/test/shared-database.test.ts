@@ -9,7 +9,7 @@ import { existsSync, readFileSync, symlinkSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
-import { orderForAdding } from "../src/blocks/database.js";
+import { databaseElsewhere, orderForAdding } from "../src/blocks/database.js";
 import { catalogBlocks } from "../src/blocks/discover.js";
 import { sha256 } from "../src/blocks/files.js";
 import { besideConfig, runInitNative } from "../src/blocks/init-native.js";
@@ -34,6 +34,7 @@ async function twoApps(options: { without?: string[] } = {}) {
   writeTree(app, {
     "package.json": JSON.stringify({ name: "sample-web", dependencies: { [NOTIFICATIONS]: "^0.4.0", [SUPABASE]: "^0.11.0" } }, null, 2) + "\n",
     "supabase/config.toml": 'project_id = "sample-web"\n',
+    "supabase/functions/genesis-notifications/index.ts": "// the notifications runner\n",
     "supabase/migrations/20261001000000_genesis_notifications.sql": migrationHeader(NOTIFICATIONS, "migrations/0001_genesis_notifications.sql", notifications) + notifications,
   });
   writeLock(app, { version: 1, blocks: { notifications: { package: NOTIFICATIONS } }, files: {}, migrations: { [`${NOTIFICATIONS}:migrations/0001_genesis_notifications.sql`]: "supabase/migrations/20261001000000_genesis_notifications.sql" } });
@@ -59,10 +60,11 @@ describe("genesis init --template native --beside <web-app>", () => {
     expect(lock.migrations).toBeUndefined();
     // Every block the starter carries that is on: recorded here, so it can be added there.
     expect(Object.keys(lock.blocks).sort()).toEqual(["account", "app-updates", "chat", "notifications", "push", "support-feedback"]);
-    // The web app's lock has notifications; the rest are what to add there, in one line.
+    // The web app has notifications' 0001, which provides push's 0005 and supersedes its sender, so
+    // push needs nothing there; the rest are what to add there, database only, in one line.
     expect(result.beside).toMatchObject({ app: "../app", shared: true });
-    expect([...result.beside!.missing].sort()).toEqual(["account", "app-updates", "chat", "push", "support-feedback"]);
-    expect(result.beside!.line).toBe(`In ../app (it holds this app's database), run: ${result.beside!.missing.map((id) => `genesis add ${id}`).join(" && ")}`);
+    expect([...result.beside!.missing].sort()).toEqual(["account", "app-updates", "chat", "support-feedback"]);
+    expect(result.beside!.line).toBe(`In ../app (it holds this app's database), run: ${result.beside!.missing.map((id) => `genesis add ${id} --database-only`).join(" && ")}`);
     expect(result.steps[0]).toBe(result.beside!.line);
     expect(files["README.md"]).toContain("The database is ../app's");
   });
@@ -85,16 +87,23 @@ describe("genesis init --template native --beside <web-app>", () => {
     expect(migrate.written).toEqual([]);
     expect(migrate.attention).toBe(false);
     expect(migrate.elsewhere?.note).toMatch(/live in \.\.\/app\/supabase .*run genesis migrate in \.\.\/app/);
-    expect(migrate.elsewhere?.missing).toContain("push");
+    expect(migrate.elsewhere?.missing).toContain("chat");
+    expect(migrate.elsewhere?.missing).not.toContain("push");
+    expect(migrate.elsewhere?.note).toContain("genesis add chat --database-only");
     expect(snapshot(mobile)).toEqual(before);
 
     const add = await runAdd({ root: mobile, block: "push", dryRun: true, install: false, featuresBuild: false, now: NOW });
     expect(add.migrations).toEqual({ rows: [], creates: [] });
-    expect(add.steps.some((s) => s.includes("genesis add push there"))).toBe(true);
+    expect(add.steps.some((s) => s.includes("../app already has every one of its migrations and Edge Functions"))).toBe(true);
+    const chat = await runAdd({ root: mobile, block: "chat", dryRun: true, install: false, featuresBuild: false, now: NOW });
+    expect(chat.steps.some((s) => s.includes("genesis add chat --database-only there"))).toBe(true);
     expect(add.steps.some((s) => /supabase (functions deploy|secrets set)/.test(s))).toBe(false);
 
     const upgrade = await runUpgrade({ root: mobile, lookup: { release: () => ({ version: "9.9.9", packages: {} }), latest: () => null }, dryRun: true, install: false, doctor: false });
-    expect(upgrade.newMigrations).toEqual([]);
+    // Still listed, to apply where the database is.
+    expect(upgrade.newMigrations).toContain(`@marktiderman/genesis-chat migrations/0001_genesis_chat.sql (apply in ../app: genesis add chat --database-only)`);
+    expect(upgrade.newMigrations.some((m) => m.includes("0005_genesis_push"))).toBe(false);
+    expect(upgrade.summary).toContain("New package migrations (in ../app, not here):");
     expect([...upgrade.files, ...upgrade.added].filter((f) => f.startsWith("supabase/"))).toEqual([]);
     expect(upgrade.summary).toContain("Database files: This app's database files live in ../app/supabase");
     expect(snapshot(mobile)).toEqual(before);
@@ -148,6 +157,10 @@ describe("the supabase setting", () => {
     expect(validateSupabase(false)).toBe(false);
     expect(validateSupabase(true)).toBe(true);
     expect(validateSupabase({ app: "../app/" })).toEqual({ app: "../app" });
+    const root = tempDir("genesis-self-");
+    writeTree(root, { "mobile/genesis.config.json": JSON.stringify({ supabase: { app: "../link" } }) });
+    symlinkSync(path.join(root, "mobile"), path.join(root, "link"), "dir");
+    expect(() => databaseElsewhere(path.join(root, "mobile"))).toThrow(/is this app itself/);
     for (const bad of [{ app: "/abs/app" }, { app: "." }, { app: "" }, { root: "../app" }, "../app", { app: "..\\app" }]) expect(() => validateSupabase(bad, "genesis.config.json")).toThrow(GenesisConfigError);
   });
 
@@ -177,6 +190,53 @@ describe("overlapping migrations (provides)", () => {
     const add = await runAdd({ root: app, block: "push", dryRun: true, install: false, featuresBuild: false, now: NOW });
     expect(add.migrations.rows.map((r) => `${r.file} ${r.state}`)).toEqual(["migrations/0005_genesis_push.sql provided"]);
     expect(add.migrations.creates).toEqual([]);
+    // 0001 doesn't create the sender's RPCs (genesis_push_targets, …): genesis-push-send is superseded,
+    // neither copied nor deployed, and the steps point at the notifications runner.
+    expect(add.created).toEqual([]);
+    expect(add.steps.some((s) => /genesis-push-send|GENESIS_PUSH_SECRET/.test(s) && /supabase (functions deploy|secrets set)/.test(s))).toBe(false);
+    expect(add.steps.some((s) => s.startsWith("genesis-push-send isn't copied or deployed") && s.includes("genesis-notifications (the notifications block's Edge Function)"))).toBe(true);
+    const written = await runAdd({ root: app, block: "push", yes: true, install: false, featuresBuild: false, now: NOW });
+    expect(written.created.filter((f) => f.startsWith("supabase/"))).toEqual([]);
+    expect(existsSync(path.join(app, "supabase", "functions", "genesis-push-send"))).toBe(false);
+  });
+
+  it("add --database-only copies a phone block's migration and function, and nothing of the phone's", async () => {
+    const root = tempDir("genesis-web-");
+    writeTree(root, {
+      "package.json": JSON.stringify({ name: "sample-web", dependencies: { [SUPABASE]: "^0.11.0" } }, null, 2) + "\n",
+      "supabase/config.toml": 'project_id = "sample-web"\n',
+    });
+    for (const [name, folder] of [[SUPABASE, "supabase"], ["@marktiderman/genesis-native", "native"]] as const) linkWorkspacePackage(root, name, folder);
+    const dry = await runAdd({ root, block: "push", databaseOnly: true, dryRun: true, install: false, featuresBuild: false, now: NOW });
+    // Only the package its files come from: genesis-supabase is there, so nothing to install.
+    expect(dry.install).toBeNull();
+    expect(dry.migrations.rows.map((r) => `${r.file} ${r.state}`)).toEqual(["migrations/0005_genesis_push.sql new"]);
+    expect(dry.featureSnippet).toBeUndefined();
+    expect(dry.steps.some((s) => /expo-notifications|createPush|eas init|screen/.test(s))).toBe(false);
+    expect(dry.steps.some((s) => s.includes("supabase secrets set GENESIS_PUSH_SECRET"))).toBe(true);
+    const run = await runAdd({ root, block: "push", databaseOnly: true, yes: true, install: false, featuresBuild: false, now: NOW });
+    expect(run.created.some((f) => f.startsWith("supabase/functions/genesis-push-send/"))).toBe(true);
+    expect(run.created.some((f) => /^supabase\/migrations\/\d+_genesis_push\.sql$/.test(f))).toBe(true);
+    expect(run.created.some((f) => f.startsWith(".claude/") || f.startsWith("src/"))).toBe(false);
+    const lock = readLock(root);
+    expect(lock.blocks["push"]).toBeUndefined();
+    expect(Object.keys(lock.migrations ?? {})).toEqual([`${SUPABASE}:migrations/0005_genesis_push.sql`]);
+    // And a phone app's lines are never this in an app whose database is elsewhere.
+    writeTree(root, { "genesis.config.json": JSON.stringify({ supabase: { app: "../elsewhere" } }) });
+    await expect(runAdd({ root, block: "push", databaseOnly: true, dryRun: true, install: false })).rejects.toThrow(/--database-only/);
+  });
+
+  it("counts a newer migration of a block the web app has as missing there, and an unreadable lock as everything", async () => {
+    const { app, mobile } = await twoApps();
+    const lock = readLock(app);
+    // The web app has the chat block in its lock, but none of its migrations.
+    lock.blocks["chat"] = { package: "@marktiderman/genesis-chat" };
+    writeLock(app, lock);
+    expect((await runMigrate({ root: mobile, now: NOW })).elsewhere?.missing).toContain("chat");
+    writeTree(app, { "genesis.lock.json": "{ not json" });
+    const unreadable = await runMigrate({ root: mobile, now: NOW });
+    expect(unreadable.warnings.some((w) => w.includes("Can't read ../app's genesis.lock.json"))).toBe(true);
+    expect(unreadable.elsewhere?.missing).toEqual(expect.arrayContaining(["push", "chat", "notifications"]));
   });
 
   it("orders the blocks to add there: required ones first, and notifications before push", () => {
@@ -192,8 +252,16 @@ describe("overlapping migrations (provides)", () => {
     const both = planMigrations(root, [push, notif], { now: NOW });
     expect(both.rows.map((r) => r.state)).toEqual(["provided", "new"]);
     expect(both.creates.map((c) => c.path)).toEqual(["supabase/migrations/20261101120000_genesis_notifications.sql"]);
-    const deleted = planMigrations(root, [push], { now: NOW, copied: { [`${NOTIFICATIONS}:${notif.file}`]: "supabase/migrations/1_x.sql" }, providers: [{ package: NOTIFICATIONS, file: notif.file, provides: notif.provides! }] });
-    expect(deleted.rows[0]!.state).toBe("provided");
+    const providers = [{ package: NOTIFICATIONS, file: notif.file, provides: notif.provides! }];
+    // Where the lock says it went counts only while that file is there.
+    const copied = { [`${NOTIFICATIONS}:${notif.file}`]: "supabase/migrations/1_x.sql" };
+    expect(planMigrations(root, [push], { now: NOW, copied, providers }).rows[0]!.state).toBe("new");
+    writeTree(root, { "supabase/migrations/1_x.sql": "-- adopts\n" });
+    expect(planMigrations(root, [push], { now: NOW, copied, providers }).rows[0]).toMatchObject({ state: "provided", providedBy: { package: NOTIFICATIONS, file: notif.file } });
+    // A copy of the same name whose header names another package's migration isn't it.
+    const other = tempDir();
+    writeTree(other, { "supabase/migrations/20260101000000_genesis_notifications.sql": migrationHeader("@marktiderman/genesis-chat", "migrations/0001_genesis_notifications.sql", "x\n") + "x\n" });
+    expect(planMigrations(other, [push], { now: NOW, providers }).rows[0]!.state).toBe("new");
     const unreadable = planMigrations(root, [push, { ...notif, source: null }], { now: NOW });
     expect(unreadable.rows[0]!.state).toBe("new");
   });
@@ -201,7 +269,7 @@ describe("overlapping migrations (provides)", () => {
   it("the shipped manifests say it: notifications 0001 provides supabase 0005", () => {
     const pkg = JSON.parse(shipped("notifications", "package.json"));
     const manifest = parseManifest(NOTIFICATIONS, "notifications", pkg.genesis.blocks.notifications, pkg.version);
-    expect(manifest.migrations[0]!.provides).toEqual([{ package: SUPABASE, file: "migrations/0005_genesis_push.sql" }]);
+    expect(manifest.migrations[0]!.provides).toEqual([{ package: SUPABASE, file: "migrations/0005_genesis_push.sql", functions: ["functions/genesis-push-send"] }]);
     expect(() => parseManifest(NOTIFICATIONS, "x", { migrations: [{ file: "migrations/0001_x.sql", provides: [{ file: "migrations/0001_x.sql" }] }] })).toThrow(/can't provide itself/);
     expect(() => parseManifest(NOTIFICATIONS, "x", { migrations: [{ file: "migrations/0001_x.sql", provides: [{ package: "left-pad", file: "migrations/0002_y.sql" }] }] })).toThrow(/Genesis package/);
   });

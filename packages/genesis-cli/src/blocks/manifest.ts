@@ -39,7 +39,15 @@ export interface ManifestMigration {
    * app, `genesis add` and `migrate` count those as satisfied and never copy them: copying one
    * after this would fail on objects that already exist.
    */
-  provides?: { package: string; file: string }[];
+  provides?: {
+    package: string;
+    file: string;
+    /**
+     * Function folders of that migration's package (`functions/genesis-push-send`) that call what
+     * only it creates. Where it's provided they are superseded: never copied or deployed.
+     */
+    functions?: string[];
+  }[];
 }
 
 export interface ManifestFunction {
@@ -179,7 +187,11 @@ export function parseManifest(home: string, id: string, raw: unknown, version?: 
             problems.push(`${at2}: must be an object`);
             return { package: home, file: "" };
           }
-          const provided = { package: pkgOf(p["package"], at2), file: pathOf(p["file"], `${at2}.file`) };
+          const provided: { package: string; file: string; functions?: string[] } = { package: pkgOf(p["package"], at2), file: pathOf(p["file"], `${at2}.file`) };
+          if (p["functions"] !== undefined) {
+            if (!Array.isArray(p["functions"])) problems.push(`${at2}.functions: must be a list of function folders`);
+            else provided.functions = (p["functions"] as unknown[]).map((f, k) => pathOf(f, `${at2}.functions[${k}]`));
+          }
           if (provided.file && !MIGRATION_FILE.test(provided.file.split("/").pop()!)) problems.push(`${at2}.file: "${provided.file}" must be named NNNN_name.sql`);
           if (provided.package === out.package && provided.file === file) problems.push(`${at2}: a migration can't provide itself`);
           return provided;

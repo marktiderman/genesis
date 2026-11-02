@@ -34,7 +34,7 @@ import { catalogBlocks, CLI_PACKAGE } from "./discover.js";
 import { sha256 } from "./files.js";
 import { emptyLock, migrationKey, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
+import { nextStamp, stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
 import { addThereLine, blocksMissingThere, isSupabasePath, orderForAdding } from "./database.js";
 import { pinnedVersion } from "./pm.js";
 import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures, STARTER_CONFIG } from "./starter-features.js";
@@ -305,7 +305,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     let besideResult: InitNativeResult["beside"];
     if (beside) {
       const home = { app: beside.app, dir: beside.dir, hasSupabase: beside.shared };
-      const missing = shared ? orderForAdding(blocksMissingThere(home, blocks) ?? blocks, options.blocks) : [];
+      const missing = shared ? orderForAdding(blocksMissingThere(home, blocks, options.blocks) ?? blocks, options.blocks) : [];
       const line = !shared
         ? `${beside.app} has no supabase folder, so this app keeps its own supabase/ (as without --beside).`
         : (addThereLine(home, missing) ?? `${beside.app} already has the database side of every block this app uses (${blocks.join(", ") || "none"}).`);
@@ -350,7 +350,7 @@ function carriedBy(files: Map<string, string>, block: BlockManifest): boolean {
 function sinceAfter(files: Map<string, string>): string | null {
   const versions = [...files.keys()].filter((f) => f.startsWith(`${MIGRATIONS_DIR}/`) && f.endsWith(".sql")).map((f) => /^(\d{14})_/.exec(path.posix.basename(f))?.[1]).filter((v): v is string => Boolean(v)).sort();
   const last = versions.at(-1);
-  return last ? String(BigInt(last) + 1n).padStart(14, "0") : null;
+  return last ? nextStamp(last) : null;
 }
 
 /** The `@feat:` ids on a file's first line. */

@@ -108,6 +108,8 @@ export interface MigrationRow {
   target?: string;
   /** The forward migration that carries an edited or changed copy, when one was written. */
   forward?: string;
+  /** For a `provided` row: the migration that provides its objects. */
+  providedBy?: { package: string; file: string };
   detail?: string;
 }
 
@@ -126,15 +128,41 @@ export interface SourceMigration extends ManifestMigration {
 
 /** A package migration that provides others' objects (its manifest's `provides`). */
 export interface ProvidingMigration {
+  /** The block that ships it, when known. */
+  block?: string;
   package: string;
   file: string;
-  provides: { package: string; file: string }[];
+  provides: ProvidedMigration[];
+}
+
+type ProvidedMigration = NonNullable<ManifestMigration["provides"]>[number];
+
+/**
+ * The Edge Functions superseded where these rows' migrations are provided: a provided migration's
+ * `functions` (its package's function folders that call what only it creates). Keys are
+ * `<package>:<dir>`, with the migration that replaces them.
+ */
+export function supersededFunctions(rows: readonly MigrationRow[], providers: readonly ProvidingMigration[]): Map<string, { package: string; file: string }> {
+  const out = new Map<string, { package: string; file: string }>();
+  for (const row of rows) {
+    if (row.state !== "provided" || !row.providedBy) continue;
+    const by = providers.find((p) => p.package === row.providedBy!.package && p.file === row.providedBy!.file);
+    const entry = by?.provides.find((x) => x.package === row.package && x.file === row.file);
+    for (const dir of entry?.functions ?? []) out.set(`${row.package}:${dir}`, row.providedBy);
+  }
+  return out;
 }
 
 /** The migrations among these blocks' that provide others. */
-export function providingMigrations(manifests: readonly { migrations: readonly ManifestMigration[] }[]): ProvidingMigration[] {
+export function providingMigrations(manifests: readonly { id?: string; migrations: readonly (ManifestMigration & { block?: string })[] }[]): ProvidingMigration[] {
   const out: ProvidingMigration[] = [];
-  for (const m of manifests) for (const mig of m.migrations) if (mig.provides?.length && !out.some((o) => o.package === mig.package && o.file === mig.file)) out.push({ package: mig.package, file: mig.file, provides: mig.provides });
+  for (const m of manifests) {
+    for (const mig of m.migrations) {
+      if (!mig.provides?.length || out.some((o) => o.package === mig.package && o.file === mig.file)) continue;
+      const block = m.id ?? mig.block;
+      out.push({ ...(block ? { block } : {}), package: mig.package, file: mig.file, provides: mig.provides });
+    }
+  }
   return out;
 }
 
@@ -201,10 +229,13 @@ export function planMigrations(
   /** Where a providing migration is: its copy in the app, where the lock says it went, or this run (a readable source). */
   const providerAt = (p: ProvidingMigration): string | null => {
     const stem = stemOrNull(p.file);
-    const copy = app.find((m) => !m.forward && ((m.tracked && m.tracked.package === p.package && m.tracked.file === p.file) || (stem !== null && m.name.replace(/^\d+_/, "") === `${stem}.sql`)));
+    // Its copy: by its header, or, for a copy made before headers (none), by name. A header naming
+    // another package's migration is that one's, whatever its name.
+    const copy = app.find((m) => !m.forward && (m.tracked ? m.tracked.package === p.package && m.tracked.file === p.file : stem !== null && m.name.replace(/^\d+_/, "") === `${stem}.sql`));
     if (copy) return copy.path;
+    // Where the lock says it went, only while that file is still there.
     const copied = options.copied?.[migrationKey(p.package, p.file)];
-    if (copied) return copied;
+    if (copied && app.some((m) => m.path === copied)) return copied;
     return sources.some((s) => s.package === p.package && s.file === p.file && s.source !== null) ? "this run" : null;
   };
   const pending: { row: MigrationRow; src: SourceMigration; kind: "migration" | "forward"; copySha?: string }[] = [];
@@ -238,7 +269,7 @@ export function planMigrations(
       const by = providers.find((p) => p.provides.some((x) => x.package === src.package && x.file === src.file) && providerAt(p) !== null);
       if (by) {
         const at = providerAt(by)!;
-        rows.push({ ...base, state: "provided", detail: `${by.package} ${by.file} provides its objects (${at === "this run" ? "copied in this run" : at}); not copied` });
+        rows.push({ ...base, state: "provided", providedBy: { package: by.package, file: by.file }, detail: `${by.package} ${by.file} provides its objects (${at === "this run" ? "copied in this run" : at}); not copied` });
         continue;
       }
       const row: MigrationRow = { ...base, state: "new" };

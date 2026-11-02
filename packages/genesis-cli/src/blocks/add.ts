@@ -24,8 +24,8 @@ import { allBlocks, catalogBlocks, findBlock, packageDir, packageVersion, type F
 import { createApp, readApp, readPackageDir, readPackageFile, replaceApp, sha256 } from "./files.js";
 import { LOCK_FILE, readLock, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, providingMigrations, rememberMigrationCopies, type MigrationPlan, type SourceMigration } from "./migrations.js";
-import { blocksMissingThere, databaseElsewhere, elsewhereNote, isSupabasePath } from "./database.js";
+import { applyMigrationPlan, formatMigrationRows, needsAttention, planMigrations, providingMigrations, rememberMigrationCopies, supersededFunctions, type MigrationPlan, type SourceMigration } from "./migrations.js";
+import { addThereCommand, blocksMissingThere, databaseElsewhere, elsewhereNote, isSupabasePath } from "./database.js";
 import { copyOwned, type OwnedWrite } from "./owned.js";
 import { addCommand, detectPackageManager, pinnedVersion, run, shellLine } from "./pm.js";
 import { addFeatureEntry, featureKindField, featureSnippet } from "./registry-edit.js";
@@ -52,6 +52,13 @@ export interface AddOptions {
   log?: Logger;
   /** Asked before writing when `yes` is off. */
   confirm?: (question: string) => Promise<boolean>;
+  /**
+   * Only the block's database side: its migrations, pgTAP tests, Edge Functions and config.toml
+   * sections, and the packages they're read from. No other installs, routes, skills, AGENTS.md
+   * fragment, feature entry or lock block: for the app that holds another app's database (a phone
+   * app's push, run in the web app beside it).
+   */
+  databaseOnly?: boolean;
 }
 
 export interface AddReport {
@@ -204,19 +211,23 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   let found: FoundBlock = await findBlock(root, options.block, { ...(options.package ? { package: options.package } : {}), warnings });
   const lock = readLock(root);
   const home = databaseElsewhere(root);
+  const databaseOnly = options.databaseOnly === true;
+  if (databaseOnly && home) throw new Error(`--database-only adds a block's database files, and ${home.app ? `this app's are in ${home.app}` : "this app has none"} (genesis.config.json supabase): run it there.`);
+  if (databaseOnly && !found.manifest.migrations.length && !found.manifest.functions.length) throw new Error(`${found.manifest.id} has no database files (migrations or Edge Functions); --database-only has nothing to add.`);
 
-  // 1. Packages.
+  // 1. Packages. Database only: just the packages its migrations and functions are read from.
   const deps = appDependencies(root);
   const pm = detectPackageManager(root);
   const specs: string[] = [];
   const local = localPackageNames(root);
-  for (const name of found.manifest.packages) {
+  const needed = databaseOnly ? [...new Set([...found.manifest.migrations.map((m) => m.package), ...found.manifest.functions.map((f) => f.package)])] : found.manifest.packages;
+  for (const name of needed) {
     // A local package lives in the app's repository: nothing to install.
     if (deps[name] || local.has(name)) continue;
     const pin = pinnedVersion(root, name);
     specs.push(pin ? `${name}@${pin.version}` : name);
   }
-  for (const spec of found.manifest.install) {
+  for (const spec of databaseOnly ? [] : found.manifest.install) {
     const name = spec.startsWith("@") ? `@${spec.slice(1).split("@")[0]}` : spec.split("@")[0]!;
     if (!deps[name]) specs.push(spec);
   }
@@ -237,31 +248,45 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   const edited: string[] = [];
 
   /** Everything the run will write, from what can be read now; printed before anything happens. */
-  const makePlan = (manifest: BlockManifest, from: FoundBlock["from"]) => {
+  const makePlan = (full: BlockManifest, from: FoundBlock["from"]) => {
     const planWarnings: string[] = [];
+    const catalog = catalogBlocks();
+    const providers = providingMigrations([full, ...catalog]);
     // The database side lives in another app (or nowhere): nothing of it is planned here.
     const migrations: MigrationPlan = home
       ? { rows: [], creates: [] }
-      : planMigrations(root, sourceMigrations(root, manifest), { now, ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations([manifest, ...catalogBlocks()]) });
+      : planMigrations(root, sourceMigrations(root, full), { now, ...(lock.migrations ? { copied: lock.migrations } : {}), providers });
+    // A function whose migration another provides calls what only that migration creates: it's
+    // superseded (push's genesis-push-send, where notifications' 0001 provides 0005).
+    const superseded = supersededFunctions(migrations.rows, providers);
+    const replaced = full.functions
+      .filter((fn) => superseded.has(`${fn.package}:${fn.dir}`))
+      .map((fn) => {
+        const by = superseded.get(`${fn.package}:${fn.dir}`)!;
+        const block = providers.find((p) => p.package === by.package && p.file === by.file)?.block;
+        const instead = (block ? catalog.find((b) => b.id === block)?.functions : undefined)?.map((f) => f.dir.split("/").pop()!) ?? [];
+        return { name: fn.dir.split("/").pop()!, by, block, instead };
+      });
+    const manifest: BlockManifest = { ...full, functions: full.functions.filter((fn) => !superseded.has(`${fn.package}:${fn.dir}`)) };
     // Owned files carry the app's renames, the same way upgrade refreshes them.
-    const owned = ownedWrites(root, manifest, planWarnings)
+    const owned = ownedWrites(root, databaseOnly ? { ...manifest, skills: [] } : manifest, planWarnings)
       .filter((w) => !home || !isSupabasePath(w.path))
       .map((w) => ({ ...w, content: substitute(w.content, lock.substitutions) }));
-    const fragment = agentsFragment(root, manifest);
-    if (manifest.agents && !fragment) planWarnings.push(`${manifest.agents.package} ${manifest.agents.path}: can't read it; AGENTS.md wasn't changed.`);
-    const { routerRoot, stubs } = planRouteStubs(root, manifest.routes);
+    const fragment = databaseOnly ? null : agentsFragment(root, manifest);
+    if (!databaseOnly && manifest.agents && !fragment) planWarnings.push(`${manifest.agents.package} ${manifest.agents.path}: can't read it; AGENTS.md wasn't changed.`);
+    const { routerRoot, stubs } = databaseOnly ? { routerRoot: null, stubs: [] as ReturnType<typeof planRouteStubs>["stubs"] } : planRouteStubs(root, manifest.routes);
     const toml = home ? null : configTomlEdit(root, manifest, planWarnings);
     let snippet: string | undefined;
     let registryEdit: string | null = null;
-    if (!ids?.has(manifest.id)) {
+    if (!databaseOnly && !ids?.has(manifest.id)) {
       const owner = (JSON.parse(readApp(root, "package.json") ?? "{}") as { name?: string }).name ?? "app";
       snippet = featureSnippet(manifest, owner, featureKindField(root));
       if (registry) registryEdit = addFeatureEntry(readApp(root, registry) ?? "", snippet);
     }
     const print = (mark: string, p: string, note = "") => log.info(`  ${mark} ${p}${note ? ` ${note}` : ""}`);
-    log.info(`${manifest.id}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "local" ? "local package" : from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
+    log.info(`${manifest.id}${databaseOnly ? " (database only)" : ""}: from ${manifest.package}${manifest.version ? ` ${manifest.version}` : ""} (${from === "local" ? "local package" : from === "installed" ? "installed" : "not installed yet: files are read after the install"})`);
     if (command) log.info(`  install: ${shellLine(command)}${install ? "" : " (skipped: --no-install)"}`);
-    log.info(`  ${home ? elsewhereNote(home, `genesis add ${manifest.id}`) : formatMigrationRows(migrations.rows).replace(/^/gm, "  ").trimStart()}`);
+    log.info(`  ${home ? elsewhereNote(home, addThereCommand(manifest.id)) : formatMigrationRows(migrations.rows).replace(/^/gm, "  ").trimStart()}`);
     for (const c of migrations.creates) if (c.kind === "test") print("+", c.path, "(pgTAP test)");
     for (const w of owned) {
       const existing = readApp(root, w.path);
@@ -271,7 +296,8 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     if (toml) print("~", "supabase/config.toml", `([functions.${toml.names.join("], [functions.")}] verify_jwt = false)`);
     if (fragment) print("~", "AGENTS.md", `(${fragmentMarkers(manifest.id).start})`);
     if (registryEdit && registry) print("~", registry, `(adds ${manifest.id})`);
-    return { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit, planWarnings };
+    for (const r of replaced) print("-", `supabase/functions/${r.name}`, `(superseded: ${r.by.package} ${r.by.file} provides its migration)`);
+    return { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit, planWarnings, replaced };
   };
 
   let plan = makePlan(found.manifest, found.from);
@@ -287,7 +313,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   }
   warnings.push(...plan.planWarnings);
   if (found.from === "catalog") warnings.push(`${found.manifest.package} isn't installed, so its files can't be read yet: migrations, functions and skills are listed, not copied. Install it and run genesis add ${found.manifest.id} again.`);
-  const { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit } = plan;
+  const { manifest, migrations, owned, fragment, routerRoot, stubs, toml, snippet, registryEdit, replaced } = plan;
 
   for (const row of migrations.rows) {
     if (needsAttention(row)) kept.push({ path: row.copy ?? row.file, why: `${row.state}: ${row.detail}. Run genesis migrate --forward to add a forward migration.` });
@@ -298,19 +324,27 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   }
   const database = manifest.migrations.length > 0 || manifest.functions.length > 0;
   if (home && database) {
-    const there = blocksMissingThere(home, [manifest.id]);
+    const there = blocksMissingThere(home, [manifest.id], [manifest, ...catalogBlocks()]);
     if (!home.app) steps.push(`${manifest.id} ships database files (migrations or Edge Functions); ${elsewhereNote(home)}`);
-    else if (there && !there.length) steps.push(`${manifest.id}'s database files: ${home.app} already has the block (its genesis.lock.json lists it), so nothing to add there.`);
-    else steps.push(`Add ${manifest.id}'s database files in ${home.app}, which holds this app's database: genesis add ${manifest.id} there (genesis.config.json supabase.app).`);
+    else if (there && !there.length) steps.push(`${manifest.id}'s database files: ${home.app} already has every one of its migrations and Edge Functions, so nothing to add there.`);
+    else {
+      if (!there) warnings.push(`Can't read ${home.app}'s genesis.lock.json or migrations, so whether it has ${manifest.id}'s database files is unknown.`);
+      steps.push(`Add ${manifest.id}'s database files in ${home.app}, which holds this app's database: ${addThereCommand(manifest.id)} there (genesis.config.json supabase.app).`);
+    }
   }
   for (const fn of home ? [] : manifest.functions) {
     const name = fn.dir.split("/").pop()!;
     if (fn.verifyJwt === false && !readApp(root, "supabase/config.toml")) steps.push(`Deploy ${name} without the gateway's JWT check: supabase functions deploy ${name} --no-verify-jwt`);
     if (fn.secrets?.length) steps.push(`Set the ${name} function's secrets: supabase secrets set ${fn.secrets.map((s) => `${s}=…`).join(" ")}`);
   }
+  for (const r of home ? [] : replaced) {
+    const instead = r.instead.length ? `${r.instead.join(" and ")} (the ${r.block} block's Edge Function${r.instead.length === 1 ? "" : "s"}) sends instead: deploy ${r.instead.length === 1 ? "it" : "them"} as its steps say` : `${r.by.package}'s own functions send instead`;
+    steps.push(`${r.name} isn't copied or deployed: ${r.by.package} ${r.by.file} is in this app and provides the migration it needs, so ${instead}.`);
+  }
   if (migrations.creates.some((c) => c.kind === "migration")) steps.push("Review the new migrations in supabase/migrations, then apply them (supabase db push, or open a pull request).");
-  steps.push(...manifest.steps);
-  if (manifest.privacy?.collects?.length) steps.push(`Update the App Store privacy label and Play data safety form: ${manifest.id} collects ${manifest.privacy.collects.map((c) => c.type).join(", ")}.`);
+  // Database only: the block's own steps are for the app that uses it, not the one holding its database.
+  if (!databaseOnly) steps.push(...manifest.steps);
+  if (!databaseOnly && manifest.privacy?.collects?.length) steps.push(`Update the App Store privacy label and Play data safety form: ${manifest.id} collects ${manifest.privacy.collects.map((c) => c.type).join(", ")}.`);
   if (snippet && registry && !registryEdit) steps.push(`Add ${manifest.id} to ${registry} (the edit wasn't safe to make automatically):\n${snippet}`);
   if (snippet && !registry) steps.push(`No feature registry (features.ts) here; when you add one, list ${manifest.id}:\n${snippet}`);
 
@@ -353,13 +387,16 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
     } else edited.push(registry);
   }
   // Recorded only once its files could be read: a block added before its package is installed isn't added yet.
-  if (found.from === "installed" || found.from === "local") lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
+  // Database only: the block belongs to the app that uses it; here its copies are tracked by header and lock entry.
+  if (databaseOnly) {
+    if (found.from === "catalog") steps.unshift(`Install ${needed.join(" and ")}, then run genesis add ${manifest.id} --database-only again to copy its files.`);
+  } else if (found.from === "installed" || found.from === "local") lock.blocks[manifest.id] = { package: manifest.package, ...(manifest.version ? { version: manifest.version } : {}) };
   else steps.unshift(`Install ${manifest.packages.join(" and ")}, then run genesis add ${manifest.id} again to copy its files.`);
   const lockBefore = readApp(root, LOCK_FILE);
   writeLock(root, lock);
   if (readApp(root, LOCK_FILE) !== lockBefore) edited.push(LOCK_FILE);
 
-  if (registry && options.featuresBuild !== false) {
+  if (!databaseOnly && registry && options.featuresBuild !== false) {
     try {
       const { runFeaturesBuild } = await import("../features.js");
       const changed = await runFeaturesBuild({ dir: root });
@@ -368,7 +405,7 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
       warnings.push(`features build failed: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
-  if (!routerRoot && manifest.routes.length) warnings.push("No Expo Router root (a _layout.tsx in src/app or app), so no route stubs were written; the steps list the screens.");
+  if (!databaseOnly && !routerRoot && manifest.routes.length) warnings.push("No Expo Router root (a _layout.tsx in src/app or app), so no route stubs were written; the steps list the screens.");
   return { block: manifest, install: command, migrations, created, kept, edited, steps, ...(snippet ? { featureSnippet: snippet } : {}), warnings };
 }
 
