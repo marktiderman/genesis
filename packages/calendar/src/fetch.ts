@@ -34,7 +34,15 @@ export interface FetchFeedOptions {
   maxBytes?: number;
   /** The time the fetch may take, redirects included, in ms. Default 15 s. */
   timeoutMs?: number;
-  /** Replaces genesis-media's guarded transport (tests, another runtime). It must keep the address guard. */
+  /**
+   * Replaces genesis-media's guarded transport, for tests or another runtime.
+   *
+   * **Warning: a custom transport turns off the address guard at connect time.** With it, only
+   * the URL checks still run (https, allowed ports, no credentials, no literal private or loopback
+   * address); a host name that resolves to a private address (DNS rebinding, an internal name) is
+   * no longer refused. A transport given here must check every address it connects to itself,
+   * as genesis-media's `guardedLookup` does. Never pass one built from user input.
+   */
   transport?: Transport;
 }
 

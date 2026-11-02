@@ -44,7 +44,14 @@ marks: reuse and extension don't reach it (G1, G2); it is an invention promoted 
        incremental with the sync token. Google refuses `timeMin`/`timeMax` beside a sync token,
        so incremental pages carry changes anywhere on the calendar: they are filtered to the
        window here, and a cancellation or a change that left the window comes back in `removed`.
-       410 reads in full again; paging is bounded; errors are typed (`unauthorized`,
+       A cancelled item that isn't a series instance may be a whole series deleted: its id is
+       also in `removedSeries`, and the app removes the occurrences whose `seriesRef` it is.
+       410 reads in full again. Paging is bounded by `maxPages`: a read cut there keeps what it
+       read and returns `complete: false` with a `resume` (page token and sync token) to pass
+       back, no sync token until it completes, and for a full read nothing deleted until then.
+       An event left at the calendar's default visibility reads as `defaultVisibility` (public
+       unless the app says private, as it should for a calendar shared as free/busy only, since
+       Google doesn't say in the event what the default is). Errors are typed (`unauthorized`,
        `forbidden`, `not_found`, `unavailable`, `bad_response`).
      - `readIcs(text, { sourceId, window, defaultZone })`: parses a feed's text, expands RRULE
        through `expandRecurrence`, honours EXDATE, RDATE and RECURRENCE-ID (moved and
@@ -53,7 +60,10 @@ marks: reuse and extension don't reach it (G1, G2); it is an invention promoted 
        list. A rule core/dates refuses (BYSETPOS, BYHOUR…) never throws: the series shows its
        first occurrence and its UID is in `unexpanded`. Input is bounded: a byte cap (throws), an
        event cap, a per-series and a total occurrence cap (reported as `truncated`), and a
-       nesting depth past which components are skipped.
+       nesting depth past which components are skipped. It never throws on a hostile feed under
+       the byte cap: an unknown or inherited zone name falls back to the feed's zone, an event
+       with an absurd length is skipped, and one bad event never stops the others. A moved
+       occurrence (RECURRENCE-ID) of a private series stays private whatever the override says.
      - **`CalendarSourceAdapter<Row>`** (`(rows, window) => CalendarEvent[]`) for anything else,
        such as an app's own sessions. The adapter lives with the rows' package, which depends on
        genesis-calendar, never the reverse.
@@ -66,8 +76,18 @@ marks: reuse and extension don't reach it (G1, G2); it is an invention promoted 
      zones merge, an all-day start as its day. An all-day copy and a timed copy of one UID stay
      two events. **Visibility is per viewer:** the details shown come only from a copy that
      viewer may see (by default, a public copy or their own); with none, the event is busy and
-     carries no title or place. `occurrenceKey` and `seriesKey` are the keys an app's database
-     builds the same way.
+     carries no title or place, and its `key` and `seriesKey` are `toBusyKey`s (a stable,
+     non-cryptographic hash) instead of the UID. The hash keeps the UID off screens and out of
+     logs; it is not a secret, since a known UID can be hashed and compared. `occurrenceKey` and
+     `seriesKey` are the keys an app's database builds the same way, and marks stored under them
+     still apply to a busy block.
+     - **Attendance is visible.** Who has a copy (`people`, a lane each) and when it is are shown
+       for busy blocks too: showing who is busy is the point. An app that must hide even that
+       filters the rows before merging.
+     - **Merging trusts the UID.** Copies merge when their `icalUid` and start match, and a UID is
+       whatever the source wrote. Merging only the rows a viewer may already read (row security
+       first, then `mergeEvents`) keeps a forged UID from pulling another person's event into
+       view; at worst it shows two events as one.
    - **Marks**: `star`, `hide`, `hide_series` keyed by those keys, each with who it is for;
      `applyMarks`.
    - **`syncWindow`**: a week back and six months ahead.
@@ -80,7 +100,9 @@ marks: reuse and extension don't reach it (G1, G2); it is an invention promoted 
      (public addresses only, checked when the socket connects; redirects checked, never down to
      http). genesis-media is an **optional peer**, loaded with `import()` on first use (ADR 0012,
      ADR 0013): an app that never fetches never installs it. The link is a credential: never
-     logged, and no error names it.
+     logged, and no error names it. A custom `transport` (tests, another runtime) turns off the
+     connect-time address guard, leaving only the URL checks; it must check every address it
+     connects to itself, and is documented as such on the option.
 4. **What it doesn't own:** storage (each app keeps its rows and row security); OAuth and tokens
    (genesis-connect: the app seals a feed link with `createSecrets` and passes Google's access
    token in); the job that runs syncs and when; bookings, attendance and running an event

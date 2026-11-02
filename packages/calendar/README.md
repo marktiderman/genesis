@@ -42,7 +42,12 @@ The first read asks Google for the window with series expanded (`singleEvents=tr
 reads send the sync token and get only changes. Google won't take a window beside a sync token,
 so those changes can be anywhere on the calendar: they are filtered to the window, and a
 cancellation or a change that left the window is in `removed`. A token Google has dropped (410)
-reads the window in full again. Failures are `GoogleCalendarError` with a `code`
+reads the window in full again. A cancelled item that isn't a series instance may be a whole
+series deleted: it is also in `removedSeries`, so delete the occurrences whose `seriesRef` it is.
+A read past `maxPages` (100) returns `complete: false` and a `resume` to pass back: apply what it
+read (for a full read, upsert only), keep no token, and call again. Events at the calendar's
+default visibility read as `defaultVisibility` (default `"public"`; pass `"private"` for a
+calendar shared as free/busy only). Failures are `GoogleCalendarError` with a `code`
 (`unauthorized`, `forbidden`, `not_found`, `unavailable`, `bad_response`).
 
 ## iCal feeds
@@ -69,7 +74,8 @@ vendor-prefixed names; floating times use `X-WR-TIMEZONE`, else `defaultZone`, e
 and credentials in the URL, and goes through genesis-media's guarded fetch (public addresses
 only, checked at connect time; redirects checked and never down to http; a size cap and a
 timeout). A secret iCal link is a credential: seal it with genesis-connect's `createSecrets`;
-this package never logs it and no `CalendarFeedError` names it.
+this package never logs it and no `CalendarFeedError` names it. Passing a custom `transport`
+turns off the connect-time address guard: it must check every address it connects to itself.
 
 ### Publishing a feed
 
@@ -100,7 +106,10 @@ const marked = applyMarks(merged, marks).filter((e) => !e.hidden);
   stay two events.
 - **Per viewer**: the details shown come only from a copy the viewer may see (default: a public
   copy, or their own; pass `canSee` for your own rule). With none, `busy` is true and `event` is
-  null, so a private title never reaches them. `toCalendarEvent` titles it "Busy".
+  null, so a private title never reaches them. `toCalendarEvent` titles it "Busy". Its `key` and
+  `seriesKey` are `toBusyKey` hashes, not the UID (not a secret: a known UID can be hashed and
+  compared); marks stored under the real keys still apply. Who has a copy (`people`) is shown
+  for busy blocks too.
 - `occurrenceKey` and `seriesKey` are the keys marks store; build the same strings in SQL if
   your database keys rows by them.
 - Marks: `star`, `hide`, `hide_series`, each with `forPersonIds` (empty: everyone).
