@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 140
+      "count": 141
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -14456,7 +14456,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; fewer: string; ... 5 more ...; layouts: { ...; }; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; fewer: string; ... 7 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -15282,6 +15282,121 @@
             {
               "name": "asChild",
               "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "printable-agenda",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/PrintableAgenda.tsx",
+      "stability": "beta",
+      "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+      "primaryComponent": "PrintableAgenda",
+      "components": [
+        {
+          "name": "PrintableAgenda",
+          "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+          "props": [
+            {
+              "name": "events",
+              "type": "readonly CalendarEvent<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the week printed (default today)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The sheets, in order: exactly these lanes. Default: every lane the events name."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for dates and times. Default the runtime's."
+            },
+            {
+              "name": "sections",
+              "type": "readonly PrintableSection[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "Under each lane's week."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The sheets show days with nothing on them too. Default true: a printed week has every day."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "printable-agenda",
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock days are counted on. Default the device's."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over each sheet, before the lane's name."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "1",
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        },
+        {
+          "name": "PrintButton",
+          "summary": "Prints the page (the browser's print dialog). Hidden on the printed page itself.",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
