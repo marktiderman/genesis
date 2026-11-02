@@ -1,0 +1,41 @@
+.changeset/eas-placeholder-says-what.md
+  s_1feb538f59bf88::t_82e8fdcdd5ebb1 5
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_1feb538f59bf88::t_1dd31b1c6178e0 105-110
+apps/genesis-rn-starter/src/lib/link-hosts.ts
+  s_1feb538f59bf88::t_4ab16e8b219583 3-5,7-10
+docs/NATIVE-RELEASE.md
+  s_1feb538f59bf88::t_ca62a8f4e23e29 70-78
+packages/genesis-cli/src/blocks/add.ts
+  s_1feb538f59bf88::t_eb1ff1dbcb3ac7 240-242
+packages/genesis-cli/src/blocks/migrate.ts
+  s_1feb538f59bf88::t_822aa163b8e6d4 61-64,66,74,109
+packages/genesis-cli/src/blocks/migrations.ts
+  s_1feb538f59bf88::t_c88df5185b5c65 236-237,239
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_1feb538f59bf88::t_311268a1478212 17,21,80,82,87-100
+packages/genesis-cli/src/eas-placeholders.ts
+  s_1feb538f59bf88::t_5349d40a17d5dd 12
+packages/genesis-cli/test/blocks-helpers.ts
+  s_1feb538f59bf88::t_6cd623a49cc68f 56-60,65
+packages/genesis-cli/test/doctor-lock-files.test.ts
+  s_1feb538f59bf88::t_ed52c71a644d15 2,54-63
+packages/genesis-cli/test/shared-database.test.ts
+  s_1feb538f59bf88::t_6b9240bbb89350 8,242-252,270-271
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2a05b3aa08841a5e584494fa6dfbb31eb9cd51a",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
