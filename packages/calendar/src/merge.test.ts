@@ -119,6 +119,15 @@ describe("applyMarks", () => {
       [false, true],
     ]);
     expect(marked[0]!.starredFor).toEqual(["bob"]);
+    expect(marked[1]!.hiddenFor).toEqual([]);
+
+    const scoped = applyMarks(merged, [
+      { eventKey: markKey("star", rows[0]!), kind: "star", forPersonIds: ["ann"] },
+      { eventKey: markKey("star", rows[0]!), kind: "star", forPersonIds: ["bob"] },
+      { eventKey: markKey("hide", rows[1]!), kind: "hide", forPersonIds: ["bob"] },
+    ]);
+    expect(scoped[0]!.starredFor).toEqual(["ann", "bob"]);
+    expect([scoped[1]!.hidden, scoped[1]!.hiddenFor]).toEqual([true, ["bob"]]);
   });
 });
 

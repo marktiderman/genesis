@@ -25,36 +25,48 @@ export function markKey(kind: MarkKind, event: EventKeyFields): string {
 export interface MarkedEvent<E extends PersonEvent = PersonEvent> extends MergedEvent<E> {
   starred: boolean;
   hidden: boolean;
-  /** Who the star is for (empty: everyone, or not starred). */
+  /** Who the stars are for, every star's people together (empty: everyone, or not starred). */
   starredFor: readonly string[];
+  /** Who the hides are for, every hide's people together (empty: everyone, or not hidden). */
+  hiddenFor: readonly string[];
 }
+
+/** People marks are for, merged: null for none yet, an empty set once one is for everyone. */
+type Scope = Set<string> | null;
+const widen = (scope: Scope | undefined, people: readonly string[]): Scope => {
+  if (scope && scope.size === 0) return scope;
+  if (!people.length) return new Set();
+  return new Set([...(scope ?? []), ...people]);
+};
 
 /**
  * Applies marks to merged events. Hidden events stay in the list, flagged, for the caller to drop
- * or dim.
+ * or dim; `starredFor` and `hiddenFor` say who for, so a caller showing one person checks them.
  *
  * @stability Beta
  */
 export function applyMarks<E extends PersonEvent>(events: readonly MergedEvent<E>[], marks: readonly EventMark[]): MarkedEvent<E>[] {
-  const stars = new Map<string, EventMark>();
-  const hidden = new Set<string>();
-  const hiddenSeries = new Set<string>();
+  const stars = new Map<string, Scope>();
+  const hidden = new Map<string, Scope>();
+  const hiddenSeries = new Map<string, Scope>();
   // Each mark under its key and its busy key, so it applies whether the viewer sees the event or
   // only a busy block (whose keys are toBusyKey's), and whichever of the two it was stored under.
   for (const m of marks) {
     for (const key of [m.eventKey, toBusyKey(m.eventKey)]) {
-      if (m.kind === "star") stars.set(key, m);
-      else if (m.kind === "hide") hidden.add(key);
-      else hiddenSeries.add(key);
+      const into = m.kind === "star" ? stars : m.kind === "hide" ? hidden : hiddenSeries;
+      into.set(key, widen(into.get(key), m.forPersonIds));
     }
   }
   return events.map((e) => {
     const star = stars.get(e.key);
+    const hides = [hidden.get(e.key), hiddenSeries.get(e.seriesKey)].filter((s): s is Set<string> => Boolean(s));
+    const hide = hides.reduce<Scope>((all, s) => widen(all, s.size ? [...s] : []), null);
     return {
       ...e,
       starred: Boolean(star),
-      hidden: hidden.has(e.key) || hiddenSeries.has(e.seriesKey),
-      starredFor: star?.forPersonIds ?? [],
+      hidden: Boolean(hide),
+      starredFor: star ? [...star] : [],
+      hiddenFor: hide ? [...hide] : [],
     };
   });
 }

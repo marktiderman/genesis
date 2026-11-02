@@ -1,14 +1,14 @@
 import { defineConfig } from "tsup";
 
 // Pure TypeScript, no React. `.` runs anywhere (browser, Node, edge); `/fetch` is server only and
-// loads genesis-media (an optional peer) on first use. ESM and CJS, split so both entries share
-// one copy of shared code.
+// loads genesis-media (an optional peer) on first use. ESM only, like genesis-core/dates it
+// imports; split so both entries share one copy of shared code.
 export default defineConfig({
   entry: {
     index: "src/index.ts",
     fetch: "src/fetch.ts",
   },
-  format: ["esm", "cjs"],
+  format: ["esm"],
   dts: true,
   splitting: true,
   sourcemap: true,
