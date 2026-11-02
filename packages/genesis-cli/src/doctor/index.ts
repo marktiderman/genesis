@@ -39,6 +39,7 @@ import { allowGrew, applyRatchet, changedSince, configAtBase, rulesWeakened } fr
 import { checkContracts } from "./contracts.js";
 import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { checkOverlays } from "./overlays.js";
+import { checkLockFiles } from "./lock-files.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
@@ -240,6 +241,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "stability-imports", check: checkStabilityImports },
     { name: "agent-guide", check: checkAgentGuide },
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
+    { name: "lock-files", check: checkLockFiles },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];

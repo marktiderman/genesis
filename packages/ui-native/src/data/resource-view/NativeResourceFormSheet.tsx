@@ -1,6 +1,7 @@
 // The form sheet a NativeResourceView opens for New and Edit: Cancel and Save in the bar, the
 // view's sections as grouped sections, native date and time pickers, choices as a segmented
-// control (up to four) or a list. Text, number, switch and list fields are drawn by
+// control (up to four) or a list, links as a searchable list of the linked rows (NativeLinkPicker).
+// Text, number, switch and list fields are drawn by
 // NativeResourceFormFieldRenderer, the same as NativeResourceForm. Read-only fields are text, never
 // inputs, and a save sends only the view's writable keys.
 
@@ -22,6 +23,7 @@ import { NativeResourceFormFieldRenderer } from "../NativeResourceFormField";
 import { dateToDay, dayToDate, displayText, isEmptyValue, resolveZone, useDisplayTimeZones, useNativeResourceViewMessages } from "./display";
 import { defaultNativeResourceViewMessages, fill } from "./messages";
 import { shownFields, type NativeFormField } from "./mapping";
+import { NativeLinkPicker } from "./NativeLinkPicker";
 import type { SaveResult } from "./use-native-resource-view";
 
 type Values = Record<string, unknown>;
@@ -220,6 +222,24 @@ function FormField({
           {shown}
         </NativeText>
       </View>
+    );
+  }
+  if (field.kind === "link" && field.link) {
+    return (
+      <Controller
+        name={field.key}
+        control={f.control}
+        render={({ field: input }) => (
+          <NativeLinkPicker
+            field={field}
+            value={input.value}
+            onChange={input.onChange}
+            values={f.getValues()}
+            error={error}
+            testID={id}
+          />
+        )}
+      />
     );
   }
   const type = FIELD_TYPE[field.kind];

@@ -33,8 +33,11 @@
  *
  * Modes:
  *   docs:generate           — write primitives.json
- *   docs:generate --check   — fail if regenerating produces a diff (used in CI
- *                             to enforce docs-in-sync)
+ *   docs:generate --check   — fail if regenerating produces a diff (CI, G.12:
+ *                             on pushes and the version PR, not feature PRs)
+ *
+ * primitives.json and story-ids.json are committed only by the version PR (`pnpm version:packages`
+ * at the repo root runs this). A feature PR doesn't regenerate or commit them.
  */
 
 import { execSync } from "node:child_process";
@@ -436,7 +439,7 @@ function main() {
     })();
     if (existingStoryIds !== storyIds) {
       console.error("\n✖ apps/sample/app/data/story-ids.json is out of date.");
-      console.error("  Run `pnpm --filter sample docs:generate` and commit the result.");
+      console.error("  The version PR regenerates it (`pnpm version:packages`); run `pnpm --filter sample docs:generate` to refresh it there.");
       process.exit(1);
     }
     const existing = (() => {
@@ -454,7 +457,7 @@ function main() {
       s.replace(/("generatedAt":\s*)"[^"]*"/, '$1"<ignored>"');
     if (ignoreGeneratedAt(existing) !== ignoreGeneratedAt(serialised)) {
       console.error("\n✖ apps/sample/app/data/primitives.json is out of date.");
-      console.error("  Run `pnpm --filter sample docs:generate` and commit the result.");
+      console.error("  The version PR regenerates it (`pnpm version:packages`); run `pnpm --filter sample docs:generate` to refresh it there.");
       try {
         execSync(`git --no-pager diff -- ${OUTPUT_PATH}`, { stdio: "inherit" });
       } catch {

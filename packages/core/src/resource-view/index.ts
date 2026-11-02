@@ -5,6 +5,7 @@
 export { calendarProblems, defineView, deriveDisplay, plural, singular, valueText, ViewDefinitionError } from "./define-view";
 export { initialsOf, rowPicture } from "./picture";
 export { scopeFilter, scopeValues } from "./scope";
+export { filterParams } from "./link";
 export { cascadeSelection, initialExpanded, setExpanded, treeRows } from "./tree";
 export type { ResourceTree, TreeNode, TreeOptions, TreeResult } from "./tree";
 export type {
@@ -12,6 +13,9 @@ export type {
   ComputedColumn,
   DisplayHint,
   FieldNameOf,
+  LinkFilter,
+  LinkedView,
+  ResolvedLink,
   ResolvedColumn,
   ResolvedFormField,
   ResolvedViewAction,
@@ -29,6 +33,7 @@ export type {
   ViewField,
   ViewFormItem,
   ViewGuards,
+  ViewLink,
   ViewPreset,
   ViewTone,
   TimeZoneName,

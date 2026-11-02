@@ -8,6 +8,7 @@ import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { findPackageDir } from "./genesis.js";
 import { markedOverlays } from "./overlays.js";
+import { compareVersions, parseVersion } from "./semver.js";
 import type { DoctorContext } from "./types.js";
 
 export const UMBRELLA_PACKAGE = "@marktiderman/genesis";
@@ -36,7 +37,9 @@ export function checkVersionSkew(ctx: DoctorContext): void {
     const overlay = overlays.get(name);
     if (overlay) {
       const from = overlay.marker.upstream.slice(overlay.marker.upstream.lastIndexOf("@") + 1);
-      if (from !== want) {
+      // Behind the release is overlay-behind's to report (it says how genesis upgrade clears it).
+      const behind = parseVersion(from) && parseVersion(want) && compareVersions(parseVersion(from)!, parseVersion(want)!) < 0;
+      if (from !== want && !behind) {
         ctx.report({
           rule: "version-skew",
           level: "warn",

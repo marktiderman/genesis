@@ -4,6 +4,8 @@
 import type { ChipTone } from "../resource/status";
 import type { DataRow, FieldSchema, ResourceContract, RowAction, RowOf } from "../schema/types";
 import type { Viewer } from "../viewer";
+import type { FilterParam } from "../provider/types";
+import type { ResourceScope } from "../hooks/viewer-scope";
 
 export type { RowOf, Viewer };
 
@@ -55,6 +57,13 @@ export interface ViewField<Row extends DataRow = DataRow> {
    * `"Someone you can't see"`. Default: the catalogue's `common.hiddenLink`. Never the raw id.
    */
   missingLabel?: string;
+  /**
+   * For a link: edit it in the view's forms with a picker, and how the picker lists the rows it
+   * can point at. Setting it (`{}` is enough) opts the link in; without it (or the view's
+   * `editLinks`) a link stays read-only. `view` narrows it to the linked view's rules (its scope
+   * and default filter); `filter` adds more.
+   */
+  link?: ViewLink;
   /** Longest text a form accepts. Feeds the derived validation. */
   max?: number;
   /**
@@ -87,6 +96,55 @@ export interface ViewField<Row extends DataRow = DataRow> {
    * zone the runtime doesn't know.
    */
   timeZone?: ViewTimeZone;
+}
+
+/**
+ * A picker's filter: equality per field. `null` is "is empty", a list is "any of". Sent to the
+ * server with the list request, never applied to loaded rows.
+ */
+export type LinkFilter = Readonly<Record<string, string | number | boolean | null | readonly (string | number)[]>>;
+
+/** The parts of the linked resource's view a picker reads. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract and row
+export type LinkedView = Pick<ResourceView<any, any>, "resource" | "definition" | "labelField">;
+
+/**
+ * How a link's picker lists the linked rows (`fields.owner_id.link`). The list always goes through
+ * the provider, so row-level security decides what the viewer can pick; these only narrow it.
+ */
+export interface ViewLink {
+  /**
+   * The linked resource's view. Its `scope` keys (read from the viewer's scope, as its own lists
+   * do), its `default` preset's filter (or `preset`'s) and its `labelField` apply to the picker.
+   * A function for two views that link each other (`() => usersView`).
+   */
+  view?: LinkedView | (() => LinkedView);
+  /** One of the linked view's presets whose filter the picker uses. Default: its `default` preset. */
+  preset?: string;
+  /**
+   * More filters: fixed, or from the form's values, for a picker that follows another field
+   * (`(values) => ({ project_id: values.project_id })`, the tasks of the chosen project).
+   */
+  filter?: LinkFilter | ((values: Readonly<Record<string, unknown>>) => LinkFilter);
+  /** The linked fields a search matches. Default: the naming field (`labelField`). */
+  searchFields?: readonly string[];
+}
+
+/** A link's picker, resolved: what to list, what names a row, and the filters to send. */
+export interface ResolvedLink {
+  /** The linked resource. */
+  resource: string;
+  /** The linked field the link stores (its key, usually `id`). */
+  field: string;
+  /** The linked field that names a row: the view field's, else the linked view's. Undefined: the provider's `describe`. */
+  readonly labelField: string | undefined;
+  /** The linked fields a search matches. Unset: the naming field. */
+  searchFields?: readonly string[];
+  /**
+   * The filters a picker sends: the linked view's scope keys from `scope` (as its own lists apply
+   * them), its preset's filter, then the link's own `filter` for these form values.
+   */
+  filters(scope?: ResourceScope | null, values?: Readonly<Record<string, unknown>>): FilterParam[];
 }
 
 /**
@@ -253,6 +311,11 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   presets?: Readonly<Record<string, ViewPreset<FieldNameOf<C>>>>;
   /** The record form. Default: every writable field, in contract order. */
   form?: readonly ViewFormItem<FieldNameOf<C>>[];
+  /**
+   * Edit every link in this view's forms with a picker. Default false: a link is read-only (and
+   * never sent) unless its `fields.<link>.link` is set (`{}` is enough). The default flips in 3.0.
+   */
+  editLinks?: boolean;
   can?: ViewGuards<Row>;
   /** Named operations on one row, in the order a menu shows them. Names are unique. */
   actions?: readonly ViewAction<Row>[];
@@ -309,6 +372,8 @@ export interface ResolvedFormField {
   missingLabel?: string;
   /** An enum field's choices, in the contract's order, with the view's words. */
   options?: readonly { value: string; label: string }[];
+  /** For a link the view opted in (`fields.<link>.link`, `editLinks`): how its picker lists the linked rows. */
+  link?: ResolvedLink;
   /** The heading it sits under, or null for none. */
   section: string | null;
   sectionTitle: string | null;

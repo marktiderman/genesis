@@ -23,7 +23,14 @@
 
 export { useResource, type UseResourceOptions, type UseResourceReturn } from "./use-resource";
 export { useOne, type UseOneOptions } from "./use-one";
-export { useRelationLabel, loadRelationLabel, type UseRelationLabelOptions } from "./use-relation-label";
+export { useRelationLabel, loadRelationLabel, relationNamingField, type UseRelationLabelOptions } from "./use-relation-label";
+export {
+  useLinkOptions,
+  type LinkOption,
+  type LinkTarget,
+  type UseLinkOptionsOptions,
+  type UseLinkOptionsReturn,
+} from "./use-link-options";
 export {
   useInfiniteResource,
   type UseInfiniteResourceOptions,

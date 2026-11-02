@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import starter from "../starter.config";
 import { defineStarter, easConfig, nativePlatforms, privacyBlocks, type StarterConfig } from "../src/lib/define-starter";
 import { copy, format } from "../src/copy";
+import { linkHosts } from "../src/lib/link-hosts";
 import { findInlineCopy } from "./inline-copy";
 
 const root = join(__dirname, "..");
@@ -16,6 +17,10 @@ const notificationsPackage = dirname(createRequire(join(root, "package.json")).r
 const shippedSql = (path: string) => readFileSync(join(supabasePackage, "migrations", path), "utf8");
 const chatPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-chat/package.json"));
 const chatSql = (path: string) => readFileSync(join(chatPackage, "migrations", path), "utf8");
+// A switch that carries a block (genesis.config.json `starter.blocks`): an app made with
+// `genesis init --without <switch>` has none of that block's migrations, tests or functions, so
+// the checks of those files run only while it's on.
+const { updates, push, notifications, support, chat } = starter.features;
 
 function filesUnder(dir: string): string[] {
   return readdirSync(join(root, dir)).flatMap((name) => {
@@ -59,7 +64,7 @@ describe("starter.config.ts", () => {
   });
 
   it("declares in the privacy manifest only the blocks that are on", () => {
-    expect(privacyBlocks(starter.features)).toEqual(["account", "observability", "push", "support"]);
+    expect(privacyBlocks({ observability: true, push: true, support: true })).toEqual(["account", "observability", "push", "support"]);
     expect(privacyBlocks({ observability: false, push: false, support: false })).toEqual(["account"]);
   });
 
@@ -78,9 +83,21 @@ describe("starter.config.ts", () => {
     expect(() => defineStarter({ ...starter, app: { ...starter.app, easProjectId: "" } })).not.toThrow();
   });
 
-  it("ships with the updates block on and no EAS project (a placeholder for `eas init`)", () => {
-    expect(starter.features.updates).toBe(true);
+  it("ships with no EAS project (a placeholder for `eas init`)", () => {
     expect(starter.app.easProjectId).toBe("");
+  });
+});
+
+describe("deep links", () => {
+  it("opens the hosts in genesis.config.json's links block", () => {
+    expect(linkHosts({ links: { hosts: ["example.com", "app.example.com"] } })).toEqual(["example.com", "app.example.com"]);
+    expect(read("src/lib/links.ts")).toContain("hosts: linkHosts(genesisConfig)");
+  });
+
+  it("has no app links, and doesn't throw, when no domain is configured", () => {
+    expect(linkHosts({})).toEqual([]);
+    expect(linkHosts({ links: null })).toEqual([]);
+    expect(linkHosts({ links: {} })).toEqual([]);
   });
 });
 
@@ -219,19 +236,19 @@ describe("supabase/migrations", () => {
     expect(read("supabase/tests/database/genesis_account_deletion.test.sql")).toBe(shipped);
   });
 
-  it("carries the app-release-policy migration unchanged (the updates block reads it)", () => {
+  it.runIf(updates)("carries the app-release-policy migration unchanged (the updates block reads it)", () => {
     const shipped = shippedSql("0002_genesis_app_release_policy.sql");
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_app_release_policy.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shipped);
   });
 
-  it("carries its pgTAP test unchanged", () => {
+  it.runIf(updates)("carries the app-release-policy pgTAP test unchanged", () => {
     const shipped = shippedSql("tests/0002_genesis_app_release_policy.test.sql");
     expect(read("supabase/tests/database/genesis_app_release_policy.test.sql")).toBe(shipped);
   });
 
-  it("applies account deletion before the release policy", () => {
+  it.runIf(updates)("applies account deletion before the release policy", () => {
     const order = filesUnder("supabase/migrations").sort();
     expect(order.findIndex((f) => f.endsWith("_genesis_account_deletion.sql"))).toBeLessThan(order.findIndex((f) => f.endsWith("_genesis_app_release_policy.sql")));
   });
@@ -243,7 +260,7 @@ describe("supabase/migrations", () => {
     expect(read("supabase/tests/database/genesis_apple_token_revocation.test.sql")).toBe(shippedSql("tests/0003_genesis_apple_token_revocation.test.sql"));
   });
 
-  it("carries the push migration unchanged, after the Apple one, without its pgTAP test (superseded by the notifications migration)", () => {
+  it.runIf(push)("carries the push migration unchanged, after the Apple one, without its pgTAP test (superseded by the notifications migration)", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_push.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shippedSql("0005_genesis_push.sql"));
@@ -253,7 +270,7 @@ describe("supabase/migrations", () => {
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_apple_token_revocation.sql")));
   });
 
-  it("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, after every other package's (it adopts the push tables)", () => {
+  it.runIf(notifications)("carries @marktiderman/genesis-notifications' migration and its pgTAP test unchanged, after every other package's (it adopts the push tables)", () => {
     const shipped = (rel: string) => readFileSync(join(notificationsPackage, "migrations", rel), "utf8");
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_notifications.sql"));
     expect(copies).toHaveLength(1);
@@ -265,7 +282,7 @@ describe("supabase/migrations", () => {
     expect(packaged.at(-1)).toBe(copies[0]);
   });
 
-  it("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
+  it.runIf(support)("carries the support migration and its pgTAP test unchanged (the support block reads it), after the push one", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_support.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(shippedSql("0006_genesis_support.sql"));
@@ -290,7 +307,7 @@ describe("supabase/functions", () => {
     expect(read("supabase/config.toml")).toMatch(/\[functions\.genesis-apple-revoke\]\s*\nverify_jwt = false/);
   });
 
-  it("carries the genesis-push-send function unchanged, deployed without the gateway's JWT check (it checks GENESIS_PUSH_SECRET)", () => {
+  it.runIf(push)("carries the genesis-push-send function unchanged, deployed without the gateway's JWT check (it checks GENESIS_PUSH_SECRET)", () => {
     const shipped = join(supabasePackage, "functions", "genesis-push-send");
     const names = readdirSync(shipped).sort();
     expect(names).toEqual(["expo.ts", "handler.ts", "index.ts"]);
@@ -303,8 +320,7 @@ describe("supabase/functions", () => {
 });
 
 describe("push", () => {
-  it("ships with the push block on, behind the one `push` switch", () => {
-    expect(starter.features.push).toBe(true);
+  it("puts the push block behind the one `push` switch", () => {
     expect(read("src/lib/app.ts")).toContain("features.push ? createStarterPush() : undefined");
   });
 
@@ -321,8 +337,7 @@ describe("push", () => {
 });
 
 describe("support", () => {
-  it("ships with the support block on, behind the one `support` switch, needing a signed-in person", () => {
-    expect(starter.features.support).toBe(true);
+  it("puts the support block behind the one `support` switch, needing a signed-in person", () => {
     expect(read("src/lib/app.ts")).toMatch(/blocks: \[[^\]]*\bsupport\b/);
     expect(read("src/lib/support.ts")).toContain("starter.features.support ? createStarterSupport() : undefined");
     expect(read("src/lib/app.ts")).toContain('appFeatures: ["account"]');
@@ -342,8 +357,7 @@ describe("support", () => {
 });
 
 describe("chat", () => {
-  it("ships with chat on, its migration and pgTAP test copied unchanged after the support one, and genesis_chat served by the API", () => {
-    expect(starter.features.chat).toBe(true);
+  it.runIf(chat)("carries chat's migration and pgTAP test unchanged after the support one, and serves genesis_chat through the API", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(chatSql("0001_genesis_chat.sql"));
@@ -364,7 +378,7 @@ describe("chat", () => {
     expect(JSON.parse(read("genesis.config.json")).doctor.supabase.exposedSchemas).toContain("genesis_chat");
   });
 
-  it("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
+  it.runIf(chat)("carries chat's 0002 migration (topics, scheduled send, availability, broadcast, search) and its pgTAP test unchanged, after 0001", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_chat_coaching.sql"));
     expect(copies).toHaveLength(1);
     expect(read(copies[0]!)).toBe(chatSql("0002_genesis_chat_coaching.sql"));
@@ -409,7 +423,7 @@ describe("chat", () => {
     expect(read("src/lib/chat.tsx")).toContain("starter.features.chat && starter.features.push");
   });
 
-  it("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
+  it.runIf(chat)("names people from their auth metadata through chat_people, after the chat migration, with its pgTAP test", () => {
     const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_chat_people.sql"));
     expect(copies).toHaveLength(1);
     const order = filesUnder("supabase/migrations").sort();

@@ -33,7 +33,9 @@ pnpm --filter sample smoke            # opens every built page in headless Chrom
 - **Generated, not hand-kept.** The package pages and `docs/component-reference.md` read every
   published package's `exports` (`scripts/gen-component-reference.mjs`); the component pages read
   `app/data/primitives.json` (`pnpm docs:generate`); the landing page's package list reads
-  `packages/*/package.json`. A new package or export appears on the next build.
+  `packages/*/package.json`. A new package or export appears on the next build. The two
+  committed files, `docs/component-reference.md` and `app/data/primitives.json`, are refreshed
+  by the version PR, not by feature PRs.
 - **Every page prerenders** to its own `index.html` (`app/lib/site-paths.ts`), with a title,
   description and Open Graph tags from `app/lib/site.ts`. A new static route needs an entry
   there: the build fails without one.

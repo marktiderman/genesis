@@ -1,5 +1,11 @@
 # @marktiderman/genesis-chat
 
+## 0.6.1
+
+### Patch Changes
+
+- 122d56d: The thread's search sheet pads clear of the notch and the home indicator on a phone.
+
 ## 0.6.0
 
 ### Minor Changes

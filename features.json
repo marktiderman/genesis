@@ -634,18 +634,31 @@
     {
       "id": "resource-view-links",
       "name": "Link pickers and link filters",
-      "summary": "A view's link fields become editable through a picker that searches the linked resource on the server, on web and native, and a list can be filtered by a linked row from its header. Until then a link is read-only in a view's form.",
+      "aliases": [
+        "resource-view-link-picker"
+      ],
+      "summary": "A view's link fields, once opted in (`fields.<link>.link` or `editLinks`; the default flips in 3.0), are editable in ResourceView and NativeResourceView forms through a picker that lists the linked resource through the data provider, under the linked view's scope and default filter (`fields.<link>.link`), searched and paged on the server, with None for an optional link; core's useLinkOptions drives both. Scope links and links a screen's filter pins stay out. Filtering a list by a linked row from its header is still to come.",
       "category": "Data",
-      "status": "planned",
-      "horizon": "next",
+      "status": "building",
+      "claimedBy": "claude",
       "kind": "pattern",
       "keywords": [
         "relation picker",
         "foreign key",
         "link field",
         "lookup",
-        "reference filter"
+        "reference filter",
+        "combobox",
+        "select a record"
       ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
       "extends": "resource-page",
       "owner": "mark",
       "apps": [
@@ -658,6 +671,12 @@
       "visibility": "public",
       "reviewedAt": "2026-11-01",
       "links": {
+        "code": [
+          "packages/core/src/resource-view/link.ts",
+          "packages/core/src/hooks/use-link-options.ts",
+          "packages/ui/src/components/data/RelationField.tsx",
+          "packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx"
+        ],
         "docs": [
           "docs/RESOURCE-VIEW.md"
         ]
@@ -6209,7 +6228,8 @@
       ],
       "contributes": [
         "package.json: genesis.overlay",
-        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version"
+        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version, overlay-behind",
+        "genesis upgrade: overlays rebased onto the release, with a checklist"
       ],
       "owner": "mark",
       "apps": [

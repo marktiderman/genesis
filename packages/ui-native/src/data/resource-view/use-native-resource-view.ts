@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BaseRecord, DataRow, FilterParam } from "@marktiderman/genesis-core";
 import { useCapabilities, useInfiniteResource, useResource, useViewer } from "@marktiderman/genesis-core/hooks";
-import type { Allowed } from "@marktiderman/genesis-core/resource-view";
+import { filterParams as toFilters, type Allowed } from "@marktiderman/genesis-core/resource-view";
 import { useNativeResourceViewMessages } from "./display";
 import {
   allowed,
@@ -108,13 +108,7 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
-  return Object.entries(filter ?? {}).map(([field, value]): FilterParam =>
-    value === null
-      ? { field, operator: "is_null" }
-      : Array.isArray(value)
-        ? { field, operator: "in", value: [...(value as readonly (string | number)[])] }
-        : { field, operator: "eq", value: value as string | number | boolean },
-  );
+  return toFilters(filter);
 }
 
 /** The values a create takes from the screen: every non-null equality filter, the screen's over the tab's. */
@@ -123,6 +117,18 @@ export function screenValues(...filters: (Filter | undefined)[]): Record<string,
   for (const filter of filters) {
     for (const [field, value] of Object.entries(filter ?? {})) {
       if (value !== null && !Array.isArray(value)) out[field] = value as string | number | boolean;
+    }
+  }
+  return out;
+}
+
+/** The list (`in`) filters a screen holds fields to, the screen's over the tab's. */
+export function screenLists(...filters: (Filter | undefined)[]): Record<string, (string | number)[]> {
+  const out: Record<string, (string | number)[]> = {};
+  for (const filter of filters) {
+    for (const [field, value] of Object.entries(filter ?? {})) {
+      if (Array.isArray(value)) out[field] = [...(value as readonly (string | number)[])];
+      else delete out[field];
     }
   }
   return out;
@@ -172,6 +178,9 @@ export function useNativeResourceView<T extends Row = Row>(
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const createKey = JSON.stringify(screenValues(tabFilter, filter));
   const createDefaults = useMemo(() => JSON.parse(createKey) as Record<string, string | number | boolean>, [createKey]);
+  // A link the filter holds to a list (`in`) picks only among the list's rows (as on the web).
+  const listKey = JSON.stringify(screenLists(tabFilter, filter));
+  const within = useMemo(() => JSON.parse(listKey) as Record<string, (string | number)[]>, [listKey]);
   const sorts = useMemo(() => serverSorts(view), [view]);
   const searchFields = useMemo(
     () => searchOption ?? (view.labelField ? [view.labelField] : undefined),
@@ -219,8 +228,10 @@ export function useNativeResourceView<T extends Row = Row>(
   // saved, so an input for it would be overridden without a word (the web hides them too).
   const formFields = useCallback(
     (mode: "create" | "edit") =>
-      mode === "create" ? formFieldsFor(view, "create").filter((f) => !(f.key in createDefaults)) : formFieldsFor(view, "edit"),
-    [view, createDefaults],
+      mode === "create"
+        ? formFieldsFor(view, "create", { within }).filter((f) => !(f.key in createDefaults))
+        : formFieldsFor(view, "edit", { pinned: Object.keys(createDefaults), within }),
+    [view, createDefaults, within],
   );
   const editable = useMemo(() => formFieldsFor(view, "edit").some((f) => !f.readOnly), [view]);
   // Guards read the viewer (ViewerScope's id, scope and roles): a change asks them again.
