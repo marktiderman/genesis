@@ -12674,6 +12674,13 @@
               "description": ""
             },
             {
+              "name": "mobileLayout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "center",
+              "description": "How the dialog sits on a phone. Default `center`, the centred box; `sheet` and `fullscreen`\nare opt-in. See {@link DialogMobileLayout}."
+            },
+            {
               "name": "overlayClassName",
               "type": "string",
               "required": false,

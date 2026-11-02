@@ -20,6 +20,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Button } from "../ui/button";
 import { Spinner } from "../ui/spinner";
+import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
 import {
   useResourceForm,
@@ -129,6 +130,7 @@ function FormBody({
   mode = "standard",
   steps,
   columns = 1,
+  fill = false,
 }: {
   form: UseFormReturn<Record<string, unknown>>;
   resolvedFields: ResourceFormFieldDef[];
@@ -141,6 +143,12 @@ function FormBody({
   mode?: "standard" | "wizard" | undefined;
   steps?: WizardStep[] | undefined;
   columns?: 1 | 2 | undefined;
+  /**
+   * Fill the overlay it sits in: the fields scroll in the space left over and the Save and
+   * Cancel buttons stay pinned to the bottom, clear of the phone's home indicator. Used by the
+   * sheet layout; the dialog and page layouts keep the fields in a capped box instead.
+   */
+  fill?: boolean | undefined;
 }) {
   // Only watch all values when conditional fields exist (performance optimization)
   const hasConditionalFields = resolvedFields.some((f: ResourceFormFieldDef) => f.visible || f.disabled);
@@ -171,7 +179,7 @@ function FormBody({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className={cn("flex items-center justify-center py-8", fill && "flex-1")}>
         <Spinner />
       </div>
     );
@@ -180,7 +188,14 @@ function FormBody({
   // Wizard mode
   if (mode === "wizard" && steps) {
     return (
-      <div className="space-y-4">
+      // In a sheet the wizard scrolls as a whole: it lays out its own step buttons.
+      <div
+        className={
+          fill
+            ? "min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            : "space-y-4"
+        }
+      >
       {rootErrorBanner}
       <WizardForm
         steps={steps}
@@ -256,9 +271,15 @@ function FormBody({
         e.preventDefault();
         void form.handleSubmit(handleSave, onInvalid)(e);
       }}
-      className="space-y-4"
+      className={fill ? "flex min-h-0 flex-1 flex-col" : "space-y-4"}
     >
-      <div className="max-h-[60vh] overflow-y-auto px-1">
+      <div
+        className={
+          fill
+            ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4"
+            : "max-h-[60vh] overflow-y-auto px-1 supports-[height:100dvh]:max-h-[60dvh]"
+        }
+      >
         {renderForm ? (
           renderForm(form, visibleFields)
         ) : (
@@ -280,9 +301,15 @@ function FormBody({
         )}
       </div>
 
-      {rootErrorBanner}
+      {fill && rootErrorBanner ? <div className="px-6">{rootErrorBanner}</div> : rootErrorBanner}
 
-      <div className="flex justify-end gap-2">
+      <div
+        className={
+          fill
+            ? "flex justify-end gap-2 border-t border-border bg-background px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+            : "flex justify-end gap-2"
+        }
+      >
         <Button
           type="button"
           variant="outline"
@@ -433,14 +460,18 @@ export function ResourceForm(props: ResourceFormProps) {
   if (effectiveLayout === "sheet") {
     return (
       <Sheet open={open} onOpenChange={requestOpenChange}>
-        <SheetContent side="right" className="sm:max-w-[480px] overflow-y-auto">
-          <SheetHeader>
+        {/* The sheet keeps its width (three quarters of a phone, 480px from sm up). It doesn't
+            scroll itself: the fields do, so Save and Cancel stay pinned at the bottom above the
+            home indicator, instead of scrolling away with a nested box. (iOS Safari's keyboard
+            doesn't resize dvh, so with the keyboard up the footer can sit under it.) */}
+        <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-[480px]">
+          <SheetHeader className="border-b border-border px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-4 pr-14">
             <SheetTitle>{formTitle}</SheetTitle>
             <SheetDescription className="sr-only">
               {formDescription}
             </SheetDescription>
           </SheetHeader>
-          <FormBody {...bodyProps} />
+          <FormBody {...bodyProps} fill />
         </SheetContent>
       </Sheet>
     );
