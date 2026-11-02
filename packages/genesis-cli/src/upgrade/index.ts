@@ -30,7 +30,7 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmWorkspaceFile, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
+import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
 
 export interface ReleaseLookup {
@@ -61,6 +61,8 @@ export interface UpgradeOptions {
   pr?: boolean;
   lookup?: ReleaseLookup;
   codemods?: readonly Codemod[];
+  /** The pnpm version the install ran (default: `pnpm --version` in the app); null when unknown. */
+  pnpmVersion?: () => string | null;
   log?: (msg: string) => void;
 }
 
@@ -134,7 +136,8 @@ function readText(file: string): string | null {
 function tidyReleaseAgeExcludes(file: string): boolean {
   const before = readText(file);
   if (before === null) return false;
-  const after = normaliseReleaseAgeExcludes(before, tidyLocked(before, readText(path.join(path.dirname(file), "pnpm-lock.yaml"))));
+  const dir = path.dirname(file);
+  const after = normaliseReleaseAgeExcludes(before, tidyLocked(before, readText(path.join(dir, "pnpm-lock.yaml")), readText(path.join(dir, ".npmrc"))));
   if (after === before) return false;
   writeFileSync(file, after);
   return true;
@@ -167,6 +170,15 @@ export function pnpmWorkspaceFileFor(root: string): string {
   const lockDir = findLockfile(real)?.dir;
   const fallback = lockDir && (!top || inside(top, lockDir)) ? lockDir : real;
   return pnpmWorkspaceFile(real, fallback, { exists: existsSync, join: path.join, dirname: path.dirname }, top ?? undefined);
+}
+
+/** `pnpm --version` in the app (its packageManager pin applies), or null. */
+function pnpmVersionIn(root: string): string | null {
+  try {
+    return execFileSync("pnpm", ["--version"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+  } catch {
+    return null;
+  }
 }
 
 /** pnpm's strict-mode refusal: a version younger than minimumReleaseAge, which the app set itself. */
@@ -299,6 +311,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   // 2. Install, keep pnpm's release-age excludes readable by a frozen install, and dedupe.
   const pm = detectPackageManager(root);
   let tidiedExcludes: string | null = null;
+  const excludeWarnings: string[] = [];
   if (!options.dryRun && options.install !== false && bumped.size) {
     const workspaceFile = pm === "pnpm" ? pnpmWorkspaceFileFor(root) : null;
     const relWorkspace = workspaceFile ? path.relative(realpathSync(root), workspaceFile) : null;
@@ -330,13 +343,21 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if (dedupe) tidy();
     // pnpm writes its excludes here; the pull request must carry them, or CI's frozen install fails.
     if (relWorkspace && readText(workspaceFile!) !== workspaceBefore) files.add(relWorkspace);
+    const after = workspaceFile ? readText(workspaceFile) : null;
+    if (after !== null && /^minimumReleaseAgeExclude:/m.test(after)) {
+      for (const p of releaseAgeExcludeProblems(after)) excludeWarnings.push(`${relWorkspace}: ${p}`);
+      const version = (options.pnpmVersion ?? (() => pnpmVersionIn(root)))();
+      if (!pnpmReadsExactExcludes(version)) {
+        excludeWarnings.push(`pnpm ${version} reads minimumReleaseAgeExclude's exact versions ('name@1.0.0 || 1.1.0') as matching nothing; use pnpm 10.19 or later (packageManager in package.json), or the Genesis versions wait out minimumReleaseAge`);
+      }
+    }
   }
 
   // 3. The blocks: new migrations first (a pgTAP test isn't refreshed ahead of its migration),
   // then owned files, skills a block gained, and fragments.
   const added: string[] = [];
   const newMigrations: string[] = [];
-  const warnings: string[] = [];
+  const warnings: string[] = [...excludeWarnings];
   const manifests = [];
   for (const [id, entry] of Object.entries(lock.blocks)) {
     try {

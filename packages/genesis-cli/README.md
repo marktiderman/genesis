@@ -361,11 +361,17 @@ doesn't fit, is a warning.
    `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade merges them into one entry per Genesis
    package that lists its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`), which
    both a resolving and a frozen install honour on pnpm 11, and drops versions the lockfile beside
-   it no longer holds, so the list doesn't grow (in a workspace with `sharedWorkspaceLockfile:
-   false` it drops nothing). It never writes a pattern such as `'@marktiderman/genesis-*'`: that
-   would let every future Genesis release, a compromised one included, skip the wait. A pattern or
-   bare name the app wrote itself, and every other entry, comment and line, is left as it is, since
-   the list is the app's supply-chain guard. Then it runs `pnpm dedupe` (`npm dedupe` with npm; bun
+   it no longer holds, so the list doesn't grow (with `sharedWorkspaceLockfile: false`, or
+   `shared-workspace-lockfile=false` in the `.npmrc`, it drops nothing). It never writes a pattern
+   such as `'@marktiderman/genesis-*'`: that would let every future Genesis release, a compromised
+   one included, skip the wait. The two that genesis-cli 1.17.3 wrote, `'@marktiderman/genesis-*'`
+   and the bare `'@marktiderman/genesis'`, are replaced with the lockfile's exact versions. Any
+   other pattern or bare name, and every other entry, comment and line, is left as it is, since the
+   list is the app's supply-chain guard. A range the app wrote for a Genesis package
+   (`'…genesis-ui@~2.25.0'`) takes the new pins into its entry with `||`, with a warning: pnpm 11
+   rejects ranges there (`ERR_PNPM_INVALID_MINIMUM_RELEASE_AGE_EXCLUDE`). Exact versions and `||`
+   need **pnpm 10.19 or later**; an older pnpm reads them as matching nothing, and the upgrade
+   warns. Then it runs `pnpm dedupe` (`npm dedupe` with npm; bun
    and yarn are skipped), so a Genesis package isn't left installed at two versions
    (`duplicate-genesis-package`), and commits pnpm-workspace.yaml with `--pr`.
 

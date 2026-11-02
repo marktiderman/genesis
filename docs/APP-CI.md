@@ -111,7 +111,9 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    pinned in pnpm-workspace.yaml's `minimumReleaseAgeExclude` become one entry per Genesis package
    listing its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`), which app-ci's
    `pnpm install --frozen-lockfile` honours on pnpm 11.1.3, versions the lockfile no longer holds
-   are dropped, other entries (an app's own pattern included) are left as they are, and
+   are dropped, 1.17.3's `'@marktiderman/genesis-*'` and bare `'@marktiderman/genesis'` become
+   exact versions, other entries (an app's own pattern included) are left as they are (exact
+   versions need pnpm 10.19 or later; the run warns on an older one), and
    `pnpm dedupe` runs (`npm dedupe` with npm). Never a pattern: `'@marktiderman/genesis-*'` would
    let every future Genesis release skip `minimumReleaseAge`. With `minimumReleaseAge` set in the
    app, pnpm's strict mode fails the install with `ERR_PNPM_NO_MATURE_MATCHING_VERSION` instead;

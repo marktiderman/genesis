@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { sha256 } from "../src/blocks/files.js";
 import { readLock, writeLock } from "../src/blocks/lock.js";
 import { mergeThreeWay } from "../src/blocks/owned.js";
-import { bumpPackageJson, compareVersions, lockedGenesisVersions, normaliseReleaseAgeExcludes, tidyLocked } from "../src/upgrade/bump-core.mjs";
+import { bumpPackageJson, compareVersions, lockedGenesisVersions, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, releaseAgeExcludeProblems, tidyLocked } from "../src/upgrade/bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { pnpmWorkspaceFileFor, releaseAgeError, runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { fakePackage, makeApp, PACKAGES, read, snapshot, writeTree } from "./blocks-helpers.js";
@@ -143,6 +143,8 @@ minimumReleaseAgeExclude:
 strictPeerDependencies: false
 `;
 
+// The app's range for genesis-ui takes the pin into its entry (releaseAgeExcludeProblems warns: pnpm
+// 11 rejects ranges).
 const MERGED = `# Settings for this app.
 autoInstallPeers: false
 minimumReleaseAgeExclude:
@@ -151,10 +153,9 @@ minimumReleaseAgeExclude:
   - left-pad@1.3.0
   # the umbrella
   - "@marktiderman/genesis@3.1.0"
-  - '@marktiderman/genesis-ui@2.26.0'
+  - '@marktiderman/genesis-ui@^2.0.0 || 2.26.0'
   - '@acme/genesis-ui@1.0.0'
   - '@marktiderman/other@1.0.0'
-  - '@marktiderman/genesis-ui@^2.0.0'
 strictPeerDependencies: false
 `;
 
@@ -193,13 +194,48 @@ describe("pnpm's minimumReleaseAgeExclude after an upgrade", () => {
       .toBe("minimumReleaseAgeExclude: ['@marktiderman/genesis-ui@2.25.0 || 2.26.0', left-pad] # x\nfoo: 1\n");
   });
 
-  it("never writes a pattern, and leaves one the app wrote", () => {
-    for (const pattern of ["'@marktiderman/genesis-*'", "'@marktiderman/*'", "'@marktiderman/genesis'"]) {
+  it("never writes a pattern; replaces the two 1.17.3 wrote with the lockfile's exact versions, and leaves the app's own", () => {
+    const locked = lockedGenesisVersions(LOCK);
+    // What 1.17.3 left in an app, with pnpm's new pin for this upgrade beside it.
+    const from1173 = "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*' # tidied\n  - left-pad@1.3.0\n  - '@marktiderman/genesis'\n  - '@marktiderman/genesis-ui@2.27.0'\n";
+    const tidied = normaliseReleaseAgeExcludes(from1173, locked);
+    expect(tidied).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.8.1' # tidied\n  - '@marktiderman/genesis-ui@2.26.0' # tidied\n  - left-pad@1.3.0\n  - '@marktiderman/genesis@3.1.0'\n");
+    expect(tidied).not.toMatch(/genesis-\*|'@marktiderman\/genesis'/);
+    expect(normaliseReleaseAgeExcludes(tidied, locked)).toBe(tidied);
+    expect(releaseAgeExcludeProblems(tidied)).toEqual([]);
+    // The flow form too.
+    expect(normaliseReleaseAgeExcludes("minimumReleaseAgeExclude: ['@marktiderman/genesis-*', left-pad]\n", locked)).toBe(
+      "minimumReleaseAgeExclude: ['@marktiderman/genesis-features@0.8.1', '@marktiderman/genesis-ui@2.26.0', left-pad]\n",
+    );
+    // Without a lockfile to read versions from, they stay, and the problems say so.
+    expect(normaliseReleaseAgeExcludes(from1173)).toContain("'@marktiderman/genesis-*'");
+    expect(releaseAgeExcludeProblems(normaliseReleaseAgeExcludes(from1173))).toEqual([expect.stringMatching(/genesis-\*' exempts every Genesis release/), expect.stringMatching(/'@marktiderman\/genesis' exempts/)]);
+    // Any other pattern is the app's own.
+    for (const pattern of ["'@marktiderman/*'", "'@acme/*'", "'@marktiderman/genesis-ui'"]) {
       const text = `minimumReleaseAgeExclude:\n  - ${pattern}\n  - '@marktiderman/genesis-ui@2.26.0'\n  - '@marktiderman/genesis-ui@2.27.0'\n`;
-      expect(normaliseReleaseAgeExcludes(text, new Map())).toBe(`minimumReleaseAgeExclude:\n  - ${pattern}\n`);
-      expect(normaliseReleaseAgeExcludes(text)).toBe(`minimumReleaseAgeExclude:\n  - ${pattern}\n  - '@marktiderman/genesis-ui@2.26.0 || 2.27.0'\n`);
+      expect(normaliseReleaseAgeExcludes(text, locked)).toBe(`minimumReleaseAgeExclude:\n  - ${pattern}\n  - '@marktiderman/genesis-ui@2.26.0'\n`);
     }
     expect(normaliseReleaseAgeExcludes(PINNED)).not.toContain("genesis-*");
+  });
+
+  it("keeps a merged entry's comment only from an entry whose version survives", () => {
+    const locked = lockedGenesisVersions(LOCK);
+    const text = "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.8.0' # old pin\n  - '@marktiderman/genesis-features@0.8.1' # this upgrade\n";
+    expect(normaliseReleaseAgeExcludes(text, locked)).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.8.1' # this upgrade\n");
+    expect(normaliseReleaseAgeExcludes(text)).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-features@0.8.0 || 0.8.1' # old pin\n");
+  });
+
+  it("folds a pin into the app's range for the package, and warns that pnpm 11 rejects ranges", () => {
+    const text = "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-ui@~2.25.0'\n  - '@marktiderman/genesis-ui@2.27.0'\n";
+    const folded = normaliseReleaseAgeExcludes(text);
+    expect(folded).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-ui@~2.25.0 || 2.27.0'\n");
+    expect(normaliseReleaseAgeExcludes(folded)).toBe(folded);
+    expect(releaseAgeExcludeProblems(folded)).toEqual([expect.stringMatching(/has a range \(~2\.25\.0\); pnpm 11 accepts only exact versions/)]);
+  });
+
+  it("knows which pnpm reads exact versions (10.19 and later)", () => {
+    expect(["10.18.3", "9.15.0"].map(pnpmReadsExactExcludes)).toEqual([false, false]);
+    expect(["10.19.0", "11.1.3", "11.26.0", "", "unknown"].map(pnpmReadsExactExcludes)).toEqual([true, true, true, true, true]);
   });
 
   it("drops versions the lockfile no longer holds, and an entry left with none", () => {
@@ -213,16 +249,21 @@ minimumReleaseAgeExclude:
   - left-pad@1.3.0
   # the umbrella
   - "@marktiderman/genesis@3.1.0"
-  - '@marktiderman/genesis-ui@2.26.0'
+  - '@marktiderman/genesis-ui@^2.0.0 || 2.26.0'
   - '@acme/genesis-ui@1.0.0'
   - '@marktiderman/other@1.0.0'
-  - '@marktiderman/genesis-ui@^2.0.0'
 strictPeerDependencies: false
 `);
     // Every entry dropped: an empty list, which pnpm reads, not a null one.
     expect(normaliseReleaseAgeExcludes("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-cli@1.17.2'\nfoo: 1\n", locked)).toBe("minimumReleaseAgeExclude: []\nfoo: 1\n");
     // A workspace whose projects keep their own lockfiles: one lockfile doesn't hold every version, so nothing is dropped.
     expect(tidyLocked("sharedWorkspaceLockfile: false\n", LOCK)).toBeNull();
+    expect(tidyLocked("sharedWorkspaceLockfile: 'false' # own lockfiles\n", LOCK)).toBeNull();
+    expect(tidyLocked('sharedWorkspaceLockfile: "false"\n', LOCK)).toBeNull();
+    expect(tidyLocked("packages: []\n", LOCK, "registry=https://registry.npmjs.org/\nshared-workspace-lockfile=false\n")).toBeNull();
+    expect(tidyLocked("packages: []\n", LOCK, "shared-workspace-lockfile = false ; why\n")).toBeNull();
+    expect(tidyLocked("packages: []\n", LOCK, "shared-workspace-lockfile=true\n")).toEqual(locked);
+    expect(tidyLocked("sharedWorkspaceLockfile: true\n", LOCK)).toEqual(locked);
     expect(tidyLocked("packages: []\n", null)).toBeNull();
     expect(tidyLocked("packages: []\n", LOCK)).toEqual(locked);
   });
@@ -264,6 +305,26 @@ strictPeerDependencies: false
     const before = read(root, "pnpm-workspace.yaml");
     await upgrade(root, { dryRun: true, install, dedupe });
     expect(read(root, "pnpm-workspace.yaml")).toBe(before);
+  });
+
+  it("an app upgraded from 1.17.3's output: its patterns become exact versions, and an old pnpm is warned about", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(root, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    // What genesis-cli 1.17.3's tidy left.
+    writeFileSync(path.join(root, "pnpm-workspace.yaml"), "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n  - '@marktiderman/genesis'\n");
+    const install = (r: string) => {
+      writeFileSync(path.join(r, "pnpm-workspace.yaml"), "minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-*'\n  - '@marktiderman/genesis'\n");
+      writeFileSync(path.join(r, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\npackages:\n  '@marktiderman/genesis-fixture@1.2.0': {}\n  '@marktiderman/genesis@9.0.0': {}\n");
+    };
+    const report = await upgrade(root, { install, dedupe: () => {}, pnpmVersion: () => "10.18.3" });
+    expect(read(root, "pnpm-workspace.yaml")).toBe("minimumReleaseAgeExclude:\n  - '@marktiderman/genesis-fixture@1.2.0'\n  - '@marktiderman/genesis@9.0.0'\n");
+    expect(report.files).toContain("pnpm-workspace.yaml");
+    expect(report.summary).toMatch(/pnpm 10\.18\.3 reads minimumReleaseAgeExclude's exact versions .* use pnpm 10\.19 or later/);
+    // On a current pnpm: no warning.
+    const fresh = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(fresh, "pnpm-lock.yaml"), "lockfileVersion: '9.0'\n");
+    const quiet = await upgrade(fresh, { install, dedupe: () => {}, pnpmVersion: () => "11.1.3" });
+    expect(quiet.summary).not.toContain("Warnings:");
   });
 
   it("finds pnpm-workspace.yaml as pnpm does, above an app with its own lockfile, and beside the lockfile in a standalone app", async () => {
