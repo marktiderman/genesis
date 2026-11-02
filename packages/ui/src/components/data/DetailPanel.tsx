@@ -265,9 +265,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
         <DialogContent
           showCloseButton={false}
           className={cn(
-            // The panel's own body scrolls. 85vh where the browser has no dvh; otherwise the
-            // screen's height inside its safe areas, which a phone's toolbar doesn't cut off.
-            "flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 supports-[height:100dvh]:max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))]",
+            "flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0",
             dialogMaxWidthClasses[width],
           )}
         >
@@ -292,8 +290,7 @@ export function DetailPanel<T extends Record<string, unknown>>({
           side="right"
           showCloseButton={false}
           className={cn(
-            // `p-0` drops the sheet's own safe-area padding, so it is put back here.
-            "flex flex-col gap-0 overflow-hidden p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] max-w-[90vw] sm:max-w-[90vw]",
+            "flex flex-col gap-0 overflow-hidden p-0 max-w-[90vw] sm:max-w-[90vw]",
             widthClasses[width],
           )}
         >

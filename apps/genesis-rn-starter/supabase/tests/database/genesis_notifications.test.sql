@@ -203,12 +203,10 @@ update public.notification_preferences set quiet_hours_start = '06:00' where use
 select is(private.genesis_notifications_quiet_until(pg_temp.u('c3'), '2026-11-01 10:59+00'), null, 'a start equal to the end is no quiet hours');
 
 -- Push during quiet hours waits; a transactional one doesn't ----------------------------
--- a1 is quiet from an hour before now to an hour after, in UTC: a window around the test's own
--- clock (it may run past midnight, which the claim handles), never a fixed one a clock can be outside.
+-- a1 is quiet all day long, in UTC.
 insert into public.notification_preferences (user_id, quiet_hours_enabled, quiet_hours_start, quiet_hours_end, time_zone)
-values (pg_temp.u('a1'), true, ((now() at time zone 'UTC') - interval '1 hour')::time, ((now() at time zone 'UTC') + interval '1 hour')::time, 'UTC')
-on conflict (user_id) do update set quiet_hours_enabled = true, quiet_hours_start = excluded.quiet_hours_start,
-  quiet_hours_end = excluded.quiet_hours_end, time_zone = 'UTC';
+values (pg_temp.u('a1'), true, '00:00', '23:59', 'UTC')
+on conflict (user_id) do update set quiet_hours_enabled = true, quiet_hours_start = '00:00', quiet_hours_end = '23:59', time_zone = 'UTC';
 insert into k select 'q1', notification_id from public.genesis_notify('gntest.message', jsonb_build_array(pg_temp.u('a1')), '{}', 'push:msg-q');
 insert into k select 'q2', notification_id from public.genesis_notify('gntest.alert', jsonb_build_array(pg_temp.u('a1')), '{}', 'alert-1');
 update public.notification_deliveries set send_after = now() - interval '1 minute' where notification_id in (pg_temp.k('q1'), pg_temp.k('q2'));
