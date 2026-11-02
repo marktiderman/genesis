@@ -1,0 +1,41 @@
+packages/genesis-cli/src/upgrade/overlays.ts
+  s_1feb538f59bf88::t_ffb43a939afa3e 1-420
+packages/genesis-cli/test/upgrade-overlays.test.ts
+  s_1feb538f59bf88::t_d14f02d12bfb7f 1-140
+.changeset/upgrade-rebases-overlays.md
+  s_1feb538f59bf88::t_8e87729d37540b 1-5
+docs/RELEASING.md
+  s_1feb538f59bf88::t_e80a57811e5e61 144-148
+features.json
+  s_1feb538f59bf88::t_33e714a3a92505 6052-6053
+features.ts
+  s_1feb538f59bf88::t_f56db77cfdf65b 2641
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_0d1f16266d3eb7 261,274-295
+packages/genesis-cli/src/doctor/overlays.ts
+  s_1feb538f59bf88::t_f3746da71d453f 20-22,36-37,109-139,199-210
+packages/genesis-cli/src/doctor/rules.ts
+  s_1feb538f59bf88::t_f29c868ad19cc8 73
+packages/genesis-cli/src/doctor/versions.ts
+  s_1feb538f59bf88::t_74f8c4139503cc 11,40-42
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_0028f80bcaeeb2 36,66-67,86-87,208-229,248,389,394,453-455
+packages/genesis-cli/test/doctor-overlays.test.ts
+  s_1feb538f59bf88::t_3b2b672a155c9d 188-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "40c8d60f8028dfc12fe6ceb8caf8f0e2b322e82f",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
