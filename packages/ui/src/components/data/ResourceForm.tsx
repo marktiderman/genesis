@@ -277,7 +277,7 @@ function FormBody({
         className={
           fill
             ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4"
-            : "max-h-[60vh] overflow-y-auto px-1"
+            : "max-h-[60dvh] overflow-y-auto px-1"
         }
       >
         {renderForm ? (

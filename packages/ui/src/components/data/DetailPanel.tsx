@@ -265,7 +265,9 @@ export function DetailPanel<T extends Record<string, unknown>>({
         <DialogContent
           showCloseButton={false}
           className={cn(
-            "flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0",
+            // DialogContent caps the height itself, to the screen and inside its safe areas;
+            // the panel's own body scrolls.
+            "flex flex-col gap-0 overflow-hidden p-0",
             dialogMaxWidthClasses[width],
           )}
         >
