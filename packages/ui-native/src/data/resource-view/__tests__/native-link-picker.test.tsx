@@ -1,4 +1,4 @@
-// @feat:resource-view-link-picker
+// @feat:resource-view-links
 /**
  * A link's picker in NativeResourceView's form sheet: the linked rows through the provider, under
  * the linked view's scope and default filter; the picked key saved; None clears to null; a link

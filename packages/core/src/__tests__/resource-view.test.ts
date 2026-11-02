@@ -683,7 +683,7 @@ describe("defineView: calendar", () => {
   });
 });
 
-// @feat:resource-view-link-picker
+// @feat:resource-view-links
 describe("links in forms", () => {
   const notes = {
     name: "notes",

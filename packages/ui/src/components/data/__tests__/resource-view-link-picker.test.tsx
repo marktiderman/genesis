@@ -6,7 +6,7 @@
  * - it saves the picked row's key, and None clears an optional link to null;
  * - a link the screen's filter pins stays out of the form and is filled hidden.
  */
-// @feat:resource-view-link-picker
+// @feat:resource-view-links
 import { act, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";

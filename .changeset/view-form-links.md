@@ -10,4 +10,4 @@ Links are editable in view forms, with a picker. A `defineView` field with `refe
 - **genesis-ui:** `RelationField` lists through `useLinkOptions`: nothing until it opens, server search, Show more, None for an optional link (saves null), the chosen row's words when it isn't loaded, and copy from the UI catalogue (`link.*`). ResourceView maps each link in a view's form to it.
 - **genesis-ui-native:** the form sheet draws a writable link as `NativeLinkPicker` (`kind: "link"`): the list opens in place with search, None and Show more. `formFieldsFor(view, mode, { pinned })` keeps links the screen's filter pins read-only. The messages catalogue gains an optional `link` block.
 
-Features: resource-view-link-picker
+Features: resource-view-links
