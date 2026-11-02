@@ -1,0 +1,27 @@
+apps/genesis-rn-starter/README.md
+  s_1feb538f59bf88::t_8ed7a55be26604 212-216
+apps/genesis-rn-starter/package.json
+  s_1feb538f59bf88::t_a297952ef5e6f1 88
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_1feb538f59bf88::t_6b8328f9e65594 18,21,52,149,543-545,549,559,561-566
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_1feb538f59bf88::t_f2bf59cb2de8e5 6,32-33,311-313,316-317,325,327-330
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_980d4fd2f39f06 243-245
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4f5eb6b64d7c8cbdda8beaebc05ecdb425e04428",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
