@@ -12,7 +12,26 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { UserAvatar } from "../user-avatar";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { DISTINCT_AVATAR_TINTS, UserAvatar } from "../user-avatar";
+
+function hslToRgb(h: number, s: number, l: number): number[] {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  return [f(0), f(8), f(4)];
+}
+function luminance(rgb: number[]): number {
+  const [r, g, b] = rgb.map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!;
+}
+function contrast(a: number[], b: number[]): number {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
 
 describe("UserAvatar — accessible name", () => {
   it("exposes the full name as an image on the initials fallback path", () => {
@@ -108,6 +127,26 @@ describe("UserAvatar — initials", () => {
     expect(shown("Ada Lovelace").text).toBe("AL");
     expect(shown("Probe").tint).toBe(shown("Probe").tint);
     expect(shown("Probe").tint).not.toBe(shown("Polish").tint);
+  });
+
+  it("pairs every distinct tint with foreground text that passes 4.5:1 in light and dark", () => {
+    // Each tint is a chart-colour wash behind the foreground text, never the chart colour as text.
+    for (const tint of DISTINCT_AVATAR_TINTS) expect(tint).toMatch(/^bg-chart-[1-5]\/20 text-foreground$/);
+    const css = readFileSync(createRequire(import.meta.url).resolve("@marktiderman/genesis-design-system/themes/genesis.css"), "utf8");
+    const block = (selector: string) => css.slice(css.indexOf(`${selector} {`), css.indexOf("}", css.indexOf(`${selector} {`)));
+    for (const theme of [block(":root"), block(".dark")]) {
+      const token = (name: string) => {
+        const [h, s, l] = new RegExp(`--${name}:\\s*([\\d.]+)\\s+([\\d.]+)%\\s+([\\d.]+)%`).exec(theme)!.slice(1).map(Number);
+        return hslToRgb(h!, s!, l!);
+      };
+      const fg = token("foreground");
+      const bg = token("background");
+      for (const tint of DISTINCT_AVATAR_TINTS) {
+        const chart = token(/bg-(chart-\d)/.exec(tint)![1]!);
+        const wash = chart.map((c, i) => c * 0.2 + bg[i]! * 0.8);
+        expect(contrast(fg, wash)).toBeGreaterThanOrEqual(4.5);
+      }
+    }
   });
 
   it("keeps one initial and no tint without distinct", () => {
