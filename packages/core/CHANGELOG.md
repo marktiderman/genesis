@@ -1,5 +1,20 @@
 # @marktiderman/genesis-core
 
+## 2.5.0
+
+### Minor Changes
+
+- bc1bd20: `genesis-core/dates` gains calendar ranges and recurrence. `startOfMonth`, `addMonths` (clamps to the month's last day), `daysInMonth`, `startOfQuarter`, `addWeeks`, `monthRange`, `quarterRange`, `weeksRange` (1 to 4 weeks from a day, Sunday or Monday first), `monthGridRange` (whole weeks covering a month), `eachDay`, and `rangeIn` (a range of days as instants on a zone's clock). `instantIn` and `wallTimeIn` convert between a wall time and an instant, with RFC 5545's rules for skipped and repeated hours. `parseRRule` and `expandRecurrence` (it returns `{ occurrences, truncated }`, `truncated` true when `limit` cut it) expand a repeating series (FREQ DAILY/WEEKLY/MONTHLY/YEARLY, INTERVAL, COUNT, UNTIL, BYDAY with positions, BYMONTHDAY, BYMONTH, WKST, EXDATE) into a required window (at most 1,000 occurrences by default); any other part, a repeated part or a combination RFC 5545 forbids throws a `RangeError` naming it, for text and rule objects alike; a floating UNTIL is read on the series' clock, keeping the series' wall time across daylight saving. No dependencies.
+- bc1bd20: A view can describe its calendar: `defineView(contract, { calendar: { field, endField, allDayField, laneBy, layout, weeks, weekStartsOn } })`, checked by `defineView` and read by every platform. ResourceView gains a calendar mode: `<ResourceView view={v} mode="calendar" />` places a view's rows by a date or timestamp field in a month grid, 1 to 4 weeks, a printable day-by-day agenda, or one lane per person. It asks the provider for the rows that overlap the visible window (long events that began earlier included), inside the view's scope and filters and under core's list keys so saves refresh it, and says "+N more" past its row cap (500 per request; two requests with an `endField`) and in busy day cells; lands timestamps on the field's display clock (its own zone, the scope's or the viewer's), with `timestamp without time zone` read as wall time; gives events with no lane an Unassigned lane; shows an event that spans days on each day, all-day events first; draws a dot per person (named for screen readers); moves between days with the arrow keys, Home/End and PageUp/PageDown, each day read with its event count; and opens the list's peek on click (or `calendar.onSelect`). `EventCalendar` and its placement helpers (`calendarWindow`, `placeEvents`, `readEventTime`, `windowBounds`…) are exported from `/data` for events that aren't one view's rows. `readEventTime` (stored dates and timestamps as calendar values) is in `genesis-core/dates`. Studio's month calendar is now drawn by `EventCalendar` and fetches the whole grid it shows.
+
+### Patch Changes
+
+- bc1bd20: Calendar follow-ups. A `layout` or `anchor` that isn't valid (a hand-edited URL) shows the month and today, with a warning in development (once per value), instead of crashing; configuration mistakes still throw. ResourceCalendar loads rows starting in the window and rows running into it as one query that neither overlaps nor misses anything, so a zero-length event at the window's first midnight is fetched and two windows' rows never mix. `expandRecurrence` checks `until` on a rule object and carries an `at` start's milliseconds to every occurrence. `genesis-core/errors` exports `isDevelopment()` for development-only hints.
+- bc1bd20: The default error reporter (and `isDevelopment`) now stays quiet in a production browser build:
+  it reads `process.env.NODE_ENV` written out in full, which Vite, webpack and esbuild replace at
+  build time. It used to read it with optional chaining, which no bundler replaces, so a browser
+  build with no `process` counted as development and warned in the console.
+
 ## 2.4.1
 
 ### Patch Changes
