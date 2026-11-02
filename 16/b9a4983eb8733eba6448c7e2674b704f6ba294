@@ -1,0 +1,44 @@
+features.ts
+  s_1feb538f59bf88::t_5cafe4979999b1 273-320
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_1feb538f59bf88::t_cb9a31d0308144 1-227
+scripts/check-docs-match-exports.mjs
+  s_1feb538f59bf88::t_74aebc51a65ff5 1-628
+  s_1feb538f59bf88::t_6ab8bbbd210bb9 629-669
+.changeset/umbrella-readme-imports.md
+  s_1feb538f59bf88::t_3fe9e791864517 1-5
+.github/workflows/ci.yml
+  s_1feb538f59bf88::t_889fd883383128 143-148
+AGENTS.md
+  s_1feb538f59bf88::t_a896920967eca3 11,105
+docs/AI.md
+  s_1feb538f59bf88::t_2724d705d9d992 223,251
+docs/FORMS.md
+  s_1feb538f59bf88::t_85b66a87cce08c 202,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_1feb538f59bf88::t_8603b05e73f2a7 4-5
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_bcf0199b5ff725 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,350-351,446-447,459-460,545-546,616-621,630-631,672-673,676-678,684-685,697,742
+features.json
+  s_1feb538f59bf88::t_8ffaebfccf6ad5 600-701
+package.json
+  s_1feb538f59bf88::t_9c7df1e02b3704 17
+packages/genesis/README.md
+  s_1feb538f59bf88::t_b94d2e5c549209 9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "16b9a4983eb8733eba6448c7e2674b704f6ba294",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
