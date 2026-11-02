@@ -1,0 +1,119 @@
+.changeset/brand-contrast-check.md
+  s_1feb538f59bf88::t_cab81e0d4dad26 1-5
+.changeset/brand-radius-scale.md
+  s_1feb538f59bf88::t_b55d440a33251a 1-11
+.changeset/ui-appshell-phone-drawer.md
+  s_1feb538f59bf88::t_c8efa71b0f1918 1-15
+.changeset/umbrella-readme-imports.md
+  s_1feb538f59bf88::t_74250204f8337e 1-5
+.changeset/upgrade-excludes-exact-versions.md
+  s_1feb538f59bf88::t_49f7d7faa3104d 1-11
+.github/ci-fixture/pnpm-workspace.yaml
+  s_1feb538f59bf88::t_ab1e5a3385f3a1 4-6,8-13
+.github/workflows/ci.yml
+  s_1feb538f59bf88::t_74b91ae7d8ad07 143-148
+.github/workflows/genesis-upgrade.yml
+  s_1feb538f59bf88::t_471526c4dd11a6 34-49,194-225,227-228,230-232,242-301,311-315,320-321,325,328-329,331-368,374-376,381,385-395,411-414,416,421-422,425-431,580-586,589,649-651,654,741,755-762,776,792
+AGENTS.md
+  s_1feb538f59bf88::t_87ff99d7a26b1b 11,105
+docs/AI.md
+  s_1feb538f59bf88::t_cef9a11dbe916e 223,225-226,243,245-255,262-263
+docs/APP-CI.md
+  s_1feb538f59bf88::t_df09318bf5fc3b 110-121,143-146
+docs/FORMS.md
+  s_1feb538f59bf88::t_fd1b947dd76421 202,208,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_1feb538f59bf88::t_10f35375e60a06 4-5
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_1b569d706406d7 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,419-420,515-516,528-529,614-615,685-690,699-700,741-742,745-747,753-754,766,811
+features.json
+  s_1feb538f59bf88::t_cf7ba3d89060cf 600-701
+features.ts
+  s_1feb538f59bf88::t_4ef2eeff0cfd80 273-320
+package.json
+  s_1feb538f59bf88::t_1d9481ae66dafb 17
+packages/design-system/README.md
+  s_1feb538f59bf88::t_978be87a12d008 17,39-72
+packages/design-system/schema/brand.schema.json
+  s_1feb538f59bf88::t_3f657a50202fed 128-129
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_1feb538f59bf88::t_5d7a885f1bc74a 46,201-205
+packages/design-system/src/design-systems/tokens.ts
+  s_1feb538f59bf88::t_7492dcc4f611de 13,239-240
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_1feb538f59bf88::t_2db3160310049a 127-144
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_1feb538f59bf88::t_8f3fe8ce2c612e 439,445
+packages/design-system/src/factories/brand-roles.ts
+  s_1feb538f59bf88::t_16de8478cbd308 30-31,42,157,182-183,186-200
+packages/design-system/src/factories/from-brand.ts
+  s_1feb538f59bf88::t_d8cb797b69daf4 315
+packages/design-system/src/index.native.ts
+  s_1feb538f59bf88::t_b3b2fccb2452a1 41-42,46-47
+packages/design-system/src/index.ts
+  s_1feb538f59bf88::t_2328583081a664 32-33,37-38
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_1feb538f59bf88::t_7dc038604a0554 67-89
+packages/design-system/src/presets/nativewind.ts
+  s_1feb538f59bf88::t_16be853032ce40 24-31,44-45,88,93,107-123
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_1feb538f59bf88::t_f63ff747e0130b 1-144
+packages/design-system/src/schema/brand-contrast.ts
+  s_1feb538f59bf88::t_31f8ebeaaa953a 1-225
+packages/design-system/src/schema/brand.ts
+  s_1feb538f59bf88::t_1e2da882cfc7d0 105-110,451-474,801-806,812,814,816,939-949
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_1feb538f59bf88::t_027bbceb973229 21,109,117-152
+packages/design-system/src/tokens/spacing.ts
+  s_1feb538f59bf88::t_669ebe7ca831bf 5-32,34-37,39-41
+packages/design-system/src/tokens/theme-css.ts
+  s_1feb538f59bf88::t_19304dae76f99c 17-18,258-261,294-299
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_37c614768192a0 356-375,377-383
+packages/genesis-cli/src/cli.ts
+  s_1feb538f59bf88::t_32c0952254b5bb 40-43
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_1feb538f59bf88::t_3990a86b4aaf9f 28-42,47,49-50
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_1feb538f59bf88::t_06346e1e0b8179 70-83,85-101,103-104,106-108,118-177,187-191,196-197,201,204-233,235-244,250-252,257,261-271
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_10a84816d32391 11-12,18-19,33,64-65,132-135,139-140,146-224,314,316-317,321-322,324-331,333,345-353,360,438
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_a9e9e32176a309 2-3,9,11,127-129,138,142,146-148,151-152,155-156,162-178,180-182,184-187,193-268,272-277,279,287-288,292-296,299-300,302-303,310-329,341,347-354,357-409
+packages/genesis/README.md
+  s_1feb538f59bf88::t_e77ee51c5d44dc 9-10
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_1feb538f59bf88::t_dabd7276215b0f 661,789,922,1050,1183,1311,1444,1572,1705,1833,1969,2100,2233,2361,2494,2622,2755,2883,3016,3144,3277,3405,3541,3672,3805,3933,4066,4194,4327,4455,4588,4716,4849,4977,5113,5244,5377,5505,5638,5766,5899,6027,6160,6288,6421,6549,6685,6816
+packages/ui/src/components/layout/AppShell.tsx
+  s_1feb538f59bf88::t_1edba18332c22d 25,38,51,288-289,1153-1154,1215,1218-1239,1475-1484,1597,1605,1645,1767-1810,1821-1822,1827,1831,1853,1938-1941,1954-1955,1993-2010,2013-2053
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_1feb538f59bf88::t_6b748f5e7fe1fc 467-468
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_1feb538f59bf88::t_e81c4e9c230f5d 1-303
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_1feb538f59bf88::t_7ac1b79bf16693 274-278
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_aa7a88d88c91c3 215-231
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_1feb538f59bf88::t_b27b95cd6ce585 1-246
+scripts/__tests__/genesis-bump-sync.test.mjs
+  s_1feb538f59bf88::t_e5ce65d871a3bb 55-56,58,66-70,76,78,83-103
+scripts/check-docs-match-exports.mjs
+  s_1feb538f59bf88::t_be7fedc817626d 1-715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73a20c85d2c5441a71926e05d5de6ede5ff08fbf",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
