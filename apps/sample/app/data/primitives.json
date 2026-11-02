@@ -14514,7 +14514,7 @@
             },
             {
               "name": "shell",
-              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; more: string; moreDescription: string; moreCurrent: string; }>",
+              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; expandSidebar: string; collapseSidebar: string; primaryNavigation: string; more: string; moreDescription: string; moreCurrent: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
