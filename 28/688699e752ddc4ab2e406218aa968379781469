@@ -1,0 +1,21 @@
+.changeset/core-event-occurrence.md
+  s_6a4659246591cd::t_f862fb05c17d7d 1-5
+packages/core/src/dates.ts
+  s_6a4659246591cd::t_cfd0b1d6353607 793-819
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "28688699e752ddc4ab2e406218aa968379781469",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
