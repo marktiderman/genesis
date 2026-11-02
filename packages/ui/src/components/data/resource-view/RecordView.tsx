@@ -36,6 +36,7 @@ import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
 import type { LucideIcon } from "lucide-react";
+import { NONE_CHOICE as NONE } from "../none-choice";
 import { inputHints } from "../ResourceFormField";
 import { formType, ResourceView, type ResourceViewProps } from "./ResourceView";
 
@@ -361,9 +362,6 @@ function sameValue(a: unknown, b: unknown): boolean {
   return text(a) === text(b);
 }
 
-/** The picker's "no value" choice: Radix's Select can't hold "". */
-const NONE = "__genesis_none__";
-
 function SettingField({
   field: f,
   value,
@@ -385,11 +383,13 @@ function SettingField({
     return <ToggleRow label={f.label} checked={value === true} onCheckedChange={(v) => onChange(v)} disabled={disabled} testID={id} rowTestID={testID} />;
   }
   const empty = f.field.nullable ? null : "";
+  // A field that can be empty, and that the view doesn't require, can be set back to empty.
+  const clearable = f.field.nullable && !f.required;
   if (f.options?.length) {
     return (
       <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled}>
         <Select
-          value={value == null || value === "" ? (f.field.nullable ? NONE : "") : String(value)}
+          value={value == null || value === "" ? (clearable ? NONE : "") : String(value)}
           onValueChange={(v) => onChange(v === NONE ? empty : v)}
           disabled={disabled}
         >
@@ -397,10 +397,9 @@ function SettingField({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {/* A field that can be empty can be set back to empty. */}
-            {f.field.nullable ? (
+            {clearable ? (
               <SelectItem value={NONE} data-testid={`${id}-none`}>
-                <span className="text-muted-foreground">{m.common.none}</span>
+                <span className="text-muted-foreground">{m.link.none}</span>
               </SelectItem>
             ) : null}
             {f.options.map((o) => (

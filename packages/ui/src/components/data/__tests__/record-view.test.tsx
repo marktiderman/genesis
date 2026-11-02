@@ -441,6 +441,17 @@ describe("RecordView settings picker", () => {
     expect(await screen.findAllByRole("option")).toHaveLength(2);
     expect(screen.queryByTestId("resource-workspace-settings-kind-input-none")).toBeNull();
   });
+
+  it("offers no None on a nullable field the view requires", async () => {
+    const requiredSize = {
+      ...itemPage,
+      settingsFields: (id: string) => itemPage.settingsFields(id).map((f) => (f.field.name === "size" ? { ...f, required: true } : f)),
+    };
+    renderRecordView("settings", provider(), { view: requiredSize as never, row: item });
+    open("resource-workspace-settings-size-input");
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(screen.queryByTestId("resource-workspace-settings-size-input-none")).toBeNull();
+  });
 });
 
 describe("RecordView settings inputs", () => {

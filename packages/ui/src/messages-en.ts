@@ -22,14 +22,21 @@ export const uiMessages = {
     openItem: "Open {name}",
     loading: "Loading…",
     saving: "Saving",
-    /** A picker's choice that sets a field back to empty. */
-    none: "None",
   },
-  /** Relative times (`relativeTime`): `{n}` is a count. Hours and days use Intl's words. */
+  /**
+   * Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in
+   * `locale`; a translation sets its own.
+   */
   time: {
+    /** The language Intl formats hours, days and dates in. */
+    locale: "en",
     justNow: "just now",
     minutesAgo: "{n} min ago",
     inMinutes: "in {n} min",
+    /** The compact style (an inbox). */
+    now: "now",
+    minutesShort: "{n}m",
+    yesterday: "Yesterday",
   },
   page: {
     errorTitle: "Something went wrong",
@@ -60,6 +67,20 @@ export const uiMessages = {
     notFoundTitle: "Record not found",
     notFoundBody: "This record doesn't exist, or you don't have access to it.",
     deleteFailed: "The delete failed.",
+  },
+  /** A link's picker in a form (RelationField). */
+  link: {
+    /** The closed picker with nothing chosen. */
+    placeholder: "Choose…",
+    search: "Search…",
+    /** The choice that empties an optional link. */
+    none: "None",
+    noResults: "No matches",
+    loadMore: "Show more",
+    loadFailed: "Couldn't load the choices.",
+    createNew: "Create new…",
+    /** Read after the chosen row in the open list, for a screen reader. */
+    selected: "selected",
   },
   form: {
     /** `{noun}`: the record's name, e.g. "goal". */
