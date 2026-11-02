@@ -122,6 +122,14 @@ export function valueText(labels: Readonly<Record<string, string>> | undefined, 
   return own(labels, key) ?? titleCase(key);
 }
 
+const KIND: Readonly<Record<string, string>> = { datetime: "date or timestamp", boolean: "yes/no", number: "number" };
+const LAYOUTS: readonly string[] = ["month", "weeks", "agenda", "lanes"];
+
+/** A calendar block's keys: anything else in one is a mistake `defineView` names. */
+const CALENDAR_KEYS: readonly string[] = [
+  "field", "endField", "durationField", "durationUnit", "allDayField", "laneBy", "layout", "phoneLayout", "weeks", "weekStartsOn",
+];
+
 /**
  * What's wrong with a calendar block for these fields, one sentence each (empty when it's fine).
  * `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged
@@ -136,14 +144,20 @@ export function calendarProblems(fields: readonly Pick<FieldSchema, "name" | "ty
     if (name === undefined) return;
     const f = byName.get(name);
     if (!f) problems.push(`${where} names "${name}", which isn't a field`);
-    else if (f.type !== type || f.array) problems.push(`${where} "${name}" isn't a ${type === "datetime" ? "date or timestamp" : "yes/no"} field`);
+    else if (f.type !== type || f.array) problems.push(`${where} "${name}" isn't a ${KIND[type]} field`);
   };
   typed(calendar.field, "calendar.field", "datetime");
   typed(calendar.endField, "calendar.endField", "datetime");
+  typed(calendar.durationField, "calendar.durationField", "number");
   typed(calendar.allDayField, "calendar.allDayField", "boolean");
+  if (calendar.durationUnit !== undefined && !["minutes", "hours", "days"].includes(calendar.durationUnit)) {
+    problems.push(`calendar.durationUnit "${String(calendar.durationUnit)}" isn't minutes, hours or days`);
+  }
+  if (calendar.durationUnit !== undefined && calendar.durationField === undefined) problems.push("calendar.durationUnit needs a durationField");
   if (calendar.laneBy !== undefined && !byName.has(calendar.laneBy)) problems.push(`calendar.laneBy names "${calendar.laneBy}", which isn't a field`);
-  if (calendar.layout !== undefined && !["month", "weeks", "agenda", "lanes"].includes(calendar.layout)) {
-    problems.push(`calendar.layout "${String(calendar.layout)}" isn't month, weeks, agenda or lanes`);
+  for (const key of ["layout", "phoneLayout"] as const) {
+    const value = calendar[key];
+    if (value !== undefined && !LAYOUTS.includes(value)) problems.push(`calendar.${key} "${String(value)}" isn't month, weeks, agenda or lanes`);
   }
   if (calendar.weeks !== undefined && ![1, 2, 3, 4].includes(calendar.weeks)) problems.push(`calendar.weeks is 1 to 4, not ${String(calendar.weeks)}`);
   if (calendar.weekStartsOn !== undefined && calendar.weekStartsOn !== 0 && calendar.weekStartsOn !== 1) {
@@ -289,8 +303,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     if (!rawCalendar || typeof rawCalendar !== "object" || Array.isArray(rawCalendar)) {
       problems.push("calendar isn't an object");
     } else {
-      const known = ["field", "endField", "allDayField", "laneBy", "layout", "weeks", "weekStartsOn"];
-      for (const key of Object.keys(rawCalendar)) if (!known.includes(key)) problems.push(`calendar.${key} isn't a calendar setting`);
+      for (const key of Object.keys(rawCalendar)) if (!CALENDAR_KEYS.includes(key)) problems.push(`calendar.${key} isn't a calendar setting`);
       if ((rawCalendar as { field?: unknown }).field === undefined) problems.push("calendar.field is required");
       calendar = Object.freeze({ ...(rawCalendar as ViewCalendar) });
       problems.push(...calendarProblems(fields, calendar));

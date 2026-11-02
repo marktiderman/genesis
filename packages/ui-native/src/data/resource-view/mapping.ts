@@ -266,6 +266,9 @@ function heldTo(link: ResolvedLink, keys: readonly (string | number)[] | undefin
     get labelField() {
       return link.labelField;
     },
+    get orderBy() {
+      return link.orderBy;
+    },
     ...(link.searchFields ? { searchFields: link.searchFields } : {}),
     filters: (scope?: Parameters<ResolvedLink["filters"]>[0], values?: Parameters<ResolvedLink["filters"]>[1]) => [...link.filters(scope, values), held],
   });

@@ -309,6 +309,7 @@ function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, co
         {placed.continued && <span className="sr-only">({continuedLabel}) </span>}
         {event.title}
       </span>
+      {event.status && <span className="sr-only">, {event.status}</span>}
       {names.length > 0 && <span className="sr-only">, {fillMessage(withLabel, { names: names.join(", ") })}</span>}
     </>
   );
@@ -318,6 +319,7 @@ function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, co
     placed.continued && "rounded-l-none",
     placed.continues && "rounded-r-none",
     compact ? "" : "text-sm",
+    event.className,
   );
   return (
     <li data-event={event.key} className={className}>
