@@ -140,6 +140,12 @@ jobs:
       - name: Glossary (warn mode)
         run: pnpm check:glossary
 
+      # Docs describe only API the built packages have: fenced TS examples are type-checked, and
+      # prose in a section marked <!-- api: … --> is checked against those types. Work not built
+      # yet says **Planned** with its features.ts id (scripts/check-docs-match-exports.mjs).
+      - name: Docs match exports
+        run: pnpm check:docs-match-exports
+
       # A pull request that adds a package links an ADR (docs/adr/TEMPLATE.md).
       - name: ADR for new packages
         if: github.event_name == 'pull_request'

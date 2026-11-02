@@ -10,6 +10,7 @@
  * host reads each token with a fallback, `var(--ds-text-h2, <its own>)`.
  */
 import { FONT_CLASSES, type FontClass } from "../fonts";
+import { RADIUS_SCALE } from "../tokens/spacing";
 import { hexToHslTriplet, palette, rolePairs, type ColorRoles, type ContrastPair, type Palette, type PaletteInput } from "./color";
 import {
   DEFAULT_EYEBROW,
@@ -235,8 +236,8 @@ export function designSystemTheme(ds: DesignSystem, input: DesignSystemTokenInpu
     shared["--ds-radius-lg"] = `${r.lg}px`;
     shared["--ds-radius-button"] = `${r.button}px`;
     shared["--ds-radius-image"] = `${r.image}px`;
-    // genesis-ui's radii are steps around --radius (rounded-xl is --radius + 4px): cards (rounded-xl) get md.
-    shared["--radius"] = `calc(${r.md}px - 4px)`;
+    // genesis-ui's radii are multiples of --radius (rounded-xl is 1.4×): cards (rounded-xl) get md.
+    shared["--radius"] = `${num(r.md / RADIUS_SCALE.xl)}px`;
     shared["--radius-2xl"] = `${r.lg}px`;
     shared["--ds-border-width"] = `${ds.shape.borderWidth ?? 1}px`;
   }

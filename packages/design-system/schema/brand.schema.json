@@ -125,7 +125,8 @@
       "properties": {
         "DEFAULT": { "type": "string", "minLength": 1 },
         "light": { "type": "string" },
-        "dark": { "type": "string" }
+        "dark": { "type": "string" },
+        "foreground": { "type": "string", "description": "The color drawn on this scale's colors (text on a category chip). The contrast check reads it." }
       }
     },
     "ShadowToken": {

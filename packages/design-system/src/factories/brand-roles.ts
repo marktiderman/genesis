@@ -27,6 +27,8 @@
  *     first darker stop that reads at 4.5:1 on the background, else the text
  *     color); 200 → border, input
  *   - status → destructive (error), success, warning, info
+ *   - radius.lg (else radius.DEFAULT) → radius, in both modes: every
+ *     `rounded-*` step is a multiple of it, so `"0"` is square everywhere
  *
  * Dark mode: a brand declares no dark-mode colors, so dark mode is the Genesis
  * dark theme, except the primary, which is the brand's accent when it reaches
@@ -37,7 +39,7 @@
  * @stability Beta
  */
 
-import type { CanonicalBrand } from "../schema/brand";
+import { clampBounds, isLength, type CanonicalBrand } from "../schema/brand";
 import { GENESIS_THEME_BRAND, themeVariables } from "../tokens/theme-css";
 import { applyOverrides } from "./overrides";
 
@@ -152,7 +154,7 @@ function overlay(brand: CanonicalBrand, mode: Mode, out: Record<string, string>)
 }
 
 /** `243 75% 59%` components → [r, g, b] (0–255). */
-function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+export function hslToRgb(h: number, s: number, l: number): [number, number, number] {
   const sat = s / 100;
   const light = l / 100;
   const k = (n: number) => (n + h / 30) % 12;
@@ -177,5 +179,22 @@ export function brandRoleVariables(brand: CanonicalBrand, options: BrandRoleVari
   const dark = { ...base.dark };
   overlay(merged, "light", light);
   overlay(merged, "dark", dark);
+  const radius = brandRadius(merged, platform);
+  if (radius !== undefined) light["--radius"] = dark["--radius"] = radius;
   return { light, dark };
+}
+
+/**
+ * The brand's base radius, what `--radius` holds and every `rounded-*` step
+ * scales from: `radius.lg`, else `radius.DEFAULT`. `rounded-lg` is the radius
+ * itself, so a brand's `lg` wins over a bare `DEFAULT` (`rounded`). On native a fluid `clamp()` is its minimum, as for other lengths.
+ * A bare `0` becomes `0px`: the steps multiply it (`calc(var(--radius) * 1.4)`),
+ * and a unitless product isn't a length.
+ */
+function brandRadius(brand: CanonicalBrand, platform: "native" | "web"): string | undefined {
+  const value = brand.radius?.lg ?? brand.radius?.DEFAULT;
+  if (typeof value !== "string" || !isLength(value)) return undefined;
+  const bounds = platform === "native" ? clampBounds(value) : undefined;
+  if (bounds) return `${bounds.min}rem`;
+  return value === "0" ? "0px" : value;
 }
