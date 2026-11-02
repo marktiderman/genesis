@@ -1,0 +1,85 @@
+packages/ui/src/components/data/resource-view/index.ts
+  s_1feb538f59bf88::t_de7b63c8ab57f3 22
+packages/core/src/__tests__/resource-view-calendar-link-order.test.ts
+  s_1feb538f59bf88::t_e37dd85f769fcf 1-85
+packages/core/src/hooks/__tests__/use-link-options.test.tsx
+  s_1feb538f59bf88::t_32b0c128d20f2e 54-91
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_390bac50328841 39,41,48-64,383,386-388,394-400
+  s_1feb538f59bf88::t_18725f1bf81b7d 40,384-385
+packages/ui/src/components/data/__tests__/resource-form-view.test.tsx
+  s_1feb538f59bf88::t_51a6048fe9baaa 1-184
+packages/ui/src/components/data/__tests__/resource-calendar-options.test.tsx
+  s_1feb538f59bf88::t_b627ee7291bd2f 1-200
+packages/ui/README.md
+  s_1feb538f59bf88::t_bd8b76cabbac99 48-57
+packages/core/src/resource-view/types.ts
+  s_1feb538f59bf88::t_974a77970100fd 305-307
+  s_1feb538f59bf88::t_1324c7178b39d3 318-324
+  s_1feb538f59bf88::t_f15121c2e98795 159
+  s_1feb538f59bf88::t_6d8c45535aaaf4 131-142,155-158
+  s_1feb538f59bf88::t_08baa6064acfa1 331-336
+packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx
+  s_1feb538f59bf88::t_4b4fb0e80926f8 50
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_1feb538f59bf88::t_bdb4fcb8a930d6 289-290,302
+  s_1feb538f59bf88::t_6a01b2c3aeccdd 7-8,17,77-78,160-161
+packages/ui-native/src/data/resource-view/__tests__/native-link-picker.test.tsx
+  s_1feb538f59bf88::t_47b611cd7aeb79 194-209
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_0187a9c374c7cc 311-317
+  s_1feb538f59bf88::t_ffd62b6eb5f4c3 527-528,532-550
+  s_1feb538f59bf88::t_c63972c1a9e7a1 249-260
+.changeset/resourceview-gaps.md
+  s_1feb538f59bf88::t_b09a38dcc287bd 1-12
+packages/ui/src/components/data/resource-view/view-form.ts
+  s_1feb538f59bf88::t_e8de12a503de43 9,100-104,120-121,124
+  s_1feb538f59bf88::t_18725f1bf81b7d 110,116,122,128-129
+  s_1feb538f59bf88::t_596d25cca66eac 1-8,10-99,105-109,111-115,117-119,123,125-127,130-164
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_1feb538f59bf88::t_acb54358c45219 269-271
+packages/core/src/form-types.ts
+  s_1feb538f59bf88::t_d730de9bc915a0 95-98
+  s_1feb538f59bf88::t_2a2348c54884d7 94
+packages/core/src/hooks/use-link-options.ts
+  s_1feb538f59bf88::t_9a943b8166448f 112-122,127,130,133-134,137-140,142
+  s_1feb538f59bf88::t_9c7a9ef3d9f4e8 81
+  s_1feb538f59bf88::t_90f777fdbaf248 26-30
+packages/core/src/resource-view/link.ts
+  s_1feb538f59bf88::t_829f22560f014c 50-59
+  s_1feb538f59bf88::t_948ea99dd9b935 115-120
+  s_1feb538f59bf88::t_94b23dcd301a17 46
+  s_1feb538f59bf88::t_c137387b878cd4 13-15
+packages/core/src/resource-view/index.ts
+  s_1feb538f59bf88::t_5d43d4802d3ea4 18,20
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_1feb538f59bf88::t_bdb4fcb8a930d6 312,322
+packages/ui/src/components/data/calendar/placement.ts
+  s_1feb538f59bf88::t_bdb4fcb8a930d6 40-47
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_1feb538f59bf88::t_4ab3805c107f55 193,195-199
+packages/ui/src/components/data/RelationField.tsx
+  s_1feb538f59bf88::t_f7648d375f697e 131
+packages/core/src/resource-view/define-view.ts
+  s_1feb538f59bf88::t_27b86c3b66991a 125-132
+  s_1feb538f59bf88::t_f54a51458bbefa 147,151,153-156,158-160
+  s_1feb538f59bf88::t_eec2720b932ba3 306
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_1feb538f59bf88::t_bdb4fcb8a930d6 11,13,25,62-69,102-103,108-115,159,163-165,186-190,205,259,262-271,280-281,291-292,297,366-371,382-383
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "6c76b5e07b32f09aee1f178bed6c425c81bc4afd",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
