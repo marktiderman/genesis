@@ -1,0 +1,21 @@
+docs/AI.md
+  s_043bace7f7a64b::t_8b8c182002fa6a 226
+docs/FORMS.md
+  s_043bace7f7a64b::t_ea443847839c55 208
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a2eb2596cd738249141934baacf70a02c07a8c81",
+  "prompts": {},
+  "sessions": {
+    "s_043bace7f7a64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65a43399-1581-474d-81c3-adac2f512272",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
