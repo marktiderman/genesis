@@ -1,0 +1,39 @@
+packages/ui/src/components/data/__tests__/resource-form-phone.test.tsx
+  s_1feb538f59bf88::t_86143935dd6b62 1-85
+.changeset/ui-mobile-overlays.md
+  s_1feb538f59bf88::t_742ce6fe5a5b0d 2,5-19
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_ac3b238db977dc 12552-12553
+apps/sample/app/routes/design-system.tsx
+  s_1feb538f59bf88::t_c00b64259f7cfc 382-383,398
+apps/sample/stories/Dialog.stories.tsx
+  s_1feb538f59bf88::t_eb6236bde48de7 61-83
+docs/component-reference.md
+  s_1feb538f59bf88::t_73f1d37bc7a6e3 7,4647,4659,9995,10007,10927-10940
+packages/ui/SKILL.md
+  s_1feb538f59bf88::t_29fe849686054c 275-279
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_4060f0f7049664 463-466
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_1feb538f59bf88::t_9fbc7a821bbba6 39,42-52,56-66,71-87,118
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_1feb538f59bf88::t_093bf78c5cf1b7 42-44
+packages/ui/src/components/ui/dialog.tsx
+  s_1feb538f59bf88::t_ffbf65f1e6559c 32-38,51,53,66-69,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ef121e0c25eeea31a7548306db391c414448fed1",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
