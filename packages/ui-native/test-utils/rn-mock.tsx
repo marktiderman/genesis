@@ -199,8 +199,9 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       onFocus?: () => void;
       onBlur?: () => void;
     };
-    void rest;
-    void keyboardType;
+    // The keyboard and autofill a field asks for, as data attributes a test can read.
+    const { autoComplete, enterKeyHint, ...others } = rest as { autoComplete?: string; enterKeyHint?: string };
+    void others;
     void autoCapitalize;
     void autoCorrect;
     void returnKeyType;
@@ -215,6 +216,9 @@ export const TextInput = React.forwardRef<HTMLInputElement, AnyProps>(
       disabled: editable === false,
       autoFocus,
       maxLength,
+      "data-keyboard-type": keyboardType,
+      "data-autocomplete": autoComplete,
+      "data-enter-key-hint": enterKeyHint,
       "aria-label": accessibilityLabel,
       "aria-describedby": accessibilityHint,
       role: accessibilityRole,

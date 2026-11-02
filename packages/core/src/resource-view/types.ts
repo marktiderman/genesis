@@ -59,10 +59,16 @@ export interface ViewField<Row extends DataRow = DataRow> {
   max?: number;
   /**
    * In a form: the browser's autofill token (`email`, `tel`, `given-name`, `one-time-code`,
-   * `off`, ...). Unset, the input asks for none, so a form about someone else (an admin editing a
-   * member) never fills in the person at the keyboard. Set it where the form is about the viewer.
+   * `off`, ...). Unset, the input carries no `autocomplete` attribute and gets no token from its
+   * type, so the browser applies its own heuristics (it may still offer to fill it). Set a token
+   * where the form is about the viewer, and `off` on a form about someone else (an admin editing
+   * a member) to ask the browser not to fill in the person at the keyboard.
    */
   autoComplete?: string;
+  /** In a form: which on-screen keyboard a phone shows. Unset, it follows the field's type. */
+  inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
+  /** In a form: the label on the keyboard's Return key (`next`, `done`, `go`, `search`, `send`). */
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
   /** Shown read-only even where the server would accept a write. Never widens. */
   readOnly?: boolean;
   /**
@@ -293,6 +299,10 @@ export interface ResolvedFormField {
   max?: number;
   /** The input's autofill token (`ViewField.autoComplete`). */
   autoComplete?: string;
+  /** The keyboard a phone shows (`ViewField.inputMode`). */
+  inputMode?: ViewField["inputMode"];
+  /** The Return key's label (`ViewField.enterKeyHint`). */
+  enterKeyHint?: ViewField["enterKeyHint"];
   /** For a link: the linked row's field that names it (`ViewField.labelField`). */
   labelField?: string;
   /** For a link: the words when its row is hidden or gone (`ViewField.missingLabel`). */

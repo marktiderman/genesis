@@ -325,7 +325,8 @@ On phones:
 
 ## Phones
 
-Nothing here changes an existing screen: each behaviour is switched on by the app or the screen.
+The list layouts below are switched on by the app or the screen. A few small defaults apply
+everywhere without asking, listed under "Small default changes".
 
 - **A screen's mode per screen size.** `mode={{ mobile: "grid", desktop: "table" }}` opens cards
   below 768px and a table above. Only the default is responsive: once a person picks a view with
@@ -360,16 +361,36 @@ Nothing here changes an existing screen: each behaviour is switched on by the ap
   column's edge on one line with an ellipsis, so a long link or email doesn't run over the next
   column on a narrow table. Inline editors keep their overflow. A screen's
   `slotProps={{ table: { clipCells: false } }}` wins.
-- **Keyboards and autofill.** Email, url and `tel` inputs ask for their keyboard. A number asks for
-  the decimal keypad only when its `min` is 0 or more: that keypad has no minus key on an iPhone.
-  Autofill is never a type default: on a form about someone else it fills in the person at the
-  keyboard. A view field opts in with `autoComplete`:
+- **Autofill is the field's call.** No input gets an `autocomplete` token from its type. Unset,
+  the attribute is left off, which leaves the browser to its own heuristics: it can still offer to
+  fill a field it recognises. A view field sets a token where the form is about the viewer, and
+  `off` where it's about someone else (an admin editing a member), so the browser is asked not to
+  fill in the person at the keyboard:
 
   ```ts
   defineView(people, { fields: { email: { autoComplete: "email" }, phone: { autoComplete: "tel" } } });
+  defineView(members, { fields: { email: { autoComplete: "off" } } });
   ```
+
+  A view field's `inputMode` (the keyboard) and `enterKeyHint` (the Return key's label) pass
+  through the same way, to `ResourceView`'s form, `RecordView`'s settings and the native form sheet.
 - **Phone numbers.** A field is a phone number when the contract says so, `widget: "tel"`. The
-  form then renders `type="tel"`. A column's name (`phone`, `mobile`) is never read as a type.
+  web form and `RecordView`'s settings render `type="tel"`; the native form sheet shows the phone
+  keypad. A column's name (`phone`, `mobile`) is never read as a type.
+
+### Small default changes
+
+These apply to existing screens without a switch:
+
+- **Keyboards.** Email, url and `tel` inputs ask for their keyboard (`inputMode`). A number asks
+  for the decimal keypad only when its `min` is 0 or more: that keypad has no minus key on an
+  iPhone. A field's own `inputMode` wins.
+- **List search.** The search box is named for screen readers, shows a search keyboard with a
+  Search key, offers no autofill (`autocomplete="off"`), and its clear button is a bigger target.
+- **Default rows and cards.** A list row (and a card) is titled by the page's title (`getTitle`,
+  else `titleField`) rather than the first column's raw value, and the title's column isn't
+  repeated as a cell. Cells read a column's `accessor` and `render`, as the table does. A row is
+  two lines: the title (up to two lines), then up to three other columns, wrapping.
 
 ## Calendar
 

@@ -52,9 +52,10 @@ export interface ResourceFormFieldDef {
   description?: string;
   /**
    * The browser's autofill token (`name`, `given-name`, `email`, `tel`, `street-address`,
-   * `one-time-code`, `off`, ...). Unset, the input asks for none, whatever its type: a form
-   * about someone else (an admin editing a member) must not fill in the person at the keyboard.
-   * Set it on forms about the viewer (sign-up, their own profile).
+   * `one-time-code`, `off`, ...). Unset, the input carries no `autocomplete` attribute, whatever
+   * its type, so the browser applies its own heuristics (it may still offer to fill it). Set a
+   * token on forms about the viewer (sign-up, their own profile), and `off` on a form about
+   * someone else (an admin editing a member).
    */
   autoComplete?: string;
   /**

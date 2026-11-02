@@ -89,8 +89,9 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
 };
 
 // A phone number has no display hint of its own (it shows as text), so the form reads the
-// contract's declared `widget: "tel"`. Never guessed from the column's name.
-function formType(f: ResolvedFormField, hasOptions: boolean): FieldType {
+// contract's declared `widget: "tel"`. Never guessed from the column's name. RecordView's inline
+// fields use it too.
+export function formType(f: ResolvedFormField, hasOptions: boolean): FieldType {
   if (hasOptions) return "select";
   if (f.field.widget === "tel" && f.display === "text") return "tel";
   return FORM_TYPE[f.display] ?? "text";
@@ -109,6 +110,8 @@ function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDe
     ...(options ? { options } : {}),
     ...(f.max !== undefined ? { maxLength: f.max } : {}),
     ...(f.autoComplete ? { autoComplete: f.autoComplete } : {}),
+    ...(f.inputMode ? { inputMode: f.inputMode } : {}),
+    ...(f.enterKeyHint ? { enterKeyHint: f.enterKeyHint } : {}),
     ...(f.sectionTitle ? { group: f.sectionTitle } : {}),
     ...(f.visible ? { visible: f.visible } : {}),
     ...(editable ? {} : { readOnlyOnEdit: true }),

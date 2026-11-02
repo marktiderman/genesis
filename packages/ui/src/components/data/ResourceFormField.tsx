@@ -40,7 +40,10 @@ const TYPE_INPUT_MODE: Partial<Record<string, ResourceFormFieldDef["inputMode"]>
  * number gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no
  * minus key on an iPhone, so any other number keeps the browser's own keyboard.
  */
-function inputHints(field: ResourceFormFieldDef, fieldType: string) {
+export function inputHints(
+  field: Pick<ResourceFormFieldDef, "min" | "inputMode" | "autoComplete" | "enterKeyHint">,
+  fieldType: string,
+) {
   const typeMode =
     fieldType === "number" ? (field.min !== undefined && field.min >= 0 ? "decimal" : undefined) : TYPE_INPUT_MODE[fieldType];
   const inputMode = field.inputMode ?? typeMode;

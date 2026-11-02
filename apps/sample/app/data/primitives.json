@@ -16543,9 +16543,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/ResourceFormField.tsx",
       "stability": "stable",
-      "summary": "",
-      "primaryComponent": "ResourceFormFieldRenderer",
+      "summary": "The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A\nnumber gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no\nminus key on an iPhone, so any other number keeps the browser's own keyboard.",
+      "primaryComponent": "inputHints",
       "components": [
+        {
+          "name": "inputHints",
+          "summary": "The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A\nnumber gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no\nminus key on an iPhone, so any other number keeps the browser's own keyboard.",
+          "props": []
+        },
         {
           "name": "ResourceFormFieldRenderer",
           "summary": "",

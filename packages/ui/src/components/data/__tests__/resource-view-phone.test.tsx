@@ -1,10 +1,10 @@
 /**
- * Lists and forms on a phone (docs/RESOURCE-VIEW.md, "Phones"). Every behaviour that changes what
- * an existing app renders is opt-in:
+ * Lists and forms on a phone (docs/RESOURCE-VIEW.md, "Phones"). The list layouts are opt-in; the
+ * keyboards and the search box are small defaults:
  * - a screen's `mode` can pick per screen size, and an app-wide `phoneMode` sets the phone
  *   default for every full-page list that doesn't say; `phoneMode={null}` turns it off below;
  *   an embedded list never gets it (it has no view switch), and nothing turns into a calendar;
- * - form inputs get the keyboard their type asks for, never a type's autofill, and a number's
+ * - form inputs get the keyboard their type asks for, never a type's autofill token, and a number's
  *   decimal keypad only when it can't be negative;
  * - a field is `tel` only when the contract says so (`widget: "tel"`), never by its name;
  * - table cells clip only with `clipCells`;
