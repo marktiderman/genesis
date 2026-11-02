@@ -70,7 +70,7 @@ describe("DialogContent on a phone", () => {
     const cls = classesOf(renderDialog());
     expect(cls).toContain("left-[50%]");
     expect(cls).toContain("sm:max-w-lg");
-    expect(cls).toContain("sm:max-h-[calc(100dvh-2rem)]");
+    expect(cls.some((c) => c.startsWith("sm:max-h"))).toBe(false);
     for (const layout of ["sheet", "fullscreen"] as const) {
       const moved = classesOf(renderDialog({ mobileLayout: layout }));
       expect(moved).toContain("sm:left-[50%]");
@@ -81,7 +81,10 @@ describe("DialogContent on a phone", () => {
 
   it("lets a caller's plain padding and width win at every size, in every layout", () => {
     for (const layout of ["center", "sheet", "fullscreen"] as const) {
-      const cls = classesOf(renderDialog({ mobileLayout: layout, className: "p-0 max-w-2xl" }));
+      const cls = classesOf(renderDialog({ mobileLayout: layout, className: "p-0 max-w-2xl h-[90vh] border-0" }));
+      expect(cls).toContain("h-[90vh]");
+      expect(cls).not.toContain("border");
+      if (layout === "center") expect(cls.some((c) => /^sm:(max-)?h-/.test(c))).toBe(false);
       expect(cls).toContain("p-0");
       expect(cls.filter((c) => /^(sm:)?p[tb]?-/.test(c) && c !== "p-0")).toEqual([]);
       expect(cls).toContain("max-w-2xl");

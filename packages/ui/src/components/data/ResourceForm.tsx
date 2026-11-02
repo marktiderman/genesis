@@ -277,7 +277,7 @@ function FormBody({
         className={
           fill
             ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-4"
-            : "max-h-[60dvh] overflow-y-auto px-1"
+            : "max-h-[60vh] overflow-y-auto px-1 supports-[height:100dvh]:max-h-[60dvh]"
         }
       >
         {renderForm ? (
@@ -461,8 +461,9 @@ export function ResourceForm(props: ResourceFormProps) {
     return (
       <Sheet open={open} onOpenChange={requestOpenChange}>
         {/* The sheet keeps its width (three quarters of a phone, 480px from sm up). It doesn't
-            scroll itself: the fields do, so Save and Cancel stay pinned in reach above the
-            keyboard and the home indicator, instead of scrolling away with a nested box. */}
+            scroll itself: the fields do, so Save and Cancel stay pinned at the bottom above the
+            home indicator, instead of scrolling away with a nested box. (iOS Safari's keyboard
+            doesn't resize dvh, so with the keyboard up the footer can sit under it.) */}
         <SheetContent side="right" className="flex flex-col gap-0 p-0 sm:max-w-[480px]">
           <SheetHeader className="border-b border-border px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-4 pr-14">
             <SheetTitle>{formTitle}</SheetTitle>

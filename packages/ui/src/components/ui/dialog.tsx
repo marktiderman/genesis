@@ -55,9 +55,10 @@ const DIALOG_LAYOUT: Record<DialogMobileLayout, string> = {
     "inset-0 max-w-none h-[100dvh] content-start pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
     DIALOG_RECENTER
   ),
-  // The centred box dialogs have always been, plus the height cap.
+  // The centred box dialogs have always been, plus a height cap that is one plain class (the
+  // insets are 0 off a phone), so a caller's own max-h replaces it at every size.
   center:
-    "left-[50%] top-[50%] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] sm:rounded-lg data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+    "left-[50%] top-[50%] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] sm:rounded-lg data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
 };
 
 const DialogContent = React.forwardRef<

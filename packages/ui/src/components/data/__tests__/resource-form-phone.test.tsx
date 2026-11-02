@@ -78,7 +78,10 @@ describe("ResourceForm on a phone", () => {
     phoneViewport(false);
     renderForm();
     const input = await screen.findByLabelText(/Name/);
-    expect(classesOf(input.closest(".overflow-y-auto"))).toContain("max-h-[60dvh]");
+    const box = classesOf(input.closest(".overflow-y-auto"));
+    // 60vh where the browser has no dvh, 60dvh where it does.
+    expect(box).toContain("max-h-[60vh]");
+    expect(box).toContain("supports-[height:100dvh]:max-h-[60dvh]");
     const dialog = document.querySelector('[role="dialog"]');
     expect(dialog?.getAttribute("data-mobile-layout")).toBe("center");
   });
