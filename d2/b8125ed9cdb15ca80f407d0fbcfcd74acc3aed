@@ -1,0 +1,40 @@
+packages/genesis-cli/test/blocks-app-checks.test.ts
+  s_1feb538f59bf88::t_69bf47544fd16c 1-104
+  s_1feb538f59bf88::t_2c3435c858c64f 105-108
+.changeset/blocks-pass-app-checks.md
+  s_1feb538f59bf88::t_ffef38e4d3e8af 1-11
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/apple.ts
+  s_1feb538f59bf88::t_5e144fc3d4cdca 42-46,63,93
+apps/genesis-rn-starter/supabase/tests/database/genesis_support.test.sql
+  s_1feb538f59bf88::t_58dcb08da349a2 1
+features.json
+  s_1feb538f59bf88::t_3fd9494f76889d 1345-1347,6379-6381
+features.ts
+  s_1feb538f59bf88::t_1fe604fbc6971b 595-596,2801-2802
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_1feb538f59bf88::t_44bddf12709d68 1
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_1feb538f59bf88::t_b9e657c72bdf8d 1
+packages/supabase/functions/genesis-apple-revoke/apple.ts
+  s_1feb538f59bf88::t_6b7432ac0728ce 42-46,63,93
+packages/supabase/migrations/tests/0006_genesis_support.test.sql
+  s_1feb538f59bf88::t_7f6e616bbf7067 1
+packages/supabase/migrations/tests/0018_genesis_events.test.sql
+  s_1feb538f59bf88::t_89dab8ad594373 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d2b8125ed9cdb15ca80f407d0fbcfcd74acc3aed",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
