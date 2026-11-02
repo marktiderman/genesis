@@ -181,8 +181,9 @@ export interface SupportClientOptions {
   /** For the attachment file names. Default `crypto.randomUUID`. */
   randomId?: () => string;
   /**
-   * Write a report's severity to its own `severity` column (added by migration 0003). Default
-   * off: the severity goes into the report's context as `severity`, which works on every schema.
+   * Also write a report's severity to its own `severity` column (added by migration 0003).
+   * Default off. Either way it goes into the report's context as `severity`, as the intake
+   * function does, which works on every schema.
    */
   severityColumn?: boolean;
 }
@@ -362,8 +363,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
             app_version: context.appVersion ?? null,
             platform: context.platform ?? null,
             device: context.device ?? {},
-            // Severity: its own column only when the app says migration 0003 added it.
-            context: record.severity && !options.severityColumn ? { ...(context.extra ?? {}), severity: record.severity } : (context.extra ?? {}),
+            // Severity, as the intake function keeps it: always in context, and also in its own
+            // column when the app says migration 0003 added it.
+            context: record.severity ? { ...(context.extra ?? {}), severity: record.severity } : (context.extra ?? {}),
             ...(record.severity && options.severityColumn ? { severity: record.severity } : {}),
           })
           .select("id")

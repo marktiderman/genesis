@@ -131,9 +131,9 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
   genesis-chat (see below). Errors are `SupportError` with the database's code (`rateLimited` for
   `GS429`). `verify` and `handles` need migration 0003 and are optional on the `SupportClient`
   type (a client of your own may leave them out), so check for them before calling.
-- A report's severity goes into its context (`context.severity`) by default. With migration 0003
+- A report's severity always goes into its context (`context.severity`). With migration 0003
   applied, pass `severityColumn: true` to `createSupportClient` (or `createSupabaseSink`) and it
-  is written to the `severity` column instead; for the intake function, set
+  is written to the `severity` column as well; for the intake function, set
   `GENESIS_SUPPORT_SEVERITY_COLUMN=true`.
 - `createIntakeClient` + `createIntakeSink`: the wire contract over HTTP, for code without
   supabase-js (it takes no screenshots, and says so in `attachmentsDropped`).
@@ -249,7 +249,7 @@ feature id, vote counts and read receipts are the server's. See the migration's 
 
 - `severity` (low, medium, high, critical) as a column the person sends with the report. The
   client and the intake function write it only when told the column is there (`severityColumn:
-  true`, `GENESIS_SUPPORT_SEVERITY_COLUMN=true`); until then severity stays in `context`.
+  true`, `GENESIS_SUPPORT_SEVERITY_COLUMN=true`); both always keep severity in `context` too.
 - Report handlers: your optional `private.genesis_support_report_handler(report uuid, person uuid)`
   hook names who else handles a report besides staff (a team that owns the screen, say). They read
   it and its screenshots, reply as support and set its status; they don't observe its
