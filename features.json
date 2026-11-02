@@ -6049,7 +6049,8 @@
       ],
       "contributes": [
         "package.json: genesis.overlay",
-        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version"
+        "doctor rules: overlay-unmarked, overlay-invalid, overlay-age, overlay-version, overlay-behind",
+        "genesis upgrade: overlays rebased onto the release, with a checklist"
       ],
       "owner": "mark",
       "apps": [
