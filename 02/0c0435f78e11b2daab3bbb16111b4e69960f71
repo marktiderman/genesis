@@ -1,0 +1,23 @@
+docs/AI.md
+  s_1feb538f59bf88::t_72de5d6a3d4572 225,245-255,262-263
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_1feb538f59bf88::t_86c40ff2bde5f6 29-32,148-162,238,240,244
+scripts/check-docs-match-exports.mjs
+  s_1feb538f59bf88::t_b8e8205e170643 68-69,434-445,448-459,472-479,605,664,666-679,681,704-706
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "020c0435f78e11b2daab3bbb16111b4e69960f71",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
