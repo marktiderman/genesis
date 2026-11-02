@@ -84,10 +84,24 @@ is written here when a contract ships. Don't open a PR here that only proposes a
 Why: PRs sat with stale red checks, unanswered reviews and branches drifting from their base
 whenever nobody owned them.
 
+## Releasing, and how apps get a release
+
+- **Release:** the maintainer merges the batch's release PR into `main`; the Release workflow
+  then opens or updates "chore: version packages", and merging that publishes to npm
+  (`docs/RELEASING.md`). Nothing is published before that second merge, so a blocker found after
+  the first is fixed through a staging batch into `main` before the version PR merges, as #586 was.
+- **A change to a shared contract** (core types, ResourceView, the data layer, a published
+  package's API) also gets an adversarial review from reviewers that didn't write it, before
+  triage merges it into the batch.
+- **Apps take published versions only**, with `genesis upgrade` and `genesis doctor` in a version
+  bump PR. To try an unreleased change, link a Genesis checkout locally (`pnpm link` or a `link:`
+  override) and never commit it; merge the app's PR once the release is on npm. Genesis has no
+  prerelease channel.
+
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 142 features (2 idea, 24 planned, 59 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 143 features (2 idea, 24 planned, 60 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.

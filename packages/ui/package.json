@@ -408,7 +408,7 @@
     "react": "^19.0.0",
     "react-day-picker": "^9.0.0",
     "react-dom": "^19.0.0",
-    "react-dropzone": "^14.0.0 || ^15.0.0",
+    "react-dropzone": "^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0 || ^18.0.0 || ^19.0.0 || ^20.0.0",
     "react-hook-form": "^7.0.0",
     "react-resizable-panels": "^2.0.0",
     "react-router": "^7.0.0 || ^8.0.0",
@@ -459,7 +459,7 @@
     "react": "^19.0.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.0.0",
-    "react-dropzone": "^15.0.0",
+    "react-dropzone": "^20.1.4",
     "react-hook-form": "^7.72.1",
     "react-resizable-panels": "^2.0.0",
     "react-router": "8.5.0",
@@ -588,7 +588,13 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
         {
-          "need": "a board, calendar or card wall over a list",
+          "need": "a calendar over a list (month, 1-4 weeks, agenda, lanes per person)",
+          "use": "the view's calendar block (defineView) rendered by <ResourceView mode=\"calendar\">; EventCalendar for events that aren't one view's rows",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#calendar"
+        },
+        {
+          "need": "a board or card wall over a list",
           "use": "useResourceTable (ResourcePage's logic without its markup)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"

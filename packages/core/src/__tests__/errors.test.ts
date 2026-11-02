@@ -64,6 +64,24 @@ describe("reportError", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("reads NODE_ENV as bundlers replace it, so a production browser build is quiet", async () => {
+    // Vite, webpack and esbuild replace exactly `process.env.NODE_ENV`; `process.env?.NODE_ENV`
+    // would be left alone, and a browser has no `process` to fall back on.
+    const source = (await import("node:fs")).readFileSync(new URL("../errors.ts", import.meta.url), "utf8");
+    const body = source.slice(source.indexOf("export function isDevelopment"));
+    expect(body.slice(0, body.indexOf("\n}\n"))).toContain("process.env.NODE_ENV;");
+  });
+
+  it("counts as development when there is no process at all", async () => {
+    const { isDevelopment } = await import("../errors");
+    vi.stubGlobal("process", undefined);
+    try {
+      expect(isDevelopment()).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("is exported from the package root", () => {
     expect(root.reportError).toBe(reportError);
     expect(root.classifyError).toBe(classifyError);

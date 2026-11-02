@@ -686,4 +686,46 @@ const { start, end } = dayRangeIn(today, profile.timeZone); // the instants, for
 - `addDays`, `daysBetween`, `weekdayOf`, `startOfWeek` and `isDay`: plain calendar arithmetic on
   `YYYY-MM-DD` strings, with no zone involved. They refuse days that don't exist, such as `2026-02-30`.
 
+### Calendar ranges
+
+Ranges are `{ start, end }` days, `end` exclusive, for the windows a calendar shows:
+
+- `startOfMonth`, `addMonths` (31 January + 1 is the last day of February), `daysInMonth`,
+  `startOfQuarter`, `addWeeks`.
+- `monthRange(day)`, `quarterRange(day)`, `weeksRange(day, weeks, weekStartsOn)` (whole weeks from
+  the week `day` is in) and `monthGridRange(day, weekStartsOn)` (the whole weeks covering a month).
+- `eachDay(range)` lists the days; `rangeIn(range, zone)` gives the instants to filter a timestamp by.
+- `instantIn(day, "09:30", zone)` and `wallTimeIn(zone, at)` convert between a wall time and an
+  instant. A time the clock skips moves forward by the jump; a time it shows twice is the first.
+- `readEventTime(value, { dateOnly, timeZone })` reads a stored date or timestamp as a day or an
+  instant; a timestamp without a zone is a wall time on `timeZone`'s clock.
+
+### Repeating events
+
+`expandRecurrence` lists a series' occurrences inside a window, with no dependencies:
+
+```ts
+import { expandRecurrence } from "@marktiderman/genesis-core/dates";
+
+const { occurrences, truncated } = expandRecurrence({
+  rule: "FREQ=MONTHLY;BYDAY=2MO;COUNT=10",
+  start: { day: "2026-11-09", time: "18:30", timeZone: "America/Denver" },
+  exdates: ["2026-12-14"],
+  window: { start: "2026-11-01", end: "2027-03-01" },
+}); // occurrences: [{ day, start }…], 18:30 in Denver whatever the daylight saving
+if (truncated) {
+  // more than `limit` (default 1,000) in the window
+}
+```
+
+- The rule is RFC 5545's: FREQ (DAILY, WEEKLY, MONTHLY, YEARLY), INTERVAL, COUNT, UNTIL, BYDAY
+  (with positions such as `2MO` or `-1FR` for MONTHLY and YEARLY), BYMONTHDAY, BYMONTH and WKST.
+  Any other part, a part set twice, or a combination the RFC forbids throws a `RangeError` naming
+  it (`parseRRule` does the same checks, and a rule passed as an object gets them too).
+- A timed series keeps its wall time on its own zone's clock; an all-day series (`start` a day) has
+  days only. COUNT counts from the start whatever the window, EXDATE removes after counting, and a
+  floating UNTIL is read on the series' clock.
+- `window` is required, and `limit` caps the result. Widen the window's start by an event's length
+  to catch ones that began earlier.
+
 In SQL, the same day is `(now() at time zone person_zone)::date`.

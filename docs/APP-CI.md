@@ -106,8 +106,13 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    release, since they release on their own. The range prefix (`^`, `~`, exact) is kept.
    `workspace:`, `file:`, `link:` and `npm:` specs, wider ranges, peer dependencies and anything
    already newer are left alone and listed in the pull request;
-3. reinstalls and runs `genesis doctor`;
-4. commits the package.json files and the lockfile to `branch` (default
+3. reinstalls and runs `genesis doctor`. With pnpm it then does what `genesis upgrade` does, with
+   the same embedded code (`normaliseReleaseAgeExcludes` in bump-core.mjs): every Genesis entry
+   pnpm pinned in pnpm-workspace.yaml's `minimumReleaseAgeExclude` becomes one
+   `'@marktiderman/genesis-*'` pattern, which app-ci's `pnpm install --frozen-lockfile` honours on
+   pnpm 11.1.3, other entries left as they are, and `pnpm dedupe` runs (`npm dedupe` with npm);
+4. commits the package.json files, the lockfile and, when pnpm or the tidy changed it,
+   pnpm-workspace.yaml to `branch` (default
    `genesis-upgrade/<base branch>`), rebuilt from the branch the workflow ran on, and opens or
    updates one pull request into that branch. When nothing changed since the last run the branch
    is left as it is. Once anyone else pushes to the branch (say, a fix for a doctor finding), runs

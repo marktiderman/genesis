@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 133
+      "count": 139
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -13310,6 +13310,150 @@
       ]
     },
     {
+      "slug": "event-calendar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/EventCalendar.tsx",
+      "stability": "beta",
+      "summary": "A calendar of events in one of four layouts:\n\n- `month`: the month's whole weeks;\n- `weeks`: 1 to 4 weeks (`weeks`), the week `anchor` is in first;\n- `agenda`: the same weeks as a day-by-day list, made to print (one page, no controls);\n- `lanes`: one row per lane (person), a column per day.\n\nAn event spanning days shows on each; all-day events sit above timed ones; an event's dots are\nits `colors`, else its lanes' colours, and its lanes are named for screen readers. Days are a\ngrid with one tab stop: arrow keys move a day or a week, Home and End go to the week's ends,\nPageUp and PageDown move the window back or on (keeping the focused day's place), and Tab\nreaches the events. Each day is read with its date and how many events it has.\n\n```tsx\n<EventCalendar layout=\"weeks\" weeks={2} weekStartsOn={0} events={events} lanes={people} onSelect={open} />\n```",
+      "primaryComponent": "EventCalendar",
+      "components": [
+        {
+          "name": "EventCalendar",
+          "summary": "A calendar of events in one of four layouts:\n\n- `month`: the month's whole weeks;\n- `weeks`: 1 to 4 weeks (`weeks`), the week `anchor` is in first;\n- `agenda`: the same weeks as a day-by-day list, made to print (one page, no controls);\n- `lanes`: one row per lane (person), a column per day.\n\nAn event spanning days shows on each; all-day events sit above timed ones; an event's dots are\nits `colors`, else its lanes' colours, and its lanes are named for screen readers. Days are a\ngrid with one tab stop: arrow keys move a day or a week, Home and End go to the week's ends,\nPageUp and PageDown move the window back or on (keeping the focused day's place), and Tab\nreaches the events. Each day is read with its date and how many events it has.\n\n```tsx\n<EventCalendar layout=\"weeks\" weeks={2} weekStartsOn={0} events={events} lanes={people} onSelect={open} />\n```",
+          "props": [
+            {
+              "name": "events",
+              "type": "readonly CalendarEvent<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the window shown (default today). With `onAnchorChange`, the calendar is controlled."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "hideNavigation",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Hide the arrows and Today (a printed sheet, an embedded week)."
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The table's name for screen readers, e.g. \"Family events\"."
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "For `lanes`, and the dots' colours and names. Lanes an event names that aren't here are added."
+            },
+            {
+              "name": "layout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default `month`."
+            },
+            {
+              "name": "loading",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The events are still loading: the calendar is `aria-busy` and never says \"Nothing scheduled\"."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for dates and times. Default the runtime's."
+            },
+            {
+              "name": "notice",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Above the calendar: a cap notice, an error."
+            },
+            {
+              "name": "onAnchorChange",
+              "type": "((anchor: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelect",
+              "type": "((event: CalendarEvent<T>) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "An event was clicked or chosen from the keyboard. Without it, events aren't buttons."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "The agenda shows days with nothing on them too. Default false."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "event-calendar",
+              "description": "Root test id; parts get `-item`, `-day`. Default `event-calendar`."
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock days are counted on. Default the device's."
+            },
+            {
+              "name": "toolbar",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Beside the arrows: a layout switch, a filter. Hidden when printing."
+            },
+            {
+              "name": "weeks",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "2",
+              "description": "Weeks a `weeks`, `agenda` or `lanes` layout shows, 1 to 4. Default 2."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "1",
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "field-array-renderer",
       "aliases": [],
       "surface": "web",
@@ -13690,6 +13834,28 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "guard",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/guard.ts",
+      "stability": "stable",
+      "summary": "`value` when it's a layout; else `month`, saying so in development.",
+      "primaryComponent": "layoutOr",
+      "components": [
+        {
+          "name": "layoutOr",
+          "summary": "`value` when it's a layout; else `month`, saying so in development.",
+          "props": []
+        },
+        {
+          "name": "anchorOr",
+          "summary": "`value` when it's a real `YYYY-MM-DD` day; else `today`, saying so in development.",
+          "props": []
         }
       ]
     },
@@ -14284,6 +14450,13 @@
               "description": ""
             },
             {
+              "name": "calendar",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; unassigned: string; ... 4 more ...; layouts: { ...; }; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "common",
               "type": "DeepPartial<{ empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
               "required": false,
@@ -14373,7 +14546,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 10 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 11 more ...; workspace: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -15024,6 +15197,48 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "placement",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/placement.ts",
+      "stability": "beta",
+      "summary": "The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the\nweek `anchor` is in. This is the window a calendar asks its data for.",
+      "primaryComponent": "calendarWindow",
+      "components": [
+        {
+          "name": "calendarWindow",
+          "summary": "The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the\nweek `anchor` is in. This is the window a calendar asks its data for.",
+          "props": []
+        },
+        {
+          "name": "shiftAnchor",
+          "summary": "The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks.",
+          "props": []
+        },
+        {
+          "name": "eventDays",
+          "summary": "The first and last day an event covers on `zone`'s clock.",
+          "props": []
+        },
+        {
+          "name": "placeEvents",
+          "summary": "Each day of `range` with the events on it: an event that spans days is on each one, all-day\nevents (and the middle days of a long timed one) come first, then timed ones by start, then by\ntitle.",
+          "props": []
+        },
+        {
+          "name": "calendarLanes",
+          "summary": "The lanes a `lanes` layout draws: the ones given, in order, then any an event names that\nweren't given (labelled by key).",
+          "props": []
+        },
+        {
+          "name": "eventDots",
+          "summary": "An event's dots: its own colours, else its lanes' colours.",
+          "props": []
         }
       ]
     },
@@ -15809,6 +16024,197 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "resource-calendar",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/ResourceCalendar.tsx",
+      "stability": "beta",
+      "summary": "A view's rows on a calendar, as its `calendar` block describes them. Prefer\n`<ResourceView view={v} mode=\"calendar\" />`, which passes the scope and the screen's filters.",
+      "primaryComponent": "ResourceCalendar",
+      "components": [
+        {
+          "name": "ResourceCalendar",
+          "summary": "A view's rows on a calendar, as its `calendar` block describes them. Prefer\n`<ResourceView view={v} mode=\"calendar\" />`, which passes the scope and the screen's filters.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, T & DataRow>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "allDayField",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A yes/no field: the row is all day, its timestamp shown without a time."
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the window (default today). With `onAnchorChange` the screen owns it (put it in the URL)."
+            },
+            {
+              "name": "cells",
+              "type": "Partial<Record<string, (row: T) => ReactNode>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Draw some peek fields the screen's own way, by column key (ResourceView's `cells`)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "colorsOf",
+              "type": "((row: T) => readonly string[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row's dot colours, when not its lanes'."
+            },
+            {
+              "name": "endField",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Where a row ends: its last day for a date field, its end instant for a timestamp."
+            },
+            {
+              "name": "field",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The date or timestamp field that places each row."
+            },
+            {
+              "name": "filters",
+              "type": "readonly FilterParam[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "Server filters (the view's scope and the screen's), already as params."
+            },
+            {
+              "name": "laneBy",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The field whose value (or list of values) names a row's lanes: a dot each, a lane each."
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The lanes, in order, with their labels and colours."
+            },
+            {
+              "name": "lanesOf",
+              "type": "((row: T) => readonly string[])",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row's lanes, when a field doesn't say (several people on one event). Wins over `laneBy`."
+            },
+            {
+              "name": "layout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "Default `month`."
+            },
+            {
+              "name": "layouts",
+              "type": "readonly CalendarLayout[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "The layouts the toolbar offers to switch between. Without two or more, no switch."
+            },
+            {
+              "name": "limit",
+              "type": "number",
+              "required": false,
+              "defaultValue": null,
+              "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
+            },
+            {
+              "name": "onAnchorChange",
+              "type": "((anchor: string) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onLayoutChange",
+              "type": "((layout: CalendarLayout) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onSelect",
+              "type": "((row: T) => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "The agenda shows empty days too."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock timestamps land on days by. Default the field's own (`fields.<field>.timeZone`:\nthe scope's or a fixed zone), else the viewer's (ViewerScope's `timeZone`), else the device's:\nthe same clock the field's cells use."
+            },
+            {
+              "name": "title",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "weeks",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "For `weeks`, `agenda` and `lanes`: 1 to 4. Default 2."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        },
+        {
+          "name": "CALENDAR_LIMIT",
+          "summary": "Most rows one request loads (a calendar with an `endField` makes two, so up to twice this).\nA month grid is six weeks: 500 is about a dozen a day, more than a\nbusy shared calendar holds, and still one quick request. Past it the calendar says how many it\nleft out (\"+N more\") rather than dropping them silently.",
+          "props": []
         }
       ]
     },
@@ -17075,6 +17481,13 @@
               "description": ""
             },
             {
+              "name": "calendar",
+              "type": "ResourceCalendarOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"calendar\"`: overrides the view's `calendar` block (layout, weeks, the anchor) and\nadds what it can't hold (dot colours, `onSelect`, lanes' labels)."
+            },
+            {
               "name": "can",
               "type": "((action: ResourceAction, item?: T) => boolean)",
               "required": false,
@@ -17394,7 +17807,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered."
+              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
             },
             {
               "name": "mutationMode",
@@ -17788,6 +18201,13 @@
               "description": ""
             },
             {
+              "name": "calendar",
+              "type": "ResourceCalendarOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"calendar\"`: overrides the view's `calendar` block (layout, weeks, the anchor) and\nadds what it can't hold (dot colours, `onSelect`, lanes' labels)."
+            },
+            {
               "name": "can",
               "type": "((action: ResourceAction, item?: T) => boolean)",
               "required": false,
@@ -18107,7 +18527,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered."
+              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
             },
             {
               "name": "mutationMode",
@@ -18501,6 +18921,13 @@
               "description": ""
             },
             {
+              "name": "calendar",
+              "type": "ResourceCalendarOptions<T>",
+              "required": false,
+              "defaultValue": null,
+              "description": "With `mode=\"calendar\"`: overrides the view's `calendar` block (layout, weeks, the anchor) and\nadds what it can't hold (dot colours, `onSelect`, lanes' labels)."
+            },
+            {
               "name": "can",
               "type": "((action: ResourceAction, item?: T) => boolean)",
               "required": false,
@@ -18820,7 +19247,7 @@
               "type": "enum",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered."
+              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
             },
             {
               "name": "mutationMode",
@@ -21963,6 +22390,23 @@
       ]
     },
     {
+      "slug": "use-followed-state",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/use-followed-state.ts",
+      "stability": "stable",
+      "summary": "State that starts from a prop and follows it when the prop changes: an uncontrolled default\nthat a parent can still move (a new `anchor` or `layout`).",
+      "primaryComponent": "useFollowedState",
+      "components": [
+        {
+          "name": "useFollowedState",
+          "summary": "State that starts from a prop and follows it when the prop changes: an uncontrolled default\nthat a parent can still move (a new `anchor` or `layout`).",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "use-resource-table",
       "aliases": [],
       "surface": "web",
@@ -23366,6 +23810,43 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "values",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/values.ts",
+      "stability": "beta",
+      "summary": "How a field stores time, from its database type (an unknown type with a time counts as an instant).",
+      "primaryComponent": "timeStorage",
+      "components": [
+        {
+          "name": "timeStorage",
+          "summary": "How a field stores time, from its database type (an unknown type with a time counts as an instant).",
+          "props": [
+            {
+              "name": "dbType",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "widget",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "windowBounds",
+          "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
         }
       ]
     },

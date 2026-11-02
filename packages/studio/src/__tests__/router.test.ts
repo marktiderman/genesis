@@ -23,3 +23,12 @@ describe("studio URL state", () => {
     expect(setParams.mock.calls[0]![1]).toEqual({ replace: true });
   });
 });
+
+describe("the calendar month in the URL", () => {
+  it("keeps a real month and drops one that isn't, so the calendar never gets month 13", () => {
+    expect(locationFromSearchParams(new URLSearchParams("month=2026-11")).month).toBe("2026-11");
+    for (const bad of ["2026-13", "2026-00", "2026-1", "nope"]) {
+      expect(locationFromSearchParams(new URLSearchParams(`month=${bad}`)).month).toBeUndefined();
+    }
+  });
+});

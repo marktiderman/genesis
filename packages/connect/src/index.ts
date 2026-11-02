@@ -17,6 +17,7 @@ export {
   createConnector,
   isConnectError,
   isSafeReturnOrigin,
+  type AccountIdentity,
   type ConnectErrorCode,
   type ConnectLogEvent,
   type ConnectResult,

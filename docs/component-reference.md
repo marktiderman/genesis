@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 591 components · 4053 other exports · 3227 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4081 other exports · 3246 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1066,11 +1066,12 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`SecretError`](../packages/connect/src/secrets.ts) | class | — | A failure whose message is safe to log: never a key, a plaintext or a ciphertext. |
 | [`secretKeyBytes`](../packages/connect/src/secrets.ts) | function | — | The 32 key bytes from base64 or base64url text (as `openssl rand -base64 32` prints), or the bytes themselves. |
 
-### Types (22)
+### Types (23)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AccountIdentity };
 export type { ConnectErrorCode };
 export type { ConnectLogEvent };
 export type { ConnectResult };
@@ -1728,34 +1729,58 @@ export type { FixtureUser };
 
 **Barrel:** [`packages/core/src/dates.ts`](../packages/core/src/dates.ts)
 
-### Other exports (13)
+### Other exports (29)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
 | [`addDays`](../packages/core/src/dates.ts) | function | Beta | `day` moved by `days` (negative goes back). Calendar arithmetic: no zone, no daylight saving. @stability Beta |
+| [`addMonths`](../packages/core/src/dates.ts) | function | Beta | `day` moved by `months`, keeping its day of the month where the month has it and taking the month's last day where it doesn't (31 January + 1 is 28 or 29 February). @stability Beta |
+| [`addWeeks`](../packages/core/src/dates.ts) | function | Beta | `day` moved by whole weeks. @stability Beta |
 | [`dayIn`](../packages/core/src/dates.ts) | function | Beta | The day on `zone`'s clock at `at` (default now). @stability Beta |
 | [`dayRangeIn`](../packages/core/src/dates.ts) | function | Beta | The `[start, end)` instants of `day` on `zone`'s clock (23 or 25 hours on daylight-saving days). @stability Beta |
 | [`daysBetween`](../packages/core/src/dates.ts) | function | Beta | Whole days from `from` to `to` (`to` − `from`; negative when `to` is earlier). @stability Beta |
+| [`daysInMonth`](../packages/core/src/dates.ts) | function | Beta | Days in `day`'s month (28 to 31). @stability Beta |
 | [`deviceTimeZone`](../packages/core/src/dates.ts) | function | Beta | The device's (or server's) zone, `"UTC"` when the runtime can't say. @stability Beta |
+| [`eachDay`](../packages/core/src/dates.ts) | function | Beta | Every day of a range, in order. @stability Beta |
+| [`expandRecurrence`](../packages/core/src/dates.ts) | function | Beta | The occurrences of a repeating series inside a window, in order. No dependencies; daylight saving is right because each occurrence keeps the series' wall time on its own zone's clock (a 09:00 meeting is 09:00 in Denver in both January an... |
+| [`instantIn`](../packages/core/src/dates.ts) | function | Beta | The instant `zone`'s clock shows `time` on `day`. A time the clock skips (the hour lost when daylight saving starts) is read with the offset before the jump, so 02:30 becomes 03:30; a time it shows twice (the hour repeated when it ends) ... |
 | [`isDay`](../packages/core/src/dates.ts) | function | Beta | Whether `value` is a real `YYYY-MM-DD` day (not `2026-02-30`). @stability Beta |
 | [`isTimeZone`](../packages/core/src/dates.ts) | function | Beta | Whether the runtime knows `zone` (`"America/Denver"`). @stability Beta |
+| [`monthGridRange`](../packages/core/src/dates.ts) | function | Beta | The whole weeks that cover `day`'s month: what a month grid shows, leading and trailing days included. @stability Beta |
+| [`monthRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s month as a range: its first day to the next month's first. @stability Beta |
+| [`parseRRule`](../packages/core/src/dates.ts) | function | Beta | Read an RRULE (`"FREQ=WEEKLY;BYDAY=MO,WE"`, with or without the `RRULE:` prefix). Supports FREQ (DAILY, WEEKLY, MONTHLY, YEARLY), INTERVAL, COUNT, UNTIL, BYDAY, BYMONTHDAY, BYMONTH and WKST. Any other part (BYSETPOS, BYWEEKNO, BYYEARDAY,... |
 | [`personDay`](../packages/core/src/dates.ts) | function | Beta | Today (or the day at `at`) for this person: `dayIn(personTimeZone(person), at)`. |
 | [`personTimeZone`](../packages/core/src/dates.ts) | function | Beta | The zone a person's days are counted in: their saved zone if the runtime knows it, else the device's, else UTC. On a server, pass the person's zone: the server's own is rarely theirs. |
+| [`quarterRange`](../packages/core/src/dates.ts) | function | Beta | `day`'s quarter as a range. @stability Beta |
+| [`rangeIn`](../packages/core/src/dates.ts) | function | Beta | The `[start, end)` instants of a range of days on `zone`'s clock: what to filter a timestamp column by for a calendar's visible window. @stability Beta |
+| [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`startOfDayIn`](../packages/core/src/dates.ts) | function | Beta | The instant `day` starts on `zone`'s clock: what to compare `created_at` with for "since midnight". Where midnight doesn't exist (a daylight-saving jump at 00:00), it's the first instant of the day that does. |
+| [`startOfMonth`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s month. @stability Beta |
+| [`startOfQuarter`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s quarter (1 January, 1 April, 1 July or 1 October). @stability Beta |
 | [`startOfWeek`](../packages/core/src/dates.ts) | function | Beta | The first day of `day`'s week, with weeks starting on `weekStartsOn` (0 Sunday … 6 Saturday; default 1, Monday). @stability Beta |
 | [`wallClock`](../packages/core/src/dates.ts) | function | Beta | What the clock on the wall in `zone` says at `at`. @stability Beta |
+| [`wallTimeIn`](../packages/core/src/dates.ts) | function | Beta | The day and wall time `zone`'s clock shows at `at`. @stability Beta |
 | [`weekdayOf`](../packages/core/src/dates.ts) | function | Beta | The weekday of a day, 0 for Sunday. @stability Beta |
+| [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks (1 or more) from the week `day` is in: what a 1-to-4-week calendar shows. |
 
-### Types (3)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Day };
+export type { DayRange };
+export type { Occurrence };
 export type { PersonClock };
+export type { RRule };
+export type { RecurrenceOptions };
+export type { RecurrenceResult };
+export type { RecurrenceStart };
+export type { RuleWeekday };
 export type { WallClock };
+export type { WallTime };
 ```
 
 ---
@@ -1799,15 +1824,16 @@ export type { SaveState };
 
 **Barrel:** [`packages/core/src/resource-view/index.ts`](../packages/core/src/resource-view/index.ts)
 
-### Other exports (19)
+### Other exports (20)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
-| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
+| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`initialExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open ids a tree starts with: `true` opens every parent, a number opens parents shallower than that depth (`1` opens the roots), `false` or nothing opens none. |
@@ -1825,7 +1851,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
 | [`ViewDefinitionError`](../packages/core/src/resource-view/define-view.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
 
-### Types (46)
+### Types (48)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1863,6 +1889,8 @@ export type { TreeNode };
 export type { TreeOptions };
 export type { TreeResult };
 export type { ViewAction };
+export type { ViewCalendar };
+export type { ViewCalendarLayout };
 export type { ViewColumn };
 export type { ViewCopy };
 export type { ViewDefinition };
@@ -1924,7 +1952,7 @@ export type { ExportOptions };
 
 **Barrel:** [`packages/core/src/errors.ts`](../packages/core/src/errors.ts)
 
-### Other exports (6)
+### Other exports (7)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1934,6 +1962,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultErrorReporter`](../packages/core/src/errors.ts) | const | — | The reporter used when the app registered none: `console.warn` in development, nothing in production. |
 | [`errorMessages`](../packages/core/src/errors.ts) | const | — | The English catalogue. Plain words, never the store's text. |
 | [`getErrorReporter`](../packages/core/src/errors.ts) | function | — | The reporter `reportError` uses now. |
+| [`isDevelopment`](../packages/core/src/errors.ts) | function | Beta | True in a development build: `__DEV__` on React Native, else `NODE_ENV`, else true (no bundler and no `process`). For development-only hints. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`setErrorReporter`](../packages/core/src/errors.ts) | function | — | Send every `reportError` to `reporter` (`null` puts the default back). Returns a function that restores the reporter that was there before. The native observability block calls it when it is created. |
 
@@ -10010,7 +10039,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (15)
+### Components (17)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10020,8 +10049,10 @@ export type { UiMessagesOverrides };
 | [`DataPageShell`](../packages/ui/src/components/data/DataPageShell.tsx) | `DataPageShellProps` | — | _(no summary)_ |
 | [`DataTable`](../packages/ui/src/components/data/DataTable.tsx) | `DataTableProps` | — | _(no summary)_ |
 | [`DetailPanel`](../packages/ui/src/components/data/DetailPanel.tsx) | `DetailPanelProps` | — | _(no summary)_ |
+| [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
+| [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
 | [`ResourceForm`](../packages/ui/src/components/data/ResourceForm.tsx) | `ResourceFormProps` | — | _(no summary)_ |
 | [`ResourcePage`](../packages/ui/src/components/data/ResourcePage.tsx) | `ResourcePageProps` | — | A list page for a resource: header, filters, table or cards, paging, the open record's panel, and the built-in form and confirmed delete. {@link useResourceTable} is the same behaviour without this markup. |
@@ -10030,7 +10061,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (35)
+### Other exports (45)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10038,6 +10069,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`AppShell`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
 | [`BadgeCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | BadgeCell -- status badge with configurable color map. |
+| [`CALENDAR_LIMIT`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | const | — | Most rows one request loads (a calendar with an `endField` makes two, so up to twice this). A month grid is six weeks: 500 is about a dozen a day, more than a busy shared calendar holds, and still one quick request. Past it the calendar ... |
+| [`calendarLanes`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The lanes a `lanes` layout draws: the ones given, in order, then any an event names that weren't given (labelled by key). @stability Beta |
+| [`calendarWindow`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The days a layout shows around `anchor`: a month grid's whole weeks, or `weeks` weeks from the week `anchor` is in. This is the window a calendar asks its data for. @stability Beta |
 | [`CurrencyCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | CurrencyCell -- currency formatting with string-safe parsing. |
 | [`DataBulkBar`](../packages/ui/src/components/data/DataBulkBar.tsx) | function | — | _(no summary)_ |
 | [`DataFilters`](../packages/ui/src/components/data/DataFilters.tsx) | function | — | _(no summary)_ |
@@ -10047,6 +10081,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | function | Beta | EmptyState — what to show when a list, page, or panel has no data. |
+| [`eventDays`](../packages/ui/src/components/data/calendar/placement.ts) | function | — | The first and last day an event covers on `zone`'s clock. |
+| [`eventDots`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | An event's dots: its own colours, else its lanes' colours. @stability Beta |
 | [`FieldArrayRenderer`](../packages/ui/src/components/data/FieldArrayRenderer.tsx) | function | — | _(no summary)_ |
 | [`FileUploadField`](../packages/ui/src/components/data/FileUploadField.tsx) | function | — | _(no summary)_ |
 | [`FilterCombobox`](../packages/ui/src/components/data/FilterCombobox.tsx) | function | — | _(no summary)_ |
@@ -10054,12 +10090,16 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`LinkCell`](../packages/ui/src/components/data/DataTable.tsx) | function | — | _(no summary)_ |
 | [`NumberCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | NumberCell -- locale-aware number formatting. |
 | [`PageHeader`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
+| [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
+| [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
+| [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
 | [`showUndoToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The undo toast for an `undoable` write (core's `onUndoable`): a sonner toast with an Undo button, shown for as long as the undo is offered. Needs a mounted `<Toaster />`. |
 | [`showWriteErrorToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The default error report for writes that fail after the form has closed. |
 | [`ThumbnailCell`](../packages/ui/src/components/data/DataTable.tsx) | function | — | _(no summary)_ |
+| [`timeStorage`](../packages/ui/src/components/data/calendar/values.ts) | function | Beta | How a field stores time, from its database type (an unknown type with a time counts as an instant). @stability Beta |
 | [`useCommandPaletteHotkey`](../packages/ui/src/components/ui/command-palette.tsx) | function | — | Toggle a command palette with Cmd/Ctrl+K. Returns `[open, setOpen]` — pass into `<CommandPalette open onOpenChange />`. |
 | [`useDisplayCell`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
@@ -10069,15 +10109,21 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
 | [`webDisplayRenderers`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | Genesis's web renderers. Every one shows text it can't draw, never a broken cell. |
+| [`windowBounds`](../packages/ui/src/components/data/calendar/values.ts) | function | Beta | A window as filter values for a column: days for a date column, ISO instants of `zone`'s midnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one. `[from, to)`; `lead` widens the start by days. @stability... |
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (43)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { BulkAction };
+export type { CalendarEvent };
+export type { CalendarLane };
+export type { CalendarLayout };
+export type { CalendarWeeks };
+export type { CalendarWindowOptions };
 export type { ColumnStatus };
 export type { CommandPaletteItem };
 export type { DataFilterConfig };
@@ -10096,9 +10142,11 @@ export type { KanbanColumn };
 export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
+export type { PlacedEvent };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
+export type { ResourceCalendarOptions };
 export type { ResourceCardActions };
 export type { ResourceColumnDef };
 export type { ResourceDeleteConfirmCopy };
@@ -10117,6 +10165,7 @@ export type { Slots };
 export type { StatCardColor };
 export type { StatusChipOption };
 export type { StatusChipsVariant };
+export type { TimeStorage };
 export type { UseSavedViewsReturn };
 export type { ViewMode };
 export type { ViewModeDefault };
