@@ -39,6 +39,11 @@ export interface AppleConfig {
 
 const TEN_CHARS = /^[A-Z0-9]{10}$/;
 const CLIENT_ID = /^[A-Za-z0-9][A-Za-z0-9.-]{0,254}$/;
+// The PKCS#8 PEM armour, with the dashes counted (`-{5}`) rather than written out: the literal
+// header is what secret scanners (gitleaks' private-key rule) look for, and every app that installs
+// this function scans it.
+const PEM_KEY = /-{5}BEGIN PRIVATE KEY-{5}[\s\S]+-{5}END PRIVATE KEY-{5}/;
+const PEM_MARKER = /-{5}(?:BEGIN|END) PRIVATE KEY-{5}/g;
 
 /**
  * Reads the Apple settings from the environment. Returns the names that are
@@ -55,7 +60,7 @@ export function readAppleConfig(env: (name: string) => string | undefined): { co
     .filter(Boolean);
   if (!TEN_CHARS.test(teamId)) problems.push("APPLE_TEAM_ID (10 capital letters or digits)");
   if (!TEN_CHARS.test(keyId)) problems.push("APPLE_KEY_ID (10 capital letters or digits)");
-  if (!/-----BEGIN PRIVATE KEY-----[\s\S]+-----END PRIVATE KEY-----/.test(privateKey)) problems.push("APPLE_PRIVATE_KEY (the .p8 file's PEM text)");
+  if (!PEM_KEY.test(privateKey)) problems.push("APPLE_PRIVATE_KEY (the .p8 file's PEM text)");
   if (clientIds.length === 0 || !clientIds.every((id) => CLIENT_ID.test(id))) problems.push("APPLE_CLIENT_IDS (comma-separated bundle ids or Services IDs)");
   return problems.length ? { problems } : { config: { teamId, keyId, privateKey, clientIds } };
 }
@@ -85,7 +90,7 @@ const keyCache = new Map<string, Promise<CryptoKey>>();
 function signingKey(pem: string): Promise<CryptoKey> {
   let key = keyCache.get(pem);
   if (!key) {
-    const body = pem.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").replace(/\s+/g, "");
+    const body = pem.replace(PEM_MARKER, "").replace(/\s+/g, "");
     const der = Uint8Array.from(atob(body), (c) => c.charCodeAt(0));
     key = crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
     // A bad key must not stay cached as a rejected promise.

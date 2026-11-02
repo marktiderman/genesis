@@ -1,4 +1,4 @@
--- @feat:support-feedback @feat:feature-voting
+-- @feat:support-feedback
 -- pgTAP test for 0006_genesis_support.sql.
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, reports, ideas and storage rows and rolls everything back.
