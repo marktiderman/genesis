@@ -108,7 +108,7 @@ export function CalendarView({
           )}
         </>
       }
-      loading={query.isPending}
+      loading={query.isPending || query.isPlaceholderData}
       onSelect={(event) => onOpenRecord(event.key)}
       testID="studio-calendar"
     />

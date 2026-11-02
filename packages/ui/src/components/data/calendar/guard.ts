@@ -8,7 +8,7 @@ import type { CalendarLayout } from "./placement";
 // Each bad value is warned about once, not on every render while it stays in the URL.
 const warned = new Set<string>();
 
-function warnOnce(message: string): void {
+export function warnOnce(message: string): void {
   if (!isDevelopment() || warned.has(message)) return;
   warned.add(message);
   // genesis-allow-console: a development-only hint about a bad URL value; nothing failed.

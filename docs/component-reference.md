@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4092 other exports · 3274 standalone types across 190 entry points in 29 packages.
+**Totals:** 595 components · 4095 other exports · 3275 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1150,7 +1150,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1213,6 +1213,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1457,7 +1458,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (36)
+### Other exports (37)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1487,6 +1488,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1845,7 +1847,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
-| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
+| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
@@ -4147,7 +4149,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4210,6 +4212,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -10074,7 +10077,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (17)
+### Components (19)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10086,6 +10089,8 @@ export type { UiMessagesOverrides };
 | [`DetailPanel`](../packages/ui/src/components/data/DetailPanel.tsx) | `DetailPanelProps` | — | _(no summary)_ |
 | [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
+| [`PrintableAgenda`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintableAgendaProps` | Beta | One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the sheets stack, so a page can show them before printing. Events that name no lane are left out: a sheet is someone's. |
+| [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintButtonProps` | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
 | [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
@@ -10150,7 +10155,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (52)
+### Types (53)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10180,6 +10185,7 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
 export type { PlacedEvent };
+export type { PrintableSection };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
