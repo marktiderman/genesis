@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 140
+      "count": 141
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8914,12 +8914,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/cell-formatters.tsx",
       "stability": "stable",
-      "summary": "DateCell -- shows relative date by default, formatted date otherwise.\nCompatible with DataTableColumn<T>'s `render` prop.",
+      "summary": "DateCell -- shows relative date by default, formatted date otherwise.\n`relative: \"short\"` words it as `relativeTime` does (\"2 hours ago\", \"yesterday\", \"Oct 21\")\ninstead of date-fns' distance (\"about 2 hours ago\"), in `words` (a screen's\n`useUiMessages().time`, so a translation applies) or the English catalogue.\nCompatible with DataTableColumn<T>'s `render` prop.",
       "primaryComponent": "DateCell",
       "components": [
         {
           "name": "DateCell",
-          "summary": "DateCell -- shows relative date by default, formatted date otherwise.\nCompatible with DataTableColumn<T>'s `render` prop.",
+          "summary": "DateCell -- shows relative date by default, formatted date otherwise.\n`relative: \"short\"` words it as `relativeTime` does (\"2 hours ago\", \"yesterday\", \"Oct 21\")\ninstead of date-fns' distance (\"about 2 hours ago\"), in `words` (a screen's\n`useUiMessages().time`, so a translation applies) or the English catalogue.\nCompatible with DataTableColumn<T>'s `render` prop.",
           "props": [
             {
               "name": "format",
@@ -8930,7 +8930,14 @@
             },
             {
               "name": "relative",
-              "type": "boolean",
+              "type": "boolean | \"short\"",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "words",
+              "type": "{ locale: string; justNow: string; minutesAgo: string; inMinutes: string; now: string; minutesShort: string; yesterday: string; }",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -12722,9 +12729,36 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/display.tsx",
       "stability": "stable",
-      "summary": "Replace some of the renderers for everything below (nested providers build on each other).\nPass a stable object (a module constant or a `useMemo`): a new one each render redraws every\ncolumn.",
-      "primaryComponent": "DisplayRenderersProvider",
+      "summary": "A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in\n`timeZone`) on hover. The server and the first paint show the exact time, so hydration matches;\nafter mount it turns relative and keeps itself current each minute, on one clock shared by\nevery RelativeTime on the page.",
+      "primaryComponent": "RelativeTime",
       "components": [
+        {
+          "name": "RelativeTime",
+          "summary": "A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in\n`timeZone`) on hover. The server and the first paint show the exact time, so hydration matches;\nafter mount it turns relative and keeps itself current each minute, on one clock shared by\nevery RelativeTime on the page.",
+          "props": [
+            {
+              "name": "value",
+              "type": "unknown",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
         {
           "name": "DisplayRenderersProvider",
           "summary": "Replace some of the renderers for everything below (nested providers build on each other).\nPass a stable object (a module constant or a `useMemo`): a new one each render redraws every\ncolumn.",
@@ -12741,6 +12775,11 @@
         {
           "name": "useDisplayCell",
           "summary": "Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer.",
+          "props": []
+        },
+        {
+          "name": "relativeDatetimeRenderer",
+          "summary": "The `datetime` renderer as a relative time with the exact time on hover. Opt in under a\n`DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`.",
           "props": []
         },
         {
@@ -14650,6 +14689,13 @@
               "description": ""
             },
             {
+              "name": "time",
+              "type": "DeepPartial<{ locale: string; justNow: string; minutesAgo: string; inMinutes: string; now: string; minutesShort: string; yesterday: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own."
+            },
+            {
               "name": "view",
               "type": "DeepPartial<{ mode: string; grid: string; table: string; list: string; settings: string; settingsTitle: string; pageSize: string; pageSizeOption: string; density: string; compact: string; comfortable: string; spacious: string; }>",
               "required": false,
@@ -14676,7 +14722,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 13 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 14 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -14691,6 +14737,11 @@
         {
           "name": "__object",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+          "props": []
+        },
+        {
+          "name": "time",
+          "summary": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own.",
           "props": []
         },
         {
@@ -14718,6 +14769,11 @@
         {
           "name": "uiMessages",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+          "props": []
+        },
+        {
+          "name": "time",
+          "summary": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own.",
           "props": []
         },
         {
@@ -14892,6 +14948,23 @@
               "description": ""
             }
           ]
+        }
+      ]
+    },
+    {
+      "slug": "none-choice",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/none-choice.ts",
+      "stability": "stable",
+      "summary": "The value of a picker's \"None\" choice (the words are `messages.link.none`), which sets a field\nthat can be empty back to empty. Radix's Select and cmdk can't hold \"\" as an item value, so every\npicker in this package uses this one sentinel and turns it into `null` before it leaves the picker.",
+      "primaryComponent": "NONE_CHOICE",
+      "components": [
+        {
+          "name": "NONE_CHOICE",
+          "summary": "The value of a picker's \"None\" choice (the words are `messages.link.none`), which sets a field\nthat can be empty back to empty. Radix's Select and cmdk can't hold \"\" as an item value, so every\npicker in this package uses this one sentinel and turns it into `null` before it leaves the picker.",
+          "props": []
         }
       ]
     },
@@ -15739,6 +15812,20 @@
               "description": "The readiness chip's words."
             },
             {
+              "name": "sectionIcons",
+              "type": "Partial<Record<string, LucideIcon>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which\notherwise shows the label's first letter)."
+            },
+            {
+              "name": "settingsLocked",
+              "type": "((sectionId: string, row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Why a settings section is read-only for this viewer, when the screen knows more than the\nview's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the\nview's update guard locks stays locked."
+            },
+            {
               "name": "slots",
               "type": "Partial<Record<string, ReactNode>>",
               "required": false,
@@ -15834,6 +15921,20 @@
               "required": false,
               "defaultValue": null,
               "description": "The readiness chip's words."
+            },
+            {
+              "name": "sectionIcons",
+              "type": "Partial<Record<string, LucideIcon>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which\notherwise shows the label's first letter)."
+            },
+            {
+              "name": "settingsLocked",
+              "type": "((sectionId: string, row: T) => string | null)",
+              "required": false,
+              "defaultValue": null,
+              "description": "Why a settings section is read-only for this viewer, when the screen knows more than the\nview's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the\nview's update guard locks stays locked."
             },
             {
               "name": "slots",
@@ -16761,6 +16862,13 @@
               "description": ""
             },
             {
+              "name": "chips",
+              "type": "readonly { label: string; tone: ChipTone; }[]",
+              "required": false,
+              "defaultValue": null,
+              "description": "More chips after the status (a record's kind, its triage)."
+            },
+            {
               "name": "className",
               "type": "string",
               "required": false,
@@ -16829,6 +16937,13 @@
               "required": false,
               "defaultValue": null,
               "description": "The status chip, e.g. \"Live · version 3\" or \"Draft\" (forms-studio's formStatusChip makes a form's)."
+            },
+            {
+              "name": "subtitle",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A muted line under the title: an id, a parent, a feature (\"T-8 · Team work\")."
             },
             {
               "name": "untitled",
@@ -24088,6 +24203,13 @@
               "description": ""
             },
             {
+              "name": "distinct",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Tell people apart in a list of them (a feed): the initials fallback gets a stable tint per\nname, and a one-word name shows two letters (\"Pr\", \"Po\") instead of one."
+            },
+            {
               "name": "size",
               "type": "\"sm\" | \"default\" | \"lg\" | null",
               "required": false,
@@ -24109,6 +24231,11 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
+        },
+        {
+          "name": "DISTINCT_AVATAR_TINTS",
+          "summary": "Tints for `distinct` avatars: a light wash of a chart colour behind the foreground text. The\nchart colours themselves fail contrast as text (1.5 to 2.8 to 1 in the light theme), so the\ntext stays `text-foreground`, which measures 14:1 or more on every wash in both themes.",
+          "props": []
         }
       ]
     },
