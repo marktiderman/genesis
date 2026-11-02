@@ -24,6 +24,7 @@ import {
   type CalendarWeeks,
   type PlacedEvent,
 } from "./placement";
+import { laneColor } from "./lane-color";
 
 /** @stability Beta */
 export interface EventCalendarProps<T = unknown> {
@@ -41,6 +42,12 @@ export interface EventCalendarProps<T = unknown> {
   timeZone?: string;
   /** For `lanes`, and the dots' colours and names. Lanes an event names that aren't here are added. */
   lanes?: readonly CalendarLane[];
+  /**
+   * Give each lane with no `color` of its own `laneColor(i)` by its place in the lanes: the chart
+   * colours first, then distinct ones past five, so every person has a dot. Default false (a lane
+   * with no colour has no dot).
+   */
+  colorLanes?: boolean;
   /** An event was clicked or chosen from the keyboard. Without it, events aren't buttons. */
   onSelect?: (event: CalendarEvent<T>) => void;
   /** The agenda shows days with nothing on them too. Default false. */
@@ -115,6 +122,7 @@ export function EventCalendar<T = unknown>({
   weekStartsOn = 1,
   timeZone,
   lanes: laneDefs,
+  colorLanes = false,
   onSelect,
   showEmptyDays = false,
   locale,
@@ -136,7 +144,10 @@ export function EventCalendar<T = unknown>({
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
   const days = eachDay(range);
   const placed = useMemo(() => placeEvents(events, range, zone), [events, range.start, range.end, zone]); // eslint-disable-line react-hooks/exhaustive-deps
-  const lanes = useMemo(() => calendarLanes(events, laneDefs), [events, laneDefs]);
+  const lanes = useMemo(() => {
+    const all = calendarLanes(events, laneDefs);
+    return colorLanes ? all.map((l, i) => (l.color ? l : { ...l, color: laneColor(i) })) : all;
+  }, [events, laneDefs, colorLanes]);
   const fmt = useFormats(locale, zone);
 
   const last = addDays(range.end, -1);

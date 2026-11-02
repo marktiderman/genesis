@@ -16,7 +16,7 @@ import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
-import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
+import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout, type CalendarWeeks } from "../calendar/placement";
 import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
 import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
@@ -44,6 +44,20 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   /** The layouts the toolbar offers to switch between. Without two or more, no switch. */
   layouts?: readonly CalendarLayout[];
   onLayoutChange?: (layout: CalendarLayout) => void;
+  /**
+   * Week counts the toolbar offers beside `layouts` (`[1, 2, 4]`), for the `weeks`, `agenda` and
+   * `lanes` layouts. Without two or more, no switch. The pick is kept as the layout's is: with
+   * `onWeeksChange` the screen owns it (`weeks`, in the URL), else the calendar does.
+   */
+  weeksOptions?: readonly CalendarWeeks[];
+  onWeeksChange?: (weeks: CalendarWeeks) => void;
+  /**
+   * Beside the layout and weeks switches: a Print button, a mode switch. A function gets what the
+   * calendar shows now.
+   */
+  toolbar?: ReactNode | ((state: ResourceCalendarToolbarState) => ReactNode);
+  /** Give lanes with no colour of their own `laneColor(i)` (EventCalendar's `colorLanes`). Default false. */
+  colorLanes?: boolean;
   /**
    * The clock timestamps land on days by. Default the field's own (`fields.<field>.timeZone`:
    * the scope's or a fixed zone), else the viewer's (ViewerScope's `timeZone`), else the device's:
@@ -85,6 +99,13 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   print?: { sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5 };
 }
 
+/** What a calendar's `toolbar` function is given. @stability Beta */
+export interface ResourceCalendarToolbarState {
+  layout: CalendarLayout;
+  weeks: CalendarWeeks;
+  anchor: Day;
+}
+
 export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCalendarOptions<T> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract; Row is what matters here
   view: View<ResourceContract<any>, T & DataRow>;
@@ -112,6 +133,9 @@ function durationOf(value: unknown): number | null {
   const n = typeof value === "string" && value.trim() ? Number(value) : value;
   return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
 }
+
+/** An instant at 00:00:00.000 UTC: how an all-day event is stored as an instant. */
+const atUtcMidnight = (at: Date) => at.getTime() % UNIT_MS.days === 0;
 
 /** The latest instant a Date holds (ECMAScript's limit, about the year 275760). */
 const MAX_TIME = 8.64e15;
@@ -183,7 +207,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
     field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
-    weeks = 2, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
+    weeks: weeksProp = 2, weeksOptions, onWeeksChange, toolbar, colorLanes, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
     limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
   } = settings;
   const m = useUiMessages();
@@ -196,6 +220,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const problems = calendarProblems(view.contract.fields, configured);
   if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
   const field = view.field(fieldName)!;
+  const badWeeks = (weeksOptions ?? []).filter((w) => ![1, 2, 3, 4].includes(w));
+  if (badWeeks.length) throw new Error(`ResourceView(${view.resource}): calendar weeksOptions are 1 to 4, not ${badWeeks.join(", ")}`);
   if (timeZone !== undefined && !isTimeZone(timeZone)) {
     throw new Error(`ResourceView(${view.resource}): calendar timeZone "${timeZone}" isn't a time zone the runtime knows`);
   }
@@ -210,11 +236,19 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const phone = useIsMobile();
   const [picked, setPicked] = useState(false);
   const layout = layoutOr(phoneLayout && phone && !picked ? phoneLayout : onLayoutChange ? layoutProp : ownLayout, where);
+  // `weeksOptions`' pick is kept where the layout's is: the screen's with `onWeeksChange`, else ours.
+  const [ownWeeks, setOwnWeeks] = useFollowedState<CalendarWeeks>(weeksProp, () => 2);
+  const weeksPicked = onWeeksChange ? weeksProp : ownWeeks;
+  const weeks: CalendarWeeks = [1, 2, 3, 4].includes(weeksPicked) ? weeksPicked : 2;
   const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => dayIn(zone));
   const anchor = anchorOr(onAnchorChange ? anchorProp : ownAnchor, dayIn(zone), where);
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
-  const { from, to } = windowBounds(range, storage, zone);
-  const end = endField ? windowBounds(range, endStorage, zone) : undefined;
+  // An all-day row stored as instants lands on its UTC day (below), which can be a day either
+  // side of the window's own midnights on this clock: ask for a day more each side, and let
+  // placement keep only the window's days.
+  const fetched = allDayField && storage === "zoned" ? { start: addDays(range.start, -1), end: addDays(range.end, 1) } : range;
+  const { from, to } = windowBounds(fetched, storage, zone);
+  const end = endField ? windowBounds(allDayField && endStorage === "zoned" ? fetched : range, endStorage, zone) : undefined;
 
   // At most two lists, each a plain filter list the provider rules apply to, that neither overlap
   // nor leave a gap:
@@ -280,7 +314,13 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         if (start === null) return [];
         const ownEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
         const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
-        const startDay = typeof start === "string" ? start : dayIn(zone, start);
+        // An all-day row's days. Stored as days (`YYYY-MM-DD`), they are those days, with no clock
+        // at all. Stored as instants at UTC midnight (how Google's API and most sources write an
+        // all-day event), they are read on UTC: on a clock behind UTC that midnight is the
+        // evening before. Any other instants (a midnight on the viewer's clock) are read on the
+        // viewer's clock, as before.
+        const clock = allDay && typeof start !== "string" && atUtcMidnight(start) && (ownEnd === null || typeof ownEnd === "string" || atUtcMidnight(ownEnd)) ? "UTC" : zone;
+        const startDay = typeof start === "string" ? start : dayIn(clock, start);
         // No end of its own: the start plus its duration. A timed row ends that long after it
         // starts (exclusive, like a stored end); a date or an all-day row runs that many days
         // from its start day, so its last day is the one before (two days from the 3rd end on
@@ -291,7 +331,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         // An all-day row stored as instants runs to an exclusive end: its last day is the one
         // before the end instant, and never before its first.
         const lastDay = (v: Day | Date) => {
-          const d = typeof v === "string" ? v : dayIn(zone, new Date(v.getTime() - 1));
+          const d = typeof v === "string" ? v : dayIn(clock, new Date(v.getTime() - 1));
           return d < startDay ? startDay : d;
         };
         const rowLanes = lanesOf ? lanesOf(row) : laneBy ? laneKeys(row[laneBy]) : undefined;
@@ -395,6 +435,34 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         ))}
       </div>
     ) : undefined;
+  const weeksSwitch =
+    weeksOptions && weeksOptions.length > 1 && layout !== "month" ? (
+      <div className="flex items-center overflow-hidden rounded-lg border" role="group" aria-label={m.calendar.weeksShown}>
+        {weeksOptions.map((w) => (
+          <Button
+            key={w}
+            type="button"
+            size="sm"
+            variant={w === weeks ? "default" : "ghost"}
+            className="h-8 rounded-none"
+            aria-pressed={w === weeks}
+            onClick={() => (onWeeksChange ? onWeeksChange(w) : setOwnWeeks(w))}
+            testID={`${testID}-weeks-${w}`}
+          >
+            {w === 1 ? m.calendar.weeksOne : fillMessage(m.calendar.weeksOther, { count: w })}
+          </Button>
+        ))}
+      </div>
+    ) : undefined;
+  const ownTools = typeof toolbar === "function" ? toolbar({ layout, weeks, anchor }) : toolbar;
+  const bar =
+    switcher || weeksSwitch || ownTools ? (
+      <>
+        {switcher}
+        {weeksSwitch}
+        {ownTools}
+      </>
+    ) : undefined;
 
   return (
     <div className={className}>
@@ -426,7 +494,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         {...(shownLanes ? { lanes: shownLanes } : {})}
         {...(showEmptyDays !== undefined ? { showEmptyDays } : {})}
         label={title ?? view.title}
-        toolbar={switcher}
+        toolbar={bar}
+        {...(colorLanes ? { colorLanes } : {})}
         notice={
           <>
             {total > loaded && (

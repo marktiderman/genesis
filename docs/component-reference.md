@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 598 components · 4142 other exports · 3348 standalone types across 192 entry points in 30 packages.
+**Totals:** 598 components · 4144 other exports · 3358 standalone types across 192 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1310,7 +1310,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
-| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
@@ -1585,7 +1585,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
-| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
@@ -1966,7 +1966,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
 | [`ViewDefinitionError`](../packages/core/src/resource-view/errors.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
 
-### Types (52)
+### Types (54)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1977,6 +1977,7 @@ export type { DisplayHint };
 export type { FieldNameOf };
 export type { GenesisViewerRoles };
 export type { LinkFilter };
+export type { LinkOrder };
 export type { LinkedView };
 export type { RecordView };
 export type { RecordViewDefinition };
@@ -2008,6 +2009,7 @@ export type { TreeOptions };
 export type { TreeResult };
 export type { ViewAction };
 export type { ViewCalendar };
+export type { ViewCalendarDurationUnit };
 export type { ViewCalendarLayout };
 export type { ViewColumn };
 export type { ViewCopy };
@@ -4311,7 +4313,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
-| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by `orderBy` (else the naming field) then the key, `p... |
 | [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
@@ -4778,7 +4780,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (43)
+### Types (45)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4786,6 +4788,8 @@ Type-only exports not consumed as a component's `Props`.
 export type { AuthFormClient };
 export type { AuthFormError };
 export type { AuthFormMode };
+export type { AuthFormNotice };
+export type { AuthFormNoticeKind };
 export type { AuthFormProvider };
 export type { AuthFormResult };
 export type { AuthFormSuccess };
@@ -10172,7 +10176,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (43)
+### Types (45)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10180,6 +10184,8 @@ Type-only exports not consumed as a component's `Props`.
 export type { AuthFormClient };
 export type { AuthFormError };
 export type { AuthFormMode };
+export type { AuthFormNotice };
+export type { AuthFormNoticeKind };
 export type { AuthFormProvider };
 export type { AuthFormResult };
 export type { AuthFormSuccess };
@@ -10252,7 +10258,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (50)
+### Other exports (52)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10278,6 +10284,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`FileUploadField`](../packages/ui/src/components/data/FileUploadField.tsx) | function | — | _(no summary)_ |
 | [`FilterCombobox`](../packages/ui/src/components/data/FilterCombobox.tsx) | function | — | _(no summary)_ |
 | [`isPathActive`](../packages/core/src/navigation.ts) | function | Beta | Default active-path matcher, mirroring React Router's `NavLink` (prefix match, with `/` treated as exact). Consumers can override via an `isActive` prop where components accept one. |
+| [`laneColor`](../packages/ui/src/components/data/calendar/lane-color.ts) | function | Beta | A distinct CSS colour for lane `index` (0-based), from the theme, in light and dark: |
 | [`LinkCell`](../packages/ui/src/components/data/DataTable.tsx) | function | — | _(no summary)_ |
 | [`NumberCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | NumberCell -- locale-aware number formatting. |
 | [`PageHeader`](../packages/ui/src/components/data/index.ts) | const | Deprecated | _(no summary)_ |
@@ -10302,6 +10309,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useResourceViewDefaults`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | — | The list defaults in effect (empty without a provider). |
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
 | [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
+| [`useViewFormFields`](../packages/ui/src/components/data/resource-view/view-form.ts) | function | Beta | The fields of a view's form, as ResourceForm takes them: what `<ResourceView>` builds its own form from. The viewer's scope narrows link pickers. Call it for a form of your own layout, or pass the view to `<ResourceForm view={…}>`, which... |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
 | [`webDisplayRenderers`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | Genesis's web renderers. Every one shows text it can't draw, never a broken cell. |
@@ -10309,7 +10317,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (54)
+### Types (56)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10345,6 +10353,7 @@ export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
 export type { ResourceCalendarOptions };
+export type { ResourceCalendarToolbarState };
 export type { ResourceCardActions };
 export type { ResourceColumnDef };
 export type { ResourceDeleteConfirmCopy };
@@ -10366,6 +10375,7 @@ export type { StatusChipOption };
 export type { StatusChipsVariant };
 export type { TimeStorage };
 export type { UseSavedViewsReturn };
+export type { ViewFormOptions };
 export type { ViewMode };
 export type { ViewModeDefault };
 ```
@@ -10409,7 +10419,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
 
-### Types (11)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10417,6 +10427,8 @@ Type-only exports not consumed as a component's `Props`.
 export type { AuthFormClient };
 export type { AuthFormError };
 export type { AuthFormMode };
+export type { AuthFormNotice };
+export type { AuthFormNoticeKind };
 export type { AuthFormProvider };
 export type { AuthFormResult };
 export type { AuthFormSuccess };
