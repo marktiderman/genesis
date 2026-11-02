@@ -28,6 +28,8 @@ export type GoogleCalendarErrorCode =
   | "not_found"
   /** Google is busy or failing: try again later. */
   | "unavailable"
+  /** `signal` was aborted before a page was read: nothing was read, try again later. */
+  | "aborted"
   | "bad_response";
 
 /** A Google Calendar read that failed, with why. Its message never holds the token. @stability Beta */
@@ -80,6 +82,12 @@ export interface GoogleSyncOptions extends GoogleEventOptions {
   maxPages?: number;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /**
+   * Stops the read, for a job with a deadline (`AbortSignal.timeout(ms)`). Once it aborts, no new
+   * page starts and a page still loading is dropped; the pages already read come back as
+   * `complete: false` with a `resume`, as at `maxPages`. Aborted before any page: throws `aborted`.
+   */
+  signal?: AbortSignal;
 }
 
 /** What `syncGoogleCalendar` returns. @stability Beta */
@@ -186,7 +194,14 @@ async function read(options: GoogleSyncOptions, syncToken: string | null, startP
   const removed: string[] = [];
   const removedSeries: string[] = [];
   let pageToken = startPage;
+  // Stopped early (maxPages or the signal): keep what was read, and say where to go on.
+  const stopped = (): GoogleSyncResult => ({ full: !syncToken, complete: false, events, removed, removedSeries, syncToken: null, resume: { pageToken: pageToken!, syncToken } });
+  const aborted = (page: number): GoogleSyncResult => {
+    if (page === 0) throw new GoogleCalendarError("aborted", null);
+    return stopped();
+  };
   for (let page = 0; page < maxPages; page++) {
+    if (options.signal?.aborted) return aborted(page);
     const url = new URL(`${CALENDAR_API}/calendars/${encodeURIComponent(options.calendarId)}/events`);
     url.searchParams.set("singleEvents", "true");
     url.searchParams.set("maxResults", "2500");
@@ -197,18 +212,28 @@ async function read(options: GoogleSyncOptions, syncToken: string | null, startP
       url.searchParams.set("timeMax", options.window.to.toISOString());
     }
     if (pageToken) url.searchParams.set("pageToken", pageToken);
+    // One controller for the page's timeout and the caller's signal (AbortSignal.any isn't everywhere).
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 15_000);
+    const onAbort = () => controller.abort();
+    options.signal?.addEventListener("abort", onAbort, { once: true });
     let res: Response;
+    let body: { items?: GoogleEvent[]; nextPageToken?: string; nextSyncToken?: string } | null;
     try {
       res = await doFetch(url, {
         headers: { authorization: `Bearer ${options.accessToken}`, accept: "application/json" },
-        signal: AbortSignal.timeout(options.timeoutMs ?? 15_000),
+        signal: controller.signal,
       });
+      body = res.ok ? ((await res.json().catch(() => null)) as typeof body) : null;
     } catch {
+      if (options.signal?.aborted) return aborted(page);
       throw new GoogleCalendarError("unavailable", null);
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", onAbort);
     }
     if (res.status === 410 && syncToken) throw new Gone();
     if (!res.ok) throw failure(res.status);
-    const body = (await res.json().catch(() => null)) as { items?: GoogleEvent[]; nextPageToken?: string; nextSyncToken?: string } | null;
     if (!body || typeof body !== "object") throw new GoogleCalendarError("bad_response", res.status);
     for (const item of Array.isArray(body.items) ? body.items : []) {
       const event = fromGoogleEvent(options.sourceId, item, options);
@@ -225,8 +250,7 @@ async function read(options: GoogleSyncOptions, syncToken: string | null, startP
     }
     return { full: !syncToken, complete: true, events, removed, removedSeries, syncToken: body.nextSyncToken ?? null, resume: null };
   }
-  // Stopped at maxPages: keep what was read, and say where to go on.
-  return { full: !syncToken, complete: false, events, removed, removedSeries, syncToken: null, resume: { pageToken: pageToken!, syncToken } };
+  return stopped();
 }
 
 /**
