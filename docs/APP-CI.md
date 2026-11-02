@@ -107,10 +107,16 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    `workspace:`, `file:`, `link:` and `npm:` specs, wider ranges, peer dependencies and anything
    already newer are left alone and listed in the pull request;
 3. reinstalls and runs `genesis doctor`. With pnpm it then does what `genesis upgrade` does, with
-   the same embedded code (`normaliseReleaseAgeExcludes` in bump-core.mjs): every Genesis entry
-   pnpm pinned in pnpm-workspace.yaml's `minimumReleaseAgeExclude` becomes one
-   `'@marktiderman/genesis-*'` pattern, which app-ci's `pnpm install --frozen-lockfile` honours on
-   pnpm 11.1.3, other entries left as they are, and `pnpm dedupe` runs (`npm dedupe` with npm);
+   the same embedded code (`normaliseReleaseAgeExcludes` in bump-core.mjs): the entries pnpm
+   pinned in pnpm-workspace.yaml's `minimumReleaseAgeExclude` become one entry per Genesis package
+   listing its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`), which app-ci's
+   `pnpm install --frozen-lockfile` honours on pnpm 11.1.3, versions the lockfile no longer holds
+   are dropped, other entries (an app's own pattern included) are left as they are, and
+   `pnpm dedupe` runs (`npm dedupe` with npm). Never a pattern: `'@marktiderman/genesis-*'` would
+   let every future Genesis release skip `minimumReleaseAge`. With `minimumReleaseAge` set in the
+   app, pnpm's strict mode fails the install with `ERR_PNPM_NO_MATURE_MATCHING_VERSION` instead;
+   the run fails and says so, and never loosens the setting: add the new versions to
+   `minimumReleaseAgeExclude` (exact versions), or run again once they are old enough;
 4. commits the package.json files, the lockfile and, when pnpm or the tidy changed it,
    pnpm-workspace.yaml to `branch` (default
    `genesis-upgrade/<base branch>`), rebuilt from the branch the workflow ran on, and opens or
@@ -132,7 +138,10 @@ The job that holds the write token runs no dependency code. A read-only job bump
 again from the same release, writes the lockfile with install scripts off
 (`--lockfile-only`/`--package-lock-only --ignore-scripts`), and commits only those files; the only
 thing it takes from the first job is the doctor's output, shown escaped in the pull request. Review
-the lockfile change as you would any dependency update.
+the lockfile change as you would any dependency update. Install scripts off doesn't stop a `.pnpmfile.cjs` or pnpm config
+dependencies, so the pull request job checks out with `persist-credentials: false`: the write
+token isn't in `.git/config` while pnpm runs, and only the last step has it, for git's fetch and
+push (an auth header in git's environment) and `gh`.
 
 The caller grants `contents: write` and `pull-requests: write`. With the default `GITHUB_TOKEN`:
 

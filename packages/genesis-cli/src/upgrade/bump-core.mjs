@@ -67,20 +67,37 @@ export function bumpSummary(version, changes, skipped) {
 
 // pnpm's minimumReleaseAgeExclude after the install. A Genesis release younger than the app's
 // minimumReleaseAge is installed in loose mode and pnpm pins it in pnpm-workspace.yaml
-// ('@marktiderman/genesis-ui@2.26.0'). pnpm 11.1.3 reads that list first match per package name, so
-// a second pinned version of one package fails `pnpm install --frozen-lockfile` with
-// ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION. Every Genesis entry becomes one name pattern (the umbrella
-// its bare name), which pnpm 11 honours for a resolving and a frozen install. Only Genesis's own
-// names are touched: every other entry is the app's supply-chain guard. Other lines, comments and
-// order are kept, and the text is unchanged when there is nothing to replace.
-export const GENESIS_PATTERN = "@marktiderman/genesis-*";
+// ('@marktiderman/genesis-ui@2.26.0'), one entry per version. pnpm 11.1.3 reads that list first
+// match per package name, so a second entry for one package fails `pnpm install --frozen-lockfile`
+// with ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION. The tidy keeps exact versions, never a pattern: a
+// pattern would exempt every future Genesis publish from the wait, so a compromised one would
+// reach apps at once. Each Genesis package gets one entry listing the versions pinned
+// ('@marktiderman/genesis-features@0.8.0 || 0.8.1', which pnpm 11 honours for a resolving and a
+// frozen install), in the place of its first entry; with the lockfile's versions, a version it no
+// longer resolves is dropped (and an entry left with none), so the list doesn't grow forever. Every
+// other entry is the app's own and kept as it is, a pattern ('@marktiderman/genesis-*') or a bare
+// name included. Other lines, comments and order are kept, and the text is unchanged when there is
+// nothing to merge or drop.
 
-function excludeReplacement(entry) {
-  if (entry === GENESIS_PATTERN) return GENESIS_PATTERN;
+// The Genesis versions a pnpm lockfile resolves, as a Map of package name to a Set of versions.
+export function lockedGenesisVersions(lockText) {
+  const locked = new Map();
+  const re = /(?<![\w/-])(@marktiderman\/genesis(?:-[a-z0-9-]+)?)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)(?![0-9A-Za-z.+-])/g;
+  for (const m of lockText.matchAll(re)) {
+    if (!locked.has(m[1])) locked.set(m[1], new Set());
+    locked.get(m[1]).add(m[2]);
+  }
+  return locked;
+}
+
+// '@marktiderman/genesis-x@1.0.0 || 1.1.0' -> { name, versions }; null for anything else.
+function genesisPins(entry) {
   const at = entry.startsWith("@") ? entry.indexOf("@", 1) : entry.indexOf("@");
-  const name = at === -1 ? entry : entry.slice(0, at);
+  if (at === -1) return null;
+  const name = entry.slice(0, at);
   if (!GENESIS.test(name)) return null;
-  return name === UMBRELLA ? UMBRELLA : GENESIS_PATTERN;
+  const versions = entry.slice(at + 1).split("||").map((v) => v.trim());
+  return versions.every((v) => PLAIN.test(v)) ? { name, versions } : null;
 }
 
 function unquoteScalar(raw) {
@@ -90,52 +107,91 @@ function unquoteScalar(raw) {
   return s;
 }
 
-export function normaliseReleaseAgeExcludes(text) {
+// `items` is [{ raw, entry }]; returns, in order, { index, text } for each item kept: text null keeps
+// it as written, else it is a Genesis package's merged entry (at its first item; none when no
+// version is left).
+function mergePins(items, locked) {
+  const byName = new Map();
+  const out = [];
+  items.forEach((item, index) => {
+    const pins = genesisPins(unquoteScalar(item.entry));
+    if (!pins) { out.push({ index, raw: item.raw }); return; }
+    let slot = byName.get(pins.name);
+    if (!slot) { slot = { index, name: pins.name, versions: new Set(), first: pins.versions.join(" || "), count: 0 }; byName.set(pins.name, slot); out.push(slot); }
+    slot.count++;
+    for (const v of pins.versions) slot.versions.add(v);
+  });
+  return out.flatMap((o) => {
+    if (!("name" in o)) return [{ index: o.index, text: null }];
+    const keep = [...o.versions].filter((v) => !locked || locked.get(o.name)?.has(v)).sort(compareVersions).join(" || ");
+    if (!keep) return [];
+    // A lone entry that already says this is left exactly as written.
+    return [{ index: o.index, text: o.count === 1 && keep === o.first ? null : `'${o.name}@${keep}'` }];
+  });
+}
+
+// `locked` (from lockedGenesisVersions) is the lockfile's versions; without it nothing is dropped.
+export function normaliseReleaseAgeExcludes(text, locked) {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
   const lines = text.split(/\r?\n/);
   const key = /^minimumReleaseAgeExclude:(.*)$/;
   const start = lines.findIndex((l) => key.test(l));
   if (start === -1) return text;
-  const seen = new Set();
   const out = lines.slice(0, start);
   // The flow form on one line: minimumReleaseAgeExclude: ['a', 'b'] # comment
   const flow = /^(\s*)\[(.*)\](\s*(?:#.*)?)$/.exec(key.exec(lines[start])[1]);
   if (flow) {
-    const kept = [];
-    for (const raw of flow[2].split(",").map((s) => s.trim()).filter(Boolean)) {
-      const replacement = excludeReplacement(unquoteScalar(raw));
-      if (replacement === null) kept.push(raw);
-      else if (!seen.has(replacement)) { seen.add(replacement); kept.push(`'${replacement}'`); }
-    }
-    return [...out, `minimumReleaseAgeExclude:${flow[1]}[${kept.join(", ")}]${flow[3]}`, ...lines.slice(start + 1)].join(eol);
+    const raws = flow[2].split(",").map((s) => s.trim()).filter(Boolean);
+    const kept = mergePins(raws.map((raw) => ({ raw, entry: raw })), locked).map((m) => m.text ?? raws[m.index]);
+    const line = `minimumReleaseAgeExclude:${flow[1]}[${kept.join(", ")}]${flow[3]}`;
+    return line === lines[start] ? text : [...out, line, ...lines.slice(start + 1)].join(eol);
   }
   // The block form: the key, then its `- entry` lines (blank lines and comments between them kept).
   const item = /^(\s*-\s+)('(?:[^']|'')*'|"[^"]*"|[^#\s][^#]*?)(\s+#.*)?\s*$/;
-  out.push(lines[start]);
   let i = start + 1;
+  const body = [];
+  const items = [];
   for (; i < lines.length; i++) {
     const m = item.exec(lines[i]);
     if (!m) {
-      if (/^\s*(#.*)?$/.test(lines[i])) { out.push(lines[i]); continue; }
+      if (/^\s*(#.*)?$/.test(lines[i])) { body.push({ line: lines[i] }); continue; }
       break;
     }
-    const replacement = excludeReplacement(unquoteScalar(m[2]));
-    if (replacement === null) out.push(lines[i]);
-    else if (!seen.has(replacement)) { seen.add(replacement); out.push(`${m[1]}'${replacement}'${m[3] ?? ""}`); }
+    body.push({ item: items.length, m });
+    items.push({ raw: lines[i], entry: m[2] });
   }
-  return [...out, ...lines.slice(i)].join(eol);
+  const merged = new Map(mergePins(items, locked).map((m) => [m.index, m.text]));
+  const kept = body.flatMap((b) => {
+    if (!("item" in b)) return [b.line];
+    if (!merged.has(b.item)) return [];
+    const replacement = merged.get(b.item);
+    return [replacement === null ? items[b.item].raw : `${b.m[1]}${replacement}${b.m[3] ?? ""}`];
+  });
+  // Every entry dropped: an empty list, not a null one.
+  const keyLine = items.length && merged.size === 0 ? "minimumReleaseAgeExclude: []" : lines[start];
+  const next = [...out, keyLine, ...kept, ...lines.slice(i)].join(eol);
+  return next === lines.join(eol) ? text : next;
 }
 
 // The pnpm-workspace.yaml pnpm reads and writes for an install in `start`: the nearest one at or
 // above it, as pnpm finds it (not by the lockfile, which a workspace with
 // sharedWorkspaceLockfile: false keeps in each project), else `fallback` (where pnpm would create
-// one for a standalone app). `fs` is { exists, join, dirname }.
-export function pnpmWorkspaceFile(start, fallback, fs) {
+// one for a standalone app). The search stops at `stop` (the repository's top level), so a file
+// outside the repository is never read or rewritten. `fs` is { exists, join, dirname }.
+export function pnpmWorkspaceFile(start, fallback, fs, stop) {
   for (let dir = start; ; ) {
     const file = fs.join(dir, "pnpm-workspace.yaml");
     if (fs.exists(file)) return file;
     const parent = fs.dirname(dir);
-    if (parent === dir) return fs.join(fallback, "pnpm-workspace.yaml");
+    if (parent === dir || dir === stop) return fs.join(fallback, "pnpm-workspace.yaml");
     dir = parent;
   }
+}
+
+// The lockfile versions the tidy keeps pins for: the lockfile beside pnpm-workspace.yaml (`lockText`,
+// null when there is none), unless each project keeps its own (sharedWorkspaceLockfile: false), when
+// one lockfile doesn't hold them all and nothing is dropped (null).
+export function tidyLocked(workspaceText, lockText) {
+  if (lockText === null || /^sharedWorkspaceLockfile:\s*false\b/m.test(workspaceText)) return null;
+  return lockedGenesisVersions(lockText);
 }
