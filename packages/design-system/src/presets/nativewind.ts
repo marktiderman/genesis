@@ -23,7 +23,7 @@
  *
  * The radius scale is multiples of `--radius` (`calc(var(--radius) * 0.8)`
  * and friends, see `RADIUS_SCALE`), which NativeWind resolves at runtime
- * (with its 14px rem). A brand's `radius.DEFAULT` (else `radius.lg`) is its
+ * (with its 14px rem). A brand's `radius.lg` (else `radius.DEFAULT`) is its
  * `--radius`, so `"0"` makes every corner square, as on web.
  *
  * With a brand, its `extensions` colors are classes too, under the same

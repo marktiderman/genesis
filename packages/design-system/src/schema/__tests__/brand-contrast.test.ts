@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { brandContrastProblems, validateBrand, type CanonicalBrand } from "../brand";
+import { validateBrand as validateBrandShape, type CanonicalBrand } from "../brand";
+import { brandContrastProblems, validateBrand } from "../brand-contrast";
 import { genesisBrand } from "../../presets/brand-genesis";
 import { contrast } from "../../design-systems/color";
 
@@ -59,7 +60,7 @@ describe("brandContrastProblems", () => {
     expect(result.ok).toBe(true);
     expect(result.errors).toEqual([]);
     expect(result.warnings).toHaveLength(4);
-    expect(result.warnings[0]).toMatch(/^brand contrast: text on extensions\.category.* is \d\.\d\d:1, under 4\.5:1$/);
+    expect(result.warnings![0]).toMatch(/^brand contrast: text on extensions\.category.* is \d\.\d\d:1, under 4\.5:1$/);
   });
 
   it("without a declared foreground, warns only when neither the text nor the surface color reads", () => {
@@ -90,7 +91,8 @@ describe("brandContrastProblems", () => {
     const byPair = Object.fromEntries(brandContrastProblems(brand).map((p) => [p.pair, p]));
     expect(byPair["--primary on --background"]?.minimum).toBe(3);
     expect(byPair["--warning on --background"]?.minimum).toBe(3);
-    expect(byPair["--warning-foreground on --warning"]?.minimum).toBe(4.5);
+    // genesis-ui draws no text on the warning fill, so that pair isn't checked.
+    expect(byPair["--warning-foreground on --warning"]).toBeUndefined();
     expect(Object.values(byPair).every((p) => p.level === "warning")).toBe(true);
   });
 
@@ -115,6 +117,25 @@ describe("brandContrastProblems", () => {
       const result = validateBrand(brand);
       expect(result, brand.name).toMatchObject({ ok: true, errors: [] });
     }
+  });
+
+  it("reports nothing for the Genesis brand", () => {
+    expect(brandContrastProblems(genesisBrand)).toEqual([]);
+    expect(validateBrand(genesisBrand).warnings ?? []).toEqual([]);
+  });
+
+  it("checks only the pairs a brand changes", () => {
+    // Genesis's own error red on white (3.76:1) isn't this brand's to answer for.
+    const brand: CanonicalBrand = { ...genesisBrand, name: "teal", accent: { DEFAULT: "#0f766e" } };
+    expect(brandContrastProblems(brand).map((p) => p.pair)).toEqual([]);
+    const pale: CanonicalBrand = { ...genesisBrand, name: "pale", status: { ...genesisBrand.status, error: { DEFAULT: "#fca5a5" } } };
+    expect(brandContrastProblems(pale).map((p) => p.pair).sort()).toEqual(["--destructive on --background", "--destructive-foreground on --destructive"]);
+  });
+
+  it("keeps the shape check in ./brand free of contrast unless asked", () => {
+    const brand: CanonicalBrand = { ...clean, text: { DEFAULT: "#f2f2f2" } };
+    expect(validateBrandShape(brand)).toEqual({ ok: true, errors: [] });
+    expect(validateBrandShape(brand, { contrast: brandContrastProblems }).ok).toBe(false);
   });
 
   it("runs no contrast check on a brand of the wrong shape", () => {

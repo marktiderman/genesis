@@ -27,7 +27,7 @@
  *     first darker stop that reads at 4.5:1 on the background, else the text
  *     color); 200 → border, input
  *   - status → destructive (error), success, warning, info
- *   - radius.DEFAULT (else radius.lg) → radius, in both modes: every
+ *   - radius.lg (else radius.DEFAULT) → radius, in both modes: every
  *     `rounded-*` step is a multiple of it, so `"0"` is square everywhere
  *
  * Dark mode: a brand declares no dark-mode colors, so dark mode is the Genesis
@@ -186,13 +186,13 @@ export function brandRoleVariables(brand: CanonicalBrand, options: BrandRoleVari
 
 /**
  * The brand's base radius, what `--radius` holds and every `rounded-*` step
- * scales from: `radius.DEFAULT`, else `radius.lg` (`rounded-lg` is the radius
- * itself). On native a fluid `clamp()` is its minimum, as for other lengths.
+ * scales from: `radius.lg`, else `radius.DEFAULT`. `rounded-lg` is the radius
+ * itself, so a brand's `lg` wins over a bare `DEFAULT` (`rounded`). On native a fluid `clamp()` is its minimum, as for other lengths.
  * A bare `0` becomes `0px`: the steps multiply it (`calc(var(--radius) * 1.4)`),
  * and a unitless product isn't a length.
  */
 function brandRadius(brand: CanonicalBrand, platform: "native" | "web"): string | undefined {
-  const value = brand.radius?.DEFAULT ?? brand.radius?.lg;
+  const value = brand.radius?.lg ?? brand.radius?.DEFAULT;
   if (typeof value !== "string" || !isLength(value)) return undefined;
   const bounds = platform === "native" ? clampBounds(value) : undefined;
   if (bounds) return `${bounds.min}rem`;

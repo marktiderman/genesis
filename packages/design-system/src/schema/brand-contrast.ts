@@ -10,12 +10,27 @@
  * Minimums follow WCAG 2.2 AA, as the role implies: 4.5:1 for text, 3:1 for
  * fills, focus rings and other non-text marks.
  *
+ * Only what the brand changes is checked: a role pair is skipped when both
+ * its colors are the ones the Genesis brand gives it, so a brand answers for
+ * its own colors, and the Genesis brand reports nothing.
+ *
+ * This module imports `./brand`, never the other way: `./schema/brand` stays
+ * the light shape check, and the package entry's {@link validateBrand} adds
+ * this check to it.
+ *
  * @stability Beta
  */
 
 import { contrast, rgbToHex } from "../design-systems/color";
 import { brandRoleVariables, hslToRgb } from "../factories/brand-roles";
-import { isColorScale, type CanonicalBrand, type ColorScale } from "./brand";
+import { genesisBrand } from "../presets/brand-genesis";
+import {
+  isColorScale,
+  validateBrand as validateBrandShape,
+  type BrandValidationResult,
+  type CanonicalBrand,
+  type ColorScale,
+} from "./brand";
 
 /** One pair under its minimum. @stability Beta */
 export interface BrandContrastProblem {
@@ -42,7 +57,12 @@ const NON_TEXT = 3;
 const UNUSABLE = 1.5;
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;
 
-/** The theme role pairs (light mode, where a brand's colors apply): foreground, background, minimum, what it is. */
+/**
+ * The theme role pairs (light mode, where a brand's colors apply): foreground,
+ * background, minimum, what it is. Text on a fill is checked only on the fills
+ * genesis-ui draws their `*-foreground` on (primary, secondary, accent,
+ * destructive); success, warning and info mark state on the page.
+ */
 const ROLE_PAIRS: readonly [string, string, number, string][] = [
   ["foreground", "background", AA, "body text on the page"],
   ["muted-foreground", "background", AA, "muted text on the page"],
@@ -57,9 +77,6 @@ const ROLE_PAIRS: readonly [string, string, number, string][] = [
   ["success", "background", NON_TEXT, "the success color on the page"],
   ["warning", "background", NON_TEXT, "the warning color on the page"],
   ["info", "background", NON_TEXT, "the info color on the page"],
-  ["success-foreground", "success", AA, "text on the success fill"],
-  ["warning-foreground", "warning", AA, "text on the warning fill"],
-  ["info-foreground", "info", AA, "text on the info fill"],
 ];
 
 function floor2(n: number): number {
@@ -80,11 +97,14 @@ function hex(value: unknown): string | undefined {
 
 function rolePairProblems(brand: CanonicalBrand, platform: "web" | "native"): BrandContrastProblem[] {
   const vars = brandRoleVariables(brand, { platform }).light;
+  const genesis = brandRoleVariables(genesisBrand, { platform }).light;
   const problems: BrandContrastProblem[] = [];
   for (const [fgName, bgName, minimum, name] of ROLE_PAIRS) {
     const foreground = tripletToHex(vars[`--${fgName}`]);
     const background = tripletToHex(vars[`--${bgName}`]);
     if (!foreground || !background) continue;
+    // Not the brand's to answer for: both colors are the Genesis brand's.
+    if (foreground === tripletToHex(genesis[`--${fgName}`]) && background === tripletToHex(genesis[`--${bgName}`])) continue;
     const ratio = contrast(foreground, background);
     if (ratio >= minimum) continue;
     const level = fgName === "foreground" && ratio < UNUSABLE ? "error" : "warning";
@@ -190,4 +210,16 @@ export function brandContrastProblems(brand: CanonicalBrand): BrandContrastProbl
   }
   out.push(...extensionProblems(brand));
   return out;
+}
+
+/**
+ * {@link validateBrandShape | The brand shape check} plus
+ * {@link brandContrastProblems}: contrast pairs under their minimum come back
+ * as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an
+ * error. The package entry exports this as `validateBrand`.
+ *
+ * @stability Beta
+ */
+export function validateBrand(input: unknown): BrandValidationResult {
+  return validateBrandShape(input, { contrast: brandContrastProblems });
 }

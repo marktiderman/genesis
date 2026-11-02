@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4084 other exports · 3252 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4083 other exports · 3257 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -2070,20 +2070,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (49)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
 export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
@@ -2226,25 +2228,25 @@ export type { GenesisTheme };
 
 **Barrel:** [`packages/design-system/src/schema/brand.ts`](../packages/design-system/src/schema/brand.ts)
 
-### Other exports (5)
+### Other exports (4)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`isColorScale`](../packages/design-system/src/schema/brand.ts) | function | — | Type guard: returns true when `value` looks like a `ColorScale`. |
 | [`isLength`](../packages/design-system/src/schema/brand.ts) | function | — | Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (9)
+### Types (10)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
-export type { BrandContrastProblem };
+export type { BrandContrastFinding };
 export type { BrandExtensions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -4890,20 +4892,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (49)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
 export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };

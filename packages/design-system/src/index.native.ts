@@ -38,12 +38,13 @@ export {
   type ShadowToken,
   type GradientToken,
   type PlatformOverridable,
+  type BrandValidationOptions,
+  type BrandContrastFinding,
   isColorScale,
-  validateBrand,
   clampBounds,
-  brandContrastProblems,
-  type BrandContrastProblem,
 } from "./schema/brand";
+// The full check (shape and contrast); "./schema/brand" keeps the light shape check.
+export { validateBrand, brandContrastProblems, type BrandContrastProblem } from "./schema/brand-contrast";
 
 // Design systems and the OKLCH colour engine (pure maths; same as web).
 export * from "./design-systems/index";

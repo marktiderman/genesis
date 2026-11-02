@@ -125,7 +125,9 @@ describe("brandRoleVariables", () => {
     expect(brandRoleVariables(overridden, { platform: "web" }).light["--primary"]).toBe("224.3 76.3% 48%"); // #1d4ed8
   });
 
-  it("sets --radius from radius.DEFAULT, else radius.lg, in both modes", () => {
+  it("sets --radius from radius.lg, else radius.DEFAULT, in both modes", () => {
+    // rounded-lg is --radius itself, so lg wins over a bare DEFAULT.
+    expect(brandRoleVariables({ ...espresso, radius: { DEFAULT: "0.25rem", lg: "0.5rem" } }).light["--radius"]).toBe("0.5rem");
     expect(brandRoleVariables({ ...espresso, radius: { DEFAULT: "0" } }).light["--radius"]).toBe("0px");
     const lg = brandRoleVariables({ ...espresso, radius: { sm: "0.25rem", lg: "0.75rem" } });
     expect(lg.light["--radius"]).toBe("0.75rem");
