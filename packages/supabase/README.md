@@ -182,7 +182,8 @@ if (res.type === "success") {
 ### On the web: `AuthForm`
 
 genesis-ui's `AuthForm` (inside `AuthPage`) is the web sign-in form; `createAuthFormClient` is its
-client on Supabase Auth. The form never calls `supabase.auth` itself.
+client on Supabase Auth. The form never calls `supabase.auth` itself, and `createAuthFormClient`
+makes no client of its own: pass it the app's, from `createGenesisSupabase()`.
 
 ```ts
 import { createAuthFormClient } from "@marktiderman/genesis-supabase";
@@ -199,25 +200,38 @@ const client = createAuthFormClient(supabase, {
 | The form's call | Supabase Auth |
 | --- | --- |
 | `signInWithPassword` | `signInWithPassword` |
-| `sendMagicLink`, `sendEmailCode` | `signInWithOtp` (`shouldCreateUser` follows the form's `allowSignUp`) |
+| `sendMagicLink`, `sendEmailCode` | `signInWithOtp` (`shouldCreateUser` follows the form's `allowSignUp`; without sign-up, an unknown email is answered as sent) |
 | `verifyEmailCode` | `verifyOtp({ email, token, type: "email" })` |
 | `signUp` | `signUp`; `confirmEmail` when no session came back |
 | `sendPasswordReset` | `resetPasswordForEmail` to `resetRedirectTo` |
-| `updatePassword` | `updateUser({ password })`, on the session the reset link opened |
+| `updatePassword` | `updateUser({ password })`, on the session the reset link opened (`session_not_found` without one) |
 | `signInWithProvider` | `signInWithOAuth` (leaves the page for the provider) |
-| `providers` | `fetchAuthSettings`: `GET /auth/v1/settings`, the OAuth providers turned on |
+| `providers` | `fetchAuthSettings`: `GET /auth/v1/settings`, the OAuth providers turned on (asked once per client) |
 
 Every failure resolves as `{ error: { code, message } }` with Auth's code (`network` for a request
-that got no answer); the form shows fixed copy for it.
+that got no answer, `session_not_found` for `AuthSessionMissingError`), also on a client made with
+`throwOnError: true`. The form shows fixed copy for the code; Auth's `message` is never shown, only
+sent to `reportError` when the form has no copy for the code.
 
 - **Codes need the template.** Supabase sends the Magic Link email for a link and for a code alike,
   and the default template has only the link: put `{{ .Token }}` in it to offer `"email-code"`.
 - **The redirects** (`redirectTo`, `resetRedirectTo`) must be in the project's redirect allow list.
-  With the default PKCE client the callback page needs nothing more on the web
-  (`detectSessionInUrl`); the reset page shows `mode="new-password"` once the
-  `PASSWORD_RECOVERY` event (or the session) is there.
-- `fetchAuthSettings({ url, publishableKey })` also says whether sign-up is closed
-  (`signUpDisabled`): pass `allowSignUp={!settings.signUpDisabled}`.
+  `createGenesisSupabase()` uses the PKCE flow (a plain `createClient` from supabase-js defaults to
+  the implicit flow), and its callback page needs nothing more on the web (`detectSessionInUrl`).
+  A PKCE link only works in the browser that asked for it, where the code verifier is stored: a
+  link opened on another device or in another browser fails.
+- **The new-password page** shows `mode="new-password"` only after the `PASSWORD_RECOVERY` event
+  (`supabase.auth.onAuthStateChange`). Shown without the session the reset link opened, saving
+  fails with `session_not_found`.
+- **No account enumeration without sign-up.** With `allowSignUp={false}` a magic link or code for an
+  email with no account is answered as sent, and the form's copy is neutral ("If … has an account").
+- **Sign-up with auto-confirm does reveal accounts**: when the project confirms emails without a
+  link, signing up with an email that has an account answers `user_already_exists`. That is the
+  trade-off of auto-confirm; turn confirmation on if account existence must stay private.
+- `fetchAuthSettings({ url, publishableKey, signal })` also says whether sign-up is closed
+  (`signUpDisabled`): pass `allowSignUp={!settings.signUpDisabled}`. It gives up after 5 seconds,
+  refuses a secret key (`sb_secret_…`), and reports only the OAuth providers in
+  `SUPABASE_OAUTH_PROVIDERS` (no `web3_*`, `saml` or `phone`).
 
 ### Deleting the account
 

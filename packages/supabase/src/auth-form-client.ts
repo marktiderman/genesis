@@ -4,7 +4,7 @@
  * password, providers) and the provider list read from the project's
  * `/auth/v1/settings`. Platform-neutral; native sign-in is on `/native`.
  */
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { isAuthError, type SupabaseClient } from "@supabase/supabase-js";
 
 /** The parts of a Supabase client {@link createAuthFormClient} uses. A `SupabaseClient` fits. */
 export interface AuthFormSupabase {
@@ -16,8 +16,11 @@ export interface AuthFormSupabase {
 
 /**
  * Why a call failed: Supabase Auth's error `code` (`invalid_credentials`,
- * `otp_expired`, `over_email_send_rate_limit`…), or `network` when the
+ * `otp_expired`, `over_email_send_rate_limit`…), `session_not_found` when
+ * there is no session (`AuthSessionMissingError`), or `network` when the
  * request never got an answer. The shape genesis-ui's `AuthFormError` reads.
+ * `message` is the server's text: the form never shows it (it is not marked
+ * `displayable`), only reports it for a code it has no copy for.
  */
 export interface AuthCallError {
   code?: string;
@@ -69,19 +72,24 @@ export interface CreateAuthFormClientOptions {
 
 type SupabaseAuthResult = { data?: unknown; error: { code?: string | undefined; message: string; name?: string; status?: number | undefined } | null };
 
-function toResult(result: SupabaseAuthResult): AuthCallResult {
-  const e = result.error;
+type SupabaseAuthError = NonNullable<SupabaseAuthResult["error"]>;
+
+function toResult(e: SupabaseAuthError | null): AuthCallResult {
   if (!e) return {};
   // supabase-js answers a request that never reached Auth with AuthRetryableFetchError, status 0.
   const network = e.name === "AuthRetryableFetchError" || e.status === 0;
-  const code = e.code ?? (network ? "network" : undefined);
+  // updateUser with no session: AuthSessionMissingError, which has no code.
+  const missingSession = e.name === "AuthSessionMissingError";
+  const code = e.code ?? (missingSession ? "session_not_found" : network ? "network" : undefined);
   return { error: { ...(code ? { code } : {}), message: e.message } };
 }
 
 async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallResult> {
   try {
-    return toResult(await run());
+    return toResult((await run()).error);
   } catch (e) {
+    // A client made with `throwOnError: true` throws Auth's errors: read them like a returned one.
+    if (isAuthError(e)) return toResult(e as SupabaseAuthError);
     return { error: { code: "network", message: e instanceof Error ? e.message : "The request failed" } };
   }
 }
@@ -92,7 +100,20 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
  * sign-up (`confirmEmail` when the project confirms emails), the reset email,
  * the new password (`updateUser`, on the session the reset link opened), and
  * OAuth providers (`signInWithOAuth`, which leaves the page). Every failure is
- * `{ error: { code, message } }`, never a throw.
+ * `{ error: { code, message } }`, never a throw, also on a client made with
+ * `throwOnError: true`.
+ *
+ * It takes the app's client (from `createGenesisSupabase()`) and makes no
+ * client of its own.
+ *
+ * Without sign-up (`createUser: false`), an email with no account is answered
+ * like one with an account: the link or code is "sent". Saying otherwise would
+ * tell anyone which emails have accounts.
+ *
+ * The new-password page: show `mode="new-password"` only after the client's
+ * `PASSWORD_RECOVERY` event (`supabase.auth.onAuthStateChange`). Without the
+ * session the reset link opened, `updatePassword` fails with
+ * `session_not_found`.
  *
  * One email template serves the link and the code: Supabase sends the Magic
  * Link template for both, so a form offering `"email-code"` needs
@@ -112,10 +133,15 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
 export function createAuthFormClient(supabase: AuthFormSupabase, options: CreateAuthFormClientOptions = {}): AuthFormSupabaseClient {
   const { url, publishableKey, redirectTo, resetRedirectTo = redirectTo } = options;
   const auth = supabase.auth;
-  const otp = (email: string, createUser: boolean) =>
-    call(() =>
+  const otp = async (email: string, createUser: boolean): Promise<AuthCallResult> => {
+    const result = await call(() =>
       auth.signInWithOtp({ email, options: { shouldCreateUser: createUser, ...(redirectTo ? { emailRedirectTo: redirectTo } : {}) } }),
     );
+    // Without sign-up, Auth refuses an unknown email with otp_disabled ("Signups not allowed for otp").
+    // Answer it as sent, so the form doesn't say which emails have accounts.
+    if (!createUser && result.error?.code === "otp_disabled") return {};
+    return result;
+  };
   const client: AuthFormSupabaseClient = {
     signInWithPassword: ({ email, password }) => call(() => auth.signInWithPassword({ email, password })),
     sendMagicLink: ({ email, createUser }) => otp(email, createUser),
@@ -142,7 +168,18 @@ export function createAuthFormClient(supabase: AuthFormSupabase, options: Create
       ),
   };
   if (url && publishableKey) {
-    client.providers = async () => (await fetchAuthSettings({ url, publishableKey, ...(options.fetch ? { fetch: options.fetch } : {}) })).providers;
+    // Asked once per client: the form may mount many times, the project's providers don't change.
+    let providers: Promise<string[]> | undefined;
+    client.providers = () => {
+      providers ??= fetchAuthSettings({ url, publishableKey, ...(options.fetch ? { fetch: options.fetch } : {}) }).then(
+        (settings) => settings.providers,
+        (e: unknown) => {
+          providers = undefined; // a failed lookup can be tried again
+          throw e;
+        },
+      );
+      return providers;
+    };
   }
   return client;
 }
@@ -161,13 +198,51 @@ export interface AuthSettings {
   autoConfirm: boolean;
 }
 
-/** Keys of `external` that aren't OAuth providers. */
-const NOT_PROVIDERS = new Set(["email", "phone", "anonymous_users", "saml"]);
+/**
+ * The OAuth providers `fetchAuthSettings` reports: the ones `signInWithOAuth`
+ * takes and genesis-ui's `AUTH_PROVIDER_NAMES` names. Any other key of the
+ * settings' `external` (`email`, `phone`, `saml`, `web3_*`…) isn't a button.
+ *
+ * @stability Beta
+ */
+export const SUPABASE_OAUTH_PROVIDERS: readonly string[] = [
+  "apple",
+  "azure",
+  "bitbucket",
+  "discord",
+  "facebook",
+  "figma",
+  "github",
+  "gitlab",
+  "google",
+  "kakao",
+  "keycloak",
+  "linkedin_oidc",
+  "notion",
+  "slack_oidc",
+  "spotify",
+  "twitch",
+  "twitter",
+  "workos",
+  "zoom",
+];
+const OAUTH_PROVIDERS = new Set(SUPABASE_OAUTH_PROVIDERS);
+
+/** How long the settings request may take. */
+const SETTINGS_TIMEOUT_MS = 5000;
+
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === "/") end--;
+  return url.slice(0, end);
+}
 
 /**
  * Reads a project's public Auth settings (`GET <url>/auth/v1/settings` with
  * the publishable key): which OAuth providers are on, whether email and phone
- * sign-in are, and whether sign-up is closed. Throws when the request fails.
+ * sign-in are, and whether sign-up is closed. Throws when the request fails,
+ * takes over 5 seconds or `signal` aborts it, and refuses a secret key
+ * (`sb_secret_…`), which must never reach a browser.
  *
  * @stability Beta
  */
@@ -175,12 +250,22 @@ export async function fetchAuthSettings({
   url,
   publishableKey,
   fetch: fetcher = globalThis.fetch,
+  signal,
 }: {
   url: string;
   publishableKey: string;
   fetch?: typeof fetch;
+  /** Cancels the request (an unmounting form, say). */
+  signal?: AbortSignal;
 }): Promise<AuthSettings> {
-  const response = await fetcher(`${url.replace(/\/+$/, "")}/auth/v1/settings`, { headers: { apikey: publishableKey } });
+  if (publishableKey.startsWith("sb_secret_")) {
+    throw new Error("fetchAuthSettings takes the publishable key, not a secret key (sb_secret_…)");
+  }
+  const timeout = AbortSignal.timeout(SETTINGS_TIMEOUT_MS);
+  const response = await fetcher(`${withoutTrailingSlashes(url)}/auth/v1/settings`, {
+    headers: { apikey: publishableKey },
+    signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+  });
   if (!response.ok) throw new Error(`Supabase Auth settings: ${response.status}`);
   const body = (await response.json()) as {
     external?: Record<string, unknown>;
@@ -190,7 +275,7 @@ export async function fetchAuthSettings({
   const external = body.external ?? {};
   return {
     providers: Object.keys(external)
-      .filter((key) => external[key] === true && !NOT_PROVIDERS.has(key))
+      .filter((key) => external[key] === true && OAUTH_PROVIDERS.has(key))
       .sort(),
     email: external.email === true,
     phone: external.phone === true,

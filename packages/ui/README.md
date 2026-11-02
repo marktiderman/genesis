@@ -83,9 +83,21 @@ function SignInPage({ client }: { client: AuthFormClient }) {
 - **Providers**: `providers={["google"]}` or objects with a label and icon; left out, it asks
   `client.providers()`; `false` for none.
 - **Words** are the `auth` part of the catalogue (`UiMessagesProvider`). A failed call shows the
-  copy for its error code (`auth.errors.invalid_credentials`…), else the client's message.
+  copy for its error code (`auth.errors.invalid_credentials`…), else `auth.errors.generic`. The
+  server's own text is never shown: for a code with no copy it goes to `reportError`. A client
+  that writes a message for people marks it `displayable: true`, and that one is shown.
+- **Without sign-up** (`allowSignUp={false}`), an email with no account is answered as sent
+  (Supabase's `otp_disabled`), in neutral copy ("If … has an account, we sent…"), so the form
+  never tells which emails have accounts.
+- **`mode="new-password"`** needs the session a reset link opens: show it only after the client's
+  `PASSWORD_RECOVERY` event.
 - Every field is labelled and carries the autocomplete a password manager needs (`email`,
-  `current-password`, `new-password`); errors are announced and tied to their field.
+  `current-password`, `new-password`); errors are announced and tied to the field their code is
+  about (`weak_password` to the password, `email_*` and `user_already_exists` to the email).
+  "Check your email" takes focus when it replaces the form, and the code field stays focusable
+  (read-only, `aria-busy`) while it verifies.
+- Native's `AuthForm` (genesis-ui-native) is a different component: it takes `onSubmit` and
+  `errorMessage`, and its `mode` is `password` or `magic-link`.
 
 ## Read next
 

@@ -95,7 +95,6 @@
     "@react-native-google-signin/google-signin": "*"
   },
   "devDependencies": {
-    "@marktiderman/genesis-ui": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "tsup": "^8.3.0",
     "typescript": "~6.0.3",

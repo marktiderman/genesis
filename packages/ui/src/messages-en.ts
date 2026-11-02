@@ -228,6 +228,8 @@ export const uiMessages = {
     code: "Code",
     /** Under the code boxes. `{email}`: where it went. */
     codeSent: "We sent a {length}-digit code to {email}.",
+    /** `codeSent` without sign-up, when the form can't say whether the email has an account. */
+    codeSentIfAccount: "If {email} has an account, we sent it a {length}-digit code.",
     signIn: "Sign in",
     signUp: "Create account",
     sendMagicLink: "Email me a sign-in link",
@@ -258,6 +260,8 @@ export const uiMessages = {
     /** After a link went out. `{email}`: where. */
     checkEmailTitle: "Check your email",
     magicLinkSent: "We sent a sign-in link to {email}. Open it on this device to finish.",
+    /** `magicLinkSent` without sign-up, when the form can't say whether the email has an account. */
+    magicLinkSentIfAccount: "If {email} has an account, we sent it a sign-in link. Open it on this device to finish.",
     resetSent: "If {email} has an account, we sent it a link to choose a new password.",
     confirmSent: "We sent a link to {email}. Open it to confirm your account, then sign in.",
     passwordUpdated: "Your password is changed.",
@@ -271,7 +275,10 @@ export const uiMessages = {
       passwordTooShort: "Use at least {min} characters.",
       passwordMismatch: "The passwords don't match.",
       codeRequired: "Enter the {length}-digit code.",
-      /** Supabase Auth error codes, in fixed copy. Anything unlisted gets `generic`. */
+      /**
+       * Supabase Auth error codes, in fixed copy. Anything unlisted gets `generic` (the server's own
+       * text goes to `reportError`, never on screen), unless the client marks its message displayable.
+       */
       invalid_credentials: "That email and password don't match.",
       email_not_confirmed: "Confirm your email first: open the link we sent you.",
       user_already_exists: "That email already has an account. Sign in instead.",

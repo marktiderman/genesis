@@ -1,6 +1,6 @@
-import type { AuthFormClient } from "@marktiderman/genesis-ui/patterns";
-import { describe, expect, expectTypeOf, it, vi } from "vitest";
-import { createAuthFormClient, fetchAuthSettings, type AuthFormSupabase, type AuthFormSupabaseClient } from "../auth-form-client";
+import { AuthApiError, AuthSessionMissingError } from "@supabase/supabase-js";
+import { describe, expect, it, vi } from "vitest";
+import { createAuthFormClient, fetchAuthSettings, type AuthFormSupabase } from "../auth-form-client";
 
 function fakeSupabase(overrides: Partial<Record<keyof AuthFormSupabase["auth"], unknown>> = {}) {
   const ok = () => Promise.resolve({ data: { session: { access_token: "t" }, user: { id: "u" } }, error: null });
@@ -73,29 +73,81 @@ describe("createAuthFormClient", () => {
     expect(await client.updatePassword({ password: "x" })).toEqual({ error: { code: "network", message: "Failed to fetch" } });
   });
 
-  it("discovers providers only with the project URL and key", async () => {
+  it("reads Auth's errors from a client made with throwOnError, and network only for anything else", async () => {
+    const supabase = fakeSupabase({
+      signInWithPassword: vi.fn(() => Promise.reject(new AuthApiError("Invalid login credentials", 400, "invalid_credentials"))),
+      signUp: vi.fn(() => Promise.reject(new Error("socket hang up"))),
+    });
+    const client = createAuthFormClient(supabase);
+    expect(await client.signInWithPassword({ email: "a@acme.test", password: "x" })).toEqual({
+      error: { code: "invalid_credentials", message: "Invalid login credentials" },
+    });
+    expect(await client.signUp({ email: "a@acme.test", password: "longenough" })).toEqual({ error: { code: "network", message: "socket hang up" } });
+  });
+
+  it("answers a new password with no session as session_not_found, returned or thrown", async () => {
+    const returned = fakeSupabase({ updateUser: vi.fn(() => Promise.resolve({ data: { user: null }, error: new AuthSessionMissingError() })) });
+    expect((await createAuthFormClient(returned).updatePassword({ password: "x" })).error?.code).toBe("session_not_found");
+    const thrown = fakeSupabase({ updateUser: vi.fn(() => Promise.reject(new AuthSessionMissingError())) });
+    expect((await createAuthFormClient(thrown).updatePassword({ password: "x" })).error?.code).toBe("session_not_found");
+  });
+
+  it("without sign-up, answers an unknown email as sent, so it doesn't say which emails have accounts", async () => {
+    const refused = () => Promise.resolve({ data: {}, error: { code: "otp_disabled", message: "Signups not allowed for otp", status: 422 } });
+    const client = createAuthFormClient(fakeSupabase({ signInWithOtp: vi.fn(refused) }));
+    expect(await client.sendMagicLink({ email: "nobody@acme.test", createUser: false })).toEqual({});
+    expect(await client.sendEmailCode({ email: "nobody@acme.test", createUser: false })).toEqual({});
+    // With sign-up on, otp_disabled means codes really are off.
+    expect((await client.sendEmailCode({ email: "nobody@acme.test", createUser: true })).error?.code).toBe("otp_disabled");
+  });
+
+  it("discovers providers only with the project URL and key, asking once per client", async () => {
     expect(createAuthFormClient(fakeSupabase()).providers).toBeUndefined();
     const fetcher = vi.fn(() => Promise.resolve(new Response(JSON.stringify({ external: { google: true, email: true } }))));
     const client = createAuthFormClient(fakeSupabase(), { url: "https://p.supabase.co", publishableKey: "pk", fetch: fetcher as typeof fetch });
     expect(await client.providers!()).toEqual(["google"]);
+    expect(await client.providers!()).toEqual(["google"]);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks again after a failed lookup", async () => {
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("down", { status: 503 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ external: { github: true } })));
+    const client = createAuthFormClient(fakeSupabase(), { url: "https://p.supabase.co", publishableKey: "pk", fetch: fetcher as unknown as typeof fetch });
+    await expect(client.providers!()).rejects.toThrow("503");
+    expect(await client.providers!()).toEqual(["github"]);
   });
 });
 
 describe("fetchAuthSettings", () => {
-  it("reads the providers turned on, leaving out email, phone, anonymous and SAML", async () => {
+  it("reads the OAuth providers turned on, leaving out email, phone, anonymous, SAML, Web3 and unknown keys", async () => {
     const fetcher = vi.fn((_url: string, _init?: RequestInit) =>
       Promise.resolve(
         new Response(
           JSON.stringify({
-            external: { apple: true, github: false, google: true, email: true, phone: false, anonymous_users: true, saml: true, azure: true },
+            external: {
+              apple: true,
+              github: false,
+              google: true,
+              email: true,
+              phone: false,
+              anonymous_users: true,
+              saml: true,
+              azure: true,
+              web3_solana: true,
+              web3_ethereum: true,
+              something_new: true,
+            },
             disable_signup: true,
             mailer_autoconfirm: false,
           }),
         ),
       ),
     );
-    const settings = await fetchAuthSettings({ url: "https://p.supabase.co/", publishableKey: "pk", fetch: fetcher as unknown as typeof fetch });
-    expect(fetcher).toHaveBeenCalledWith("https://p.supabase.co/auth/v1/settings", { headers: { apikey: "pk" } });
+    const settings = await fetchAuthSettings({ url: "https://p.supabase.co//", publishableKey: "pk", fetch: fetcher as unknown as typeof fetch });
+    expect(fetcher).toHaveBeenCalledWith("https://p.supabase.co/auth/v1/settings", { headers: { apikey: "pk" }, signal: expect.any(AbortSignal) });
     expect(settings).toEqual({ providers: ["apple", "azure", "google"], email: true, phone: false, signUpDisabled: true, autoConfirm: false });
   });
 
@@ -103,10 +155,41 @@ describe("fetchAuthSettings", () => {
     const fetcher = vi.fn(() => Promise.resolve(new Response("nope", { status: 401 })));
     await expect(fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "pk", fetch: fetcher as unknown as typeof fetch })).rejects.toThrow("401");
   });
-});
 
-describe("AuthFormSupabaseClient", () => {
-  it("is the AuthFormClient genesis-ui's AuthForm takes", () => {
-    expectTypeOf<AuthFormSupabaseClient>().toExtend<AuthFormClient>();
+  it("refuses a secret key without sending it", async () => {
+    const fetcher = vi.fn();
+    await expect(
+      fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "sb_secret_abc", fetch: fetcher as unknown as typeof fetch }),
+    ).rejects.toThrow("secret key");
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  /** A fetch that answers only when its signal aborts, as the real one does. */
+  const hanging = vi.fn(
+    (_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(init.signal!.reason));
+      }),
+  );
+
+  it("gives up after 5 seconds", async () => {
+    // AbortSignal.timeout runs on the platform's clock, not the fake timers: stand in for it.
+    const timer = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(timer.signal);
+    try {
+      const settings = fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "pk", fetch: hanging as unknown as typeof fetch });
+      expect(timeout).toHaveBeenCalledWith(5000);
+      timer.abort(new DOMException("The operation timed out.", "TimeoutError"));
+      await expect(settings).rejects.toMatchObject({ name: "TimeoutError" });
+    } finally {
+      timeout.mockRestore();
+    }
+  });
+
+  it("stops when the caller's signal aborts", async () => {
+    const controller = new AbortController();
+    const settings = fetchAuthSettings({ url: "https://p.supabase.co", publishableKey: "pk", fetch: hanging as unknown as typeof fetch, signal: controller.signal });
+    controller.abort();
+    await expect(settings).rejects.toMatchObject({ name: "AbortError" });
   });
 });

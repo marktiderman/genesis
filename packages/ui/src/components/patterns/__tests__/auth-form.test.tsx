@@ -6,12 +6,15 @@
  * where it should (onSuccess, a "check your email" status, the code step);
  * the code step verifies on the last digit, resends only after the
  * cooldown and starts over; providers come from the list given or from
- * `client.providers()`; errors are the catalogue's copy for the client's code,
- * announced (role="alert") and tied to the field; every field has a label and
- * the autocomplete a password manager needs.
+ * `client.providers()`, asked once however often the parent renders; errors
+ * are the catalogue's copy for the client's code (never the server's text),
+ * announced (role="alert") and tied to the field the code is about; without
+ * sign-up an unknown email is answered as sent, in neutral copy; every field
+ * has a label and the autocomplete a password manager needs.
  */
+import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UiMessagesProvider } from "../../../messages";
 import { AuthForm, type AuthFormClient, type AuthFormProps } from "../auth-form";
@@ -46,6 +49,10 @@ function setup(props: Partial<AuthFormProps> = {}) {
   return { client: client as ReturnType<typeof mockClient>, onSuccess, ...view };
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("AuthForm: sign-in", () => {
   it("signs in with email and password", async () => {
     const { client, onSuccess } = setup();
@@ -71,24 +78,104 @@ describe("AuthForm: sign-in", () => {
     expect(client.signInWithPassword).not.toHaveBeenCalled();
   });
 
-  it("shows the catalogue's copy for the client's error code, else its message, and the catalogue can be reworded", async () => {
-    const client = mockClient({
-      signInWithPassword: vi
-        .fn()
-        .mockResolvedValueOnce({ error: { code: "invalid_credentials", message: "Invalid login credentials" } })
-        .mockResolvedValueOnce({ error: { code: "something_new", message: "A server sentence" } }),
+  it("shows the catalogue's copy for the client's code, never the server's text, and the catalogue can be reworded", async () => {
+    const reports: Array<{ error: unknown; tags: unknown }> = [];
+    const restore = setErrorReporter((error, context) => reports.push({ error, tags: context.tags }));
+    try {
+      const client = mockClient({
+        signInWithPassword: vi
+          .fn()
+          .mockResolvedValueOnce({ error: { code: "invalid_credentials", message: "Invalid login credentials" } })
+          .mockResolvedValueOnce({ error: { code: "something_new", message: "A server sentence" } })
+          .mockResolvedValueOnce({ error: { code: "something_new", message: "Your trial has ended.", displayable: true } }),
+      });
+      render(
+        <UiMessagesProvider messages={{ auth: { errors: { invalid_credentials: "Wrong email or password." } } }}>
+          <AuthForm client={client} providers={false} />
+        </UiMessagesProvider>,
+      );
+      type("auth-form-email", "sam@acme.test");
+      type("auth-form-password", "nope");
+      await submit();
+      expect(screen.getByRole("alert").textContent).toBe("Wrong email or password.");
+      expect(reports).toHaveLength(0);
+      await submit();
+      expect(screen.getByRole("alert").textContent).toBe("That didn't work. Try again.");
+      expect(reports).toHaveLength(1);
+      expect((reports[0]!.error as Error).message).toBe("A server sentence");
+      expect(reports[0]!.tags).toEqual({ mode: "sign-in", code: "something_new" });
+      // A message the client wrote for people, marked displayable, is shown.
+      await submit();
+      expect(screen.getByRole("alert").textContent).toBe("Your trial has ended.");
+      expect(reports).toHaveLength(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("answers a long input that a backtracking email pattern would choke on at once", async () => {
+    const { client } = setup({ methods: ["magic-link"] });
+    type("auth-form-email", `${"a".repeat(50_000)}@${"b".repeat(50_000)}`);
+    const started = performance.now();
+    await submit();
+    expect(performance.now() - started).toBeLessThan(1000);
+    expect(byId("auth-form-error").textContent).toBe("Enter a valid email address.");
+    expect(client.sendMagicLink).not.toHaveBeenCalled();
+  });
+
+  it("ties a server error to the field its code is about, and to none otherwise", async () => {
+    const signUp = vi
+      .fn()
+      .mockResolvedValueOnce({ error: { code: "weak_password" } })
+      .mockResolvedValueOnce({ error: { code: "user_already_exists" } })
+      .mockResolvedValueOnce({ error: { code: "email_address_invalid" } })
+      .mockResolvedValueOnce({ error: { code: "over_request_rate_limit" } });
+    setup({ client: mockClient({ signUp }), defaultMode: "sign-up" });
+    type("auth-form-email", "new@acme.test");
+    type("auth-form-password", "long-enough");
+    const invalid = () => ({
+      email: byId("auth-form-email").getAttribute("aria-invalid"),
+      password: byId("auth-form-password").getAttribute("aria-invalid"),
     });
-    render(
-      <UiMessagesProvider messages={{ auth: { errors: { invalid_credentials: "Wrong email or password." } } }}>
-        <AuthForm client={client} providers={false} />
-      </UiMessagesProvider>,
-    );
+    await submit();
+    expect(byId("auth-form-error").textContent).toBe("Choose a stronger password.");
+    expect(invalid()).toEqual({ email: null, password: "true" });
+    await submit();
+    expect(invalid()).toEqual({ email: "true", password: null });
+    await submit();
+    expect(invalid()).toEqual({ email: "true", password: null });
+    await submit();
+    expect(invalid()).toEqual({ email: null, password: null });
+  });
+
+  it("doesn't tie a wrong password to either field", async () => {
+    setup({ client: mockClient({ signInWithPassword: vi.fn().mockResolvedValue({ error: { code: "invalid_credentials" } }) }) });
     type("auth-form-email", "sam@acme.test");
     type("auth-form-password", "nope");
     await submit();
-    expect(screen.getByRole("alert").textContent).toBe("Wrong email or password.");
+    expect(byId("auth-form-email").getAttribute("aria-invalid")).toBeNull();
+    expect(byId("auth-form-password").getAttribute("aria-invalid")).toBeNull();
+  });
+
+  it.each([
+    ["sam@acme.test", true],
+    ["a.b+c@mail.acme.co.uk", true],
+    ["no-at-sign", false],
+    ["@acme.test", false],
+    ["sam@", false],
+    ["sam@acme", false],
+    ["sam@.acme", false],
+    ["sam@acme.", false],
+    ["sam@@acme.test", false],
+    ["sam@x@acme.test", false],
+    ["sam smith@acme.test", false],
+    ["sam@acme\t.test", false],
+  ])("checks %j as an email: %s", async (value, ok) => {
+    const { client } = setup({ methods: ["magic-link"] });
+    type("auth-form-email", value);
     await submit();
-    expect(screen.getByRole("alert").textContent).toBe("A server sentence");
+    expect(client.sendMagicLink).toHaveBeenCalledTimes(ok ? 1 : 0);
+    if (!ok) expect(byId("auth-form-error").textContent).toBe("Enter a valid email address.");
   });
 
   it("reports a throwing client and shows fixed copy", async () => {
@@ -108,9 +195,44 @@ describe("AuthForm: sign-in", () => {
     type("auth-form-email", "sam@acme.test");
     await submit();
     expect(client.sendMagicLink).toHaveBeenCalledWith({ email: "sam@acme.test", createUser: false });
-    expect(byId("auth-form-status").textContent).toContain("We sent a sign-in link to sam@acme.test");
+    expect(byId("auth-form-status").textContent).toContain("If sam@acme.test has an account, we sent it a sign-in link");
+    // The form is gone: focus is on the heading that replaced it.
+    expect(document.activeElement).toBe(byId("auth-form-status-title"));
+    expect(byId("auth-form-status-title").tagName).toBe("H2");
+    expect(byId("auth-form-status-title").getAttribute("tabindex")).toBe("-1");
     fireEvent.click(byId("auth-form-start-over"));
     expect((byId("auth-form-email") as HTMLInputElement).value).toBe("sam@acme.test");
+  });
+
+  it("says a link was sent, in plain words, when sign-up is on", async () => {
+    setup({ methods: ["magic-link"] });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(byId("auth-form-status").textContent).toContain("We sent a sign-in link to sam@acme.test");
+  });
+
+  it("without sign-up, answers an email with no account (otp_disabled) as sent, for a link and a code", async () => {
+    const refused = () => Promise.resolve({ error: { code: "otp_disabled", message: "Signups not allowed for otp" } });
+    const link = setup({ methods: ["magic-link"], allowSignUp: false, client: mockClient({ sendMagicLink: vi.fn(refused) }) });
+    type("auth-form-email", "nobody@acme.test");
+    await submit();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(byId("auth-form-status").textContent).toContain("If nobody@acme.test has an account, we sent it a sign-in link");
+    link.unmount();
+
+    setup({ methods: ["email-code"], allowSignUp: false, client: mockClient({ sendEmailCode: vi.fn(refused) }) });
+    type("auth-form-email", "nobody@acme.test");
+    await submit();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("If nobody@acme.test has an account, we sent it a 6-digit code.")).toBeTruthy();
+    expect(screen.getByLabelText("Code")).toBeTruthy();
+  });
+
+  it("with sign-up on, otp_disabled is an error", async () => {
+    setup({ methods: ["email-code"], client: mockClient({ sendEmailCode: vi.fn().mockResolvedValue({ error: { code: "otp_disabled" } }) }) });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(byId("auth-form-error").textContent).toBe("Email codes aren't turned on for this app.");
   });
 
   it("switches between the methods it is given", () => {
@@ -161,6 +283,22 @@ describe("AuthForm: the email code step", () => {
     await waitFor(() => expect(byId("auth-form-error").textContent).toBe("That code has expired or is wrong. Ask for a new one."));
     expect(input.getAttribute("aria-invalid")).toBe("true");
     expect(input.value).toBe("");
+  });
+
+  it("keeps the code field focusable while it verifies: read-only and busy, not disabled", async () => {
+    let resolve: (v: object) => void = () => {};
+    const client = mockClient({ verifyEmailCode: vi.fn(() => new Promise<object>((r) => (resolve = r))) });
+    await toCodeStep(client);
+    const input = screen.getByLabelText("Code") as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "123456" } });
+    });
+    await waitFor(() => expect(input.getAttribute("aria-busy")).toBe("true"));
+    expect(input.readOnly).toBe(true);
+    expect(input.disabled).toBe(false);
+    await act(async () => resolve({}));
+    expect(input.getAttribute("aria-busy")).toBeNull();
+    expect(input.readOnly).toBe(false);
   });
 
   /** One second at a time: each tick re-renders and schedules the next. */
@@ -283,6 +421,15 @@ describe("AuthForm: providers", () => {
     expect(await screen.findByText("Continue with GitHub")).toBeTruthy();
     expect(byId("auth-form-provider-apple").textContent).toBe("Continue with Apple");
     expect(client.providers).toHaveBeenCalledTimes(1);
+  });
+
+  it("asks once, however often the parent renders or rebuilds the client", async () => {
+    const providers = vi.fn().mockResolvedValue(["google"]);
+    const { rerender } = render(<AuthForm client={mockClient({ providers })} />);
+    expect(await screen.findByText("Continue with Google")).toBeTruthy();
+    for (let i = 0; i < 3; i++) rerender(<AuthForm client={mockClient({ providers })} className={`render-${i}`} />);
+    await act(async () => {});
+    expect(providers).toHaveBeenCalledTimes(1);
   });
 
   it("shows none when discovery fails, or with providers={false}, or in the reset modes", async () => {

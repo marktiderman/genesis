@@ -8,9 +8,10 @@
  * It owns the steps and the words, not the auth: every call goes through the
  * `client` it is given (`AuthFormClient`). With Supabase that is
  * `createAuthFormClient(supabase, …)` from `@marktiderman/genesis-supabase`,
- * which also discovers the providers turned on in the project. The split
- * mirrors native, where `AuthForm` (genesis-ui-native) draws the form and
- * genesis-supabase holds the sign-in calls.
+ * which also discovers the providers turned on in the project. Native's
+ * `AuthForm` (genesis-ui-native) is a different component: it takes
+ * `onSubmit` and `errorMessage` and makes no calls, and its `mode` means
+ * `password` or `magic-link`, not this form's page modes.
  *
  * @stability Beta
  */
@@ -33,11 +34,15 @@ export type AuthSignInMethod = "password" | "magic-link" | "email-code";
 /**
  * Why a call failed. `code` is Supabase Auth's error code (`invalid_credentials`,
  * `otp_expired`…) or the client's own; the form shows the catalogue's copy for
- * it (`auth.errors[code]`), else `message`, else `auth.errors.generic`.
+ * it (`auth.errors[code]`), else `auth.errors.generic`. `message` is shown only
+ * when the client marks it `displayable`; otherwise it is the server's text,
+ * which the form sends to `reportError` and never shows.
  */
 export interface AuthFormError {
   code?: string | undefined;
   message?: string | undefined;
+  /** The client wrote `message` for people to read: show it when the catalogue has no copy for `code`. */
+  displayable?: boolean | undefined;
 }
 
 /** What every client call resolves with. A client never needs to throw. */
@@ -54,13 +59,20 @@ export interface AuthFormResult {
  */
 export interface AuthFormClient {
   signInWithPassword(input: { email: string; password: string }): Promise<AuthFormResult>;
-  /** `createUser`: false when the form doesn't allow sign-up, so an unknown email gets no account. */
+  /**
+   * `createUser`: false when the form doesn't allow sign-up, so an unknown email gets no account.
+   * Then the form treats `otp_disabled` (Supabase's answer for an unknown email) as sent, and says
+   * "if … has an account", so it never tells which emails have accounts.
+   */
   sendMagicLink(input: { email: string; createUser: boolean }): Promise<AuthFormResult>;
   sendEmailCode(input: { email: string; createUser: boolean }): Promise<AuthFormResult>;
   verifyEmailCode(input: { email: string; code: string }): Promise<AuthFormResult>;
   signUp(input: { email: string; password: string }): Promise<AuthFormResult>;
   sendPasswordReset(input: { email: string }): Promise<AuthFormResult>;
-  /** Needs a session: the one a reset link opens. */
+  /**
+   * Needs a session: the one a reset link opens. Show `mode="new-password"` only after the
+   * client's `PASSWORD_RECOVERY` event; without that session this fails (`session_not_found`).
+   */
   updatePassword(input: { password: string }): Promise<AuthFormResult>;
   /** Usually leaves the page for the provider. */
   signInWithProvider(provider: string): Promise<AuthFormResult>;
@@ -150,12 +162,37 @@ type Sent = "magic-link" | "reset" | "confirm";
 type Field = "email" | "password" | "confirm" | "code";
 type AuthMessages = UiMessages["auth"];
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/**
+ * A plausible email, in one pass (no backtracking regex): no whitespace, exactly
+ * one `@` with something before it, and a domain with a dot that is neither its
+ * first nor its last character. Auth checks the rest.
+ */
+function isPlausibleEmail(value: string): boolean {
+  if (/\s/.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at <= 0 || at !== value.lastIndexOf("@")) return false;
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf(".");
+  return dot > 0 && !domain.endsWith(".");
+}
 
-/** The copy for a failed call: the catalogue's for its code, else its own message, else the generic line. */
+/** The catalogue's copy for a code, if it has one. */
+function catalogueCopy(code: string | undefined, m: AuthMessages): string | undefined {
+  return code ? (m.errors as Record<string, string | undefined>)[code] : undefined;
+}
+
+/** The copy for a failed call: the catalogue's for its code, else a message the client marked displayable, else the generic line. */
 function errorCopy(error: AuthFormError, m: AuthMessages): string {
-  const byCode = error.code ? (m.errors as Record<string, string>)[error.code] : undefined;
-  return byCode ?? (error.message || m.errors.generic);
+  return catalogueCopy(error.code, m) ?? (error.displayable && error.message ? error.message : m.errors.generic);
+}
+
+/** The field a server error is about, by its code; none when it isn't about one. */
+function errorField(code: string | undefined): Field | undefined {
+  if (!code) return undefined;
+  if (code === "weak_password" || code === "same_password") return "password";
+  if (code.startsWith("email_") || code === "user_already_exists") return "email";
+  if (code === "otp_expired") return "code";
+  return undefined;
 }
 
 /**
@@ -202,6 +239,7 @@ export function AuthForm({
   const [status, setStatus] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const busyRef = React.useRef(false);
+  const sentHeading = React.useRef<HTMLHeadingElement>(null);
   const providers = useProviders(client, givenProviders);
   const cooldown = useCooldown();
 
@@ -218,13 +256,22 @@ export function AuthForm({
     setCode("");
   }, [mode]);
 
+  // "Check your email" replaces the form: move focus to its heading, so it is read and not lost.
+  React.useEffect(() => {
+    if (step === "sent") sentHeading.current?.focus();
+  }, [step]);
+
   const goTo = (next: AuthFormMode) => {
     if (controlledMode === undefined) setOwnMode(next);
     onModeChange?.(next);
   };
 
-  /** Runs one call: one at a time, a throw reported and shown as fixed copy, the result's error shown. */
-  const run = async (call: () => Promise<AuthFormResult>, field?: Field): Promise<AuthFormResult | null> => {
+  /**
+   * Runs one call: one at a time, a throw reported and shown as fixed copy, the result's error shown
+   * as the catalogue's copy and tied to the field its code is about. A code the catalogue has no copy
+   * for is reported with the server's text, which is never shown.
+   */
+  const run = async (call: () => Promise<AuthFormResult>): Promise<AuthFormResult | null> => {
     if (busyRef.current) return null;
     busyRef.current = true;
     setBusy(true);
@@ -233,6 +280,11 @@ export function AuthForm({
     try {
       const result = await call();
       if (result.error) {
+        const { code, message, displayable } = result.error;
+        if (!catalogueCopy(code, m) && !displayable) {
+          reportError(new Error(message || "Auth call failed"), { source: "ui:auth-form", tags: { mode, code: code ?? "none" } });
+        }
+        const field = errorField(code);
         setError({ ...(field ? { field } : {}), message: errorCopy(result.error, m) });
         return null;
       }
@@ -252,7 +304,7 @@ export function AuthForm({
   /** The trimmed email, or null after showing why it won't do. */
   const checkedEmail = (): string | null => {
     const value = email.trim();
-    const problem = !value ? m.errors.emailRequired : !EMAIL.test(value) ? m.errors.emailInvalid : null;
+    const problem = !value ? m.errors.emailRequired : !isPlausibleEmail(value) ? m.errors.emailInvalid : null;
     if (problem) fail("email", problem);
     return problem ? null : value;
   };
@@ -267,8 +319,17 @@ export function AuthForm({
     return !problem;
   };
 
+  /**
+   * Without sign-up, Supabase answers an email with no account `otp_disabled`. Treat it as sent: the
+   * copy says "if … has an account", and saying more would tell which emails have accounts.
+   */
+  const sentEvenIfUnknown = async (result: Promise<AuthFormResult>): Promise<AuthFormResult> => {
+    const r = await result;
+    return !allowSignUp && r.error?.code === "otp_disabled" ? {} : r;
+  };
+
   const sendCode = async (address: string) => {
-    const result = await run(() => client.sendEmailCode({ email: address, createUser: allowSignUp }), "email");
+    const result = await run(() => sentEvenIfUnknown(client.sendEmailCode({ email: address, createUser: allowSignUp })));
     if (!result) return false;
     cooldown.start(resendCooldown);
     return true;
@@ -281,7 +342,7 @@ export function AuthForm({
     if (mode === "new-password") {
       if (!checkNewPassword()) return;
       if (password !== confirm) return fail("confirm", m.errors.passwordMismatch);
-      if (await run(() => client.updatePassword({ password }), "password")) {
+      if (await run(() => client.updatePassword({ password }))) {
         setStatus(m.passwordUpdated);
         onSuccess?.({ mode });
       }
@@ -291,7 +352,7 @@ export function AuthForm({
     const address = checkedEmail();
     if (!address) return;
     if (mode === "forgot-password") {
-      if (await run(() => client.sendPasswordReset({ email: address }), "email")) {
+      if (await run(() => client.sendPasswordReset({ email: address }))) {
         setSent("reset");
         setStep("sent");
       }
@@ -299,7 +360,7 @@ export function AuthForm({
     }
     if (mode === "sign-up") {
       if (!checkNewPassword()) return;
-      const result = await run(() => client.signUp({ email: address, password }), "email");
+      const result = await run(() => client.signUp({ email: address, password }));
       if (!result) return;
       if (result.confirmEmail) {
         setSent("confirm");
@@ -309,13 +370,13 @@ export function AuthForm({
     }
     if (method === "password") {
       if (!password) return fail("password", m.errors.passwordRequired);
-      if (await run(() => client.signInWithPassword({ email: address, password }), "password")) {
+      if (await run(() => client.signInWithPassword({ email: address, password }))) {
         onSuccess?.({ mode, method, email: address });
       }
       return;
     }
     if (method === "magic-link") {
-      if (await run(() => client.sendMagicLink({ email: address, createUser: allowSignUp }), "email")) {
+      if (await run(() => sentEvenIfUnknown(client.sendMagicLink({ email: address, createUser: allowSignUp })))) {
         setSent("magic-link");
         setStep("sent");
       }
@@ -329,7 +390,7 @@ export function AuthForm({
 
   const verify = async (value: string) => {
     if (value.length !== codeLength) return fail("code", fillMessage(m.errors.codeRequired, { length: codeLength }));
-    if (await run(() => client.verifyEmailCode({ email: email.trim(), code: value }), "code")) {
+    if (await run(() => client.verifyEmailCode({ email: email.trim(), code: value }))) {
       onSuccess?.({ mode, method: "email-code", email: email.trim() });
     } else setCode("");
   };
@@ -386,9 +447,20 @@ export function AuthForm({
       {step === "sent" ? (
         <div className="flex flex-col gap-4 text-center">
           <div role="status" data-testid={`${testID}-status`} className="flex flex-col gap-2">
-            <p className="font-medium">{m.checkEmailTitle}</p>
+            <h2 ref={sentHeading} tabIndex={-1} data-testid={`${testID}-status-title`} className="font-medium outline-none">
+              {m.checkEmailTitle}
+            </h2>
             <p className="text-sm text-muted-foreground">
-              {fillMessage(sent === "reset" ? m.resetSent : sent === "confirm" ? m.confirmSent : m.magicLinkSent, { email: email.trim() })}
+              {fillMessage(
+                sent === "reset"
+                  ? m.resetSent
+                  : sent === "confirm"
+                    ? m.confirmSent
+                    : allowSignUp
+                      ? m.magicLinkSent
+                      : m.magicLinkSentIfAccount,
+                { email: email.trim() },
+              )}
             </p>
           </div>
           {sent === "magic-link" ? (
@@ -420,7 +492,9 @@ export function AuthForm({
                 inputMode="numeric"
                 pattern="^[0-9]+$"
                 autoFocus
-                disabled={busy}
+                // Not disabled while it verifies: that would drop focus and the screen reader's place.
+                readOnly={busy}
+                {...(busy ? { "aria-busy": true as const } : {})}
                 containerClassName="justify-center"
                 {...fieldProps("code", `${id}-code-hint`)}
               >
@@ -431,7 +505,7 @@ export function AuthForm({
                 </InputOTPGroup>
               </InputOTP>
               <p id={`${id}-code-hint`} className="text-center text-sm text-muted-foreground">
-                {fillMessage(m.codeSent, { length: codeLength, email: email.trim() })}
+                {fillMessage(allowSignUp ? m.codeSent : m.codeSentIfAccount, { length: codeLength, email: email.trim() })}
               </p>
             </div>
           ) : (
@@ -628,21 +702,31 @@ function FormLinks({
   );
 }
 
-/** The given providers, or the client's, asked once. A failed lookup shows none and is reported. */
+/**
+ * The given providers, or the client's, asked once per mount: a parent that renders again, or
+ * builds a new client object each render, doesn't ask again. A failed lookup shows none and is
+ * reported.
+ */
 function useProviders(client: AuthFormClient, given: AuthFormProps["providers"]): AuthFormProvider[] {
   const [found, setFound] = React.useState<AuthFormProvider[]>([]);
   const discover = given === undefined && typeof client.providers === "function";
+  const clientRef = React.useRef(client);
+  React.useEffect(() => {
+    clientRef.current = client;
+  });
   React.useEffect(() => {
     if (!discover) return;
     let live = true;
-    client.providers!().then(
+    const lookup = clientRef.current.providers;
+    if (!lookup) return;
+    lookup.call(clientRef.current).then(
       (ids) => live && setFound(ids.map((id) => ({ id }))),
       (e: unknown) => reportError(e, { source: "ui:auth-form", tags: { step: "providers" } }),
     );
     return () => {
       live = false;
     };
-  }, [client, discover]);
+  }, [discover]);
   if (given === false) return [];
   if (given) return given.map((p) => (typeof p === "string" ? { id: p } : p));
   return found;

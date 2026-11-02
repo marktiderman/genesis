@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 596 components · 4086 other exports · 3273 standalone types across 189 entry points in 29 packages.
+**Totals:** 596 components · 4087 other exports · 3273 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -8996,7 +8996,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (20)
+### Other exports (21)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9010,12 +9010,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureGateState`](../packages/supabase/src/feature-registry.ts) | function | Beta | A tenant's switches, entitlements and flag values: `feature_gate_state`. Works with a signed-in person's client (for tenants they belong to; their own person entitlements are included) or the service key. Throws a `SupabaseQueryError` (`... |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
-| [`fetchAuthSettings`](../packages/supabase/src/auth-form-client.ts) | function | Beta | Reads a project's public Auth settings (`GET <url>/auth/v1/settings` with the publishable key): which OAuth providers are on, whether email and phone sign-in are, and whether sign-up is closed. Throws when the request fails. |
+| [`fetchAuthSettings`](../packages/supabase/src/auth-form-client.ts) | function | Beta | Reads a project's public Auth settings (`GET <url>/auth/v1/settings` with the publishable key): which OAuth providers are on, whether email and phone sign-in are, and whether sign-up is closed. Throws when the request fails, takes over 5... |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`must`](../packages/supabase/src/index.ts) | function | Beta | The data, or a thrown {@link SupabaseQueryError}: for query results where an error should fail the caller (a TanStack Query `queryFn`). The return type keeps `null` when the query can return no row (`.maybeSingle()`). |
 | [`requestAppleRevocation`](../packages/supabase/src/apple-tokens.ts) | function | — | Asks the Edge Function to revoke the tokens of deleted accounts now, rather than at its next scheduled run. Never throws and never fails the caller: the account is already gone and the queue keeps the token until a run succeeds. |
 | [`setTenantFeature`](../packages/supabase/src/tenant-features.ts) | function | Beta | Turn a feature on or off for a tenant: `set_tenant_feature`. Only the tenant's admins (the app's `private.genesis_tenant_admin` hook); throws a `SupabaseQueryError` otherwise (`42501`), for a blank reason (`22023`) or a malformed feature... |
 | [`storeAppleToken`](../packages/supabase/src/apple-tokens.ts) | function | Beta | After a Sign in with Apple, sends the authorization code to the Edge Function, which exchanges it for Apple's refresh token and keeps it where only the server reads it, so deleting the account can revoke it. Call it with the session from... |
+| [`SUPABASE_OAUTH_PROVIDERS`](../packages/supabase/src/auth-form-client.ts) | const | Beta | The OAuth providers `fetchAuthSettings` reports: the ones `signInWithOAuth` takes and genesis-ui's `AUTH_PROVIDER_NAMES` names. Any other key of the settings' `external` (`email`, `phone`, `saml`, `web3_*`…) isn't a button. |
 | [`SupabaseQueryError`](../packages/supabase/src/index.ts) | class | Beta | A failed query, with the database's `code` (`23505` unique violation, `42501` permission denied, `PGRST116` no rows…), `details` and `hint`, so a caller can tell an RLS refusal from a conflict. The original error is the `cause`. |
 | [`syncFeatureRegistry`](../packages/supabase/src/feature-registry.ts) | function | Beta | Copy the registry into the database: `sync_feature_registry`. Call it with the service key when a production deployment starts serving, never from a preview. Returns false when the database already has this registry or a newer one; throw... |
 | [`tenantFeatureHistory`](../packages/supabase/src/tenant-features.ts) | function | Beta | A tenant's history of changes, newest first (at most `maxRows`, 1 to 1000, default 100), for its admins. @stability Beta |

@@ -92,6 +92,7 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-cli": "workspace:^",
+    "@marktiderman/genesis-supabase": "workspace:^",
     "@react-router/dev": "8.5.0",
     "@storybook/addon-a11y": "^10.6.3",
     "@storybook/addon-docs": "^10.6.3",

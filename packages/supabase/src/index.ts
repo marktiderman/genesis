@@ -207,6 +207,7 @@ export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeature
 export {
   createAuthFormClient,
   fetchAuthSettings,
+  SUPABASE_OAUTH_PROVIDERS,
   type AuthCallError,
   type AuthCallResult,
   type AuthFormSupabase,
