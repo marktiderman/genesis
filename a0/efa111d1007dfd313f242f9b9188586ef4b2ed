@@ -1,0 +1,231 @@
+.changeset/brand-contrast-check.md
+  s_6a4659246591cd::t_87cdba291a7115 1-5
+.changeset/brand-radius-scale.md
+  s_6a4659246591cd::t_6f2a0072aa0a33 1-11
+.changeset/core-field-input-hints.md
+  s_6a4659246591cd::t_b60cab8a558d01 1-10
+.changeset/eas-placeholder-says-what.md
+  s_6a4659246591cd::t_0785b8eca34def 1-5
+.changeset/init-without-and-lock-files.md
+  s_6a4659246591cd::t_58f58053ff4233 1-11
+.changeset/studio-server-tel-widget.md
+  s_6a4659246591cd::t_dc489680303567 1-5
+.changeset/ui-appshell-phone-drawer.md
+  s_6a4659246591cd::t_1a1b388b6a94c2 1-15
+.changeset/ui-phone-lists-and-inputs.md
+  s_6a4659246591cd::t_dccbe4d77f5ce1 1-18
+.changeset/umbrella-readme-imports.md
+  s_6a4659246591cd::t_1c3f17c7468476 1-5
+.changeset/upgrade-excludes-exact-versions.md
+  s_6a4659246591cd::t_073db777010ec0 1-11
+.changeset/upgrade-rebases-overlays.md
+  s_6a4659246591cd::t_f128edc6440e85 1-5
+.github/ci-fixture/pnpm-workspace.yaml
+  s_6a4659246591cd::t_19670bce6e18df 4-6,8-13
+.github/workflows/ci.yml
+  s_6a4659246591cd::t_6f6c9c8346f146 143-148
+.github/workflows/genesis-upgrade.yml
+  s_6a4659246591cd::t_40b757b940cffa 34-49,194-225,227-228,230-232,242-301,311-315,320-321,325,328-329,331-368,374-376,381,385-395,411-414,416,421-422,425-431,580-586,589,649-651,654,741,755-762,776,792
+AGENTS.md
+  s_6a4659246591cd::t_52ddb18fe3b14e 11,105
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_6a4659246591cd::t_5c719f4501518a 9,20-23,67,86,91-103,239,246,251,263,273,285,310,323,340,360,381,426
+apps/genesis-rn-starter/genesis.config.json
+  s_6a4659246591cd::t_22526b8a21f2d2 11-20
+apps/genesis-rn-starter/src/lib/link-hosts.ts
+  s_6a4659246591cd::t_7d2cbb6796f034 1-8
+apps/genesis-rn-starter/src/lib/links.ts
+  s_6a4659246591cd::t_8203de5d35e8e2 10,30
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_4e6def5cd43492 10,12037-12043,12323-12359,14559-14565,14607,16574-16575,16577-16581,17926,17929,18667,18670,19408,19411
+apps/sample/app/root.tsx
+  s_6a4659246591cd::t_c4c5814164a7ba 10,65-69
+docs/AI.md
+  s_6a4659246591cd::t_42ab289b02e874 223,225-226,243,245-255,262-263
+docs/APP-CI.md
+  s_6a4659246591cd::t_b0254a518651be 110-121,143-146
+docs/FORMS.md
+  s_6a4659246591cd::t_0adb5b2e9a5145 202,208,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_6a4659246591cd::t_c3049aa2660820 4-5
+docs/RELEASING.md
+  s_6a4659246591cd::t_fd1c9c4e33b296 144-148
+docs/RESOURCE-VIEW.md
+  s_6a4659246591cd::t_d9d2da0943fcdd 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,348-416,419-420,515-516,528-529,614-615,685-690,699-700,741-742,745-747,753-754,766,811
+docs/component-reference.md
+  s_6a4659246591cd::t_fc45fc0aee86ef 7,1996,2002-2003,2073,2077,2082-2083,2088,2147,2242,2247,2249,4702,4710,4818,4824-4825,4895,4899,4904-4905,4910,4969,10076,10091,10109,10120,10172,10504,10512
+features.json
+  s_6a4659246591cd::t_4ea519089c89ec 600-701,6154-6155
+features.ts
+  s_6a4659246591cd::t_c8c29af597c910 273-320,2689
+package.json
+  s_6a4659246591cd::t_457b499d13188c 17
+packages/core/src/__tests__/resource-view.test.ts
+  s_6a4659246591cd::t_f8cd9daf556fab 106-117
+packages/core/src/form-types.ts
+  s_6a4659246591cd::t_959e55464decdb 9-10,53-68
+packages/core/src/hooks/use-resource-form.ts
+  s_6a4659246591cd::t_ea104dab467063 346
+packages/core/src/resource-view/define-view.ts
+  s_6a4659246591cd::t_319e0fb2cf5cfe 425-427
+packages/core/src/resource-view/types.ts
+  s_6a4659246591cd::t_75ab1bb029f7d0 60-71,311-316
+packages/design-system/README.md
+  s_6a4659246591cd::t_4ba436e46133e8 17,39-72
+packages/design-system/schema/brand.schema.json
+  s_6a4659246591cd::t_e11ab0f7e4b118 128-129
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_6a4659246591cd::t_d404582308698c 46,201-205
+packages/design-system/src/design-systems/tokens.ts
+  s_6a4659246591cd::t_5a41a84445aa89 13,239-240
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_6a4659246591cd::t_2366a59523981a 127-144
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_6a4659246591cd::t_9cff27b756246c 439,445
+packages/design-system/src/factories/brand-roles.ts
+  s_6a4659246591cd::t_7dc55ce22188a8 30-31,42,157,182-183,186-200
+packages/design-system/src/factories/from-brand.ts
+  s_6a4659246591cd::t_d96ba64f486328 315
+packages/design-system/src/index.native.ts
+  s_6a4659246591cd::t_0e300ad92a681a 41-42,46-47
+packages/design-system/src/index.ts
+  s_6a4659246591cd::t_a7f456f02d1747 32-33,37-38
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_6a4659246591cd::t_13d66fe71630d1 67-89
+packages/design-system/src/presets/nativewind.ts
+  s_6a4659246591cd::t_2a788393e6e03f 24-31,44-45,88,93,107-123
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_6a4659246591cd::t_a340c66ef457f7 1-144
+packages/design-system/src/schema/brand-contrast.ts
+  s_6a4659246591cd::t_99742a18c9d34c 1-225
+packages/design-system/src/schema/brand.ts
+  s_6a4659246591cd::t_4372273f9b6eaf 105-110,451-474,801-806,812,814,816,939-949
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_6a4659246591cd::t_6641abee1bd926 21,109,117-152
+packages/design-system/src/tokens/spacing.ts
+  s_6a4659246591cd::t_643092f5ce977a 5-32,34-37,39-41
+packages/design-system/src/tokens/theme-css.ts
+  s_6a4659246591cd::t_c8876b0d2a5b5d 17-18,258-261,294-299
+packages/genesis-cli/README.md
+  s_6a4659246591cd::t_617647e7f4c27c 109-128,131-133,261,274-300,345-346,404-423,425-431,436-438,622,714
+packages/genesis-cli/src/blocks/init-native.ts
+  s_6a4659246591cd::t_a21d6b0b4d3703 13-17,19-21,32-33,47-48,59-60,142-148,193-203,222,255-257,259-337
+packages/genesis-cli/src/blocks/lock.ts
+  s_6a4659246591cd::t_4565f414632317 32-37
+packages/genesis-cli/src/blocks/migrate.ts
+  s_6a4659246591cd::t_b974b1098adfb8 13-14,40-41,52-55,101,110
+packages/genesis-cli/src/blocks/owned.ts
+  s_6a4659246591cd::t_a890b5f75e2d6c 137-138,142
+packages/genesis-cli/src/blocks/starter-features.ts
+  s_6a4659246591cd::t_bff970b176243b 1-163
+packages/genesis-cli/src/cli.ts
+  s_6a4659246591cd::t_e9fad858bb3cd1 14,40-43,59,74,85,89,565,589-590,601
+packages/genesis-cli/src/doctor/index.ts
+  s_6a4659246591cd::t_242af595b82433 42,244
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_6a4659246591cd::t_7e467e06e1f2ef 1-91
+packages/genesis-cli/src/doctor/native.ts
+  s_6a4659246591cd::t_2e505c1a814ed0 15,59-60,70-84
+packages/genesis-cli/src/doctor/overlays.ts
+  s_6a4659246591cd::t_ca894105ccd259 20-22,36-37,109-139,199-210
+packages/genesis-cli/src/doctor/rules.ts
+  s_6a4659246591cd::t_450b31165ac29d 73,85-86
+packages/genesis-cli/src/doctor/versions.ts
+  s_6a4659246591cd::t_cb4fe3c6e93966 11,40-42
+packages/genesis-cli/src/eas-placeholders.ts
+  s_6a4659246591cd::t_5b6ac34ab7719e 1-37
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_6a4659246591cd::t_62c53e7b6d941f 28-42,47,49-50
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_6a4659246591cd::t_675f0a8a779a51 70-83,85-101,103-104,106-108,118-177,187-191,196-197,201,204-233,235-244,250-252,257,261-271
+packages/genesis-cli/src/upgrade/index.ts
+  s_6a4659246591cd::t_7c6408aa4fd578 11-12,18-19,24-25,34,36,66-71,83-84,90-91,142-145,149-150,156-234,295-316,335,347,349-350,354-355,357-364,366,378-386,393,395-399,401-411,425,487,489-490,495,554-556
+packages/genesis-cli/src/upgrade/overlays.ts
+  s_6a4659246591cd::t_7901403730046a 1-554
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_6a4659246591cd::t_9ded2c5c09cc0f 60-76
+packages/genesis-cli/test/doctor-lock-files.test.ts
+  s_6a4659246591cd::t_014945286779f8 1-85
+packages/genesis-cli/test/doctor-overlays.test.ts
+  s_6a4659246591cd::t_f977ff4ba35eee 188-211
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_6a4659246591cd::t_a6b0b78f6c4d3c 234-235
+packages/genesis-cli/test/init-native.test.ts
+  s_6a4659246591cd::t_4b604a92b710c3 2,6-14,60,62,77-132,143-158
+packages/genesis-cli/test/upgrade-overlays.test.ts
+  s_6a4659246591cd::t_eedb7b9de19b50 1-210
+packages/genesis-cli/test/upgrade.test.ts
+  s_6a4659246591cd::t_0fa68c4c27f7e3 2-3,9,11,115-144,157-159,168,172,176-178,181-182,185-186,192-208,210-212,214-217,223-298,302-307,309,317-318,322-326,329-330,332-333,340-359,371,377-384,387-439
+packages/genesis/README.md
+  s_6a4659246591cd::t_80e26a2030fcde 9-10
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_6a4659246591cd::t_1437cc48f55baa 661,789,922,1050,1183,1311,1444,1572,1705,1833,1969,2100,2233,2361,2494,2622,2755,2883,3016,3144,3277,3405,3541,3672,3805,3933,4066,4194,4327,4455,4588,4716,4849,4977,5113,5244,5377,5505,5638,5766,5899,6027,6160,6288,6421,6549,6685,6816
+packages/studio-server/src/access.ts
+  s_6a4659246591cd::t_70f970e24775bf 508
+packages/ui-native/src/data/NativeResourceFormField.tsx
+  s_6a4659246591cd::t_09eb6aa259e896 4,34,37,45,251-253,262-266
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_6a4659246591cd::t_cbf4abb2cccddf 49,234-236
+packages/ui-native/src/data/resource-view/__tests__/native-tel-field.test.tsx
+  s_6a4659246591cd::t_0af4b262b6297d 1-79
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_6a4659246591cd::t_09ac51326e2c43 7,183,206-211,226,228-230,273,280-282
+packages/ui-native/test-utils/rn-mock.tsx
+  s_6a4659246591cd::t_d1e8ef09ded624 202-204,219-221
+packages/ui/src/components/data/DataFilters.tsx
+  s_6a4659246591cd::t_a44e245b7abf5f 204-206,210-213,216,223
+packages/ui/src/components/data/DataTable.tsx
+  s_6a4659246591cd::t_44fdb40ff3eb79 226-231,605,1052-1055
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_6a4659246591cd::t_e0d33984efba02 29-56,274,290,300
+packages/ui/src/components/data/ResourcePage.tsx
+  s_6a4659246591cd::t_43fd84a475d3c9 1116-1133,1136-1139,1142,1144-1146,1158-1159,1161,1165-1172,1179-1182,1184-1185,1187-1201,1205,1208-1214,1217
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_6a4659246591cd::t_da51d65e900469 445-485
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_6a4659246591cd::t_8deca80b3fb20b 1-98
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_6a4659246591cd::t_d84635a1d93ea0 1-246
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_6a4659246591cd::t_0027ccf1cce492 39-40,431-444,454
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_ddd123898929b9 13-14,49-54,56,91-99,105,112-114,149,273-283,311-314
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_6a4659246591cd::t_79b922dd100d9c 1-59
+packages/ui/src/components/data/resource-view/index.ts
+  s_6a4659246591cd::t_397d44de8c474d 21
+packages/ui/src/components/layout/AppShell.tsx
+  s_6a4659246591cd::t_1b381bd60b7f3c 25,38,51,288-289,1153-1154,1215,1218-1239,1475-1484,1597,1605,1645,1767-1810,1821-1822,1827,1831,1853,1938-1941,1954-1955,1993-2010,2013-2053
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_6a4659246591cd::t_6b9830f3c01319 467-468
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_6a4659246591cd::t_3b662b2bee276f 1-303
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_6a4659246591cd::t_6297b7982b7378 274-278
+packages/ui/src/hooks/__tests__/core-write-hooks.test.tsx
+  s_6a4659246591cd::t_38c0c7fc27f256 303-307
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_c671c3a09a1c7f 227-243
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_6a4659246591cd::t_9ed15b4329c551 1-246
+scripts/__tests__/genesis-bump-sync.test.mjs
+  s_6a4659246591cd::t_4844249805e9c1 55-56,58,66-70,76,78,83-103
+scripts/check-docs-match-exports.mjs
+  s_6a4659246591cd::t_37abb376fdff9d 1-715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a0efa111d1007dfd313f242f9b9188586ef4b2ed",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
