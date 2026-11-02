@@ -1,0 +1,37 @@
+{
+  "kind": "calendar#events",
+  "etag": "\"p3a8fixture0001\"",
+  "summary": "sample@example.com",
+  "updated": "2026-11-01T15:02:11.512Z",
+  "timeZone": "America/New_York",
+  "accessRole": "reader",
+  "nextPageToken": "CigKGjRrZml4dHVyZXBhZ2Vfb25lGAEggICA",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000000\"",
+      "id": "4kfixtureweekly_20261102T230000Z",
+      "status": "confirmed",
+      "summary": "Practice",
+      "location": "North Field",
+      "start": { "dateTime": "2026-11-02T18:00:00-05:00", "timeZone": "America/New_York" },
+      "end": { "dateTime": "2026-11-02T19:00:00-05:00", "timeZone": "America/New_York" },
+      "recurringEventId": "4kfixtureweekly",
+      "originalStartTime": { "dateTime": "2026-11-02T18:00:00-05:00", "timeZone": "America/New_York" },
+      "iCalUID": "4kfixtureweekly@google.com",
+      "sequence": 0
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000001\"",
+      "id": "7qfixtureoneoff",
+      "status": "confirmed",
+      "summary": "Dentist",
+      "visibility": "private",
+      "start": { "dateTime": "2026-11-05T09:00:00-08:00", "timeZone": "America/Los_Angeles" },
+      "end": { "dateTime": "2026-11-05T10:00:00-08:00", "timeZone": "America/Los_Angeles" },
+      "iCalUID": "7qfixtureoneoff@google.com",
+      "sequence": 1
+    }
+  ]
+}

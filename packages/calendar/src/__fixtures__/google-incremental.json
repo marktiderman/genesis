@@ -1,0 +1,59 @@
+{
+  "kind": "calendar#events",
+  "etag": "\"p3a8fixture0003\"",
+  "summary": "sample@example.com",
+  "updated": "2026-11-03T08:41:00.000Z",
+  "timeZone": "America/New_York",
+  "accessRole": "reader",
+  "nextSyncToken": "CKCbr5iEx70CEKCbr5iEx70CGAUggICAgICAgA==",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000010\"",
+      "id": "7qfixtureoneoff",
+      "status": "confirmed",
+      "summary": "Dentist (moved)",
+      "visibility": "private",
+      "start": { "dateTime": "2026-11-06T09:00:00-08:00", "timeZone": "America/Los_Angeles" },
+      "end": { "dateTime": "2026-11-06T10:00:00-08:00", "timeZone": "America/Los_Angeles" },
+      "iCalUID": "7qfixtureoneoff@google.com",
+      "sequence": 2
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000011\"",
+      "id": "4kfixtureweekly_20261109T230000Z",
+      "status": "cancelled",
+      "recurringEventId": "4kfixtureweekly",
+      "originalStartTime": { "dateTime": "2026-11-09T18:00:00-05:00", "timeZone": "America/New_York" }
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000012\"",
+      "id": "2bfixturefarfuture",
+      "status": "confirmed",
+      "summary": "Conference next year",
+      "start": { "date": "2028-03-01" },
+      "end": { "date": "2028-03-04" },
+      "iCalUID": "2bfixturefarfuture@google.com",
+      "sequence": 0
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000013\"",
+      "id": "5cfixtureoldpast",
+      "status": "confirmed",
+      "summary": "Edited an old event",
+      "start": { "dateTime": "2024-01-10T12:00:00Z" },
+      "end": { "dateTime": "2024-01-10T13:00:00Z" },
+      "iCalUID": "5cfixtureoldpast@google.com",
+      "sequence": 4
+    },
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000014\"",
+      "id": "8dfixturedeleted",
+      "status": "cancelled"
+    }
+  ]
+}

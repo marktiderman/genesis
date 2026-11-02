@@ -444,6 +444,37 @@ describe("the real package declarations", () => {
     ]);
   });
 
+  it("calendar flags Google's events endpoint, hand-written iCal and iCal libraries, never a link to a calendar page", async () => {
+    const root = makeApp(null, {
+      ...install("calendar", "genesis-calendar-rules"),
+      "src/lib/google.server.ts": [
+        "export async function events(token: string, id: string) {",
+        "  return fetch(`https://www.googleapis.com/calendar/v3/calendars/${id}/events?singleEvents=true`, { headers: { authorization: token } });",
+        "}",
+        "export const viaSdk = (calendar: any) => calendar.events.list({ calendarId: 'primary' });",
+        "",
+      ].join("\n"),
+      "src/lib/feed.ts": 'import ical from "node-ical";\nexport const parse = (t: string) => t.split("BEGIN:VEVENT").slice(1);\n',
+      "src/lib/export.ts": 'export const feed = (body: string) => ["BEGIN:VCALENDAR", body, "END:VCALENDAR"].join("\\r\\n");\n',
+      // Must not fire: links to calendar pages and feeds, listing calendars, tests and fixtures.
+      "src/routes/help.tsx": [
+        'export const Help = () => <a href="https://calendar.google.com/calendar/u/0/r/settings">Open Google Calendar</a>;',
+        'export const subscribe = "webcal://calendar.example/feed.ics";',
+        'export const list = "https://www.googleapis.com/calendar/v3/users/me/calendarList";',
+        "",
+      ].join("\n"),
+      "src/lib/feed.test.ts": 'export const sample = "BEGIN:VCALENDAR\\nEND:VCALENDAR";\n',
+      "src/__fixtures__/sample.ts": 'export const sample = "BEGIN:VCALENDAR";\n',
+    });
+    expect(brief((await runDoctor({ root, config: {} })).findings, "calendar-rules/")).toEqual([
+      "calendar-rules/calendar-reads-use-genesis-calendar warn src/lib/export.ts:1 BEGIN:VCALENDAR",
+      "calendar-rules/calendar-reads-use-genesis-calendar warn src/lib/feed.ts:1 node-ical",
+      "calendar-rules/calendar-reads-use-genesis-calendar warn src/lib/feed.ts:2 BEGIN:VEVENT",
+      "calendar-rules/calendar-reads-use-genesis-calendar warn src/lib/google.server.ts:2 googleapis.com/calendar/v3/calendars/",
+      "calendar-rules/calendar-reads-use-genesis-calendar warn src/lib/google.server.ts:4 calendar.events.list(",
+    ]);
+  });
+
   it("ui checks record screens named [id] and .jsx routes too, and a list inside a record view doesn't exempt it", async () => {
     const root = makeApp(null, {
       ...install("ui", "genesis-ui-rules"),

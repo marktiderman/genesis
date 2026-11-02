@@ -1,0 +1,121 @@
+{
+  "name": "@marktiderman/genesis-calendar",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "sideEffects": false,
+  "description": "The calendar read layer: what is on these people's calendars, merged. Google Calendar's incremental sync, an iCal feed reader (RRULE through genesis-core/dates, EXDATE, RDATE, RECURRENCE-ID, Windows zone names) and writer, one event across people's copies with per-viewer privacy, marks, and the mapping to genesis-ui's EventCalendar. Pure TypeScript, no storage, no OAuth, no React; fetching a feed safely is the optional /fetch entry. Part of the Genesis framework.",
+  "keywords": [
+    "genesis",
+    "genesis-framework",
+    "calendar",
+    "icalendar",
+    "ics",
+    "google-calendar",
+    "rrule"
+  ],
+  "homepage": "https://github.com/marktiderman/genesis/tree/main/packages/calendar#readme",
+  "bugs": {
+    "url": "https://github.com/marktiderman/genesis/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/marktiderman/genesis.git",
+    "directory": "packages/calendar"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "provenance": false
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./fetch": {
+      "import": {
+        "types": "./dist/fetch.d.ts",
+        "default": "./dist/fetch.js"
+      },
+      "require": {
+        "types": "./dist/fetch.d.cts",
+        "default": "./dist/fetch.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsup && node ../../scripts/check-exports-resolve.mjs",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "@marktiderman/genesis-core": "workspace:>=2.5.0 <3.0.0",
+    "@marktiderman/genesis-media": "workspace:>=0.2.0 <1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@marktiderman/genesis-media": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-media": "workspace:^",
+    "@types/node": "^22",
+    "tsup": "^8.3.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.5"
+  },
+  "genesis": {
+    "layer": "primitive",
+    "group": "data",
+    "owner": "@marktiderman",
+    "doctor": {
+      "prefer": [
+        {
+          "id": "calendar-reads-use-genesis-calendar",
+          "need": "reading Google Calendar or an iCal feed, or merging people's calendars",
+          "level": "warn",
+          "exclude": [
+            "**/*.test.*",
+            "**/*.spec.*",
+            "**/__fixtures__/**"
+          ],
+          "forbid": {
+            "imports": [
+              "node-ical",
+              "ical.js",
+              "ical",
+              "ical-expander",
+              "ical-generator",
+              "ics"
+            ],
+            "pattern": "googleapis\\.com/calendar/v3/calendars/|\\bcalendar\\.events\\.list\\s*\\(|BEGIN:VCALENDAR|BEGIN:VEVENT"
+          },
+          "use": "syncGoogleCalendar for Google, readIcs and writeIcs for iCal feeds (fetchFeed from /fetch to get one), mergeEvents for people's copies",
+          "import": "@marktiderman/genesis-calendar",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/packages/calendar/README.md",
+          "why": "Google's sync token, 410s and out-of-window changes, iCal's recurrence overrides, Windows zone names and line folding, and keeping a private event private across people's copies are each easy to get wrong by hand."
+        }
+      ]
+    }
+  }
+}
