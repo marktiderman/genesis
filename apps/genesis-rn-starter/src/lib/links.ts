@@ -7,6 +7,7 @@ import Constants from "expo-constants";
 import { createLinkHold, type LinkOptions } from "@marktiderman/genesis-native";
 import genesisConfig from "../../genesis.config.json";
 import starter from "../../starter.config";
+import { linkHosts } from "./link-hosts";
 
 /**
  * The schemes this build answers to. withGenesis gives each APP_VARIANT its own
@@ -26,7 +27,7 @@ export function appSchemes(base: string, built: string | readonly string[] | und
 /** Incoming link paths and the screens they open. `/` is always known; anything else opens `/`. */
 export const links: LinkOptions = {
   schemes: appSchemes(starter.app.scheme, Constants.expoConfig?.scheme),
-  hosts: genesisConfig.links.hosts,
+  hosts: linkHosts(genesisConfig),
   map: {
     ...(starter.features.notifications ? { "/notifications": "/notifications" } : {}),
     // The check-in example's link (`genesis-starter://check-in?location=hilltop` fills in the location; `genesis-starter-dev://` in a development build).

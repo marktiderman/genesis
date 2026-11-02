@@ -134,11 +134,12 @@ export function refreshOwned(root: string, lock: GenesisLock, input: RefreshInpu
   const theirsSha = sha256(input.theirs);
   if (theirsSha === entry.sha256) return { path: input.path, outcome: "unchanged" };
   const record = (sha: string) => {
-    const { pending: _settled, ...rest } = entry;
+    // Written again: neither pending nor deleted any more.
+    const { pending: _settled, deleted: _back, ...rest } = entry;
     lock.files[input.path] = { ...rest, sha256: sha, ...(input.version ? { version: input.version } : {}) };
   };
   if (mine === null) {
-    return { path: input.path, outcome: "kept-deleted", detail: "deleted in the app; not brought back" };
+    return { path: input.path, outcome: "kept-deleted", detail: entry.deleted ? "deleted in the app; not brought back" : 'deleted in the app; not brought back (mark it "deleted": true in genesis.lock.json if that is on purpose)' };
   }
   const mineSha = sha256(mine);
   if (mineSha === entry.sha256 || mineSha === theirsSha) {

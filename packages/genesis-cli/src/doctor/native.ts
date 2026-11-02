@@ -12,6 +12,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import * as path from "node:path";
 import { NATIVE_WRAPPED_PRIMITIVES, wrappedPrimitivesIn } from "../../../../scripts/lib/native-primitives.mjs";
 import { privacyApisFor } from "../expo.js";
+import { EAS_PLACEHOLDERS, findPlaceholders, placeholderKey } from "../eas-placeholders.js";
 import { DoctorConfigError } from "./config.js";
 import { NATIVE_UI_PACKAGE, readPackageExports, type PackageExports } from "./genesis.js";
 import { lineAt } from "./scan.js";
@@ -51,14 +52,12 @@ export function checkNativePack(ctx: DoctorContext): void {
   checkEasPlaceholders(ctx);
 }
 
-/** A `REPLACE_WITH_…` placeholder the EAS templates ship (store ids in eas.json, the app folder in pr-preview.yml). */
-const EAS_PLACEHOLDER = /\bREPLACE_WITH_[A-Z0-9_]+/g;
-
 /**
  * `eas-placeholder`: a `REPLACE_WITH_…` placeholder left in eas.json or `.eas/workflows/*.yml`.
  * Left in, it fails quietly: a submit job that can't find the app, or pr-preview paths that match
  * nothing, so code changes never start a preview. YAML comment lines are skipped (a template's
- * commented-out trigger may name one).
+ * commented-out trigger may name one). Each says what replaces it (eas-placeholders.ts, the same
+ * list `genesis init --template native` prints).
  */
 export function checkEasPlaceholders(ctx: DoctorContext): void {
   const files: string[] = [];
@@ -68,23 +67,21 @@ export function checkEasPlaceholders(ctx: DoctorContext): void {
     for (const name of readdirSync(workflows).sort()) if (/\.ya?ml$/.test(name)) files.push(`.eas/workflows/${name}`);
   }
   for (const file of files) {
-    const lines = readFileSync(path.join(ctx.root, file), "utf8").split("\n");
-    lines.forEach((text, i) => {
-      if (!file.endsWith(".json") && /^\s*#/.test(text)) return;
-      for (const m of text.matchAll(EAS_PLACEHOLDER)) {
-        ctx.report({
-          rule: "eas-placeholder",
-          level: "warn",
-          file,
-          line: i + 1,
-          subject: m[0],
-          message:
-            m[0] === "REPLACE_WITH_APP_FOLDER"
-              ? "still names REPLACE_WITH_APP_FOLDER, so only config changes start a preview; replace it with the app's code folder (src, or apps/<name> in a monorepo)"
-              : `still has the template placeholder ${m[0]}; replace it before the job that reads it runs (see docs/NATIVE-RELEASE.md in the Genesis repository)`,
-        });
-      }
-    });
+    for (const hit of findPlaceholders(file, readFileSync(path.join(ctx.root, file), "utf8"))) {
+      const key = placeholderKey(hit.text, hit.placeholder);
+      const what = EAS_PLACEHOLDERS[hit.placeholder];
+      ctx.report({
+        rule: "eas-placeholder",
+        level: "warn",
+        file,
+        line: hit.line,
+        subject: hit.placeholder,
+        message:
+          hit.placeholder === "REPLACE_WITH_APP_FOLDER"
+            ? `still names REPLACE_WITH_APP_FOLDER, so only config changes start a preview; replace it with ${what}`
+            : `${key ? `${key} is` : "still has"} the template placeholder ${hit.placeholder}; replace it with ${what ?? "its value (see docs/NATIVE-RELEASE.md in the Genesis repository)"} before the job that reads it runs`,
+      });
+    }
   }
 }
 

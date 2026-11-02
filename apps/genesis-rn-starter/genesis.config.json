@@ -8,5 +8,15 @@
   "links": {
     "hosts": ["example.com"],
     "paths": ["/notifications", "/messages", "/settings"]
+  },
+  "starter": {
+    "$comment": "The blocks each starter.config.ts switch carries. A block whose switch is off isn't in genesis.lock.json, and genesis upgrade and migrate leave it out (genesis init --without leaves its files out too).",
+    "blocks": {
+      "updates": ["app-updates"],
+      "push": ["push"],
+      "notifications": ["notifications"],
+      "support": ["support-feedback"],
+      "chat": ["chat"]
+    }
   }
 }

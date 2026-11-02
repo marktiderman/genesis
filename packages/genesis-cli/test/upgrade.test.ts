@@ -111,6 +111,36 @@ describe("genesis upgrade", () => {
     expect(report.refreshed[0]).toMatchObject({ outcome: "kept-deleted" });
   });
 
+  it("leaves out a locked block whose starter.config.ts switch is off: no migrations listed, its files neither refreshed nor added", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V2);
+    fakePackage(root, "@marktiderman/genesis-fixture", { genesis: { blocks: { "fixture-notes": { migrations: [{ file: "migrations/0001_fixture_notes.sql" }], functions: [{ dir: "functions/fixture-send" }] } } } }, { "functions/fixture-send/index.ts": TEMPLATE_V2, "migrations/0001_fixture_notes.sql": "create table public.fixture_notes (id int);\n" });
+    const lock = readLock(root);
+    lock.blocks["fixture-notes"] = { package: "@marktiderman/genesis-fixture" };
+    writeLock(root, lock);
+    writeTree(root, {
+      "starter.config.ts": "export default defineStarter({\n  features: {\n    // A comment line is skipped.\n    notes: false,\n  },\n});\n",
+      "genesis.config.json": JSON.stringify({ starter: { blocks: { notes: ["fixture-notes"] } } }),
+    });
+    const report = await upgrade(root);
+    expect(report.switchedOff).toEqual(["fixture-notes: features.notes is off in starter.config.ts, so it's left out (turn it on to have it again)"]);
+    expect(report.newMigrations).toEqual([]);
+    expect(report.refreshed).toEqual([]);
+    expect(read(root, "supabase/functions/fixture-send/index.ts")).toBe(TEMPLATE_V1);
+    expect(report.summary).toContain("Blocks switched off (left out):");
+  });
+
+  it("says how to mark a deletion on purpose, and keeps the file deleted either way", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V2);
+    rmSync(path.join(root, "supabase/functions/fixture-send/index.ts"));
+    expect((await upgrade(root, { dryRun: true })).refreshed[0]).toMatchObject({ outcome: "kept-deleted", detail: expect.stringContaining('"deleted": true') });
+    const lock = readLock(root);
+    lock.files["supabase/functions/fixture-send/index.ts"]!.deleted = true;
+    writeLock(root, lock);
+    const report = await upgrade(root);
+    expect(report.refreshed[0]).toMatchObject({ outcome: "kept-deleted", detail: "deleted in the app; not brought back" });
+    expect(readLock(root).files["supabase/functions/fixture-send/index.ts"]!.deleted).toBe(true);
+  });
+
   it("runs a codemod only when its package crosses its version, and names major moves without one", async () => {
     const ran: string[] = [];
     const mod: Codemod = { id: "fixture-rename", package: "@marktiderman/genesis-fixture", version: "1.1.0", description: "Renames a prop.", run: () => (ran.push("ran"), []) };
