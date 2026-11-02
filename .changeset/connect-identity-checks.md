@@ -1,5 +1,0 @@
----
-"@marktiderman/genesis-connect": minor
----
-
-Security fix: `identity` is now rejected for an ID token whose `aud` names any audience other than this client (unless listed in the new `trustedAudiences`), whose `azp` is present and isn't this client (or is missing with several audiences), and `createConnector` refuses a provider whose `tokenUrl` or `revokeUrl` isn't https (http only on localhost), since the unsigned ID token is trusted only over TLS. `requireIdentity` without the provider's `issuer` or without `openid` in the connector's scopes now throws a `config` error at boot (and `start` refuses scopes without `openid`). A grant the callback turns down after the code exchange (a missing scope, or no identity with `requireIdentity`) can be revoked through `revokeUrl`, best effort, with the new `revokeFailedGrants: true` (off by default, because Google's revoke also ends a returning person's existing connection). A provider `issuer` must be non-empty. The identity is read, and its absence logged, only when `openid` was asked for or `requireIdentity` is set. The README describes Google's Testing publishing status accurately.
