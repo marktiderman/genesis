@@ -1,0 +1,41 @@
+.changeset/cli-upgrade-version-docs.md
+  s_1feb538f59bf88::t_d874e1d58fa81a 1-5
+packages/ui/src/components/patterns/auth-form.tsx
+  s_1feb538f59bf88::t_c619879f5f5cff 339-341,344
+  s_1feb538f59bf88::t_ddb641f1dcbac9 32-37,75-76,87-112,115-125,156-157,185,212-225,227,256,273-278,294,316,327-328,334-338,342-343,351-352,365-368,436-455,478,484,486-492,512-523,535,570-573,578,601,727-729,734-809,924,982,1006,1070-1102
+  s_1feb538f59bf88::t_b7e919866c0415 1103
+packages/ui/src/components/patterns/__tests__/auth-form.test.tsx
+  s_1feb538f59bf88::t_af1bd146f0e6ee 662-812
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_30fddacc7ecfc5 521-537
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_ddb641f1dcbac9 277-282,287-290,295,304,309,347-350,365-367
+.changeset/authform-redirect-phone-signup.md
+  s_1feb538f59bf88::t_bc835d711ee19d 1-11
+packages/supabase/src/auth-form-client.ts
+  s_1feb538f59bf88::t_c01f3d8359d376 4,9-12,17-18,51-52,56-61,78-80,82-93,127-129,164,171,178,180,182,191-195,198,200-203,205-214
+packages/supabase/src/__tests__/auth-form-client.test.ts
+  s_1feb538f59bf88::t_d92f12ea2c4c57 53-129
+packages/ui/README.md
+  s_1feb538f59bf88::t_322948a02d56ba 80-96
+packages/supabase/README.md
+  s_1feb538f59bf88::t_f76bb3c243113a 241-244
+  s_1feb538f59bf88::t_6ce300263b2783 205,208-210,213-227
+  s_1feb538f59bf88::t_7c0110d0ee28aa 228
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3678bbbd65cfc0ba5bbb377d92ea9ebfc3a2b40e",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
