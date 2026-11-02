@@ -1,0 +1,31 @@
+.github/workflows/genesis-lint.yml
+  s_1feb538f59bf88::t_173d9aa7718964 43,436-441,443-445,448-455
+.github/workflows/release.yml
+  s_1feb538f59bf88::t_8041ca773cc4f6 320-323
+AGENTS.md
+  s_1feb538f59bf88::t_ba7d236acfb044 10-13
+apps/sample/README.md
+  s_1feb538f59bf88::t_fcc8bf2d3111ca 36-38
+apps/sample/scripts/generate-primitive-docs.ts
+  s_1feb538f59bf88::t_2ffb318c0a1f58 36-40,442,460
+package.json
+  s_1feb538f59bf88::t_4f73d67fe5a28e 40
+scripts/gen-component-reference.mjs
+  s_1feb538f59bf88::t_e8c5556990beb8 30-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "308526e21cb875a55005fc53572c31b4de9b44d7",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
