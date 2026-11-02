@@ -1,0 +1,19 @@
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_1b2a5d6d32dfa4 34,633,712,736,775,805,838,890,914,969,1024,1069,1102,1154,1202,1297,1331,1395,1456,1505,1626,1689,1720,1742,1800,1821,1981,2087,16699,16754,16772,16774,16839
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5baad4567e81358b163d1eb4e16be918803d5f1a",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
