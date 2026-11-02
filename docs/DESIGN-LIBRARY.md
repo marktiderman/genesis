@@ -75,13 +75,15 @@ and an id. `packages/ui-native/figma/NativeAvatar.figma.ts` is the reference tem
 Publish from the repo root:
 
 ```sh
-FIGMA_ACCESS_TOKEN=… npx @figma/code-connect connect publish
+FIGMA_ACCESS_TOKEN=… npx @figma/code-connect connect publish --label React
 ```
 
 The token is a Figma personal access token with the scopes `file_content:read` and
 `file_code_connect:write`. It is never committed; put it in the shell for the publish, or in
-the CI secret the publish job reads. `npx @figma/code-connect connect unpublish` removes a
-mapping; `connect parse` checks the templates without publishing.
+the CI secret the publish job reads. `--label React` is required: a raw template publishes under
+the label "Code" by default, and the label is the framework Figma's plan setting checks (see Plan
+limits), which the admin picker cannot set to "Code". `npx @figma/code-connect connect unpublish`
+removes a mapping; `connect parse` checks the templates without publishing.
 
 The templates folder is not shipped: `packages/ui-native/package.json` `files` lists `dist`,
 `src` and `README.md`, so a template change needs no changeset.
@@ -111,10 +113,14 @@ move the name from `notYet` to `required`. It runs in `pnpm lint:genesis` and in
 ## Plan limits
 
 On Figma's Professional plan, Code Connect has one active library and one active framework
-(ours is "Code"; the templates are React Native, so one is enough), other connections being kept
-but deactivated, and a variable collection has 10 modes, so the Brand collection holds up to ten
-consumer apps. Organization raises modes to 20 and lifts the one-active-library limit (a second
-library would split foundations from components, which we do not need yet), and adds library
-analytics, branching with review and shared fonts; Enterprise has unlimited modes through
-extended collections. Nothing in this setup depends on Organization; move when the eleventh
-brand arrives. (Figma's Code Connect help page and pricing table, read 2026-11-02.)
+(ours is the Genesis · Design System library and React; the templates are React Native, so one
+framework is enough). The framework is the label on the published docs, so the publish passes
+`--label React`. A plan admin sets both in Figma's Admin → Settings → Code Connect; the CLI only
+sets them when the slot is empty, and reports which library or framework is active when it
+refuses. Other connections are kept but deactivated. A variable collection has 10 modes, so the
+Brand collection holds up to ten consumer apps. Organization raises modes to 20 and lifts the
+one-active-library limit (a second library would split foundations from components, which we do
+not need yet), and adds library analytics, branching with review and shared fonts; Enterprise
+has unlimited modes through extended collections. Nothing in this setup depends on
+Organization; move when the eleventh brand arrives. (Figma's Code Connect help page and pricing
+table, read 2026-11-02.)
