@@ -209,6 +209,13 @@ native modules use jest-expo's mocks or their library's own. A test fails when t
 error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see `reports.ts`.
 Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 
+Gestures and animations run in these tests as they are written, worklets and all: Gesture
+Handler's mocks (`react-native-gesture-handler/jestSetup.js`, in `jest.config.js`) and Reanimated's
+test mode (`setUpTests()` in `setup.ts`, its resolver in `resolver.js`). Fire a gesture by its
+`testID` with `fireGestureHandler` and `getByGestureTestId` from
+`react-native-gesture-handler/jest-utils`, and read an animated style with `getAnimatedStyle`;
+`gestures.test.tsx` drags a Pan gesture and checks the shared value it moves.
+
 ## Releasing
 
 `eas.json` and `.eas/workflows/` are the release path on EAS Workflows, and `.maestro/` the smoke

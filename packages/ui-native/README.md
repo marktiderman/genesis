@@ -82,6 +82,28 @@ A route whose only screen is a full-screen `NativeLoadingState` (a redirect or l
 optionally with `Stack.Screen` options) counts as a screen for `native-screen-layout`; one that
 also renders other content, imports it, or uses `fullScreen={false}` still needs a layout.
 
+## Pull to refresh: `ScreenContainer onRefresh`
+
+A screen that isn't a list (a dashboard, a profile) gets pull to refresh from its container, as
+`InboxPage` and `NotificationsPage` have it. `onRefresh` puts a theme-tinted `NativeRefreshControl`
+on the body; `refreshing` shows the spinner. Pulling needs a scroll view, so `onRefresh` makes the
+body scroll (as `scroll` does). Without `onRefresh` nothing changes.
+
+```tsx
+import { ScreenContainer } from "@marktiderman/genesis-ui-native";
+
+<ScreenContainer onRefresh={() => refetch()} refreshing={isRefetching}>{body}</ScreenContainer>;
+```
+
+Lists don't need it: `NativeResourceView` and `InboxPage` refresh themselves.
+
+## Lists as cards: `NativeResourceView mode="grid"` and `renderCard`
+
+`NativeResourceView` draws a view as cards with `mode="grid"` (`numColumns`, default 2), and an
+app's own row or card with `renderCard(row, index, card)`; spread `card.pressableProps` on its
+Pressable for the built-in press, long press and accessibility. Sections, paging, refresh, the
+empty state and swipe actions stay. See docs/RESOURCE-VIEW.md, "Cards and custom rows".
+
 ## Keyboard toolbar
 
 `KeyboardScrollProvider` (from `/layouts`) takes an optional `toolbar`: react-native-keyboard-controller's

@@ -1,5 +1,12 @@
 // NativeResourceView: ResourceView's native renderer (docs/RESOURCE-VIEW.md, "Native").
-export { NativeResourceView, type NativeResourceViewProps, type NativeResourceSwipeableProps } from "./NativeResourceView";
+export {
+  NativeResourceView,
+  type NativeResourceViewProps,
+  type NativeResourceSwipeableProps,
+  type NativeResourceViewMode,
+  type NativeResourceCardActions,
+  type NativeResourceCardPressableProps,
+} from "./NativeResourceView";
 export {
   useNativeResourceView,
   SEARCH_DEBOUNCE_MS,

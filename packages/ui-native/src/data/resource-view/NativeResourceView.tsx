@@ -6,6 +6,8 @@
 //     the `swipeable` slot for the gesture), every refusal with its reason;
 //   - `view.form(mode)` + `view.writable(mode)` → the form sheet, over the row fetched by id,
 //     sending only the writable fields the person changed.
+//   - `mode="grid"` → cards in `numColumns` columns (as the web's `mode="grid"`); `renderCard` →
+//     the app's own row or card, wired by the screen (press, long press, accessibility, swipe).
 // Paging is by cursor on `onEndReached`, search is debounced 300 ms, a delete is optimistic and
 // comes back if the server refuses, and a refusal shows inline in plain words.
 //
@@ -59,6 +61,41 @@ export type NativeResourceSwipeableProps = Omit<InboxPageSlotMap["swipeable"], "
   actions: NativeResourceSwipeAction[];
 };
 
+/** How rows show: a list (the default) or cards in columns, as the web's `mode`. */
+export type NativeResourceViewMode = "list" | "grid";
+
+/**
+ * Spread onto your card's Pressable: the press (the screen's `onRowPress`, else the peek), the
+ * long press (the row's actions), and the label and actions screen readers use. The same wiring
+ * the built-in rows have, so a custom card never hand-rolls it.
+ */
+export interface NativeResourceCardPressableProps {
+  testID: string;
+  accessibilityRole: "button";
+  accessibilityLabel: string;
+  accessibilityActions: { name: string; label: string }[];
+  onAccessibilityAction: (event: { nativeEvent: { actionName: string } }) => void;
+  onPress: () => void;
+  onLongPress: (() => void) | undefined;
+}
+
+/** What `renderCard` gets beside the row: the native counterpart of the web's ResourceCardActions. */
+export interface NativeResourceCardActions {
+  /** `view.summary(row)`: the title, subtitle, chips and picture the built-in row draws. */
+  item: NativeResourceRowItem;
+  /** The row's actions (edit, delete), each refusal with its reason; pressing one acts or explains. */
+  actions: NativeResourceSwipeAction[];
+  /** Opens the row, as pressing a built-in row does. */
+  open: () => void;
+  /** Shows the row's actions in an action sheet (what a long press does). */
+  showActions: () => void;
+  /** Everything above, for a Pressable: `<Pressable {...card.pressableProps}>`. */
+  pressableProps: NativeResourceCardPressableProps;
+  /** First and last in its section (list mode), for rounded group corners and separators. */
+  first: boolean;
+  last: boolean;
+}
+
 export interface NativeResourceViewProps<T extends Row = Row> extends NativeResourceViewOptions<T> {
   view: AnyResourceView<T>;
   /** The heading above the list. Default the view's title; `false` when the navigation bar shows it. */
@@ -75,6 +112,22 @@ export interface NativeResourceViewProps<T extends Row = Row> extends NativeReso
   header?: ReactNode;
   /** Replaces the empty state. */
   emptyState?: ReactNode;
+  /**
+   * `"grid"`: cards in `numColumns` columns, as the web's `mode="grid"`. Sections, paging, pull to
+   * refresh, the empty and error states, long press, accessibility and swipe actions all stay.
+   * Default `"list"`.
+   */
+  mode?: NativeResourceViewMode;
+  /** Columns in grid mode (React Native's FlatList name). Default 2. */
+  numColumns?: number;
+  /**
+   * Draws each row (list) or card (grid) yourself, as the web's `renderCard`. Spread
+   * `card.pressableProps` on your Pressable for the press, long press and accessibility; the
+   * screen still wraps it in `swipeable`. It owns the whole row: no inset group cell or separator
+   * is drawn around it. `index` is the row's place in its section. Pass a stable function
+   * (`useCallback`) so rows redraw only when their data does.
+   */
+  renderCard?: (row: T, index: number, card: NativeResourceCardActions) => ReactNode;
   /** Hide the search box. Shown by default when the view has something to search. */
   searchable?: boolean;
   /**
@@ -125,6 +178,7 @@ export function NativeResourceView<T extends Row = Row>(props: NativeResourceVie
 }
 
 interface RowProps<T extends Row> {
+  view: AnyResourceView<T>;
   row: T;
   first: boolean;
   last: boolean;
@@ -173,6 +227,47 @@ function RowLeading({ picture, testID }: { picture: RowPicture; testID: string }
   );
 }
 
+/** The press, long press and accessibility of one row or card: shared by every way a row draws. */
+function cardFor<T extends Row>(
+  row: T,
+  { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last }: Pick<RowProps<T>, "item" | "actions" | "handlers" | "onPress" | "cancelLabel" | "testID" | "first" | "last">,
+): NativeResourceCardActions {
+  const item: NativeResourceRowItem = itemFor(row);
+  const actions = actionsFor(row, handlers);
+  const chip = item.chips[0];
+  const picture = item.picture;
+  const open = () => onPress(row);
+  const showActions = () => showInboxActions(item.title, actions, cancelLabel);
+  return {
+    item,
+    actions,
+    open,
+    showActions,
+    first,
+    last,
+    pressableProps: {
+      testID: `${testID}-row-${item.id}`,
+      accessibilityRole: "button",
+      accessibilityLabel: [picture?.kind === "image" ? picture.alt : null, item.title, item.subtitle, chip?.label].filter(Boolean).join(", "),
+      accessibilityActions: actions.map((a) => ({ name: a.id, label: a.reason ? `${a.label}: ${a.reason}` : a.label })),
+      onAccessibilityAction: (event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress(),
+      onPress: open,
+      onLongPress: actions.length ? showActions : undefined,
+    },
+  };
+}
+
+/** Wraps a row in the screen's swipe gesture when it has actions and the screen passed one. */
+function withSwipe(content: ReactNode, card: NativeResourceCardActions, Swipeable: ComponentType<NativeResourceSwipeableProps> | undefined) {
+  return card.actions.length && Swipeable ? (
+    <Swipeable actions={card.actions} testID={`${card.pressableProps.testID}-swipe`}>
+      {content}
+    </Swipeable>
+  ) : (
+    content
+  );
+}
+
 /** One row. Memoised: it redraws only when its row or what it reads changes, not per keystroke. */
 const ResourceRow = memo(function ResourceRow<T extends Row>({
   row,
@@ -189,11 +284,11 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
   separator,
   testID,
 }: RowProps<T>) {
-  const item: NativeResourceRowItem = itemFor(row);
-  const actions = actionsFor(row, handlers);
+  const card = cardFor(row, { item: itemFor, actions: actionsFor, handlers, onPress, cancelLabel, testID, first, last });
+  const { item, pressableProps } = card;
   const chip = item.chips[0];
   const picture = item.picture;
-  const rowTestID = `${testID}-row-${item.id}`;
+  const rowTestID = pressableProps.testID;
   const content = (
     <View
       testID={`${rowTestID}-cell`}
@@ -211,15 +306,7 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
           : null,
       ]}
     >
-      <Pressable
-        testID={rowTestID}
-        accessibilityRole="button"
-        accessibilityLabel={[picture?.kind === "image" ? picture.alt : null, item.title, item.subtitle, chip?.label].filter(Boolean).join(", ")}
-        accessibilityActions={actions.map((a) => ({ name: a.id, label: a.reason ? `${a.label}: ${a.reason}` : a.label }))}
-        onAccessibilityAction={(event) => actions.find((a) => a.id === event.nativeEvent.actionName)?.onPress()}
-        onPress={() => onPress(row)}
-        onLongPress={actions.length ? () => showInboxActions(item.title, actions, cancelLabel) : undefined}
-      >
+      <Pressable {...pressableProps}>
         <NativeListItem
           testID={`${rowTestID}-item`}
           title={item.title}
@@ -239,14 +326,90 @@ const ResourceRow = memo(function ResourceRow<T extends Row>({
       {!last ? <View style={{ height: 0.5, marginLeft: 16, backgroundColor: separator }} /> : null}
     </View>
   );
-  return actions.length && Swipeable ? (
-    <Swipeable actions={actions} testID={`${rowTestID}-swipe`}>
-      {content}
-    </Swipeable>
-  ) : (
-    content
-  );
+  return withSwipe(content, card, Swipeable);
 }) as <T extends Row>(props: RowProps<T>) => ReactNode;
+
+type RenderCard<T extends Row> = NonNullable<NativeResourceViewProps<T>["renderCard"]>;
+
+/** A row the app draws (`renderCard`), with the screen's wiring and swipe around it. */
+const CustomRow = memo(function CustomRow<T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) {
+  const card = cardFor(props.row, props);
+  return withSwipe(props.renderCard(props.row, props.index, card), card, props.Swipeable);
+}) as <T extends Row>(props: RowProps<T> & { index: number; renderCard: RenderCard<T> }) => ReactNode;
+
+/** The space between grid cards and around the grid, in points. */
+const GRID_GAP = 12;
+
+/** The built-in grid card: the row's picture, title, subtitle and chip on the surface. */
+function GridCard<T extends Row>(props: RowProps<T>) {
+  const card = cardFor(props.row, props);
+  const { item, pressableProps } = card;
+  const chip = item.chips[0];
+  const content = (
+    <Pressable
+      {...pressableProps}
+      style={{ backgroundColor: props.surface, borderRadius: GROUP_RADIUS, padding: 12, gap: 8, minHeight: 44, flexGrow: 1 }}
+    >
+      {item.picture ? <RowLeading picture={item.picture} testID={pressableProps.testID} /> : null}
+      <NativeText preset="label" numberOfLines={2}>
+        {item.title}
+      </NativeText>
+      {item.subtitle ? (
+        <NativeText preset="body-sm" className="text-muted-foreground" numberOfLines={2}>
+          {item.subtitle}
+        </NativeText>
+      ) : null}
+      {chip ? (
+        <View style={{ flexDirection: "row" }}>
+          <NativeBadge testID={`${pressableProps.testID}-chip`} variant={badgeVariant(chip.tone)}>
+            {chip.label}
+          </NativeBadge>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+  return withSwipe(content, card, props.Swipeable);
+}
+
+/** A grid line: a section's rows `start` to `start + rows.length`, in equal columns. */
+interface GridLine<T> {
+  start: number;
+  rows: T[];
+}
+
+/** One line of the grid. Memoised like a row; the last line keeps its columns' width with spacers. */
+const GridRow = memo(function GridRow<T extends Row>({
+  line,
+  numColumns,
+  sectionSize,
+  renderCard,
+  ...shared
+}: Omit<RowProps<T>, "row" | "first" | "last"> & { line: GridLine<T>; numColumns: number; sectionSize: number; renderCard: RenderCard<T> | undefined }) {
+  const cells = line.rows.map((row, offset) => {
+    const index = line.start + offset;
+    const props = { ...shared, row, first: index === 0, last: index === sectionSize - 1 };
+    return (
+      <View key={recordKey(shared.view as AnyResourceView<Row>, row)} style={{ flex: 1 }}>
+        {renderCard ? <CustomRow<T> {...props} index={index} renderCard={renderCard} /> : <GridCard<T> {...props} />}
+      </View>
+    );
+  });
+  for (let i = line.rows.length; i < numColumns; i += 1) cells.push(<View key={`spacer-${i}`} style={{ flex: 1 }} />);
+  return (
+    <View testID={`${shared.testID}-grid-line-${line.start}`} style={{ flexDirection: "row", gap: GRID_GAP, paddingHorizontal: 16, paddingBottom: GRID_GAP }}>
+      {cells}
+    </View>
+  );
+}) as <T extends Row>(
+  props: Omit<RowProps<T>, "row" | "first" | "last"> & { line: GridLine<T>; numColumns: number; sectionSize: number; renderCard: RenderCard<T> | undefined },
+) => ReactNode;
+
+/** A section's rows cut into grid lines of `numColumns`. */
+function gridLines<T>(rows: T[], numColumns: number): GridLine<T>[] {
+  const lines: GridLine<T>[] = [];
+  for (let start = 0; start < rows.length; start += numColumns) lines.push({ start, rows: rows.slice(start, start + numColumns) });
+  return lines;
+}
 
 function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const {
@@ -258,6 +421,9 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     header,
     emptyState,
     searchable,
+    mode = "list",
+    numColumns: columnsProp,
+    renderCard,
     scopeTimeZone: _zone,
     testID = "native-resource-view",
     ...options
@@ -304,25 +470,47 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const press = useCallback((row: T) => (rowPress.current ? rowPress.current(row) : setPeekId({ row })), []);
   const chevron = !!onRowPress;
 
+  const shared = useMemo(
+    () => ({
+      view,
+      item: itemFor,
+      actions: actionsFor,
+      handlers,
+      onPress: press,
+      chevron,
+      Swipeable,
+      cancelLabel: messages.common.cancel,
+      surface: colors.surface as string,
+      separator: colors.separator as string,
+      testID,
+    }),
+    [view, itemFor, actionsFor, handlers, press, chevron, Swipeable, messages, colors.surface, colors.separator, testID],
+  );
   const renderItem = useCallback(
-    ({ item: row, index, section }: { item: T; index: number; section: NativeResourceSection<T> }) => (
-      <ResourceRow<T>
-        row={row}
-        first={index === 0}
-        last={index === section.data.length - 1}
-        item={itemFor}
-        actions={actionsFor}
-        handlers={handlers}
-        onPress={press}
-        chevron={chevron}
-        Swipeable={Swipeable}
-        cancelLabel={messages.common.cancel}
-        surface={colors.surface as string}
-        separator={colors.separator as string}
-        testID={testID}
-      />
+    ({ item: row, index, section }: { item: T; index: number; section: NativeResourceSection<T> }) => {
+      const props = { ...shared, row, first: index === 0, last: index === section.data.length - 1 };
+      return renderCard ? <CustomRow<T> {...props} index={index} renderCard={renderCard} /> : <ResourceRow<T> {...props} />;
+    },
+    [shared, renderCard],
+  );
+
+  // Grid mode: each section's rows in lines of `numColumns`. SectionList has no columns of its
+  // own, so a line is one item; sections, paging and refresh stay the list's.
+  const numColumns = Math.max(1, Math.floor(columnsProp ?? 2));
+  const grid = mode === "grid";
+  const gridSections = useMemo(
+    () =>
+      grid
+        ? state.sections.map((section) => ({ key: section.key, title: section.title, size: section.data.length, data: gridLines(section.data, numColumns) }))
+        : [],
+    [grid, state.sections, numColumns],
+  );
+  const gridKey = useCallback((line: GridLine<T>) => line.rows.map((row) => keyExtractor(row)).join("|"), [keyExtractor]);
+  const renderGridLine = useCallback(
+    ({ item: line, section }: { item: GridLine<T>; section: { size: number } }) => (
+      <GridRow<T> {...shared} line={line} numColumns={numColumns} sectionSize={section.size} renderCard={renderCard} />
     ),
-    [itemFor, actionsFor, handlers, press, chevron, Swipeable, messages, colors.surface, colors.separator, testID],
+    [shared, numColumns, renderCard],
   );
 
   // Rows are counted only as far as they're loaded, so the header shows the title alone.
@@ -454,9 +642,10 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
     <SafeAreaView testID={testID} edges={["left", "right", "bottom"]} style={{ flex: 1, backgroundColor: colors.groupedBackground }}>
       <SectionList<T, NativeResourceSection<T>>
         testID={`${testID}-list`}
-        sections={state.sections}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
+        // Grid mode hands the list lines of cards in place of rows; everything else is the same list.
+        sections={grid ? (gridSections as unknown as NativeResourceSection<T>[]) : state.sections}
+        keyExtractor={grid ? (gridKey as unknown as (row: T) => string) : keyExtractor}
+        renderItem={grid ? (renderGridLine as unknown as typeof renderItem) : renderItem}
         renderSectionHeader={renderSectionHeader}
         // Rows read their item and actions besides `sections`; they change only with the view,
         // the bin capability or the words, never per keystroke.

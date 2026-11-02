@@ -824,6 +824,45 @@ export const brandRecordView = defineRecordView(brandsView, {
   refusals and optimistic updates with rollback.
 - **Doctor:** `native-screen-layout` counts `NativeResourceView` as a layout.
 
+### Cards and custom rows
+
+<!-- api: NativeResourceViewProps<any>, NativeResourceCardActions -->
+
+The same names as the web's `mode="grid"` and `renderCard`, all opt in. Without them the list is
+exactly as above.
+
+```tsx
+<NativeResourceView view={brandsView} mode="grid" numColumns={3} />
+
+<NativeResourceView
+  view={brandsView}
+  onRowPress={(b) => router.push(`/brands/${b.id}`)}
+  renderCard={(brand, index, card) => (
+    <Pressable {...card.pressableProps}>
+      <BrandTile brand={brand} title={card.item.title} />
+    </Pressable>
+  )}
+/>
+```
+
+- `mode="grid"`: cards in columns, each line one item of the same SectionList, so sections
+  (`groupBy`), cursor paging, pull to refresh, the empty and error states, the peek, long press,
+  accessibility actions and `swipeable` all stay. A card shows the row's picture, title, subtitle
+  and first chip. The last line keeps its columns' width.
+- `numColumns`: columns in grid mode, React Native's FlatList name (the web's `gridCols` takes
+  Tailwind classes instead). Default 2.
+- `renderCard`: draw a row (list) or a card (grid) yourself. It gets the row, its index in its
+  section, and `card` (`NativeResourceCardActions`):
+  - `pressableProps`: spread on a Pressable for the same press (`onRowPress`, else the peek),
+    long press (the row's actions), label and accessibility actions as a built-in row;
+  - `item`: the summary (title, subtitle, chips, picture);
+  - `actions`: edit and delete, each refusal with its reason;
+  - `open` and `showActions`, to wire them yourself;
+  - `first` and `last`: its place in its section.
+
+  It owns the whole row: no inset group cell or separator is drawn around it, and the screen still
+  wraps it in `swipeable` when it has actions. Pass a stable function (`useCallback`) for long lists.
+
 ## Other surfaces (extensions, popups, side panels)
 
 - The view entry has no React and no DOM, so a service worker, content script or server code can

@@ -1,4 +1,4 @@
-// @feat:native-components
+// @feat:native-components @feat:native-resource-view-cards
 /**
  * NativeResourceView: a genesis-core view on native list pieces.
  * - summary → NativeListItem (its subtitle only, never a raw column);
@@ -9,7 +9,9 @@
  * - url and image values go through isSafeUrl (`javascript:` is text);
  * - a calendar day is the same day west of UTC;
  * - a refused delete comes back and says why, inline;
- * - cursor paging and the 300 ms search.
+ * - cursor paging and the 300 ms search;
+ * - `mode="grid"` and `renderCard` keep sections, paging, refresh, the empty state, press,
+ *   long press, accessibility actions and swipe.
  */
 // West of UTC, where `new Date("2026-01-02")` is the 1st. Before any import builds a formatter.
 vi.hoisted(() => {
@@ -64,6 +66,8 @@ import {
   useNativeResourceView,
   validateValues,
   writableValues,
+  type NativeResourceCardActions,
+  type NativeResourceSwipeableProps,
 } from "..";
 
 type Brand = {
@@ -1106,5 +1110,119 @@ describe("row pictures", () => {
     expect(screen.queryByTestId("native-resource-view-row-b1-image")).toBeNull();
     expect(screen.queryByTestId("native-resource-view-row-b1-initials")).toBeNull();
     expect(rowItem(pictured(() => ({ src: "javascript:x" })), ROWS[0]!).picture).toBeNull();
+  });
+});
+
+describe("grid and custom rows", () => {
+  const swipes: string[] = [];
+  const Swipe = ({ actions, testID, children }: NativeResourceSwipeableProps) => {
+    swipes.push(`${testID}:${actions.map((a) => a.id).join(",")}`);
+    return <div data-testid={testID}>{children}</div>;
+  };
+  beforeEach(() => {
+    swipes.length = 0;
+  });
+
+  it("draws cards in numColumns columns, the last line kept at its width", async () => {
+    render(<NativeResourceView view={summaryView} mode="grid" numColumns={2} />, { wrapper: wrap(provider()) });
+    const first = await screen.findByTestId("native-resource-view-grid-line-0");
+    expect(within(first).getByTestId("native-resource-view-row-b1")).toBeTruthy();
+    expect(within(first).getByTestId("native-resource-view-row-b2")).toBeTruthy();
+    const second = screen.getByTestId("native-resource-view-grid-line-2");
+    expect(within(second).getByTestId("native-resource-view-row-b3")).toBeTruthy();
+    // One card and a spacer: the same two columns as the line above.
+    expect(second.children).toHaveLength(2);
+    // A card reads as the row does, with the summary's chip.
+    expect(screen.getByTestId("native-resource-view-row-b1").getAttribute("aria-label")).toBe("Northwind, Since 2026-01-02, Live");
+    expect(screen.getByTestId("native-resource-view-row-b1-chip").textContent).toBe("Live");
+    // No list items in grid mode.
+    expect(screen.queryByTestId("native-resource-view-row-b1-item")).toBeNull();
+  });
+
+  it("keeps sections, press, accessibility actions and swipe in a grid", async () => {
+    const onRowPress = vi.fn();
+    render(<NativeResourceView view={plainView} mode="grid" numColumns={3} onRowPress={onRowPress} swipeable={Swipe} />, { wrapper: wrap(provider()) });
+    // groupBy: status. Each section is its own grid.
+    expect(await screen.findByTestId("native-resource-view-section-active")).toBeTruthy();
+    expect(screen.getByTestId("native-resource-view-section-archived")).toBeTruthy();
+    const card = screen.getByTestId("native-resource-view-row-b1");
+    fireEvent.click(card);
+    expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
+    expect(card.getAttribute("data-a11y-actions")).toBe("edit,delete");
+    act(() => {
+      card.dispatchEvent(new CustomEvent("accessibilityaction", { detail: "delete" }));
+    });
+    expect(alert).toHaveBeenLastCalledWith("Delete", "The default brand stays.");
+    expect(swipes).toContain("native-resource-view-row-b1-swipe:edit,delete");
+  });
+
+  it("defaults to two columns, and never fewer than one", async () => {
+    const { unmount } = render(<NativeResourceView view={summaryView} mode="grid" />, { wrapper: wrap(provider()) });
+    expect(within(await screen.findByTestId("native-resource-view-grid-line-0")).getByTestId("native-resource-view-row-b2")).toBeTruthy();
+    unmount();
+    render(<NativeResourceView view={summaryView} mode="grid" numColumns={0} />, { wrapper: wrap(provider()) });
+    expect(await screen.findByTestId("native-resource-view-grid-line-2")).toBeTruthy();
+  });
+
+  it("keeps the empty state, pull to refresh and paging in a grid", async () => {
+    const getList = vi.fn(async (_r: string, params: ListParams) =>
+      params.pagination?.cursor ? { data: [ROWS[2]!], total: 3, nextCursor: null } : { data: [ROWS[0]!, ROWS[1]!], total: 3, nextCursor: "c2" },
+    );
+    render(<NativeResourceView view={summaryView} mode="grid" perPage={2} />, { wrapper: wrap(provider({ getList: getList as unknown as DataProvider["getList"] })) });
+    await screen.findByTestId("native-resource-view-row-b2");
+    act(() => {
+      screen.getByTestId("native-resource-view-list").dispatchEvent(new Event("endreached"));
+    });
+    expect(await screen.findByTestId("native-resource-view-row-b3")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("native-resource-view-refresh"));
+    await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(2));
+
+    const empty = provider({ getList: vi.fn(async () => ({ data: [], total: 0 })) as unknown as DataProvider["getList"] });
+    render(<NativeResourceView view={summaryView} mode="grid" testID="empty-grid" />, { wrapper: wrap(empty) });
+    expect(await screen.findByTestId("empty-grid-empty")).toBeTruthy();
+  });
+
+  it("draws the app's own rows with renderCard, wired for press, long press, accessibility and swipe", async () => {
+    const onRowPress = vi.fn();
+    const renderCard = vi.fn((row: Brand, index: number, card: NativeResourceCardActions) => (
+      <button type="button" data-testid={card.pressableProps.testID} aria-label={card.pressableProps.accessibilityLabel} onClick={card.pressableProps.onPress} onContextMenu={card.pressableProps.onLongPress}>
+        {`${index}:${card.item.title}:${card.actions.map((a) => a.id).join(",")}:${card.first ? "first" : ""}${card.last ? "last" : ""}`}
+      </button>
+    ));
+    render(<NativeResourceView view={plainView} renderCard={renderCard} onRowPress={onRowPress} swipeable={Swipe} />, { wrapper: wrap(provider()) });
+    const custom = await screen.findByTestId("native-resource-view-row-b1");
+    // Northwind and Fabrikam are the active section; Contoso is alone in archived.
+    expect(custom.textContent).toBe("0:Northwind:edit,delete:first");
+    expect(screen.getByTestId("native-resource-view-row-b3").textContent).toBe("1:Fabrikam:edit,delete:last");
+    expect(screen.getByTestId("native-resource-view-row-b2").textContent).toBe("0:Contoso:edit,delete:firstlast");
+    expect(custom.getAttribute("aria-label")).toBe("Northwind");
+    // The built-in row isn't drawn around it.
+    expect(screen.queryByTestId("native-resource-view-row-b1-cell")).toBeNull();
+    fireEvent.click(custom);
+    expect(onRowPress).toHaveBeenCalledWith(expect.objectContaining({ id: "b1" }));
+    fireEvent.contextMenu(custom);
+    expect(alert).toHaveBeenLastCalledWith("Northwind", undefined, expect.arrayContaining([expect.objectContaining({ text: "Edit" })]));
+    expect(swipes).toContain("native-resource-view-row-b1-swipe:edit,delete");
+  });
+
+  it("opens the peek from a custom card without onRowPress", async () => {
+    const renderCard = (_row: Brand, _index: number, card: NativeResourceCardActions) => (
+      <button type="button" data-testid={card.pressableProps.testID} onClick={card.open}>
+        {card.item.title}
+      </button>
+    );
+    render(<NativeResourceView view={summaryView} renderCard={renderCard} />, { wrapper: wrap(provider()) });
+    fireEvent.click(await screen.findByTestId("native-resource-view-row-b2"));
+    expect((await screen.findByTestId("native-resource-view-peek")).textContent).toContain("Contoso");
+  });
+
+  it("uses renderCard for grid cards too, with each card's index in its section", async () => {
+    const renderCard = (row: Brand, index: number, card: NativeResourceCardActions) => (
+      <span data-testid={`card-${row.id}`}>{`${index}:${card.item.title}`}</span>
+    );
+    render(<NativeResourceView view={summaryView} mode="grid" numColumns={2} renderCard={renderCard} />, { wrapper: wrap(provider()) });
+    const line = await screen.findByTestId("native-resource-view-grid-line-2");
+    expect(within(line).getByTestId("card-b3").textContent).toBe("2:Fabrikam");
+    expect(screen.getByTestId("card-b1").textContent).toBe("0:Northwind");
   });
 });

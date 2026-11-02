@@ -22,6 +22,9 @@ module.exports = {
   preset: "jest-expo",
   // Every test file here is jest's, `.ts` or `.tsx`; vitest.config.mts leaves this folder out.
   testMatch: ["<rootDir>/__tests__/components/**/*.test.{ts,tsx}"],
+  // Gesture Handler's own mocks (its Jest guide), after jest-expo's: gestures fire from tests
+  // with `fireGestureHandler` (react-native-gesture-handler/jest-utils), no native module.
+  setupFiles: [...expoPreset.setupFiles, "react-native-gesture-handler/jestSetup.js"],
   setupFilesAfterEnv: ["<rootDir>/__tests__/components/setup.ts"],
   resolver: "<rootDir>/__tests__/components/resolver.js",
   moduleNameMapper: {
