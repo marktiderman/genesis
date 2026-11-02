@@ -1,0 +1,53 @@
+packages/ui/src/components/data/resource-view/view-list.tsx
+  s_318cb635985f4b::t_474b72fe2273da 1-101
+packages/ui/src/components/data/resource-view/index.ts
+  s_318cb635985f4b::t_7cdedea6bf8cea 8
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_318cb635985f4b::t_e1495b1e455da6 116-117
+  s_318cb635985f4b::t_7158aaf8979323 124,156-157,283-284,290-292
+  s_318cb635985f4b::t_474b72fe2273da 15
+packages/studio/src/views/CalendarView.tsx
+  s_318cb635985f4b::t_c5105a18d18e24 111
+packages/core/src/hooks/index.ts
+  s_318cb635985f4b::t_e1495b1e455da6 70
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_b75ff9f681bc91 550,786-905
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_318cb635985f4b::t_c5105a18d18e24 581,591,593
+  s_318cb635985f4b::t_df03418d6bfc96 563-580,582-590,592,594,626,631,636
+  s_318cb635985f4b::t_50d17fa08da5a5 257,416-421,423-430,432-433,436,439,443-447,450,472,478,521
+  s_318cb635985f4b::t_5b483569ead676 346-347,353,355-361,402
+packages/core/src/hooks/use-live.ts
+  s_318cb635985f4b::t_e1495b1e455da6 60-63
+packages/ui/src/messages-en.ts
+  s_318cb635985f4b::t_50d17fa08da5a5 187-188
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_318cb635985f4b::t_c5105a18d18e24 8,12,130-132,228-246,248-258,292
+  s_318cb635985f4b::t_6b7377eeeddedf 22,177-178,226
+  s_318cb635985f4b::t_e1495b1e455da6 76-81,113,152,167
+  s_318cb635985f4b::t_48b0af0fd2c8c4 227
+.changeset/calendar-patch-list-options.md
+  s_318cb635985f4b::t_d6881171dca01c 1-7
+apps/sample/app/data/primitives.json
+  s_318cb635985f4b::t_1034ad77c4600b 2,10,14454,16086-16092,16156-16162,16184-16190,23874-23943
+apps/sample/demo-coverage.allow.json
+  s_318cb635985f4b::t_f55aef66be23ed 52
+docs/component-reference.md
+  s_318cb635985f4b::t_df99f06493bd61 7,1153,1214,1455,1483,4129,4190,10067,10112-10113,10121,10175-10176
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a25a997ccc352ae9f3b4494dbea7d624ef447cbb",
+  "prompts": {},
+  "sessions": {
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
