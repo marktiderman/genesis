@@ -132,6 +132,8 @@ export async function handle(req: Request, deps: IntakeDeps): Promise<Response> 
         message: a.body,
         route: a.route ?? null,
         app_version: a.appVersion ?? null,
+        // Also its own column when GENESIS_SUPPORT_SEVERITY_COLUMN=true says migration 0003 added it.
+        ...(a.severity && deps.env("GENESIS_SUPPORT_SEVERITY_COLUMN") === "true" ? { severity: a.severity } : {}),
         context,
       });
       if ("error" in created) return refusal(created.error, cors, deps);

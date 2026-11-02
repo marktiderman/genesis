@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 141
+      "count": 143
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -14088,9 +14088,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/calendar/guard.ts",
       "stability": "stable",
-      "summary": "`value` when it's a layout; else `month`, saying so in development.",
-      "primaryComponent": "layoutOr",
+      "summary": "",
+      "primaryComponent": "warnOnce",
       "components": [
+        {
+          "name": "warnOnce",
+          "summary": "",
+          "props": []
+        },
         {
           "name": "layoutOr",
           "summary": "`value` when it's a layout; else `month`, saying so in development.",
@@ -14702,7 +14707,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; unassigned: string; ... 4 more ...; layouts: { ...; }; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 9 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -15561,6 +15566,128 @@
       ]
     },
     {
+      "slug": "printable-agenda",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/PrintableAgenda.tsx",
+      "stability": "beta",
+      "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+      "primaryComponent": "PrintableAgenda",
+      "components": [
+        {
+          "name": "PrintableAgenda",
+          "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+          "props": [
+            {
+              "name": "events",
+              "type": "readonly CalendarEvent<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The sheets, in order: exactly these lanes, each titled by its `label`. Required: a lane's key\nis an id, never a title for a printed page."
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the week printed (default today)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "headingLevel",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "3",
+              "description": "The level of each sheet's heading (the lane's name); its days are one below. Default 3."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for dates and times. Default the runtime's."
+            },
+            {
+              "name": "sections",
+              "type": "readonly PrintableSection[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "Under each lane's week."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The sheets show days with nothing on them too. Default true: a printed week has every day."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "printable-agenda",
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock days are counted on. Default the device's."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over each sheet, before the lane's name."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "1",
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        },
+        {
+          "name": "PrintButton",
+          "summary": "Prints the page (the browser's print dialog). Hidden on the printed page itself.",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The button's words. Default the catalogue's `calendar.print`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "progress",
       "aliases": [],
       "surface": "web",
@@ -16373,6 +16500,13 @@
               "description": "A row's dot colours, when not its lanes'."
             },
             {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say): nothing is fetched. Default true."
+            },
+            {
               "name": "endField",
               "type": "string",
               "required": false,
@@ -16436,6 +16570,13 @@
               "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch when the provider reports a change, as a list's `live` does."
+            },
+            {
               "name": "onAnchorChange",
               "type": "((anchor: string) => void)",
               "required": false,
@@ -16455,6 +16596,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "print",
+              "type": "{ sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the\ncalendar itself: the same rows, scope and filters, with no screen code reading data. Lanes\ncome from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values."
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Supabase select syntax for joined columns (`resourceOptions.select`), sent with each request."
             },
             {
               "name": "showEmptyDays",
@@ -24140,6 +24295,76 @@
         {
           "name": "windowBounds",
           "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "view-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-list.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "filterParams",
+      "components": [
+        {
+          "name": "filterParams",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "useViewListParams",
+          "summary": "The filters, select, enabled and live a screen's options make for a view's list. The list path\n(`useResourceViewProps`) and the calendar path both use it.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, any>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useViewDetailFields",
+          "summary": "The peek's fields: the view's full column list, drawn like the cells (so `when` hides there\ntoo, and the screen's `cells` apply), never every key of the row. Shared by the list and the calendar.",
           "props": []
         }
       ]

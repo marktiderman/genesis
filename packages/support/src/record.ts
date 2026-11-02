@@ -4,7 +4,7 @@
  * record. Platform-neutral; one default of each ships (`createContextCollector`,
  * `createSupabaseSink`), and an app can swap either.
  */
-import { cleanRoute, type FeedbackReportType } from "./contract";
+import { cleanRoute, type FeedbackReportType, type FindingSeverity } from "./contract";
 
 /** What kind of feedback: a bug, an idea, a question or praise. */
 export type FeedbackType = FeedbackReportType;
@@ -14,20 +14,20 @@ export const FEEDBACK_TYPES: readonly FeedbackType[] = ["bug", "idea", "question
 /** Where the person was and what they were running when they sent it. */
 export interface FeedbackContext {
   /** The version signature, `1.4.0 (37) · preview · 3f2a9c1b`. */
-  appVersion?: string;
+  appVersion?: string | undefined;
   /** The screen, as a path. Query strings and fragments are always dropped. */
-  route?: string;
+  route?: string | undefined;
   /** `ios`, `android`, `web`. */
-  platform?: string;
+  platform?: string | undefined;
   /** Model, OS version, locale, screen size, update id… At most 4 KB as JSON. */
-  device?: Record<string, unknown>;
+  device?: Record<string, unknown> | undefined;
   /**
    * Who sent it, for sinks that need it. The Supabase sink ignores it: the
    * database takes the person from the session, never from the request.
    */
-  userId?: string;
+  userId?: string | undefined;
   /** Anything else small (breadcrumbs, a pin on the page). At most 16 KB as JSON. */
-  extra?: Record<string, unknown>;
+  extra?: Record<string, unknown> | undefined;
 }
 
 export type ScreenshotContentType = "image/png" | "image/jpeg" | "image/webp";
@@ -53,6 +53,8 @@ export interface FeedbackRecord {
   /** What the person wrote. */
   message: string;
   title?: string;
+  /** How bad it is, as the sender sees it. */
+  severity?: FindingSeverity | undefined;
   context: FeedbackContext;
   attachments?: FeedbackAttachment[];
 }

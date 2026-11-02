@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 596 components · 4098 other exports · 3302 standalone types across 190 entry points in 29 packages.
+**Totals:** 598 components · 4109 other exports · 3306 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1150,7 +1150,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1213,6 +1213,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1457,7 +1458,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (36)
+### Other exports (37)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1487,6 +1488,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1846,7 +1848,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
-| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
+| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
@@ -4148,7 +4150,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4211,6 +4213,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -8638,10 +8641,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| `ASSET_SIZES` | value | — | _(no summary)_ |
+| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| `FONT_FILES` | value | — | _(no summary)_ |
+| [`FONT_FILES`](../packages/sites/src/web/assets.generated.ts) | const | — | Each self-hosted font file's name under the assets prefix, by its key (`inter-700`). |
 | [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
 | [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |
@@ -9338,7 +9341,7 @@ Support and feedback for Genesis apps, in the app's own Supabase: a feedback rec
 
 **Barrel:** [`packages/support/src/index.ts`](../packages/support/src/index.ts)
 
-### Other exports (38)
+### Other exports (42)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9346,6 +9349,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`attachmentBytes`](../packages/support/src/record.ts) | function | — | The bytes of an attachment, from `bytes` or `base64`. |
 | [`base64ToBytes`](../packages/support/src/record.ts) | function | — | Base64 (or a `data:` URI) to bytes, without `atob` (Hermes, workers, Node all agree). |
+| [`cleanLabel`](../packages/support/src/client.ts) | function | — | An about label as it can be shown: the reporter's (so untrusted), on one line, at most 80 characters, without control or direction-changing (bidi) characters. Null when nothing is left. |
 | [`cleanRoute`](../packages/support/src/contract.ts) | function | — | A route as a path only, safe to store and send: the query string and fragment (tokens, codes, emails) are dropped, and path segments that look private (an email, an id, a long token) become `:email`, `:id` or `:token` (`/users/jane@x.tes... |
 | [`composeCollectors`](../packages/support/src/record.ts) | function | — | Collectors merged left to right (a later one's values win; `device` and `extra` merge by key). |
 | [`CONTRACT_VERSION`](../packages/support/src/contract.ts) | const | — | Bumped only on a shape change. Old clients must keep working. |
@@ -9365,8 +9369,11 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`fill`](../packages/support/src/copy.ts) | function | — | Fills `{name}` placeholders. |
 | [`IntakeError`](../packages/support/src/intake.ts) | class | — | A non-2xx answer (`status` 0: it never arrived). `code` is the function's `error`. |
 | [`isMissingFunction`](../packages/support/src/chat.ts) | function | — | PostgREST's "no such function" (PGRST202) or Postgres's (42883): the block's migration isn't applied. |
+| [`isSitePath`](../packages/support/src/routes.ts) | function | — | Whether a report's route is a path on this site, safe to link: one leading "/", not "//" or "/\\" (another host), no scheme, no whitespace or control characters, and no placeholder segment (":id") where cleanRoute took an id out. |
 | [`isUnread`](../packages/support/src/client.ts) | function | — | True when there is a staff reply newer than the person's last read. |
 | [`LIMITS`](../packages/support/src/contract.ts) | const | — | Text limits, the same as the database's checks. |
+| [`pageOf`](../packages/support/src/client.ts) | function | — | A report's page for people: the about label with the route, else the route. |
+| [`reportHeading`](../packages/support/src/client.ts) | function | — | A report's heading: its title, else its words (the first line, shortened), never just its kind. |
 | [`resolveSupportCopy`](../packages/support/src/copy.ts) | function | — | The catalog with overrides merged over the English. |
 | [`sanitizeContext`](../packages/support/src/record.ts) | function | — | The context as the database takes it: a clean route, short strings, bags under their caps. |
 | [`SUPPORT_BLOCK_ID`](../packages/support/src/block.ts) | const | — | The FeatureId of the support block (features.ts). |
@@ -9447,7 +9454,7 @@ export type { WidgetTypeWire };
 | [`FeedbackLauncher`](../packages/support/src/web/launcher.tsx) | `FeedbackLauncherProps` | — | _(no summary)_ |
 | [`FeedbackPanel`](../packages/support/src/web/feedback-panel.tsx) | `FeedbackPanelProps` | — | _(no summary)_ |
 
-### Other exports (10)
+### Other exports (14)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9457,19 +9464,26 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`canCaptureScreenshot`](../packages/support/src/web/capture.ts) | function | — | Whether this browser can capture the tab at all. |
 | [`captureScreenshot`](../packages/support/src/web/capture.ts) | function | — | One frame of the current tab, or `null` when the person declined or the browser can't. |
 | [`createPinOverlay`](../packages/support/src/web/pin.ts) | function | — | Numbered pins for reports sent from the current path. Re-drawn on navigation, scroll and resize. |
+| [`FEEDBACK_SHORTCUT`](../packages/support/src/web/shortcut.ts) | const | — | The default: ⌘⇧. on a Mac, Ctrl+Shift+. elsewhere. |
+| [`matchesShortcut`](../packages/support/src/web/shortcut.ts) | function | — | Does this key press match the shortcut? |
 | [`mountSupportWidget`](../packages/support/src/web/launcher.tsx) | function | — | Mount the launcher into the page: into `container`, or a new element at the end of `<body>`. Returns the unmount. The page needs Genesis UI's styles. |
 | [`pickPin`](../packages/support/src/web/pin.ts) | function | — | Waits for one click anywhere on the page and returns the pin, or `null` on Escape. The click doesn't reach the page. |
 | [`resolvePin`](../packages/support/src/web/pin.ts) | function | — | Where a pin sits now: on its element if it is still there, else where it was clicked. |
 | [`stableLocator`](../packages/support/src/web/pin.ts) | function | — | A selector for an element that is likely to survive a re-render: its id, else a data-testid. |
 | [`undoMark`](../packages/support/src/web/feedback-panel.tsx) | function | — | Marks without the newest one (by `order`; without it, the last redaction, then the last stroke). |
+| [`useFeedbackDraft`](../packages/support/src/web/feedback-panel.tsx) | function | — | A feedback draft for a host to hold outside the panel (see `FeedbackPanelProps.draft`). |
+| [`useFeedbackShortcut`](../packages/support/src/web/shortcut.ts) | function | — | Opens feedback from anywhere on the page with a key press (default ⌘⇧. / Ctrl+Shift+.). The press counts as the person's gesture, so the panel may ask to capture the tab right away. |
 | [`webContextCollector`](../packages/support/src/web/feedback-panel.tsx) | function | — | The default web collector: the path (never the query string), `web`, and the viewport and language. |
 
-### Types (8)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { FeedbackDraft };
+export type { FeedbackDraftStore };
 export type { FeedbackPin };
+export type { FeedbackShortcut };
 export type { LauncherPosition };
 export type { Marks };
 export type { PinOverlay };
@@ -10102,7 +10116,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (17)
+### Components (19)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10114,6 +10128,8 @@ export type { UiMessagesOverrides };
 | [`DetailPanel`](../packages/ui/src/components/data/DetailPanel.tsx) | `DetailPanelProps` | — | _(no summary)_ |
 | [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
+| [`PrintableAgenda`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintableAgendaProps` | Beta | One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the sheets stack, so a page can show them before printing. Events that name no lane are left out: a sheet is someone's. |
+| [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintButtonProps` | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
 | [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
@@ -10178,7 +10194,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (52)
+### Types (53)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10208,6 +10224,7 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
 export type { PlacedEvent };
+export type { PrintableSection };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };

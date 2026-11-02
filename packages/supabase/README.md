@@ -570,6 +570,10 @@ Functions (templates; copy the folder into `supabase/functions/`):
 
 All three deploy with `verify_jwt = false` (each checks its caller or secret itself).
 
+The intake function keeps a report's severity in its `context`. With genesis-support's migration
+`0003_genesis_support_findings.sql` applied, set `GENESIS_SUPPORT_SEVERITY_COLUMN=true` and it also
+writes the `severity` column.
+
 ### Not covered yet
 
 - Not applied to a hosted project yet: the SQL is pgTAP-tested on a local database and the

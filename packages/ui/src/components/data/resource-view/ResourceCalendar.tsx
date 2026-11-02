@@ -5,21 +5,23 @@
 // the list does, or the screen's `onSelect`.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
 import { dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
-import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
+import { loadRelationLabel, useLiveInvalidation, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
 import { calendarProblems, type ResourceView as View, type ViewCalendar } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
+import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { DetailPanel } from "../DetailPanel";
 import { EventCalendar } from "../calendar/EventCalendar";
-import { calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
+import { calendarLanes, calendarWindow, type CalendarEvent, type CalendarLane, type CalendarLayout } from "../calendar/placement";
+import { PrintableAgenda, type PrintableSection } from "../calendar/PrintableAgenda";
 import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
-import { anchorOr, layoutOr } from "../calendar/guard";
-import { useDisplayCell } from "./display";
+import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
+import { useViewDetailFields } from "./view-list";
 
 type Row = Record<string, unknown>;
 
@@ -66,6 +68,12 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   showEmptyDays?: boolean;
   /** A row was chosen. Default: the view's peek. */
   onSelect?: (row: T) => void;
+  /**
+   * Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the
+   * calendar itself: the same rows, scope and filters, with no screen code reading data. Lanes
+   * come from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values.
+   */
+  print?: { sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5 };
 }
 
 export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCalendarOptions<T> {
@@ -73,6 +81,12 @@ export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCale
   view: View<ResourceContract<any>, T & DataRow>;
   /** Draw some peek fields the screen's own way, by column key (ResourceView's `cells`). */
   cells?: Partial<Record<string, (row: T) => ReactNode>>;
+  /** Supabase select syntax for joined columns (`resourceOptions.select`), sent with each request. */
+  select?: string;
+  /** False while the screen waits (on its scope, say): nothing is fetched. Default true. */
+  enabled?: boolean;
+  /** Refetch when the provider reports a change, as a list's `live` does. */
+  live?: boolean | LiveOptions;
   /** Server filters (the view's scope and the screen's), already as params. */
   filters?: readonly FilterParam[];
   title?: string;
@@ -85,6 +99,25 @@ function displayZone(own: string | undefined, viewer: string | undefined, scope:
   if (own && own !== "viewer" && own !== "scope" && isTimeZone(own)) return own;
   const picked = own === "scope" ? (scope ?? viewer) : viewer;
   return picked && isTimeZone(picked) ? picked : deviceTimeZone();
+}
+
+/** The fields a Supabase select string doesn't fetch (`*` fetches all; `alias:col` fetches col). */
+function selectMissing(select: string, fields: readonly (string | undefined)[]): string[] {
+  const top: string[] = [];
+  let depth = 0;
+  let token = "";
+  for (const ch of select) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      top.push(token);
+      token = "";
+    } else token += ch;
+  }
+  top.push(token);
+  const names = new Set(top.map((t) => t.trim().replace(/\(.*$/s, "").split(":").pop()!.split("::")[0]!.trim()));
+  if (names.has("*")) return [];
+  return fields.filter((f): f is string => Boolean(f) && !names.has(f!));
 }
 
 function withoutUndefined<O extends object>(o: O): Partial<O> {
@@ -104,16 +137,15 @@ function laneKeys(value: unknown): string[] {
  * @stability Beta
  */
 export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarProps<T>) {
-  const { view, filters = [], title, className, cells, testID = "resource-calendar" } = props;
+  const { view, filters = [], title, className, cells, select, enabled = true, live, testID = "resource-calendar" } = props;
   // The view's block, then the screen's settings over it.
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
     field: fieldName, endField, allDayField, layout: layoutProp, layouts, onLayoutChange, weeks = 2, weekStartsOn = 1, timeZone,
-    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect,
+    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
   } = settings;
   const m = useUiMessages();
   const provider = useDataProvider();
-  const cell = useDisplayCell();
   const viewerScope = useOptionalViewerScope();
   if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs a calendar field: the view's calendar.field, or calendar={{ field }}`);
   // The screen's overrides get the checks the view's own block got in defineView. Layout and
@@ -122,6 +154,9 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const problems = calendarProblems(view.contract.fields, configured);
   if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
   const field = view.field(fieldName)!;
+  if (timeZone !== undefined && !isTimeZone(timeZone)) {
+    throw new Error(`ResourceView(${view.resource}): calendar timeZone "${timeZone}" isn't a time zone the runtime knows`);
+  }
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
   const storage = timeStorage(field);
   const endStorage = endField ? timeStorage(view.field(endField)) : storage;
@@ -141,7 +176,14 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // - with an end field, rows that started before it and end inside or after it (a long event that
   //   began weeks ago; no guessing how far back to look). A timestamp end is exclusive, so one
   //   exactly at the window's first midnight is out (`gt`); a date end is the last day (`gte`).
-  const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const } };
+  // A select that leaves out the calendar's own fields makes every event vanish, silently: say so.
+  if (select) {
+    const missing = selectMissing(select, [fieldName, endField, allDayField, lanesOf ? undefined : laneBy]);
+    if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
+  }
+  // Everything the rows depend on except the window: what decides whether the last rows may stand in.
+  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit]);
+  const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
   const starting: ListParams = {
     ...base,
     filters: [...filters, { field: fieldName, operator: "gte", value: from }, { field: fieldName, operator: "lt", value: to }],
@@ -154,8 +196,12 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // rows never mix. Under core's list keys, and shaped like a provider's list (`{ data, total }`),
   // so a save refreshes it and optimistic or undoable writes patch it like any list.
   const query = useQuery({
-    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting] }],
-    placeholderData: keepPreviousData,
+    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting], scope: listScope }],
+    // The last window's rows stay up while the next window loads, but never across a change of
+    // scope or filter: those rows aren't this list's, and shouldn't be shown or opened.
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[2] as { scope?: string } | undefined)?.scope === listScope ? keepPreviousData(previous) : undefined,
+    enabled,
     queryFn: async () => {
       const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
       return {
@@ -165,6 +211,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     },
   });
   const loading = query.isPending || query.isPlaceholderData;
+  // `live`, as a list has it: a change to the resource refetches the calendar.
+  useLiveInvalidation(view.resource, live, enabled, { filters: [...filters] }, resourceKeys(view.resource).all);
   // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
   const rows = useMemo(() => {
     const seen = new Set<string>();
@@ -211,15 +259,59 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     [rows, fieldName, endField, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, view],
   );
 
-  const [open, setOpen] = useState<T | null>(null);
-  const detailFields = useMemo(
+  // The peek holds the record's key and reads the row from the current data, so it shows the row
+  // as it is now (after a save or a refetch), and closes if the row leaves the calendar.
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const open = useMemo(
+    () => (openKey === null ? null : (rows.find((row) => String(encodeRecordKey(view.contract, row as DataRow)) === openKey) ?? null)),
+    [openKey, rows, view],
+  );
+  const detailFields = useViewDetailFields(view, cells);
+
+  // Lanes named by a link (`laneBy` on a field with `references`) are labelled by the linked row's
+  // words, as a relation cell is: never the raw id. Lanes the screen names itself keep its labels.
+  const laneField = laneBy && !lanesOf ? view.field(laneBy) : undefined;
+  const reference = laneField?.references;
+  const linkLabelField = laneBy ? view.definition.fields?.[laneBy as never]?.labelField : undefined;
+  // Each lane's id as stored (a number stays a number), so its label shares the cache entry a
+  // relation cell for the same row uses.
+  const linkedIds = useMemo(() => {
+    if (!reference || !laneBy) return [];
+    const named = new Set((lanes ?? []).map((l) => l.key));
+    const raw = new Map<string, string | number>();
+    for (const row of rows) {
+      const value = row[laneBy];
+      for (const v of Array.isArray(value) ? value : [value]) {
+        if ((typeof v === "string" && v !== "") || (typeof v === "number" && Number.isFinite(v))) {
+          if (!named.has(String(v)) && !raw.has(String(v))) raw.set(String(v), v);
+        }
+      }
+    }
+    return [...raw.values()];
+  }, [reference, laneBy, rows, lanes]);
+  const linkedLabels = useQueries({
+    queries: linkedIds.map((id) => ({
+      queryKey: [reference?.resource, "relation-label", { field: reference?.field, labelField: linkLabelField ?? null, id: `${typeof id}:${String(id)}` }],
+      staleTime: 60_000,
+      retry: false,
+      queryFn: () => loadRelationLabel(provider, reference!, id, linkLabelField),
+    })),
+  });
+  const shownLanes = useMemo(
     () =>
-      view.columns().map((c) => ({
-        key: c.key,
-        label: c.label,
-        render: (_v: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
-      })),
-    [view, cell, cells],
+      reference
+        ? [
+            ...(lanes ?? []),
+            ...linkedIds.map((id, i) => {
+              const q = linkedLabels[i];
+              // Words, never a raw id or a bare ellipsis: "Loading…" while they come, then the
+              // hidden-link words when there are none.
+              return { key: String(id), label: q?.data ?? (q?.isPending ? m.common.loading : m.common.hiddenLink) };
+            }),
+          ]
+        : lanes,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [reference, lanes, linkedIds, linkedLabels.map((q) => q.data ?? (q.isPending ? "" : null)).join("\u0001")],
   );
 
   const switcher =
@@ -244,8 +336,23 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
 
   return (
     <div className={className}>
-      {title && <h2 className="mb-2 text-lg font-semibold">{title}</h2>}
+      {title && <h2 className={cn("mb-2 text-lg font-semibold", print && "print:hidden")}>{title}</h2>}
+      {print && (
+        <PrintableAgenda<T>
+          events={events}
+          lanes={shownLanes ?? calendarLanes(events)}
+          anchor={anchor}
+          weekStartsOn={weekStartsOn}
+          timeZone={zone}
+          {...(print.sections ? { sections: print.sections } : {})}
+          {...(print.title !== undefined ? { title: print.title } : {})}
+          {...(print.headingLevel ? { headingLevel: print.headingLevel } : {})}
+          className="hidden print:block"
+          testID={`${testID}-print`}
+        />
+      )}
       <EventCalendar<T>
+        {...(print ? { className: "print:hidden" } : {})}
         events={events}
         layout={layout}
         anchor={anchor}
@@ -253,7 +360,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         weeks={weeks}
         weekStartsOn={weekStartsOn}
         timeZone={zone}
-        {...(lanes ? { lanes } : {})}
+        {...(shownLanes ? { lanes: shownLanes } : {})}
         {...(showEmptyDays !== undefined ? { showEmptyDays } : {})}
         label={title ?? view.title}
         toolbar={switcher}
@@ -271,14 +378,14 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             )}
           </>
         }
-        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpen(e.row as T))}
+        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpenKey(e.key))}
         loading={loading}
         testID={testID}
       />
       <DetailPanel<T>
         item={open}
         open={open !== null}
-        onClose={() => setOpen(null)}
+        onClose={() => setOpenKey(null)}
         title={open ? view.summary(open as T & DataRow).title : undefined}
         subtitle={open ? view.summary(open as T & DataRow).subtitle : undefined}
         fields={detailFields}
