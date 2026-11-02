@@ -1,0 +1,35 @@
+packages/ui/src/components/data/__tests__/list-options.test.tsx
+  s_6a4659246591cd::t_ec59903e75692c 1-199
+.changeset/ui-list-options.md
+  s_6a4659246591cd::t_fc91ac5f5cde20 1-14
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_6a4659246591cd::t_9171667df84999 156,158-160
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_b7b39f4b06c2c9 12158-12164,12200-12206,12416,12421,12430-12436,12443-12449,14693,17113-17119,17491-17497,17925-17931,18331-18337,18680-18686,19086-19092,19435-19441,19841-19847,22991-22997,23369-23375,23697-23703,24075-24081
+packages/ui/src/components/data/DataTable.tsx
+  s_6a4659246591cd::t_1f8c64b84f733b 59-60,234-244,619-620,1067-1070,1206-1214,1262,1511-1523,1529,1534-1535,1542,1547-1559
+packages/ui/src/components/data/ResourcePage.tsx
+  s_6a4659246591cd::t_d0ed542b360638 16-17,751-763,928-929,1078-1086,1319,1413,1422-1424,1554-1566,1573,1575-1577,1580,1591,1593-1594,1596-1608
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_426e61db98d777 154-181,206,208,212,232,371-382,384-385
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_6a4659246591cd::t_b03c769a01153d 26-38,47,53,65-67
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_9c70ab296b976e 67-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5ae3b1ae5b2970d8f68cd82c35d0131bafcfaff2",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
