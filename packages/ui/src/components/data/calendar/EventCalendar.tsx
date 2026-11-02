@@ -163,6 +163,13 @@ export function EventCalendar<T = unknown>({
   };
   const monthOf = anchor.slice(0, 7);
 
+  // A timed event's start time on its first day; on the last day of one that ran over from an
+  // earlier day, when it ends ("until 2:00 AM"); nothing on all-day days.
+  const timeOf = (p: PlacedEvent<T>): string | undefined => {
+    if (p.allDay) return undefined;
+    if (!p.continued) return typeof p.event.start === "string" ? undefined : fmt.time(p.event.start);
+    return p.event.end instanceof Date ? fillMessage(m.until, { time: fmt.time(p.event.end) }) : undefined;
+  };
   const item = (p: PlacedEvent<T>, compact: boolean, className?: string) => (
     <EventItem
       key={`${p.event.key}@${p.day}`}
@@ -170,7 +177,7 @@ export function EventCalendar<T = unknown>({
       placed={p}
       lanes={lanes}
       compact={compact}
-      time={p.allDay || p.continued || typeof p.event.start === "string" ? undefined : fmt.time(p.event.start)}
+      time={timeOf(p)}
       allDayLabel={m.allDay}
       continuedLabel={m.continued}
       withLabel={m.with}
@@ -295,7 +302,8 @@ function EventItem<T>({ className, placed, lanes, compact, time, allDayLabel, co
       {time ? (
         <span className="shrink-0 tabular-nums text-muted-foreground print:text-foreground">{time}</span>
       ) : (
-        !compact && <span className="shrink-0 text-muted-foreground print:text-foreground">{allDayLabel}</span>
+        // "All day" only for a day the event fills, never the last hours of a timed one.
+        !compact && placed.allDay && <span className="shrink-0 text-muted-foreground print:text-foreground">{allDayLabel}</span>
       )}
       <span className={cn("min-w-0", compact ? "truncate" : "break-words")}>
         {placed.continued && <span className="sr-only">({continuedLabel}) </span>}

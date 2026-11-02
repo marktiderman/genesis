@@ -179,6 +179,8 @@ export const uiMessages = {
     /** A day with nothing on it (agenda and lanes). */
     nothing: "Nothing scheduled",
     allDay: "All day",
+    /** The last day of a timed event that began on an earlier day. `{time}`: when it ends. */
+    until: "until {time}",
     /** A day cell's count, read after its date: "Tuesday, November 3, 2 events". */
     eventsOne: "1 event",
     eventsOther: "{count} events",

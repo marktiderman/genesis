@@ -973,3 +973,55 @@ describe("calendar patch: review of #611", () => {
     await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Ana, Monday, November 2, 2026"));
   });
 });
+
+describe("calendar patch: CodeRabbit findings from the 2.27.0 review", () => {
+  it("says when an overnight event ends on its last day, never \"All day\"", () => {
+    const late: CalendarEvent = { key: "party", title: "Party", start: at("2026-11-03T03:00:00Z"), end: at("2026-11-03T09:00:00Z") };
+    // 20:00 on the 2nd to 02:00 on the 3rd in Denver.
+    render(<EventCalendar events={[late]} layout="agenda" weeks={1} weekStartsOn={0} anchor="2026-11-04" timeZone={Z} locale="en-US" />);
+    const days = screen.getAllByTestId("event-calendar-day");
+    expect(days[0]!.textContent).toContain("8:00");
+    expect(days[1]!.textContent).toContain("until 2:00");
+    expect(days[1]!.textContent).not.toContain("All day");
+  });
+
+  it("keeps the last rows only while the window moves, never across a change of filter", async () => {
+    const { p } = filtering(ROWS);
+    let release: (() => void) | undefined;
+    const getList = p.getList;
+    (p as unknown as { getList: unknown }).getList = vi.fn(async (r: string, params: { filters?: FilterParam[] }) => {
+      // Hold any request filtered to household h2.
+      if (params.filters?.some((f) => f.field === "household_id" && "value" in f && f.value === "h2")) await new Promise<void>((res) => (release = res));
+      return (getList as unknown as (r: string, x: unknown) => Promise<unknown>)(r, params);
+    });
+    const props = { view: eventsView, mode: "calendar" as const, scoped: false, calendar: { anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z } };
+    const { rerender } = render(<ResourceView {...props} filter={{ household_id: "h1" }} />, { wrapper: wrap(p) });
+    expect(await screen.findByText("Swim meet")).toBeTruthy();
+    rerender(<ResourceView {...props} filter={{ household_id: "h2" }} />);
+    // The other household's rows don't stand in while it loads.
+    await waitFor(() => expect(screen.queryByText("Swim meet")).toBeNull());
+    expect(screen.getByTestId("resource-calendar").getAttribute("aria-busy")).toBe("true");
+    release!();
+  });
+
+  it("shows the open record as it is now, after it changes", async () => {
+    let rows = ROWS;
+    const getList = vi.fn(async (_r: string, params: { filters?: FilterParam[] }) => {
+      const { p } = filtering(rows);
+      return (p.getList as unknown as (r: string, x: unknown) => Promise<unknown>)("events", params);
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />
+      </GenesisProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Swim meet/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getAllByText("Swim meet").length).toBeGreaterThan(0);
+    rows = ROWS.map((r) => (r.id === "e1" ? { ...r, title: "Swim gala" } : r));
+    await queryClient.invalidateQueries({ queryKey: ["events"] });
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getAllByText("Swim gala").length).toBeGreaterThan(0));
+  });
+});

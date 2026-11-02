@@ -14456,7 +14456,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; fewer: string; ... 7 more ...; weekOf: string; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 9 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""

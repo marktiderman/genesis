@@ -173,6 +173,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     const missing = selectMissing(select, [fieldName, endField, allDayField, lanesOf ? undefined : laneBy]);
     if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
   }
+  // Everything the rows depend on except the window: what decides whether the last rows may stand in.
+  const listScope = JSON.stringify([filters, select ?? null, fieldName, endField ?? null, limit]);
   const base = { pagination: { page: 1, perPage: limit }, sort: { field: fieldName, order: "asc" as const }, ...(select ? { select } : {}) };
   const starting: ListParams = {
     ...base,
@@ -186,8 +188,11 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // rows never mix. Under core's list keys, and shaped like a provider's list (`{ data, total }`),
   // so a save refreshes it and optimistic or undoable writes patch it like any list.
   const query = useQuery({
-    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting] }],
-    placeholderData: keepPreviousData,
+    queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting], scope: listScope }],
+    // The last window's rows stay up while the next window loads, but never across a change of
+    // scope or filter: those rows aren't this list's, and shouldn't be shown or opened.
+    placeholderData: (previous, previousQuery) =>
+      (previousQuery?.queryKey[2] as { scope?: string } | undefined)?.scope === listScope ? keepPreviousData(previous) : undefined,
     enabled,
     queryFn: async () => {
       const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
@@ -246,7 +251,13 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     [rows, fieldName, endField, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, view],
   );
 
-  const [open, setOpen] = useState<T | null>(null);
+  // The peek holds the record's key and reads the row from the current data, so it shows the row
+  // as it is now (after a save or a refetch), and closes if the row leaves the calendar.
+  const [openKey, setOpenKey] = useState<string | null>(null);
+  const open = useMemo(
+    () => (openKey === null ? null : (rows.find((row) => String(encodeRecordKey(view.contract, row as DataRow)) === openKey) ?? null)),
+    [openKey, rows, view],
+  );
   const detailFields = useViewDetailFields(view, cells);
 
   // Lanes named by a link (`laneBy` on a field with `references`) are labelled by the linked row's
@@ -344,14 +355,14 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             )}
           </>
         }
-        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpen(e.row as T))}
+        onSelect={(e) => (onSelect ? onSelect(e.row as T) : setOpenKey(e.key))}
         loading={loading}
         testID={testID}
       />
       <DetailPanel<T>
         item={open}
         open={open !== null}
-        onClose={() => setOpen(null)}
+        onClose={() => setOpenKey(null)}
         title={open ? view.summary(open as T & DataRow).title : undefined}
         subtitle={open ? view.summary(open as T & DataRow).subtitle : undefined}
         fields={detailFields}
