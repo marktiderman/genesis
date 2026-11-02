@@ -1,7 +1,7 @@
 // scopeValues: a view's scope keys, read from ViewerScope's `scope`, as a screen's `filter`.
 
 import type { ResourceScope } from "../hooks/viewer-scope";
-import { ViewDefinitionError } from "./define-view";
+import { ViewDefinitionError } from "./errors";
 import type { ResourceView } from "./types";
 
 type ScopeValue = string | number | boolean | null;

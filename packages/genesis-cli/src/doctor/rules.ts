@@ -70,6 +70,7 @@ export const BUILTIN_RULES = [
   "overlay-invalid",
   "overlay-age",
   "overlay-version",
+  "overlay-behind",
   // package rules (package-rules.ts): the rules themselves are namespaced, e.g. ui/lists-use-resource-view
   "package-rules-invalid",
   "package-rule-override",
@@ -81,6 +82,8 @@ export const BUILTIN_RULES = [
   "agent-guide-stale",
   // supabase pack: contracts (contracts.ts)
   "contracts-stale",
+  // genesis.lock.json against the files (lock-files.ts)
+  "lock-files",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];

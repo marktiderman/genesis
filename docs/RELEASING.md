@@ -141,6 +141,11 @@ What a release carries for `genesis add`, `migrate` and `upgrade`:
 - **The workflow's bump is generated.** `.github/workflows/genesis-upgrade.yml` embeds
   `packages/genesis-cli/src/upgrade/bump-core.mjs`; after editing it, run
   `node scripts/sync-genesis-bump.mjs` (a test fails until you do).
+- **An upgrade PR isn't done until its overlay checklist is.** `genesis upgrade` rebases each app
+  overlay onto the release (each hunk is shipped upstream, promoted or kept) and prints a checklist
+  into the summary and the pull request; every box is ticked before the PR merges. The doctor's
+  `overlay-behind` flags an overlay left on an older release. A release keeps its
+  `<package>@<version>` git tags, which the rebase reads the source from.
 
 ## A brand-new package
 

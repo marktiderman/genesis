@@ -111,7 +111,6 @@ export const ALLOW = [
   { path: 'packages/forms-react/src/outbox.ts', max: 1, reason: 'web and native hook (no genesis-core dependency yet): move to reportError' },
   { path: 'packages/chat/src/web/attachments.tsx', max: 1, reason: 'web UI: move to reportError' },
   { path: 'packages/chat/src/web/cards.tsx', max: 1, reason: 'web UI: move to reportError' },
-  { path: 'packages/ui/src/components/data/RelationField.tsx', max: 1, reason: 'web UI: move to reportError' },
   { path: 'packages/ui-native/src/data/NativeResourcePage.tsx', max: 1, reason: 'native UI: move to reportError' },
   { path: 'packages/sites/src/editor/asset-picker.tsx', max: 1, reason: 'web editor: move to reportError' },
   { path: 'packages/sites/src/editor/config.tsx', max: 1, reason: 'web editor: move to reportError' },
