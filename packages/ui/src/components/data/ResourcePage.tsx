@@ -840,23 +840,39 @@ let createdToastSeq = 0;
 /**
  * Moves focus to a just-shown toast's action (its Open) once the form that made it has closed and
  * handed focus back to New. Sonner keeps the element focus came from, so Tab or Escape out of the
- * toast, or the toast closing, returns focus to New. Gives up after two seconds (no Toaster
- * mounted, say).
+ * toast, or the toast closing, returns focus to New. It waits for what it depends on, not a guessed
+ * delay: the toast's action mounting, the form's dialog going, and, when a dialog was open, the
+ * form handing focus back (Radix does that just after the dialog unmounts; focusing earlier would
+ * be undone). Gives up after two seconds (no Toaster mounted, say).
  */
 function focusToastAction(marker: string) {
-  if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
-  const until = Date.now() + 2000;
-  const tick = () => {
-    if (Date.now() > until) return;
-    const action = document.querySelector<HTMLButtonElement>(`[data-sonner-toast].${marker} button[data-button]`);
-    if (!action || document.querySelector('[role="dialog"]')) {
-      requestAnimationFrame(tick);
-      return;
-    }
-    // After the form's own focus return, which Radix runs once the dialog has gone.
-    setTimeout(() => action.focus(), 50);
+  if (typeof document === "undefined" || typeof MutationObserver === "undefined") return;
+  const dialogOpen = () => !!document.querySelector('[role="dialog"]');
+  const formWasOpen = dialogOpen();
+  let focusReturned = !formWasOpen;
+  const action = () => document.querySelector<HTMLButtonElement>(`[data-sonner-toast].${marker} button[data-button]`);
+  const stop = () => {
+    observer.disconnect();
+    document.removeEventListener("focusin", onFocusIn);
+    clearTimeout(giveUp);
   };
-  requestAnimationFrame(tick);
+  const tryFocus = () => {
+    const target = action();
+    if (!target || dialogOpen() || !focusReturned) return;
+    stop();
+    target.focus();
+  };
+  const onFocusIn = (event: FocusEvent) => {
+    // The form's focus return to the page, not focus moving inside the closing dialog.
+    if (dialogOpen() || (event.target as Element | null)?.closest?.("[data-sonner-toast]")) return;
+    focusReturned = true;
+    tryFocus();
+  };
+  const observer = new MutationObserver(tryFocus);
+  const giveUp = setTimeout(stop, 2000);
+  observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener("focusin", onFocusIn);
+  tryFocus();
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,10 +1079,15 @@ export function ResourcePage<
    * rows, and focus moved to Open.
    */
   const announceCreated = (row: T) => {
-    const name = titleOf(row);
+    // A title that is only the row's key is no name: say the record's noun (the view's
+    // singular), or "Untitled" when there is none.
+    const title = titleOf(row);
+    const name = title && title !== keyOf(row) ? title : "";
     const said = name
       ? fillMessage(m.form.created, { name })
-      : fillMessage(m.form.createdUnnamed, { noun: noun ?? (resourceName ?? "record").replace(/s$/, "") });
+      : noun
+        ? fillMessage(m.form.createdUnnamed, { noun })
+        : fillMessage(m.form.created, { name: m.common.untitled });
     const canOpen = detail !== "none" && keyOf(row) !== "";
     if (!canOpen) {
       toast.success(said);

@@ -176,6 +176,21 @@ describe("ResourcePage createdToast", () => {
     expect(within(toastEl).queryByRole("button", { name: "Open" })).toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(newButton));
   });
+
+  it("never names the row by its key: the noun, else Untitled", async () => {
+    const { unmount } = renderNotes({ createdToast: true, titleField: "id", noun: "note" }, [{ id: "a1", title: "First" }]);
+    await screen.findByText("First");
+    await createNote("Second");
+    expect(await screen.findByText("Created the note")).toBeTruthy();
+    act(() => {
+      toast.dismiss();
+    });
+    unmount();
+    renderNotes({ createdToast: true, titleField: "id" }, [{ id: "a1", title: "First" }]);
+    await screen.findByText("First");
+    await createNote("Third");
+    expect(await screen.findByText("Created Untitled")).toBeTruthy();
+  });
 });
 
 describe("ResourcePage formTitles words", () => {
