@@ -128,6 +128,22 @@ describe("syncGoogleCalendar", () => {
     expect((none as GoogleCalendarError).code).toBe("aborted");
   });
 
+  it("drops a page whose body was still loading when the signal aborted", async () => {
+    const controller = new AbortController();
+    const fetch = (async () => {
+      const body = new ReadableStream({
+        start(c) {
+          c.enqueue(new TextEncoder().encode('{"items": ['));
+          controller.signal.addEventListener("abort", () => c.error(new DOMException("aborted", "AbortError")));
+        },
+      });
+      queueMicrotask(() => controller.abort());
+      return new Response(body, { status: 200, headers: { "content-type": "application/json" } });
+    }) as typeof globalThis.fetch;
+    const error = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", window, fetch, signal: controller.signal }).catch((e: unknown) => e);
+    expect((error as GoogleCalendarError).code).toBe("aborted");
+  });
+
   it("reads an event left at the calendar's default visibility as the caller says", () => {
     const e = event("v", { visibility: "default" });
     expect(fromGoogleEvent("s", e)!.visibility).toBe("public");

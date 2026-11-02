@@ -224,7 +224,15 @@ async function read(options: GoogleSyncOptions, syncToken: string | null, startP
         headers: { authorization: `Bearer ${options.accessToken}`, accept: "application/json" },
         signal: controller.signal,
       });
-      body = res.ok ? ((await res.json().catch(() => null)) as typeof body) : null;
+      body = null as typeof body;
+      if (res.ok) {
+        try {
+          body = (await res.json()) as typeof body;
+        } catch (error) {
+          // A body cut off by the caller's signal or the page's timeout isn't a bad response.
+          if (controller.signal.aborted) throw error;
+        }
+      }
     } catch {
       if (options.signal?.aborted) return aborted(page);
       throw new GoogleCalendarError("unavailable", null);
