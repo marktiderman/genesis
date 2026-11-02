@@ -1,0 +1,49 @@
+.changeset/calendar-patch-list-options.md
+  s_318cb635985f4b::t_05211f87b9c1bf 7
+packages/ui/src/components/data/calendar/guard.ts
+  s_318cb635985f4b::t_05211f87b9c1bf 11
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_318cb635985f4b::t_17f26d14e6d1cc 7-8
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_318cb635985f4b::t_73c4fa27d0fc47 905-974
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_318cb635985f4b::t_eb9f85340965ec 365-369
+  s_318cb635985f4b::t_17f26d14e6d1cc 609
+  s_318cb635985f4b::t_bf8f1c59bfd0fd 353-355,358-361,420,423-425
+  s_318cb635985f4b::t_b2fafaf710968b 426
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_318cb635985f4b::t_a6c373b0ef3114 257-258,260,262-272,275,288-290
+  s_318cb635985f4b::t_05211f87b9c1bf 21,96-114,171-175
+packages/core/src/hooks/use-live.ts
+  s_318cb635985f4b::t_17f26d14e6d1cc 60-61
+docs/RESOURCE-VIEW.md
+  s_318cb635985f4b::t_05211f87b9c1bf 359-362
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_e7e5e98c70c1bb 13847-13848,13850-13854
+docs/component-reference.md
+  s_318cb635985f4b::t_6284e4bf1ad377 7,1214,1483,4190,10067,10119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d4c399e47d7c5ac10b55ffae195643b11bf46135",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
