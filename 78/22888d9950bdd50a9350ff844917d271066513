@@ -1,0 +1,89 @@
+.changeset/chat-search-sheet-safe-area.md
+  s_1feb538f59bf88::t_3ef96d70c6d3fc 2,5
+.changeset/ui-mobile-overlays.md
+  s_1feb538f59bf88::t_0beecab7323bfe 5-21
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_1feb538f59bf88::t_c8e8bffe8146d1 206-207,209-211
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_6312af20409702 2,12548-12554
+apps/sample/app/routes/design-system.tsx
+  s_1feb538f59bf88::t_52d89e16c1e330 382-383,398
+apps/sample/stories/Dialog.stories.tsx
+  s_1feb538f59bf88::t_3b9bf8e2b70f7b 61-83
+docs/component-reference.md
+  s_1feb538f59bf88::t_69459e31720e9e 7,4651,4663,10001,10013,10933-10946
+packages/chat/src/web/thread.tsx
+  s_1feb538f59bf88::t_ad0300113f711b 721
+packages/connect/CHANGELOG.md
+  s_1feb538f59bf88::t_d01db13b14cac1 3-18
+packages/connect/README.md
+  s_1feb538f59bf88::t_023c809821bf8f 115-125,131-135,175-181,226-234,299-300
+packages/connect/package.json
+  s_1feb538f59bf88::t_aaaa4daea05e66 3
+packages/connect/src/__tests__/oauth.test.ts
+  s_1feb538f59bf88::t_d144694b1d2dea 1080-1091,1104-1105,1110-1125,1128-1159,1161-1163,1188-1190,1213,1215,1226-1229,1231-1390,1403,1406-1413
+packages/connect/src/oauth.ts
+  s_1feb538f59bf88::t_3acc79f0d0a162 194-196,222,224-225,233-236,264,268-282,372-384,542-561,625-626,750-753,839-859,1204-1261,1307-1311,1425-1426,1428,1444-1457,1459-1461,1463,1492-1493,1531
+packages/core/CHANGELOG.md
+  s_1feb538f59bf88::t_132ea6fa516897 3-17
+packages/core/package.json
+  s_1feb538f59bf88::t_948c2ad267d92a 3
+packages/genesis-cli/CHANGELOG.md
+  s_1feb538f59bf88::t_02ff540195aa77 3-8
+packages/genesis-cli/package.json
+  s_1feb538f59bf88::t_d077efd0a387ff 3
+packages/genesis/CHANGELOG.md
+  s_1feb538f59bf88::t_5ad29698bae66e 3-15
+packages/genesis/package.json
+  s_1feb538f59bf88::t_f778c7286fb07f 3
+packages/notifications/CHANGELOG.md
+  s_1feb538f59bf88::t_286318b209f69b 3-11
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_1feb538f59bf88::t_b89f2a8f678a32 206-207,209-211
+packages/notifications/package.json
+  s_1feb538f59bf88::t_886cd10cc3ebb0 3
+packages/studio/CHANGELOG.md
+  s_1feb538f59bf88::t_ffd6901638198f 3-9
+packages/studio/package.json
+  s_1feb538f59bf88::t_7f847d480e7ef8 3
+packages/ui/CHANGELOG.md
+  s_1feb538f59bf88::t_ba93f48ca0ef72 3-20
+packages/ui/SKILL.md
+  s_1feb538f59bf88::t_153535a05d3a30 275-279
+packages/ui/package.json
+  s_1feb538f59bf88::t_13633e9d7a4f48 3
+packages/ui/src/components/data/DetailPanel.tsx
+  s_1feb538f59bf88::t_7c0f7c63e53235 268-270,295-296
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_a07a563f451a73 23,133,146-151,182,191-198,274,276-282,304,306-312,463-468,474
+packages/ui/src/components/data/__tests__/resource-form-phone.test.tsx
+  s_1feb538f59bf88::t_3ce568e33e903b 1-88
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_1feb538f59bf88::t_3287b256b2bcd0 1-186
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_1feb538f59bf88::t_7c99c30c975256 17,42-44
+packages/ui/src/components/ui/dialog.tsx
+  s_1feb538f59bf88::t_420b83808dbbfb 20,28-63,74-78,80,85,87-90,97-104
+packages/ui/src/components/ui/drawer.tsx
+  s_1feb538f59bf88::t_ebe4ccfbc21b30 45-46
+packages/ui/src/components/ui/sheet.tsx
+  s_1feb538f59bf88::t_79dce371487f87 20,30-32,36,38-39,41,75-82
+packages/ui/src/index.ts
+  s_1feb538f59bf88::t_f8e348c884b35f 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7822888d9950bdd50a9350ff844917d271066513",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
