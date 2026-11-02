@@ -1,0 +1,97 @@
+.changeset/chat-search-sheet-safe-area.md
+  s_1feb538f59bf88::t_287546c38723e0 2,5
+.changeset/ui-mobile-overlays.md
+  s_1feb538f59bf88::t_93ba3b89acc109 5-21
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_1feb538f59bf88::t_4bf4f33359ae9d 206-207,209-211
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_ea3cd2909e3552 12613-12619
+apps/sample/app/routes/design-system.tsx
+  s_1feb538f59bf88::t_05fbc4c1922299 382-383,398
+apps/sample/stories/Dialog.stories.tsx
+  s_1feb538f59bf88::t_1a5f93bb22817c 61-83
+docs/component-reference.md
+  s_6a4659246591cd::t_c559f6dbded7ad 7,4670,4682,10018,10030,10950-10963
+packages/chat/src/web/thread.tsx
+  s_1feb538f59bf88::t_88ca63417e882e 721
+packages/connect/CHANGELOG.md
+  s_1feb538f59bf88::t_cf8c9aed642570 3-18
+packages/connect/README.md
+  s_1feb538f59bf88::t_e67f9e8c5a5be4 115-125,131-135,175-181,226-234,299-300
+packages/connect/package.json
+  s_1feb538f59bf88::t_022ade13f74a02 3
+packages/connect/src/__tests__/oauth.test.ts
+  s_1feb538f59bf88::t_b4d59ef8062e2c 1080-1091,1104-1105,1110-1125,1128-1159,1161-1163,1188-1190,1213,1215,1226-1229,1231-1390,1403,1406-1413
+packages/connect/src/oauth.ts
+  s_1feb538f59bf88::t_9ba5d0fd8c7d72 194-196,222,224-225,233-236,264,268-282,372-384,542-561,625-626,750-753,839-859,1204-1261,1307-1311,1425-1426,1428,1444-1457,1459-1461,1463,1492-1493,1531
+packages/core/CHANGELOG.md
+  s_1feb538f59bf88::t_038218a9ee28c2 3-17
+packages/core/package.json
+  s_1feb538f59bf88::t_03b669bac1995a 3
+packages/genesis-cli/CHANGELOG.md
+  s_1feb538f59bf88::t_6db4ca8bffb50a 3-8
+packages/genesis-cli/package.json
+  s_1feb538f59bf88::t_1514537cdd5fcc 3
+packages/genesis/CHANGELOG.md
+  s_1feb538f59bf88::t_23a478ebc133bf 3-15
+packages/genesis/package.json
+  s_1feb538f59bf88::t_eb2410afce33a4 3
+packages/notifications/CHANGELOG.md
+  s_1feb538f59bf88::t_34ef20a72c4df0 3-11
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_1feb538f59bf88::t_dd6340db051d73 206-207,209-211
+packages/notifications/package.json
+  s_1feb538f59bf88::t_1730301171b34f 3
+packages/studio/CHANGELOG.md
+  s_1feb538f59bf88::t_6f662f9379527a 3-9
+packages/studio/package.json
+  s_1feb538f59bf88::t_1b5d505bfd4971 3
+packages/ui/CHANGELOG.md
+  s_1feb538f59bf88::t_3bb45f3d7537e3 3-20
+packages/ui/SKILL.md
+  s_1feb538f59bf88::t_069a35fb1ba0b6 275-279
+packages/ui/package.json
+  s_1feb538f59bf88::t_103cc7677ddfe9 3
+packages/ui/src/components/data/DetailPanel.tsx
+  s_1feb538f59bf88::t_3da12137f00969 268-270,295-296
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_5f5b0718d35233 23,133,146-151,182,191-198,274,276-282,304,306-312,463-468,474
+packages/ui/src/components/data/__tests__/resource-form-phone.test.tsx
+  s_1feb538f59bf88::t_8079f5c872c365 1-88
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_1feb538f59bf88::t_a246b1b4232746 1-186
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_1feb538f59bf88::t_d2ca258ab24d31 17,42-44
+packages/ui/src/components/ui/dialog.tsx
+  s_1feb538f59bf88::t_7147f5d1105c8d 20,28-63,74-78,80,85,87-90,97-104
+packages/ui/src/components/ui/drawer.tsx
+  s_1feb538f59bf88::t_85b10d0b2eafcb 45-46
+packages/ui/src/components/ui/sheet.tsx
+  s_1feb538f59bf88::t_40b514f73263b6 20,30-32,36,38-39,41,75-82
+packages/ui/src/index.ts
+  s_1feb538f59bf88::t_a029ef77e8186f 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "345711841e876a9853d83a7efd397f19cbd5c2a2",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
