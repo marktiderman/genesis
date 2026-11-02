@@ -329,6 +329,7 @@ export function AuthForm({
     if (isDevelopment()) {
       // The same code also comes back when email codes are off for the whole project, and then no
       // email is ever sent. Say so to the developer; never to the person signing in.
+      // genesis-allow-console: a development-only hint for the developer, never shown to the person.
       console.warn(
         "AuthForm: Auth answered otp_disabled, shown as sent. If no email arrives, check that email OTP is on in the project's Auth settings.",
       );
