@@ -254,13 +254,26 @@ feature id, vote counts and read receipts are the server's. See the migration's 
   hook names who else handles a report besides staff (a team that owns the screen, say). They read
   it and its screenshots, reply as support and set its status; they don't observe its
   support-chat thread, so internal notes stay staff-only.
-- The verify loop: when someone else marks a report addressed, its person is asked in the thread to
-  check the fix (once an hour at most; that reply isn't counted against anyone's limit), and
-  `support_verify_report` confirms it (`verified_at`) or reopens it (`in_progress`, `reopened_at`).
+- The verify loop: `support_verify_report` lets the person confirm a fix (`verified_at`) or reopen
+  the report (`in_progress`, `reopened_at`). Addressed and wont_fix stamp `resolved_at`.
+- The verify prompt, off by default. Turn it on with your hook:
+
+  ```sql
+  create function private.genesis_support_verify_prompt_enabled() returns boolean
+  language sql stable set search_path = '' as $$ select true $$;
+  revoke execute on function private.genesis_support_verify_prompt_enabled() from public, anon, authenticated;
+  ```
+
+  Then when someone else marks a report addressed, its person is asked in the thread to check the
+  fix (once an hour at most; the reply has `prompt = 'verify'` and isn't counted against anyone's
+  limit). It is a staff reply: it marks the report unread for its person, ends their editing, and
+  with support-chat is pushed as the marker's message. If it can't be posted, the status change
+  still goes through without it.
 
 It also replaces the reply trigger that `0002_genesis_support_email.sql` (support-email) replaces;
 its version keeps the email rules when that block is already installed. Adding support-email after
-it, re-apply 0003's `genesis_support_new_reply` afterwards.
+it, handlers can't reply (their status changes still work, without the prompt) until 0003's
+`genesis_support_new_reply` is applied again.
 
 ## Not yet
 

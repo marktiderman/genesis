@@ -2,14 +2,15 @@
 -- pgTAP test for 0003_genesis_support_findings.sql (after 0006_genesis_support.sql). Copy into
 -- your app's `supabase/tests/database/` and run `supabase test db`. It writes only its own
 -- users, reports and replies and rolls everything back. If your app already has the staff hook
--- (`private.genesis_support_staff`) or the handler hook (`private.genesis_support_report_handler`),
--- they are replaced inside this transaction only.
+-- (`private.genesis_support_staff`), the handler hook (`private.genesis_support_report_handler`)
+-- or the verify prompt hook (`private.genesis_support_verify_prompt_enabled`), they are replaced
+-- inside this transaction only, as is the reply trigger function (to stand for a later rule).
 --
 -- People: a1 reports, b2 is someone else, c3 is staff, d4 handles a1's first report (the app's
 -- hook says so), nobody else's.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(32);
 
 insert into auth.users (id, aud, role, email, instance_id)
 select ('00000000-0000-4000-8000-0000000003' || n)::uuid, 'authenticated', 'authenticated',
@@ -54,6 +55,10 @@ select ok(
   and not has_function_privilege('anon', 'public.support_verify_report(uuid, boolean, text)', 'execute')
   and has_function_privilege('authenticated', 'public.support_verify_report(uuid, boolean, text)', 'execute'),
   'the handler check is the database''s, and anon calls nothing'
+);
+select ok(
+  not has_column_privilege('authenticated', 'public.support_replies', 'prompt', 'insert'),
+  'nobody writes a reply as the system''s'
 );
 
 -- Severity ----------------------------------------------------------------------------
@@ -107,13 +112,32 @@ select ok(not public.support_handles(pg_temp.id('r1')), 'someone else doesn''t h
 reset role;
 
 -- The verify loop -----------------------------------------------------------------------
+drop function if exists private.genesis_support_verify_prompt_enabled();
+
 select pg_temp.sign_in('d4');
 set local role authenticated;
 select public.support_set_report_status(pg_temp.id('r1'), 'addressed');
 reset role;
 select isnt((select resolved_at from public.support_reports where id = pg_temp.id('r1')), null, 'marked addressed, it is stamped');
-select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and from_staff and body like 'This is marked fixed.%'), 1,
-  'and its person is asked to check the fix');
+select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and prompt is not null), 0,
+  'without the app''s hook, nobody is asked to check the fix');
+
+-- The app turns the prompt on.
+create function private.genesis_support_verify_prompt_enabled() returns boolean
+language sql stable set search_path = '' as $$ select true $$;
+revoke execute on function private.genesis_support_verify_prompt_enabled() from public, anon, authenticated;
+
+select pg_temp.sign_in('d4');
+set local role authenticated;
+select public.support_set_report_status(pg_temp.id('r1'), 'in_progress');
+reset role;
+select is((select resolved_at from public.support_reports where id = pg_temp.id('r1')), null, 'back in progress, no longer resolved');
+select pg_temp.sign_in('d4');
+set local role authenticated;
+select public.support_set_report_status(pg_temp.id('r1'), 'addressed');
+reset role;
+select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and from_staff and prompt = 'verify'), 1,
+  'with the hook on, its person is asked to check the fix, as the system');
 
 -- Flipped back and forth within the hour: asked once.
 select pg_temp.sign_in('d4');
@@ -121,7 +145,7 @@ set local role authenticated;
 select public.support_set_report_status(pg_temp.id('r1'), 'in_progress');
 select public.support_set_report_status(pg_temp.id('r1'), 'addressed');
 reset role;
-select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and body like 'This is marked fixed.%'), 1,
+select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and prompt = 'verify'), 1,
   'a status flipped back and forth asks once an hour');
 
 select pg_temp.sign_in('b2');
@@ -154,6 +178,42 @@ select public.support_verify_report(pg_temp.id('r1'), true);
 reset role;
 select ok((select status = 'addressed' and verified_at is not null from public.support_reports where id = pg_temp.id('r1')),
   'fixed: it stays addressed, confirmed');
+
+-- Won't fix is resolved too.
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select public.support_set_report_status(pg_temp.id('r2'), 'wont_fix');
+reset role;
+select isnt((select resolved_at from public.support_reports where id = pg_temp.id('r2')), null, 'marked won''t fix, it is stamped');
+
+-- A reply rule installed later that refuses the prompt (support-email's 0002 applied after this
+-- file lets only staff reply on someone else's report) never blocks the status change.
+select pg_temp.sign_in('c3');
+set local role authenticated;
+select public.support_set_report_status(pg_temp.id('r1'), 'in_progress');
+reset role;
+delete from public.support_replies where report_id = pg_temp.id('r1') and prompt = 'verify';
+create or replace function private.genesis_support_new_reply() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare owner uuid;
+begin
+  select r.user_id into owner from public.support_reports r where r.id = new.report_id;
+  if auth.uid() is null or owner is null or (owner <> auth.uid() and not public.support_is_staff()) then
+    raise exception 'support: not your report' using errcode = '42501';
+  end if;
+  new.author_id := auth.uid();
+  new.from_staff := public.support_is_staff() and owner <> auth.uid();
+  new.created_at := clock_timestamp();
+  return new;
+end $$;
+select pg_temp.sign_in('d4');
+set local role authenticated;
+select lives_ok($$ select public.support_set_report_status(pg_temp.id('r1'), 'addressed') $$,
+  'a handler still marks it addressed when a later reply rule refuses the prompt');
+reset role;
+select is((select status from public.support_reports where id = pg_temp.id('r1')), 'addressed', 'the status change is kept');
+select is((select count(*)::int from public.support_replies where report_id = pg_temp.id('r1') and prompt = 'verify'), 0,
+  'without the prompt');
 
 select * from finish();
 rollback;

@@ -12,16 +12,24 @@
 --                   boolean; it is optional, and without it only staff handle reports. Handlers
 --                   don't observe a report's support-chat thread (staff-only internal notes
 --                   stay staff-only); their replies reach it as support.
---   verify loop     A report someone else marks addressed asks its person, in its thread, to
---                   check the fix (at most once an hour per report; that reply is the system's
---                   and doesn't count against anyone's reply limit). The person confirms it
---                   (verified_at) or reopens it (back to in_progress, reopened_at) with
---                   support_verify_report.
+--   verify loop     The person confirms a fix (verified_at) or reopens the report (back to
+--                   in_progress, reopened_at) with support_verify_report. Marking a report
+--                   addressed or wont_fix stamps resolved_at.
+--   verify prompt   Off unless the app turns it on with its hook
+--                   `private.genesis_support_verify_prompt_enabled()` returning true: then a
+--                   report someone else marks addressed asks its person, in its thread, to check
+--                   the fix (at most once an hour per report). That reply is the system's
+--                   (support_replies.prompt = 'verify'): it doesn't count against anyone's reply
+--                   limit. It is a staff reply, so it marks the report unread for its person,
+--                   ends their editing, and with support-chat is pushed as the marker's message.
+--                   If it can't be posted (a reply rule that refuses it, a limit), the status
+--                   change still goes through without it.
 --
 -- The support-email block (`0002_genesis_support_email.sql`) also replaces
 -- private.genesis_support_new_reply. This file's version keeps the email channel's rules when
--- that block is already installed; if support-email is added after this file, re-apply this
--- file's genesis_support_new_reply afterwards so handlers and the system reply keep working.
+-- that block is already installed; if support-email is added after this file, handlers can no
+-- longer reply (status changes still work, without the prompt) until this file's
+-- genesis_support_new_reply is applied again.
 --
 -- Never edit it once applied; change it with a new migration.
 --
@@ -38,7 +46,7 @@ alter table public.support_reports
 comment on column public.support_reports.severity is
   'How bad it is, as the person sent it: low, medium, high or critical. Genesis support.';
 comment on column public.support_reports.resolved_at is
-  'When it was last marked addressed (cleared when it is reopened). Genesis support.';
+  'When it was last marked addressed or wont_fix (cleared when it is reopened). Genesis support.';
 comment on column public.support_reports.verified_at is
   'When its person confirmed the fix. Genesis support.';
 comment on column public.support_reports.reopened_at is
@@ -46,6 +54,13 @@ comment on column public.support_reports.reopened_at is
 
 -- The person sends it with the report.
 grant insert (severity) on table public.support_reports to authenticated;
+
+-- A reply the system posted, and which: only the database writes it (no column grant).
+alter table public.support_replies
+  add column if not exists prompt text constraint support_replies_prompt check (prompt in ('verify'));
+
+comment on column public.support_replies.prompt is
+  'Set on a reply the system posted: verify (asks the person to check a fix). Genesis support.';
 
 -- Handlers ----------------------------------------------------------------------------
 
@@ -119,8 +134,8 @@ create policy support_replies_send on public.support_replies
   );
 
 -- Who wrote a reply, and whether as support, come from the session. A handler writes as support
--- on someone else's report. A reply the system posts (genesis_support_ask_to_verify) isn't
--- counted against the limit. With the support-email block installed, server code may write on
+-- on someone else's report. A reply the system posts (genesis_support_ask_to_verify, with
+-- `prompt` set, which no person can write) isn't counted against the limit. With the support-email block installed, server code may write on
 -- an email ticket and a ticket without a person takes support's replies only, as that block has it.
 create or replace function private.genesis_support_new_reply()
 returns trigger
@@ -162,7 +177,7 @@ begin
     new.from_staff := handles and report.user_id <> me;
   end if;
   new.created_at := clock_timestamp();
-  if coalesce(current_setting('genesis_support.system_reply', true), '') <> 'on' then
+  if new.prompt is null then
     perform private.genesis_support_rate_limit(me, 'reply', 60, interval '1 hour');
   end if;
   return new;
@@ -171,7 +186,7 @@ $$;
 
 revoke execute on function private.genesis_support_new_reply() from public, anon, authenticated;
 
--- Screenshots: a handler reads an attached one too (paths are <user id>/<report id>/…).
+-- Screenshots: a handler of the report the attachment row belongs to reads it too.
 create or replace function public.support_can_read(object_name text, uploaded_at timestamptz)
 returns boolean
 language sql
@@ -180,10 +195,10 @@ security definer
 set search_path = ''
 as $$
   select auth.uid() is not null and (
-    exists (select 1 from public.support_attachments a where a.path = object_name)
-      and (split_part(object_name, '/', 1) = auth.uid()::text or public.support_is_staff()
-           or (split_part(object_name, '/', 2) ~ '^[0-9a-f-]{36}$'
-               and private.genesis_support_handler(split_part(object_name, '/', 2)::uuid, auth.uid())))
+    exists (select 1 from public.support_attachments a
+             where a.path = object_name
+               and (split_part(object_name, '/', 1) = auth.uid()::text or public.support_is_staff()
+                    or private.genesis_support_handler(a.report_id, auth.uid())))
     or (split_part(object_name, '/', 1) = auth.uid()::text and uploaded_at > now() - interval '1 hour')
   )
 $$;
@@ -217,7 +232,7 @@ comment on function public.support_set_report_status(uuid, text, text) is
 
 -- The verify loop ---------------------------------------------------------------------
 
--- Addressed: stamped, and not yet verified. Back to open or in progress: both cleared.
+-- Addressed or wont_fix: stamped, and not yet verified. Back to open or in progress: cleared.
 create or replace function private.genesis_support_resolution()
 returns trigger
 language plpgsql
@@ -225,10 +240,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.status = 'addressed' and old.status is distinct from 'addressed' then
+  if new.status in ('addressed', 'wont_fix') and old.status is distinct from new.status then
     new.resolved_at := now();
     new.verified_at := null;
-  elsif old.status = 'addressed' and new.status in ('open', 'submitted', 'in_progress') then
+  elsif old.status in ('addressed', 'wont_fix') and new.status in ('open', 'submitted', 'in_progress') then
     new.resolved_at := null;
     new.verified_at := null;
   end if;
@@ -242,9 +257,12 @@ create trigger genesis_support_resolution
   before update of status on public.support_reports
   for each row execute function private.genesis_support_resolution();
 
--- Someone other than the person marked it addressed (a reply needs a session): ask them to
--- check it, at most once an hour per report, so a status flipped back and forth can't flood
--- the thread. The reply is the system's: it doesn't count against the marker's reply limit.
+-- The verify prompt, only when the app's hook turns it on: someone other than the person marked
+-- it addressed (a reply needs a session), so ask them to check it, at most once an hour per
+-- report, so a status flipped back and forth can't flood the thread. The reply is the system's
+-- (prompt = 'verify'): it doesn't count against the marker's reply limit. If a reply rule
+-- refuses it (support-email's trigger applied after this file refuses a handler) or a limit
+-- stops it, the status change still goes through, without the prompt.
 create or replace function private.genesis_support_ask_to_verify()
 returns trigger
 language plpgsql
@@ -252,15 +270,30 @@ security definer
 set search_path = ''
 as $$
 begin
-  if auth.uid() is not null and auth.uid() <> new.user_id
-     and not exists (select 1 from public.support_replies r
-                      where r.report_id = new.id and r.from_staff
-                        and r.body like 'This is marked fixed.%' and r.created_at > now() - interval '1 hour') then
-    perform set_config('genesis_support.system_reply', 'on', true);
-    insert into public.support_replies (report_id, body)
-    values (new.id, 'This is marked fixed. Please check it: confirm the fix, or reopen it if it isn''t fixed.');
-    perform set_config('genesis_support.system_reply', 'off', true);
+  -- A status set directly is depth 1; through support-chat's conversation sync, 2. Deeper is a
+  -- loop of triggers, never a person marking a fix.
+  if pg_trigger_depth() > 2 then
+    return null;
   end if;
+  -- Two statements: one SQL expression may evaluate the call even when the hook is missing.
+  if to_regprocedure('private.genesis_support_verify_prompt_enabled()') is null then
+    return null;
+  end if;
+  if not coalesce(private.genesis_support_verify_prompt_enabled(), false) then
+    return null;
+  end if;
+  if auth.uid() is null or auth.uid() = new.user_id
+     or exists (select 1 from public.support_replies r
+                 where r.report_id = new.id and r.prompt = 'verify' and r.created_at > now() - interval '1 hour') then
+    return null;
+  end if;
+  begin
+    insert into public.support_replies (report_id, body, prompt)
+    values (new.id, 'This is marked fixed. Please check it: confirm the fix, or reopen it if it isn''t fixed.', 'verify');
+  exception
+    when insufficient_privilege or sqlstate 'GS429' then
+      raise log 'genesis-support: the verify prompt for report % was not posted (%)', new.id, sqlerrm;
+  end;
   return null;
 end;
 $$;
