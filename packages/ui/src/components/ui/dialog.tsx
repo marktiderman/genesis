@@ -39,18 +39,25 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
  */
 export type DialogMobileLayout = "sheet" | "fullscreen" | "center";
 
-// The desktop box. Every class is behind `sm:` so the phone layouts below never fight it.
-const DIALOG_DESKTOP =
-  "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:h-auto sm:w-full sm:max-w-lg sm:max-h-[calc(100dvh-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:border sm:p-6 sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]";
+// The desktop box's padding, border and width are unprefixed classes, as they have always been,
+// so a caller's `p-0` or `max-w-2xl` still wins at every size; only what a phone layout moves
+// (position, height, corners, motion) is undone behind `sm:`. The safe-area paddings below
+// equal `p-6` on a screen without insets.
+const DIALOG_RECENTER =
+  "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95 sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%] sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]";
 
-const DIALOG_MOBILE: Record<DialogMobileLayout, string> = {
-  sheet:
-    "inset-x-0 bottom-0 max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] rounded-t-xl border-t pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
-  fullscreen:
-    "inset-0 h-[100dvh] content-start pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
-  // Today's phone dialog (square corners, the same zoom and slide), plus the height cap.
+const DIALOG_LAYOUT: Record<DialogMobileLayout, string> = {
+  sheet: cn(
+    "inset-x-0 bottom-0 max-w-none max-h-[calc(100dvh-env(safe-area-inset-top)-0.5rem)] rounded-t-xl pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+    DIALOG_RECENTER
+  ),
+  fullscreen: cn(
+    "inset-0 max-w-none h-[100dvh] content-start pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+    DIALOG_RECENTER
+  ),
+  // The centred box dialogs have always been, plus the height cap.
   center:
-    "left-[50%] top-[50%] max-w-[calc(100%-2rem)] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] translate-x-[-50%] translate-y-[-50%] border data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+    "left-[50%] top-[50%] max-h-[calc(100dvh-2rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] sm:max-h-[calc(100dvh-2rem)] translate-x-[-50%] translate-y-[-50%] sm:rounded-lg data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
 };
 
 const DialogContent = React.forwardRef<
@@ -78,17 +85,22 @@ const DialogContent = React.forwardRef<
       className={cn(
         // Shared by every size: a grid that scrolls inside itself when its content is taller
         // than the screen, so the actions at the bottom can always be reached.
-        "fixed z-50 grid w-full gap-4 overflow-y-auto overscroll-contain border-border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none",
-        DIALOG_MOBILE[mobileLayout],
-        DIALOG_DESKTOP,
+        "fixed z-50 grid w-full max-w-[calc(100%-2rem)] sm:max-w-lg gap-4 overflow-y-auto overscroll-contain border border-border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 motion-reduce:animate-none",
+        DIALOG_LAYOUT[mobileLayout],
         className
       )}
       {...props}
     >
       {children}
       {showCloseButton && (
-        // A 44px hit area around the 16px icon, so it can be tapped on a phone.
-        <DialogPrimitive.Close className="absolute right-1 top-1 inline-flex size-11 items-center justify-center rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none motion-reduce:transition-none">
+        // A 44px hit area around the 16px icon, so it can be tapped on a phone. Full screen, the
+        // dialog's top edge is the screen's, so the button clears the notch itself.
+        <DialogPrimitive.Close
+          className={cn(
+            "absolute right-1 inline-flex size-11 items-center justify-center rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none motion-reduce:transition-none",
+            mobileLayout === "fullscreen" ? "top-[max(0.25rem,env(safe-area-inset-top))]" : "top-1"
+          )}
+        >
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

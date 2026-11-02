@@ -9,7 +9,7 @@
  * - nothing animates when the person has asked for reduced motion.
  */
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "../dialog";
 import {
   AlertDialog,
@@ -25,6 +25,8 @@ function classesOf(el: Element | null): string[] {
 
 describe("DialogContent on a phone", () => {
   function renderDialog(props: Partial<React.ComponentProps<typeof DialogContent>> = {}) {
+    // One dialog at a time, so a test can render each layout in turn.
+    cleanup();
     render(
       <Dialog open>
         <DialogContent data-testid="content" {...props}>
@@ -66,9 +68,25 @@ describe("DialogContent on a phone", () => {
 
   it("keeps the centred box from sm up", () => {
     const cls = classesOf(renderDialog());
-    expect(cls).toContain("sm:left-[50%]");
+    expect(cls).toContain("left-[50%]");
     expect(cls).toContain("sm:max-w-lg");
     expect(cls).toContain("sm:max-h-[calc(100dvh-2rem)]");
+    for (const layout of ["sheet", "fullscreen"] as const) {
+      const moved = classesOf(renderDialog({ mobileLayout: layout }));
+      expect(moved).toContain("sm:left-[50%]");
+      expect(moved).toContain("sm:max-w-lg");
+      expect(moved).toContain("sm:rounded-lg");
+    }
+  });
+
+  it("lets a caller's plain padding and width win at every size, in every layout", () => {
+    for (const layout of ["center", "sheet", "fullscreen"] as const) {
+      const cls = classesOf(renderDialog({ mobileLayout: layout, className: "p-0 max-w-2xl" }));
+      expect(cls).toContain("p-0");
+      expect(cls.filter((c) => /^(sm:)?p[tb]?-/.test(c) && c !== "p-0")).toEqual([]);
+      expect(cls).toContain("max-w-2xl");
+      expect(cls.some((c) => c.startsWith("sm:") && c.includes("border"))).toBe(false);
+    }
   });
 
   it("docks to the bottom as a sheet when asked, scrolling inside the safe areas", () => {
@@ -93,6 +111,13 @@ describe("DialogContent on a phone", () => {
     expect(cls).toContain("inset-0");
     expect(cls).toContain("h-[100dvh]");
     expect(cls.some((c) => c.startsWith("pt-[") && c.includes("safe-area-inset-top"))).toBe(true);
+  });
+
+  it("keeps the close button clear of the notch when full screen", () => {
+    renderDialog({ mobileLayout: "fullscreen" });
+    const cls = classesOf(screen.getByText("Close").closest("button"));
+    expect(cls).toContain("top-[max(0.25rem,env(safe-area-inset-top))]");
+    expect(cls).not.toContain("top-1");
   });
 
   it("gives the close button a 44px target", () => {
