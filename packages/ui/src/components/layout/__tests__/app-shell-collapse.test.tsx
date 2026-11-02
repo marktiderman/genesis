@@ -464,7 +464,8 @@ describe("AppShell collapsible sidebar", () => {
         <div>content</div>
       </AppShell>,
     );
-    const drawer = container.querySelector("#app-shell-mobile-nav") as HTMLElement;
+    fireEvent.click(within(container).getByTestId("app-shell-mobile-open"));
+    const drawer = document.querySelector("#app-shell-mobile-nav") as HTMLElement;
     expect(within(drawer).getByText("Clients")).toBeTruthy();
     expect(within(drawer).queryByTestId("app-shell-collapse")).toBeNull();
   });

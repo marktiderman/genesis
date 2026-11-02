@@ -198,20 +198,18 @@ export const intake = defineForm({
   title: "Book a demo",
   layout: { mode: "focus" },
   hidden: { utm_source: f.hidden.string(), seats_hint: f.hidden.number() },
-  variables: { score: f.variable.number(0) },
   blocks: [
-    f.shortText("name", { label: "What's your name?", required: true, autocomplete: "name" }),
+    f.shortText("name", { label: "What's your name?", required: true }),
     f.email("email", { label: "Thanks {{field:name}}. Your work email?", required: true }),
     f.singleChoice("size", {
       label: "Team size",
       options: [{ value: "1-10" }, { value: "11-200" }, { value: "200+" }],
     }),
-    f.pageBreak(),
+    f.pageBreak("details"),
     f.longText("enterprise_needs", { label: "What do you need at scale?" }),
     f.nps("likelihood", { label: "How likely are you to recommend us?" }),
   ],
   logic: [
-    when("size").is("200+").add("score", 10),
     when("size").isNot("200+").hide("enterprise_needs"),
     when("likelihood").lessThan(7).jumpTo({ ending: "detractor" }),
   ],
@@ -224,7 +222,9 @@ type IntakeAnswers = typeof intake.$answers;
 const json = intake.toJSON(); // the same FormDefinition the builder produces
 ```
 
-The object maps for `hidden` and `variables` above are **authoring sugar only**. `defineForm`
+Variables (a lead score here) and the `set`/`add` effects aren't built yet ("Built today",
+above), so the example leaves them out. The object map for `hidden` above, like the one planned for
+`variables`, is **authoring sugar only**. `defineForm`
 normalizes them to the canonical array shape that `FormDefinition` declares (`{ name, type, … }[]`,
 in declaration order), and `toJSON()` always emits that canonical shape. `parseForm` accepts only
 the canonical shape, so there is exactly one stored format, and the builder never sees the sugar.
@@ -656,11 +656,10 @@ import { simulate, coverage } from "@marktiderman/genesis-forms/testing";
 
 test("enterprise path", async () => {
   const run = simulate(intake, { hidden: { utm_source: "ads" } });
-  await run.answer({ name: "Ada", email: "ada@x.co", size: "200+" });
-  expect(run.state.variables.score).toBe(10);
-  expect(run.visiblePages()).toContain("page-2");
-  await run.answer({ likelihood: 5 });
-  expect(run.ending).toBe("detractor");
+  run.answer({ name: "Ada", email: "ada@x.co", size: "200+" });
+  expect(run.visibleKeys()).toContain("enterprise_needs");
+  run.answer({ likelihood: 5 });
+  expect(run.submit()).toBe("detractor"); // the ending reached
 });
 
 test("every branch is reachable", () => {

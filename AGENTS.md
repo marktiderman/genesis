@@ -8,6 +8,7 @@ web reference app (`apps/sample`) and the Expo starter new native apps are made 
   `pnpm lint:genesis` runs the repo's own rules.
 - Every package change needs a changeset (`pnpm changeset`). Releases follow `docs/RELEASING.md`.
 - `docs/component-reference.md` is generated: `pnpm gen:component-reference`. Never edit it by hand.
+- Docs name only API the packages export: `pnpm check:docs-match-exports` (CI) type-checks every TS example and the prose under `<!-- api: … -->`; write anything not built yet as `**Planned**` with its features.ts id.
 - Merge, never rebase or force-push.
 - Genesis is public: never name an app or customer built on it, anywhere (code, tests, docs,
   changelogs, commits, PRs). Write "a consumer app"; use neutral sample names (Acme, sample-app).
@@ -101,7 +102,7 @@ whenever nobody owned them.
 <!-- genesis-features:start -->
 ## Features
 
-Every feature is in `features.ts`: 143 features (2 idea, 24 planned, 60 building, 22 beta, 27 live, 1 deprecated, 7 retired).
+Every feature is in `features.ts`: 146 features (2 idea, 27 planned, 60 building, 22 beta, 27 live, 1 deprecated, 7 retired).
 
 - Before adding UI, routes or flags, run `pnpm features find <term>` to see whether a feature already covers it.
 - New work starts as an entry in `features.ts`; then run `pnpm features build`. `pnpm features check` runs in CI.
