@@ -473,6 +473,7 @@ doesn't fit, is a warning.
    | Codemod | Runs when | Changes |
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
+   | `genesis-cli-eslint-config` | genesis-cli crosses 1.20.0 | An ESLint flat config (`eslint.config.{js,mjs,cjs,ts,mts,cts}`) that doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules) yet: adds the import (`require` or `import`, as the file is written) and spreads `genesis("native")` (an app with `expo` or `react-native`) or `genesis("web")` last into the array it exports, or into the array or arguments of the `defineConfig(…)` / `tseslint.config(…)` call it exports. A native app gets `eslint-plugin-testing-library` in its devDependencies when it's missing. A config that already loads the export is left alone; one it can't edit safely (built in a variable or a function, or exported twice) is left as it is, and it prints the two lines to add. A config that still inlines the starter's RNTL rules gets the spread and a note to delete the old block. Started from an older CLI, the upgrade doesn't have this codemod (see "Upgrading the CLI itself" below); the doctor's `genesis-eslint-config` then reports the app, and `genesis codemod genesis-cli-eslint-config` runs it. |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
    loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
    (the nearest one at or above the app, but never above the repository's top level, else beside
@@ -550,6 +551,47 @@ or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTA
 `supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
 substitutions may only replace the starter's own names. A pgTAP test waits while its block has
 new migrations to copy.
+
+## Lint rules
+
+Genesis's lint rules for apps ship with the CLI, as ESLint flat-config pieces from
+`@marktiderman/genesis-cli/eslint` (for `require` and `import`). An app spreads them into its
+`eslint.config.js` once, and every CLI release it installs brings new and changed rules, with no
+edit to the config. They ship from the CLI rather than a package of their own because every
+Genesis app, web or native, already has `@marktiderman/genesis-cli` in its devDependencies (the
+[genesis-upgrade workflow](../../docs/APP-CI.md) needs it), so nothing new is installed.
+
+```js
+// eslint.config.js (CommonJS, as Expo writes it)
+const { defineConfig } = require("eslint/config");
+const expoConfig = require("eslint-config-expo/flat");
+const { genesis } = require("@marktiderman/genesis-cli/eslint");
+
+module.exports = defineConfig([expoConfig, ...genesis("native")]);
+```
+
+In an ES module config: `import { genesis } from "@marktiderman/genesis-cli/eslint"`.
+
+| Export | What it is |
+| --- | --- |
+| `genesis(platform, options?)` | Every Genesis piece for `"native"` or `"web"`. Spread this one, so pieces a release adds arrive too. `"native"` is `testing`; `"web"` is empty for now (Testing Library for React keeps `render` and `fireEvent` synchronous, so the RNTL await rules don't apply), and is there so web rules arrive when Genesis has some. |
+| `testing(options?)` | React Native Testing Library 14's await rules, for test files (`TEST_FILES`: `**/__tests__/**` and `*.test.*`). RNTL 14 made `render`, `renderHook`, `fireEvent`, `act`, `rerender` and `unmount` async; left unawaited, a test reads the screen before React updated it. It turns on testing-library's `await-async-events` with `eventModule: ["fireEvent", "userEvent"]`, and a `no-restricted-syntax` rule for what the plugin has no rule for: `render`, `renderHook`, expo-router's `renderRouter`, the starter's `renderApp` and `act`; `rerender` and `unmount` as methods and destructured; and a chained `userEvent.setup().press(…)`. Each is flagged as a statement, a declaration or an assignment whose promise is dropped. |
+| `rntlAwaitSelectors(options?)` | Those `no-restricted-syntax` entries, for an app that sets its own `no-restricted-syntax` on test files: a later setting of a rule replaces an earlier one, so spread these into yours. |
+
+Options: `renders` (the app's own helpers that wrap `render`, checked like it:
+`genesis("native", { renders: ["renderWithStore"] })`), `testFiles` (other test globs) and
+`testingLibrary` (the plugin, when the config loads it itself).
+
+`testing` needs `eslint-plugin-testing-library` (7 or later) in the app's devDependencies, an
+optional peer dependency of the CLI. A flat config's plugins are objects, not names ESLint looks
+up, so the piece loads the plugin itself when it's built (never on import): from the app (the
+working directory, so it's the copy the app's own config would load), then from the CLI. When
+it's missing, the config fails to load with a message saying to install it.
+
+`genesis upgrade` adds the pieces to an app made before they shipped: the
+`genesis-cli-eslint-config` codemod (see [genesis upgrade](#genesis-upgrade)) runs when the app's
+CLI moves to 1.20.0. The doctor's `genesis-eslint-config` rule reports a native app still without
+them, with the fix.
 
 ## Expo config plugin
 
@@ -721,6 +763,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
 | `database-elsewhere` | warn | An app whose `genesis.config.json` `supabase` setting puts its database files in another app (`{ "app": "../app" }`) or nowhere (`false`): **warn** when the named app has no `supabase/` folder, and when this app still has one (`add`, `migrate` and `upgrade` never plan it, so it's a second, unused copy). The supabase pack doesn't run in such an app. |
+| `genesis-eslint-config` | warn | A native app (with `expo` or `react-native`, or the `native` pack) whose ESLint flat config doesn't load [`@marktiderman/genesis-cli/eslint`](#lint-rules), so `genesis upgrade` can't bring Genesis's lint rules; or loads it without `eslint-plugin-testing-library` in package.json, so the config can't load. The message gives the fix: `genesis codemod genesis-cli-eslint-config`, or the two lines to add. Web apps (Genesis has no web lint rules yet) and apps without a flat config aren't checked. Ratcheted by default: under `--base`, an unchanged config reports it as `info`. |
 | `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked); files under `supabase/` the lock still lists in an app whose database lives elsewhere (upgrade leaves them alone, so delete the entries). Also `bun.lock` (at or above the app, with or without `genesis.lock.json`), **warn**: a nested copy of a Genesis package at another version than the root's, when the root's version satisfies the range of the package it's nested under. Bun keeps it across installs, so the app runs two copies; the finding names the entry to delete, then reinstall (`genesis upgrade` does both). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |

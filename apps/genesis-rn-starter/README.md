@@ -210,9 +210,13 @@ error (`[push]`, `[updates]`, `[observability]`) or React warns about act(); see
 Add a screen's test there; tests that only read files stay in vitest, outside that folder.
 In React Native Testing Library 14, `render`, `renderHook`, `fireEvent`, `act`, `rerender` and
 `unmount` return promises: always `await` them, or the test reads a stale screen and React logs
-"overlapping act() calls". `pnpm lint` catches a missed one in test files (testing-library's
-`await-async-events`, and a `no-restricted-syntax` rule in `eslint.config.js` for the render calls
-and `act`).
+"overlapping act() calls". `pnpm lint` catches a missed one in test files: `eslint.config.js`
+spreads `genesis("native")` from `@marktiderman/genesis-cli/eslint`, which brings testing-library's
+`await-async-events` and a `no-restricted-syntax` rule for the render calls, `act`, `rerender` and
+`unmount` (it needs `eslint-plugin-testing-library` in devDependencies). The rules ship with the
+CLI, so `genesis upgrade` brings new and changed ones without an edit here; a render helper of your
+own goes in `genesis("native", { renders: ["renderWithStore"] })`. See the
+[genesis-cli README](../../packages/genesis-cli/README.md#lint-rules).
 
 Gestures and animations run in these tests as they are written, on Gesture Handler's mocks
 (`react-native-gesture-handler/jestSetup.js`, in `jest.config.js`) and Reanimated's test mode

@@ -86,6 +86,8 @@ export const BUILTIN_RULES = [
   "lock-files",
   // an app whose database files live in another app (database.ts)
   "database-elsewhere",
+  // the app's eslint config loads Genesis's lint rules (eslint-config.ts)
+  "genesis-eslint-config",
 ] as const;
 
 export const DEFAULT_LOCAL_PRIMITIVE_DIRS = ["src/components/ui"];
