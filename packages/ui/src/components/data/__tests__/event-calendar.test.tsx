@@ -547,7 +547,7 @@ describe("EventCalendar: review fixes", () => {
     expect(within(cell).getAllByTestId("event-calendar-item").filter((el) => !el.closest("li")!.className.includes("hidden"))).toHaveLength(3);
     expect(cell.querySelectorAll("li.print\\:list-item")).toHaveLength(2);
     fireEvent.click(more);
-    expect(within(cell).queryByTestId("event-calendar-more")).toBeNull();
+    expect(within(cell).getByTestId("event-calendar-more").textContent).toBe("Show fewer");
     expect(cell.querySelectorAll("li.hidden")).toHaveLength(0);
   });
 
@@ -781,5 +781,125 @@ describe("calendar follow-up: the URL warning", () => {
     } finally {
       delete g.__DEV__;
     }
+  });
+});
+
+describe("calendar patch: the list's options, focus, lanes", () => {
+  it("waits while resourceOptions.enabled is false, as a list does", async () => {
+    const { p, getList } = filtering(ROWS);
+    const { rerender } = render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ enabled: false }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(p) },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getList).not.toHaveBeenCalled();
+    rerender(<ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ enabled: true }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />);
+    expect(await screen.findByText("Swim meet")).toBeTruthy();
+  });
+
+  it("sends resourceOptions.select with both requests", async () => {
+    const { p, getList } = filtering(ROWS);
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ select: "*, coach:people(name)" }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(p) },
+    );
+    await screen.findByText("Swim meet");
+    const selects = getList.mock.calls.map((c) => (c as unknown as [string, { select?: string }])[1].select);
+    expect(selects).toEqual(["*, coach:people(name)", "*, coach:people(name)"]);
+  });
+
+  it("subscribes and refetches with live, as a list does", async () => {
+    const { p, getList } = filtering(ROWS);
+    let push: ((e: { type: "updated"; id: string }) => void) | undefined;
+    (p as unknown as { subscribe: unknown }).subscribe = vi.fn((_r: string, _params: unknown, cb: typeof push) => {
+      push = cb;
+      return () => {};
+    });
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} live={{ debounceMs: 0 }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, {
+      wrapper: wrap(p),
+    });
+    await screen.findByText("Swim meet");
+    expect((p as unknown as { subscribe: ReturnType<typeof vi.fn> }).subscribe).toHaveBeenCalledWith("events", expect.anything(), expect.any(Function));
+    const before = getList.mock.calls.length;
+    push!({ type: "updated", id: "e1" });
+    await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("refuses a time zone the runtime doesn't know, naming the view", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() =>
+      render(<ResourceView view={eventsView} mode="calendar" calendar={{ timeZone: "Mars/Base" }} />, { wrapper: wrap(filtering(ROWS).p) }),
+    ).toThrow(/ResourceView\(events\): calendar timeZone "Mars\/Base"/);
+  });
+
+  it("moves focus to the first revealed event on +N more, and keeps it on the toggle without buttons", () => {
+    const busy: CalendarEvent[] = Array.from({ length: 5 }, (_, i) => ({ key: `b${i}`, title: `Busy ${i}`, start: at(`2026-11-02T1${i}:00:00Z`) }));
+    const { unmount } = render(<EventCalendar events={busy} layout="month" anchor="2026-11-04" timeZone={Z} onSelect={() => {}} />);
+    const more = screen.getByTestId("event-calendar-more");
+    more.focus();
+    fireEvent.click(more);
+    expect(document.activeElement?.textContent).toContain("Busy 3");
+    unmount();
+    render(<EventCalendar events={busy} layout="month" anchor="2026-11-04" timeZone={Z} />);
+    const toggle = screen.getByTestId("event-calendar-more");
+    toggle.focus();
+    fireEvent.click(toggle);
+    expect(document.activeElement).toBe(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps focus when PageDown leaves a lane the next window doesn't have", async () => {
+    function Controlled() {
+      const [anchor, setAnchor] = useState("2026-11-04");
+      // Unassigned only in the first week.
+      const evs: CalendarEvent[] = [{ key: "bins", title: "Bins out", start: "2026-11-03" }, ...family];
+      return <EventCalendar events={evs} lanes={people} layout="lanes" weeks={1} weekStartsOn={0} anchor={anchor} onAnchorChange={setAnchor} timeZone={Z} locale="en-US" />;
+    }
+    render(<Controlled />);
+    const loose = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label") === "Unassigned, Tuesday, November 3, 2026, 1 event")!;
+    loose.focus();
+    fireEvent.keyDown(loose, { key: "PageDown" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Ana, Tuesday, November 10, 2026"));
+  });
+
+  it("buckets many events into lanes correctly", () => {
+    const many: CalendarEvent[] = Array.from({ length: 400 }, (_, i) => ({ key: `e${i}`, title: `E${i}`, start: `2026-11-0${(i % 7) + 1}`, lanes: [`p${i % 20}`] }));
+    render(<EventCalendar events={many} layout="lanes" weeks={1} weekStartsOn={0} anchor="2026-11-04" timeZone={Z} locale="en-US" />);
+    expect(screen.getAllByTestId("event-calendar-lane")).toHaveLength(20);
+    const cell = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label")?.startsWith("p0, Sunday, November 1"))!;
+    // p0 gets i = 0, 20, 40, …: those on 1 November are i ≡ 0 (mod 7) too, i.e. multiples of 140.
+    expect(within(cell).getAllByTestId("event-calendar-item")).toHaveLength(3);
+  });
+});
+
+describe("calendar patch: lanes from a link show the linked row's words", () => {
+  type Shift = { id: string; title: string; on: string; person_id: string };
+  const shifts = defineResource<Shift>()({
+    name: "shifts",
+    key: "id",
+    labelField: "title",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "title", type: "string" },
+      { name: "on", type: "datetime", dbType: "date" },
+      { name: "person_id", type: "string", references: { resource: "people", field: "id" } },
+    ],
+  });
+  const shiftsView = defineView(shifts, { columns: { default: ["title"] }, fields: { person_id: { labelField: "name" } }, calendar: { field: "on", laneBy: "person_id", layout: "lanes", weeks: 1 } });
+
+  it("labels each lane by the linked person, never the raw id", async () => {
+    const rows: Shift[] = [{ id: "s1", title: "Open", on: "2026-11-03", person_id: "u-1" }, { id: "s2", title: "Close", on: "2026-11-04", person_id: "u-2" }];
+    const getList = vi.fn(async (resource: string, params: { filters?: FilterParam[] }) => {
+      if (resource === "people") {
+        const ids = ((params.filters ?? []).find((f) => f.operator === "in") as { value: string[] } | undefined)?.value ?? [];
+        const people = [{ id: "u-1", name: "Ana" }, { id: "u-2", name: "Ben" }].filter((p) => ids.includes(p.id));
+        return { data: people, total: people.length };
+      }
+      return { data: rows, total: rows.length };
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    render(<ResourceView view={shiftsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Ana", "Ben"]));
+    expect(screen.queryByText("u-1")).toBeNull();
   });
 });

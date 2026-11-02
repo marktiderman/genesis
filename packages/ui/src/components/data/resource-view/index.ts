@@ -5,6 +5,7 @@ export {
   type ResourceViewOptions,
   type ResourceViewProps,
 } from "./ResourceView";
+export { useViewDetailFields, useViewListParams, type ViewListOptions, type ViewListParams } from "./view-list";
 export {
   DisplayRenderersProvider,
   useDisplayCell,

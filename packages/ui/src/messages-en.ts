@@ -184,6 +184,8 @@ export const uiMessages = {
     eventsOther: "{count} events",
     /** A day cell's button for the events it doesn't show yet. */
     more: "+{count} more",
+    /** The same button once a day's events are all shown. */
+    fewer: "Show fewer",
     /** The lanes layout's row for events that name no lane. */
     unassigned: "Unassigned",
     /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */

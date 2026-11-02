@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01",
+  "generatedAt": "2026-11-02",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 139
+      "count": 140
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -14451,7 +14451,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; unassigned: string; ... 4 more ...; layouts: { ...; }; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; fewer: string; ... 5 more ...; layouts: { ...; }; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -16084,6 +16084,13 @@
               "description": "A row's dot colours, when not its lanes'."
             },
             {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say): nothing is fetched. Default true."
+            },
+            {
               "name": "endField",
               "type": "string",
               "required": false,
@@ -16147,6 +16154,13 @@
               "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch when the provider reports a change, as a list's `live` does."
+            },
+            {
               "name": "onAnchorChange",
               "type": "((anchor: string) => void)",
               "required": false,
@@ -16166,6 +16180,13 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Supabase select syntax for joined columns (`resourceOptions.select`), sent with each request."
             },
             {
               "name": "showEmptyDays",
@@ -23846,6 +23867,76 @@
         {
           "name": "windowBounds",
           "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "view-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-list.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "filterParams",
+      "components": [
+        {
+          "name": "filterParams",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "useViewListParams",
+          "summary": "The filters, select, enabled and live a screen's options make for a view's list. The list path\n(`useResourceViewProps`) and the calendar path both use it.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, any>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useViewDetailFields",
+          "summary": "The peek's fields: the view's full column list, drawn like the cells (so `when` hides there\ntoo, and the screen's `cells` apply), never every key of the row. Shared by the list and the calendar.",
           "props": []
         }
       ]

@@ -57,7 +57,10 @@ const warnedNoSubscribe = new WeakSet<object>();
  * page is hidden the queries are only marked stale; they refetch when it is
  * shown again (TanStack Query's `refetchOnWindowFocus`) or next used.
  *
- * @internal Used by `useResource` and `useOne`'s `live` option.
+ * Used by `useResource` and `useOne`'s `live` option, and by lists that load their own queries
+ * (ResourceView's calendar) so `live` works there too.
+ *
+ * @stability Beta
  */
 export function useLiveInvalidation(
   resource: string,
