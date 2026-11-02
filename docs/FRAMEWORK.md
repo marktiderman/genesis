@@ -302,7 +302,7 @@ Naming the exclusions matters as much as the inclusions — scope creep is how o
 | Out | Why | Where it lives instead |
 |---|---|---|
 | **Business domain** | an app's nouns (its kinds of customer, session, plan or engagement) are one company's vocabulary | consuming apps |
-| **Auth policy** | every org's providers, sessions and sign-up rules are different | app. The sign-in screens are in: `AuthScreen` on native (assembled from `AuthBranding`, `SocialAuthRow` and `AuthForm`, each a slot), used with whatever auth the app runs |
+| **Auth policy** | every org's providers, sessions and sign-up rules are different | app. The sign-in screens are in: `AuthScreen` on native (assembled from `AuthBranding`, `SocialAuthRow` and `AuthForm`, each a slot), and `AuthPage` with `AuthForm` on the web, used with whatever auth the app runs |
 | **Routing** | router-agnostic is already a contribution gate | app; genesis-ui ships thin per-router adapters on their own subpaths (`/router/react-router`, `/router/tanstack-router`), each router an optional peer |
 | **Server-state config** | consumers own cache policy | app, via TanStack Query |
 | **The data source** | this is the whole point of adapters | switchboard adapters |
@@ -458,9 +458,11 @@ policy: `FormPage`'s already exists as `ResourceForm` (rule 1 — one home per c
 `DashboardPage`'s would need an aggregate contract `genesis-core` does not ship, and
 `SettingsPage`'s persistence is not a resource contract at all.
 
-**No `AuthPage`** — auth is out of scope above, and a template that knows how you
-authenticate would contradict that; Genesis provides the shell and the form elements, the
-app owns the flow.
+**`AuthPage` is a layout, not a flow** — auth policy is out of scope above, so the page
+knows nothing about how you authenticate. The form is `AuthForm` (a pattern), which draws
+the sign-in steps and makes every call through the client it is given; the app picks the
+backend and the policy (`createAuthFormClient` from genesis-supabase is one client).
+*Corrected 2026-11-01: this said "No `AuthPage`" before `AuthPage` and `AuthForm` shipped.*
 
 **The target: a new app is shell + templates + a resource config.** Not dozens of
 hand-assembled pages.

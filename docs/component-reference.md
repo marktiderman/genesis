@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4081 other exports · 3246 standalone types across 189 entry points in 29 packages.
+**Totals:** 596 components · 4086 other exports · 3273 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -4325,11 +4325,12 @@ export type { WriteOutcome };
 
 **Barrel:** [`packages/genesis/src/ui.ts`](../packages/genesis/src/ui.ts)
 
-### Components (44)
+### Components (45)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AccessibleIcon`](../packages/ui/src/components/ui/accessible-icon.tsx) | `AccessibleIconProps` | Beta | AccessibleIcon — gives a decorative icon an accessible name. |
+| [`AuthForm`](../packages/ui/src/components/patterns/auth-form.tsx) | `AuthFormProps` | Beta | The web sign-in form. See the file's header. |
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
@@ -4374,7 +4375,7 @@ export type { WriteOutcome };
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (263)
+### Other exports (264)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4400,6 +4401,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AlertTitle`](../packages/ui/src/components/ui/alert.tsx) | value | — | _(no summary)_ |
 | [`alertVariants`](../packages/ui/src/components/ui/alert.tsx) | value | — | _(no summary)_ |
 | [`AspectRatio`](../packages/ui/src/components/ui/aspect-ratio.tsx) | value | — | _(no summary)_ |
+| [`AUTH_PROVIDER_NAMES`](../packages/ui/src/components/patterns/auth-form.tsx) | const | — | Brand names for provider ids Supabase Auth knows. Not translated. |
 | [`Avatar`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarFallback`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarImage`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
@@ -4644,11 +4646,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (35)
+### Types (42)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AuthFormClient };
+export type { AuthFormError };
+export type { AuthFormMode };
+export type { AuthFormProvider };
+export type { AuthFormResult };
+export type { AuthFormSuccess };
+export type { AuthSignInMethod };
 export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
@@ -8987,7 +8996,7 @@ Supabase for Genesis apps on web and React Native: a client with PKCE and safe d
 
 **Barrel:** [`packages/supabase/src/index.ts`](../packages/supabase/src/index.ts)
 
-### Other exports (18)
+### Other exports (20)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -8995,11 +9004,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`accountBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The account block: sign-in, profile and in-app account deletion. Its screens are the app's (or genesis-ui-native's `AuthScreen`); this names its migrations and its data. |
 | [`APPLE_REVOKE_FUNCTION`](../packages/supabase/src/apple-tokens.ts) | const | — | The Edge Function's default name, as shipped in `functions/genesis-apple-revoke`. |
+| [`createAuthFormClient`](../packages/supabase/src/auth-form-client.ts) | function | Beta | genesis-ui's `AuthForm` client on Supabase Auth: password sign-in, magic link and emailed code (`signInWithOtp`, the code checked with `verifyOtp`), sign-up (`confirmEmail` when the project confirms emails), the reset email, the new pass... |
 | [`createGenesisSupabase`](../packages/supabase/src/index.ts) | function | Beta | A Supabase client with Genesis's defaults: PKCE sign-in (the code flow, not tokens in a redirect URL, with an S256 challenge: pass `crypto` on native), a persisted session that refreshes itself, and the session storage you pass. |
 | [`deleteMyAccount`](../packages/supabase/src/index.ts) | function | Beta | In-app account deletion (App Store Review Guideline 5.1.1(v)), on web and native: calls the `delete_my_account` RPC (this package's `migrations/0001_genesis_account_deletion.sql`), which deletes the login and, through the app's `on delet... |
 | [`eventsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The product events block: the app's own events table and its tracking functions (ADR 0010). The client is `createEventTracker` from `/events`; on native, `createEventsSink` plugs it into the observability sinks. |
 | [`featureGateState`](../packages/supabase/src/feature-registry.ts) | function | Beta | A tenant's switches, entitlements and flag values: `feature_gate_state`. Works with a signed-in person's client (for tenants they belong to; their own person entitlements are included) or the service key. Throws a `SupabaseQueryError` (`... |
 | [`featureMirrorBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The feature registry block: the registry mirrored into the app's database on deploy, entitlements, per-tenant and platform flag values and SQL `feature_on()`, for the feature gate. Needs the tenant features block. |
+| [`fetchAuthSettings`](../packages/supabase/src/auth-form-client.ts) | function | Beta | Reads a project's public Auth settings (`GET <url>/auth/v1/settings` with the publishable key): which OAuth providers are on, whether email and phone sign-in are, and whether sign-up is closed. Throws when the request fails. |
 | [`jobsBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The jobs block: a background-job queue and named schedules that call the app's job route. Server only; the route is `createJobsHandler` from `/jobs`. |
 | [`must`](../packages/supabase/src/index.ts) | function | Beta | The data, or a thrown {@link SupabaseQueryError}: for query results where an error should fail the caller (a TanStack Query `queryFn`). The return type keeps `null` when the query can return no row (`.maybeSingle()`). |
 | [`requestAppleRevocation`](../packages/supabase/src/apple-tokens.ts) | function | — | Asks the Edge Function to revoke the tokens of deleted accounts now, rather than at its next scheduled run. Never throws and never fails the caller: the account is already gone and the queue keeps the token until a run succeeds. |
@@ -9012,11 +9023,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`tenantFeaturesBlock`](../packages/supabase/src/blocks.ts) | const | Beta | The tenant features block: per-tenant on/off switches for shipped features, set by the tenant's admins with a reason. |
 | [`tenantFeatureSettings`](../packages/supabase/src/tenant-features.ts) | function | Beta | Every switch a tenant has set, with its reason, for its admins: `tenant_feature_settings`. @stability Beta |
 
-### Types (20)
+### Types (26)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AuthCallError };
+export type { AuthCallResult };
+export type { AuthFormSupabase };
+export type { AuthFormSupabaseClient };
+export type { AuthSettings };
+export type { CreateAuthFormClientOptions };
 export type { DeleteAccountClient };
 export type { DeleteMyAccountOptions };
 export type { ExpoCryptoLike };
@@ -9672,11 +9689,12 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 
 **Barrel:** [`packages/ui/src/index.ts`](../packages/ui/src/index.ts)
 
-### Components (44)
+### Components (45)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`AccessibleIcon`](../packages/ui/src/components/ui/accessible-icon.tsx) | `AccessibleIconProps` | Beta | AccessibleIcon — gives a decorative icon an accessible name. |
+| [`AuthForm`](../packages/ui/src/components/patterns/auth-form.tsx) | `AuthFormProps` | Beta | The web sign-in form. See the file's header. |
 | [`Badge`](../packages/ui/src/components/ui/badge.tsx) | `BadgeProps` | — | _(no summary)_ |
 | [`Band`](../packages/ui/src/components/layout/band.tsx) | `BandProps` | Beta | Band: a full-bleed, full-width marketing section. The background runs edge to edge; the content sits in a centered column with the page gutter. It is what a landing page is made of: a hero, a features band, a call to action, a footer. |
 | [`BandLead`](../packages/ui/src/components/layout/band.tsx) | `BandLeadProps` | Beta | _(no summary)_ |
@@ -9721,7 +9739,7 @@ Shadcn-based web components. Use in Vite / RR7 / Next surfaces.
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 | [`VisuallyHidden`](../packages/ui/src/components/ui/visually-hidden.tsx) | `VisuallyHiddenProps` | Beta | VisuallyHidden — content removed from the visual layout but kept in the accessibility tree. |
 
-### Other exports (263)
+### Other exports (264)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -9747,6 +9765,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`AlertTitle`](../packages/ui/src/components/ui/alert.tsx) | value | — | _(no summary)_ |
 | [`alertVariants`](../packages/ui/src/components/ui/alert.tsx) | value | — | _(no summary)_ |
 | [`AspectRatio`](../packages/ui/src/components/ui/aspect-ratio.tsx) | value | — | _(no summary)_ |
+| [`AUTH_PROVIDER_NAMES`](../packages/ui/src/components/patterns/auth-form.tsx) | const | — | Brand names for provider ids Supabase Auth knows. Not translated. |
 | [`Avatar`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarFallback`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
 | [`AvatarImage`](../packages/ui/src/components/ui/avatar.tsx) | value | — | _(no summary)_ |
@@ -9991,11 +10010,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (35)
+### Types (42)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AuthFormClient };
+export type { AuthFormError };
+export type { AuthFormMode };
+export type { AuthFormProvider };
+export type { AuthFormResult };
+export type { AuthFormSuccess };
+export type { AuthSignInMethod };
 export type { BuilderLayoutSlotProps };
 export type { ButtonAsChildProps };
 export type { CarouselApi };
@@ -10177,10 +10203,11 @@ export type { ViewModeDefault };
 
 **Barrel:** [`packages/ui/src/components/patterns/index.ts`](../packages/ui/src/components/patterns/index.ts)
 
-### Components (7)
+### Components (8)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AuthForm`](../packages/ui/src/components/patterns/auth-form.tsx) | `AuthFormProps` | Beta | The web sign-in form. See the file's header. |
 | [`EmptyState`](../packages/ui/src/components/patterns/empty-state.tsx) | `EmptyStateProps` | Beta | EmptyState — what to show when a list, page, or panel has no data. |
 | [`PageLoading`](../packages/ui/src/components/patterns/page-loading.tsx) | `PageLoadingProps` | Beta | PageLoading — full-page or in-section loading state: a centered `Spinner` with an optional message. The loading-state counterpart to `EmptyState`. Reach for `Skeleton` instead when the placeholder should mimic the shape of the content th... |
 | [`SettingsRow`](../packages/ui/src/components/patterns/settings-row.tsx) | `SettingsRowProps` | Beta | SettingsRow — label + description on one side, an arbitrary trailing control (Switch, Select, Button, Badge, ...) on the other. This is the shared layout behind every settings/preferences list row; see `ToggleRow` for the common label+de... |
@@ -10189,12 +10216,13 @@ export type { ViewModeDefault };
 | [`ToggleRow`](../packages/ui/src/components/patterns/toggle-row.tsx) | `ToggleRowProps` | Beta | ToggleRow — `SettingsRow` pre-wired with a `Switch`: the common label+description+on/off row for settings and preferences UI. |
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
 
-### Other exports (12)
+### Other exports (13)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
+| [`AUTH_PROVIDER_NAMES`](../packages/ui/src/components/patterns/auth-form.tsx) | const | — | Brand names for provider ids Supabase Auth knows. Not translated. |
 | [`FormDescription`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormError`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
 | [`FormField`](../packages/ui/src/components/patterns/form-field.tsx) | value | — | _(no summary)_ |
@@ -10208,11 +10236,18 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
 | [`ViewToggle`](../packages/ui/src/components/patterns/view-toggle.tsx) | function | — | _(no summary)_ |
 
-### Types (4)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { AuthFormClient };
+export type { AuthFormError };
+export type { AuthFormMode };
+export type { AuthFormProvider };
+export type { AuthFormResult };
+export type { AuthFormSuccess };
+export type { AuthSignInMethod };
 export type { SortableListItemContext };
 export type { SortableListReorder };
 export type { StatusBadgeStatus };

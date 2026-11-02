@@ -204,3 +204,13 @@ export {
   type SyncFeatureRegistryOptions,
 } from "./feature-registry";
 export { accountBlock, eventsBlock, featureMirrorBlock, jobsBlock, tenantFeaturesBlock } from "./blocks";
+export {
+  createAuthFormClient,
+  fetchAuthSettings,
+  type AuthCallError,
+  type AuthCallResult,
+  type AuthFormSupabase,
+  type AuthFormSupabaseClient,
+  type AuthSettings,
+  type CreateAuthFormClientOptions,
+} from "./auth-form-client";

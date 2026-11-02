@@ -179,6 +179,46 @@ if (res.type === "success") {
   it. That's harmless because of PKCE: a code is useless without the verifier, which never leaves
   this device. The implicit flow would hand tokens to whoever owns the scheme.
 
+### On the web: `AuthForm`
+
+genesis-ui's `AuthForm` (inside `AuthPage`) is the web sign-in form; `createAuthFormClient` is its
+client on Supabase Auth. The form never calls `supabase.auth` itself.
+
+```ts
+import { createAuthFormClient } from "@marktiderman/genesis-supabase";
+
+const client = createAuthFormClient(supabase, {
+  url: SUPABASE_URL,
+  publishableKey: SUPABASE_PUBLISHABLE_KEY,
+  redirectTo: `${location.origin}/auth/callback`,
+  resetRedirectTo: `${location.origin}/auth/new-password`,
+});
+// <AuthForm client={client} methods={["password", "email-code"]} onSuccess={…} />
+```
+
+| The form's call | Supabase Auth |
+| --- | --- |
+| `signInWithPassword` | `signInWithPassword` |
+| `sendMagicLink`, `sendEmailCode` | `signInWithOtp` (`shouldCreateUser` follows the form's `allowSignUp`) |
+| `verifyEmailCode` | `verifyOtp({ email, token, type: "email" })` |
+| `signUp` | `signUp`; `confirmEmail` when no session came back |
+| `sendPasswordReset` | `resetPasswordForEmail` to `resetRedirectTo` |
+| `updatePassword` | `updateUser({ password })`, on the session the reset link opened |
+| `signInWithProvider` | `signInWithOAuth` (leaves the page for the provider) |
+| `providers` | `fetchAuthSettings`: `GET /auth/v1/settings`, the OAuth providers turned on |
+
+Every failure resolves as `{ error: { code, message } }` with Auth's code (`network` for a request
+that got no answer); the form shows fixed copy for it.
+
+- **Codes need the template.** Supabase sends the Magic Link email for a link and for a code alike,
+  and the default template has only the link: put `{{ .Token }}` in it to offer `"email-code"`.
+- **The redirects** (`redirectTo`, `resetRedirectTo`) must be in the project's redirect allow list.
+  With the default PKCE client the callback page needs nothing more on the web
+  (`detectSessionInUrl`); the reset page shows `mode="new-password"` once the
+  `PASSWORD_RECOVERY` event (or the session) is there.
+- `fetchAuthSettings({ url, publishableKey })` also says whether sign-up is closed
+  (`signUpDisabled`): pass `allowSignUp={!settings.signUpDisabled}`.
+
 ### Deleting the account
 
 The database half is a migration this package ships:
@@ -358,6 +398,8 @@ which isn't verified here).
   no real Sign in with Apple key has been through the exchange and revocation yet (setup step 7).
   That Apple answers `invalid_client` (not `invalid_grant`) to a live token with wrong secrets is
   expected, not observed.
+- **Branded auth emails.** The confirm, magic link (with the code) and reset templates are still
+  Supabase's own, set by hand in the dashboard.
 - **Sign in with Apple on the web** (Services ID and redirect) isn't wired: the function accepts a
   Services ID in `APPLE_CLIENT_IDS`, but exchanges codes without a `redirect_uri`, as a native
   sign-in needs.

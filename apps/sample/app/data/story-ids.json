@@ -4,6 +4,7 @@
   "alertdialog": "foundation-ui-alertdialog--default",
   "appshell": "foundation-data-appshell--default",
   "aspectratio": "foundation-ui-aspectratio--sixteen-9",
+  "authform": "foundation-patterns-authform--sign-in",
   "authpage": "foundation-layout-authpage--sign-in",
   "avatar": "foundation-ui-avatar--image",
   "badge": "foundation-ui-badge--default",

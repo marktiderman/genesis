@@ -37,6 +37,18 @@ export { Switch } from "./components/ui/switch";
 export { SettingsRow, type SettingsRowProps } from "./components/patterns/settings-row";
 export { SortableList, type SortableListProps, type SortableListItemContext, type SortableListReorder } from "./components/patterns/sortable-list";
 export { ToggleRow, type ToggleRowProps } from "./components/patterns/toggle-row";
+export {
+  AuthForm,
+  AUTH_PROVIDER_NAMES,
+  type AuthFormClient,
+  type AuthFormError,
+  type AuthFormMode,
+  type AuthFormProps,
+  type AuthFormProvider,
+  type AuthFormResult,
+  type AuthFormSuccess,
+  type AuthSignInMethod,
+} from "./components/patterns/auth-form";
 export { RadioGroup, RadioGroupItem } from "./components/ui/radio-group";
 export { Alert, AlertTitle, AlertDescription, alertVariants } from "./components/ui/alert";
 export { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "./components/ui/pagination";
