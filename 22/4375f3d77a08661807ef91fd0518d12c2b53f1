@@ -1,0 +1,60 @@
+packages/ui/src/components/patterns/auth-form.tsx
+  s_1feb538f59bf88::t_4addb905aedf64 1-659
+  s_1feb538f59bf88::t_9a33994b8eca69 660-668
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_17bd210f754ef2 215-292
+packages/supabase/src/__tests__/auth-form-client.test.ts
+  s_1feb538f59bf88::t_71ffebd0da907e 1-105
+  s_1feb538f59bf88::t_c48af572c8efab 106-112
+packages/ui/src/components/patterns/__tests__/auth-form.test.tsx
+  s_1feb538f59bf88::t_dd1424ecac990f 1-333
+  s_1feb538f59bf88::t_319283a439a333 334-338
+packages/supabase/src/auth-form-client.ts
+  s_1feb538f59bf88::t_ce71440254021d 1-200
+apps/sample/stories/AuthForm.stories.tsx
+  s_1feb538f59bf88::t_3546a44a166904 1-102
+.changeset/web-auth-form.md
+  s_1feb538f59bf88::t_53c8f3b5b85485 1-9
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_63b58245bf141b 2,10,7904-8031,14573-14579,14684
+apps/sample/app/data/story-ids.json
+  s_1feb538f59bf88::t_cfa66b1f037227 7
+docs/FRAMEWORK.md
+  s_1feb538f59bf88::t_bf03c6be6ee2a7 305,461-465
+docs/component-reference.md
+  s_1feb538f59bf88::t_117f45e31849b4 7,4328,4333,4378,4404,4649,4654-4660,8999,9007,9013,9026,9031-9036,9692,9697,9742,9768,10013,10018-10024,10206,10210,10219,10225,10239,10244-10250
+features.json
+  s_1feb538f59bf88::t_1f9b6e120c346a 3322,3326,3347,3358-3360,3364-3365
+features.ts
+  s_1feb538f59bf88::t_fd3e086d7d0789 1453-1454,1465,1477-1478,1480
+packages/supabase/README.md
+  s_1feb538f59bf88::t_4c19d7be93a99a 182-221,401-402
+packages/supabase/package.json
+  s_1feb538f59bf88::t_17ffbf23f3f690 98
+packages/supabase/src/index.ts
+  s_1feb538f59bf88::t_a228f2b216568a 207-216
+packages/ui/README.md
+  s_1feb538f59bf88::t_72f87d86cb8d57 53-89
+packages/ui/src/components/patterns/index.ts
+  s_1feb538f59bf88::t_af45bce771cae3 40-51
+packages/ui/src/index.ts
+  s_1feb538f59bf88::t_dc7a803c82d6d3 40-51
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_fccabab25e1cef 1698-1700
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "224375f3d77a08661807ef91fd0518d12c2b53f1",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
