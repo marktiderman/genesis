@@ -289,6 +289,17 @@ describe("NativeRecordView", () => {
     fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
     expect((await screen.findByTestId("native-resource-workspace-settings-refusal")).textContent).toContain("This brand was not changed.");
   });
+
+  it("sends only the fields edited, so a refreshed row's other values aren't overwritten", async () => {
+    const p = provider();
+    const editable = { ...brand, is_default: false };
+    const { rerender } = render(<NativeRecordView view={page} row={editable} section="settings" />, { wrapper: wrap(p) });
+    fireEvent.change(screen.getByTestId("native-resource-workspace-settings-website-input"), { target: { value: "https://mine.example" } });
+    // Someone else turns public on meanwhile; the refreshed row carries it.
+    rerender(<NativeRecordView view={page} row={{ ...editable, public: true }} section="settings" />);
+    fireEvent.click(screen.getByTestId("native-resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledWith("brands", { id: "b1", data: { website: "https://mine.example" } }));
+  });
 });
 
 describe("NativeRecordView review fixes", () => {

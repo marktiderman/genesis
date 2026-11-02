@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type { Allowed, ResolvedFormField, RecordView as RecordViewDef, RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
 import { SettingsRow } from "../../patterns/settings-row";
@@ -282,7 +282,7 @@ function SettingsForm({
   // An edit the row now holds (after a save, or someone else's same change) is no longer an edit.
   useEffect(() => {
     setEdits((current) => {
-      const left = Object.fromEntries(Object.entries(current).filter(([k, v]) => !sameValue(v, row[k])));
+      const left = Object.fromEntries(Object.entries(current).filter(([k, v]) => !sameFormValue(v, row[k])));
       return Object.keys(left).length === Object.keys(current).length ? current : left;
     });
   }, [row]);
@@ -293,7 +293,7 @@ function SettingsForm({
       const name = f.field.name;
       if (!(name in edits)) continue;
       if (f.visible && !f.visible(draft)) continue; // a hidden field isn't saved
-      if (!sameValue(draft[name], row[name])) out[name] = draft[name];
+      if (!sameFormValue(draft[name], row[name])) out[name] = draft[name];
     }
     return out;
   }, [fields, draft, row, edits]);
@@ -354,12 +354,6 @@ function SettingsForm({
       )}
     </SettingsSection>
   );
-}
-
-/** The same value as a form holds it: 2 and "2", null and "" are the same. */
-function sameValue(a: unknown, b: unknown): boolean {
-  const text = (v: unknown) => (v === null || v === undefined ? "" : Array.isArray(v) ? v.join(",") : String(v));
-  return text(a) === text(b);
 }
 
 function SettingField({
