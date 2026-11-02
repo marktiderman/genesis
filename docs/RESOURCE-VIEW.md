@@ -309,7 +309,7 @@ export const tasksView = defineView(contracts["public.tasks"], {
 - **Large tables.** It asks for nothing until it opens, then 25 rows at a time sorted by the
   naming field then the key (so rows that share a name never fall between pages; a provider
   without `multiSort` sorts by the name only), with Show more for the next page.
-- **Order.** By name unless the link says otherwise. `link: { view: stagesView, orderBy: "view" }`
+- **Order.** By name unless the link says otherwise. A link with a `view` and `orderBy: "view"`
   lists rows in the linked view's own `orderBy` (a `position` its list is sorted by), then the
   key; a linked view without one keeps the name. `orderBy: { field: "position", direction: "asc" }`
   names a linked field without a view. Opt in, so a picker's order never changes on its own. A
