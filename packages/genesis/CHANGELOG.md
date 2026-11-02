@@ -1,5 +1,22 @@
 # @marktiderman/genesis
 
+## 0.10.10
+
+### Patch Changes
+
+- 16b9a49: The README's import example names exports that exist: `Switchboard` from `/switchboard` and the token groups (`semantic`, `spacing`) from `/design-system/tokens`, in place of a `useSwitchboard` and a `tokens` the subpaths never had.
+- Updated dependencies [5ad4e61]
+- Updated dependencies [5ad4e61]
+- Updated dependencies [51a7b57]
+- Updated dependencies [d2c47c2]
+- Updated dependencies [cd02d94]
+- Updated dependencies [51a7b57]
+- Updated dependencies [098f35e]
+  - @marktiderman/genesis-design-system@1.7.0
+  - @marktiderman/genesis-core@2.6.0
+  - @marktiderman/genesis-ui@2.28.0
+  - @marktiderman/genesis-ui-native@3.4.0
+
 ## 0.10.9
 
 ### Patch Changes
