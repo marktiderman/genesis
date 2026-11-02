@@ -85,6 +85,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@jest/globals": "~30.5.2",
     "@marktiderman/genesis-cli": "workspace:^",
     "@react-native/jest-preset": "0.88.0",
     "@testing-library/react-native": "^14.1.0",

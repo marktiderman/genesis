@@ -15,10 +15,10 @@
 // VirtualizedList and a PureComponent): a memoised row component, a stable `renderItem` and
 // `keyExtractor`, and `extraData` only for what rows read besides their item.
 
-import { memo, useCallback, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from "react";
 import { Alert, Platform, Pressable, SectionList, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { encodeRecordKey, type BaseRecord, type DataRow } from "@marktiderman/genesis-core";
+import type { BaseRecord, DataRow } from "@marktiderman/genesis-core";
 import { personTimeZone } from "@marktiderman/genesis-core/dates";
 import { scopeClock, useOne, useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import type { RowPicture } from "@marktiderman/genesis-core/resource-view";
@@ -49,6 +49,7 @@ import type { AnyResourceView, NativeResourceRowItem, NativeResourceSection, Nat
 import { fill } from "./messages";
 import { NativeResourceFormSheet } from "./NativeResourceFormSheet";
 import {
+  recordKey,
   useNativeResourceView,
   type NativeResourceViewOptions,
   type UseNativeResourceViewReturn,
@@ -145,14 +146,7 @@ const IOS_GROUP_MARGIN = 16;
 const GROUP_RADIUS = Number.parseFloat(String(Platform.Version)) >= 26 ? 26 : 10;
 const IOS = Platform.OS === "ios";
 
-// Rows are keyed by the view's key fields (`keyFields`), so composite keys never collide.
-const recordKey = (view: AnyResourceView<Row>, row: Row) => {
-  try {
-    return String(encodeRecordKey(view.contract, row as DataRow));
-  } catch {
-    return String((row as DataRow).id);
-  }
-};
+// Rows are keyed by the view's key fields (`recordKey`, shared with the hook), so composite keys never collide.
 
 /**
  * A native list screen from a view:
@@ -546,11 +540,13 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   const sectionStarts = useRef(new Map<string, number>());
   const lastLines = useRef(new Map<string, GridLine<T>>());
   const { rowOffset, hasPrevious } = state;
-  const gridSections = useMemo(() => {
-    if (!grid) return [];
+  // Both refs are read here and written in the layout effect below, after commit, so a render
+  // React throws away never moves them.
+  const gridState = useMemo(() => {
     const starts = new Map<string, number>();
     const lines = new Map<string, GridLine<T>>();
     let at = rowOffset;
+    if (!grid) return { sections: [], starts, lines };
     const out = state.sections.map((section, i) => {
       const seen = sectionStarts.current.get(section.key);
       const start = i === 0 && hasPrevious && seen !== undefined ? Math.min(seen, at) : at;
@@ -560,10 +556,14 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
       at += section.data.length;
       return { key: section.key, title: section.title, data };
     });
-    sectionStarts.current = starts;
-    lastLines.current = lines;
-    return out;
+    return { sections: out, starts, lines };
   }, [grid, state.sections, numColumns, rowOffset, hasPrevious]);
+  useLayoutEffect(() => {
+    if (!grid) return;
+    sectionStarts.current = gridState.starts;
+    lastLines.current = gridState.lines;
+  }, [grid, gridState]);
+  const gridSections = gridState.sections;
   const gridKey = useCallback((line: GridLine<T>) => line.key, []);
   const renderGridLine = useCallback(
     ({ item: line }: { item: GridLine<T> }) => <GridRow<T> {...shared} line={line} numColumns={numColumns} renderCard={renderCard} />,
