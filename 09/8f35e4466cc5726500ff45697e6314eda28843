@@ -1,0 +1,83 @@
+packages/core/src/hooks/use-resource-form.ts
+  s_1feb538f59bf88::t_8bd7f366ee81d3 261-267
+  s_1feb538f59bf88::t_39d09dde085343 260
+packages/ui/src/components/data/RelationField.tsx
+  s_1feb538f59bf88::t_ab1fd97da8b6a0 3-9,12,33,42-45,47-48,56-63,73,79-80,82-83,88,93-114,117-140,143-144,148,150-155,159,167-252,254,256-311
+packages/ui/src/components/data/__tests__/resource-view-link-picker.test.tsx
+  s_1feb538f59bf88::t_2435797f1fdd09 1-206
+  s_1feb538f59bf88::t_9248c68082d385 207
+packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx
+  s_1feb538f59bf88::t_26b7d167325fbe 1-186
+packages/core/src/hooks/use-link-options.ts
+  s_1feb538f59bf88::t_12b272ae2b6d7d 1-141,146
+  s_1feb538f59bf88::t_5b4553a8aa83da 142-145
+packages/core/src/resource-view/link.ts
+  s_1feb538f59bf88::t_7ac1d6e15ddc5b 1-96,99
+  s_1feb538f59bf88::t_f8370c86311fec 97-98
+packages/ui-native/src/data/resource-view/__tests__/native-link-picker.test.tsx
+  s_1feb538f59bf88::t_be385e37d8c6d4 1-152
+features.ts
+  s_1feb538f59bf88::t_9cb453de21de3d 254-277
+.changeset/view-form-links.md
+  s_1feb538f59bf88::t_d045e11a303c61 1-13
+AGENTS.md
+  s_1feb538f59bf88::t_39101f51d51bd8 104
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_3a5b44909b79b6 2,18,3120,3421-3480,14561-14567,14616,14633-14637,14659-14663,15823,15826,15830,15833,15869-15875
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_d6c5ac3e5a76b8 178-179,222,244-287,694-695
+docs/component-reference.md
+  s_1feb538f59bf88::t_044456da54f1e0 7,1153,1201,1215,1231,1283-1284,1331-1332,1460,1482,1489,1503,1516-1517,1526-1527,1839,1851,1865,1867,1877-1878,1892,1916,4144,4192,4206,4222,4274-4275,4322-4323,11600
+features.json
+  s_1feb538f59bf88::t_8747bf3582b5c4 554-603
+packages/core/src/__tests__/resource-view.test.ts
+  s_1feb538f59bf88::t_ffdf627b170190 338,351-353,685-794
+packages/core/src/form-types.ts
+  s_1feb538f59bf88::t_0637d4149cfd76 5-6,62-65,68-69,71,74-82
+packages/core/src/hooks/index.ts
+  s_1feb538f59bf88::t_8db440d9e924f8 26-33
+packages/core/src/hooks/use-relation-label.ts
+  s_1feb538f59bf88::t_7e2940072d34c4 80-88
+packages/core/src/resource-view/define-view.ts
+  s_1feb538f59bf88::t_7457335af8eb74 10-11,37-38,254,338-340,349,351-353,391-396,407-413,441
+packages/core/src/resource-view/errors.ts
+  s_1feb538f59bf88::t_bd07b5339f9c06 1-11
+packages/core/src/resource-view/index.ts
+  s_1feb538f59bf88::t_f591c2a8c3b371 8,16-18,36
+packages/core/src/resource-view/record-view.ts
+  s_1feb538f59bf88::t_52c7c4850d418d 10
+packages/core/src/resource-view/scope.ts
+  s_1feb538f59bf88::t_36063c6eff6e4b 4
+packages/core/src/resource-view/types.ts
+  s_1feb538f59bf88::t_9ae4bf83e440d7 7-8,60-64,87-135,350-351
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_1feb538f59bf88::t_18d5038bf8683e 3-4,26,226-243
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_1feb538f59bf88::t_b9da610cd77088 9,190-192,210-211,249,251,254-266,275,279,288
+packages/ui-native/src/data/resource-view/messages.ts
+  s_1feb538f59bf88::t_a50566b32477ee 68-81,132-139
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_1feb538f59bf88::t_fbc264bbd88f64 9,111,216-218
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_1feb538f59bf88::t_19b14fa132e6f7 179,182
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_1feb538f59bf88::t_74eb6c14c7aa61 8-9,87,89,93-107,121,197,203-205,210-212,214,224
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_e3cfb779269a5a 56-67
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "098f35e4466cc5726500ff45697e6314eda28843",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
