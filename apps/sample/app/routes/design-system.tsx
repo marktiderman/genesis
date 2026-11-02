@@ -379,7 +379,8 @@ export default function DesignSystem() {
           <DialogTrigger asChild>
             <Button variant="outline" testID="ds-dialog-open">Open Dialog</Button>
           </DialogTrigger>
-          <DialogContent>
+          {/* A form dialog: a bottom sheet on a phone, the centred box from sm up. */}
+          <DialogContent mobileLayout="sheet">
             <DialogHeader>
               <DialogTitle>Edit Profile</DialogTitle>
               <DialogDescription>Make changes to your profile here. Click save when done.</DialogDescription>
@@ -394,7 +395,7 @@ export default function DesignSystem() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <PropBlock>{"<Dialog> <DialogTrigger /> <DialogContent> <DialogHeader /> <DialogFooter /> </DialogContent> </Dialog>"}</PropBlock>
+        <PropBlock>{"<Dialog> <DialogTrigger /> <DialogContent mobileLayout=\"center\" | \"sheet\" | \"fullscreen\"> <DialogHeader /> <DialogFooter /> </DialogContent> </Dialog>"}</PropBlock>
       </Section>
 
       <Separator />
