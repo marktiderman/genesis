@@ -15,5 +15,6 @@ export {
   type PlacedEvent,
 } from "./placement";
 export { timeStorage, windowBounds, type TimeStorage } from "./values";
+export { laneColor } from "./lane-color";
 // Reading stored dates lives in core; here too so a calendar's helpers come from one place.
 export { readEventTime } from "@marktiderman/genesis-core/dates";

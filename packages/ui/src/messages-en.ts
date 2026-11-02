@@ -240,6 +240,10 @@ export const uiMessages = {
     capped: "+{more} more not shown. Narrow the calendar or filter it to see them.",
     /** The layout switch's buttons. */
     layouts: { month: "Month", weeks: "Weeks", agenda: "Agenda", lanes: "Lanes" },
+    /** The weeks switch's name for screen readers, and its buttons. */
+    weeksShown: "Weeks shown",
+    weeksOne: "1 week",
+    weeksOther: "{count} weeks",
     /** PrintButton's label. */
     print: "Print",
     /** A printed sheet's week. `{date}`: "November 2 – November 8". */
