@@ -1,0 +1,43 @@
+.changeset/calendar-printable-agenda.md
+  s_318cb635985f4b::t_9868854ecc34de 1-7
+packages/ui/src/components/data/calendar/index.ts
+  s_318cb635985f4b::t_9868854ecc34de 2
+apps/sample/app/data/story-ids.json
+  s_318cb635985f4b::t_9d58a2881830ac 33
+apps/sample/stories/PrintableAgenda.stories.tsx
+  s_318cb635985f4b::t_9d58a2881830ac 1-32
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_318cb635985f4b::t_9868854ecc34de 1-158
+packages/ui/src/messages-en.ts
+  s_318cb635985f4b::t_9868854ecc34de 201-204
+packages/ui/src/components/data/__tests__/printable-agenda.test.tsx
+  s_318cb635985f4b::t_9868854ecc34de 1-80
+apps/sample/app/data/primitives.json
+  s_318cb635985f4b::t_617e0e1c9a2d90 10,14459,15292-15406
+docs/component-reference.md
+  s_043bace7f7a64b::t_2fafef4af62a2e 7,10045,10057,10068,10098,10121,10151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5f407205d47db7dea0bcfdd91b5fc89215592f43",
+  "prompts": {},
+  "sessions": {
+    "s_043bace7f7a64b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "65a43399-1581-474d-81c3-adac2f512272",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_318cb635985f4b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d8270687-1465-46da-9cdc-8373bb9d738c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
