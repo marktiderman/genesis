@@ -54,6 +54,7 @@ export {
   validateLinks,
   type GenesisConfigFile,
   type GenesisLinks,
+  type GenesisSupabase,
   type RunDoctorOptions,
   type DoctorConfig,
   type DoctorPlugin,

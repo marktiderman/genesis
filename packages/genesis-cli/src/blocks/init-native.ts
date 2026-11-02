@@ -20,6 +20,13 @@
  *   genesis.lock.json, so `genesis upgrade` can refresh them and `genesis
  *   migrate` knows the blocks. Every file the lock names is written.
  * - Keeps the copied migrations byte for byte (genesis migrate knows them by name and text).
+ * - `--beside <web-app>`: a phone app that uses a web app's database. When that
+ *   app has a supabase/ folder, none of the starter's supabase/ files are
+ *   written (nor the database CI workflow), genesis.config.json says where the
+ *   database lives (`"supabase": { "app": "<relative path>" }`) and drops the
+ *   doctor's supabase pack, and the lock records the blocks that are on with
+ *   no Supabase files, so they can be added in the web app; the result names
+ *   the ones its lock doesn't list yet.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
@@ -27,7 +34,8 @@ import { catalogBlocks, CLI_PACKAGE } from "./discover.js";
 import { sha256 } from "./files.js";
 import { emptyLock, migrationKey, substitute, writeLock, type GenesisLock } from "./lock.js";
 import type { BlockManifest } from "./manifest.js";
-import { stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
+import { nextStamp, stemOf, MIGRATIONS_DIR, TESTS_DIR } from "./migrations.js";
+import { addThereLine, blocksMissingThere, isSupabasePath, orderForAdding } from "./database.js";
 import { pinnedVersion } from "./pm.js";
 import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures, STARTER_CONFIG } from "./starter-features.js";
 import { findPlaceholders, placeholderStep } from "../eas-placeholders.js";
@@ -48,6 +56,8 @@ export interface InitNativeOptions {
   without?: string[];
   /** Blocks it may find in the starter (their migrations all copied) and record. */
   blocks: BlockManifest[];
+  /** The web app this phone app sits beside: when it has a supabase/ folder, its database is this app's. */
+  beside?: string;
 }
 
 export interface InitNativeResult {
@@ -59,7 +69,16 @@ export interface InitNativeResult {
   /** Blocks the starter carries that `without` switched off, so neither written nor recorded. */
   leftOut: string[];
   steps: string[];
+  /**
+   * With `beside`: the web app (relative to the new app) and the recorded blocks its
+   * genesis.lock.json doesn't list, whose database files go there. `shared` is false when the
+   * web app has no supabase/ folder, so the new app kept its own.
+   */
+  beside?: { app: string; shared: boolean; missing: string[]; line: string };
 }
+
+/** The CLI templates that are database files: never written into an app whose database is elsewhere. */
+export const DATABASE_TEMPLATES: ReadonlySet<string> = new Set(["ci/supabase-ci.yml"]);
 
 /** The EAS workflow templates' placeholder for the app's code folder (pr-preview.yml `paths`). */
 export const APP_FOLDER_PLACEHOLDER = "REPLACE_WITH_APP_FOLDER";
@@ -106,14 +125,17 @@ export function appPnpmSettings(text: string): string {
   return `# pnpm settings for this app, from the Genesis monorepo it was made from.\n${out.join("\n").replace(/^\n+/, "")}`;
 }
 
-function readme(display: string, slug: string): string {
+function readme(display: string, slug: string, database?: string): string {
+  const apply = database
+    ? `The database is ${database}'s: this app has no supabase/ folder. Add blocks' database files there (\`genesis add <block>\` in ${database}) and apply its migrations from there.`
+    : `Apply \`supabase/migrations\` (\`supabase db push\`, or \`supabase start\` for a local stack).`;
   return `# ${display}
 
 An Expo app made with \`genesis init ${slug} --template native\` from the Genesis RN starter.
 
-1. \`cp .env.example .env\` and fill in your Supabase project's URL and publishable key.
+1. \`cp .env.example .env\` and fill in your Supabase project's URL and publishable key${database ? ` (${database}'s project)` : ""}.
 2. Install: \`pnpm install\` (or your package manager).
-3. Apply \`supabase/migrations\` (\`supabase db push\`, or \`supabase start\` for a local stack).
+3. ${apply}
 4. \`pnpm ios\` or \`pnpm android\`.
 
 - Turn features off in \`starter.config.ts\`.
@@ -136,6 +158,15 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   if (/["\\\n]/.test(display)) throw new Error("The display name can't contain quotes, backslashes or new lines.");
   const target = path.resolve(options.target);
   if (existsSync(target) && readdirSync(target).length) throw new Error(`${target} isn't empty; init writes into a new folder and never overwrites.`);
+  // The web app beside it: its database is this app's when it has a supabase/ folder.
+  let beside: { dir: string; app: string; shared: boolean } | undefined;
+  if (options.beside !== undefined) {
+    const dir = path.resolve(options.beside);
+    if (!existsSync(dir)) throw new Error(`--beside: ${options.beside} doesn't exist; name the web app's folder.`);
+    if (dir === target) throw new Error("--beside names the new app's own folder; name the web app's folder.");
+    beside = { dir, app: path.relative(target, dir).split(path.sep).join("/"), shared: existsSync(path.join(dir, "supabase")) };
+  }
+  const shared = beside?.shared === true;
 
   const source = starterDir();
   const read = (rel: string) => readFileSync(path.join(source, rel), "utf8");
@@ -189,7 +220,7 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   // unlisted build scripts; one React): the monorepo's, without its workspace list.
   const pnpmSettings = [path.join(source, "pnpm-workspace.yaml"), path.join(source, "..", "..", "pnpm-workspace.yaml")].find((f) => existsSync(f));
   if (pnpmSettings) files.set("pnpm-workspace.yaml", appPnpmSettings(readFileSync(pnpmSettings, "utf8")));
-  files.set("README.md", readme(display, slug));
+  files.set("README.md", readme(display, slug, shared ? beside!.app : undefined));
   if (without.length) files.set(STARTER_CONFIG, setStarterFeatures(files.get(STARTER_CONFIG)!, Object.fromEntries(without.map((w) => [w, false]))));
 
   // Blocks switched off: none of their files, so the lock can name only what is there.
@@ -197,16 +228,23 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
   const switchedOff = blocksSwitchedOff(features, parseStarterBlocks(read("genesis.config.json")) ?? {}, options.blocks, carried);
   const leftOut = options.blocks.filter((b) => switchedOff.has(b.id)).map((b) => b.id);
   if (leftOut.length) leaveOut(files, options.blocks.filter((b) => switchedOff.has(b.id)));
-  // The copied migrations are the app's applied baseline: the doctor checks only later ones as new.
-  const since = sinceAfter(files);
-  const config = files.get("genesis.config.json");
-  if (since && config && !/"since"\s*:/.test(config)) files.set("genesis.config.json", config.replace(/("supabase"\s*:\s*\{[^}]*?)(\s*\})/, `$1, "since": "${since}"$2`));
+  if (shared) {
+    // The web app's database: no supabase/ files here, and genesis.config.json says where they are.
+    for (const rel of [...files.keys()]) if (isSupabasePath(rel)) files.delete(rel);
+    files.set("genesis.config.json", besideConfig(files.get("genesis.config.json")!, beside!.app));
+  } else {
+    // The copied migrations are the app's applied baseline: the doctor checks only later ones as new.
+    const since = sinceAfter(files);
+    const config = files.get("genesis.config.json");
+    if (since && config && !/"since"\s*:/.test(config)) files.set("genesis.config.json", config.replace(/("supabase"\s*:\s*\{[^}]*?)(\s*\})/, `$1, "since": "${since}"$2`));
+  }
 
   // The lock: renames, owned files and blocks.
   const lock: GenesisLock = { ...emptyLock(), substitutions };
   const cliVersion = pinnedVersion(target, CLI_PACKAGE)?.version;
   const templates = templatesDir();
   for (const rel of walk(templates)) {
+    if (shared && DATABASE_TEMPLATES.has(rel)) continue;
     const text = substitute(readFileSync(path.join(templates, rel), "utf8"), substitutions);
     const to = templateTarget(rel, text);
     files.set(to, text);
@@ -220,6 +258,14 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
     const blocks: string[] = [];
     for (const block of options.blocks) {
       if (switchedOff.has(block.id)) continue;
+      if (shared) {
+        // Its database files go in the web app: recorded here, written there.
+        if (carried.includes(block.id)) {
+          blocks.push(block.id);
+          lock.blocks[block.id] = { package: block.package, ...(block.version ? { version: block.version } : {}) };
+        }
+        continue;
+      }
       const stems = block.migrations.map((m) => stemOf(m.file));
       const copies = stems.map((s) => migrations.find((f) => path.posix.basename(f).replace(/^\d+_/, "") === `${s}.sql`));
       if (!stems.length || copies.some((c) => !c)) continue;
@@ -256,8 +302,38 @@ export function initNative(options: InitNativeOptions): InitNativeResult {
       // The store ids only the person has: the doctor's eas-placeholder warnings say the same.
       ...[...files].flatMap(([rel, text]) => (rel === "eas.json" || rel.startsWith(".eas/") ? findPlaceholders(rel, text).map((p) => placeholderStep(rel, p.text, p.placeholder)) : [])),
     );
-    return { target, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, leftOut, steps };
+    let besideResult: InitNativeResult["beside"];
+    if (beside) {
+      const home = { app: beside.app, dir: beside.dir, hasSupabase: beside.shared };
+      const missing = shared ? orderForAdding(blocksMissingThere(home, blocks, options.blocks) ?? blocks, options.blocks) : [];
+      const line = !shared
+        ? `${beside.app} has no supabase folder, so this app keeps its own supabase/ (as without --beside).`
+        : (addThereLine(home, missing) ?? `${beside.app} already has the database side of every block this app uses (${blocks.join(", ") || "none"}).`);
+      besideResult = { app: beside.app, shared, missing, line };
+      steps.unshift(line);
+    }
+    return { target, files: [...files.keys(), "genesis.lock.json"].sort(), dependencies, unpinned, blocks, leftOut, steps, ...(besideResult ? { beside: besideResult } : {}) };
   }
+}
+
+/**
+ * genesis.config.json for an app whose database is another app's: top-level
+ * `"supabase": { "app": … }`, and no doctor supabase pack (that app's doctor checks the migrations).
+ */
+export function besideConfig(text: string, app: string): string {
+  const json = JSON.parse(text) as Record<string, unknown> & { doctor?: Record<string, unknown> & { packs?: string[] } };
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(json)) {
+    if (key === "doctor" && value && typeof value === "object") {
+      const { supabase: _settings, contracts: _contracts, ...rest } = value as Record<string, unknown> & { packs?: string[] };
+      if (Array.isArray(rest.packs)) rest.packs = rest.packs.filter((p) => p !== "supabase");
+      out[key] = rest;
+    } else out[key] = value;
+    // Right after the doctor block, so it reads as part of the app's setup.
+    if (key === "doctor") out["supabase"] = { $comment: "This app has no supabase/ folder: its database files (migrations, pgTAP tests, Edge Functions) are in the supabase/ folder of the app named here. Run genesis add and migrate there.", app };
+  }
+  if (!("supabase" in out)) out["supabase"] = { app };
+  return `${JSON.stringify(out, null, 2)}\n`;
 }
 
 /** True when the starter holds a copy of every migration the block ships (and it ships one). */
@@ -274,7 +350,7 @@ function carriedBy(files: Map<string, string>, block: BlockManifest): boolean {
 function sinceAfter(files: Map<string, string>): string | null {
   const versions = [...files.keys()].filter((f) => f.startsWith(`${MIGRATIONS_DIR}/`) && f.endsWith(".sql")).map((f) => /^(\d{14})_/.exec(path.posix.basename(f))?.[1]).filter((v): v is string => Boolean(v)).sort();
   const last = versions.at(-1);
-  return last ? String(BigInt(last) + 1n).padStart(14, "0") : null;
+  return last ? nextStamp(last) : null;
 }
 
 /** The `@feat:` ids on a file's first line. */

@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { appPnpmSettings, runInitNative } from "../src/blocks/init-native.js";
 import { readLock, type GenesisLock } from "../src/blocks/lock.js";
 import { runDoctor } from "../src/doctor/index.js";
-import { blocksSwitchedOff, parseStarterFeatures, setStarterFeatures } from "../src/blocks/starter-features.js";
+import { blocksSwitchedOff, parseStarterBlocks, parseStarterFeatures, setStarterFeatures } from "../src/blocks/starter-features.js";
+import { runUpgrade } from "../src/upgrade/index.js";
 import { PACKAGES, snapshot, tempDir } from "./blocks-helpers.js";
 
 /** Every file the lock names, and every migration copy it records, is on disk. */
@@ -138,6 +139,26 @@ describe("genesis init --template native", () => {
     expect(existsSync(path.join(target, "package.json"))).toBe(false);
     await expect(runInitNative({ name: "Bad Name", target: path.join(tempDir(), "x") })).rejects.toThrow(/app slug/);
     await expect(runInitNative({ name: "ok-app", target: path.join(tempDir(), "y"), bundleId: "nodots" })).rejects.toThrow(/bundle id/);
+  });
+
+  it("reads the whole features block past nested objects, strings and comments with braces, and an empty starter setting", () => {
+    const config = 'defineStarter({\n  features: {\n    limits: { max: 3 },\n    chat: true, // a } in a comment\n    /* and { here } */\n    label: "a } in a string",\n    support: false,\n  },\n  app: { name: "A" },\n});\n';
+    expect(parseStarterFeatures(config)).toEqual({ chat: true, support: false });
+    expect(parseStarterFeatures(setStarterFeatures(config, { support: true }))).toEqual({ chat: true, support: true });
+    expect(setStarterFeatures(config, { support: true })).toContain('app: { name: "A" }');
+    expect(parseStarterBlocks('{ "starter": {} }')).toBeNull();
+    expect(() => parseStarterBlocks('{ "starter": [] }')).toThrow(/starter\.blocks/);
+  });
+
+  it("an app init made upgrades: the app-folder substitution is accepted, and no Edge Function init didn't write is added", async () => {
+    const { target } = await init();
+    // The starter's installed packages, so upgrade reads the blocks' manifests and files.
+    symlinkSync(path.join(PACKAGES, "..", "apps", "genesis-rn-starter", "node_modules"), path.join(target, "node_modules"), "dir");
+    const lookup = { release: () => ({ version: "9.9.9", packages: {} }), latest: () => null };
+    const report = await runUpgrade({ root: target, lookup, dryRun: true, install: false, doctor: false });
+    expect(report.summary).toContain("REPLACE_WITH_APP_FOLDER → src");
+    expect(report.added.filter((f) => f.startsWith("supabase/functions/"))).toEqual([]);
+    expect(report.summary).toContain("- genesis-notifications (notifications)");
   });
 
   it("reads and sets starter.config.ts switches as text, and keeps a switched-off block a block that's on requires", () => {

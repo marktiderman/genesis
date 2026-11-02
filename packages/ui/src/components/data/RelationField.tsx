@@ -32,6 +32,7 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { useUiMessages } from "../../messages";
 import type { ResourceFormFieldDef } from "./ResourceFormField";
+import { NONE_CHOICE as NONE } from "./none-choice";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -69,7 +70,6 @@ export type RelationFieldProps = RelationFieldTextKeyProps | RelationFieldRowKey
 
 /** How long typing settles before the search goes to the server. */
 const SEARCH_DEBOUNCE_MS = 250;
-const NONE = "__genesis_link_none__";
 const MORE = "__genesis_link_more__";
 const CREATE = "__genesis_link_create__";
 

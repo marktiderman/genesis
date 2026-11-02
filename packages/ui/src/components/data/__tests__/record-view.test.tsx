@@ -325,6 +325,135 @@ describe("RecordView when only the viewer's roles change", () => {
   });
 });
 
+describe("RecordView header, section icons and settings", () => {
+  const summarized = defineRecordView(
+    defineView(brands, {
+      summary: (b) => ({
+        title: b.name,
+        subtitle: "B-1 · Retail",
+        chips: [{ label: "Live", tone: "success" }, { label: "Partner" }, { label: "Featured", tone: "info" }],
+      }),
+    }),
+    {
+      sections: [
+        { id: "settings", label: "Settings", settings: ["website", "notes", "score"] },
+        { id: "activity", label: "Activity" },
+      ],
+    },
+  );
+  const editable = { ...brand, is_default: false };
+  const renderSummarized = (extra: Partial<Parameters<typeof RecordView>[0]> = {}, p = provider()) =>
+    renderRecordView("settings", p, { view: summarized as never, row: editable, ...extra });
+
+  it("shows every summary chip and the subtitle in the header, the first chip as the status", () => {
+    renderSummarized();
+    const header = within(screen.getByTestId("app-shell-page-header"));
+    expect(header.getByText("Live")).toBeTruthy();
+    expect(header.getAllByTestId("resource-chip").map((c) => c.textContent)).toEqual(["Partner", "Featured"]);
+    expect(header.getByText("B-1 · Retail")).toBeTruthy();
+  });
+
+  it("adds no chips or subtitle when the summary has none", () => {
+    renderRecordView("activity", provider());
+    const header = screen.getByTestId("app-shell-page-header");
+    expect(within(header).queryAllByTestId("resource-chip")).toHaveLength(0);
+    expect(header.querySelector('[data-slot="resource-header-subtitle"]')).toBeNull();
+  });
+
+  it("puts an icon on a section's tab when sectionIcons names one, and none otherwise", () => {
+    const Icon = (props: Record<string, unknown>) => <svg data-testid="settings-icon" {...props} />;
+    renderSummarized({ sectionIcons: { settings: Icon as never } });
+    const [settings, activity] = within(screen.getByTestId("app-shell-sub-nav")).getAllByRole("link");
+    expect(within(settings!).getByTestId("settings-icon")).toBeTruthy();
+    expect(settings!.textContent).toBe("Settings");
+    expect(activity!.querySelector("svg")).toBeNull();
+  });
+
+  it("settingsLocked narrows: the screen's reason makes the settings read-only", () => {
+    renderSummarized({ settingsLocked: (id: string) => (id === "settings" ? "Only owners edit this." : null) });
+    expect(screen.getByTestId("resource-workspace-settings-locked").textContent).toBe("Only owners edit this.");
+    expect(screen.queryByTestId("resource-workspace-settings-save")).toBeNull();
+  });
+
+  it("sends only the fields edited, so a refreshed row's other values aren't overwritten", async () => {
+    const p = provider();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    const at = (row: Brand) => (
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <AppShell appName="Test" navigation={tree} options={{ showThemeToggle: false, configurable: false, subNav: "tabs" }} activePath="/brands/b1/settings">
+          <RecordView view={summarized as never} row={row} section="settings" sectionHref={(id) => `/brands/b1/${id}`} />
+        </AppShell>
+      </GenesisProvider>
+    );
+    const { rerender } = render(at(editable));
+    fireEvent.change(screen.getByTestId("resource-workspace-settings-notes-input"), { target: { value: "mine" } });
+    // Someone else changes the website meanwhile; the refreshed row shows it.
+    rerender(at({ ...editable, website: "https://theirs.example" }));
+    expect((screen.getByTestId("resource-workspace-settings-website-input") as HTMLInputElement).value).toBe("https://theirs.example");
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledWith("brands", { id: "b1", data: { notes: "mine" } }));
+  });
+
+  it('an edit back to the value the row holds (2 and "2") is no change', () => {
+    renderSummarized({ row: { ...editable, score: 2 } });
+    const score = screen.getByTestId("resource-workspace-settings-score-input");
+    const save = () => screen.getByTestId("resource-workspace-settings-save") as HTMLButtonElement;
+    fireEvent.change(score, { target: { value: "3" } });
+    expect(save().disabled).toBe(false);
+    fireEvent.change(score, { target: { value: "2" } });
+    expect(save().disabled).toBe(true);
+  });
+});
+
+describe("RecordView settings picker", () => {
+  type Item = { id: string; name: string; size: "s" | "m" | null; kind: "a" | "b" };
+  const items = defineResource<Item>()({
+    name: "items",
+    key: "id",
+    labelField: "name",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "name", type: "string" },
+      { name: "size", type: "string", enumValues: ["s", "m"], nullable: true },
+      { name: "kind", type: "string", enumValues: ["a", "b"] },
+    ],
+  });
+  const itemPage = defineRecordView(defineView(items, {}), { sections: [{ id: "settings", label: "Settings", settings: ["size", "kind"] }] });
+  const item: Item = { id: "i1", name: "Cup", size: "m", kind: "a" };
+  const open = (testId: string) => {
+    const trigger = screen.getByTestId(testId);
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: "mouse" });
+    fireEvent.keyDown(trigger, { key: "Enter" });
+  };
+
+  it("offers None on a field that can be empty, and saves it as null", async () => {
+    const p = provider({ update: vi.fn(async (_r, { id, data }) => ({ data: { ...item, id, ...(data as object) } })) as DataProvider["update"] });
+    renderRecordView("settings", p, { view: itemPage as never, row: item });
+    open("resource-workspace-settings-size-input");
+    fireEvent.click(await screen.findByTestId("resource-workspace-settings-size-input-none"));
+    fireEvent.click(screen.getByTestId("resource-workspace-settings-save"));
+    await waitFor(() => expect(p.update).toHaveBeenCalledWith("items", { id: "i1", data: { size: null } }));
+  });
+
+  it("offers no None on a field that must have a value", async () => {
+    renderRecordView("settings", provider(), { view: itemPage as never, row: item });
+    open("resource-workspace-settings-kind-input");
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(screen.queryByTestId("resource-workspace-settings-kind-input-none")).toBeNull();
+  });
+
+  it("offers no None on a nullable field the view requires", async () => {
+    const requiredSize = {
+      ...itemPage,
+      settingsFields: (id: string) => itemPage.settingsFields(id).map((f) => (f.field.name === "size" ? { ...f, required: true } : f)),
+    };
+    renderRecordView("settings", provider(), { view: requiredSize as never, row: item });
+    open("resource-workspace-settings-size-input");
+    expect(await screen.findAllByRole("option")).toHaveLength(2);
+    expect(screen.queryByTestId("resource-workspace-settings-size-input-none")).toBeNull();
+  });
+});
+
 describe("RecordView settings inputs", () => {
   type Member = { id: string; name: string; phone: string | null; mobile: string | null; email: string | null };
   const members = defineResource<Member>()({

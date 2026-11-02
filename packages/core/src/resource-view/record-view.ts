@@ -169,6 +169,16 @@ function unsettable(field: FieldSchema | undefined): string | null {
   return null;
 }
 
+/**
+ * Whether two values are the same as a settings form holds them: 2 and "2", and null, undefined
+ * and "", are the same. A settings section compares an edit with the row through it, so an edit
+ * back to the stored value isn't a change (web and native RecordView).
+ */
+export function sameFormValue(a: unknown, b: unknown): boolean {
+  const text = (v: unknown) => (v === null || v === undefined ? "" : Array.isArray(v) ? v.join(",") : String(v));
+  return text(a) === text(b);
+}
+
 /** Whether a value is a record view (`defineRecordView`'s result). */
 export function isRecordView(value: unknown): value is RecordView {
   return typeof value === "object" && value !== null && (value as Record<symbol, unknown>)[WORKSPACE] === true;

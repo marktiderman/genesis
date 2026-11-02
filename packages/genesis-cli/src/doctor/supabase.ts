@@ -19,6 +19,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { DoctorConfigError } from "./config.js";
+import { databaseElsewhere } from "../blocks/database.js";
 import type { DoctorContext, Level } from "./types.js";
 
 export const DEFAULT_MIGRATIONS = "supabase/migrations";
@@ -244,6 +245,8 @@ function gitView(root: string, dir: string, base: string): GitView | { reason: s
 }
 
 export function checkSupabasePack(ctx: DoctorContext): void {
+  // The database files live in another app (or nowhere): that app's doctor checks them.
+  if (databaseElsewhere(ctx.root)) return;
   const settings = ctx.config.supabase ?? {};
   const dir = settings.migrations ?? DEFAULT_MIGRATIONS;
   const abs = path.join(ctx.root, dir);

@@ -673,6 +673,8 @@ export const features = defineFeatures({
   // Sites
   "genesis-sites": {
     name: "Sites and landing pages",
+    // The sites block's id: the feature `genesis add sites` registers in an app, and the tag its shipped tests carry.
+    aliases: ["sites"],
     summary: "@marktiderman/genesis-sites: multi-page sites and one-click landing pages from the brand. Zod 4 documents (SiteDoc, PageDoc, SectionNode, SEO, menus, redirects) in Puck's shape, a section registry with JSON Schema per section for the editor and AI, props migrations, SEO (meta, Open Graph and Twitter, canonical, sitemap.xml, robots.txt, JSON-LD), publish-time accessibility checks, the theme from the brand, templates, and a SiteStore with drafts, publish and rollback. The visual editor is sites-editor.",
     tagline: "A landing page from your brand in one click, and a whole site when you need it.",
     category: "Sites",
@@ -1531,8 +1533,8 @@ export const features = defineFeatures({
     status: "beta",
     kind: "block",
     keywords: ["auth", "login", "sign up", "sign in with apple", "oauth", "delete account", "profile"],
-    platforms: { web: "planned", native: "beta" },
-    entry: { native: "@marktiderman/genesis-supabase/native" },
+    platforms: { web: "beta", native: "beta" },
+    entry: { web: "@marktiderman/genesis-ui", native: "@marktiderman/genesis-supabase/native" },
     requires: ["native-layouts", "supabase-kit"],
     owner: "mark",
     apps: ["web", "native"],
@@ -1543,6 +1545,7 @@ export const features = defineFeatures({
       "signInWithApple sends Apple the SHA-256 of the nonce and Supabase the raw nonce, returns the shared full name and Apple's authorizationCode, and returns { canceled: true } when the person closes Apple's sheet.",
       "appleProvider adds Apple's own button to AuthScreen in one line on iOS and is skipped elsewhere, ignores a second tap while a sign-in is open, and the missing-Apple warning still fires on iOS without it.",
       "delete_my_account deletes only the caller's login, refuses no signed-in person, an aal1 session with a verified MFA factor, a refusing app hook (GA001) and a row without on delete cascade (23503), and cannot be executed by anon or public; deleteMyAccount then signs the device out.",
+      "On the web, AuthForm inside AuthPage signs in with a password, a magic link or an emailed code (InputOTP, verified on the last digit, resent after a cooldown), signs up, sends the reset email and saves a new password, every call through its client; createAuthFormClient is that client on Supabase Auth and reads the providers turned on from /auth/v1/settings.",
       "Still beta: revoking Sign in with Apple tokens on deletion (Apple's /auth/revoke, a server step) is in a pull request, not yet tried with a real Apple key (tracked as apple-token-revocation).",
     ],
     reviewedAt,
@@ -1554,8 +1557,10 @@ export const features = defineFeatures({
         "packages/ui-native/src/layouts/apple-sign-in.tsx",
         "packages/ui-native/src/layouts/google-sign-in.tsx",
         "packages/ui-native/src/layouts/auth-screen.tsx",
+        "packages/ui/src/components/patterns/auth-form.tsx",
+        "packages/supabase/src/auth-form-client.ts",
       ],
-      docs: ["packages/supabase/README.md", "packages/ui-native/README.md"],
+      docs: ["packages/supabase/README.md", "packages/ui-native/README.md", "packages/ui/README.md"],
     },
   },
   "apple-token-revocation": {
@@ -2878,6 +2883,8 @@ export const features = defineFeatures({
   },
   "product-events": {
     name: "Product events",
+    // The events block's id: the feature `genesis add events` registers in an app, and the tag its shipped tests carry.
+    aliases: ["events"],
     summary: "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
     category: "Data",
     status: "building",
