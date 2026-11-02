@@ -15,7 +15,7 @@
         "@marktiderman/genesis-ui-native",
         "@marktiderman/genesis-ui-native/data"
       ],
-      "count": 79
+      "count": 80
     }
   },
   "primitives": [
@@ -3117,7 +3117,7 @@
         },
         {
           "name": "formFieldsFor",
-          "summary": "The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, links, scope,\nsensitive and unreadable fields and server-filled keys), each marked read-only unless\n`view.writable(mode)` lists it. Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows\nthem as text.",
+          "summary": "The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, scope,\nsensitive and unreadable fields and server-filled keys), each marked read-only unless\n`view.writable(mode)` lists it. A link the person can change is a picker (`kind: \"link\"`). Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows\nthem as text.",
           "props": []
         },
         {
@@ -3410,6 +3410,66 @@
             {
               "name": "onClearFilters",
               "type": "(() => void)",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "native-link-picker",
+      "aliases": [],
+      "surface": "native",
+      "subpath": "@marktiderman/genesis-ui-native/data",
+      "filePath": "packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "NativeLinkPicker",
+      "components": [
+        {
+          "name": "NativeLinkPicker",
+          "summary": "",
+          "props": [
+            {
+              "name": "field",
+              "type": "NativeFormField",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "onChange",
+              "type": "(value: string | number | null) => void",
+              "required": true,
+              "defaultValue": null,
+              "description": "The picked row's key as the row holds it; `null` when None is chosen."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "value",
+              "type": "unknown",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "values",
+              "type": "Readonly<Record<string, unknown>>",
+              "required": true,
+              "defaultValue": null,
+              "description": "The form's values, for a picker whose filters follow another field."
+            },
+            {
+              "name": "error",
+              "type": "string",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -7116,6 +7176,11 @@
         {
           "name": "screenValues",
           "summary": "The values a create takes from the screen: every non-null equality filter, the screen's over the tab's.",
+          "props": []
+        },
+        {
+          "name": "screenLists",
+          "summary": "The list (`in`) filters a screen holds fields to, the screen's over the tab's.",
           "props": []
         },
         {
@@ -14509,7 +14574,7 @@
             },
             {
               "name": "common",
-              "type": "DeepPartial<{ empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
+              "type": "DeepPartial<{ empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14548,6 +14613,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "link",
+              "type": "DeepPartial<{ placeholder: string; search: string; none: string; noResults: string; loadMore: string; loadFailed: string; createNew: string; selected: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": "A link's picker in a form (RelationField)."
             },
             {
               "name": "page",
@@ -14604,7 +14676,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 12 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 13 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -14619,6 +14691,11 @@
         {
           "name": "__object",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+          "props": []
+        },
+        {
+          "name": "link",
+          "summary": "A link's picker in a form (RelationField).",
           "props": []
         },
         {
@@ -14641,6 +14718,11 @@
         {
           "name": "uiMessages",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
+          "props": []
+        },
+        {
+          "name": "link",
+          "summary": "A link's picker in a form (RelationField).",
           "props": []
         }
       ]
@@ -15801,17 +15883,17 @@
             },
             {
               "name": "onChange",
-              "type": "(value: string) => void",
+              "type": "((value: string) => void) | ((value: string | number | null) => void)",
               "required": true,
               "defaultValue": null,
-              "description": ""
+              "description": "The picked row's key as the row holds it; `null` when None is chosen."
             },
             {
               "name": "value",
-              "type": "string",
+              "type": "unknown",
               "required": true,
               "defaultValue": null,
-              "description": ""
+              "description": "The linked row's key (text or a number), or empty."
             },
             {
               "name": "aria-describedby",
@@ -15847,6 +15929,20 @@
               "required": false,
               "defaultValue": null,
               "description": "Id for the trigger, so a `<label htmlFor>` names it."
+            },
+            {
+              "name": "keys",
+              "type": "enum",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "values",
+              "type": "Readonly<Record<string, unknown>>",
+              "required": false,
+              "defaultValue": null,
+              "description": "The form's values, for a picker whose filters follow another field."
             }
           ]
         }

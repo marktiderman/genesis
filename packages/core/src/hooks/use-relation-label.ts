@@ -77,6 +77,15 @@ function namingField(provider: DataProvider, resource: string): Promise<string |
   return found;
 }
 
+/**
+ * The linked resource's naming field, as a link's words find it: its `labelField` from
+ * `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per
+ * resource and provider; a picker uses it to search and sort the rows it lists.
+ */
+export function relationNamingField(provider: DataProvider, resource: string): Promise<string | undefined> {
+  return namingField(provider, resource);
+}
+
 /** Ids per request: the provider's page limit, at most CHUNK. */
 async function chunkSize(provider: DataProvider, resource: string): Promise<number> {
   const capabilities = provider.capabilities?.bind(provider);
