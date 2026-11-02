@@ -1,0 +1,123 @@
+.changeset/brand-contrast-check.md
+  s_1feb538f59bf88::t_c473603b888a7a 1-5
+.changeset/brand-radius-scale.md
+  s_1feb538f59bf88::t_8c60a2cf463a4e 1-11
+.changeset/ui-appshell-phone-drawer.md
+  s_1feb538f59bf88::t_6def92336d4e8c 1-15
+.changeset/umbrella-readme-imports.md
+  s_1feb538f59bf88::t_7dfb8166728e23 1-5
+.changeset/upgrade-excludes-exact-versions.md
+  s_1feb538f59bf88::t_6112ea23197bbf 1-11
+.github/ci-fixture/pnpm-workspace.yaml
+  s_1feb538f59bf88::t_8e151b998da44a 4-6,8-13
+.github/workflows/ci.yml
+  s_1feb538f59bf88::t_05db7174353968 143-148
+.github/workflows/genesis-upgrade.yml
+  s_1feb538f59bf88::t_48f42398461cdd 34-49,194-225,227-228,230-232,242-301,311-315,320-321,325,328-329,331-368,374-376,381,385-395,411-414,416,421-422,425-431,580-586,589,649-651,654,741,755-762,776,792
+AGENTS.md
+  s_1feb538f59bf88::t_18d3a7fcbf5e39 11,105
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_c7041b2963f148 14515-14521,14563
+docs/AI.md
+  s_1feb538f59bf88::t_90567c52ff9997 223,225-226,243,245-255,262-263
+docs/APP-CI.md
+  s_1feb538f59bf88::t_c5b34e502f093a 110-121,143-146
+docs/FORMS.md
+  s_1feb538f59bf88::t_e3eec474d96f4a 202,208,225-227,659-662
+docs/NOTIFICATIONS-V1.1.md
+  s_1feb538f59bf88::t_c5e0b10f3d896a 4-5
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_6a7e69d4d8c5a6 3,45,70-71,131-132,179-195,211-212,216-217,221,237-243,246-248,284,287-288,296-301,311,322-325,336-337,350-351,446-447,459-460,545-546,616-621,630-631,672-673,676-678,684-685,697,742
+docs/component-reference.md
+  s_1feb538f59bf88::t_b34c3498e0729d 7,1996,2002-2003,2073,2077,2082-2083,2088,2147,2242,2247,2249,4818,4824-4825,4895,4899,4904-4905,4910,4969
+features.json
+  s_1feb538f59bf88::t_db39c78b4dd18b 600-701
+features.ts
+  s_1feb538f59bf88::t_bebf92fd70a7e7 273-320
+package.json
+  s_1feb538f59bf88::t_78c3d739ff8da2 17
+packages/design-system/README.md
+  s_1feb538f59bf88::t_546218a2310437 17,39-72
+packages/design-system/schema/brand.schema.json
+  s_1feb538f59bf88::t_13c574708002fd 128-129
+packages/design-system/src/design-systems/__tests__/design-systems.test.ts
+  s_1feb538f59bf88::t_65e28800c50b1c 46,201-205
+packages/design-system/src/design-systems/tokens.ts
+  s_1feb538f59bf88::t_55c2050e154304 13,239-240
+packages/design-system/src/factories/__tests__/brand-roles.test.ts
+  s_1feb538f59bf88::t_d96876d2bfb950 127-144
+packages/design-system/src/factories/__tests__/from-brand.test.ts
+  s_1feb538f59bf88::t_509c13eb08bbdb 439,445
+packages/design-system/src/factories/brand-roles.ts
+  s_1feb538f59bf88::t_23666832abccc0 30-31,42,157,182-183,186-200
+packages/design-system/src/factories/from-brand.ts
+  s_1feb538f59bf88::t_e586e90c218cd6 315
+packages/design-system/src/index.native.ts
+  s_1feb538f59bf88::t_25d7134a4f458b 41-42,46-47
+packages/design-system/src/index.ts
+  s_1feb538f59bf88::t_aa9a904300b037 32-33,37-38
+packages/design-system/src/presets/__tests__/nativewind.test.ts
+  s_1feb538f59bf88::t_cb1d990093a282 67-89
+packages/design-system/src/presets/nativewind.ts
+  s_1feb538f59bf88::t_d8acb477f5996e 24-31,44-45,88,93,107-123
+packages/design-system/src/schema/__tests__/brand-contrast.test.ts
+  s_1feb538f59bf88::t_f8123ffdf189d2 1-144
+packages/design-system/src/schema/brand-contrast.ts
+  s_1feb538f59bf88::t_9b9a66e6e8b59d 1-225
+packages/design-system/src/schema/brand.ts
+  s_1feb538f59bf88::t_3fb0d86d909291 105-110,451-474,801-806,812,814,816,939-949
+packages/design-system/src/tokens/__tests__/theme-css.test.ts
+  s_1feb538f59bf88::t_483c04a8b48e4a 21,109,117-152
+packages/design-system/src/tokens/spacing.ts
+  s_1feb538f59bf88::t_ed52eca650efda 5-32,34-37,39-41
+packages/design-system/src/tokens/theme-css.ts
+  s_1feb538f59bf88::t_76d7c96b43a4f5 17-18,258-261,294-299
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_b5745f5db91614 449-468,470-476
+packages/genesis-cli/src/cli.ts
+  s_1feb538f59bf88::t_967382beec3eec 40-43
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_1feb538f59bf88::t_8d959637e91119 28-42,47,49-50
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_1feb538f59bf88::t_1535bce6296ff7 70-83,85-101,103-104,106-108,118-177,187-191,196-197,201,204-233,235-244,250-252,257,261-271
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_93b82ba0158a92 11-12,22-23,39,70-71,140-143,147-148,154-232,323,325-326,330-331,333-340,342,354-362,369,490
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_3c67e7ff69ef99 2-3,9,11,157-159,168,172,176-178,181-182,185-186,192-208,210-212,214-217,223-298,302-307,309,317-318,322-326,329-330,332-333,340-359,371,377-384,387-439
+packages/genesis/README.md
+  s_1feb538f59bf88::t_91e0c116ff9237 9-10
+packages/sites/src/__tests__/__snapshots__/design-systems.test.ts.snap
+  s_1feb538f59bf88::t_d221c4dca02bb0 661,789,922,1050,1183,1311,1444,1572,1705,1833,1969,2100,2233,2361,2494,2622,2755,2883,3016,3144,3277,3405,3541,3672,3805,3933,4066,4194,4327,4455,4588,4716,4849,4977,5113,5244,5377,5505,5638,5766,5899,6027,6160,6288,6421,6549,6685,6816
+packages/ui/src/components/layout/AppShell.tsx
+  s_1feb538f59bf88::t_0e032cbf55ff22 25,38,51,288-289,1153-1154,1215,1218-1239,1475-1484,1597,1605,1645,1767-1810,1821-1822,1827,1831,1853,1938-1941,1954-1955,1993-2010,2013-2053
+packages/ui/src/components/layout/__tests__/app-shell-collapse.test.tsx
+  s_1feb538f59bf88::t_4ea20853787da5 467-468
+packages/ui/src/components/layout/__tests__/app-shell-mobile.test.tsx
+  s_1feb538f59bf88::t_c0814b584ee5ea 1-303
+packages/ui/src/components/layout/__tests__/chrome-options.test.tsx
+  s_1feb538f59bf88::t_0aa073e4602f02 274-278
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_538cd70bfa9988 215-231
+scripts/__tests__/check-docs-match-exports.test.mjs
+  s_1feb538f59bf88::t_e7c082c4aa1eb3 1-246
+scripts/__tests__/genesis-bump-sync.test.mjs
+  s_1feb538f59bf88::t_4ea2ed37cfc50d 55-56,58,66-70,76,78,83-103
+scripts/check-docs-match-exports.mjs
+  s_1feb538f59bf88::t_c3925257ae552a 1-715
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "94d797d98c7f1c9ead0a7b40763991181db35b60",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
