@@ -547,7 +547,7 @@ describe("EventCalendar: review fixes", () => {
     expect(within(cell).getAllByTestId("event-calendar-item").filter((el) => !el.closest("li")!.className.includes("hidden"))).toHaveLength(3);
     expect(cell.querySelectorAll("li.print\\:list-item")).toHaveLength(2);
     fireEvent.click(more);
-    expect(within(cell).queryByTestId("event-calendar-more")).toBeNull();
+    expect(within(cell).getByTestId("event-calendar-more").textContent).toBe("Show fewer");
     expect(cell.querySelectorAll("li.hidden")).toHaveLength(0);
   });
 
@@ -781,5 +781,261 @@ describe("calendar follow-up: the URL warning", () => {
     } finally {
       delete g.__DEV__;
     }
+  });
+});
+
+describe("calendar patch: the list's options, focus, lanes", () => {
+  it("waits while resourceOptions.enabled is false, as a list does", async () => {
+    const { p, getList } = filtering(ROWS);
+    const { rerender } = render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ enabled: false }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(p) },
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getList).not.toHaveBeenCalled();
+    rerender(<ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ enabled: true }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />);
+    expect(await screen.findByText("Swim meet")).toBeTruthy();
+  });
+
+  it("sends resourceOptions.select with both requests", async () => {
+    const { p, getList } = filtering(ROWS);
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ select: "*, coach:people(name)" }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(p) },
+    );
+    await screen.findByText("Swim meet");
+    const selects = getList.mock.calls.map((c) => (c as unknown as [string, { select?: string }])[1].select);
+    expect(selects).toEqual(["*, coach:people(name)", "*, coach:people(name)"]);
+  });
+
+  it("subscribes and refetches with live, as a list does", async () => {
+    const { p, getList } = filtering(ROWS);
+    let push: ((e: { type: "updated"; id: string }) => void) | undefined;
+    (p as unknown as { subscribe: unknown }).subscribe = vi.fn((_r: string, _params: unknown, cb: typeof push) => {
+      push = cb;
+      return () => {};
+    });
+    render(<ResourceView view={eventsView} mode="calendar" scoped={false} live={{ debounceMs: 0 }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, {
+      wrapper: wrap(p),
+    });
+    await screen.findByText("Swim meet");
+    expect((p as unknown as { subscribe: ReturnType<typeof vi.fn> }).subscribe).toHaveBeenCalledWith("events", expect.anything(), expect.any(Function));
+    const before = getList.mock.calls.length;
+    push!({ type: "updated", id: "e1" });
+    await waitFor(() => expect(getList.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("refuses a time zone the runtime doesn't know, naming the view", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() =>
+      render(<ResourceView view={eventsView} mode="calendar" calendar={{ timeZone: "Mars/Base" }} />, { wrapper: wrap(filtering(ROWS).p) }),
+    ).toThrow(/ResourceView\(events\): calendar timeZone "Mars\/Base"/);
+  });
+
+  it("moves focus to the first revealed event on +N more, and keeps it on the toggle without buttons", () => {
+    const busy: CalendarEvent[] = Array.from({ length: 5 }, (_, i) => ({ key: `b${i}`, title: `Busy ${i}`, start: at(`2026-11-02T1${i}:00:00Z`) }));
+    const { unmount } = render(<EventCalendar events={busy} layout="month" anchor="2026-11-04" timeZone={Z} onSelect={() => {}} />);
+    const more = screen.getByTestId("event-calendar-more");
+    more.focus();
+    fireEvent.click(more);
+    expect(document.activeElement?.textContent).toContain("Busy 3");
+    unmount();
+    render(<EventCalendar events={busy} layout="month" anchor="2026-11-04" timeZone={Z} />);
+    const toggle = screen.getByTestId("event-calendar-more");
+    toggle.focus();
+    fireEvent.click(toggle);
+    expect(document.activeElement).toBe(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps focus when PageDown leaves a lane the next window doesn't have", async () => {
+    function Controlled() {
+      const [anchor, setAnchor] = useState("2026-11-04");
+      // Unassigned only in the first week.
+      const evs: CalendarEvent[] = [{ key: "bins", title: "Bins out", start: "2026-11-03" }, ...family];
+      return <EventCalendar events={evs} lanes={people} layout="lanes" weeks={1} weekStartsOn={0} anchor={anchor} onAnchorChange={setAnchor} timeZone={Z} locale="en-US" />;
+    }
+    render(<Controlled />);
+    const loose = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label") === "Unassigned, Tuesday, November 3, 2026, 1 event")!;
+    loose.focus();
+    fireEvent.keyDown(loose, { key: "PageDown" });
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Ana, Tuesday, November 10, 2026"));
+  });
+
+  it("buckets many events into lanes correctly", () => {
+    const many: CalendarEvent[] = Array.from({ length: 400 }, (_, i) => ({ key: `e${i}`, title: `E${i}`, start: `2026-11-0${(i % 7) + 1}`, lanes: [`p${i % 20}`] }));
+    render(<EventCalendar events={many} layout="lanes" weeks={1} weekStartsOn={0} anchor="2026-11-04" timeZone={Z} locale="en-US" />);
+    expect(screen.getAllByTestId("event-calendar-lane")).toHaveLength(20);
+    const cell = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label")?.startsWith("p0, Sunday, November 1"))!;
+    // p0 gets i = 0, 20, 40, …: those on 1 November are i ≡ 0 (mod 7) too, i.e. multiples of 140.
+    expect(within(cell).getAllByTestId("event-calendar-item")).toHaveLength(3);
+  });
+});
+
+describe("calendar patch: lanes from a link show the linked row's words", () => {
+  type Shift = { id: string; title: string; on: string; person_id: string };
+  const shifts = defineResource<Shift>()({
+    name: "shifts",
+    key: "id",
+    labelField: "title",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "title", type: "string" },
+      { name: "on", type: "datetime", dbType: "date" },
+      { name: "person_id", type: "string", references: { resource: "people", field: "id" } },
+    ],
+  });
+  const shiftsView = defineView(shifts, { columns: { default: ["title"] }, fields: { person_id: { labelField: "name" } }, calendar: { field: "on", laneBy: "person_id", layout: "lanes", weeks: 1 } });
+
+  it("labels each lane by the linked person, never the raw id", async () => {
+    const rows: Shift[] = [{ id: "s1", title: "Open", on: "2026-11-03", person_id: "u-1" }, { id: "s2", title: "Close", on: "2026-11-04", person_id: "u-2" }];
+    const getList = vi.fn(async (resource: string, params: { filters?: FilterParam[] }) => {
+      if (resource === "people") {
+        const ids = ((params.filters ?? []).find((f) => f.operator === "in") as { value: string[] } | undefined)?.value ?? [];
+        const people = [{ id: "u-1", name: "Ana" }, { id: "u-2", name: "Ben" }].filter((p) => ids.includes(p.id));
+        return { data: people, total: people.length };
+      }
+      return { data: rows, total: rows.length };
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    render(<ResourceView view={shiftsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />, { wrapper: wrap(p) });
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Ana", "Ben"]));
+    expect(screen.queryByText("u-1")).toBeNull();
+  });
+
+  it("labels numeric link ids under the same cache key a relation cell uses, and never says … while loading", async () => {
+    type Shift2 = { id: string; title: string; on: string; person_id: number };
+    const shifts2 = defineResource<Shift2>()({
+      name: "shifts2",
+      key: "id",
+      labelField: "title",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "title", type: "string" },
+        { name: "on", type: "datetime", dbType: "date" },
+        { name: "person_id", type: "number", references: { resource: "people", field: "id" } },
+      ],
+    });
+    const v = defineView(shifts2, { columns: { default: ["title"] }, fields: { person_id: { labelField: "name" } }, calendar: { field: "on", laneBy: "person_id", layout: "lanes", weeks: 1 } });
+    let release: (() => void) | undefined;
+    const getList = vi.fn(async (resource: string) => {
+      if (resource === "people") {
+        await new Promise<void>((r) => (release = r));
+        return { data: [{ id: 5, name: "Ana" }], total: 1 };
+      }
+      return { data: [{ id: "s1", title: "Open", on: "2026-11-03", person_id: 5 }], total: 1 };
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={v} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />
+      </GenesisProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Loading…"]));
+    expect(screen.getAllByRole("gridcell").some((c) => c.getAttribute("aria-label")?.includes("…") && !c.getAttribute("aria-label")?.includes("Loading…"))).toBe(false);
+    release!();
+    await waitFor(() => expect(screen.getAllByRole("rowheader").map((h) => h.textContent)).toEqual(["Ana"]));
+    expect(queryClient.getQueryData(["people", "relation-label", { field: "id", labelField: "name", id: "number:5" }])).toBe("Ana");
+  });
+});
+
+describe("calendar patch: review of #611", () => {
+  it("warns in development when select leaves out the calendar's fields", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} resourceOptions={{ select: "id, title, coach:people(name)" }} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />,
+      { wrapper: wrap(filtering(ROWS).p) },
+    );
+    await waitFor(() => expect(warn.mock.calls.some((c) => /leaves out starts_at, ends_at, who/.test(String(c[0])))).toBe(true));
+  });
+
+  it("keeps focus in the grid when new data removes the focused lane", async () => {
+    const withCy: Event[] = [...ROWS, { ...ROWS[0]!, id: "e3", title: "Cy's game", starts_at: "2026-11-03T15:00:00Z", ends_at: "2026-11-03T16:00:00Z", who: ["cy"] }];
+    let rows = withCy;
+    const getList = vi.fn(async (_r: string, params: { filters?: FilterParam[] }) => {
+      const { p } = filtering(rows);
+      return (p.getList as unknown as (r: string, x: unknown) => Promise<unknown>)("events", params);
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "lanes", weeks: 1, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z, lanes: people }} />
+      </GenesisProvider>,
+    );
+    await screen.findByText("Cy's game");
+    const cy = screen.getAllByRole("gridcell").find((c) => c.getAttribute("aria-label")?.startsWith("cy, Monday, November 2"))!;
+    cy.focus();
+    rows = ROWS;
+    await queryClient.invalidateQueries({ queryKey: ["events"] });
+    await waitFor(() => expect(screen.queryByText("Cy's game")).toBeNull());
+    await waitFor(() => expect(document.activeElement?.getAttribute("aria-label")).toBe("Ana, Monday, November 2, 2026"));
+  });
+});
+
+describe("calendar patch: CodeRabbit findings from the 2.27.0 review", () => {
+  it("says when an overnight event ends on its last day, never \"All day\"", () => {
+    const late: CalendarEvent = { key: "party", title: "Party", start: at("2026-11-03T03:00:00Z"), end: at("2026-11-03T09:00:00Z") };
+    // 20:00 on the 2nd to 02:00 on the 3rd in Denver.
+    render(<EventCalendar events={[late]} layout="agenda" weeks={1} weekStartsOn={0} anchor="2026-11-04" timeZone={Z} locale="en-US" />);
+    const days = screen.getAllByTestId("event-calendar-day");
+    expect(days[0]!.textContent).toContain("8:00");
+    expect(days[1]!.textContent).toContain("until 2:00");
+    expect(days[1]!.textContent).not.toContain("All day");
+  });
+
+  it("keeps the last rows only while the window moves, never across a change of filter", async () => {
+    const { p } = filtering(ROWS);
+    let release: (() => void) | undefined;
+    const getList = p.getList;
+    (p as unknown as { getList: unknown }).getList = vi.fn(async (r: string, params: { filters?: FilterParam[] }) => {
+      // Hold any request filtered to household h2.
+      if (params.filters?.some((f) => f.field === "household_id" && "value" in f && f.value === "h2")) await new Promise<void>((res) => (release = res));
+      return (getList as unknown as (r: string, x: unknown) => Promise<unknown>)(r, params);
+    });
+    const props = { view: eventsView, mode: "calendar" as const, scoped: false, calendar: { anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z } };
+    const { rerender } = render(<ResourceView {...props} filter={{ household_id: "h1" }} />, { wrapper: wrap(p) });
+    expect(await screen.findByText("Swim meet")).toBeTruthy();
+    rerender(<ResourceView {...props} filter={{ household_id: "h2" }} />);
+    // The other household's rows don't stand in while it loads.
+    await waitFor(() => expect(screen.queryByText("Swim meet")).toBeNull());
+    expect(screen.getByTestId("resource-calendar").getAttribute("aria-busy")).toBe("true");
+    release!();
+  });
+
+  it("shows the open record as it is now, after it changes", async () => {
+    let rows = ROWS;
+    const getList = vi.fn(async (_r: string, params: { filters?: FilterParam[] }) => {
+      const { p } = filtering(rows);
+      return (p.getList as unknown as (r: string, x: unknown) => Promise<unknown>)("events", params);
+    });
+    const p = { getList, getOne: vi.fn(), getMany: vi.fn(async () => ({ data: [] })), create: vi.fn(), update: vi.fn(), deleteOne: vi.fn() } as unknown as DataProvider;
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <GenesisProvider provider={p} queryClient={queryClient}>
+        <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />
+      </GenesisProvider>,
+    );
+    fireEvent.click(await screen.findByRole("button", { name: /Swim meet/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getAllByText("Swim meet").length).toBeGreaterThan(0);
+    rows = ROWS.map((r) => (r.id === "e1" ? { ...r, title: "Swim gala" } : r));
+    await queryClient.invalidateQueries({ queryKey: ["events"] });
+    await waitFor(() => expect(within(screen.getByRole("dialog")).getAllByText("Swim gala").length).toBeGreaterThan(0));
+  });
+});
+
+describe("calendar print: sheets from the view's own rows", () => {
+  it("prints PrintableAgenda per lane from the calendar's rows, the calendar itself hidden in print", async () => {
+    render(
+      <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ layout: "lanes", weeks: 1, weekStartsOn: 0, anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z, lanes: people, print: {} }} />,
+      { wrapper: wrap(filtering(ROWS).p) },
+    );
+    const sheets = await screen.findAllByTestId("resource-calendar-print-sheet");
+    expect(sheets.map((s) => s.getAttribute("data-lane"))).toEqual(["ana", "ben"]);
+    expect(await within(sheets[0]!).findByText("Swim meet")).toBeTruthy();
+    expect(screen.getByTestId("resource-calendar-print").className).toContain("hidden print:block");
+    expect(screen.getByTestId("resource-calendar").className).toContain("print:hidden");
   });
 });

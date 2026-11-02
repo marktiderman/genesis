@@ -30,6 +30,7 @@
   "pageloading": "foundation-ui-pageloading--page",
   "pagination": "foundation-ui-pagination--default",
   "popover": "foundation-ui-popover--default",
+  "printableagenda": "data-printableagenda--one-sheet-per-person",
   "progress": "foundation-ui-progress--empty",
   "publicpage": "foundation-layout-publicpage--public-form",
   "publishableresourcepage": "foundation-patterns-publishable-resource-page--resource-page-with-header",
