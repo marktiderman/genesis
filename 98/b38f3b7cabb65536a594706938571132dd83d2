@@ -1,0 +1,33 @@
+.changeset/upgrade-excludes-exact-versions.md
+  s_1feb538f59bf88::t_c67faa4cd587df 5,7
+.github/workflows/genesis-upgrade.yml
+  s_1feb538f59bf88::t_a6a314c94b9d1f 43-45,199-210,223-225,230-232,242-244,246-257,259-278,280-296,299-300,312-313,328-329,331,334,342-370,387-393,421-422,427-432
+docs/APP-CI.md
+  s_1feb538f59bf88::t_5eaa56aa6c158e 114-116
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_8118b4504b4468 364-374
+packages/genesis-cli/src/upgrade/bump-core.d.mts
+  s_1feb538f59bf88::t_651c4cf971d370 28-29,35,38-41,50
+packages/genesis-cli/src/upgrade/bump-core.mjs
+  s_1feb538f59bf88::t_63a32caeb2874d 75-86,99-101,106-108,118-120,122-133,135-154,156-172,175-176,188-189,204-205,207,210,218-246,263-269
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_11862efbc38a67 33,64-65,139-140,175-183,314,346-353,360
+packages/genesis-cli/test/upgrade.test.ts
+  s_1feb538f59bf88::t_31a83f8688c84a 9,146-147,156,197-214,216,221-240,252,261-266,310-329
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "98b38f3b7cabb65536a594706938571132dd83d2",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "unknown"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
