@@ -14,6 +14,8 @@
  * bundles the variable list, the stylesheets are written at build time.
  */
 
+import { RADIUS_SCALE, radiusStep } from "./spacing";
+
 export interface ThemeBrand {
   name: string;
   /** Primary hue/saturation/lightness (Shadcn HSL components). */
@@ -253,12 +255,10 @@ export function renderTailwind4Bridge(): string {
           break;
         }
         case "radius":
-          lines.push(
-            `  --radius-sm: calc(var(--radius) - 4px);`,
-            `  --radius-md: calc(var(--radius) - 2px);`,
-            `  --radius-lg: var(--radius);`,
-            `  --radius-xl: calc(var(--radius) + 4px);`
-          );
+          // Every step a multiple of --radius (see RADIUS_SCALE), so 0 is square everywhere.
+          for (const [step, factor] of Object.entries(RADIUS_SCALE)) {
+            if (step !== "DEFAULT") lines.push(`  --radius-${step}: ${radiusStep(factor)};`);
+          }
           break;
         case "font":
           lines.push(`  --${v.name}: var(--${v.name});`);
@@ -290,6 +290,12 @@ export function renderTailwind4Bridge(): string {
 
 @theme inline {
 ${lines.join("\n")}
+}
+
+/* Bare \`rounded\`. Its theme key is --radius, the same name as the variable
+   it scales from, so it is a reference: inlined, never declared. */
+@theme inline reference {
+  --radius: ${radiusStep(RADIUS_SCALE.DEFAULT)};
 }
 `;
 }

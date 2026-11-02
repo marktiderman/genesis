@@ -442,3 +442,44 @@ describe("RecordView settings picker", () => {
     expect(screen.queryByTestId("resource-workspace-settings-kind-input-none")).toBeNull();
   });
 });
+
+describe("RecordView settings inputs", () => {
+  type Member = { id: string; name: string; phone: string | null; mobile: string | null; email: string | null };
+  const members = defineResource<Member>()({
+    name: "members",
+    key: "id",
+    labelField: "name",
+    fields: [
+      { name: "id", type: "string", hasDefault: true },
+      { name: "name", type: "string" },
+      { name: "phone", type: "string", nullable: true, widget: "tel" },
+      // Named like a phone number, declared as nothing: stays text.
+      { name: "mobile", type: "string", nullable: true },
+      { name: "email", type: "string", nullable: true, widget: "email" },
+    ],
+  });
+  const memberPage = defineRecordView(
+    defineView(members, { fields: { phone: { autoComplete: "tel", enterKeyHint: "done" }, mobile: { inputMode: "numeric" } } }),
+    { sections: [{ id: "settings", label: "Settings", settings: ["phone", "mobile", "email"] }] },
+  );
+  const member: Member = { id: "m1", name: "Ada", phone: null, mobile: null, email: null };
+
+  it("gives a settings field the form's type, keyboard and autofill (widget: tel)", () => {
+    renderRecordView("settings", provider({ getOne: vi.fn(async () => ({ data: member })) as DataProvider["getOne"] }), {
+      view: memberPage as never,
+      row: member as never,
+    });
+    const input = (key: string) => screen.getByTestId(`resource-workspace-settings-${key}-input`) as HTMLInputElement;
+    expect(input("phone").type).toBe("tel");
+    expect(input("phone").getAttribute("inputmode")).toBe("tel");
+    expect(input("phone").getAttribute("autocomplete")).toBe("tel");
+    expect(input("phone").getAttribute("enterkeyhint")).toBe("done");
+    expect(input("mobile").type).toBe("text");
+    // The view field's own keyboard wins.
+    expect(input("mobile").getAttribute("inputmode")).toBe("numeric");
+    expect(input("email").type).toBe("email");
+    expect(input("email").getAttribute("inputmode")).toBe("email");
+    // Autofill only where the view field asks for it.
+    expect(input("email").hasAttribute("autocomplete")).toBe(false);
+  });
+});

@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4086 other exports · 3254 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4085 other exports · 3258 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1993,13 +1993,14 @@ DTCG design tokens, brand schema, theme generators. Brand-agnostic; consumer bra
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -2069,19 +2070,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (48)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
+export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
@@ -2140,7 +2144,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -2235,12 +2239,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`isLength`](../packages/design-system/src/schema/brand.ts) | function | — | Whether a length passes LENGTH_REGEX, and, for a clamp, its min isn't above its max. |
 | [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
 
-### Types (8)
+### Types (10)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
 export type { BrandExtensions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorScale };
@@ -4693,7 +4699,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/genesis/src/ui-utils.ts`](../packages/genesis/src/ui-utils.ts)
 
-### Other exports (4)
+### Other exports (3)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4701,17 +4707,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"). |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-
-### Types (2)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { RelativeTimeStyle };
-export type { RelativeTimeWords };
-```
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 
 ---
 
@@ -4819,13 +4815,14 @@ export type { WizardStep };
 | --- | --- | --- | --- |
 | [`GenesisThemeProvider`](../packages/design-system/src/theme/index.ts) | `GenesisThemeProviderProps` | — | _(no summary)_ |
 
-### Other exports (73)
+### Other exports (74)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
+| [`brandContrastProblems`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | The brand's contrast problems: role pairs (per platform, when its `platformOverrides` make them differ) and extension colors. Empty when every pair reaches its minimum. Colors that aren't `#rgb` / `#rrggbb` are skipped. Assumes a brand o... |
 | [`brandRoleVariables`](../packages/design-system/src/factories/brand-roles.ts) | function | Beta | The theme role variables for `brand`, per mode, as `{ "--primary": "243 75% 59%", … }` maps: the same names and format as `themes/genesis.css`. |
 | [`clampBounds`](../packages/design-system/src/schema/brand.ts) | function | — | A clamp's min and max, in rem; undefined for a plain length. |
 | [`classicDesignSystem`](../packages/design-system/src/design-systems/built-in.ts) | const | — | Today's look, unchanged: it emits no tokens, so every component keeps the stylesheet's own sizes, spacing and colours. The default for a brand that names no design system. |
@@ -4895,19 +4892,22 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`TYPE_STEPS`](../packages/design-system/src/design-systems/define.ts) | const | — | The type ramp's steps, smallest first. |
 | [`unregisterDesignSystem`](../packages/design-system/src/design-systems/registry.ts) | function | — | Remove a registered design system (for tests). Built-in ones stay. |
 | [`useTheme`](../packages/design-system/src/theme/index.ts) | value | — | _(no summary)_ |
-| [`validateBrand`](../packages/design-system/src/schema/brand.ts) | function | — | Validate a candidate brand object against the canonical schema. |
+| [`validateBrand`](../packages/design-system/src/schema/brand-contrast.ts) | function | Beta | {@link validateBrandShape | The brand shape check} plus {@link brandContrastProblems}: contrast pairs under their minimum come back as `warnings` (`ok` stays true); body text under 1.5:1 on its page is an error. The package entry exports... |
 | [`validateDesignSystem`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a design system input; empty when it is sound. |
 | [`validateDesignSystemChoice`](../packages/design-system/src/design-systems/define.ts) | function | — | Every problem with a brand's design system choice; empty when it is sound. |
 
-### Types (48)
+### Types (51)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
+export type { BrandContrastFinding };
+export type { BrandContrastProblem };
 export type { BrandExtensions };
 export type { BrandFactoryOptions };
 export type { BrandRoleVariables };
 export type { BrandRoleVariablesOptions };
+export type { BrandValidationOptions };
 export type { BrandValidationResult };
 export type { CanonicalBrand };
 export type { ColorRoles };
@@ -4966,7 +4966,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Shared spacing and layout tokens for all Genesis projects. |
+| [`borderRadius`](../packages/design-system/src/tokens/spacing.ts) | const | — | Tailwind `borderRadius` for the v3 and NativeWind presets: {@link RADIUS_SCALE} as `calc()`s. |
 | [`fontFamily`](../packages/design-system/src/tokens/typography.ts) | const | — | Shared typography tokens for all Genesis projects. |
 | [`fontSize`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
 | [`fontWeight`](../packages/design-system/src/tokens/typography.ts) | const | — | _(no summary)_ |
@@ -10073,7 +10073,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (48)
+### Other exports (47)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10088,7 +10088,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataBulkBar`](../packages/ui/src/components/data/DataBulkBar.tsx) | function | — | _(no summary)_ |
 | [`DataFilters`](../packages/ui/src/components/data/DataFilters.tsx) | function | — | _(no summary)_ |
 | [`DataGrid`](../packages/ui/src/components/data/DataGrid.tsx) | function | — | _(no summary)_ |
-| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. `relative: "short"` words it as `relativeTime` does ("2 hours ago", "yesterday", "Oct 21") instead of date-fns' distance ("about 2 hours ago"). Compatible with DataTab... |
+| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. Compatible with DataTableColumn<T>'s `render` prop. |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
@@ -10105,10 +10105,8 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
-| [`relativeDatetimeRenderer`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | The `datetime` renderer as a relative time with the exact time on hover. Opt in under a `DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`. |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-| [`RelativeTime`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | A time as `relativeTime` says it, with the exact time (in `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches; after mount it turns relative and keeps itself current each minute. |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`ResourceViewDefaultsProvider`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | Beta | Set list defaults for the whole app, once, near the root: |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
 | [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
 | [`showUndoToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The undo toast for an `undoable` write (core's `onUndoable`): a sonner toast with an Undo button, shown for as long as the undo is offered. Needs a mounted `<Toaster />`. |
@@ -10119,6 +10117,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDisplayCell`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
 | [`useResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The headless form: the same state as `useResourceTable`, from a view. |
+| [`useResourceViewDefaults`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | — | The list defaults in effect (empty without a provider). |
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
 | [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
@@ -10158,7 +10157,6 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
 export type { PlacedEvent };
-export type { RelativeTimeWords };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
@@ -10171,6 +10169,7 @@ export type { ResourcePageSlotMap };
 export type { ResourcePageSlotProps };
 export type { ResourcePageSlots };
 export type { ResourceTableState };
+export type { ResourceViewDefaults };
 export type { ResourceViewOptions };
 export type { ResponsiveViewMode };
 export type { SavedViewItem };
@@ -10502,7 +10501,7 @@ export type { WizardStep };
 
 **Barrel:** [`packages/ui/src/utils.ts`](../packages/ui/src/utils.ts)
 
-### Other exports (4)
+### Other exports (3)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10510,17 +10509,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"). |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-
-### Types (2)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { RelativeTimeStyle };
-export type { RelativeTimeWords };
-```
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 
 ---
 

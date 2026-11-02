@@ -35,8 +35,9 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
-import { ResourceView, type ResourceViewProps } from "./ResourceView";
 import type { LucideIcon } from "lucide-react";
+import { inputHints } from "../ResourceFormField";
+import { formType, ResourceView, type ResourceViewProps } from "./ResourceView";
 
 type Row = Record<string, unknown>;
 type Values = Record<string, unknown>;
@@ -363,16 +364,6 @@ function sameValue(a: unknown, b: unknown): boolean {
 /** The picker's "no value" choice: Radix's Select can't hold "". */
 const NONE = "__genesis_none__";
 
-const INPUT_TYPE:Partial<Record<ResolvedFormField["display"], string>> = {
-  number: "number",
-  currency: "number",
-  percent: "number",
-  date: "date",
-  url: "url",
-  image: "url",
-  email: "email",
-};
-
 function SettingField({
   field: f,
   value,
@@ -437,7 +428,20 @@ function SettingField({
       </SettingsRow>
     );
   }
-  const type = INPUT_TYPE[f.display] ?? "text";
+  // The form's type for the field (so `widget: "tel"` is a phone number here too), and the same
+  // keyboard and autofill hints as a ResourceForm input. Selects, toggles and long text are above.
+  const form = formType(f, false);
+  // A form type that isn't an <input> type (a JSON blob's textarea, a badge without options)
+  // stays a text input, as before.
+  const type = form === "textarea" || form === "select" || form === "checkbox" ? "text" : form;
+  const hints = inputHints(
+    {
+      ...(f.autoComplete ? { autoComplete: f.autoComplete } : {}),
+      ...(f.inputMode ? { inputMode: f.inputMode } : {}),
+      ...(f.enterKeyHint ? { enterKeyHint: f.enterKeyHint } : {}),
+    },
+    type,
+  );
   return (
     <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled} description={error}>
       <Input
@@ -447,6 +451,7 @@ function SettingField({
         disabled={disabled}
         aria-invalid={error ? true : undefined}
         type={type}
+        {...hints}
         required={f.required}
         maxLength={f.max}
         value={value == null ? "" : String(value)}

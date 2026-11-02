@@ -224,6 +224,23 @@ export const uiMessages = {
     checkTodo: "To do",
     notANumber: "Enter a number.",
   },
+  shell: {
+    /** The phone drawer's name, announced when it opens. */
+    navigation: "Navigation",
+    openNavigation: "Open navigation",
+    closeNavigation: "Close navigation",
+    /** The desktop sidebar's toggle, collapsed and expanded. */
+    expandSidebar: "Expand sidebar",
+    collapseSidebar: "Collapse sidebar",
+    /** The phone bottom bar's name. */
+    primaryNavigation: "Primary",
+    /** The phone bottom bar's last slot when the items don't fit, and the sheet it opens. */
+    more: "More",
+    /** The More sheet's description, for screen readers. */
+    moreDescription: "The rest of this section's pages",
+    /** The More button's name when the current page is one of the items under it. */
+    moreCurrent: "More, includes the current page",
+  },
 };
 
 /** The shape a translation fills. */

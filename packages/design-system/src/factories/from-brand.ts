@@ -312,7 +312,7 @@ function themeLine(name: string, value: string): string {
  * writes camelCase; the factory emits kebab so consumer Tailwind utility
  * classes read naturally (`bg-game-mode-solo`, not `bg-gameMode-solo`).
  */
-function kebab(camel: string): string {
+export function kebab(camel: string): string {
   return camel.replace(/[A-Z]/g, (m) => `-${m.toLowerCase()}`);
 }
 

@@ -46,6 +46,7 @@ export interface NativeResourceFormSheetProps {
 const FIELD_TYPE: Partial<Record<NativeFormField["kind"], ResourceFormFieldDef["type"]>> = {
   text: "text",
   email: "email",
+  tel: "tel",
   url: "url",
   number: "number",
   textarea: "textarea",
@@ -230,6 +231,9 @@ function FormField({
       required: field.required,
       ...(field.options ? { options: field.options } : {}),
       ...(field.max !== undefined ? { maxLength: field.max } : {}),
+      ...(field.autoComplete ? { autoComplete: field.autoComplete } : {}),
+      ...(field.inputMode ? { inputMode: field.inputMode } : {}),
+      ...(field.enterKeyHint ? { enterKeyHint: field.enterKeyHint } : {}),
     };
     return (
       <View testID={id}>

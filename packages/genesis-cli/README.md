@@ -106,12 +106,31 @@ inside the CLI, at the version the CLI was released with:
   build scripts, one React);
 - the templates: `templates/eas` to `eas.json` and `.eas/`, `templates/maestro` to `.maestro/`,
   `templates/ci` to `.github/workflows/` (replace `GENESIS_SHA` in them);
-- `genesis.lock.json`, recording the blocks the starter carries (`account`, `app-updates`,
-  `push`), every file Genesis owns in the app with its checksum, and the renames, so `upgrade`
-  can refresh them and `migrate` knows the blocks.
+- `genesis.lock.json`, recording the blocks the starter carries that are on (`account`,
+  `app-updates`, `push`, `notifications`, `support-feedback`, `chat`), every file Genesis owns in
+  the app with its checksum, and the renames, so `upgrade` can refresh them and `migrate` knows the
+  blocks. Every file the lock names is written.
+
+`--without <switches>` (comma-separated, e.g. `--without chat,support,updates`) turns those
+`starter.config.ts` switches off. A block an off switch carries (the starter's genesis.config.json
+`starter.blocks`: `updates` → `app-updates`, `push`, `notifications`, `support` →
+`support-feedback`, `chat`) is left out whole, unless a block that's on requires it: its
+migrations, pgTAP tests and Edge Functions, the starter's own `supabase/` files tagged only with it
+(`chat_people` goes with chat), their `supabase/config.toml` sections and the API schemas its
+migrations create. Turning a switch off later works the same way for the commands: `upgrade`,
+`migrate` and the doctor's `lock-files` leave a locked block out while its switch is off, so delete
+its files or keep them, as you like. To have a left-out block back, turn its switch on and run
+`genesis add <block>` (the starter's own files that went with it, such as `chat_people`, are in
+the starter).
+
+The summary ends with what is left by hand: `GENESIS_SHA`, the EAS project id, the links domain,
+and each store id still a `REPLACE_WITH_…` placeholder in `eas.json` with what replaces it (the
+doctor's `eas-placeholder` warnings say the same). Init can't fill those: only you have them.
 
 The starter's migrations are copied byte for byte (its own tests check that); `migrate` knows them
-by name and text. `init --native` (the brand-package scaffold for an Expo app) is unchanged.
+by name and text. They are the app's applied baseline: its genesis.config.json gets
+`doctor.supabase.since` just after the newest, so the supabase pack checks only later migrations as
+new, even before the app has a git history to compare with. `init --native` (the brand-package scaffold for an Expo app) is unchanged.
 
 ## Blocks: add, migrate, upgrade
 
@@ -239,6 +258,7 @@ any local package. Then:
 | `overlay-invalid` | error | A marker that doesn't validate (each problem with `upstream`, `since`, `owner`, `reason`, or an unknown key), a `since` later than tomorrow, an overlay that isn't `private: true`, or an overlay folder that holds the app's scanned source (`src`, or the app root). Such an overlay doesn't count as the package below. |
 | `overlay-age` | info / warn | A marker older than 14 days is reported as info, which never fails a run; older than 30 days it warns, which fails `--strict`. An overlay never blocks a release in its first month, and must be promoted or dropped within it. |
 | `overlay-version` | warn | The version isn't the upstream version, `<upstream>+local.N` or `<upstream>-local.N`. |
+| `overlay-behind` | warn | The marker's `upstream` is older than the version the app now pins: the installed release's (`@marktiderman/genesis`'s `versions.json`), else the app's own dependency on the package. Fails `--strict`. `genesis upgrade` rebases the overlay and clears it. (`version-skew` then says nothing about that overlay; it still flags one copied from a release newer than the installed one.) |
 
 A marked overlay (valid marker, private, in a package folder of its own) **is** the package it
 shadows, so for files inside it `shadowed-export`, `raw-tag`, `local-genesis-copy` and
@@ -250,6 +270,33 @@ asks for no changeset or version bump. A block migration that names another pack
 (`{ "package": "@marktiderman/genesis-supabase", "file": "…", "test": "…" }`) has its test looked up
 in that package, not in the overlay; a name that isn't valid, or a package that isn't installed or
 local, is reported by `package-migration-test`.
+
+**On every upgrade.** `genesis upgrade` cleans out each overlay whose `upstream` is older than
+the release it moves to, before it writes anything:
+
+1. It reads the package's source at the upstream tag and at the new version from the Genesis
+   repository's `<package>@<version>` git tags, diffs the overlay against the upstream tag, and
+   sorts each hunk: **shipped** (the new version already has it: dropped), **promoted** (a
+   `promoted` entry in `docs/genesis-upstream.md` for the package lists the file: link its Genesis
+   PR there) or **kept** (the app's own change: say why in the pull request).
+2. It rebases what's left onto the new version: a three-way merge per file (the upstream tag the
+   base, the overlay and the new version the two sides; package.json merged as JSON). A file new
+   upstream comes in, one gone upstream goes (unless the app changed it), and one the overlay never
+   carried stays out. The marker's `upstream` becomes `<package>@<new version>` and the version
+   `<new version>+local.N`.
+3. An overlay with nothing of the app's own left, in its source or its package.json (past its
+   version, `private` and marker), is deleted, and each `workspace:`/`file:`/`link:` dependency on
+   it (resolved from that package.json's own folder) pins the release, its override dropped. If
+   pnpm-workspace.yaml, a tsconfig or a vite, vitest, metro or babel config still names its folder
+   (or pnpm-workspace.yaml overrides the package to a local copy), it stays, on the checklist.
+4. When a merge conflicts, it writes nothing at all: it stops and lists the files to rebase by hand
+   (`--dry-run` lists them without stopping). A file that isn't text is never merged: it takes the
+   new version's copy when the app's is the old one's, and is a conflict otherwise. An overlay whose
+   tags can't be read (the fetch never prompts and gives up after two minutes) is left as it is, and
+   the checklist says why. `--genesis-repo <url>` reads the tags from another clone or mirror.
+
+The checklist goes into the summary and the pull request: **an upgrade PR isn't done until that
+checklist is.**
 
 **Promotion: manual for now.**
 
@@ -295,7 +342,8 @@ run creates and changes nothing. `--dry-run` prints the plan and writes nothing.
 
 ### genesis migrate
 
-Compares the migrations of the app's blocks (`genesis.lock.json`, plus `--block <id>`) in the
+Compares the migrations of the app's blocks (`genesis.lock.json`, less any whose
+`starter.config.ts` switch is off, plus `--block <id>`) in the
 installed packages with the app's copies, and every copy that carries a header:
 
 | State | Meaning | What happens |
@@ -353,21 +401,41 @@ doesn't fit, is a warning.
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
-   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads (the nearest one at or above the app, else beside the lockfile)
-   (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen install honours only the first pinned
-   version of a package, so a second pin (this upgrade's next to an earlier one's, or two versions
-   of one package) fails `pnpm install --frozen-lockfile` in CI with
-   `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade replaces every Genesis entry with one
-   pattern, `'@marktiderman/genesis-*'` (and the umbrella by its bare name), which both a resolving
-   and a frozen install honour on pnpm 11; every other entry, comment and line is left as it is,
-   since the list is the app's supply-chain guard. Then it runs `pnpm dedupe` (`npm dedupe` with
-   npm; bun and yarn are skipped), so a Genesis package isn't left installed at two versions
+   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
+   (the nearest one at or above the app, but never above the repository's top level, else beside
+   the lockfile), one entry per version (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen
+   install honours only the first entry for a package, so a second one (this upgrade's next to an
+   earlier one's) fails `pnpm install --frozen-lockfile` in CI with
+   `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade merges them into one entry per Genesis
+   package that lists its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`), which
+   both a resolving and a frozen install honour on pnpm 11, and drops versions the lockfile beside
+   it no longer holds, so the list doesn't grow (with `sharedWorkspaceLockfile: false`, or
+   `shared-workspace-lockfile=false` in the `.npmrc`, it drops nothing). It never writes a pattern
+   such as `'@marktiderman/genesis-*'`: that would let every future Genesis release, a compromised
+   one included, skip the wait. The two that genesis-cli 1.17.3 wrote, `'@marktiderman/genesis-*'`
+   and the bare `'@marktiderman/genesis'`, are replaced with the lockfile's exact versions. Any
+   other pattern or bare name, and every other entry, comment and line, is left as it is, since the
+   list is the app's supply-chain guard. A range the app wrote for a Genesis package
+   (`'…genesis-ui@~2.25.0'`) takes the new pins into its entry with `||`, with a warning: pnpm 11
+   rejects ranges there (`ERR_PNPM_INVALID_MINIMUM_RELEASE_AGE_EXCLUDE`). Exact versions and `||`
+   need **pnpm 10.19 or later**; an older pnpm reads them as matching nothing, and the upgrade
+   warns. Then it runs `pnpm dedupe` (`npm dedupe` with npm; bun
+   and yarn are skipped), so a Genesis package isn't left installed at two versions
    (`duplicate-genesis-package`), and commits pnpm-workspace.yaml with `--pr`.
+
+   With `minimumReleaseAge` set in the app, pnpm runs in strict mode instead: the install fails
+   with `ERR_PNPM_NO_MATURE_MATCHING_VERSION` before any tidy, and the upgrade stops and names the
+   versions pnpm refused. It never loosens that setting for you: add those versions to
+   `minimumReleaseAgeExclude` (exact versions, one entry per package), or wait until they are old
+   enough, and run `genesis upgrade` again.
+
    Then it refreshes every file in `genesis.lock.json` from the newly installed package:
    unchanged in the app, it takes the new version; changed by both, it is merged with `git
    merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and
    your file is kept. `--keep-mine` never merges: the new text goes to `.genesis-next`. A file you
-   deleted stays deleted. AGENTS.md fragments are replaced, skills a block gained are copied, and
+   deleted stays deleted (mark its entry `"deleted": true` so the doctor's `lock-files` knows it's
+   meant). A block whose `starter.config.ts` switch is off is left out: no migrations listed, no
+   files refreshed or added. AGENTS.md fragments are replaced, skills a block gained are copied, and
    new package migrations are listed (run `genesis migrate`).
 4. Runs `genesis doctor` and prints a summary; `--pr` commits to `genesis-upgrade/<version>`,
    pushes and opens a pull request with `gh`. It checks first, before writing anything, that the
@@ -551,6 +619,7 @@ Exit codes: `0` pass, `1` findings, `2` the doctor couldn't run (bad config, Gen
 | `package-rules-invalid` | warn | An installed or local package's `genesis.doctor` declaration (or its plugin) that doesn't validate: its rules don't run; the rest of the doctor does. Read forward-compatibly, since a package can be newer than the CLI: an unknown key is ignored, and a `prefer` rule or primitive that doesn't validate is skipped on its own, each with this warning. An unknown key on a `prefer` rule itself or in its `unless` could narrow where it applies, so that rule is skipped whole rather than run wider; an unknown key in `forbid` is only dropped. It is never an error, so a package upgrade can't break an app's build. See [Package rules](#package-rules). |
 | `package-rule-override` | warn | `rules` changes a package rule's level without a reason; move it to `packageRules` with one. |
 | `agent-guide-stale` | warn | The agent guide `genesis agents` wrote (`.claude/skills/genesis/SKILL.md` and the `genesis-primitives` block in AGENTS.md) doesn't match the installed packages, one of the two is missing, or the block's markers are broken (one missing, repeated or out of order; `genesis agents` then writes nothing). An app with neither isn't checked. Line endings don't count. |
+| `lock-files` | warn / info | `genesis.lock.json` against the files on disk. **warn**: a file the lock owns is missing; `genesis upgrade` never brings a deleted owned file back, so a lock naming files that aren't there passes every upgrade silently. A file you deleted on purpose gets `"deleted": true` in its lock entry: the warning stops and upgrade still leaves it deleted. **info**: a locked file whose checksum differs from the lock's (an app edit, which upgrade three-way merges the next version into, or one waiting on its `.genesis-next`); a file marked deleted that is back; a locked block whose `starter.config.ts` switch is off (upgrade and migrate leave it out, and its files aren't checked). |
 | `ratchet-skipped` | warn / error | `--base` was given, but git couldn't compare (not a repository, or the ref isn't fetched). A warning when only the ratchet was skipped (every rule ran at its full level); an error when the config file holds `allow`, `rules` or `packageRules`, which then went uncompared. In CI, check out with `fetch-depth: 0`. |
 | `allow-grew` | error | Under `--base`: an `allow` entry (its rule, file and match) that the doctor settings at the merge base didn't have. The list only shrinks. Rewording a `reason` is fine. The base's settings are found as the doctor finds them (genesis.config.json's `doctor`, else package.json's `genesis.doctor`), so moving them between the two compares as usual; when the base had none (adopting the doctor), nothing is compared. |
 | `rules-weakened` | error | Under `--base`, comparing the app's settings with the base's only (never with a rule's own level, which a package upgrade may change): a rule the base's `rules` or `packageRules` set that this branch sets lower, a rule newly set to `off`, or an `exclude` glob a `packageRules` entry gained. A new entry at any other level isn't compared, so pinning a rule its package raised is fine; an entry renamed with its rule counts as new. `files` isn't compared. Not compared when the base had no doctor settings. |
@@ -642,7 +711,7 @@ keep `raw-color`).
 | `native-custom-header` | warn | A file that sets `headerShown: false` and draws its own header (a `<…Header>` of the app's own, or `style={styles.header}`); a screen that draws one when the `_layout` beside it hides the navigator's; a hand-built tab bar (`tabBar={…}` in a file with `<Tabs>`, or a `<…TabBar>` of the app's own). Section headers (`SectionHeader`, `ListHeader`, `CardHeader`, …) and Genesis components don't count. Only the `_layout` in the screen's own folder is followed, not ancestors. |
 | `native-screen-layout` | warn | A route screen under the router root (`native.routerRoot`, default `src/app`, else `app`) that renders no Genesis screen layout, directly or through one local import (`./`, `../`, `@/`, `~/`). `_layout`, `+html`, `+native-intent`, `+middleware`, `+api` files, re-export-only routes and `<Redirect>` routes are skipped. Also a warning when the router root is missing, or when `src` leaves it unscanned. |
 | `store-readiness` | warn | Static checks of `app.json`, `app.config.json` and (as text, best-effort) `app.config.{ts,js,mjs,cjs}`. **Usage strings**: Expo applies an installed module's config plugin even when it isn't listed, with a generic default string (`Allow $(PRODUCT_NAME) to access your camera`), and App Review rejects generic purpose strings; so a module without its own sentence (`ios.infoPlist.<Key>` or the plugin option) is flagged, and `false` (Expo's opt-out) counts as set. Covered: `expo-camera`, `expo-image-picker` (photos; camera only "if the app takes photos"), `expo-media-library`, `expo-location`, `expo-av` / `expo-audio` (microphone "if the app records audio"), `expo-contacts`, `expo-local-authentication` (Face ID). **Sign in with Apple**: third-party sign-in (`@react-native-google-signin/google-signin`, `react-native-fbsdk-next`, or a Supabase `signInWithOAuth` / `signInWithIdToken` with a non-Apple provider) without Apple sign-in (`expo-apple-authentication`, or Supabase's `apple` provider). Guideline 4.8 accepts any equivalent privacy-focused login, so this is a warning to `allow` with the reason when another option qualifies; `expo-auth-session` alone doesn't trigger it (it serves non-login OAuth too). Also the export-compliance flag (`ios.config.usesNonExemptEncryption` or `ITSAppUsesNonExemptEncryption`), `ios.privacyManifests`, and a missing Expo config. Those two count as set when the [Expo config plugin](#expo-config-plugin) (`@marktiderman/genesis-cli` in `plugins`) will set them: export compliance unless `exportCompliance: false`, the privacy manifest unless `privacyManifest: false` and only when a dependency needs one. |
-| `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read): the store ids in `eas.json` `submit.production`, or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
+| `eas-placeholder` | warn | A `REPLACE_WITH_…` placeholder from the EAS templates still in `eas.json` or `.eas/workflows/*.yml` (YAML comment lines aren't read), each with what replaces it: the store ids in `eas.json` `submit.production` (the App Store Connect Apple ID, the Apple Team ID, the Google Play service account key's path), or `REPLACE_WITH_APP_FOLDER` in `pr-preview.yml`'s `paths`, which otherwise matches nothing, so code changes never start a preview. `genesis init --template native` fills the app folder in (`src`). |
 
 **`supabase`**, for `supabase/migrations/*.sql` (`supabase.migrations`). The SQL is read
 statement by statement with comments removed and string (`'…'`, `E'…'`) and dollar-quoted

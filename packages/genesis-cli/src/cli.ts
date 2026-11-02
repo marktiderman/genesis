@@ -11,7 +11,7 @@
  *   npx @marktiderman/genesis-cli primitives [--json]
  *   npx @marktiderman/genesis-cli agents [--check]
  *   npx @marktiderman/genesis-cli features build|check|find [--registry <file>] [--flags-file <file>]
- *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>]
+ *   npx @marktiderman/genesis-cli init <app> --template native [--bundle-id <id>] [--scheme <s>] [--without <switches>]
  *   npx @marktiderman/genesis-cli add <block> [--dry-run] [--yes] [--no-install]
  *   npx @marktiderman/genesis-cli migrate [--dry-run] [--forward]
  *   npx @marktiderman/genesis-cli upgrade [--version <v>] [--dry-run] [--pr]
@@ -37,7 +37,10 @@ const program = new Command();
 program
   .name("genesis")
   .description("Genesis CLI — scaffolders + workspace tooling")
-  .version(cliVersion());
+  .version(cliVersion())
+  // The program's own options (--version, --help) only before a command, so `genesis upgrade
+  // --version <v>` reaches upgrade's option instead of printing the CLI's version.
+  .enablePositionalOptions();
 
 program
   .command("init")
@@ -53,6 +56,7 @@ program
   .option("--display-name <name>", "--template: the app's name on the home screen (default: from the slug)")
   .option("--bundle-id <id>", "--template: iOS bundle id and Android package (default com.example.<slug>)")
   .option("--scheme <scheme>", "--template: the URL scheme (default: the slug)")
+  .option("--without <switches>", "--template: starter.config.ts feature switches to turn off, comma-separated (e.g. chat,support); their blocks are left out")
   .option(
     "--emit-conflicts",
     "Emit `.genesis-next` siblings for files that already exist (so you can diff)",
@@ -67,6 +71,7 @@ program
     displayName?: string;
     bundleId?: string;
     scheme?: string;
+    without?: string;
   }) => {
     if (opts.template !== undefined) {
       if (opts.template !== "native") throw new Error(`--template must be native, not "${opts.template}".`);
@@ -77,9 +82,11 @@ program
         ...(opts.displayName ? { displayName: opts.displayName } : {}),
         ...(opts.bundleId ? { bundleId: opts.bundleId } : {}),
         ...(opts.scheme ? { scheme: opts.scheme } : {}),
+        ...(opts.without ? { without: opts.without.split(",").map((s) => s.trim()).filter(Boolean) } : {}),
       });
       console.log(`✔ Wrote ${result.files.length} files to ${result.target}`);
       if (result.blocks.length) console.log(`  blocks: ${result.blocks.join(", ")}`);
+      if (result.leftOut.length) console.log(`  left out (switched off): ${result.leftOut.join(", ")}`);
       console.log(`  Genesis packages: ${Object.entries(result.dependencies).map(([n, v]) => `${n}@${v}`).join(", ")}`);
       console.log("");
       console.log("Next steps:");
@@ -555,6 +562,7 @@ program
       forward: opts.forward,
     });
     for (const w of report.warnings) logger.warn(w);
+    for (const s of report.switchedOff) console.log(`- skipped ${s}`);
     console.log(formatMigrationRows(report.plan.rows));
     for (const c of report.plan.creates) if (c.kind !== "migration") console.log(`+ ${c.path} (${c.kind === "test" ? "pgTAP test" : "forward migration: fill it in"})`);
     if (report.notificationTypes) console.log(`+ ${report.notificationTypes} (the notification types, from the registry)`);
@@ -578,7 +586,8 @@ program
   .option("--no-doctor", "Don't run genesis doctor after")
   .option("--keep-mine", "Never merge an owned file you changed; write the new text to .genesis-next", false)
   .option("--pr", "Commit to a genesis-upgrade/<version> branch, push it and open a pull request", false)
-  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean }) => {
+  .option("--genesis-repo <url>", "The Genesis git repository whose <package>@<version> tags overlays are rebased from (default: the public one)")
+  .action(async (opts: { dir: string; version: string; manifest?: string; dryRun: boolean; install: boolean; doctor: boolean; keepMine: boolean; pr: boolean; genesisRepo?: string }) => {
     const { runUpgrade } = await import("./upgrade/index.js");
     const report = await runUpgrade({
       root: path.resolve(opts.dir),
@@ -589,6 +598,7 @@ program
       doctor: opts.doctor,
       keepMine: opts.keepMine,
       pr: opts.pr,
+      ...(opts.genesisRepo ? { genesisRepo: opts.genesisRepo } : {}),
       log: (m) => console.log(m),
     });
     console.log("");
