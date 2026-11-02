@@ -1,0 +1,64 @@
+packages/genesis-cli/src/blocks/discover.ts
+  s_1feb538f59bf88::t_36765e04228947 147-156
+  s_1feb538f59bf88::t_93bce54b69dc30 138-141
+packages/genesis-cli/test/shared-database.test.ts
+  s_1feb538f59bf88::t_082d6895e13da1 1-198
+  s_1feb538f59bf88::t_340ad4120ee8a6 199-208
+packages/genesis-cli/src/blocks/database.ts
+  s_1feb538f59bf88::t_ed3e614ee7e3ec 1-66
+  s_1feb538f59bf88::t_0a5baf26a351b7 67-92
+.changeset/shared-database.md
+  s_1feb538f59bf88::t_47cf8bf4a3c505 1-10
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_1feb538f59bf88::t_173e00fb175375 2,24-26,43,229,298,363,384,429
+docs/NATIVE-RELEASE.md
+  s_1feb538f59bf88::t_58722f31f6ebff 18-40
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_498df55b1b2328 135-169,350-353,368,382-396,448-450,633-634
+packages/genesis-cli/src/blocks/add.ts
+  s_1feb538f59bf88::t_6e11a79ed9d3bf 13-17,23,27-28,206,242-245,247-249,253,264,299-306
+packages/genesis-cli/src/blocks/init-native.ts
+  s_1feb538f59bf88::t_33651a1d7e640a 23-29,38,59-60,72-77,80-82,128-131,136,138,161-169,223,231-240,247,261-268,305-333,335-336
+packages/genesis-cli/src/blocks/manifest.ts
+  s_1feb538f59bf88::t_a585feb1391a19 36-42,173-188
+packages/genesis-cli/src/blocks/migrate.ts
+  s_1feb538f59bf88::t_d550c562a16c74 11-14,23-25,52-53,60-68,75,80,105
+packages/genesis-cli/src/blocks/migrations.ts
+  s_1feb538f59bf88::t_9a0d0c75ba869e 21-24,95-96,117,127-140,194,198-209,238-243,346
+packages/genesis-cli/src/cli.ts
+  s_1feb538f59bf88::t_10fc1c0a47bec7 14,57,73,85,90,566-569
+packages/genesis-cli/src/doctor/config.ts
+  s_1feb538f59bf88::t_ad2731a2e74a6c 119-128,135-136,263-266,272-287
+packages/genesis-cli/src/doctor/database.ts
+  s_1feb538f59bf88::t_bf58d88ed5120c 1-40
+packages/genesis-cli/src/doctor/index.ts
+  s_1feb538f59bf88::t_66a1373676ebb6 43,60,247
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_1feb538f59bf88::t_30b9ad355bb056 13-15,26,58-73,75
+packages/genesis-cli/src/doctor/rules.ts
+  s_1feb538f59bf88::t_499ba72ea8ac2f 86-87
+packages/genesis-cli/src/doctor/supabase.ts
+  s_1feb538f59bf88::t_418df1fd0d2877 22,248-249
+packages/genesis-cli/src/index.ts
+  s_1feb538f59bf88::t_6b5cd01a267ba7 57
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_c86b5eeb5995e1 17-20,31,33-34,211,292-295,303-304,306,323,371-374,389-390,397-398
+packages/notifications/package.json
+  s_1feb538f59bf88::t_6ce0c02c42b64d 191-197
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "1d1c2b46e24ffdd3ab0be2c176b772b2020700a6",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
