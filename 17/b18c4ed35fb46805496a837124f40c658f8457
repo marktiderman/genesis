@@ -1,0 +1,29 @@
+packages/calendar/src/ics.test.ts
+  s_6a4659246591cd::t_2580abae0d0687 191-272
+packages/calendar/src/ics.ts
+  s_6a4659246591cd::t_69009a9698ca26 412-413,418
+  s_6a4659246591cd::t_07a1622509f055 435-437,441-442
+  s_6a4659246591cd::t_13725d11c80e7b 11-12
+  s_6a4659246591cd::t_a588482b9003b6 453-454
+  s_6a4659246591cd::t_f8b7e3d0f00558 191-192
+  s_6a4659246591cd::t_76530332362ab0 383-390
+  s_6a4659246591cd::t_3b66c0fa6fe337 285-302
+packages/calendar/src/zones.ts
+  s_6a4659246591cd::t_ba3f1d1269823e 6-7,46,60-61
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "17b18c4ed35fb46805496a837124f40c658f8457",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
