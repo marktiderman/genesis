@@ -190,9 +190,13 @@ function SheetItem<T>({
         ? timeRange(start, end)
         : time(start);
   return (
-    <li className="flex gap-2">
+    <li className={cn("flex gap-2", event.className)}>
       <span className="w-32 shrink-0 tabular-nums text-muted-foreground print:text-foreground">{when}</span>
-      <span className="min-w-0">{event.title}</span>
+      <span className="min-w-0">
+        {event.title}
+        {/* On paper the words show too: a strike-through alone reads as a slip of the pen. */}
+        {event.status && <span className="sr-only print:not-sr-only">, {event.status}</span>}
+      </span>
     </li>
   );
 }

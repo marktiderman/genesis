@@ -128,6 +128,7 @@ export function RelationField(props: RelationFieldProps) {
       field: valueField,
       labelField: relation.labelField,
       searchFields: relation.searchFields,
+      orderBy: relation.orderBy,
     },
     { filters: stableFilters, search, enabled: open, untitled: messages.common.untitled },
   );

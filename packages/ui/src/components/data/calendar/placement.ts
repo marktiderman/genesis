@@ -37,6 +37,14 @@ export interface CalendarEvent<T = unknown> {
   lanes?: readonly string[] | undefined;
   /** Dot colours, when not the lanes' own. Any CSS colour. */
   colors?: readonly string[] | undefined;
+  /**
+   * Classes for the event's item, on the grid and the printed agenda: `line-through opacity-60`
+   * strikes out a cancelled event rather than dropping it. Pair a look with `status`, so it isn't
+   * the only cue.
+   */
+  className?: string | undefined;
+  /** Words read out after the title ("Cancelled"), for what `className` shows. Visually hidden. */
+  status?: string | undefined;
   /** The record it came from, handed back on select. */
   row?: T;
 }

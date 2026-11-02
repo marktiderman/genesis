@@ -23,6 +23,11 @@ export interface LinkTarget {
   labelField?: string | undefined;
   /** The linked fields a search matches. Default: the naming field. */
   searchFields?: readonly string[] | undefined;
+  /**
+   * The order rows are listed in (a `position`), then the key. Default: by the naming field, then
+   * the key. A view's link passes its `orderBy` (`link.orderBy`, or the linked view's for `"view"`).
+   */
+  orderBy?: { readonly field: string; readonly direction?: "asc" | "desc" | undefined } | undefined;
 }
 
 export interface UseLinkOptionsOptions {
@@ -73,7 +78,7 @@ function words(value: unknown): string | null {
 /**
  * The rows a link can point at, for a picker: listed through the data provider with `filters`,
  * searched on the server with `search` across `searchFields` (else the naming field), sorted by
- * the naming field then the key, `perPage` at a time (`loadMore` for the next). A large table is
+ * `orderBy` (else the naming field) then the key, `perPage` at a time (`loadMore` for the next). A large table is
  * never loaded whole. Each option is the row's key and its words; a row with no words shows
  * `untitled`, never its key.
  */
@@ -104,28 +109,37 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
   // below once `describe` answers, before the first request goes.
   // Then by the key: rows that share a name keep one order across pages, so offset paging never
   // skips or repeats one (a provider without `multiSort` sorts by the name only).
-  const sortsFor = (by: string): SortParam[] =>
-    by === field || !IDENTIFIER.test(field) ? [{ field: by, order: "asc" }] : [{ field: by, order: "asc" }, { field, order: "asc" }];
-  const [sortedBy, setSortedBy] = useState<string | undefined>(naming);
+  // A caller's own order (a `position`) wins over the name: known at once, so it never waits on
+  // `describe` to sort.
+  const ordered = target.orderBy && IDENTIFIER.test(target.orderBy.field) ? target.orderBy : undefined;
+  const orderField = ordered?.field;
+  const orderDirection = ordered?.direction === "desc" ? "desc" : "asc";
+  const sortsFor = (by: string, order: "asc" | "desc" = "asc"): SortParam[] =>
+    by === field || !IDENTIFIER.test(field) ? [{ field: by, order }] : [{ field: by, order }, { field, order: "asc" }];
+  const sortBy = orderField ?? naming;
+  const sortKey = sortBy ? `${sortBy}:${orderField ? orderDirection : "asc"}` : undefined;
+  const sorts = sortBy ? sortsFor(sortBy, orderField ? orderDirection : "asc") : undefined;
+  const [sortedBy, setSortedBy] = useState<string | undefined>(sortKey);
   const list = useInfiniteResource<BaseRecord>(target.resource, {
     ...(filters ? { defaultFilters: filters } : {}),
     perPage,
     ...(naming && IDENTIFIER.test(field) ? { select: `${field},${naming}` } : {}),
-    ...(naming ? { defaultSorts: sortsFor(naming) } : {}),
+    ...(sorts ? { defaultSorts: sorts } : {}),
     searchFields,
     // Not before the naming field is known, so the first request is already sorted and narrowed.
-    enabled: enabled && settled && (!naming || sortedBy === naming),
+    enabled: enabled && settled && (!sortKey || sortedBy === sortKey),
   });
 
-  // The sort and the search follow the naming field and what the person typed.
+  // The sort and the search follow the order (the caller's, else the naming field) and what the
+  // person typed.
   const { setSorts, setSearch } = list;
   useEffect(() => {
-    if (!naming) return;
-    setSorts(sortsFor(naming));
-    setSortedBy(naming);
-    // sortsFor reads only `field`.
+    if (!sortBy) return;
+    setSorts(sortsFor(sortBy, orderField ? orderDirection : "asc"));
+    setSortedBy(sortKey);
+    // sortsFor reads only `field`; sortKey follows sortBy and the direction.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [naming, field, setSorts]);
+  }, [sortKey, field, setSorts]);
   useEffect(() => {
     setSearch(searchFields.length ? search.trim() : "");
   }, [search, searchFields.length, setSearch]);

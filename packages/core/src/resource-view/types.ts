@@ -128,6 +128,18 @@ export interface ViewLink {
   filter?: LinkFilter | ((values: Readonly<Record<string, unknown>>) => LinkFilter);
   /** The linked fields a search matches. Default: the naming field (`labelField`). */
   searchFields?: readonly string[];
+  /**
+   * The order the picker lists rows in. Default: by the naming field, then the key. `"view"`
+   * uses the linked view's own `orderBy` (a `position` its list is sorted by) and needs `view`;
+   * a linked view without one keeps the default. `{ field, direction }` names a linked field.
+   */
+  orderBy?: "view" | LinkOrder;
+}
+
+/** A picker's order: a field of the linked resource, ascending unless it says so. */
+export interface LinkOrder {
+  field: string;
+  direction?: "asc" | "desc";
 }
 
 /** A link's picker, resolved: what to list, what names a row, and the filters to send. */
@@ -140,6 +152,11 @@ export interface ResolvedLink {
   readonly labelField: string | undefined;
   /** The linked fields a search matches. Unset: the naming field. */
   searchFields?: readonly string[];
+  /**
+   * The order the picker lists rows in (`link.orderBy`, or the linked view's `orderBy` for
+   * `"view"`), then the key. Undefined: by the naming field, then the key.
+   */
+  readonly orderBy?: { readonly field: string; readonly direction: "asc" | "desc" } | undefined;
   /**
    * The filters a picker sends: the linked view's scope keys from `scope` (as its own lists apply
    * them), its preset's filter, then the link's own `filter` for these form values.
@@ -285,6 +302,9 @@ export interface ViewCopy {
 /** How a calendar lays out its window: a month grid, 1–4 weeks, a day-by-day agenda, or a row per lane. */
 export type ViewCalendarLayout = "month" | "weeks" | "agenda" | "lanes";
 
+/** What a calendar's `durationField` counts. */
+export type ViewCalendarDurationUnit = "minutes" | "hours" | "days";
+
 /**
  * How the view's rows show as a calendar: ResourceView's `mode="calendar"` on the web,
  * NativeResourceView's later. Plain values only, so every platform reads the same block; a screen
@@ -295,12 +315,25 @@ export interface ViewCalendar<Name extends string = string> {
   field: Name;
   /** Where a row ends: its last day for a date field, its end instant for a timestamp. */
   endField?: Name;
+  /**
+   * A number field holding how long a row runs, for a row with no end column: its end is the
+   * start plus this many `durationUnit`s. A row whose `endField` has a value keeps that end.
+   */
+  durationField?: Name;
+  /** What `durationField` counts. Default `minutes`. */
+  durationUnit?: ViewCalendarDurationUnit;
   /** A yes/no field: the row is all day, its timestamp shown without a time. */
   allDayField?: Name;
   /** The field whose value (or list of values) names a row's lanes: a dot each, a lane each. */
   laneBy?: Name;
   /** Default `month`. */
   layout?: ViewCalendarLayout;
+  /**
+   * The layout on a phone (below 768px), until the person picks one from the layout switch:
+   * `"agenda"` turns a month grid too narrow to read into a day-by-day list. Unset, a phone shows
+   * `layout`, as before.
+   */
+  phoneLayout?: ViewCalendarLayout;
   /** For `weeks`, `agenda` and `lanes`: 1 to 4. Default 2. */
   weeks?: 1 | 2 | 3 | 4;
   /** 0 Sunday or 1 Monday (default). */

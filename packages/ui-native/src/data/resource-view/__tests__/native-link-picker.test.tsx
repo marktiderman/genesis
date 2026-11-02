@@ -191,6 +191,22 @@ describe("a link's picker in the native form sheet", () => {
     expect(fields.find((f) => f.key === "reviewer_id")!.link!.filters({ orgId: "o1" })).toHaveLength(2);
   });
 
+  it('lists the rows in the linked view\'s order with orderBy: "view", held to a list filter too', async () => {
+    const ranked = defineView(people, { scope: ["org_id"], orderBy: { field: "full_name", direction: "desc" } });
+    const v = defineView(tasks, { scope: ["org_id"], form: ["title", "owner_id"], fields: { owner_id: { label: "Owner", link: { view: ranked, orderBy: "view" } } } });
+    expect(formFieldsFor(v, "edit", { within: { owner_id: ["ada"] } }).find((f) => f.key === "owner_id")!.link!.orderBy).toEqual({
+      field: "full_name",
+      direction: "desc",
+    });
+    const { Wrapper, peopleLists } = setup();
+    render(<NativeResourceView view={v} />, { wrapper: Wrapper });
+    fireEvent.click(await screen.findByTestId("native-resource-view-create"));
+    const form = await screen.findByTestId("native-resource-view-form");
+    fireEvent.click(within(form).getByTestId(`${field("owner_id")}-trigger`));
+    await waitFor(() => expect(peopleLists().length).toBeGreaterThan(0));
+    expect(peopleLists()[0]![1].sort).toEqual({ field: "full_name", order: "desc" });
+  });
+
   it("holds the picker to a screen's list filter", async () => {
     const { Wrapper } = setup();
     const { result } = renderHook(() => useNativeResourceView(tasksView, { filter: { owner_id: ["ada", "grace"] } }), { wrapper: Wrapper });

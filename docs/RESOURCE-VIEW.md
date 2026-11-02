@@ -246,6 +246,21 @@ Every other ResourcePage prop passes through (`renderCard`, `renderDetail`, `liv
 
 `useResourceView(props)` is the headless form: the same props, returning `useResourceTable`'s state.
 
+**A form without the list.** `<ResourceForm view={tasksView} action="create" …>` opens the form
+ResourceView would, with no list around it: a form beside a sortable list that reorders in one
+atomic write, say. Both build their fields with `useViewFormFields(view, { filter, defaults, scoped })`,
+so they can't drift: only what a writer may send, links as pickers, the viewer's scope (and a
+single-value `filter`) filled hidden on create, the view's noun and its `copy.form` words. The
+form's own props win: `fields` replaces the view's fields; `title`, `submitLabel`, `description`
+and `noun` replace its words. `resource` defaults to the view's. The view's fields are the whole
+form, even when it leaves none (the form never makes one input per column of the row it edits),
+and a value the `filter` fixes is never replaced from the page's URL (`?status=done`); other
+fields still prefill from it unless the form's `prefillFromUrl` is false.
+
+```tsx
+<ResourceForm view={tasksView} action="edit" item={task} open={open} onOpenChange={setOpen} filter={{ project_id }} />
+```
+
 An input left empty is no value, when the contract says whether its column takes null (the view
 passes `nullable` and `hasDefault` to the form; a hand-written `ResourceFormFieldDef` can set
 them too). A create leaves it out, so the column's default (or null) applies; an edit sends null
@@ -296,7 +311,13 @@ export const tasksView = defineView(contracts["public.tasks"], {
   composite foreign key (`(org_id, owner_id) references people (org_id, id)`).
 - **Large tables.** It asks for nothing until it opens, then 25 rows at a time sorted by the
   naming field then the key (so rows that share a name never fall between pages; a provider
-  without `multiSort` sorts by the name only), with Show more for the next page. A row whose
+  without `multiSort` sorts by the name only), with Show more for the next page.
+- **Order.** By name unless the link says otherwise. A link with a `view` and `orderBy: "view"`
+  lists rows in the linked view's own `orderBy` (a `position` its list is sorted by), then the
+  key; a linked view without one keeps the name. `orderBy: { field: "position", direction: "asc" }`
+  names a linked field without a view. Opt in, so a picker's order never changes on its own. A
+  hand-written `type: "relation"` field takes the same `relation.orderBy`, and core's
+  `useLinkOptions` target takes `orderBy`; web and native both send it. A row whose
   name is empty shows `common.untitled`, never its key. Search goes to the server (`search` across
   `link.searchFields`, default the naming field) once typing settles. A table is never loaded
   whole. The chosen row's words come from the loaded rows, else the batched relation lookup.
@@ -506,13 +527,30 @@ export const eventsView = defineView(contracts["public.events"], {
 
 - **The block** (`ViewCalendar`, plain values only): `field` (a date or timestamp), `endField`,
   `allDayField` (yes/no), `laneBy` (a field whose value or list of values names a row's lanes),
-  `layout`, `weeks` (1–4) and `weekStartsOn` (0 Sunday, 1 Monday). `defineView` checks the field
-  names and types.
+  `layout`, `phoneLayout`, `weeks` (1–4) and `weekStartsOn` (0 Sunday, 1 Monday), and
+  `durationField` with `durationUnit` (below). `defineView` checks the field names and types.
 - **The screen** overrides any of those through `calendar={…}` and adds what a description can't
   hold: `anchor`/`onAnchorChange` and `layout`/`onLayoutChange` (to keep them in the URL),
   `layouts` (a switch in the toolbar), `lanes` (labels and colours), `lanesOf(row)`,
-  `colorsOf(row)`, `onSelect(row)`, `timeZone`, `limit`, `showEmptyDays`. The peek honours the
-  screen's `cells`, and an unknown `preset` throws, as in the list.
+  `colorsOf(row)`, `classNameOf(row)` and `statusOf(row)` (below), `onSelect(row)`, `timeZone`,
+  `limit`, `showEmptyDays`. The peek honours the screen's `cells`, and an unknown `preset` throws,
+  as in the list. The screen's `subtitle` (else the view's `copy.subtitle`) shows under the
+  title, as it does over the list.
+- **A row's look.** `classNameOf(row)` gives a row's event classes, on the grid and the printed
+  agenda: `(r) => (r.status === "cancelled" ? "line-through opacity-60" : undefined)` strikes a
+  cancelled event through rather than dropping it. `statusOf(row)` gives the words read out after
+  its title ("Cancelled"), printed on paper too, so the look is never the only cue.
+  `EventCalendar`'s `CalendarEvent` takes the same `className` and `status`.
+- **On a phone.** `phoneLayout: "agenda"` opens the day-by-day agenda below 768px, where a month
+  grid is too narrow to read, until the person picks a layout from the switch. Unset, a phone
+  shows `layout`, as before. The server renders the desktop layout, so a server-rendered phone
+  page shows it for one frame (as [Phones](#phones) explains for lists).
+- **An end from a duration.** For rows with no end column, `durationField` (a number field) and
+  `durationUnit` (`minutes`, the default, `hours` or `days`) give each row an end: its start
+  plus the duration. A timestamp ends that long after it starts; a date runs that many days
+  (rounded up, at least one). A row whose `endField` has a value keeps it; a row with no
+  duration shows on its start alone. The window is still asked for by start only, so a row that
+  began before the window and runs into it isn't loaded: give it an `endField` when that matters.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
 - **The list's options apply.** `resourceOptions.enabled` holds the requests (a screen waiting on

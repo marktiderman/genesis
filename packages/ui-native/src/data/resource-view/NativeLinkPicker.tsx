@@ -47,7 +47,7 @@ export function NativeLinkPicker({ field, value, onChange, values, error, testID
   const filters = useMemo(() => JSON.parse(filtersKey) as ReturnType<typeof link.filters>, [filtersKey]);
   const labelField = field.labelField ?? link.labelField;
   const list = useLinkOptions(
-    { resource: link.resource, field: link.field, labelField, searchFields: link.searchFields },
+    { resource: link.resource, field: link.field, labelField, searchFields: link.searchFields, orderBy: link.orderBy },
     { filters, search, enabled: open, untitled: words.untitled! },
   );
 
