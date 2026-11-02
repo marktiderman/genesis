@@ -392,9 +392,7 @@ entry may only write where its kind of source goes (a template to `eas.json`, `.
 or `.github/workflows/`, a function file to `supabase/functions/<name>/`, a pgTAP test to
 `supabase/tests/database/`, a skill to `.claude/skills/`), never a migration and never `.git`;
 substitutions may only replace the starter's own names. A pgTAP test waits while its block has
-new migrations to copy. The app folder `genesis init --template native` records
-(`REPLACE_WITH_APP_FOLDER` → `src`) may be any plain relative path (no `..`, not absolute), and
-every file the upgrade refreshes or adds applies it, as init did.
+new migrations to copy.
 
 ## Expo config plugin
 

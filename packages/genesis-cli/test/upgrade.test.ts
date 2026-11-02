@@ -9,8 +9,7 @@ import { mergeThreeWay } from "../src/blocks/owned.js";
 import { bumpPackageJson, compareVersions, lockedGenesisVersions, normaliseReleaseAgeExcludes, tidyLocked } from "../src/upgrade/bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { pnpmWorkspaceFileFor, releaseAgeError, runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
-import { APP_FOLDER_PLACEHOLDER, runInitNative } from "../src/blocks/init-native.js";
-import { fakePackage, makeApp, PACKAGES, read, snapshot, tempDir, writeTree } from "./blocks-helpers.js";
+import { fakePackage, makeApp, PACKAGES, read, snapshot, writeTree } from "./blocks-helpers.js";
 
 const lookup = (packages: Record<string, string>, latest: Record<string, string> = {}): ReleaseLookup => ({
   release: () => ({ version: "2.0.0", packages }),
@@ -346,31 +345,5 @@ describe("genesis upgrade --version", () => {
     expect(result.stderr).toContain('--version must be an exact version or a dist-tag, not "not a version!"');
     expect(result.status).toBe(1);
     expect(spawnSync(process.execPath, [cli, "--version"], { encoding: "utf8" }).stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
-  });
-});
-
-describe("genesis upgrade on a lock genesis init wrote", () => {
-  it("accepts init's app-folder substitution and keeps src in the files it fills", async () => {
-    const target = path.join(tempDir(), "trail-notes");
-    await runInitNative({ name: "trail-notes", target, bundleId: "com.acmeco.trailnotes" });
-    const lock = readLock(target);
-    expect(lock.substitutions?.[APP_FOLDER_PLACEHOLDER]).toBe("src");
-    const owned = Object.keys(lock.files).filter((f) => /REPLACE_WITH_APP_FOLDER|src\/\*\*/.test(read(target, f)));
-    expect(owned.length).toBeGreaterThan(0);
-    const report = await runUpgrade({ root: target, lookup: lookup({}), install: false, doctor: false });
-    expect(report.summary).toContain("REPLACE_WITH_APP_FOLDER → src");
-    for (const f of Object.keys(lock.files)) expect(read(target, f), f).not.toContain(APP_FOLDER_PLACEHOLDER);
-    for (const f of owned) expect(read(target, f), f).toContain("src/**");
-    expect(readLock(target).substitutions?.[APP_FOLDER_PLACEHOLDER]).toBe("src");
-  });
-
-  it("refuses an app folder that isn't a plain relative path", async () => {
-    for (const folder of ["../outside", "/abs", "a\nb", "./src", "a/../../b"]) {
-      const target = path.join(tempDir(), "app");
-      await runInitNative({ name: "app", target });
-      const lock = readLock(target);
-      writeLock(target, { ...lock, substitutions: { ...lock.substitutions, [APP_FOLDER_PLACEHOLDER]: folder } });
-      await expect(runUpgrade({ root: target, lookup: lookup({}), install: false, doctor: false }), JSON.stringify(folder)).rejects.toThrow(/substitution/);
-    }
   });
 });

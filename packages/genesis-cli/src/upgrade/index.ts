@@ -23,7 +23,7 @@ import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from
 import { mergeFragment } from "../blocks/agents.js";
 import { findBlock, packageDir, packageVersion } from "../blocks/discover.js";
 import { readApp, readPackageFile, replaceApp, sha256 } from "../blocks/files.js";
-import { APP_FOLDER_PLACEHOLDER, starterIdentity } from "../blocks/init-native.js";
+import { starterIdentity } from "../blocks/init-native.js";
 import { LOCK_FILE, parseSource, readLock, substitute, writeLock } from "../blocks/lock.js";
 import { planMigrations, TESTS_DIR } from "../blocks/migrations.js";
 import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from "../blocks/owned.js";
@@ -425,18 +425,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
 }
 
 const SUBSTITUTION_VALUE = /^[A-Za-z0-9][A-Za-z0-9 .+-]{0,59}$/;
-/** The app's folder (`genesis init --template native` records "src"): a plain relative path inside the app. */
-const APP_FOLDER_VALUE = /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}(\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,59}){0,7}$/;
-
-function plainAppFolder(value: string): boolean {
-  return APP_FOLDER_VALUE.test(value) && !value.split("/").some((part) => part === "." || part === "..");
-}
 
 /**
  * The lock's substitutions rename templates, so only the starter's own values
- * (read from the starter this CLI ships) may be replaced, each with a plain name, and the app
- * folder placeholder init records, with a plain relative path (no `..`, not absolute). Every
- * refreshed or added owned file applies them, as init did.
+ * (read from the starter this CLI ships) may be replaced, each with a plain name.
  */
 function checkSubstitutions(substitutions: Record<string, string> | undefined): void {
   if (!substitutions || !Object.keys(substitutions).length) return;
@@ -448,7 +440,6 @@ function checkSubstitutions(substitutions: Record<string, string> | undefined): 
     allowed = [];
   }
   for (const [from, to] of Object.entries(substitutions)) {
-    if (from === APP_FOLDER_PLACEHOLDER && plainAppFolder(to)) continue;
     if (!allowed.includes(from) || !SUBSTITUTION_VALUE.test(to)) {
       throw new Error(`genesis.lock.json: the substitution ${JSON.stringify(from)} → ${JSON.stringify(to)} isn't one of the starter's names with a plain value; fix the lock by hand.`);
     }
