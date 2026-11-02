@@ -1,0 +1,23 @@
+packages/calendar/src/fetch.ts
+  s_6a4659246591cd::t_e467d50a2d62d4 37-45
+docs/adr/0014-calendar-read-layer.md
+  s_6a4659246591cd::t_30880f794aaaef 47-54,63-66,79-90,103-105
+packages/calendar/README.md
+  s_6a4659246591cd::t_73d60db9908fec 45-50,77-78,109-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "49b70d6a2a3a795f2ffe5221a347c2cd47372415",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
