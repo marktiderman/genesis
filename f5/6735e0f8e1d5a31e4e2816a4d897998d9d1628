@@ -1,0 +1,62 @@
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_afeeaea90650c9 230-240
+packages/ui/src/components/data/ResourceForm.tsx
+  s_6a4659246591cd::t_c1fa52ab3278d9 382-386
+  s_6a4659246591cd::t_a86eeb2d113352 358-366
+  s_6a4659246591cd::t_a5fb9a4bd441d0 486
+  s_6a4659246591cd::t_2553b395531cd1 438
+  s_6a4659246591cd::t_dbd06b4c770b46 319
+  s_6a4659246591cd::t_1c049452b6c817 152,154-167
+  s_6a4659246591cd::t_a5f6b85ff405b1 51-57
+  s_6a4659246591cd::t_a39f9dda3e1f67 452-464,469
+  s_6a4659246591cd::t_f25c9f8656b1b1 338-339
+  s_6a4659246591cd::t_639e2960af60b8 3
+  s_6a4659246591cd::t_c3de40c022c4fc 195
+  s_6a4659246591cd::t_4554a398e29616 139
+packages/ui/src/components/data/__tests__/resource-form-open.test.tsx
+  s_6a4659246591cd::t_1cdddcc85ccfab 1-136
+packages/ui/src/components/data/__tests__/resource-page-form-options.test.tsx
+  s_6a4659246591cd::t_1e8f55b64e1d46 88-90,93-95
+  s_6a4659246591cd::t_79bcafd0d2e886 1-87,91-92,96-145,160,163-203
+  s_6a4659246591cd::t_73ca6ee35ebc30 146-159
+  s_6a4659246591cd::t_37bf48829f803c 161-162
+packages/core/src/resource-view/types.ts
+  s_6a4659246591cd::t_5ffc2fe9ff7bbc 195-207
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_6a4659246591cd::t_d27a02c78dc526 669-685
+.changeset/ui-form-words-empty-create.md
+  s_6a4659246591cd::t_0c5a1c1b7c3c03 1-18
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_cf1cf8ee1ff837 62-65
+packages/ui/src/components/data/ResourcePage.tsx
+  s_6a4659246591cd::t_bb5fbecb8593ec 887
+  s_6a4659246591cd::t_aa287fb7380e05 1272-1276
+  s_6a4659246591cd::t_c04bb4603105b4 1036-1045,1047,1050
+  s_6a4659246591cd::t_e5cce7b66b391e 1634
+  s_6a4659246591cd::t_e615bb67e1917f 734-748
+  s_6a4659246591cd::t_f040179ea25fa1 1061-1067,1070-1084
+  s_6a4659246591cd::t_75c2ca31e46216 1068-1069
+  s_6a4659246591cd::t_9c2d5261fb8bd2 834-861
+  s_6a4659246591cd::t_1f5726580fcd6f 895-896
+  s_6a4659246591cd::t_5c0f73f69880ab 1265
+  s_6a4659246591cd::t_4bea7057eba019 539-562
+  s_6a4659246591cd::t_c94c4efb8d2459 1598-1606
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_0b5d0980acb504 2,14489,16372-16378,16477-16483,16825-16831,16874-16880,16888-16894,16967,16970,17623-17629,17679-17685,17693-17699,17779,17782,18364-18370,18420-18426,18434-18440,18520,18523,19105-19111,19161-19167,19175-19181,19261,19264,22647-22653,22696-22702,22710-22716,22789,22792,23339-23345,23388-23394,23402-23408,23481,23484
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f56735e0f8e1d5a31e4e2816a4d897998d9d1628",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
