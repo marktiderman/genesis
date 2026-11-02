@@ -11,10 +11,18 @@ import type { ViewMode } from "../../patterns/view-toggle";
  */
 export interface ResourceViewDefaults {
   /**
-   * How lists open on a phone (below 768px) when the screen doesn't say: `grid` (cards) or
-   * `list` (rows). Desktops keep the table. Unset, lists open as a table everywhere, as before.
+   * How full-page lists (`layout="page"`) open on a phone (below 768px) when the screen doesn't
+   * say: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists
+   * are left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer
+   * provider's phone default off for this subtree.
    */
-  phoneMode?: Exclude<ViewMode, "table"> | undefined;
+  phoneMode?: Exclude<ViewMode, "table"> | null | undefined;
+  /**
+   * Clip each table cell's content at its column's edge (one line, with an ellipsis for text),
+   * so a long link or email doesn't run over the next column on a narrow table. Inline editors
+   * are never clipped. Unset, cells draw as before; `false` turns an outer provider's off.
+   */
+  clipCells?: boolean | undefined;
 }
 
 const ResourceViewDefaultsContext = createContext<ResourceViewDefaults>({});
@@ -23,12 +31,13 @@ const ResourceViewDefaultsContext = createContext<ResourceViewDefaults>({});
  * Set list defaults for the whole app, once, near the root:
  *
  * ```tsx
- * <ResourceViewDefaultsProvider phoneMode="grid">
+ * <ResourceViewDefaultsProvider phoneMode="grid" clipCells>
  *   <App />
  * </ResourceViewDefaultsProvider>
  * ```
  *
- * Nested providers build on each other.
+ * Nested providers build on each other: an unset key inherits, and `phoneMode={null}` or
+ * `clipCells={false}` turns the outer one off below it.
  *
  * @stability Beta
  */
@@ -37,8 +46,10 @@ export function ResourceViewDefaultsProvider({
   ...defaults
 }: ResourceViewDefaults & { children: ReactNode }) {
   const parent = useContext(ResourceViewDefaultsContext);
-  const phoneMode = defaults.phoneMode ?? parent.phoneMode;
-  const value = useMemo(() => ({ phoneMode }), [phoneMode]);
+  // `undefined` inherits; `null` and `false` are answers of their own and switch the parent's off.
+  const phoneMode = defaults.phoneMode === undefined ? parent.phoneMode : defaults.phoneMode;
+  const clipCells = defaults.clipCells ?? parent.clipCells;
+  const value = useMemo(() => ({ phoneMode, clipCells }), [phoneMode, clipCells]);
   return <ResourceViewDefaultsContext.Provider value={value}>{children}</ResourceViewDefaultsContext.Provider>;
 }
 

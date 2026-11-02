@@ -26,23 +26,27 @@ import { FieldArrayRenderer } from "./FieldArrayRenderer";
 
 export type { FieldType, SelectOption, ResourceFormFieldDef } from "@marktiderman/genesis-core";
 
-// The keyboard and autofill each type asks for when the field doesn't say, so a phone shows the
-// right keypad and the browser can offer the person's own email or number.
+// The keyboard each type asks for when the field doesn't say. Autofill is never a type default:
+// on a form about someone else (an admin editing a member) it would fill in the person at the
+// keyboard, so a field opts in with its own `autoComplete`.
 const TYPE_INPUT_MODE: Partial<Record<string, ResourceFormFieldDef["inputMode"]>> = {
   email: "email",
   tel: "tel",
   url: "url",
-  number: "decimal",
 };
-const TYPE_AUTOCOMPLETE: Partial<Record<string, string>> = { email: "email", tel: "tel" };
 
-/** The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. */
+/**
+ * The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A
+ * number gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no
+ * minus key on an iPhone, so any other number keeps the browser's own keyboard.
+ */
 function inputHints(field: ResourceFormFieldDef, fieldType: string) {
-  const inputMode = field.inputMode ?? TYPE_INPUT_MODE[fieldType];
-  const autoComplete = field.autoComplete ?? TYPE_AUTOCOMPLETE[fieldType];
+  const typeMode =
+    fieldType === "number" ? (field.min !== undefined && field.min >= 0 ? "decimal" : undefined) : TYPE_INPUT_MODE[fieldType];
+  const inputMode = field.inputMode ?? typeMode;
   return {
     ...(inputMode ? { inputMode } : {}),
-    ...(autoComplete ? { autoComplete } : {}),
+    ...(field.autoComplete ? { autoComplete: field.autoComplete } : {}),
     ...(field.enterKeyHint ? { enterKeyHint: field.enterKeyHint } : {}),
   };
 }

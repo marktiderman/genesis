@@ -6,7 +6,7 @@ export type FieldType =
   | "text"
   | "number"
   | "email"
-  /** A phone number: the phone keypad and `tel` autofill. Stored as text. */
+  /** A phone number: `type="tel"` and the phone keypad. Stored as text. */
   | "tel"
   | "url"
   | "textarea"
@@ -52,12 +52,15 @@ export interface ResourceFormFieldDef {
   description?: string;
   /**
    * The browser's autofill token (`name`, `given-name`, `email`, `tel`, `street-address`,
-   * `one-time-code`, `off`, ...). Unset, email and tel fields ask for `email` and `tel`.
+   * `one-time-code`, `off`, ...). Unset, the input asks for none, whatever its type: a form
+   * about someone else (an admin editing a member) must not fill in the person at the keyboard.
+   * Set it on forms about the viewer (sign-up, their own profile).
    */
   autoComplete?: string;
   /**
    * Which on-screen keyboard a phone shows. Unset, it follows the type: `email`, `tel`, `url`,
-   * and `decimal` for numbers.
+   * and, for a number with `min >= 0`, `decimal` (which has no minus key, so a number that can be
+   * negative keeps the browser's own keyboard).
    */
   inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
   /** The label on the keyboard's Return key (`next`, `done`, `go`, `search`, `send`). */

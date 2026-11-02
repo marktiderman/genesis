@@ -12035,6 +12035,13 @@
               "description": ""
             },
             {
+              "name": "clipCells",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Clip each cell's content at its column's edge, on one line with an ellipsis for text, so a\nlong link or email doesn't run over the next column on a narrow table. Cells with an inline\neditor keep their overflow, so the editor's popover and focus ring aren't cut. Default false."
+            },
+            {
               "name": "columnOrderKey",
               "type": "string",
               "required": false,
@@ -12320,19 +12327,26 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/defaults.tsx",
       "stability": "beta",
-      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\">\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other.",
+      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
       "primaryComponent": "ResourceViewDefaultsProvider",
       "components": [
         {
           "name": "ResourceViewDefaultsProvider",
-          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\">\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other.",
+          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
           "props": [
             {
-              "name": "phoneMode",
-              "type": "enum",
+              "name": "clipCells",
+              "type": "boolean",
               "required": false,
               "defaultValue": null,
-              "description": "How lists open on a phone (below 768px) when the screen doesn't say: `grid` (cards) or\n`list` (rows). Desktops keep the table. Unset, lists open as a table everywhere, as before."
+              "description": "Clip each table cell's content at its column's edge (one line, with an ellipsis for text),\nso a long link or email doesn't run over the next column on a narrow table. Inline editors\nare never clipped. Unset, cells draw as before; `false` turns an outer provider's off."
+            },
+            {
+              "name": "phoneMode",
+              "type": "\"grid\" | \"list\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "How full-page lists (`layout=\"page\"`) open on a phone (below 768px) when the screen doesn't\nsay: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists\nare left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer\nprovider's phone default off for this subtree."
             }
           ]
         },
@@ -17837,7 +17851,7 @@
               "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",
@@ -18557,7 +18571,7 @@
               "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",
@@ -19277,7 +19291,7 @@
               "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",

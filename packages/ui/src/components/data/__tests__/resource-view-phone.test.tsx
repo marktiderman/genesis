@@ -1,9 +1,13 @@
 /**
- * Lists and forms on a phone (docs/MOBILE.md):
+ * Lists and forms on a phone (docs/RESOURCE-VIEW.md, "Phones"). Every behaviour that changes what
+ * an existing app renders is opt-in:
  * - a screen's `mode` can pick per screen size, and an app-wide `phoneMode` sets the phone
- *   default for every list that doesn't say; neither ever turns a list into a calendar;
- * - form inputs get the keyboard and autofill their type asks for, or their own;
- * - a text field named like a phone number becomes a `tel` field;
+ *   default for every full-page list that doesn't say; `phoneMode={null}` turns it off below;
+ *   an embedded list never gets it (it has no view switch), and nothing turns into a calendar;
+ * - form inputs get the keyboard their type asks for, never a type's autofill, and a number's
+ *   decimal keypad only when it can't be negative;
+ * - a field is `tel` only when the contract says so (`widget: "tel"`), never by its name;
+ * - table cells clip only with `clipCells`;
  * - the list search shows a search keyboard and is named.
  */
 import { render, renderHook, screen } from "@testing-library/react";
@@ -13,11 +17,12 @@ import { useForm } from "react-hook-form";
 import { describe, expect, it, vi } from "vitest";
 import { defineResource, GenesisProvider, type DataProvider } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
-import { ResourceViewDefaultsProvider, useResourceViewProps } from "../resource-view";
+import { ResourceViewDefaultsProvider, useResourceViewProps, type ResourceViewDefaults } from "../resource-view";
+import { DataTable } from "../DataTable";
 import { ResourceFormFieldRenderer, type ResourceFormFieldDef } from "../ResourceFormField";
 import { DataFilters } from "../DataFilters";
 
-type Person = { id: string; name: string; email: string; phone: string | null };
+type Person = { id: string; name: string; email: string; phone: string | null; mobile: string | null };
 
 const people = defineResource<Person>()({
   name: "people",
@@ -27,12 +32,19 @@ const people = defineResource<Person>()({
     { name: "id", type: "string", hasDefault: true },
     { name: "name", type: "string" },
     { name: "email", type: "string", widget: "email" },
-    { name: "phone", type: "string", nullable: true },
+    { name: "phone", type: "string", nullable: true, widget: "tel" },
+    // Named like a phone number, declared as nothing: stays a text field.
+    { name: "mobile", type: "string", nullable: true },
   ],
 });
 
 const view = defineView(people, {
   columns: { default: ["name", "email", "phone"] },
+  form: ["name", "email", "phone", "mobile"],
+});
+
+const signUpView = defineView(people, {
+  fields: { email: { autoComplete: "email" }, phone: { autoComplete: "tel" } },
   form: ["name", "email", "phone"],
 });
 
@@ -47,15 +59,13 @@ function provider(): DataProvider {
   };
 }
 
-function wrap(phoneMode?: "grid" | "list") {
+function wrap(defaults?: ResourceViewDefaults, inner?: ResourceViewDefaults) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }: { children: ReactNode }) => (
     <GenesisProvider provider={provider()} queryClient={queryClient}>
-      {phoneMode ? (
-        <ResourceViewDefaultsProvider phoneMode={phoneMode}>{children}</ResourceViewDefaultsProvider>
-      ) : (
-        children
-      )}
+      <ResourceViewDefaultsProvider {...defaults}>
+        <ResourceViewDefaultsProvider {...inner}>{children}</ResourceViewDefaultsProvider>
+      </ResourceViewDefaultsProvider>
     </GenesisProvider>
   );
 }
@@ -67,13 +77,13 @@ describe("ResourceView phone default", () => {
   });
 
   it("opens in cards on a phone and a table on a desktop with phoneMode", () => {
-    const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap("grid") });
+    const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap({ phoneMode: "grid" }) });
     expect(result.current.defaultView).toEqual({ mobile: "grid", desktop: "table" });
   });
 
   it("lets the screen's mode win over the app's phone default", () => {
     const { result } = renderHook(() => useResourceViewProps({ view, mode: "table" }), {
-      wrapper: wrap("grid"),
+      wrapper: wrap({ phoneMode: "grid" }),
     });
     expect(result.current.defaultView).toBe("table");
   });
@@ -88,17 +98,82 @@ describe("ResourceView phone default", () => {
 
   it("keeps a compact list in rows", () => {
     const { result } = renderHook(() => useResourceViewProps({ view, layout: "compact" }), {
-      wrapper: wrap("grid"),
+      wrapper: wrap({ phoneMode: "grid" }),
     });
     expect(result.current.defaultView).toBe("list");
   });
 
-  it("makes a text field named like a phone number a tel field", () => {
+  it("keeps an embedded list a table: it has no view switch to leave cards", () => {
+    const { result } = renderHook(() => useResourceViewProps({ view, layout: "embedded" }), {
+      wrapper: wrap({ phoneMode: "grid" }),
+    });
+    expect(result.current.defaultView).toBeUndefined();
+  });
+
+  it("turns an outer phone default off with phoneMode={null}", () => {
+    const { result } = renderHook(() => useResourceViewProps({ view }), {
+      wrapper: wrap({ phoneMode: "grid" }, { phoneMode: null }),
+    });
+    expect(result.current.defaultView).toBeUndefined();
+  });
+
+  it("inherits the outer phone default when the inner provider doesn't say", () => {
+    const { result } = renderHook(() => useResourceViewProps({ view }), {
+      wrapper: wrap({ phoneMode: "list" }, { clipCells: true }),
+    });
+    expect(result.current.defaultView).toEqual({ mobile: "list", desktop: "table" });
+  });
+});
+
+describe("ResourceView form field types", () => {
+  it("makes a field tel only when the contract declares widget: tel", () => {
     const { result } = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap() });
     const fields = result.current.formFields ?? [];
     expect(fields.find((f) => f.key === "phone")?.type).toBe("tel");
+    expect(fields.find((f) => f.key === "mobile")?.type).toBe("text");
     expect(fields.find((f) => f.key === "email")?.type).toBe("email");
     expect(fields.find((f) => f.key === "name")?.type).toBe("text");
+  });
+
+  it("asks for no autofill unless the view says", () => {
+    const plain = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap() });
+    expect((plain.result.current.formFields ?? []).every((f) => f.autoComplete === undefined)).toBe(true);
+    const own = renderHook(() => useResourceViewProps({ view: signUpView }), { wrapper: wrap() });
+    const fields = own.result.current.formFields ?? [];
+    expect(fields.find((f) => f.key === "email")?.autoComplete).toBe("email");
+    expect(fields.find((f) => f.key === "phone")?.autoComplete).toBe("tel");
+  });
+});
+
+describe("Table cell clipping", () => {
+  const rows = [{ id: "1", name: "Ada", email: "ada@example.com" }];
+  const columns = [
+    { key: "name", header: "Name" },
+    { key: "email", header: "Email" },
+  ];
+  const cellOf = () => screen.getByText("ada@example.com").closest("td")!;
+
+  it("leaves cells as they were by default", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
+    expect(cellOf().className).not.toMatch(/overflow-hidden|text-ellipsis/);
+  });
+
+  it("clips on one line with an ellipsis with clipCells", () => {
+    render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} clipCells />);
+    expect(cellOf().className).toMatch(/overflow-hidden/);
+    expect(cellOf().className).toMatch(/text-ellipsis/);
+    expect(cellOf().className).toMatch(/whitespace-nowrap/);
+  });
+
+  it("passes the provider's clipCells to the table, under the screen's own table props", () => {
+    const app = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap({ clipCells: true }) });
+    expect(app.result.current.slotProps?.table?.clipCells).toBe(true);
+    const screenWins = renderHook(() => useResourceViewProps({ view, slotProps: { table: { clipCells: false } } }), {
+      wrapper: wrap({ clipCells: true }),
+    });
+    expect(screenWins.result.current.slotProps?.table?.clipCells).toBe(false);
+    const none = renderHook(() => useResourceViewProps({ view }), { wrapper: wrap() });
+    expect(none.result.current.slotProps).toBeUndefined();
   });
 });
 
@@ -109,15 +184,28 @@ function Field({ field }: { field: ResourceFormFieldDef }) {
 
 describe("Form inputs on a phone", () => {
   it.each([
-    ["email", "email", "email"],
-    ["tel", "tel", "tel"],
-    ["url", "url", null],
-    ["number", "decimal", null],
-  ] as const)("a %s field asks for the %s keyboard", (type, inputMode, autoComplete) => {
+    ["email", "email"],
+    ["tel", "tel"],
+    ["url", "url"],
+  ] as const)("a %s field asks for the %s keyboard and no autofill", (type, inputMode) => {
     render(<Field field={{ key: "f", label: "Field", type }} />);
     const input = screen.getByLabelText("Field");
     expect(input.getAttribute("inputmode")).toBe(inputMode);
-    expect(input.getAttribute("autocomplete")).toBe(autoComplete);
+    expect(input.getAttribute("autocomplete")).toBeNull();
+  });
+
+  it.each([
+    ["no min", undefined, null],
+    ["min 0", 0, "decimal"],
+    ["a negative min", -10, null],
+  ] as const)("a number with %s gets inputmode %s", (_name, min, inputMode) => {
+    render(<Field field={{ key: "f", label: "Amount", type: "number", ...(min !== undefined ? { min } : {}) }} />);
+    expect(screen.getByLabelText("Amount").getAttribute("inputmode")).toBe(inputMode);
+  });
+
+  it("uses a number's own inputMode over the min rule", () => {
+    render(<Field field={{ key: "f", label: "Count", type: "number", min: 0, inputMode: "numeric" }} />);
+    expect(screen.getByLabelText("Count").getAttribute("inputmode")).toBe("numeric");
   });
 
   it("uses the field's own hints over its type's", () => {

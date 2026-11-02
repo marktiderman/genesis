@@ -422,6 +422,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           section,
           sectionTitle,
           ...(v?.max !== undefined ? { max: v.max } : {}),
+          ...(v?.autoComplete ? { autoComplete: v.autoComplete } : {}),
           ...(v?.labelField ? { labelField: v.labelField } : {}),
           ...(v?.missingLabel ? { missingLabel: v.missingLabel } : {}),
           ...(field.enumValues?.length

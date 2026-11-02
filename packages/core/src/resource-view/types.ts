@@ -57,6 +57,12 @@ export interface ViewField<Row extends DataRow = DataRow> {
   missingLabel?: string;
   /** Longest text a form accepts. Feeds the derived validation. */
   max?: number;
+  /**
+   * In a form: the browser's autofill token (`email`, `tel`, `given-name`, `one-time-code`,
+   * `off`, ...). Unset, the input asks for none, so a form about someone else (an admin editing a
+   * member) never fills in the person at the keyboard. Set it where the form is about the viewer.
+   */
+  autoComplete?: string;
   /** Shown read-only even where the server would accept a write. Never widens. */
   readOnly?: boolean;
   /**
@@ -285,6 +291,8 @@ export interface ResolvedFormField {
   required: boolean;
   readOnly: boolean;
   max?: number;
+  /** The input's autofill token (`ViewField.autoComplete`). */
+  autoComplete?: string;
   /** For a link: the linked row's field that names it (`ViewField.labelField`). */
   labelField?: string;
   /** For a link: the words when its row is hidden or gone (`ViewField.missingLabel`). */

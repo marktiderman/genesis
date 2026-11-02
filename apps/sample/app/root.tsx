@@ -62,8 +62,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   const tree = (
     <GenesisProvider mock={{ datasets: { items, tasks, orders } }}>
-      {/* Every list opens in cards on a phone unless its screen says otherwise. */}
-      <ResourceViewDefaultsProvider phoneMode="grid">
+      {/* Every full-page list opens in cards on a phone unless its screen says otherwise, and
+          table cells clip at their column's edge. */}
+      <ResourceViewDefaultsProvider phoneMode="grid" clipCells>
         <Outlet />
       </ResourceViewDefaultsProvider>
     </GenesisProvider>
