@@ -1,0 +1,51 @@
+.changeset/eas-android-key-on-eas.md
+  s_1feb538f59bf88::t_88279657c40b25 5
+packages/chat/CHANGELOG.md
+  s_1feb538f59bf88::t_ab0ad2189a5631 3-8
+packages/chat/package.json
+  s_1feb538f59bf88::t_b5fec5e5bcafed 3
+packages/core/CHANGELOG.md
+  s_1feb538f59bf88::t_f28aef0abc37c7 3-25
+packages/core/package.json
+  s_1feb538f59bf88::t_d36a48e535ac50 3
+packages/design-system/CHANGELOG.md
+  s_1feb538f59bf88::t_9ef6a93cc4f40e 3-15
+packages/design-system/package.json
+  s_1feb538f59bf88::t_ae4da60a7554f4 3
+packages/genesis-cli/CHANGELOG.md
+  s_1feb538f59bf88::t_e12c179d82b09b 3-30
+packages/genesis-cli/package.json
+  s_1feb538f59bf88::t_af33cefd2ba035 3
+packages/genesis/CHANGELOG.md
+  s_1feb538f59bf88::t_4bc81af4f5f0a7 3-19
+packages/genesis/package.json
+  s_1feb538f59bf88::t_38a84ab1517a85 3
+packages/studio-server/CHANGELOG.md
+  s_1feb538f59bf88::t_52abc442599526 3-8
+packages/studio-server/package.json
+  s_1feb538f59bf88::t_ce1812fc5c3f69 3
+packages/ui-native/CHANGELOG.md
+  s_1feb538f59bf88::t_70bccb6f1b2686 3-32
+packages/ui-native/package.json
+  s_1feb538f59bf88::t_368a352d5da555 3
+packages/ui/CHANGELOG.md
+  s_1feb538f59bf88::t_e84d970ecfcabf 3-68
+packages/ui/package.json
+  s_1feb538f59bf88::t_c2dc4408c73da8 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "4c61287c9168512a9d7b632dea2b8c7bef638aa6",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
