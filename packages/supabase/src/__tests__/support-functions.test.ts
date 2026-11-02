@@ -38,8 +38,16 @@ describe("genesis-support-intake", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ reportId: "r1", findingId: "r1", status: "open" });
     expect(clientFor).toHaveBeenCalledWith("tok");
-    expect(c.inserted[0]).toMatchObject({ type: "bug", message: "Broken", route: "/a", severity: "high", context: { severity: "high" } });
+    expect(c.inserted[0]).toMatchObject({ type: "bug", message: "Broken", route: "/a", context: { severity: "high" } });
+    // The severity column is opt-in (migration 0003 adds it).
+    expect(c.inserted[0]).not.toHaveProperty("severity");
     expect(c.inserted[0]).not.toHaveProperty("user_id");
+  });
+
+  it("writes the severity column when told migration 0003 added it", async () => {
+    const c = caller();
+    await intake(post({ op: "submit", body: "Broken", severity: "high" }), { env: env({ GENESIS_SUPPORT_SEVERITY_COLUMN: "true" }), clientFor: () => c, log: vi.fn() });
+    expect(c.inserted[0]).toMatchObject({ severity: "high", context: { severity: "high" } });
   });
 
   it("needs a signed-in caller", async () => {

@@ -144,10 +144,16 @@ export interface SupportClient extends FeedbackSink {
   isStaff(): Promise<boolean>;
   /** Staff: the report's status, and the FeatureId it is about (null keeps it, "" clears it). */
   setStatus(reportId: string, status: FeedbackStatus, featureId?: string | null): Promise<void>;
-  /** The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened). */
-  verify(reportId: string, fixed: boolean, note?: string): Promise<void>;
-  /** Does the signed-in person handle this report (staff, or whom the app's hook names)? */
-  handles(reportId: string): Promise<boolean>;
+  /**
+   * The person's answer once a report is marked addressed: fixed (confirmed) or not (reopened).
+   * Needs migration 0003. Optional: a custom client may leave it out, so check before calling.
+   */
+  verify?(reportId: string, fixed: boolean, note?: string): Promise<void>;
+  /**
+   * Does the signed-in person handle this report (staff, or whom the app's hook names)? Needs
+   * migration 0003. Optional: a custom client may leave it out, so check before calling.
+   */
+  handles?(reportId: string): Promise<boolean>;
   /** Staff (support-chat block): who has the report, a staff member or null. */
   assign(reportId: string, userId: string | null): Promise<void>;
   /** Deletes the person's own report; its screenshots are queued for removal. */
@@ -174,6 +180,11 @@ export interface SupportClientOptions {
   signedUrlSeconds?: number;
   /** For the attachment file names. Default `crypto.randomUUID`. */
   randomId?: () => string;
+  /**
+   * Write a report's severity to its own `severity` column (added by migration 0003). Default
+   * off: the severity goes into the report's context as `severity`, which works on every schema.
+   */
+  severityColumn?: boolean;
 }
 
 const REPORT_COLUMNS =
@@ -351,8 +362,9 @@ export function createSupportClient(supabase: SupportSupabase, options: SupportC
             app_version: context.appVersion ?? null,
             platform: context.platform ?? null,
             device: context.device ?? {},
-            context: context.extra ?? {},
-            ...(record.severity ? { severity: record.severity } : {}),
+            // Severity: its own column only when the app says migration 0003 added it.
+            context: record.severity && !options.severityColumn ? { ...(context.extra ?? {}), severity: record.severity } : (context.extra ?? {}),
+            ...(record.severity && options.severityColumn ? { severity: record.severity } : {}),
           })
           .select("id")
           .single(),

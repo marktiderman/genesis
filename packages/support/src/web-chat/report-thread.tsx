@@ -40,6 +40,11 @@ export interface SupportReportThreadProps {
    * dialog whose first button would otherwise take it, such as a delete button). Default off.
    */
   focusHeading?: boolean;
+  /**
+   * Title the conversation with the copy's "Report" (`copy.thread.title`) instead of the report's
+   * own title, since the card above already carries its words. Default off: the report's title.
+   */
+  plainChatTitle?: boolean;
   className?: string;
 }
 
@@ -50,7 +55,7 @@ interface ShellProps extends SupportReportThreadProps {
   testID: string;
 }
 
-export function ReportThreadShell({ client, reportId, resolveUser, onBack, focusHeading, className, toolbar, copyResolved: copy, testID }: ShellProps) {
+export function ReportThreadShell({ client, reportId, resolveUser, onBack, focusHeading, plainChatTitle, className, toolbar, copyResolved: copy, testID }: ShellProps) {
   const heading = useRef<HTMLHeadingElement | null>(null);
   const { userId: me } = useChat();
   const report = useQuery({ queryKey: supportWebKeys.report(reportId), queryFn: () => client.report(reportId) });
@@ -151,8 +156,8 @@ export function ReportThreadShell({ client, reportId, resolveUser, onBack, focus
         <ChatThread
           conversationId={conversationId}
           resolveUser={names}
-          // The card above carries the report's words; the conversation is just "Report".
-          title={copy.thread.title}
+          // The report's title by default; "Report" when the host asks (plainChatTitle).
+          title={plainChatTitle ? copy.thread.title : r.title || copy.feedback.types[r.type]}
           {...(onBack ? { onBack } : {})}
           search={false}
           scheduling={false}

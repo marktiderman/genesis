@@ -303,6 +303,20 @@ describe("the web views on genesis-chat", () => {
     expect(labels.some((l) => l.includes("Support") && l.includes("Fixed in 1.5"))).toBe(true);
   });
 
+  it("titles the conversation with the report's title, or \"Report\" when asked", async () => {
+    const { SupportReportThread } = await import("../web-chat");
+    await mount((client) => <SupportReportThread client={client} reportId={REPORT} />, "member");
+    await screen.findByText("Fixed in 1.5");
+    // The heading and the conversation's title.
+    expect(screen.getAllByText("Export is broken").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("Report")).toBeNull();
+    cleanup();
+    await mount((client) => <SupportReportThread client={client} reportId={REPORT} plainChatTitle />, "member");
+    await screen.findByText("Fixed in 1.5");
+    expect(screen.getAllByText("Export is broken")).toHaveLength(1);
+    expect(screen.getAllByText("Report").length).toBeGreaterThan(0);
+  });
+
   it("SupportStaffThread adds status, assignee and the internal-note toggle", async () => {
     const { SupportStaffThread } = await import("../web-chat");
     await mount(

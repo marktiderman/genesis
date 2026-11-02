@@ -126,7 +126,12 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
   the report), `handles` (does the signed-in person handle this report), and for staff `isStaff`,
   `setStatus` and (support-chat block) `assign`; `thread`, `conversationId` and `subscribe` for a thread on
   genesis-chat (see below). Errors are `SupportError` with the database's code (`rateLimited` for
-  `GS429`).
+  `GS429`). `verify` and `handles` need migration 0003 and are optional on the `SupportClient`
+  type (a client of your own may leave them out), so check for them before calling.
+- A report's severity goes into its context (`context.severity`) by default. With migration 0003
+  applied, pass `severityColumn: true` to `createSupportClient` (or `createSupabaseSink`) and it
+  is written to the `severity` column instead; for the intake function, set
+  `GENESIS_SUPPORT_SEVERITY_COLUMN=true`.
 - `createIntakeClient` + `createIntakeSink`: the wire contract over HTTP, for code without
   supabase-js (it takes no screenshots, and says so in `attachmentsDropped`).
 - `contract.ts` is the wire contract (`CONTRACT_VERSION`, headers, `SubmitFeedbackInput`,
@@ -172,7 +177,9 @@ person never sees. The report stays the record (type, status, message, screensho
    QueryClientProvider): `<SupportReportThread client={client} reportId={id} />` is the person's
    view, the report above genesis-chat's `ChatThread`. `<SupportStaffThread client reportId
    resolveUser staff />` adds the status and assignee pickers; the composer's note toggle writes
-   internal notes.
+   internal notes. Both take `focusHeading` (focus the report's heading once it shows, for a
+   sheet or dialog) and `plainChatTitle` (title the conversation "Report" rather than the
+   report's title, which the card above already shows; default off).
 
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the
@@ -235,7 +242,9 @@ feature id, vote counts and read receipts are the server's. See the migration's 
 
 `migrations/0003_genesis_support_findings.sql` (this package, applied after 0006) adds:
 
-- `severity` (low, medium, high, critical) as a column the person sends with the report.
+- `severity` (low, medium, high, critical) as a column the person sends with the report. The
+  client and the intake function write it only when told the column is there (`severityColumn:
+  true`, `GENESIS_SUPPORT_SEVERITY_COLUMN=true`); until then severity stays in `context`.
 - Report handlers: your optional `private.genesis_support_report_handler(report uuid, person uuid)`
   hook names who else handles a report besides staff (a team that owns the screen, say). They read
   it and its screenshots, reply as support and set its status; they don't observe its

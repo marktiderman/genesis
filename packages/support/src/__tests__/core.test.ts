@@ -20,8 +20,9 @@ import {
   validateSubmitInput,
   SUPPORT_BLOCK_ID,
   WIDGET_HEADERS,
+  type SupportClient,
 } from "../index";
-import { arg, fakeSupabase } from "./fake-supabase";
+import { arg, fakeSupabase, type Call } from "./fake-supabase";
 
 const ME = "00000000-0000-4000-8000-0000000000a1";
 const REPORT = "11111111-1111-4111-8111-111111111111";
@@ -107,6 +108,26 @@ describe("the support client", () => {
     expect(inserted).not.toHaveProperty("user_id");
     expect(fake.uploads).toEqual([{ bucket: "genesis-support", path: `${ME}/${REPORT}/shot-1.jpg`, body: new Uint8Array([104, 105]), options: { contentType: "image/jpeg", upsert: false } }]);
     expect(arg(fake.calls[1], "insert")).toEqual({ report_id: REPORT, path: `${ME}/${REPORT}/shot-1.jpg`, content_type: "image/jpeg", byte_size: 2, width: 390, height: 844 });
+  });
+
+  it("keeps a severity in the context, or in its column when told migration 0003 added it", async () => {
+    const respond = (call: Call) => (call.table === "support_reports" ? { data: { id: REPORT }, error: null } : { data: null, error: null });
+    const plain = fakeSupabase({ respond });
+    await createSupportClient(plain.client).submit({ type: "bug", message: "Broken", severity: "high", context: { extra: { a: 1 } } });
+    const row = arg(plain.calls[0], "insert") as Record<string, unknown>;
+    expect(row).not.toHaveProperty("severity");
+    expect(row.context).toEqual({ a: 1, severity: "high" });
+
+    const column = fakeSupabase({ respond });
+    await createSupportClient(column.client, { severityColumn: true }).submit({ type: "bug", message: "Broken", severity: "high", context: { extra: { a: 1 } } });
+    const row2 = arg(column.calls[0], "insert") as Record<string, unknown>;
+    expect(row2.severity).toBe("high");
+    expect(row2.context).toEqual({ a: 1 });
+  });
+
+  it("leaves verify and handles optional for a client of the app's own", () => {
+    const own: Pick<SupportClient, "verify" | "handles"> = {};
+    expect(own.verify).toBeUndefined();
   });
 
   it("keeps the report when a screenshot fails, and says it was dropped", async () => {
