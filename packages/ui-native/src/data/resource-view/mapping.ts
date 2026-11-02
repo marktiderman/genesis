@@ -7,6 +7,7 @@ import type {
   ResolvedFormField,
   Allowed,
   DisplayHint,
+  ResolvedLink,
   ResourceView,
   RowPicture,
   RowSummary,
@@ -188,7 +189,9 @@ export type NativeFormFieldKind =
   | "segmented"
   | "select"
   | "date"
-  | "datetime";
+  | "datetime"
+  /** A link: a searchable list of the linked rows, through the provider. */
+  | "link";
 
 export interface NativeFormField {
   key: string;
@@ -212,6 +215,8 @@ export interface NativeFormField {
   options?: { value: string; label: string }[];
   /** For a link: what it points at and the linked row's naming field, so it shows the row's words. */
   references?: FieldReference;
+  /** For a link the person can change: how its picker lists the linked rows (`ResolvedFormField.link`). */
+  link?: ResolvedLink;
   labelField?: string;
   missingLabel?: string;
   /** The heading it sits under; null for the form's first, untitled group. */
@@ -251,14 +256,46 @@ function kindFor(display: DisplayHint, options: unknown[] | undefined, widget?: 
   }
 }
 
+/** A link's picker narrowed to `keys` (an `in` filter on the linked key), or the link as it is. */
+function heldTo(link: ResolvedLink, keys: readonly (string | number)[] | undefined): ResolvedLink {
+  if (!keys) return link;
+  const held = { field: link.field, operator: "in" as const, value: [...keys] };
+  return Object.freeze({
+    resource: link.resource,
+    field: link.field,
+    get labelField() {
+      return link.labelField;
+    },
+    ...(link.searchFields ? { searchFields: link.searchFields } : {}),
+    filters: (scope?: Parameters<ResolvedLink["filters"]>[0], values?: Parameters<ResolvedLink["filters"]>[1]) => [...link.filters(scope, values), held],
+  });
+}
+
 /**
- * The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, links, scope,
+ * The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, scope,
  * sensitive and unreadable fields and server-filled keys), each marked read-only unless
- * `view.writable(mode)` lists it. Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows
+ * `view.writable(mode)` lists it. A link the person can change is a picker (`kind: "link"`). Copied, never mutated: core caches and freezes `form()`. A create leaves read-only fields out (there is nothing to show yet); an edit shows
  * them as text.
  */
-export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "create" | "edit"): NativeFormField[] {
-  const writable = new Set(view.writable(mode));
+export function formFieldsFor<T extends Row>(
+  view: AnyResourceView<T>,
+  mode: "create" | "edit",
+  options: {
+    /**
+     * Fields the screen's filter fixes. A link among them stays read-only: the list is that
+     * record's (a client's sessions), and a picker would move the row out of it (as on the web).
+     */
+    pinned?: Iterable<string>;
+    /**
+     * Lists the screen's filter holds fields to (`{ owner_id: ["a", "b"] }`). A link among them
+     * picks only among those rows, so a save never moves the row out of the list.
+     */
+    within?: Readonly<Record<string, readonly (string | number)[]>>;
+  } = {},
+): NativeFormField[] {
+  const pinned = new Set(options.pinned ?? []);
+  const within = options.within ?? {};
+  const writable = new Set([...view.writable(mode)].filter((name) => !(pinned.has(name) && view.field(name)?.references)));
   return view
     .form(mode)
     // JSON and lists need editors of their own; a plain input would send them back as text (as the web).
@@ -267,10 +304,11 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
     .map((f) => {
       const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
       const readOnly = !writable.has(f.field.name);
+      const link = !readOnly && !options && f.link ? heldTo(f.link, Object.hasOwn(within, f.field.name) ? within[f.field.name] : undefined) : undefined;
       return {
         key: f.field.name,
         label: f.label,
-        kind: kindFor(f.display, options, f.field.widget),
+        kind: link ? ("link" as const) : kindFor(f.display, options, f.field.widget),
         display: f.display,
         required: !readOnly && f.required,
         readOnly,
@@ -282,6 +320,7 @@ export function formFieldsFor<T extends Row>(view: AnyResourceView<T>, mode: "cr
         ...(f.enterKeyHint ? { enterKeyHint: f.enterKeyHint } : {}),
         ...(options ? { options } : {}),
         ...(f.field.references ? { references: f.field.references } : {}),
+        ...(link ? { link } : {}),
         ...(f.labelField ? { labelField: f.labelField } : {}),
         ...(f.missingLabel ? { missingLabel: f.missingLabel } : {}),
         section: f.section,

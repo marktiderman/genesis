@@ -1,0 +1,91 @@
+/**
+ * `lock-files`: genesis.lock.json against the files on disk.
+ *
+ * - **warn**: a file the lock owns is missing. `genesis upgrade` never brings a
+ *   deleted owned file back ("deleted stays deleted"), so a lock that names
+ *   files that aren't there (or never were) passes every upgrade silently.
+ *   A file deleted on purpose carries `"deleted": true` in its lock entry,
+ *   which ends the warning and changes nothing for upgrade.
+ * - **info**: a locked file whose checksum differs from the lock's: an app
+ *   edit, which upgrade three-way merges the next version into (or one waiting
+ *   on its `.genesis-next`). And a locked block whose starter.config.ts switch
+ *   is off: upgrade and migrate leave it out, and its files aren't checked.
+ */
+import { existsSync } from "node:fs";
+import * as path from "node:path";
+import { catalogBlocks, findBlock } from "../blocks/discover.js";
+import type { BlockManifest } from "../blocks/manifest.js";
+import { readApp, sha256 } from "../blocks/files.js";
+import { LOCK_FILE, readLock, type GenesisLock } from "../blocks/lock.js";
+import { localPackageNames } from "../blocks/local.js";
+import { ownedKeyProblem } from "../blocks/owned.js";
+import { appBlocksSwitchedOff, blockOfSource, STARTER_CONFIG } from "../blocks/starter-features.js";
+import type { DoctorContext } from "./types.js";
+
+export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
+  if (!existsSync(path.join(ctx.root, LOCK_FILE))) return;
+  let lock: GenesisLock;
+  try {
+    lock = readLock(ctx.root);
+  } catch (err) {
+    ctx.report({ rule: "lock-files", level: "warn", file: LOCK_FILE, message: `can't be read (${err instanceof Error ? err.message : String(err)}); genesis upgrade and migrate can't either` });
+    return;
+  }
+  const catalog = catalogBlocks();
+  const off = appBlocksSwitchedOff(ctx.root, catalog, Object.keys(lock.blocks));
+  const offManifests: BlockManifest[] = [];
+  for (const [id, entry] of Object.entries(lock.blocks)) {
+    const feature = off.get(id);
+    if (!feature) continue;
+    try {
+      offManifests.push((await findBlock(ctx.root, id, { package: entry.package })).manifest);
+    } catch {
+      offManifests.push(...catalog.filter((m) => m.id === id));
+    }
+    ctx.report({
+      rule: "lock-files",
+      level: "info",
+      file: LOCK_FILE,
+      subject: id,
+      message: `lists the ${id} block, but features.${feature} is off in ${STARTER_CONFIG}: genesis upgrade and migrate leave it out (delete its entry if it's gone for good)`,
+    });
+  }
+  const local = localPackageNames(ctx.root);
+  for (const [rel, entry] of Object.entries(lock.files)) {
+    // An entry upgrade refuses is reported by upgrade; its path may not even be a plain one.
+    if (ownedKeyProblem(rel, entry.source, local)) continue;
+    // A switched-off block's files: reported once, above, for the block.
+    if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
+    let text: string | null;
+    try {
+      text = readApp(ctx.root, rel);
+    } catch {
+      // A path that leaves the app (a symlink out): upgrade refuses it too.
+      continue;
+    }
+    if (text === null) {
+      if (entry.deleted) continue;
+      ctx.report({
+        rule: "lock-files",
+        level: "warn",
+        file: rel,
+        subject: rel,
+        message: `is in ${LOCK_FILE} (from ${entry.source}) but not on disk, and genesis upgrade won't bring it back. Deleted on purpose: add "deleted": true to its entry in ${LOCK_FILE}. Otherwise restore it (git checkout, or copy it from ${entry.source})`,
+      });
+      continue;
+    }
+    if (entry.deleted) {
+      ctx.report({ rule: "lock-files", level: "info", file: rel, subject: rel, message: `is marked "deleted": true in ${LOCK_FILE} but is on disk; remove the marker` });
+    }
+    if (sha256(text) === entry.sha256) continue;
+    ctx.report({
+      rule: "lock-files",
+      level: "info",
+      file: rel,
+      subject: rel,
+      message: entry.pending
+        ? `differs from ${LOCK_FILE}: the last upgrade's version is waiting in ${rel}.genesis-next; resolve it into this file and delete it`
+        : `differs from ${LOCK_FILE} (edited in the app); genesis upgrade three-way merges the next version into your edits`,
+    });
+  }
+}

@@ -258,6 +258,14 @@ function buildSchema(fields: ResourceFormFieldDef[], action: "create" | "edit" =
           : z.null().or(schema).optional();
         break;
       }
+      case "relation": {
+        // A linked row's key, as the row holds it: text (a uuid) or a number. Cleared, it is null.
+        const message = `${field.label ?? titleCase(field.key)} is required`;
+        shape[field.key] = field.required !== false
+          ? z.unknown().refine((v) => (typeof v === "string" && v !== "") || (typeof v === "number" && Number.isFinite(v)), { message })
+          : z.union([z.string(), z.number()]).nullable().optional();
+        break;
+      }
       case "array": {
         if (field.arrayFields) {
           const itemShape: Record<string, z.ZodTypeAny> = {};
