@@ -34,7 +34,7 @@ export {
 export { parseDuration, parseIcs, readIcs, type IcsComponent, type IcsProperty, type ParseIcsOptions, type ReadIcsOptions, type ReadIcsResult } from "./ics";
 export { writeIcs, type WriteIcsOptions } from "./write";
 export { resolveZone } from "./zones";
-export { mergeEvents, occurrenceKey, seriesKey, type EventKeyFields, type MergedEvent, type MergeOptions, type PersonEvent } from "./merge";
+export { mergeEvents, occurrenceKey, seriesKey, toBusyKey, type EventKeyFields, type MergedEvent, type MergeOptions, type PersonEvent } from "./merge";
 export { applyMarks, markKey, MARK_KINDS, type EventMark, type MarkedEvent, type MarkKind } from "./marks";
 export { toCalendarEvent, type CalendarDisplayEvent, type ToCalendarEventOptions } from "./display";
 export { syncWindow, SYNC_DAYS_AHEAD, SYNC_DAYS_BACK } from "./window";

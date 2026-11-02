@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { toCalendarEvent } from "./display";
 import { applyMarks, markKey } from "./marks";
-import { mergeEvents, occurrenceKey, seriesKey, type PersonEvent } from "./merge";
+import { mergeEvents, occurrenceKey, seriesKey, toBusyKey, type PersonEvent } from "./merge";
 import { syncWindow } from "./window";
 
 const copy = (person: string, extra: Partial<PersonEvent> = {}): PersonEvent => ({
@@ -76,6 +76,11 @@ describe("mergeEvents", () => {
         expect(m!.busy).toBe(true);
         expect(m!.event).toBeNull();
         expect(JSON.stringify(m)).not.toContain("secret");
+        // Nor its UID: a busy block's keys are hashed.
+        expect(m!.key).toMatch(/^busy:[0-9a-f]{16}$/);
+        expect(m!.seriesKey).toMatch(/^busy:[0-9a-f]{16}$/);
+        expect(JSON.stringify(toCalendarEvent(m!))).not.toContain("dinner@x");
+        expect(JSON.stringify(m)).not.toContain("dinner@x");
         expect(toCalendarEvent(m!).title).toBe("Busy");
       }
       expect(mergeEvents(onlyPrivate, { viewer: "bob" })[0]!.event!.title).toBe("Bob's secret");
@@ -114,6 +119,21 @@ describe("applyMarks", () => {
       [false, true],
     ]);
     expect(marked[0]!.starredFor).toEqual(["bob"]);
+  });
+});
+
+describe("busy keys", () => {
+  it("are stable, distinct per key, and marks under the real key still apply", () => {
+    expect(toBusyKey("a@x|2026-11-05")).toBe(toBusyKey("a@x|2026-11-05"));
+    expect(toBusyKey("a@x|2026-11-05")).not.toBe(toBusyKey("a@x|2026-11-06"));
+    const row = copy("ann", { visibility: "private" });
+    const [busy] = mergeEvents([row], { viewer: "bob" });
+    expect(busy!.key).toBe(toBusyKey(occurrenceKey(row)));
+    const [marked] = applyMarks([busy!], [
+      { eventKey: markKey("star", row), kind: "star", forPersonIds: [] },
+      { eventKey: markKey("hide_series", row), kind: "hide_series", forPersonIds: [] },
+    ]);
+    expect([marked!.starred, marked!.hidden]).toEqual([true, true]);
   });
 });
 

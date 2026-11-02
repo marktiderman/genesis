@@ -26,6 +26,27 @@ export function seriesKey(e: EventKeyFields): string {
   return e.icalUid ?? e.seriesRef ?? `${e.sourceId}:${e.externalRef}`;
 }
 
+/**
+ * The key a busy block carries in place of an occurrence or series key, so a viewer who may not
+ * see an event never receives its UID (or its source's ids) through `key` or `seriesKey`.
+ * `busy:` and 16 hex characters: a stable, non-cryptographic 64-bit hash (two FNV-1a passes).
+ * It hides the UID from display and logs; it is not a secret, since someone who already knows a
+ * UID can hash it and compare. Marks stored under the real key still apply (`applyMarks`).
+ *
+ * @stability Beta
+ */
+export function toBusyKey(key: string): string {
+  let a = 0x811c9dc5;
+  let b = 0x01000193 ^ 0x5bd1e995;
+  for (let i = 0; i < key.length; i++) {
+    const c = key.charCodeAt(i);
+    a = Math.imul(a ^ c, 0x01000193);
+    b = Math.imul(b ^ c, 0x01000193) ^ (b >>> 15);
+  }
+  const hex = (n: number) => (n >>> 0).toString(16).padStart(8, "0");
+  return `busy:${hex(a)}${hex(b)}`;
+}
+
 /** A copy of an event on one person's calendar. @stability Beta */
 export interface PersonEvent extends EventKeyFields, Pick<EventOccurrence, "end" | "title" | "visibility"> {
   personId: string;
@@ -35,7 +56,9 @@ export interface PersonEvent extends EventKeyFields, Pick<EventOccurrence, "end"
 
 /** One event as one viewer sees it, merged from everyone's copies. @stability Beta */
 export interface MergedEvent<E extends PersonEvent = PersonEvent> {
+  /** `occurrenceKey`, or for a busy block its `toBusyKey`. */
   key: string;
+  /** `seriesKey`, or for a busy block its `toBusyKey`. */
   seriesKey: string;
   /** When it is, from the first copy: the time is never private, so a busy block can be drawn. */
   start: EventOccurrence["start"];
@@ -45,7 +68,7 @@ export interface MergedEvent<E extends PersonEvent = PersonEvent> {
   event: E | null;
   /** The viewer may see no copy's details: show it as busy, with no title or place. */
   busy: boolean;
-  /** Everyone with a copy, in first-seen order. */
+  /** Everyone with a copy, in first-seen order: shown for busy blocks too (who is busy is the point). */
   people: string[];
 }
 
@@ -62,7 +85,8 @@ const defaultCanSee = (copy: PersonEvent, viewer: string | null) => copy.visibil
 /**
  * Merges people's copies, in start order. Each merged event shows the details of a copy the
  * viewer may see; when every copy is one they may not (someone else's private event), it is
- * busy and `event` is null, so a private title never reaches a viewer who can't see it.
+ * busy, `event` is null and its keys are `toBusyKey`s, so a private title or UID never reaches
+ * a viewer who can't see it. Who has a copy (`people`) and when it is are still shown.
  *
  * @stability Beta
  */
@@ -93,5 +117,6 @@ export function mergeEvents<E extends PersonEvent>(rows: readonly E[], options: 
       found.busy = false;
     }
   }
-  return [...byKey.values()].sort((a, b) => toTimeValue(a.start) - toTimeValue(b.start) || a.key.localeCompare(b.key));
+  const merged = [...byKey.values()].map((m) => (m.busy ? { ...m, key: toBusyKey(m.key), seriesKey: toBusyKey(m.seriesKey) } : m));
+  return merged.sort((a, b) => toTimeValue(a.start) - toTimeValue(b.start) || a.key.localeCompare(b.key));
 }
