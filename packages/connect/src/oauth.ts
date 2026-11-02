@@ -191,9 +191,9 @@ export interface ConnectedAccount<D extends StateData = StateData> {
   idToken?: string | undefined;
   /**
    * Who the account is, read from the ID token: to show "connected as …" and to tell two
-   * accounts of one person apart. Only with an `openid` scope (add `email` for the address) and a
-   * provider with an `issuer`; left out when the token's issuer, audience or expiry don't check
-   * out (the connection itself still succeeds).
+   * accounts of one person apart. Only with an `openid` scope (add `email` for the address), a
+   * provider with an `issuer` and an https token endpoint; left out when the token's issuer,
+   * audience, authorized party or expiry don't check out (the connection itself still succeeds).
    */
   identity?: AccountIdentity | undefined;
   /** From `start`. */
@@ -219,8 +219,10 @@ export interface AccountIdentity {
 interface IdTokenExpectations {
   /** The provider's issuer(s): `iss` must be one. */
   issuers: readonly string[];
-  /** This connector's client id: `aud` must name it (and `azp` must be it when `aud` names several). */
+  /** This connector's client id: `aud` must name it, and `azp` must be it when present (and is required when `aud` names several). */
   clientId: string;
+  /** Other audiences `aud` may also name. Any other one fails the check. */
+  trustedAudiences: readonly string[];
   /** Now, in milliseconds: `exp` must be later. */
   now: number;
 }
@@ -228,9 +230,10 @@ interface IdTokenExpectations {
 /**
  * The account the ID token from the token endpoint names, or undefined. It never checks the
  * signature, which OpenID Connect allows only for a token taken straight from the token endpoint
- * over TLS (Core 3.1.3.7, step 6); the claims are still checked (steps 2, 3 and 9): the issuer is
- * the provider's, the audience is this client (and `azp` is, when there are several), and the
- * token hasn't expired. Anything else is undefined. Internal to the callback on purpose: never
+ * over TLS (Core 3.1.3.7, step 6; `createConnector` refuses a token URL that isn't https); the
+ * claims are still checked (steps 2, 3, 4, 5 and 9): the issuer is the provider's, the audience is
+ * this client and names no audience it doesn't trust, `azp` is this client when present (and is
+ * present when there are several audiences), and the token hasn't expired. Anything else is undefined. Internal to the callback on purpose: never
  * export it, or apps would trust tokens from elsewhere.
  */
 function identityFromTokenEndpoint(
@@ -258,11 +261,25 @@ function identityFromTokenEndpoint(
   )
     return { reason: "issuer mismatch" };
   const aud = claims["aud"];
-  const audiences =
+  const audiences: unknown[] =
     typeof aud === "string" ? [aud] : Array.isArray(aud) ? aud : [];
   if (!audiences.includes(expect.clientId))
     return { reason: "audience mismatch" };
-  if (audiences.length > 1 && claims["azp"] !== expect.clientId)
+  // Step 3: reject a token that also names an audience this client doesn't trust.
+  if (
+    audiences.some(
+      (a) =>
+        a !== expect.clientId &&
+        !(typeof a === "string" && expect.trustedAudiences.includes(a)),
+    )
+  )
+    return { reason: "untrusted audience" };
+  // Steps 4 and 5: azp, when present, is this client; with several audiences it must be present.
+  const azp = claims["azp"];
+  if (
+    (azp !== undefined && azp !== expect.clientId) ||
+    (audiences.length > 1 && azp === undefined)
+  )
     return { reason: "authorized party mismatch" };
   const exp = claims["exp"];
   if (typeof exp !== "number" || exp * 1000 <= expect.now)
@@ -352,6 +369,19 @@ export interface ConnectorConfig<
    * and the reason is logged.
    */
   requireIdentity?: boolean | undefined;
+  /**
+   * Audiences other than `clientId` an ID token's `aud` may also name (another client of the
+   * same app). Default none: a token naming any other audience gives no `identity`.
+   */
+  trustedAudiences?: readonly string[] | undefined;
+  /**
+   * Revoke the new grant (best effort, through the provider's `revokeUrl`) when the callback
+   * turns it down after the code was traded: a missing scope or, with `requireIdentity`, no
+   * identity. Default false: Google ends every token of the person's grant across the project
+   * on a revoke, so a returning person who unticks a scope would also lose the connection they
+   * already have. Set it true only when each grant is isolated (one connection per client).
+   */
+  revokeFailedGrants?: boolean | undefined;
   /**
    * Keeps the new account: the app's row, under `account.id`, for
    * `account.subject` (the user who started). Use that, never a session read
@@ -507,6 +537,26 @@ function checkOrigin(value: string, what: string): string {
     );
   }
   return origin;
+}
+
+/** An endpoint the client secret or a token is sent to: https, or http only on localhost. */
+function checkEndpoint(value: string, what: string): string {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new ConnectError("config", `The provider's ${what} is not a URL`);
+  }
+  if (
+    url.protocol !== "https:" &&
+    !(url.protocol === "http:" && isLocal(url.hostname))
+  ) {
+    throw new ConnectError(
+      "config",
+      `The provider's ${what} must be https (http only on localhost)`,
+    );
+  }
+  return value;
 }
 
 function checkPath(value: string, what: string): string {
@@ -695,6 +745,10 @@ export function createConnector<D extends StateData = StateData>(
       "config",
       "The provider needs an id, an authorize URL and a token URL",
     );
+  // The client secret, the code and every token go to these; the ID token is trusted unsigned
+  // only because it comes from the token endpoint over TLS (OpenID Connect Core 3.1.3.7).
+  checkEndpoint(provider.tokenUrl, "token URL");
+  if (provider.revokeUrl) checkEndpoint(provider.revokeUrl, "revoke URL");
   if (!config.clientId || !config.clientSecret)
     throw new ConnectError(
       "config",
@@ -780,6 +834,27 @@ export function createConnector<D extends StateData = StateData>(
   );
   const aliases = provider.scopeAliases ?? {};
   const normalScope = (scope: string) => aliases[scope] ?? scope;
+  const asksOpenid = (scopes: readonly string[]) =>
+    scopes.some((scope) => normalScope(scope) === "openid");
+  // Only non-empty issuers count: `""` would pass a length check and then match no token.
+  const issuers: readonly string[] = (
+    typeof provider.issuer === "string"
+      ? [provider.issuer]
+      : (provider.issuer ?? [])
+  ).filter((issuer) => typeof issuer === "string" && issuer.trim() !== "");
+  if (config.requireIdentity) {
+    if (issuers.length === 0)
+      throw new ConnectError(
+        "config",
+        `requireIdentity needs the ${provider.id} provider's issuer`,
+      );
+    if (!asksOpenid(defaultScopes))
+      throw new ConnectError(
+        "config",
+        "requireIdentity needs the openid scope in the connector's scopes",
+      );
+  }
+  const trustedAudiences = [...(config.trustedAudiences ?? [])];
   const now = () => config.now?.() ?? Date.now();
   const log = (event: ConnectLogEvent) => {
     try {
@@ -1124,6 +1199,61 @@ export function createConnector<D extends StateData = StateData>(
     }
   }
 
+  /** RFC 7009 revocation of one token; true when it is gone. Never throws. */
+  async function revokeToken(
+    token: string,
+    hint: "refresh_token" | "access_token",
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    if (!provider.revokeUrl) return false;
+    const body = new URLSearchParams({ token, token_type_hint: hint });
+    const headers: Record<string, string> = {
+      "content-type": "application/x-www-form-urlencoded",
+      accept: "application/json",
+    };
+    if (provider.revokeWithClientAuth) clientAuth(body, headers);
+    try {
+      const response = await timedFetch(
+        config,
+        provider.revokeUrl,
+        { method: "POST", headers, body: body.toString() },
+        signal,
+      );
+      // RFC 7009: 200 for a revoked token and for one that was already invalid; Google says invalid_token.
+      let gone = response.ok;
+      if (!gone && response.status === 400) {
+        gone = errorCode(await jsonBody(response)) === "invalid_token";
+      } else {
+        discard(response);
+      }
+      log({
+        step: "revoke",
+        result: gone ? "revoked" : "failed",
+        ...(gone
+          ? {}
+          : { detail: `revoke endpoint answered ${response.status}` }),
+      });
+      return gone;
+    } catch {
+      log({ step: "revoke", result: "unavailable" });
+      return false;
+    }
+  }
+
+  /**
+   * Revokes a grant the callback turned down after the code was traded, so it isn't left
+   * standing at the provider with no row to end it from. Best effort: never throws.
+   */
+  async function abandonGrant(
+    refreshToken: unknown,
+    accessToken: string,
+  ): Promise<void> {
+    if (config.revokeFailedGrants !== true) return;
+    if (typeof refreshToken === "string" && refreshToken)
+      await revokeToken(refreshToken, "refresh_token");
+    else await revokeToken(accessToken, "access_token");
+  }
+
   return {
     provider,
     redirectUri,
@@ -1168,6 +1298,11 @@ export function createConnector<D extends StateData = StateData>(
         throw new ConnectError(
           "usage",
           "No scopes to ask for: give the connector or start some",
+        );
+      if (config.requireIdentity && !asksOpenid(scopes))
+        throw new ConnectError(
+          "usage",
+          "requireIdentity needs the openid scope: start's scopes leave it out",
         );
       const nonce = randomToken(16);
       const verifier = randomToken(32);
@@ -1282,8 +1417,10 @@ export function createConnector<D extends StateData = StateData>(
       }
       const { scope, scopes } = granted(body, state.scopes);
       // The person can untick scopes on the consent screen; the app needs every one it asked for.
-      if (!state.scopes.every((s) => scopes.includes(normalScope(s))))
+      if (!state.scopes.every((s) => scopes.includes(normalScope(s)))) {
+        await abandonGrant(refreshToken, accessToken);
         return back(request, state, "scope");
+      }
       if (
         (config.requireRefreshToken ?? true) &&
         (typeof refreshToken !== "string" || !refreshToken)
@@ -1299,19 +1436,26 @@ export function createConnector<D extends StateData = StateData>(
 
       const idToken =
         typeof body["id_token"] === "string" ? body["id_token"] : undefined;
-      const issuer = config.provider.issuer;
-      const read = idToken
-        ? identityFromTokenEndpoint(idToken, {
-            issuers: typeof issuer === "string" ? [issuer] : (issuer ?? []),
-            clientId: config.clientId,
-            now: now(),
-          })
-        : { reason: "no ID token (is openid asked for?)" };
-      const identity = "subject" in read ? read : undefined;
+      // Only read (and only log about) an identity this attempt asked for.
+      const wantsIdentity =
+        config.requireIdentity === true || asksOpenid(state.scopes);
+      const read = !wantsIdentity
+        ? undefined
+        : idToken
+          ? identityFromTokenEndpoint(idToken, {
+              issuers,
+              clientId: config.clientId,
+              trustedAudiences,
+              now: now(),
+            })
+          : { reason: "no ID token" };
+      const identity = read && "subject" in read ? read : undefined;
       const identityNote =
-        "reason" in read ? `no identity: ${read.reason}` : undefined;
-      if (!identity && config.requireIdentity)
+        read && "reason" in read ? `no identity: ${read.reason}` : undefined;
+      if (!identity && config.requireIdentity) {
+        await abandonGrant(refreshToken, accessToken);
         return back(request, state, "failed", {}, identityNote);
+      }
 
       let extra: StoreResult;
       try {
@@ -1377,42 +1521,7 @@ export function createConnector<D extends StateData = StateData>(
     async revoke(sealedRefreshToken, aad, options = {}) {
       const refreshToken = await config.secrets.open(sealedRefreshToken, aad);
       tokenCache.delete(await cacheKey(refreshToken));
-      if (!provider.revokeUrl) return false;
-      const body = new URLSearchParams({
-        token: refreshToken,
-        token_type_hint: "refresh_token",
-      });
-      const headers: Record<string, string> = {
-        "content-type": "application/x-www-form-urlencoded",
-        accept: "application/json",
-      };
-      if (provider.revokeWithClientAuth) clientAuth(body, headers);
-      try {
-        const response = await timedFetch(
-          config,
-          provider.revokeUrl,
-          { method: "POST", headers, body: body.toString() },
-          options.signal,
-        );
-        // RFC 7009: 200 for a revoked token and for one that was already invalid; Google says invalid_token.
-        let gone = response.ok;
-        if (!gone && response.status === 400) {
-          gone = errorCode(await jsonBody(response)) === "invalid_token";
-        } else {
-          discard(response);
-        }
-        log({
-          step: "revoke",
-          result: gone ? "revoked" : "failed",
-          ...(gone
-            ? {}
-            : { detail: `revoke endpoint answered ${response.status}` }),
-        });
-        return gone;
-      } catch {
-        log({ step: "revoke", result: "unavailable" });
-        return false;
-      }
+      return revokeToken(refreshToken, "refresh_token", options.signal);
     },
   };
 }
