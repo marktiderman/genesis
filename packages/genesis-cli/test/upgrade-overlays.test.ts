@@ -9,6 +9,7 @@ import { clearLocalPackagesCache } from "../src/blocks/local.js";
 import { runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { diffHunks, gitUpstream } from "../src/upgrade/overlays.js";
 import { makeApp, read, snapshot, tempDir, writeTree } from "./blocks-helpers.js";
+import { bunLock } from "./bun-lock-helpers.js";
 
 beforeEach(clearLocalPackagesCache);
 
@@ -110,6 +111,29 @@ describe("genesis upgrade rebases overlays", () => {
     expect(pkg.dependencies[NAME]).toBe("1.2.0");
     expect(pkg.pnpm.overrides[NAME]).toBeUndefined();
     expect(report.summary).toContain("nothing of the app's own is left: the overlay is deleted");
+  });
+
+  it("drops a deleted overlay's workspace from bun.lock and package.json, and a stale nested copy, and says to reinstall", async () => {
+    const repo = genesisRepo();
+    const root = app(V1.replace("export const b = 1;", "export const b = 2;"), {
+      "package.json": JSON.stringify({ name: "sample-app", workspaces: ["packages/fixture", "packages/*"], dependencies: { [NAME]: "workspace:*" }, overrides: { [NAME]: "workspace:*" } }, null, 2) + "\n",
+      "bun.lock": bunLock(),
+    });
+    const report = await upgrade(root, repo);
+    expect(report.overlays[0]).toMatchObject({ remove: true });
+    expect(existsSync(path.join(root, "packages/fixture"))).toBe(false);
+    const pkg = JSON.parse(read(root, "package.json"));
+    expect(pkg.workspaces).toEqual(["packages/*"]);
+    expect(pkg.dependencies[NAME]).toBe("1.2.0");
+    expect(pkg.overrides[NAME]).toBeUndefined();
+    // Everything else in the lockfile as it was.
+    expect(read(root, "bun.lock")).toBe(bunLock({ overlay: false, nested: "" }));
+    expect(report.bunLock).toMatchObject({ file: "bun.lock", workspaces: ["packages/fixture"], reinstalled: false });
+    expect(report.bunLock!.pruned.map((p) => p.key)).toEqual(["@marktiderman/genesis-native/@marktiderman/genesis-ui-native"]);
+    expect(report.files).toContain("bun.lock");
+    expect(report.summary).toContain("- dropped the workspace packages/fixture");
+    expect(report.summary).toContain("- dropped the nested copy of @marktiderman/genesis-ui-native@3.3.0 under @marktiderman/genesis-native");
+    expect(report.summary).toContain("- reinstall now: `bun install`");
   });
 
   it("stops on a conflict, lists the files and changes nothing", async () => {

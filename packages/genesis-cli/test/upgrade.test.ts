@@ -10,6 +10,7 @@ import { bumpPackageJson, compareVersions, lockedGenesisVersions, normaliseRelea
 import { codemodsFor, uncoveredBreaks, type Codemod } from "../src/upgrade/codemods.js";
 import { pnpmWorkspaceFileFor, releaseAgeError, runUpgrade, type ReleaseLookup } from "../src/upgrade/index.js";
 import { fakePackage, makeApp, PACKAGES, read, snapshot, writeTree } from "./blocks-helpers.js";
+import { bunLock } from "./bun-lock-helpers.js";
 
 const lookup = (packages: Record<string, string>, latest: Record<string, string> = {}): ReleaseLookup => ({
   release: () => ({ version: "2.0.0", packages }),
@@ -424,6 +425,37 @@ strictPeerDependencies: false
     expect(releaseAgeError("ERR_PNPM_FETCH_404")).toBeNull();
     // Any other failure is the install's own.
     await expect(upgrade(app(TEMPLATE_V1, TEMPLATE_V1), { install: () => { throw new Error("network down"); } })).rejects.toThrow("network down");
+  });
+});
+
+describe("genesis upgrade and bun.lock", () => {
+  it("drops a nested Genesis copy the release's root version satisfies before the install, and again if the install leaves one", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(root, "bun.lock"), bunLock({ uiNative: "3.3.0" }));
+    const installs: string[] = [];
+    const report = await upgrade(root, {
+      lookup: lookup({ "@marktiderman/genesis-fixture": "1.2.0", "@marktiderman/genesis-ui-native": "3.5.0" }),
+      install: (r) => {
+        installs.push(read(r, "bun.lock"));
+        // The first install brings the root to 3.5.0 but keeps the old copy nested; the second settles.
+        writeFileSync(path.join(r, "bun.lock"), installs.length === 1 ? bunLock() : bunLock({ nested: "" }));
+      },
+    });
+    expect(installs[0]).toBe(bunLock({ uiNative: "3.3.0", nested: "" }));
+    expect(installs).toHaveLength(2);
+    expect(read(root, "bun.lock")).toBe(bunLock({ nested: "" }));
+    expect(report.bunLock).toMatchObject({ file: "bun.lock", reinstalled: true });
+    expect(report.summary).toContain("- reinstalled (`bun install`)");
+  });
+
+  it("--dry-run says what it would drop and writes nothing", async () => {
+    const root = app(TEMPLATE_V1, TEMPLATE_V1);
+    writeFileSync(path.join(root, "bun.lock"), bunLock());
+    const before = snapshot(root);
+    const report = await upgrade(root, { dryRun: true });
+    expect(snapshot(root)).toEqual(before);
+    expect(report.summary).toContain("- would drop the nested copy of @marktiderman/genesis-ui-native@3.3.0");
+    expect(report.summary).toContain("- reinstall now: `bun install`");
   });
 });
 

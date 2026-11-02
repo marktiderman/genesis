@@ -56,7 +56,8 @@ From the outside in:
    the same map to both, or headers and screens can differ. `navigationTheme`
    takes a theme of your own (or `{ light, dark }`; a theme without `fonts`
    keeps React Navigation's), and `false` sets none. The app
-   installs `@marktiderman/genesis-core` and `nativewind` itself (peer
+   installs `@marktiderman/genesis-core`, `@marktiderman/genesis-ui-native`,
+   `@marktiderman/genesis-design-system` and `nativewind` itself (peer
    dependencies, so one copy of each loads).
 3. **Keyboard**: your `keyboardProvider` (react-native-keyboard-controller's
    `KeyboardProvider`), mounted once, then `KeyboardScrollProvider` with your

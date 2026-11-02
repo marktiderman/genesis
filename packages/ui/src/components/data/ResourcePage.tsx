@@ -1226,6 +1226,7 @@ export function ResourcePage<
   /**
    * Default list-row renderer (list view) — used unless `renderCard` is given. Two lines, so it
    * reads on a phone: the title (up to two lines), then up to three other columns, wrapping.
+   * DataGrid's list wrapper draws each row's padding, divider and hover, so the row adds none.
    */
   const renderDefaultListItem = (item: T): ReactNode => {
     const cols = bodyColumns().slice(0, 3);
@@ -1249,7 +1250,7 @@ export function ResourcePage<
     return (
       <div
         {...rowActivationProps(item, titleVal, "resource-list-row")}
-        className="flex items-start px-3 py-2 border-b cursor-pointer hover:bg-muted/50 motion-safe:transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="flex items-start cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         {node ? (
           <TreeIndent
