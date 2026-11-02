@@ -96,15 +96,18 @@ What the panel takes besides the client:
 
 - `about={{ label, context }}`: what the app thinks the feedback is about (the screen's feature,
   say), shown as "About: …" with a way to drop it; kept, its `context` and the label join the
-  report's context, and the report's thread shows "Sent from <label> (<route>)".
-- A bug gets a severity choice (Minor, Annoying, Blocks me, Broken), sent as `severity`.
+  report's context, and the report's thread (with `reportHeading`) shows "Sent from <label> (<route>)".
+- `severity`: a bug gets a severity choice (Minor, Annoying, Blocks me, Broken), sent as
+  `severity`. Default off.
 - `draft` (from `useFeedbackDraft()`): what the person has written, captured and pinned, held by the
   host, so a host that unmounts the panel while the browser captures or the person pins (closing a
   Sheet on `onHide`) loses nothing. `FeedbackLauncher` holds one already.
 - `captureOnOpen` takes a screenshot as the panel opens; `captureRequest` (a counter) takes one each
   time it goes up, once per value across remounts, keeping what the person wrote.
-- `onOpenHelp`: the thanks after Send (which takes the form's place, with Send another) offers it.
-- A screenshot the browser didn't allow says so; a pin can be removed.
+- `thanksReplacesForm`: after Send the thanks takes the form's place, with Send another (and
+  `onOpenHelp`'s button, which opens your Help). Default off: the thanks shows under the form.
+- Always on: a screenshot the browser didn't allow says so, and a placed pin shows as a row with
+  Remove.
 
 `useFeedbackShortcut(open, shortcut?)` opens feedback from anywhere with a key press (default
 ⌘⇧. on a Mac, Ctrl+Shift+. elsewhere; `false` turns it off); a held key and rich-text editors are
@@ -177,9 +180,11 @@ person never sees. The report stays the record (type, status, message, screensho
    QueryClientProvider): `<SupportReportThread client={client} reportId={id} />` is the person's
    view, the report above genesis-chat's `ChatThread`. `<SupportStaffThread client reportId
    resolveUser staff />` adds the status and assignee pickers; the composer's note toggle writes
-   internal notes. Both take `focusHeading` (focus the report's heading once it shows, for a
-   sheet or dialog) and `plainChatTitle` (title the conversation "Report" rather than the
-   report's title, which the card above already shows; default off).
+   internal notes. Both take, each default off: `reportHeading` (head the report with its own
+   words in an `h2`, show its message only when that adds something, and say which page it was
+   sent from, a link only when it's a path on this site), `focusHeading` (focus that heading once
+   it shows, for a sheet or dialog; it turns `reportHeading` on) and `plainChatTitle` (title the
+   conversation "Report" rather than the report's title).
 
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the

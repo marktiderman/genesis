@@ -22,12 +22,38 @@ describe("FeedbackPanel", () => {
     });
     const record = submit.mock.calls[0]![0];
     expect(record).toMatchObject({ type: "idea", message: "Export to CSV", attachments: [], context: { platform: "web" } });
-    // Sent: the confirmation takes the form's place, with a way to send another.
+    // By default the thanks shows under the form, which stays.
+    expect(screen.getByTestId("genesis-support-sent")).toBeTruthy();
+    expect(screen.getByTestId("genesis-support-send")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-send-another")).toBeNull();
+  });
+
+  it("with thanksReplacesForm, the thanks takes the form's place, with Send another", async () => {
+    const submit = vi.fn(async (_record: FeedbackRecord) => ({ id: "r1", attachmentsDropped: 0 }));
+    render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} thanksReplacesForm />);
+    fireEvent.change(screen.getByTestId("genesis-support-message"), { target: { value: "Export to CSV" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-send"));
+    });
     expect(screen.getByTestId("genesis-support-sent").textContent).toMatch(/Thanks for the feedback/);
     expect(screen.queryByTestId("genesis-support-send")).toBeNull();
     fireEvent.click(screen.getByTestId("genesis-support-send-another"));
     expect(screen.getByTestId("genesis-support-message")).toBeTruthy();
     expect(screen.queryByTestId("genesis-support-sent")).toBeNull();
+  });
+
+  it("asks a bug's severity only when asked to, and sends it", async () => {
+    const submit = vi.fn(async (_record: FeedbackRecord) => ({ id: "r1", attachmentsDropped: 0 }));
+    const { unmount } = render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} />);
+    expect(screen.queryByTestId("genesis-support-severity-high")).toBeNull();
+    unmount();
+    render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} severity />);
+    fireEvent.click(screen.getByTestId("genesis-support-severity-high"));
+    fireEvent.change(screen.getByTestId("genesis-support-message"), { target: { value: "It broke" } });
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("genesis-support-send"));
+    });
+    expect(submit.mock.calls[0]![0]).toMatchObject({ type: "bug", severity: "high" });
   });
 
   it("won't send an empty message", async () => {
@@ -273,7 +299,7 @@ describe("the thanks after Send", () => {
   it("offers the host's Help when it gives one, and not otherwise", async () => {
     const onOpenHelp = vi.fn();
     const submit = vi.fn(async (_record: FeedbackRecord) => ({ id: "r1", attachmentsDropped: 0 }));
-    const { unmount } = render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} onOpenHelp={onOpenHelp} />);
+    const { unmount } = render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} onOpenHelp={onOpenHelp} thanksReplacesForm />);
     fireEvent.change(screen.getByTestId("genesis-support-message"), { target: { value: "Here" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-send"));
@@ -281,7 +307,7 @@ describe("the thanks after Send", () => {
     fireEvent.click(screen.getByTestId("genesis-support-open-help"));
     expect(onOpenHelp).toHaveBeenCalledTimes(1);
     unmount();
-    render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} />);
+    render(<FeedbackPanel client={{ submit }} screenshots={false} pins={false} thanksReplacesForm />);
     fireEvent.change(screen.getByTestId("genesis-support-message"), { target: { value: "Again" } });
     await act(async () => {
       fireEvent.click(screen.getByTestId("genesis-support-send"));

@@ -78,9 +78,16 @@ export interface FeedbackPanelProps {
   captureRequest?: number | undefined;
   /**
    * Opens the host's Help, where the person's reports and the replies are. Given, the thanks
-   * after Send offers it as a button beside Send another.
+   * after Send offers it as a button beside Send another (with `thanksReplacesForm`).
    */
   onOpenHelp?: (() => void) | undefined;
+  /** Ask how bad a bug is (Minor, Annoying, Blocks me, Broken), sent as `severity`. Default off. */
+  severity?: boolean | undefined;
+  /**
+   * After Send, the thanks takes the form's place, with Send another (and `onOpenHelp`'s button).
+   * Default off: the thanks shows under the form, which stays.
+   */
+  thanksReplacesForm?: boolean | undefined;
 }
 
 /** A feedback panel's draft: what the person has chosen, written, captured and pinned. */
@@ -147,7 +154,7 @@ export function useFeedbackDraft(defaultType: FeedbackType = "bug"): FeedbackDra
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent"; dropped: number } | { kind: "error"; message: string };
 
-export function FeedbackPanel({ client, collector, copy: overrides, screenshots, pins = true, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp }: FeedbackPanelProps) {
+export function FeedbackPanel({ client, collector, copy: overrides, screenshots, pins = true, defaultType = "bug", onSent, onHide, about, captureOnOpen, draft: held, captureRequest, onOpenHelp, severity: askSeverity = false, thanksReplacesForm = false }: FeedbackPanelProps) {
   const copy = useMemo(() => resolveSupportCopy(overrides), [overrides]);
   const collect = useMemo(() => collector ?? webContextCollector(), [collector]);
   const own = useFeedbackDraft(defaultType);
@@ -237,7 +244,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
       const delivery = await client.submit({
         type,
         message: message.trim(),
-        ...(type === "bug" && severity ? { severity } : {}),
+        ...(askSeverity && type === "bug" && severity ? { severity } : {}),
         context,
         attachments: image ? [{ kind: "screenshot", contentType: image.contentType, base64: image.dataUrl, width: image.width, height: image.height }] : [],
       });
@@ -275,7 +282,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
         ) : null}
       </TabsList>
       <TabsContent value="new" className="flex flex-col gap-4">
-        {status.kind === "sent" ? (
+        {thanksReplacesForm && status.kind === "sent" ? (
           // Sent: the confirmation takes the form's place, so it can't be missed.
           <>
             <Alert data-testid="genesis-support-sent" role="status">
@@ -316,7 +323,7 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
                 </Button>
               </div>
             ) : null}
-            {type === "bug" ? (
+            {askSeverity && type === "bug" ? (
               <div className="flex flex-col gap-2">
                 <Label>{copy.feedback.severityLabel}</Label>
                 <ToggleGroup type="single" className="flex-wrap justify-start" value={severity} onValueChange={(v: string) => setSeverity((v || "") as FindingSeverity | "")} aria-label={copy.feedback.severityLabel}>
@@ -376,6 +383,12 @@ export function FeedbackPanel({ client, collector, copy: overrides, screenshots,
             {status.kind === "error" ? (
               <Alert variant="destructive" data-testid="genesis-support-error">
                 <AlertDescription>{status.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            {status.kind === "sent" ? (
+              // The default thanks: under the form, which stays (thanksReplacesForm swaps them).
+              <Alert data-testid="genesis-support-sent">
+                <AlertDescription>{status.dropped ? copy.feedback.sentWithoutScreenshot : copy.feedback.sentBody}</AlertDescription>
               </Alert>
             ) : null}
             <Button type="button" onClick={() => void send()} disabled={status.kind === "sending"} data-testid="genesis-support-send">

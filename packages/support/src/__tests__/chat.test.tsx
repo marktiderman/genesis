@@ -317,6 +317,19 @@ describe("the web views on genesis-chat", () => {
     expect(screen.getAllByText("Report").length).toBeGreaterThan(0);
   });
 
+  it("heads the report with its words in an h2 only when asked (reportHeading)", async () => {
+    const { SupportReportThread } = await import("../web-chat");
+    await mount((client) => <SupportReportThread client={client} reportId={REPORT} />, "member");
+    expect(await screen.findByText("The CSV is empty")).toBeTruthy();
+    expect(screen.queryByTestId("genesis-support-report-heading")).toBeNull();
+    cleanup();
+    await mount((client) => <SupportReportThread client={client} reportId={REPORT} reportHeading />, "member");
+    const heading = await screen.findByTestId("genesis-support-report-heading");
+    expect(heading.tagName).toBe("H2");
+    expect(heading.textContent).toBe("Export is broken");
+    expect(screen.getByText("The CSV is empty")).toBeTruthy();
+  });
+
   it("SupportStaffThread adds status, assignee and the internal-note toggle", async () => {
     const { SupportStaffThread } = await import("../web-chat");
     await mount(
