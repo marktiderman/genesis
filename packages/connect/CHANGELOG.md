@@ -1,5 +1,11 @@
 # @marktiderman/genesis-connect
 
+## 0.2.0
+
+### Minor Changes
+
+- bc1bd20: Google Calendar read scopes (`calendarEventsReadonly`, `calendarListReadonly`, `calendarReadonly`), and `identity` on the connected account: who the account is (`subject`, `email`, `emailVerified`, `name`, `picture`), read from the ID token the token endpoint sent, after checking its issuer (the provider's new `issuer`, set on `googleProvider`), audience and expiry; a token that fails is logged and leaves `identity` out, and `requireIdentity` fails the connection instead. `email` is included only when verified. The README shows connecting Google Calendar read only.
+
 ## 0.1.3
 
 ### Patch Changes
