@@ -1,4 +1,4 @@
--- @feat:product-events
+-- @feat:events
 -- pgTAP test for 0018_genesis_events.sql (needs 0016).
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, hook and events and rolls everything back. If your app already has

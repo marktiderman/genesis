@@ -1,4 +1,4 @@
--- @feat:sites-blog
+-- @feat:sites
 -- pgTAP test for 0002_genesis_sites_posts.sql (after 0001).
 -- Copy into your app's `supabase/tests/database/` and run `supabase test db`.
 -- It writes only its own users, sites and hook versions, and rolls everything
