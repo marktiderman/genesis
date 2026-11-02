@@ -64,6 +64,29 @@ describe("createGenesisNativewindPreset", () => {
     expect(preset.theme.extend.colors).toBe(genesisNativewindPreset.theme.extend.colors);
   });
 
+  it("sets --radius from the brand, which every radius step scales from", () => {
+    const added: Record<string, unknown>[] = [];
+    const preset = createGenesisNativewindPreset({ brand: { ...genesisBrand, radius: { DEFAULT: "0" } } });
+    for (const plugin of preset.plugins) plugin({ addBase: (b) => added.push(b) });
+    const root = (added[0] as { ":root": Record<string, string> })[":root"];
+    expect(root["--radius"]).toBe("0px");
+    const steps = preset.theme.extend.borderRadius as Record<string, string>;
+    for (const [step, value] of Object.entries(steps)) {
+      if (step === "full") continue;
+      expect(value, step).toMatch(/^(var\(--radius\)|calc\(var\(--radius\) \* [\d.]+\))$/);
+    }
+    expect(steps.DEFAULT).toBe("calc(var(--radius) * 0.4)");
+  });
+
+  it("makes the brand's extension colors classes, named as on web", () => {
+    const brand = { ...genesisBrand, extensions: { gameMode: { DEFAULT: "#7c3aed", solo: "#0ea5e9" }, flowTemplate: { breath: { DEFAULT: "#fde68a" } } } };
+    const colors = createGenesisNativewindPreset({ brand }).theme.extend.colors as Record<string, unknown>;
+    expect(colors["game-mode"]).toEqual({ DEFAULT: "#7c3aed", solo: "#0ea5e9" });
+    // The role colors are untouched, and a nested group is left out as tailwindFromBrand leaves it out.
+    expect(colors.primary).toBe("hsl(var(--primary))");
+    expect(colors["flow-template"]).toBeUndefined();
+  });
+
   it("is the Genesis preset without a brand", () => {
     const added: Record<string, unknown>[] = [];
     for (const plugin of createGenesisNativewindPreset().plugins) plugin({ addBase: (b) => added.push(b) });

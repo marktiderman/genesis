@@ -37,7 +37,10 @@ const program = new Command();
 program
   .name("genesis")
   .description("Genesis CLI — scaffolders + workspace tooling")
-  .version(cliVersion());
+  .version(cliVersion())
+  // The program's own options (--version, --help) only before a command, so `genesis upgrade
+  // --version <v>` reaches upgrade's option instead of printing the CLI's version.
+  .enablePositionalOptions();
 
 program
   .command("init")
