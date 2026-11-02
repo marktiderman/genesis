@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeft,
+  Ellipsis,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -34,6 +35,7 @@ import {
   PopoverTrigger,
 } from "../ui/popover";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../ui/sheet";
 import { Tooltip } from "../ui/tooltip";
 import {
   itemIsActive,
@@ -282,6 +284,8 @@ function dialogOpen(): boolean {
 
 /** md breakpoint: the desktop sidebar only exists at this width and up. */
 const DESKTOP_QUERY = "(min-width: 768px)";
+/** Most slots the phone bottom bar shows before the rest go under "More". */
+const MOBILE_BOTTOM_SLOTS = 5;
 
 /**
  * @stability Beta
@@ -1145,6 +1149,7 @@ export function AppShell({
   isActive = isPathActive,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   // Hierarchical nav: resolve the tree against the current location once.
   const derived = useMemo(() => {
@@ -1205,7 +1210,49 @@ export function AppShell({
   // Close the drawer on any path change (product switcher, deep links, …).
   useEffect(() => {
     setMobileOpen(false);
+    setMoreOpen(false);
   }, [activePath]);
+
+  // The phone drawer is a modal: while it's open, Escape closes it, focus moves into it, the
+  // page behind can't be scrolled or reached, and closing hands focus back to the menu button.
+  // Widening past the phone breakpoint closes it too, since the drawer is hidden there.
+  const mobileNavRef = useRef<HTMLElement>(null);
+  const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const drawer = mobileNavRef.current;
+    const opener = mobileOpenButtonRef.current;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setMobileOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const wide = typeof window.matchMedia === "function"
+      ? window.matchMedia(DESKTOP_QUERY)
+      : undefined;
+    const onWide = (event: MediaQueryListEvent) => {
+      if (event.matches) setMobileOpen(false);
+    };
+    wide?.addEventListener?.("change", onWide);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    drawer
+      ?.querySelector<HTMLElement>('[data-testid="app-shell-mobile-close"]')
+      ?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      wide?.removeEventListener?.("change", onWide);
+      document.body.style.overflow = previousOverflow;
+      // Only take focus back if it was still in the drawer: a link that navigated
+      // will have moved it on already.
+      const active = document.activeElement;
+      if (!active || active === document.body || drawer?.contains(active)) {
+        opener?.focus();
+      }
+    };
+  }, [mobileOpen]);
 
   const hasSecondary = Boolean(secondaryNavItems && secondaryNavItems.length);
   const hasUser = userSlot != null;
@@ -1442,6 +1489,16 @@ export function AppShell({
   const bottomCurrent = subBottom
     ? mostSpecificActive(bottomItems, activePath, isActive)
     : undefined;
+  // A phone bar holds five slots at most (the back item counts as one), so each keeps a
+  // readable label and a wide target. Past that, the last slot is "More", which opens the
+  // rest in a bottom sheet.
+  const bottomSlots = MOBILE_BOTTOM_SLOTS - (backTarget ? 1 : 0);
+  const bottomOverflows = bottomItems.length > bottomSlots;
+  const bottomShown = bottomOverflows ? bottomItems.slice(0, bottomSlots - 1) : bottomItems;
+  const bottomMore = bottomOverflows ? bottomItems.slice(bottomSlots - 1) : [];
+  const bottomItemActive = (item: (typeof bottomItems)[number]) =>
+    bottomCurrent ? item === bottomCurrent : itemIsActive(item, activePath, isActive);
+  const moreActive = bottomMore.some(bottomItemActive);
 
   const toggles: ToggleDef[] = (
     [
@@ -1711,6 +1768,7 @@ export function AppShell({
     >
       {/* Desktop sidebar */}
       <aside
+        inert={mobileOpen || undefined}
         className={cn(
           "hidden flex-col border-r border-sidebar-border bg-sidebar transition-[width] duration-200 motion-reduce:transition-none md:flex",
           scrollWindow && "sticky top-0 h-screen",
@@ -1732,21 +1790,29 @@ export function AppShell({
         />
       ) : null}
 
-      {/* Mobile sidebar — inert when closed so off-screen links leave tab order */}
+      {/* Mobile sidebar: inert when closed so off-screen links leave tab order, a modal
+          dialog when open. Every row and button in it is at least 44px tall for a thumb. */}
       <aside
+        ref={mobileNavRef}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform md:hidden",
+          "fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-sidebar-border bg-sidebar pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] transition-transform motion-reduce:transition-none md:hidden",
+          "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
           mobileOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
         )}
         id="app-shell-mobile-nav"
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen || undefined}
+        aria-label={mobileOpen ? "Navigation" : undefined}
         aria-hidden={!mobileOpen}
         inert={!mobileOpen || undefined}
+        data-testid="app-shell-mobile-nav"
       >
         {sidebarChrome({ mobile: true })}
       </aside>
 
-      {/* Main content */}
+      {/* Main content: unreachable while the phone drawer is open over it. */}
       <div
+        inert={mobileOpen || undefined}
         className={cn(
           "flex min-w-0 flex-1 flex-col",
           !scrollWindow && "overflow-hidden",
@@ -1754,11 +1820,13 @@ export function AppShell({
       >
         <header
           className={cn(
-            "flex h-14 items-center gap-3 border-b px-4 md:hidden",
+            // Clears the notch and the side insets when the app runs edge to edge.
+            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden",
             scrollWindow && "sticky top-0 z-20 bg-background",
           )}
         >
           <Button
+            ref={mobileOpenButtonRef}
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(true)}
@@ -1784,7 +1852,7 @@ export function AppShell({
           className={cn(
             "flex-1",
             !scrollWindow && "overflow-y-auto",
-            showMobileBottom ? "pb-16 md:pb-0" : "pb-0",
+            showMobileBottom ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : "pb-0",
           )}
         >
           {parentNavigation ? (
@@ -1869,8 +1937,10 @@ export function AppShell({
 
         {showMobileBottom ? (
           <nav
-            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background md:hidden"
+            // Padded above the home indicator and inside the side insets in landscape.
+            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden"
             aria-label="Primary"
+            data-testid="app-shell-mobile-bottom-nav"
           >
             {backTarget ? (
               <LinkComp
@@ -1883,10 +1953,8 @@ export function AppShell({
                 <span className="max-w-full truncate px-0.5">{backTarget.label}</span>
               </LinkComp>
             ) : null}
-            {bottomItems.map((item) => {
-              const active = bottomCurrent
-                ? item === bottomCurrent
-                : itemIsActive(item, activePath, isActive);
+            {bottomShown.map((item) => {
+              const active = bottomItemActive(item);
               return (
                 <LinkComp
                   key={item.to + item.label}
@@ -1924,7 +1992,59 @@ export function AppShell({
                 </LinkComp>
               );
             })}
+            {bottomOverflows ? (
+              <button
+                type="button"
+                onClick={() => setMoreOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={moreOpen}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
+                  moreActive ? "text-primary" : "text-muted-foreground",
+                )}
+                data-testid="app-shell-mobile-more"
+              >
+                <Ellipsis className="h-5 w-5" aria-hidden />
+                <span className="max-w-full truncate px-0.5">More</span>
+              </button>
+            ) : null}
           </nav>
+        ) : null}
+        {bottomOverflows ? (
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+            <SheetContent side="bottom" className="md:hidden" data-testid="app-shell-mobile-more-sheet">
+              <SheetTitle>More</SheetTitle>
+              <SheetDescription className="sr-only">The rest of this section's pages</SheetDescription>
+              <ul className="-mx-2 space-y-0.5">
+                {bottomMore.map((item) => {
+                  const active = bottomItemActive(item);
+                  return (
+                    <li key={item.to + item.label}>
+                      <LinkComp
+                        href={item.to}
+                        onClick={() => setMoreOpen(false)}
+                        aria-current={active && !bottomNotCurrent ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-accent text-primary"
+                            : "text-foreground hover:bg-accent hover:text-accent-foreground",
+                        )}
+                      >
+                        <NavIcon item={item} className="h-5 w-5 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {item.badge != null ? (
+                          <Badge variant="secondary" className="shrink-0">
+                            {item.badge}
+                          </Badge>
+                        ) : null}
+                      </LinkComp>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SheetContent>
+          </Sheet>
         ) : null}
       </div>
     </div>
