@@ -1135,6 +1135,20 @@ describe("the connected account's identity", () => {
     }
   });
 
+  it("accepts a one-element audience array naming this client", async () => {
+    const t = withToken({ ...good, aud: ["client-id"] });
+    await roundTrip(t);
+    expect(t.stored[0]!.identity?.subject).toBe("1234");
+  });
+
+  it("gives no identity for an audience that isn't a string", async () => {
+    for (const aud of [42, { client: "client-id" }, ["client-id", 7]]) {
+      const t = withToken({ ...good, aud, azp: "client-id" });
+      expect((await roundTrip(t)).result).toBe("connected");
+      expect(t.stored[0]!.identity).toBeUndefined();
+    }
+  });
+
   it("rejects an azp that isn't this client, even with one audience", async () => {
     const t = withToken({ ...good, azp: "someone-else" });
     await roundTrip(t);
@@ -1230,7 +1244,9 @@ describe("the connected account's identity", () => {
     expect(more).toHaveLength(0);
     expect(revoke!.body.get("token")).toBe(REFRESH);
     expect(revoke!.body.get("token_type_hint")).toBe("refresh_token");
-    expect(strict.logs).toContainEqual({ step: "revoke", result: "revoked" });
+    await vi.waitFor(() =>
+      expect(strict.logs).toContainEqual({ step: "revoke", result: "revoked" }),
+    );
     expectNoSecrets(strict.logs);
   });
 
@@ -1242,7 +1258,9 @@ describe("the connected account's identity", () => {
     );
     expect((await roundTrip(t)).result).toBe("scope");
     expect(revokes(t)[0]!.body.get("token")).toBe(REFRESH);
-    expect(t.logs).toContainEqual({ step: "revoke", result: "unavailable" });
+    await vi.waitFor(() =>
+      expect(t.logs).toContainEqual({ step: "revoke", result: "unavailable" }),
+    );
     // Without a refresh token, the access token is revoked instead.
     const noRefresh = setup({ requireRefreshToken: false, revokeFailedGrants: true }, (call) =>
       call.url === googleProvider.revokeUrl
@@ -1253,6 +1271,51 @@ describe("the connected account's identity", () => {
     expect(revokes(noRefresh)[0]!.body.get("token_type_hint")).toBe(
       "access_token",
     );
+  });
+
+  it("redirects without waiting on the revoke, and bounds it", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    let signal: AbortSignal | undefined;
+    const t = setup({ revokeFailedGrants: true }, (call) => {
+      if (call.url !== googleProvider.revokeUrl)
+        return tokenOk({ scope: "openid" });
+      signal = call.init.signal ?? undefined;
+      // A provider that never answers: only the abort ends it.
+      return new Promise<Response>((_, reject) =>
+        signal!.addEventListener("abort", () => reject(signal!.reason)),
+      );
+    });
+    expect((await roundTrip(t)).result).toBe("scope");
+    expect(revokes(t)).toHaveLength(1);
+    expect(signal!.aborted).toBe(false);
+    expect(t.logs.some((e) => e.step === "revoke")).toBe(false);
+    expect(timeout).toHaveBeenCalledWith(3_000);
+    timeout.mockRestore();
+  });
+
+  it("swallows a log that throws during the background revoke", async () => {
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      const t = setup(
+        {
+          revokeFailedGrants: true,
+          log: (event) => {
+            if (event.step === "revoke") throw new Error("log broke");
+          },
+        },
+        (call) =>
+          call.url === googleProvider.revokeUrl
+            ? new Response(null, { status: 200 })
+            : tokenOk({ scope: "openid" }),
+      );
+      expect((await roundTrip(t)).result).toBe("scope");
+      expect(revokes(t)).toHaveLength(1);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
   });
 
   it("leaves a turned-down grant alone by default, so a person's existing connection survives", async () => {
@@ -1311,6 +1374,9 @@ describe("the connected account's identity", () => {
       { ...googleProvider, tokenUrl: "http://auth.acme.test/token" },
       { ...googleProvider, revokeUrl: "http://auth.acme.test/revoke" },
       { ...googleProvider, tokenUrl: "not a url" },
+      // Look like localhost but aren't: a subdomain of another host, and userinfo.
+      { ...googleProvider, tokenUrl: "http://localhost.evil.com/token" },
+      { ...googleProvider, tokenUrl: "http://localhost@evil.com/token" },
     ]) {
       expect(() => setup({ provider })).toThrow(/https|not a URL/);
     }

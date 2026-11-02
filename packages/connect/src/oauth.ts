@@ -622,6 +622,8 @@ function scopeList(
 // HTTP ---------------------------------------------------------------------------------------------
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+/** How long the callback's best-effort revoke of a turned-down grant may run in the background. */
+const ABANDON_TIMEOUT_MS = 3_000;
 
 async function timedFetch(
   deps: HttpOptions,
@@ -1242,16 +1244,19 @@ export function createConnector<D extends StateData = StateData>(
 
   /**
    * Revokes a grant the callback turned down after the code was traded, so it isn't left
-   * standing at the provider with no row to end it from. Best effort: never throws.
+   * standing at the provider with no row to end it from. Best effort and fired without waiting,
+   * so a slow provider never holds up the person's redirect: bounded by `ABANDON_TIMEOUT_MS`,
+   * and every failure (a `log` that throws included) is swallowed, never an unhandled rejection.
    */
-  async function abandonGrant(
-    refreshToken: unknown,
-    accessToken: string,
-  ): Promise<void> {
+  function abandonGrant(refreshToken: unknown, accessToken: string): void {
     if (config.revokeFailedGrants !== true) return;
-    if (typeof refreshToken === "string" && refreshToken)
-      await revokeToken(refreshToken, "refresh_token");
-    else await revokeToken(accessToken, "access_token");
+    const [token, hint] =
+      typeof refreshToken === "string" && refreshToken
+        ? ([refreshToken, "refresh_token"] as const)
+        : ([accessToken, "access_token"] as const);
+    revokeToken(token, hint, AbortSignal.timeout(ABANDON_TIMEOUT_MS)).catch(
+      () => {},
+    );
   }
 
   return {
@@ -1418,7 +1423,7 @@ export function createConnector<D extends StateData = StateData>(
       const { scope, scopes } = granted(body, state.scopes);
       // The person can untick scopes on the consent screen; the app needs every one it asked for.
       if (!state.scopes.every((s) => scopes.includes(normalScope(s)))) {
-        await abandonGrant(refreshToken, accessToken);
+        abandonGrant(refreshToken, accessToken);
         return back(request, state, "scope");
       }
       if (
@@ -1453,7 +1458,7 @@ export function createConnector<D extends StateData = StateData>(
       const identityNote =
         read && "reason" in read ? `no identity: ${read.reason}` : undefined;
       if (!identity && config.requireIdentity) {
-        await abandonGrant(refreshToken, accessToken);
+        abandonGrant(refreshToken, accessToken);
         return back(request, state, "failed", {}, identityNote);
       }
 
@@ -1484,6 +1489,8 @@ export function createConnector<D extends StateData = StateData>(
           { request },
         );
       } catch {
+        // Not revoked, on purpose: `store` may have half-written the row before it threw, and
+        // revoking here would leave that row holding a dead token. The grant is left to the app.
         return back(request, state, "failed", {}, "store threw");
       }
       return back(request, state, "connected", extra ?? {}, identityNote);
