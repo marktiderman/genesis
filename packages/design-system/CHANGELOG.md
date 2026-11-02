@@ -1,5 +1,18 @@
 # @marktiderman/genesis-design-system
 
+## 1.7.0
+
+### Minor Changes
+
+- 5ad4e61: A WCAG contrast check for brands. `validateBrand` returns `warnings` for every theme role pair the brand changes that falls under its minimum (4.5:1 for text, 3:1 for fills, the focus ring and status marks; text on a fill only where genesis-ui draws `*-foreground` on it, so the Genesis brand reports none) and for every `extensions` color against the text drawn on it: a scale's new optional `foreground` stop, or else the brand's text and surface colors. `ok` stays true for them, so an existing brand keeps building; only body text under 1.5:1 on its page is an error. `brandContrastProblems(brand)` returns the same findings as data. `BrandValidationResult.warnings` is optional: the `./schema/brand` entry's `validateBrand` stays the light shape check and adds contrast only when passed `{ contrast: brandContrastProblems }`. `createGenesisNativewindPreset({ brand })` also makes the brand's extension colors classes, under the kebab-case names `tailwindFromBrand` gives them on web (`bg-game-mode-solo`).
+- 5ad4e61: Every radius step now scales from the brand's `--radius`, so `0` is square everywhere. `rounded-sm`, `md`, `xl` (and `xs`, bare `rounded`, `2xl`, `3xl`) are multiples of `--radius` in the Tailwind v4 bridge, the v3 preset and the NativeWind preset, instead of `--radius` minus or plus a few px: `rounded-xl` at `--radius: 0` was 4px, and `rounded-sm` went negative on a small radius. `brandRoleVariables` (and so `themeFromBrand` and `createGenesisNativewindPreset({ brand })`) sets `--radius` from the brand's `radius.lg`, else `radius.DEFAULT`; a design system's `corners` set it so `rounded-xl` still lands on the set's `md`, and `square` is now `0px` instead of a negative calc.
+
+  What you'll see change:
+
+  - The `crisp` corners lose their square small corners: `rounded-sm` and `rounded-xs` are now small multiples of the radius instead of clamping to 0.
+  - A brand's own radius now takes effect: a brand that sets `radius.lg` or `radius.DEFAULT` gets every `rounded-*` step from it, where before the role classes stayed at the Genesis radius.
+  - On native, corners move by about 0.5px, since each step is a multiple of `--radius` rather than `--radius` plus or minus a fixed amount.
+
 ## 1.6.1
 
 ### Patch Changes
