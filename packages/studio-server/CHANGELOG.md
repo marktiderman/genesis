@@ -1,5 +1,11 @@
 # @marktiderman/genesis-studio-server
 
+## 0.5.3
+
+### Patch Changes
+
+- 6af1095: A checked-in contract can give a text column the new `widget: "tel"`; it was ignored before.
+
 ## 0.5.2
 
 ### Patch Changes
