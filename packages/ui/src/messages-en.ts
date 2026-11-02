@@ -67,6 +67,10 @@ export const uiMessages = {
     editTitle: "Edit {noun}",
     createDescription: "Fill in the details to create a new {noun}.",
     editDescription: "Update the {noun}.",
+    /** ResourcePage `createdToast`. `{name}`: the new record's title. */
+    created: "Created {name}",
+    /** `createdToast` for a record with no title. `{noun}`: the record's name. */
+    createdUnnamed: "Created the {noun}",
   },
   table: {
     noRecords: "No records found",

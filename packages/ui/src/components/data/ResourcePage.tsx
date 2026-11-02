@@ -536,8 +536,30 @@ export interface ResourcePageProps<
   nounPlural?: string;
   /** The count's words; see PageHeader `countFormat`. */
   countFormat?: { one?: string; other?: string; filtered?: string };
-  /** The form's titles, over "New {noun}" / "Edit {noun}". A `slotProps.form.title` still wins. */
-  formTitles?: { create?: string; edit?: string };
+  /**
+   * The built-in form's words. `create` / `edit`: its titles, over "New {noun}" / "Edit {noun}".
+   * `createSubmit` / `editSubmit`: its submit button, over "Create" / "Save". `createDescription` /
+   * `editDescription`: its description (read out with the title), over the UI catalogue's
+   * `form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins.
+   */
+  formTitles?: {
+    create?: string | undefined;
+    edit?: string | undefined;
+    createSubmit?: string | undefined;
+    editSubmit?: string | undefined;
+    createDescription?: string | undefined;
+    editDescription?: string | undefined;
+  };
+  /**
+   * Opt-in. After the built-in form creates a row, show a "Created {name}" toast whose Open
+   * action opens the new row as a row click would (the peek, or the route), and move focus to
+   * Open, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).
+   * Tab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted
+   * `<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic
+   * or undoable create, or `detail="none"`, gets the toast without Open, and focus stays on New.
+   * Default false: no toast.
+   */
+  createdToast?: boolean | undefined;
   /**
    * @deprecated Use `can` — `can={(action, item) => action !== "edit" || !item || mayEdit(item)}`.
    * Still honoured: a row it refuses gets no Edit.
@@ -709,6 +731,21 @@ export interface ResourcePageProps<
   toolbar?: ReactNode;
   /** The empty state's action, e.g. the create button. */
   emptyState?: ReactNode;
+  /**
+   * Opt-in. With no rows and nothing filtering them, the list's own create button moves from the
+   * header into the empty state (so there's one, where the eye already is), unless `emptyState`
+   * gives an action of its own, and the search and sort row, with nothing to act on, is left out.
+   * While anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)
+   * the header keeps the button and the filter row stays. Default false: the button stays in the
+   * header and the filter row shows, as before.
+   */
+  emptyCreate?: boolean | undefined;
+  /**
+   * The screen narrows this list itself (a tab like "Open" over its own filter), so an empty list
+   * isn't empty of records: with `emptyCreate`, the create button stays in the header and the
+   * filter row stays. No effect without `emptyCreate`.
+   */
+  emptyFiltered?: boolean | undefined;
   /** The empty state's icon. */
   emptyIcon?: LucideIcon;
   /** The empty state's title, e.g. "No tasks yet". Default "No results found". */
@@ -795,6 +832,34 @@ export interface ResourcePageProps<
 }
 
 // ---------------------------------------------------------------------------
+// Created toast (`createdToast`)
+// ---------------------------------------------------------------------------
+
+let createdToastSeq = 0;
+
+/**
+ * Moves focus to a just-shown toast's action (its Open) once the form that made it has closed and
+ * handed focus back to New. Sonner keeps the element focus came from, so Tab or Escape out of the
+ * toast, or the toast closing, returns focus to New. Gives up after two seconds (no Toaster
+ * mounted, say).
+ */
+function focusToastAction(marker: string) {
+  if (typeof document === "undefined" || typeof requestAnimationFrame === "undefined") return;
+  const until = Date.now() + 2000;
+  const tick = () => {
+    if (Date.now() > until) return;
+    const action = document.querySelector<HTMLButtonElement>(`[data-sonner-toast].${marker} button[data-button]`);
+    if (!action || document.querySelector('[role="dialog"]')) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    // After the form's own focus return, which Radix runs once the dialog has gone.
+    setTimeout(() => action.focus(), 50);
+  };
+  requestAnimationFrame(tick);
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -819,6 +884,7 @@ export function ResourcePage<
     nounPlural,
     countFormat,
     formTitles,
+    createdToast = false,
     detail = "panel",
     detailFields,
     detailWidth = "md",
@@ -826,6 +892,8 @@ export function ResourcePage<
     emptyIcon,
     emptyMessage,
     emptyState,
+    emptyCreate = false,
+    emptyFiltered = false,
     errorMessage,
     filters: filtersProp,
     formFields,
@@ -965,16 +1033,23 @@ export function ResourcePage<
     </Button>
   ) : null;
 
-  const createAction =
-    toolbar || createButton ? (
-      <div className="flex items-center gap-2">
-        {toolbar}
-        {createButton}
-      </div>
-    ) : undefined;
-
   // ── Empty state ──
   const isEmpty = !isLoading && !hasError && page.data.length === 0;
+  // `emptyCreate`: an empty list that nothing filters offers its create button once, in the empty
+  // state, and drops the filter row it has no use for.
+  const filtering =
+    page.hasActiveFilters || !!filtersProp?.some((f) => f.selected.length > 0) || emptyFiltered;
+  const emptyUnfiltered = emptyCreate && isEmpty && !filtering;
+  const createInEmpty = emptyUnfiltered && !emptyState && !!createButton;
+  const headerCreate = createInEmpty ? null : createButton;
+
+  const createAction =
+    toolbar || headerCreate ? (
+      <div className="flex items-center gap-2">
+        {toolbar}
+        {headerCreate}
+      </div>
+    ) : undefined;
 
   /**
    * Row-bound actions for a custom `renderCard`. The shared `actions` object
@@ -983,6 +1058,30 @@ export function ResourcePage<
    * panel/modal/route by pointer — the built-in cards get that from their own
    * onClick, which a custom card replaces.
    */
+  /**
+   * `createdToast`: "Created {name}", with Open when the saved row has its key and the list opens
+   * rows, and focus moved to Open.
+   */
+  const announceCreated = (row: T) => {
+    const name = titleOf(row);
+    const said = name
+      ? fillMessage(m.form.created, { name })
+      : fillMessage(m.form.createdUnnamed, { noun: noun ?? (resourceName ?? "record").replace(/s$/, "") });
+    const canOpen = detail !== "none" && keyOf(row) !== "";
+    if (!canOpen) {
+      toast.success(said);
+      return;
+    }
+    const marker = `genesis-created-${++createdToastSeq}`;
+    toast.success(said, {
+      className: marker,
+      // With an action the toast stays 10 s, long enough to reach Open or hear it read out.
+      duration: 10_000,
+      action: { label: m.common.open, onClick: () => handleRowClick(row) },
+    });
+    focusToastAction(marker);
+  };
+
   const cardActionsFor = (item: T): ResourceCardActions<T> => ({
     ...actions,
     open: () => handleRowClick(item),
@@ -1163,14 +1262,18 @@ export function ResourcePage<
       secondaryActions={secondaryActions}
       hasActiveFilters={page.hasActiveFilters}
       onClearFilters={handleClearFilters}
-      emptyAction={emptyState}
+      emptyAction={emptyState ?? (createInEmpty ? createButton : undefined)}
       emptyIcon={emptyIcon}
       emptyMessage={emptyMessage}
       emptyDescription={emptyDescription}
       {...(headerMode === "toolbar" ? { header: "toolbar" as const } : {})}
       filters={renderSlot(
         DataFilters,
-        slots?.filters !== undefined ? slots.filters : embedded && !wantsFilters ? null : undefined,
+        slots?.filters !== undefined
+          ? slots.filters
+          : (embedded && !wantsFilters) || emptyUnfiltered
+            ? null
+            : undefined,
         {
           search: page.filterConfig.search,
           onSearchChange: handleSearchChange,
@@ -1492,6 +1595,15 @@ export function ResourcePage<
             ...((formAction === "create" ? formTitles?.create : formTitles?.edit)
               ? { title: formAction === "create" ? formTitles!.create : formTitles!.edit }
               : {}),
+            ...((formAction === "create" ? formTitles?.createSubmit : formTitles?.editSubmit)
+              ? { submitLabel: formAction === "create" ? formTitles!.createSubmit : formTitles!.editSubmit }
+              : {}),
+            ...((formAction === "create" ? formTitles?.createDescription : formTitles?.editDescription)
+              ? {
+                  description:
+                    formAction === "create" ? formTitles!.createDescription : formTitles!.editDescription,
+                }
+              : {}),
             layout:
               formLayoutProp ?? (formAction === "edit" ? "sheet" : "dialog"),
             mode: formMode,
@@ -1519,6 +1631,7 @@ export function ResourcePage<
               // (see `selectedItem`), so it shows the saved values; a create
               // has no peek of its own to keep.
               if (formAction === "create") closeDetail();
+              if (formAction === "create" && createdToast) announceCreated(row as T);
             },
           },
           slotProps?.form,
