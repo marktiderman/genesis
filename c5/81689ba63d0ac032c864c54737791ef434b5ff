@@ -1,0 +1,155 @@
+.changeset/core-event-occurrence.md
+  s_6a4659246591cd::t_baeab0d9906c63 1-5
+.changeset/eas-placeholder-says-what.md
+  s_6a4659246591cd::t_db8afa5b9f95c5 1-5
+.changeset/init-without-and-lock-files.md
+  s_6a4659246591cd::t_8bfe0830524b83 1-11
+.changeset/upgrade-rebases-overlays.md
+  s_6a4659246591cd::t_508e4ff4be08b9 1-5
+.changeset/view-form-links.md
+  s_6a4659246591cd::t_ca69f5c6e203d6 1-17
+AGENTS.md
+  s_6a4659246591cd::t_035aa5cbea5129 105
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_6a4659246591cd::t_35e628b91b8056 9,20-23,67,86,91-103,239,246,251,263,273,285,310,323,340,360,381,426
+apps/genesis-rn-starter/genesis.config.json
+  s_6a4659246591cd::t_ea5a807b884b12 11-20
+apps/genesis-rn-starter/src/lib/link-hosts.ts
+  s_6a4659246591cd::t_c0b3ba4d86e373 1-8
+apps/genesis-rn-starter/src/lib/links.ts
+  s_6a4659246591cd::t_765032a43bcc40 10,30
+docs/RELEASING.md
+  s_6a4659246591cd::t_62a7017e3ed425 144-148
+docs/RESOURCE-VIEW.md
+  s_6a4659246591cd::t_883b3c6fb13bdf 179-181,230,257-323,590-592,817-818
+docs/component-reference.md
+  s_1feb538f59bf88::t_978bae2b996041 7,1153,1201,1215,1231,1283-1284,1331-1332,1460,1482,1489,1503,1516-1517,1526-1527,1780,1787,1840,1852,1866,1868,1878-1879,1893,1917,4151,4199,4213,4229,4281-4282,4329-4330,11666
+features.json
+  s_6a4659246591cd::t_e260a3ce3793bb 637-640,642-643,650-652,654-661,674-679,6178-6179
+features.ts
+  s_6a4659246591cd::t_2964b1d1b5d84d 291-292,294-295,297-299,306-314,2703
+packages/core/src/__tests__/resource-view.test.ts
+  s_6a4659246591cd::t_10b5da669ea741 8,371,382-384,386,715-868
+packages/core/src/dates.ts
+  s_6a4659246591cd::t_a355738125b442 793-819
+packages/core/src/form-types.ts
+  s_6a4659246591cd::t_dc42880fe1c064 5-6,80-83,86-87,89,92-106
+packages/core/src/hooks/__tests__/use-link-options.test.tsx
+  s_6a4659246591cd::t_554419bfe285ac 1-93
+packages/core/src/hooks/index.ts
+  s_6a4659246591cd::t_098bb6209290d4 26-33
+packages/core/src/hooks/use-link-options.ts
+  s_6a4659246591cd::t_095796cf688bc1 1-159
+packages/core/src/hooks/use-relation-label.ts
+  s_6a4659246591cd::t_f4b4d8ce72f984 80-88
+packages/core/src/hooks/use-resource-form.ts
+  s_6a4659246591cd::t_f4dd8eb8702e0a 260-267
+packages/core/src/resource-view/define-view.ts
+  s_6a4659246591cd::t_8414b6bc173072 10-11,37-38,254-255,339-347,352,357,359-361,399-404,415-421,452
+packages/core/src/resource-view/errors.ts
+  s_6a4659246591cd::t_ac6eb1aa5be682 1-11
+packages/core/src/resource-view/index.ts
+  s_6a4659246591cd::t_b5e864275fbf24 8,16-18,36
+packages/core/src/resource-view/link.ts
+  s_6a4659246591cd::t_de4e567ba43a10 1-110
+packages/core/src/resource-view/record-view.ts
+  s_6a4659246591cd::t_31437ae95ebd2c 10
+packages/core/src/resource-view/scope.ts
+  s_6a4659246591cd::t_f1c9baa4c24296 4
+packages/core/src/resource-view/types.ts
+  s_6a4659246591cd::t_32454aaa97a070 7-8,60-66,101-149,314-318,375-376
+packages/genesis-cli/README.md
+  s_6a4659246591cd::t_6255390760baf0 109-128,131-133,261,274-300,345-346,436-438,622,714
+packages/genesis-cli/src/blocks/init-native.ts
+  s_6a4659246591cd::t_2aadfdaafec447 13-17,19-21,32-33,47-48,59-60,142-148,193-203,222,255-257,259-337
+packages/genesis-cli/src/blocks/lock.ts
+  s_6a4659246591cd::t_419dc64646f343 32-37
+packages/genesis-cli/src/blocks/migrate.ts
+  s_6a4659246591cd::t_b8a3a7751c7906 13-14,40-41,52-55,101,110
+packages/genesis-cli/src/blocks/owned.ts
+  s_6a4659246591cd::t_4bdaa27a4497f1 137-138,142
+packages/genesis-cli/src/blocks/starter-features.ts
+  s_6a4659246591cd::t_b461cdc2159988 1-163
+packages/genesis-cli/src/cli.ts
+  s_6a4659246591cd::t_89ce8ccc09a3e7 14,59,74,85,89,565,589-590,601
+packages/genesis-cli/src/doctor/index.ts
+  s_6a4659246591cd::t_e29ea42dc48c08 42,244
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_6a4659246591cd::t_b1ae5f08f71bad 1-91
+packages/genesis-cli/src/doctor/native.ts
+  s_6a4659246591cd::t_fbcb39d69ef5b3 15,59-60,70-84
+packages/genesis-cli/src/doctor/overlays.ts
+  s_6a4659246591cd::t_21f13143b7e017 20-22,36-37,109-139,199-210
+packages/genesis-cli/src/doctor/rules.ts
+  s_6a4659246591cd::t_ef70a20bc63f6f 73,85-86
+packages/genesis-cli/src/doctor/versions.ts
+  s_6a4659246591cd::t_0a3d4a45eef16c 11,40-42
+packages/genesis-cli/src/eas-placeholders.ts
+  s_6a4659246591cd::t_1fe14cd7d6d2f5 1-37
+packages/genesis-cli/src/upgrade/index.ts
+  s_6a4659246591cd::t_73dcacbc1f4196 24-25,36,66-69,83-84,90-91,295-316,335,395-399,401-411,425,487,490,495,554-556
+packages/genesis-cli/src/upgrade/overlays.ts
+  s_6a4659246591cd::t_b2453c81bece3e 1-554
+packages/genesis-cli/test/blocks-migrate.test.ts
+  s_6a4659246591cd::t_cc9543ef74fbc7 60-76
+packages/genesis-cli/test/doctor-lock-files.test.ts
+  s_6a4659246591cd::t_f3c97d9bd69806 1-85
+packages/genesis-cli/test/doctor-overlays.test.ts
+  s_6a4659246591cd::t_b8cf0fa781de1d 188-211
+packages/genesis-cli/test/doctor-packs.test.ts
+  s_6a4659246591cd::t_3244c3c3952ef1 234-235
+packages/genesis-cli/test/init-native.test.ts
+  s_6a4659246591cd::t_45a663774a035b 2,6-14,60,62,77-132,143-158
+packages/genesis-cli/test/upgrade-overlays.test.ts
+  s_6a4659246591cd::t_8a8ff456c4e2aa 1-210
+packages/genesis-cli/test/upgrade.test.ts
+  s_6a4659246591cd::t_83f26d8f1e20fe 115-144
+packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx
+  s_6a4659246591cd::t_a23d44ed1411da 1-191
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_6a4659246591cd::t_4ea825885990bb 3-4,26,227-244
+packages/ui-native/src/data/resource-view/__tests__/native-link-picker.test.tsx
+  s_6a4659246591cd::t_c2ca34b654e7e3 1-201
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_6a4659246591cd::t_9f29c3ee360ecf 10,192-194,218-219,259-273,275,277,280-298,307,311,323
+packages/ui-native/src/data/resource-view/messages.ts
+  s_6a4659246591cd::t_d67f1c935d3cd4 68-83,134-142
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_6a4659246591cd::t_42cd4a56731429 9,111,125-136,181-183,231-234
+packages/ui/src/components/data/RelationField.tsx
+  s_6a4659246591cd::t_1dba3b44e00346 3-9,12,33,40,43-44,52-77,82-99,101-102,107,112-133,136-159,162-163,167,169-174,178,186-272,274,276-331
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_6a4659246591cd::t_13d6c88ea930d5 207-209,211
+packages/ui/src/components/data/__tests__/dual-context.test.tsx
+  s_6a4659246591cd::t_cae1dccb701a7c 47
+packages/ui/src/components/data/__tests__/resource-view-link-picker.test.tsx
+  s_6a4659246591cd::t_bc90380b76741e 1-261
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_a41e253df72e92 8-9,101-107,109-110,114-129,146,223,229-237,242-244,246,256
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_3d283c5bb6c8a5 12-13,58-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c581689ba63d0ac032c864c54737791ef434b5ff",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
