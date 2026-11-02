@@ -201,6 +201,31 @@ export interface ViewCopy {
   count?: { one?: string; other?: string; filtered?: string };
 }
 
+/** How a calendar lays out its window: a month grid, 1–4 weeks, a day-by-day agenda, or a row per lane. */
+export type ViewCalendarLayout = "month" | "weeks" | "agenda" | "lanes";
+
+/**
+ * How the view's rows show as a calendar: ResourceView's `mode="calendar"` on the web,
+ * NativeResourceView's later. Plain values only, so every platform reads the same block; a screen
+ * overrides the layout, weeks and anchor, and adds functions (dot colours, `onSelect`).
+ */
+export interface ViewCalendar<Name extends string = string> {
+  /** The date or timestamp field that places each row. */
+  field: Name;
+  /** Where a row ends: its last day for a date field, its end instant for a timestamp. */
+  endField?: Name;
+  /** A yes/no field: the row is all day, its timestamp shown without a time. */
+  allDayField?: Name;
+  /** The field whose value (or list of values) names a row's lanes: a dot each, a lane each. */
+  laneBy?: Name;
+  /** Default `month`. */
+  layout?: ViewCalendarLayout;
+  /** For `weeks`, `agenda` and `lanes`: 1 to 4. Default 2. */
+  weeks?: 1 | 2 | 3 | 4;
+  /** 0 Sunday or 1 Monday (default). */
+  weekStartsOn?: 0 | 1;
+}
+
 /** What `defineView` accepts. */
 export interface ViewDefinition<C extends ResourceContract, Row extends DataRow = RowOf<C>> {
   copy?: ViewCopy;
@@ -222,6 +247,8 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   summary?: (row: Row) => RowSummary;
   /** The scope keys this view needs above it (`["org_id"]`). They stay out of forms. */
   scope?: readonly FieldNameOf<C>[];
+  /** How the rows show as a calendar (`mode="calendar"`). */
+  calendar?: ViewCalendar<FieldNameOf<C>>;
   /** Group rows under headers by this field. */
   groupBy?: FieldNameOf<C>;
   /** Default order; `manual: true` turns on drag to reorder, writing this field. */

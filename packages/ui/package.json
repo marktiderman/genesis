@@ -588,7 +588,13 @@
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
         },
         {
-          "need": "a board, calendar or card wall over a list",
+          "need": "a calendar over a list (month, 1-4 weeks, agenda, lanes per person)",
+          "use": "the view's calendar block (defineView) rendered by <ResourceView mode=\"calendar\">; EventCalendar for events that aren't one view's rows",
+          "import": "@marktiderman/genesis-ui/data",
+          "docs": "https://github.com/marktiderman/genesis/blob/main/docs/RESOURCE-VIEW.md#calendar"
+        },
+        {
+          "need": "a board or card wall over a list",
           "use": "useResourceTable (ResourcePage's logic without its markup)",
           "import": "@marktiderman/genesis-ui/data",
           "docs": "https://github.com/marktiderman/genesis/blob/main/packages/ui/SKILL.md"
