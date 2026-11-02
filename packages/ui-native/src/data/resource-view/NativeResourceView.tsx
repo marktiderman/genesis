@@ -371,43 +371,86 @@ function GridCard<T extends Row>(props: RowProps<T>) {
   return withSwipe(content, card, props.Swipeable);
 }
 
-/** A grid line: a section's rows `start` to `start + rows.length`, in equal columns. */
+/**
+ * A grid line: line `n` of a section holds the section's rows `n * numColumns` up to the next
+ * line, counted from the section's real start, rows `maxPages` dropped included. So a line is
+ * the same line whatever pages are loaded, and its key never changes while it's on screen.
+ */
 interface GridLine<T> {
-  start: number;
+  key: string;
+  /** The first row's place in its section. */
+  index: number;
+  /** Empty columns before the first row: the rest of the line was dropped from the front. */
+  lead: number;
   rows: T[];
+  /** The section's last row's place, when this line holds it; else -1. */
+  lastIndex: number;
 }
 
-/** One line of the grid. Memoised like a row; the last line keeps its columns' width with spacers. */
-const GridRow = memo(function GridRow<T extends Row>({
-  line,
-  numColumns,
-  sectionSize,
-  renderCard,
-  ...shared
-}: Omit<RowProps<T>, "row" | "first" | "last"> & { line: GridLine<T>; numColumns: number; sectionSize: number; renderCard: RenderCard<T> | undefined }) {
-  const cells = line.rows.map((row, offset) => {
-    const index = line.start + offset;
-    const props = { ...shared, row, first: index === 0, last: index === sectionSize - 1 };
-    return (
+type GridLineProps<T extends Row> = Omit<RowProps<T>, "row" | "first" | "last"> & {
+  line: GridLine<T>;
+  numColumns: number;
+  renderCard: RenderCard<T> | undefined;
+};
+
+/** One line of the grid. Memoised like a row; spacers keep each card in its column. */
+const GridRow = memo(function GridRow<T extends Row>({ line, numColumns, renderCard, ...shared }: GridLineProps<T>) {
+  const cells: ReactNode[] = [];
+  for (let i = 0; i < line.lead; i += 1) cells.push(<View key={`lead-${i}`} style={{ flex: 1 }} />);
+  line.rows.forEach((row, offset) => {
+    const index = line.index + offset;
+    const props = { ...shared, row, first: index === 0, last: index === line.lastIndex };
+    cells.push(
       <View key={recordKey(shared.view as AnyResourceView<Row>, row)} style={{ flex: 1 }}>
         {renderCard ? <CustomRow<T> {...props} index={index} renderCard={renderCard} /> : <GridCard<T> {...props} />}
-      </View>
+      </View>,
     );
   });
-  for (let i = line.rows.length; i < numColumns; i += 1) cells.push(<View key={`spacer-${i}`} style={{ flex: 1 }} />);
+  for (let i = line.lead + line.rows.length; i < numColumns; i += 1) cells.push(<View key={`spacer-${i}`} style={{ flex: 1 }} />);
   return (
-    <View testID={`${shared.testID}-grid-line-${line.start}`} style={{ flexDirection: "row", gap: GRID_GAP, paddingHorizontal: 16, paddingBottom: GRID_GAP }}>
+    <View testID={`${shared.testID}-grid-line-${line.key}`} style={{ flexDirection: "row", gap: GRID_GAP, paddingHorizontal: 16, paddingBottom: GRID_GAP }}>
       {cells}
     </View>
   );
-}) as <T extends Row>(
-  props: Omit<RowProps<T>, "row" | "first" | "last"> & { line: GridLine<T>; numColumns: number; sectionSize: number; renderCard: RenderCard<T> | undefined },
-) => ReactNode;
+}) as <T extends Row>(props: GridLineProps<T>) => ReactNode;
 
-/** A section's rows cut into grid lines of `numColumns`. */
-function gridLines<T>(rows: T[], numColumns: number): GridLine<T>[] {
+/**
+ * A section's loaded rows cut into grid lines of `numColumns`, `above` of its rows being above
+ * the loaded window. A line whose rows haven't changed is the same object as last time
+ * (`previous`), so its memoised GridRow skips the redraw.
+ */
+export function gridLines<T>(
+  sectionKey: string,
+  rows: T[],
+  above: number,
+  numColumns: number,
+  previous: Map<string, GridLine<T>> = new Map(),
+): GridLine<T>[] {
   const lines: GridLine<T>[] = [];
-  for (let start = 0; start < rows.length; start += numColumns) lines.push({ start, rows: rows.slice(start, start + numColumns) });
+  const lastIndex = above + rows.length - 1;
+  let j = 0;
+  while (j < rows.length) {
+    const index = above + j;
+    const n = Math.floor(index / numColumns);
+    const lead = index - n * numColumns;
+    const take = numColumns - lead;
+    const next: GridLine<T> = {
+      key: `${sectionKey || "none"}-${n}`,
+      index,
+      lead,
+      rows: rows.slice(j, j + take),
+      lastIndex: index + take > lastIndex ? lastIndex : -1,
+    };
+    const old = previous.get(next.key);
+    const same =
+      old !== undefined &&
+      old.index === next.index &&
+      old.lastIndex === next.lastIndex &&
+      old.rows.length === next.rows.length &&
+      old.rows.every((row, i) => row === next.rows[i]);
+    lines.push(same ? old : next);
+    j += take;
+  }
   return lines;
 }
 
@@ -498,18 +541,32 @@ function Screen<T extends Row = Row>(props: NativeResourceViewProps<T>) {
   // own, so a line is one item; sections, paging and refresh stay the list's.
   const numColumns = Math.max(1, Math.floor(columnsProp ?? 2));
   const grid = mode === "grid";
-  const gridSections = useMemo(
-    () =>
-      grid
-        ? state.sections.map((section) => ({ key: section.key, title: section.title, size: section.data.length, data: gridLines(section.data, numColumns) }))
-        : [],
-    [grid, state.sections, numColumns],
-  );
-  const gridKey = useCallback((line: GridLine<T>) => line.rows.map((row) => keyExtractor(row)).join("|"), [keyExtractor]);
+  // Each section's real start, so a section cut by `maxPages` keeps its lines; and last time's
+  // lines, so unchanged ones stay the same objects. Only the first loaded section can be cut.
+  const sectionStarts = useRef(new Map<string, number>());
+  const lastLines = useRef(new Map<string, GridLine<T>>());
+  const { rowOffset, hasPrevious } = state;
+  const gridSections = useMemo(() => {
+    if (!grid) return [];
+    const starts = new Map<string, number>();
+    const lines = new Map<string, GridLine<T>>();
+    let at = rowOffset;
+    const out = state.sections.map((section, i) => {
+      const seen = sectionStarts.current.get(section.key);
+      const start = i === 0 && hasPrevious && seen !== undefined ? Math.min(seen, at) : at;
+      starts.set(section.key, start);
+      const data = gridLines(section.key, section.data, at - start, numColumns, lastLines.current);
+      for (const line of data) lines.set(line.key, line);
+      at += section.data.length;
+      return { key: section.key, title: section.title, data };
+    });
+    sectionStarts.current = starts;
+    lastLines.current = lines;
+    return out;
+  }, [grid, state.sections, numColumns, rowOffset, hasPrevious]);
+  const gridKey = useCallback((line: GridLine<T>) => line.key, []);
   const renderGridLine = useCallback(
-    ({ item: line, section }: { item: GridLine<T>; section: { size: number } }) => (
-      <GridRow<T> {...shared} line={line} numColumns={numColumns} sectionSize={section.size} renderCard={renderCard} />
-    ),
+    ({ item: line }: { item: GridLine<T> }) => <GridRow<T> {...shared} line={line} numColumns={numColumns} renderCard={renderCard} />,
     [shared, numColumns, renderCard],
   );
 

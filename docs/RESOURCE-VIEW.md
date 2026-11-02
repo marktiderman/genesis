@@ -862,7 +862,10 @@ exactly as above.
 - `mode="grid"`: cards in columns, each line one item of the same SectionList, so sections
   (`groupBy`), cursor paging, pull to refresh, the empty and error states, the peek, long press,
   accessibility actions and `swipeable` all stay. A card shows the row's picture, title, subtitle
-  and first chip. The last line keeps its columns' width.
+  and first chip. The last line keeps its columns' width. Lines are cut from each section's real
+  start, so when `maxPages` drops pages from the front (or they load back) every card stays on its
+  line and nothing remounts. Swipe actions are cramped behind a half-width card: in a grid, prefer
+  long press (always there) and pass `swipeable` only for one or two short actions.
 - `numColumns`: columns in grid mode, React Native's FlatList name (the web's `gridCols` takes
   Tailwind classes instead). Default 2.
 - `renderCard`: draw a row (list) or a card (grid) yourself. It gets the row, its index in its

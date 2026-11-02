@@ -80,7 +80,9 @@ export interface ScreenContainerProps {
   /**
    * Pull to refresh: a theme-tinted `NativeRefreshControl` on the body, as InboxPage and
    * NotificationsPage have. Pulling needs a scroll view, so passing it makes the body scroll
-   * (as `scroll`). Off unless passed.
+   * (as `scroll`). Off unless passed. Never with a list child (FlatList, SectionList,
+   * NativeResourceView, InboxPage): a list inside a ScrollView loses virtualization, and those
+   * lists have their own pull to refresh.
    */
   onRefresh?: () => void | Promise<void>;
   /** The refresh spinner shows while `true`: pass your query's refetching state. Default `false`. */

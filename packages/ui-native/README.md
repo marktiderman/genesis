@@ -95,7 +95,9 @@ import { ScreenContainer } from "@marktiderman/genesis-ui-native";
 <ScreenContainer onRefresh={() => refetch()} refreshing={isRefetching}>{body}</ScreenContainer>;
 ```
 
-Lists don't need it: `NativeResourceView` and `InboxPage` refresh themselves.
+Never use it around a list (`FlatList`, `SectionList`, `NativeResourceView`, `InboxPage`): a list
+inside a ScrollView stops virtualizing and React Native warns. Those lists have their own pull to
+refresh (`refreshControl`, or built in).
 
 ## Lists as cards: `NativeResourceView mode="grid"` and `renderCard`
 
