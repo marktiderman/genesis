@@ -153,9 +153,11 @@ describe("Table cell clipping", () => {
   ];
   const cellOf = () => screen.getByText("ada@example.com").closest("td")!;
 
-  it("leaves cells as they were by default", () => {
+  it("only keeps a cell's content inside its column by default, with no ellipsis", () => {
     render(<DataTable items={rows} columns={columns} getKey={(r) => r.id} />);
-    expect(cellOf().className).not.toMatch(/overflow-hidden|text-ellipsis/);
+    // Overflow is hidden for every cell (a fix: text was drawn over the next column).
+    expect(cellOf().className).toMatch(/overflow-hidden/);
+    expect(cellOf().className).not.toMatch(/text-ellipsis/);
   });
 
   it("clips on one line with an ellipsis with clipCells", () => {

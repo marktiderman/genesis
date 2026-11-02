@@ -9,24 +9,38 @@ let segmenter: Intl.Segmenter | null | undefined;
 // The first letter of a word, as a whole character: "é" keeps its accent, "李" is a letter, and
 // punctuation, digits and emoji never count.
 const LETTER = /^\p{L}/u;
-function firstLetter(word: string): string {
+function lettersOf(word: string): string[] {
   if (segmenter === undefined) {
     segmenter = typeof Intl !== "undefined" && typeof Intl.Segmenter === "function" ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null;
   }
   const parts = segmenter ? Array.from(segmenter.segment(word), (s) => s.segment) : Array.from(word);
-  return parts.find((part) => LETTER.test(part)) ?? "";
+  return parts.filter((part) => LETTER.test(part));
+}
+function firstLetter(word: string): string {
+  return lettersOf(word)[0] ?? "";
 }
 
 /**
  * First and last initial of a name, from letters only: "Ada Lovelace" → "AL", "Ana-María López"
  * → "AL", "李 小龙" → "李小", "Cher" → "C". Empty when the name has no letters ("  ", "🎉🎉").
+ *
+ * `distinct: true` gives a one-word name its first two letters ("Probe" → "Pr", "Polish" → "Po"),
+ * so people who share an initial still differ in a list. Names of two words or more are unchanged.
  */
-export function initialsOf(name: string | undefined): string {
-  const letters = (name ?? "").trim().split(/\s+/).map(firstLetter).filter(Boolean);
+export function initialsOf(name: string | undefined, options: { distinct?: boolean | undefined } = {}): string {
+  const words = (name ?? "").trim().split(/\s+/);
+  const letters = words.map(firstLetter).filter(Boolean);
   if (letters.length === 0) return "";
+  const upper = (l: string) => (l.toUpperCase().length === l.length ? l.toUpperCase() : l);
+  if (letters.length === 1 && options.distinct) {
+    const word = words.find((w) => firstLetter(w))!;
+    const second = lettersOf(word)[1];
+    // One character each: "ß" stays "ß" rather than becoming "SS".
+    return upper(letters[0]!) + (second ? (second.toLowerCase().length === second.length ? second.toLowerCase() : second) : "");
+  }
   const pair = letters.length === 1 ? [letters[0]!] : [letters[0]!, letters[letters.length - 1]!];
   // One character each: "ß" stays "ß" rather than becoming "SS".
-  return pair.map((l) => (l.toUpperCase().length === l.length ? l.toUpperCase() : l)).join("");
+  return pair.map(upper).join("");
 }
 
 /** An image source: `isSafeUrl`, and only http(s) or a root-relative path (never mailto, tel or `#x`). */

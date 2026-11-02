@@ -3,14 +3,14 @@
 //   - the header (summary, actions with their guards, a switcher) → ResourceHeader in AppShellPageHeader;
 //   - sections → the shell's tabs through useAppShellSubNav, the active one drawn below;
 //   - a list section → an embedded ResourceView of the child view, filtered by this record;
-//   - a settings section → SettingsRow and ToggleRow in a SettingsSection, saving only its keys;
+//   - a settings section → SettingsRow and ToggleRow in a SettingsSection, saving only the fields edited;
 //   - readiness → ReadinessChip (readinessChip's words) in the tab row's end slot.
 // A section with neither list nor settings is the screen's own, through `slots[id]`.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DataWriteError, resourceKeys, useCapabilities, useDataProvider, useViewer, useWrite, type DataRow, type ResourceContract } from "@marktiderman/genesis-core";
-import type { Allowed, ResolvedFormField, RecordView as RecordViewDef, RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
+import { sameFormValue, type Allowed, type ResolvedFormField, type RecordView as RecordViewDef, type RecordViewHeaderAction } from "@marktiderman/genesis-core/resource-view";
 import { fillMessage, useUiMessages } from "../../../messages";
 import { AppShellPageHeader, AppShellSubNavEnd, useAppShellSubNav } from "../../layout/sub-nav";
 import { SettingsRow } from "../../patterns/settings-row";
@@ -35,6 +35,8 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../ui/select";
 import { Textarea } from "../../ui/textarea";
+import type { LucideIcon } from "lucide-react";
+import { NONE_CHOICE as NONE } from "../none-choice";
 import { inputHints } from "../ResourceFormField";
 import { formType, ResourceView, type ResourceViewProps } from "./ResourceView";
 
@@ -72,6 +74,17 @@ export interface RecordViewProps<T extends Row = Row> {
   lists?: Partial<Record<string, Partial<Omit<ResourceViewProps, "view" | "filter">>>>;
   /** The readiness chip's words. */
   readinessLabels?: ReadinessLabels;
+  /**
+   * Why a settings section is read-only for this viewer, when the screen knows more than the
+   * view's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the
+   * view's update guard locks stays locked.
+   */
+  settingsLocked?: ((sectionId: string, row: T) => string | null) | undefined;
+  /**
+   * Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which
+   * otherwise shows the label's first letter).
+   */
+  sectionIcons?: Partial<Record<string, LucideIcon>> | undefined;
   testID?: string | undefined;
 }
 
@@ -83,7 +96,7 @@ export interface RecordViewProps<T extends Row = Row> {
  * ```
  */
 export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
-  const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, testID = "resource-workspace" } = props;
+  const { view: recordView, row, section, sectionHref, onAction, can, onSaved, parent, switcher, slots, lists, readinessLabels, sectionIcons, settingsLocked, testID = "resource-workspace" } = props;
   const record = row as T & DataRow;
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -110,7 +123,12 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
   const [showChecks, setShowChecks] = useState(false);
   const [confirming, setConfirming] = useState<RecordViewHeaderAction | null>(null);
 
-  useAppShellSubNav(recordView.sections.map((s) => ({ to: sectionHref(s.id), label: s.label })));
+  useAppShellSubNav(
+    recordView.sections.map((s) => {
+      const icon = sectionIcons?.[s.id];
+      return { to: sectionHref(s.id), label: s.label, ...(icon ? { icon } : {}) };
+    }),
+  );
 
   const action = useWrite(
     async (a: RecordViewHeaderAction) => {
@@ -137,6 +155,9 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
           parent={parent}
           leading={switcher}
           {...(header.chips[0] ? { status: { label: header.chips[0].label, tone: header.chips[0].tone ?? "muted" } } : {})}
+          // The first chip is the status; the rest follow it, and the summary's subtitle sits under the title.
+          {...(header.chips.length > 1 ? { chips: header.chips.slice(1).map((c) => ({ label: c.label, tone: c.tone ?? "muted" })) } : {})}
+          {...(header.subtitle ? { subtitle: header.subtitle } : {})}
           actions={header.actions.map((a) => (
             <Button
               key={a.name}
@@ -191,6 +212,7 @@ export function RecordView<T extends Row = Row>(props: RecordViewProps<T>) {
           sectionId={active.id}
           title={active.label}
           row={record}
+          screenLocked={settingsLocked?.(active.id, record) ?? null}
           onSaved={(saved) => {
             void queryClient.invalidateQueries({ queryKey: [...resourceKeys(view.resource).all] });
             onSaved?.(saved as T);
@@ -232,6 +254,7 @@ function SettingsForm({
   row,
   onSaved,
   testID,
+  screenLocked,
 }: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- any contract
   recordView: RecordViewDef<ResourceContract<any>, any>;
@@ -240,6 +263,7 @@ function SettingsForm({
   row: DataRow;
   onSaved: (row: DataRow) => void;
   testID: string;
+  screenLocked: string | null;
 }) {
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -247,18 +271,32 @@ function SettingsForm({
   const fields = recordView.settingsFields(sectionId);
   // The view's update guard, for this viewer: when it refuses, the settings are read-only with its reason.
   const viewer = useViewer();
-  const locked = recordView.settingsLocked(row, viewer);
-  const [draft, setDraft] = useState<Values>(() => Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])));
+  const locked = recordView.settingsLocked(row, viewer) ?? screenLocked;
+  // Only the fields this person changed are theirs: the others show the row as it is now (a live
+  // refresh updates them) and are never sent, so a stale draft can't overwrite someone else's change.
+  const [edits, setEdits] = useState<Values>({});
+  const draft = useMemo<Values>(
+    () => ({ ...Object.fromEntries(fields.map((f) => [f.field.name, row[f.field.name]])), ...edits }),
+    [fields, row, edits],
+  );
+  // An edit the row now holds (after a save, or someone else's same change) is no longer an edit.
+  useEffect(() => {
+    setEdits((current) => {
+      const left = Object.fromEntries(Object.entries(current).filter(([k, v]) => !sameFormValue(v, row[k])));
+      return Object.keys(left).length === Object.keys(current).length ? current : left;
+    });
+  }, [row]);
   const [invalid, setInvalid] = useState<Record<string, string>>({});
   const changed = useMemo(() => {
     const out: Values = {};
     for (const f of fields) {
       const name = f.field.name;
+      if (!(name in edits)) continue;
       if (f.visible && !f.visible(draft)) continue; // a hidden field isn't saved
-      if (draft[name] !== row[name]) out[name] = draft[name];
+      if (!sameFormValue(draft[name], row[name])) out[name] = draft[name];
     }
     return out;
-  }, [fields, draft, row]);
+  }, [fields, draft, row, edits]);
   const dirty = Object.keys(changed).length > 0 && Object.keys(invalid).length === 0;
 
   const save = useWrite(
@@ -272,13 +310,15 @@ function SettingsForm({
       }
       return result.data as DataRow;
     },
+    // The edits stay until the row shows them (the effect below), so a saved value doesn't flash
+    // back to the old one while the record refetches.
     { onSuccess: (saved) => onSaved(saved) },
   );
 
   const set = (name: string, value: unknown, error?: string) => {
     save.reset();
     setInvalid(({ [name]: _old, ...rest }) => (error ? { ...rest, [name]: error } : rest));
-    setDraft((d) => ({ ...d, [name]: value }));
+    setEdits((d) => ({ ...d, [name]: value }));
   };
 
   return (
@@ -337,14 +377,25 @@ function SettingField({
     return <ToggleRow label={f.label} checked={value === true} onCheckedChange={(v) => onChange(v)} disabled={disabled} testID={id} rowTestID={testID} />;
   }
   const empty = f.field.nullable ? null : "";
+  // A field that can be empty, and that the view doesn't require, can be set back to empty.
+  const clearable = f.field.nullable && !f.required;
   if (f.options?.length) {
     return (
       <SettingsRow label={f.label} htmlFor={id} testID={testID} disabled={disabled}>
-        <Select value={value == null ? "" : String(value)} onValueChange={(v) => onChange(v)} disabled={disabled}>
+        <Select
+          value={value == null || value === "" ? (clearable ? NONE : "") : String(value)}
+          onValueChange={(v) => onChange(v === NONE ? empty : v)}
+          disabled={disabled}
+        >
           <SelectTrigger id={id} className="w-48" data-testid={id}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            {clearable ? (
+              <SelectItem value={NONE} data-testid={`${id}-none`}>
+                <span className="text-muted-foreground">{m.link.none}</span>
+              </SelectItem>
+            ) : null}
             {f.options.map((o) => (
               <SelectItem key={o.value} value={o.value}>
                 {o.label}

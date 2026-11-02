@@ -25,6 +25,10 @@ export interface ResourceHeaderProps {
   parent?: ReactNode;
   /** The status chip, e.g. "Live · version 3" or "Draft" (forms-studio's formStatusChip makes a form's). */
   status?: { label: string; tone: ChipTone } | undefined;
+  /** More chips after the status (a record's kind, its triage). */
+  chips?: readonly { label: string; tone: ChipTone }[] | undefined;
+  /** A muted line under the title: an id, a parent, a feature ("T-8 · Team work"). */
+  subtitle?: string | undefined;
   /** Where saving the draft stands; no chip when absent. */
   saveState?: SaveState | undefined;
   /** Undo and redo buttons, shown when given (for example the builder's history). */
@@ -72,6 +76,8 @@ export function ResourceHeader({
   untitled = "Untitled",
   parent,
   status,
+  chips,
+  subtitle,
   saveState,
   onUndo,
   onRedo,
@@ -116,6 +122,11 @@ export function ResourceHeader({
               {status.label}
             </Chip>
           ) : null}
+          {chips?.map((c, i) => (
+            <Chip key={`${c.label}-${i}`} tone={c.tone} testID="resource-chip">
+              {c.label}
+            </Chip>
+          ))}
           {saveState ? (
             <span aria-live="polite">
               <Chip
@@ -136,6 +147,11 @@ export function ResourceHeader({
             </span>
           ) : null}
         </div>
+        {subtitle ? (
+          <p data-slot="resource-header-subtitle" className="truncate text-sm text-muted-foreground">
+            {subtitle}
+          </p>
+        ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {history ? (
