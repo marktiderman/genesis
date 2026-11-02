@@ -1,7 +1,7 @@
 import { titleCase } from "@marktiderman/genesis-core";
 import type { ResourceFormFieldDef } from "@marktiderman/genesis-core";
 import { Controller, type Control } from "react-hook-form";
-import { Pressable, View } from "react-native";
+import { Pressable, View, type TextInputProps } from "react-native";
 import { NativeCheckbox } from "../components/checkbox";
 import { NativeInput } from "../components/input";
 import { NativeLabel } from "../components/label";
@@ -31,9 +31,10 @@ export interface NativeResourceFormFieldRendererProps {
 // Static lookup maps (module-scoped to avoid re-creation on each render)
 // ---------------------------------------------------------------------------
 
-const KEYBOARD_TYPE_MAP: Record<string, "default" | "email-address" | "url"> = {
+const KEYBOARD_TYPE_MAP: Record<string, "default" | "email-address" | "url" | "phone-pad"> = {
   email: "email-address",
   url: "url",
+  tel: "phone-pad",
   text: "default",
   date: "default",
 };
@@ -41,6 +42,7 @@ const KEYBOARD_TYPE_MAP: Record<string, "default" | "email-address" | "url"> = {
 const AUTO_CAPITALIZE_MAP: Record<string, "none" | "sentences" | "words" | "characters"> = {
   email: "none",
   url: "none",
+  tel: "none",
   text: "sentences",
   date: "none",
 };
@@ -246,7 +248,9 @@ function NativeResourceFormFieldRenderer({
         }
 
         // ------------------------------------------------------------------
-        // Text, email, url, date (and any other text-like types)
+        // Text, email, tel, url, date (and any other text-like types). Autofill only when the
+        // field asks for it (as on the web): on a form about someone else it would fill in the
+        // person holding the phone.
         // ------------------------------------------------------------------
         return (
           <View className="gap-1.5">
@@ -255,6 +259,11 @@ function NativeResourceFormFieldRenderer({
               placeholder={field.placeholder}
               keyboardType={KEYBOARD_TYPE_MAP[fieldType] ?? "default"}
               autoCapitalize={AUTO_CAPITALIZE_MAP[fieldType] ?? "sentences"}
+              {...(field.autoComplete
+                ? { autoComplete: field.autoComplete as TextInputProps["autoComplete"] }
+                : {})}
+              {...(field.inputMode ? { inputMode: field.inputMode } : {})}
+              {...(field.enterKeyHint ? { enterKeyHint: field.enterKeyHint } : {})}
               value={f.value != null ? String(f.value) : ""}
               onChangeText={f.onChange}
               editable={!isDisabled}
