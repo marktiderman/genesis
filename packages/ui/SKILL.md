@@ -272,6 +272,11 @@ controlled `expanded`, and opt-in `cascadeSelect`. Client data only. The logic i
 
 ## Parts a component draws for itself
 
+On a phone a `DialogContent` is the centred box by default, capped to the screen and scrolling
+inside. `mobileLayout="sheet"` docks it to the bottom edge instead (forms and pickers), and
+`mobileLayout="fullscreen"` fills the screen (long forms, editors, media). Both are opt-in per
+dialog; from `sm` up every layout is the centred box.
+
 A component's own backdrop or wrapper takes classes through a `…ClassName` prop beside
 `className`, merged after its defaults (tailwind-merge, so yours win a clash):
 
