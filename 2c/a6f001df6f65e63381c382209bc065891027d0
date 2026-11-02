@@ -1,0 +1,371 @@
+.changeset/blocks-pass-app-checks.md
+  s_1feb538f59bf88::t_aa73a04cf3ec03 1-11
+.changeset/calendar-patch-list-options.md
+  s_1feb538f59bf88::t_0340a0981daae7 1-7
+.changeset/calendar-printable-agenda.md
+  s_1feb538f59bf88::t_eeb141fc50f993 1-7
+.changeset/chat-inbox-time-from-ui.md
+  s_1feb538f59bf88::t_b28356b8fcdb38 1-5
+.changeset/dates-review-2-5-0.md
+  s_1feb538f59bf88::t_b964f87a9d0842 1-12
+.changeset/eas-android-key-on-eas.md
+  s_1feb538f59bf88::t_df60da0f1a3610 1-5
+.changeset/native-grid-refresh.md
+  s_1feb538f59bf88::t_a15c1dfbd395b6 1-10
+.changeset/native-optimistic-delete.md
+  s_1feb538f59bf88::t_72e51134dbe0f3 1-5
+.changeset/native-record-view-edited-only.md
+  s_1feb538f59bf88::t_45576482794a73 1-6
+.changeset/shared-database.md
+  s_1feb538f59bf88::t_7789ccccd53d56 1-18
+.changeset/support-findings-and-web-panel.md
+  s_1feb538f59bf88::t_b407a4a2ead024 1-24
+.changeset/ui-form-words-empty-create.md
+  s_1feb538f59bf88::t_282fa3654153a6 1-18
+.changeset/ui-list-options.md
+  s_1feb538f59bf88::t_5711b93518d103 1-14
+.changeset/ui-record-display.md
+  s_1feb538f59bf88::t_7ef68b01286c67 1-18
+.changeset/upgrade-workflow-base-branch.md
+  s_1feb538f59bf88::t_0a84cc937ebcd6 1-8
+.changeset/web-auth-form.md
+  s_1feb538f59bf88::t_dbb4ed3b382c15 1-9
+.github/workflows/genesis-upgrade.yml
+  s_1feb538f59bf88::t_5ac97a017ce792 19,83-86,88,502-504,510-511,515-531,534,567-572,653,676,685,767,775
+AGENTS.md
+  s_1feb538f59bf88::t_1bba17bf16c422 108
+apps/genesis-rn-starter/README.md
+  s_1feb538f59bf88::t_e4298b577dfef2 212-220
+apps/genesis-rn-starter/__tests__/components/gestures.test.tsx
+  s_1feb538f59bf88::t_e295c948c47e1f 1-64
+apps/genesis-rn-starter/__tests__/components/resolver.js
+  s_1feb538f59bf88::t_4a4f07641a0558 6-9,11-12,14-19,21,23
+apps/genesis-rn-starter/__tests__/components/setup.ts
+  s_1feb538f59bf88::t_2c088e247d2da4 11-15
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_1feb538f59bf88::t_496516b3ae9eeb 2,24-26,43,105-110,235,302-312,315,380,401,446
+apps/genesis-rn-starter/jest.config.js
+  s_1feb538f59bf88::t_570ee809f6d345 25-27
+apps/genesis-rn-starter/package.json
+  s_1feb538f59bf88::t_7ba895ea83eec5 75,88
+apps/genesis-rn-starter/src/lib/link-hosts.ts
+  s_1feb538f59bf88::t_c474b69265432b 3-5,7-10
+apps/genesis-rn-starter/supabase/functions/genesis-apple-revoke/apple.ts
+  s_1feb538f59bf88::t_2ddfafbb1c25e5 42-46,63,93
+apps/genesis-rn-starter/supabase/migrations/20261024000700_genesis_support_findings.sql
+  s_1feb538f59bf88::t_fbb53faa18b135 1-339
+apps/genesis-rn-starter/supabase/tests/database/genesis_support.test.sql
+  s_1feb538f59bf88::t_326cad340bb541 1
+apps/genesis-rn-starter/supabase/tests/database/genesis_support_findings.test.sql
+  s_1feb538f59bf88::t_e29674f23c435d 1-219
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_6e679c3c0bfb2d 10,7969-8096,14091-14092,14094-14098,14694-14700,14710,14819,15568-15689,16502-16508,16572-16578,16600-16613,24302-24371
+apps/sample/app/data/story-ids.json
+  s_1feb538f59bf88::t_6d74e5e07d8b85 7,34
+apps/sample/app/lib/auth-form-client.types.ts
+  s_1feb538f59bf88::t_2541eb8f595219 1-17
+apps/sample/demo-coverage.allow.json
+  s_1feb538f59bf88::t_83050d3de1cd6e 28,52
+apps/sample/package.json
+  s_1feb538f59bf88::t_47beb3097124c1 95
+apps/sample/stories/AuthForm.stories.tsx
+  s_1feb538f59bf88::t_9fb867da6154bd 1-102
+apps/sample/stories/PrintableAgenda.stories.tsx
+  s_1feb538f59bf88::t_cdffb563e62072 1-32
+docs/APP-CI.md
+  s_1feb538f59bf88::t_75bdf32538a948 123-124,128-137
+docs/FRAMEWORK.md
+  s_1feb538f59bf88::t_ce8c488fd4523f 305,461-465
+docs/NATIVE-RELEASE.md
+  s_1feb538f59bf88::t_b75ce35c22cd35 18-40,70-78
+docs/RESOURCE-VIEW.md
+  s_1feb538f59bf88::t_f531dcccf7a304 518-521,554-565,841-882
+docs/component-reference.md
+  s_1feb538f59bf88::t_93d72015a282f1 7,1153,1216,1461,1491,1782,1789,1851,4153,4216,4361,4366,4411,4437,4682,4687-4693,9037,9045,9051,9057,9065,9070-9075,9344,9352,9372,9375-9376,9457,9467-9468,9474-9475,9478,9483-9484,9486,9742,9747,9792,9818,10063,10068-10074,10119,10131-10132,10197,10227,10263,10267,10276,10282,10296,10301-10307
+features.json
+  s_1feb538f59bf88::t_12ac4a1398525c 600-648,1573-1575,3553,3557,3578,3589-3591,3595-3596,3945-3946,3953,6615-6617
+features.ts
+  s_1feb538f59bf88::t_3a80b615749810 273-294,700-701,1560-1561,1572,1584-1585,1587,1740,1744,2910-2911
+packages/calendar/package.json
+  s_1feb538f59bf88::t_69f34ecd73835c 71
+packages/chat/package.json
+  s_1feb538f59bf88::t_dd5c54062a11c9 101
+packages/chat/src/__tests__/web-format.test.ts
+  s_1feb538f59bf88::t_003c41842cf505 1-28
+packages/chat/src/web/format.ts
+  s_1feb538f59bf88::t_25f6ca141b3e15 6,23-26,29
+packages/core/src/__tests__/dates-recurrence.test.ts
+  s_1feb538f59bf88::t_a89bbec0b564a4 4,7,12,22,290-291,662-760
+packages/core/src/__tests__/resource-view.test.ts
+  s_1feb538f59bf88::t_9efcf8b8bdd48f 585-593,710-715
+packages/core/src/dates.ts
+  s_1feb538f59bf88::t_e70fe91cb938c1 23-30,36,162,170,176,194,200,223,242,332,346,412-413,415-416,495-500,502,511-517,542-543,591,622-632,634-635,692-694,746,748-749,784,805-813,819-820,861,868-869,874-882,888-898,900-901
+packages/core/src/hooks/__tests__/no-page-window.test.tsx
+  s_1feb538f59bf88::t_d6f0e85246a1e9 1-152
+packages/core/src/hooks/index.ts
+  s_1feb538f59bf88::t_ef23dad43fa39b 77
+packages/core/src/hooks/mutation-mode.ts
+  s_1feb538f59bf88::t_ef36003c98dada 25,634-637,640-643,649-652
+packages/core/src/hooks/page-window.ts
+  s_1feb538f59bf88::t_fe6a35e7eb2939 1-20
+packages/core/src/hooks/use-draft.ts
+  s_1feb538f59bf88::t_50dfe95e71cec7 8,57-58,67-68,70-71
+packages/core/src/hooks/use-live.ts
+  s_1feb538f59bf88::t_b30617d8b456cc 60-61
+packages/core/src/hooks/use-unsaved-changes-guard.ts
+  s_1feb538f59bf88::t_f0281a471e503c 2,50-52,58-59
+packages/core/src/resource-view/define-view.ts
+  s_1feb538f59bf88::t_306d42536224a8 155-172,285-298
+packages/core/src/resource-view/index.ts
+  s_1feb538f59bf88::t_4ff98421d305f5 45
+packages/core/src/resource-view/picture.ts
+  s_1feb538f59bf88::t_63434c1cecaf3c 12,17-20,26-28,30-32,34-40,43
+packages/core/src/resource-view/record-view.ts
+  s_1feb538f59bf88::t_8765abf6c9c56d 172-181
+packages/core/src/resource-view/types.ts
+  s_1feb538f59bf88::t_a89bac76ed5e2d 265-277
+packages/genesis-cli/README.md
+  s_1feb538f59bf88::t_218db84b6eceb8 135-175,384-387,402,416-442,512-514,697-698
+packages/genesis-cli/src/blocks/add.ts
+  s_1feb538f59bf88::t_a225f8d8c560be 13-17,23,27-28,55-61,213-216,218,223-224,230,240-242,253,255-272,274-280,283,289,291,301-302,318,327-337,342-345,347-349,392-395,401,410
+packages/genesis-cli/src/blocks/database.ts
+  s_1feb538f59bf88::t_cabc0bd710c49e 1-150
+packages/genesis-cli/src/blocks/discover.ts
+  s_1feb538f59bf88::t_eef88392cc713e 138-141,147-156
+packages/genesis-cli/src/blocks/init-native.ts
+  s_1feb538f59bf88::t_fa83a759cfb206 23-29,37-38,59-60,72-77,80-82,128-131,136,138,161-169,223,231-240,247,261-268,305-333,335-336,353
+packages/genesis-cli/src/blocks/manifest.ts
+  s_1feb538f59bf88::t_942122ed80d092 36-50,181-200
+packages/genesis-cli/src/blocks/migrate.ts
+  s_1feb538f59bf88::t_4a4fd1141dcc7e 11-14,23-25,52-53,60,62-63,65-75,79,84,109
+packages/genesis-cli/src/blocks/migrations.ts
+  s_1feb538f59bf88::t_cf9ed8d11ebb42 21-24,95-96,111-112,119,129-168,222,226-241,270-275,378
+packages/genesis-cli/src/blocks/starter-features.ts
+  s_1feb538f59bf88::t_3171de5b6ded36 27-46,85-86
+packages/genesis-cli/src/cli.ts
+  s_1feb538f59bf88::t_8724d4819aa73f 14,60,76,88,93,522-523,537,570-573
+packages/genesis-cli/src/doctor/config.ts
+  s_1feb538f59bf88::t_0c3dddf14700f3 119-128,135-136,263-266,272-287
+packages/genesis-cli/src/doctor/database.ts
+  s_1feb538f59bf88::t_c984726a208bc5 1-40
+packages/genesis-cli/src/doctor/index.ts
+  s_1feb538f59bf88::t_f91449e8a1816e 43,60,247
+packages/genesis-cli/src/doctor/lock-files.ts
+  s_1feb538f59bf88::t_0aa5ecd92a9dbc 13-15,17,21,26,58-73,75,80,82,87-100
+packages/genesis-cli/src/doctor/rules.ts
+  s_1feb538f59bf88::t_337cc26d7e83e6 87-88
+packages/genesis-cli/src/doctor/supabase.ts
+  s_1feb538f59bf88::t_8f304ec67eaad5 22,248-249
+packages/genesis-cli/src/eas-placeholders.ts
+  s_1feb538f59bf88::t_de38082dc9aa46 12
+packages/genesis-cli/src/index.ts
+  s_1feb538f59bf88::t_f018c06e285f7d 57
+packages/genesis-cli/src/upgrade/index.ts
+  s_1feb538f59bf88::t_ec5a81517cc8a7 17-20,31,33-34,325,421-424,431-436,438-439,441,443,456,459-467,514-519,535-536,543-544
+packages/genesis-cli/test/blocks-app-checks.test.ts
+  s_1feb538f59bf88::t_23a8ee93dfba51 1-142
+packages/genesis-cli/test/blocks-helpers.ts
+  s_1feb538f59bf88::t_4fe18fc4a073b4 56-60,65
+packages/genesis-cli/test/doctor-lock-files.test.ts
+  s_1feb538f59bf88::t_623a0a93d2a57f 2,54-63
+packages/genesis-cli/test/init-native.test.ts
+  s_1feb538f59bf88::t_32d4c110c031eb 8-9,143-162
+packages/genesis-cli/test/shared-database.test.ts
+  s_1feb538f59bf88::t_51620f5d120c81 1-289
+packages/notifications/package.json
+  s_1feb538f59bf88::t_64b2f84bff231e 191-200
+packages/sites/migrations/tests/0001_genesis_sites.test.sql
+  s_1feb538f59bf88::t_3a1b1f6ea41391 1
+packages/sites/migrations/tests/0002_genesis_sites_posts.test.sql
+  s_1feb538f59bf88::t_f9dcdb01fff385 1
+packages/studio/src/__tests__/data-studio-p3.test.tsx
+  s_1feb538f59bf88::t_dcf358692146bc 186-206
+packages/studio/src/views/CalendarView.tsx
+  s_1feb538f59bf88::t_dab3a0c39c9332 111
+packages/supabase/README.md
+  s_1feb538f59bf88::t_05295a361b38aa 182-235,415-416,573-576
+packages/supabase/functions/genesis-apple-revoke/apple.ts
+  s_1feb538f59bf88::t_32f8be76f49447 42-46,63,93
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_1feb538f59bf88::t_43c3417783790a 70-71,73-77,79,166-169,174-176,178-180,182-185,187-191
+packages/supabase/functions/genesis-support-intake/handler.ts
+  s_1feb538f59bf88::t_8831a4729bd7f5 135-136
+packages/supabase/migrations/tests/0006_genesis_support.test.sql
+  s_1feb538f59bf88::t_6dfbe3c8ad5f7d 1
+packages/supabase/migrations/tests/0018_genesis_events.test.sql
+  s_1feb538f59bf88::t_bbb00627eee72b 1
+packages/supabase/src/__tests__/auth-form-client.test.ts
+  s_1feb538f59bf88::t_e533c26fc2a7b4 1-205
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_1feb538f59bf88::t_4492c9451efa39 42-43,47-52
+packages/supabase/src/auth-form-client.ts
+  s_1feb538f59bf88::t_eee20a329fa34a 1-299
+packages/supabase/src/index.ts
+  s_1feb538f59bf88::t_f4a81261eb84f5 207-217
+packages/support/README.md
+  s_1feb538f59bf88::t_7c66548c92e61e 95-115,128-130,132-137,142-144,183-187,248-277
+packages/support/migrations/0003_genesis_support_findings.sql
+  s_1feb538f59bf88::t_a2cdc6cbd6bd75 1-339
+packages/support/migrations/tests/0003_genesis_support_findings.test.sql
+  s_1feb538f59bf88::t_cb9895da95a980 1-219
+packages/support/package.json
+  s_1feb538f59bf88::t_7fb297bb58351d 196-199,302
+packages/support/src/__tests__/chat.test.tsx
+  s_1feb538f59bf88::t_198c261cc1c2ba 306-332
+packages/support/src/__tests__/core.test.ts
+  s_1feb538f59bf88::t_6f17adb8c740df 23,25,113-132,235,244-249,263-267,269
+packages/support/src/__tests__/fake-supabase.ts
+  s_1feb538f59bf88::t_a9182027adf22b 35
+packages/support/src/__tests__/web.test.tsx
+  s_1feb538f59bf88::t_ca3d1c394e6fab 4,6-8,25,27-56,65-67,124-156,182-326
+packages/support/src/block.ts
+  s_1feb538f59bf88::t_bcb80020ddf71f 3,61,78-82,93
+packages/support/src/client.ts
+  s_1feb538f59bf88::t_4995baa291f5e2 56-64,147-156,183-188,192,203-235,238-255,262-271,366-369,374,430-435,457,496-501,522,527-532,542,550,567
+packages/support/src/contract.ts
+  s_1feb538f59bf88::t_564cbd6943bc9a 70-71,73-77,79,166-169,174-176,178-180,182-185,187-191
+packages/support/src/copy.ts
+  s_1feb538f59bf88::t_f8a68007a14a52 15,20-23,30-32,39-40,83-85
+packages/support/src/index.ts
+  s_1feb538f59bf88::t_96233a9d31e207 14
+packages/support/src/intake.ts
+  s_1feb538f59bf88::t_cd131034f8fb5a 83,86,106
+packages/support/src/record.ts
+  s_1feb538f59bf88::t_da87fd1ffafc9a 7,17,19,21,23,28,30,56-57
+packages/support/src/routes.ts
+  s_1feb538f59bf88::t_eed9774b62158f 1-18
+packages/support/src/web-chat/report-thread.tsx
+  s_1feb538f59bf88::t_eebfad44b7060f 10,15,17,38-55,66-67,77-85,100,116-158,177-179
+packages/support/src/web-chat/staff-thread.tsx
+  s_1feb538f59bf88::t_724d20b9269372 21,32,35
+packages/support/src/web/feedback-panel.tsx
+  s_1feb538f59bf88::t_566aab16f8625b 10,14,28,59-152,157,160-171,174,176,179-180,186-211,213,216,227,232-233,240,247,251-262,266,272-282,285-299,301-324,326-336,338-398
+packages/support/src/web/index.ts
+  s_1feb538f59bf88::t_0170abe9193f0e 8-17,21
+packages/support/src/web/launcher.tsx
+  s_1feb538f59bf88::t_5b8911c1770d43 6,10,30-38,41-49,52,58
+packages/support/src/web/shortcut.ts
+  s_1feb538f59bf88::t_d922c484de50a0 1-45
+packages/ui-native/README.md
+  s_1feb538f59bf88::t_fe89a3a81aa7c3 85-108
+packages/ui-native/src/data/resource-view/NativeRecordView.tsx
+  s_1feb538f59bf88::t_62ae92a6e88acd 12,17,501-511,517,523
+packages/ui-native/src/data/resource-view/NativeResourceView.tsx
+  s_1feb538f59bf88::t_4e434b7e247ab8 9-10,18,21,52,65-99,116-131,149,175,224-264,281-282,285,303,323,326-450,461-463,510-525,527-570,702-705
+packages/ui-native/src/data/resource-view/__tests__/native-record-view.test.tsx
+  s_1feb538f59bf88::t_417eec266ab20b 292-302
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view-delete.test.tsx
+  s_1feb538f59bf88::t_2aaed546f6b181 1-171
+packages/ui-native/src/data/resource-view/__tests__/native-resource-view.test.tsx
+  s_1feb538f59bf88::t_98cdef01d22f0c 1,12-14,69-70,72,1116-1334
+packages/ui-native/src/data/resource-view/index.ts
+  s_1feb538f59bf88::t_ab5cfb4ddb7cfb 2-9
+packages/ui-native/src/data/resource-view/use-native-resource-view.ts
+  s_1feb538f59bf88::t_7dd723916e9fe5 6-7,31-39,94-98,309-331,362-363
+packages/ui-native/src/layouts/__tests__/screen-container.test.tsx
+  s_1feb538f59bf88::t_7024302adb7358 2-3,38-86
+packages/ui-native/src/layouts/screen-container.tsx
+  s_1feb538f59bf88::t_da9b94268b98db 10,37,80-89,198-199,211,214-218
+packages/ui/README.md
+  s_1feb538f59bf88::t_a2e3a741f96a6e 53-101
+packages/ui/src/__tests__/relative-time.test.tsx
+  s_1feb538f59bf88::t_1870ac4d8482e0 1-123
+packages/ui/src/components/data/DataTable.tsx
+  s_1feb538f59bf88::t_fcadf02e814309 59-60,234-244,619-620,1067-1070,1206-1214,1262,1511-1523,1529,1534-1535,1542,1547-1559
+packages/ui/src/components/data/RelationField.tsx
+  s_1feb538f59bf88::t_0cbc654a14bfb9 35
+packages/ui/src/components/data/ResourceForm.tsx
+  s_1feb538f59bf88::t_939dd9c5828505 3,52-58,141-142,161-163,165-181,209,352,371-372,391-399,415-419,471,485-497,502,509,523,530
+packages/ui/src/components/data/ResourcePage.tsx
+  s_1feb538f59bf88::t_9a663beae5fcb4 16-17,541-564,736-763,849-892,918,926-929,1069-1087,1089,1092,1103-1131,1310,1317-1321,1413,1422-1424,1554-1566,1573,1575-1577,1580,1591,1593-1594,1596-1608,1674-1682,1710
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_1feb538f59bf88::t_eb6b4368af87fe 550,786-1041
+packages/ui/src/components/data/__tests__/list-options.test.tsx
+  s_1feb538f59bf88::t_353bf8354b8575 1-199
+packages/ui/src/components/data/__tests__/printable-agenda.test.tsx
+  s_1feb538f59bf88::t_342867fa331e3f 1-113
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_1feb538f59bf88::t_cad35d6f7d2f18 328-456
+packages/ui/src/components/data/__tests__/resource-form-open.test.tsx
+  s_1feb538f59bf88::t_ad2f0060f26159 1-147
+packages/ui/src/components/data/__tests__/resource-page-form-options.test.tsx
+  s_1feb538f59bf88::t_4606dea64b0932 1-218
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_1feb538f59bf88::t_44c733c96f3ff7 156,158-160
+packages/ui/src/components/data/__tests__/resource-view.test.tsx
+  s_1feb538f59bf88::t_7fff2a1b39daf8 669-685
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_1feb538f59bf88::t_840584d431c1b8 166-172,180,264,305-306,354-355,361-364,366-376,378-380,421,428,431-434,440-445,447-454,456-457,460,463,467-471,474,496,502,545,587-617,649,654,659
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_1feb538f59bf88::t_92d074ec468ee7 1-216
+packages/ui/src/components/data/calendar/guard.ts
+  s_1feb538f59bf88::t_8b9778c85fc540 11
+packages/ui/src/components/data/calendar/index.ts
+  s_1feb538f59bf88::t_994c095c8e00bd 2
+packages/ui/src/components/data/cell-formatters.tsx
+  s_1feb538f59bf88::t_2327a871e09565 3,7-9,12,22,24
+packages/ui/src/components/data/none-choice.ts
+  s_1feb538f59bf88::t_447816a3c8ac09 1-6
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_1feb538f59bf88::t_7f30501deb0589 6,10,13,38-39,77-87,99,126-131,158-160,215,257,266,274-288,294,296,299,313-314,321,380-381,385-389,394-398
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_1feb538f59bf88::t_70c686ffe0d2c5 8,12,15,19-20,23-24,71-76,84-89,104-122,140,145,157-159,179-186,199-204,214-215,262-300,302-314,339-353,355,363,381,388
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_1feb538f59bf88::t_0a49302a7f0f19 9,18,150-177,184-185,193,198,200,204,224,227-228,285-295,348-359,361-362,397-398,404-406
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_1feb538f59bf88::t_236a5889f7f929 26-38,47,53,65-67
+packages/ui/src/components/data/resource-view/display.tsx
+  s_1feb538f59bf88::t_231a82be88d503 5,11,94-149
+packages/ui/src/components/data/resource-view/index.ts
+  s_1feb538f59bf88::t_cab90fcfe89238 10-11,18
+packages/ui/src/components/data/resource-view/view-list.tsx
+  s_1feb538f59bf88::t_1d93d6484eab50 1-101
+packages/ui/src/components/layout/AppShell.tsx
+  s_1feb538f59bf88::t_97c7c44577f6ef 1751-1752,1755,1758,1819,1825,1857,1862,1943
+packages/ui/src/components/layout/__tests__/app-shell-print.test.tsx
+  s_1feb538f59bf88::t_0ea98a40f63b62 1-29
+packages/ui/src/components/patterns/__tests__/auth-form.test.tsx
+  s_1feb538f59bf88::t_98b6eda5829193 1-489
+packages/ui/src/components/patterns/__tests__/user-avatar.test.tsx
+  s_1feb538f59bf88::t_8ddb222aa9f5f6 15-34,116-157
+packages/ui/src/components/patterns/auth-form.tsx
+  s_1feb538f59bf88::t_595d89bf107f87 1-762
+packages/ui/src/components/patterns/index.ts
+  s_1feb538f59bf88::t_f36d0a97f847d3 40-51
+packages/ui/src/components/patterns/user-avatar.tsx
+  s_1feb538f59bf88::t_09bea2913ff865 4,61-80,89-93,111,125-127
+packages/ui/src/components/resource/ResourceHeader.tsx
+  s_1feb538f59bf88::t_531c1657163b08 28-31,79-80,125-129,150-154
+packages/ui/src/components/resource/__tests__/components.test.tsx
+  s_1feb538f59bf88::t_4a5b90d70a6160 36-52
+packages/ui/src/components/ui/__tests__/textarea.test.tsx
+  s_1feb538f59bf88::t_bb363d85b00adf 1-12
+packages/ui/src/components/ui/textarea.tsx
+  s_1feb538f59bf88::t_b87b639d3771d7 9-11,15
+packages/ui/src/index.ts
+  s_1feb538f59bf88::t_5b403d43fcb183 40-51
+packages/ui/src/messages-en.ts
+  s_1feb538f59bf88::t_e5078d18fab163 28-42,67-71,98-101,222-223,229-230,243-246,263-347
+packages/ui/src/utils.ts
+  s_1feb538f59bf88::t_9739a4512625b0 4-6,16-28,31-106
+pnpm-lock.yaml
+  s_1feb538f59bf88::t_e7b56bfd91c472 163,209-211,243-245,496-498,10531-10536,13054,13417,15790,18505,18526,18537,21195,21200,21211-21217
+templates/ci/genesis-upgrade.yml
+  s_1feb538f59bf88::t_513870ff058e4d 19
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "2ca6f001df6f65e63381c382209bc065891027d0",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
