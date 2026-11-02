@@ -94,4 +94,26 @@ describe("UserAvatar — initials", () => {
     // assertion is about the character, not the normalization form.
     expect(initials.normalize("NFC")).toBe("\u00C9D");
   });
+
+  it("tells one-word names apart when distinct: two letters and a stable tint", () => {
+    const shown = (name: string) => {
+      const { unmount } = render(<UserAvatar name={name} distinct />);
+      const el = screen.getByRole("img");
+      const out = { text: el.textContent ?? "", tint: el.querySelector("span")?.className ?? "" };
+      unmount();
+      return out;
+    };
+    expect(shown("Probe").text).toBe("Pr");
+    expect(shown("Polish").text).toBe("Po");
+    expect(shown("Ada Lovelace").text).toBe("AL");
+    expect(shown("Probe").tint).toBe(shown("Probe").tint);
+    expect(shown("Probe").tint).not.toBe(shown("Polish").tint);
+  });
+
+  it("keeps one initial and no tint without distinct", () => {
+    render(<UserAvatar name="Probe" />);
+    const el = screen.getByRole("img");
+    expect(el.textContent).toBe("P");
+    expect(el.querySelector("span")?.className ?? "").not.toMatch(/chart-/);
+  });
 });

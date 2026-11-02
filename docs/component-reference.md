@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4081 other exports · 3246 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4086 other exports · 3251 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -4692,7 +4692,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/genesis/src/ui-utils.ts`](../packages/genesis/src/ui-utils.ts)
 
-### Other exports (3)
+### Other exports (4)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4700,7 +4700,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"). |
+| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RelativeTimeStyle };
+export type { RelativeTimeWords };
+```
 
 ---
 
@@ -10061,7 +10071,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (45)
+### Other exports (48)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10076,7 +10086,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataBulkBar`](../packages/ui/src/components/data/DataBulkBar.tsx) | function | — | _(no summary)_ |
 | [`DataFilters`](../packages/ui/src/components/data/DataFilters.tsx) | function | — | _(no summary)_ |
 | [`DataGrid`](../packages/ui/src/components/data/DataGrid.tsx) | function | — | _(no summary)_ |
-| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. Compatible with DataTableColumn<T>'s `render` prop. |
+| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. `relative: "short"` words it as `relativeTime` does ("2 hours ago", "yesterday", "Oct 21") instead of date-fns' distance ("about 2 hours ago"). Compatible with DataTab... |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
@@ -10093,6 +10103,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
+| [`relativeDatetimeRenderer`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | The `datetime` renderer as a relative time with the exact time on hover. Opt in under a `DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`. |
+| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
+| [`RelativeTime`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | A time as `relativeTime` says it, with the exact time (in `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches; after mount it turns relative and keeps itself current each minute. |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
 | [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
@@ -10113,7 +10126,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (51)
+### Types (52)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10143,6 +10156,7 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
 export type { PlacedEvent };
+export type { RelativeTimeWords };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
@@ -10486,7 +10500,7 @@ export type { WizardStep };
 
 **Barrel:** [`packages/ui/src/utils.ts`](../packages/ui/src/utils.ts)
 
-### Other exports (3)
+### Other exports (4)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10494,7 +10508,17 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"). |
+| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { RelativeTimeStyle };
+export type { RelativeTimeWords };
+```
 
 ---
 

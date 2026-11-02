@@ -1,11 +1,14 @@
 import { Badge } from "../ui/badge";
 import { formatDistanceToNow, format } from "date-fns";
+import { relativeTime } from "../../utils";
 
 /**
  * DateCell -- shows relative date by default, formatted date otherwise.
+ * `relative: "short"` words it as `relativeTime` does ("2 hours ago", "yesterday", "Oct 21")
+ * instead of date-fns' distance ("about 2 hours ago").
  * Compatible with DataTableColumn<T>'s `render` prop.
  */
-export function DateCell(options?: { relative?: boolean; format?: string }) {
+export function DateCell(options?: { relative?: boolean | "short"; format?: string }) {
   return (_item: unknown, value: unknown) => {
     if (!value) return "\u2014";
     const text = String(value);
@@ -15,8 +18,9 @@ export function DateCell(options?: { relative?: boolean; format?: string }) {
     const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
     const date = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(text);
     if (isNaN(date.getTime())) return text;
-    const relative = options?.relative !== false;
+    const relative = options?.relative ?? true;
     const fmt = options?.format ?? "MMM d, yyyy";
+    if (relative === "short") return relativeTime(date);
     return relative
       ? formatDistanceToNow(date, { addSuffix: true })
       : format(date, fmt);

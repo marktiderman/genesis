@@ -22,6 +22,14 @@ export const uiMessages = {
     openItem: "Open {name}",
     loading: "Loading…",
     saving: "Saving",
+    /** A picker's choice that sets a field back to empty. */
+    none: "None",
+  },
+  /** Relative times (`relativeTime`): `{n}` is a count. Hours and days use Intl's words. */
+  time: {
+    justNow: "just now",
+    minutesAgo: "{n} min ago",
+    inMinutes: "in {n} min",
   },
   page: {
     errorTitle: "Something went wrong",
