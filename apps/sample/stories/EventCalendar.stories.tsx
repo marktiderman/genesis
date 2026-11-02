@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { EventCalendar, type CalendarEvent, type CalendarLane } from "@marktiderman/genesis-ui/data";
+import { EventCalendar, laneColor, type CalendarEvent, type CalendarLane } from "@marktiderman/genesis-ui/data";
 
 const lanes: CalendarLane[] = [
-  { key: "ana", label: "Ana", color: "var(--chart-1)" },
-  { key: "ben", label: "Ben", color: "var(--chart-2)" },
-  { key: "cy", label: "Cy", color: "var(--chart-3)" },
+  { key: "ana", label: "Ana", color: laneColor(0) },
+  { key: "ben", label: "Ben", color: laneColor(1) },
+  { key: "cy", label: "Cy", color: laneColor(2) },
 ];
 
 const events: CalendarEvent[] = [

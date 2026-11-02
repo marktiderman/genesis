@@ -531,7 +531,8 @@ export const eventsView = defineView(contracts["public.events"], {
   `durationField` with `durationUnit` (below). `defineView` checks the field names and types.
 - **The screen** overrides any of those through `calendar={…}` and adds what a description can't
   hold: `anchor`/`onAnchorChange` and `layout`/`onLayoutChange` (to keep them in the URL),
-  `layouts` (a switch in the toolbar), `lanes` (labels and colours), `lanesOf(row)`,
+  `layouts` (a switch in the toolbar), `weeksOptions`/`onWeeksChange` and `toolbar` (below),
+  `lanes` (labels and colours), `colorLanes` (below), `lanesOf(row)`,
   `colorsOf(row)`, `classNameOf(row)` and `statusOf(row)` (below), `onSelect(row)`, `timeZone`,
   `limit`, `showEmptyDays`. The peek honours the screen's `cells`, and an unknown `preset` throws,
   as in the list. The screen's `subtitle` (else the view's `copy.subtitle`) shows under the
@@ -553,6 +554,20 @@ export const eventsView = defineView(contracts["public.events"], {
   began before the window and runs into it isn't loaded: give it an `endField` when that matters.
 - **Layouts.** `month` (the month's whole weeks), `weeks` (1 to 4 weeks from the anchor's week, 2
   by default), `agenda` (the same weeks day by day) and `lanes` (a row per lane, a column per day).
+- **The toolbar.** `weeksOptions` (`[1, 2, 4]`) adds a weeks switch beside `layouts`' switch, for
+  every layout but `month`. Its pick is kept as the layout's is: with `onWeeksChange` the screen
+  owns it (pass `weeks` back, from the URL say), else the calendar keeps it. `toolbar` puts the
+  screen's own controls beside both, a Print button or a mode switch: a node, or a function given
+  `{ layout, weeks, anchor }`. A switch between the list and the calendar is the screen's: keep
+  `mode` in its state and put the switch in `toolbar` (and in the list's own toolbar).
+
+  ```tsx
+  <ResourceView
+    view={eventsView}
+    mode="calendar"
+    calendar={{ layouts: ["weeks", "lanes"], weeksOptions: [1, 2, 4], toolbar: <PrintButton /> }}
+  />
+  ```
 - **The list's options apply.** `resourceOptions.enabled` holds the requests (a screen waiting on
   its scope), `resourceOptions.select` goes with each request, and `live` refetches on changes,
   as in the list. A `select` must fetch the calendar's `field`, `endField`, `allDayField` and
@@ -572,12 +587,21 @@ export const eventsView = defineView(contracts["public.events"], {
   its cells use: the field's own `timeZone` (the scope's or a fixed zone), else the viewer's
   (ViewerScope's `timeZone`), else the device's; the window's bounds use that clock too. A
   `timestamp without time zone` is a wall time: bounded by wall-clock midnights and read on that
-  clock. An event with an `endField` shows on every day it covers (a date end is the last day, a
+  clock. **All-day rows should store days** (a `date` column, or `YYYY-MM-DD`): a day is drawn as
+  that day on every clock, with no zone arithmetic. An all-day row (`allDayField` true) stored as
+  instants at UTC midnight, as Google's API and most sources write one, is read on UTC, so it
+  stays on its day for a viewer behind UTC (it used to show the evening before); the window asks
+  for a day more each side so such a row on its edge loads. Other all-day instants (midnights on
+  the viewer's clock) are read on the viewer's clock. An event with an `endField` shows on every day it covers (a date end is the last day, a
   timestamp end is exclusive, also for an all-day row stored as instants). All-day events sit
   above timed ones. A busy day shows its first few events and "+N more"; print shows them all.
 - **People and dots.** An event shows once on the grid with a dot per lane in the lane's `color`
   (or `colorsOf(row)`), and its lanes are read out to screen readers: colour is never the only
-  cue. In `lanes`, a shared event sits in each person's row, and events with no lane get an
+  cue. `colorLanes` gives each lane with no `color` of its own `laneColor(i)` by its place; off by
+  default, so a lane with no colour has no dot. `laneColor(i)` (`/data`) is the theme's five chart
+  colours, then distinct colours made from them toward the foreground (theme-aware, gaining
+  contrast rather than losing it), so lane six doesn't repeat lane one:
+  `lanes={people.map((p, i) => ({ key: p.id, label: p.name, color: laneColor(i) }))}`. In `lanes`, a shared event sits in each person's row, and events with no lane get an
   "Unassigned" row.
 - **Opening.** A click opens the view's peek (the same fields the list's peek shows), or calls
   `onSelect(row)`.
@@ -607,7 +631,8 @@ export const eventsView = defineView(contracts["public.events"], {
 
 `EventCalendar` (`/data`) is the same calendar for events that aren't one view's rows (a merged
 feed, an expanded recurring series): give it `CalendarEvent`s (`start`/`end` as days or instants,
-`lanes`, `colors`). Recurring series expand with `expandRecurrence` from
+`lanes`, `colors`). An all-day event's `end` is its last day (inclusive); genesis-calendar's
+`toCalendarEvent` already turns a feed's exclusive end into that, so its output draws as it is. Recurring series expand with `expandRecurrence` from
 `@marktiderman/genesis-core/dates`, and the window helpers (`monthGridRange`, `weeksRange`,
 `rangeIn`) are there too. Studio's calendar is drawn by it.
 
