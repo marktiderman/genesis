@@ -13,8 +13,9 @@
  * 2. What's left is rebased onto the new version, file by file, by a three-way merge (the upstream
  *    tag the base, the overlay one side, the new version the other). The marker's `upstream` and
  *    the overlay's version move to the new release.
- * 3. An overlay with nothing of the app's own left (source or package.json) is deleted, and the
- *    app's dependency on it pins the release, unless something still names its folder (a
+ * 3. An overlay with nothing of the app's own left (source or package.json) is deleted, the app's
+ *    dependency on it pins the release, and its workspace leaves the root's `workspaces` and
+ *    bun.lock (or `bun install` stops on a workspace that isn't there), unless something still names its folder (a
  *    pnpm-workspace.yaml override, tsconfig paths, a vite, vitest or metro alias): then it stays.
  * 4. A merge that conflicts writes nothing at all: the upgrade stops and lists the files. A file
  *    that isn't text is never merged: upstream's copy when the app's is the base's, else a conflict.
@@ -31,6 +32,8 @@ import { mergeThreeWay } from "../blocks/owned.js";
 import { localPackages } from "../blocks/local.js";
 import { GENESIS_PACKAGE_NAME, overlayState } from "../doctor/overlays.js";
 import { localPaths, readRegister, REGISTER_PATHS } from "../upstream.js";
+import { BUN_LOCK, readBunLock, removeBunLockEntries, workspaceEntries } from "../blocks/bun-lock.js";
+import { findLockfile } from "../blocks/pm.js";
 import { compareVersions, PLAIN } from "./bump-core.mjs";
 
 /** The Genesis repository, whose `<name>@<version>` tags hold each release's source. */
@@ -459,60 +462,98 @@ function folderReferences(root: string, plan: OverlayPlan): string[] {
 
 /**
  * For a removed overlay: each app package.json whose dependency points at it (workspace:, or a
- * file:/link: resolved from that package.json's own folder) pins the release, and its override to
- * the overlay goes. A string when a package.json can't be read (the overlay then stays).
+ * file:/link: resolved from that package.json's own folder) pins the release, its override to the
+ * overlay goes, and a `workspaces` entry naming its folder goes (bun and npm stop on a workspace that
+ * isn't there). A string when a package.json can't be read (the overlay then stays).
  */
 function planPins(root: string, plan: OverlayPlan, manifests: readonly string[]): Map<string, string> | string {
   const pins = new Map<string, string>();
-  const overlay = path.resolve(root, plan.rel);
   for (const file of manifests) {
     const abs = path.join(root, file);
     if (!existsSync(abs)) continue;
     const text = readFileSync(abs, "utf8");
-    let json: Record<string, unknown>;
-    try {
-      json = JSON.parse(text) as Record<string, unknown>;
-    } catch {
+    const pinned = pinManifest(root, plan, file, text);
+    if (pinned === undefined) {
       return `nothing of the app's own is left, but ${file} isn't valid JSON, so its dependency on ${plan.name} can't be pinned: fix it, then run genesis upgrade again`;
     }
-    const here = path.dirname(abs);
-    const local = (spec: unknown) =>
-      typeof spec === "string" &&
-      (spec.startsWith("workspace:") || (/^(file|link):/.test(spec) && path.resolve(here, spec.slice(5)) === overlay));
-    let touched = false;
-    for (const section of ["dependencies", "devDependencies", "optionalDependencies"]) {
-      const deps = json[section] as Record<string, unknown> | undefined;
-      if (deps && local(deps[plan.name])) {
-        deps[plan.name] = plan.to;
-        touched = true;
-      }
-    }
-    for (const o of [json.overrides, json.resolutions, (json.pnpm as { overrides?: unknown } | undefined)?.overrides]) {
-      if (isObject(o) && local(o[plan.name])) {
-        delete o[plan.name];
-        touched = true;
-      }
-    }
-    if (!touched) continue;
-    const indent = /^[ \t]+(?=")/m.exec(text)?.[0] ?? "  ";
-    pins.set(file, JSON.stringify(json, null, indent) + (text.endsWith("\n") ? "\n" : ""));
+    if (pinned !== null) pins.set(file, pinned);
   }
   return pins;
 }
 
-/** Writes the rebased overlays (none may conflict); a removed overlay's pins first, then its folder. Returns app-relative paths changed. */
-export function applyOverlayPlans(root: string, plans: OverlayPlan[]): string[] {
+/** `text` (the app's `file`) with the removed overlay pinned and unlisted; null when nothing changes, undefined when it isn't JSON. */
+function pinManifest(root: string, plan: OverlayPlan, file: string, text: string): string | null | undefined {
+  let json: Record<string, unknown>;
+  try {
+    json = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+  const overlay = path.resolve(root, plan.rel);
+  const here = path.dirname(path.join(root, file));
+  const local = (spec: unknown) =>
+    typeof spec === "string" &&
+    (spec.startsWith("workspace:") || (/^(file|link):/.test(spec) && path.resolve(here, spec.slice(5)) === overlay));
+  let touched = false;
+  for (const section of ["dependencies", "devDependencies", "optionalDependencies"]) {
+    const deps = json[section] as Record<string, unknown> | undefined;
+    if (deps && local(deps[plan.name])) {
+      deps[plan.name] = plan.to;
+      touched = true;
+    }
+  }
+  for (const o of [json.overrides, json.resolutions, (json.pnpm as { overrides?: unknown } | undefined)?.overrides]) {
+    if (isObject(o) && local(o[plan.name])) {
+      delete o[plan.name];
+      touched = true;
+    }
+  }
+  // A workspaces entry that names the folder itself (a glob such as packages/* simply matches one fewer).
+  const names = (entry: unknown) => typeof entry === "string" && path.resolve(here, entry) === overlay;
+  const ws = json.workspaces;
+  const list = Array.isArray(ws) ? ws : isObject(ws) && Array.isArray(ws.packages) ? (ws.packages as unknown[]) : null;
+  if (list?.some(names)) {
+    const kept = list.filter((entry) => !names(entry));
+    if (Array.isArray(ws)) json.workspaces = kept;
+    else (ws as Record<string, unknown>).packages = kept;
+    touched = true;
+  }
+  if (!touched) return null;
+  const indent = /^[ \t]+(?=")/m.exec(text)?.[0] ?? "  ";
+  return JSON.stringify(json, null, indent) + (text.endsWith("\n") ? "\n" : "");
+}
+
+/** What `applyOverlayPlans` did to bun.lock, for the summary. */
+export interface OverlayLockEdit {
+  /** The lockfile, app-relative (it may sit above the app). */
+  file: string;
+  /** The removed workspace folders, as the lockfile names them. */
+  workspaces: string[];
+}
+
+/**
+ * Writes the rebased overlays (none may conflict); a removed overlay's pins first (onto each
+ * package.json as it is now, so the bump and other overlays' pins stay), then its folder, then its
+ * workspace in bun.lock. Returns app-relative paths changed.
+ */
+export function applyOverlayPlans(root: string, plans: OverlayPlan[], lockEdits: OverlayLockEdit[] = []): string[] {
   const changed: string[] = [];
+  const removedFolders: string[] = [];
   for (const plan of plans) {
     if (plan.skipped || plan.conflicts.length) continue;
     const dir = path.join(root, plan.rel);
     if (plan.remove) {
-      for (const [file, text] of plan.pins) {
-        writeFileSync(path.join(root, file), text);
+      for (const file of plan.pins.keys()) {
+        const abs = path.join(root, file);
+        const now = existsSync(abs) ? readFileSync(abs, "utf8") : null;
+        const text = now === null ? plan.pins.get(file)! : pinManifest(root, plan, file, now);
+        if (typeof text !== "string") continue;
+        writeFileSync(abs, text);
         changed.push(file);
       }
       rmSync(dir, { recursive: true, force: true });
       changed.push(`${plan.rel}/package.json`);
+      removedFolders.push(dir);
       continue;
     }
     for (const [file, bytes] of plan.writes) {
@@ -525,7 +566,34 @@ export function applyOverlayPlans(root: string, plans: OverlayPlan[]): string[] 
       changed.push(`${plan.rel}/${file}`);
     }
   }
-  return changed;
+  const edit = removedFolders.length ? dropRemovedWorkspaces(root, removedFolders) : null;
+  if (edit) {
+    lockEdits.push(edit);
+    if (!edit.file.startsWith("..")) changed.push(edit.file);
+  }
+  return [...new Set(changed)];
+}
+
+/** Removes deleted overlays' workspaces from the bun.lock at or above the app; what it removed, or null. */
+function dropRemovedWorkspaces(root: string, folders: string[]): OverlayLockEdit | null {
+  const found = findLockfile(root);
+  if (found?.pm !== "bun") return null;
+  const text = readBunLock(found.dir);
+  if (text === null) return null;
+  const workspaces: string[] = [];
+  const packages: string[] = [];
+  try {
+    for (const folder of folders) {
+      const entries = workspaceEntries(text, path.relative(found.dir, folder).split(path.sep).join("/"));
+      workspaces.push(...entries.workspaces);
+      packages.push(...entries.packages);
+    }
+  } catch {
+    return null; // a bun.lock this can't read: bun install reports it
+  }
+  if (!workspaces.length && !packages.length) return null;
+  writeFileSync(path.join(found.dir, BUN_LOCK), removeBunLockEntries(text, { workspaces, packages }));
+  return { file: path.relative(root, path.join(found.dir, BUN_LOCK)).split(path.sep).join("/"), workspaces };
 }
 
 /** The checklist for the summary and the pull request: an upgrade PR isn't done until it is. */

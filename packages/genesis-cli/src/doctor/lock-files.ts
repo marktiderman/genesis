@@ -13,6 +13,13 @@
  *   And, in an app whose database files live elsewhere (genesis.config.json
  *   `supabase`), files under supabase/ the lock still lists: upgrade leaves
  *   them alone, so they aren't checked and the entries can go.
+ *
+ * And bun.lock (at or above the app), with or without genesis.lock.json:
+ *
+ * - **warn**: a nested copy of a Genesis package (`<parent>/<name>` in `packages`) at another
+ *   version than the root's, when the root's version satisfies the parent's range. Bun keeps it
+ *   across installs, so the app runs two copies (a provider from one is invisible to hooks from the
+ *   other). The fix is exact: delete that entry and reinstall (`genesis upgrade` does it).
  */
 import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
@@ -24,9 +31,38 @@ import { localPackageNames } from "../blocks/local.js";
 import { ownedKeyProblem } from "../blocks/owned.js";
 import { appBlocksSwitchedOff, blockOfSource, STARTER_CONFIG } from "../blocks/starter-features.js";
 import { databaseElsewhere, isSupabasePath } from "../blocks/database.js";
+import { BUN_LOCK, readBunLock, staleNestedEntries } from "../blocks/bun-lock.js";
+import { findLockfile } from "../blocks/pm.js";
 import type { DoctorContext } from "./types.js";
 
+/** bun.lock's stale nested Genesis copies (blocks/bun-lock.ts), each with the exact fix. */
+function checkBunLock(ctx: DoctorContext): void {
+  const found = findLockfile(ctx.root);
+  if (found?.pm !== "bun") return;
+  const text = readBunLock(found.dir);
+  if (text === null) return;
+  const file = path.relative(ctx.root, path.join(found.dir, BUN_LOCK)).split(path.sep).join("/");
+  let stale;
+  try {
+    stale = staleNestedEntries(text);
+  } catch {
+    return; // a bun.lock this can't read: bun install reports it
+  }
+  for (const s of stale) {
+    ctx.report({
+      rule: "lock-files",
+      level: "warn",
+      file,
+      subject: s.key,
+      message:
+        `keeps a nested copy of ${s.name}@${s.version} under ${s.parent} beside the root's ${s.root}, which satisfies its ${s.range}: Bun keeps it across installs, so the app runs two copies (a provider from one is invisible to hooks from the other). ` +
+        `Delete the "${s.key}" entry from ${file}'s packages, then reinstall (bun install); genesis upgrade does both`,
+    });
+  }
+}
+
 export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
+  checkBunLock(ctx);
   if (!existsSync(path.join(ctx.root, LOCK_FILE))) return;
   let lock: GenesisLock;
   try {

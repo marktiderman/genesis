@@ -1480,9 +1480,10 @@ export function DataTable<T>({
         </Table>
       </div>
 
-      {/* ── Pagination footer ── */}
+      {/* ── Pagination footer ── pinned to the bottom, so it's opaque (bg-card, the table's
+          rounded corners): rows scrolling under it never show through. */}
       {pagination && (
-        <div className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-muted/30 text-xs text-muted-foreground">
+        <div data-testid="data-table-pager" className="sticky bottom-0 z-10 flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t bg-card rounded-b-lg text-xs text-muted-foreground">
           <span>
             {totalItems === 0
               ? m.table.noRows

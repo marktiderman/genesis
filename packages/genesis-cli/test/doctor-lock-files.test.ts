@@ -5,6 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { BUILTIN_RULES, runDoctor, type Finding } from "../src/doctor/index.js";
 import { sha256 } from "../src/blocks/files.js";
 import { writeLock, type GenesisLock } from "../src/blocks/lock.js";
+import { bunLock } from "./bun-lock-helpers.js";
 import { cleanupApps, makeApp } from "./doctor-helpers.js";
 
 afterAll(cleanupApps);
@@ -91,5 +92,19 @@ describe("lock-files", () => {
 
   it("has nothing to say without a lock", async () => {
     expect(await lockFindings(makeApp(null))).toEqual([]);
+  });
+
+  it("warns on a nested Genesis copy in bun.lock the root's version satisfies, with the exact fix", async () => {
+    const root = makeApp(null, { "bun.lock": bunLock() });
+    const findings = await lockFindings(root);
+    expect(brief(findings)).toEqual(["warn bun.lock"]);
+    expect(findings[0]!.subject).toBe("@marktiderman/genesis-native/@marktiderman/genesis-ui-native");
+    expect(findings[0]!.message).toContain("nested copy of @marktiderman/genesis-ui-native@3.3.0 under @marktiderman/genesis-native beside the root's 3.5.0");
+    expect(findings[0]!.message).toContain('Delete the "@marktiderman/genesis-native/@marktiderman/genesis-ui-native" entry from bun.lock\'s packages, then reinstall (bun install)');
+    // Nested on purpose (the parent's range excludes the root's version), or gone: quiet.
+    writeFileSync(path.join(root, "bun.lock"), bunLock({ uiNative: "4.0.0" }));
+    expect(await lockFindings(root)).toEqual([]);
+    writeFileSync(path.join(root, "bun.lock"), bunLock({ nested: "" }));
+    expect(await lockFindings(root)).toEqual([]);
   });
 });

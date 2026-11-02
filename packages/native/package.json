@@ -108,12 +108,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@marktiderman/genesis-design-system": "workspace:^",
-    "@marktiderman/genesis-features": "workspace:^",
-    "@marktiderman/genesis-ui-native": "workspace:^"
+    "@marktiderman/genesis-features": "workspace:^"
   },
   "peerDependencies": {
     "@marktiderman/genesis-core": "workspace:>=2.1.0 <3.0.0",
+    "@marktiderman/genesis-design-system": "workspace:>=1.6.1 <2.0.0",
+    "@marktiderman/genesis-ui-native": "workspace:>=3.3.0 <4.0.0",
     "nativewind": "^4.0.0 || ^5.0.0-preview",
     "@tanstack/query-async-storage-persister": "^5.0.0",
     "@tanstack/query-persist-client-core": "^5.0.0",
@@ -154,6 +154,8 @@
   },
   "devDependencies": {
     "@marktiderman/genesis-core": "workspace:^",
+    "@marktiderman/genesis-design-system": "workspace:^",
+    "@marktiderman/genesis-ui-native": "workspace:^",
     "@supabase/supabase-js": "^2.118.0",
     "@tanstack/query-async-storage-persister": "5.104.5",
     "@tanstack/query-persist-client-core": "5.104.5",

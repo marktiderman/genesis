@@ -1329,15 +1329,9 @@ importers:
 
   packages/native:
     dependencies:
-      '@marktiderman/genesis-design-system':
-        specifier: workspace:^
-        version: link:../design-system
       '@marktiderman/genesis-features':
         specifier: workspace:^
         version: link:../features
-      '@marktiderman/genesis-ui-native':
-        specifier: workspace:^
-        version: link:../ui-native
       react-native:
         specifier: 0.88.0
         version: 0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(@react-native/metro-config@0.88.0(@babel/core@7.29.7(supports-color@8.1.1))(supports-color@8.1.1))(@types/react@19.3.0)(react@19.3.0)(supports-color@8.1.1)
@@ -1348,6 +1342,12 @@ importers:
       '@marktiderman/genesis-core':
         specifier: workspace:^
         version: link:../core
+      '@marktiderman/genesis-design-system':
+        specifier: workspace:^
+        version: link:../design-system
+      '@marktiderman/genesis-ui-native':
+        specifier: workspace:^
+        version: link:../ui-native
       '@supabase/supabase-js':
         specifier: ^2.118.0
         version: 2.118.0

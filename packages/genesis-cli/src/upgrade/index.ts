@@ -13,6 +13,9 @@
  *    pgTAP tests) by a three-way decision (blocks/owned.ts), replace AGENTS.md
  *    fragments, copy skills a block gained, and report new package migrations
  *    (`genesis migrate` copies them).
+ *    With Bun, bun.lock first drops nested copies of Genesis packages the root's version now
+ *    satisfies (Bun keeps them across installs, so the app would run two copies) and the
+ *    workspaces of overlays the upgrade deleted (blocks/bun-lock.ts), and the summary says to reinstall.
  * 4. The doctor, then a summary, or with `--pr` a branch, a commit and a pull request.
  *
  * An app whose database files live elsewhere (genesis.config.json `supabase`) plans no
@@ -38,7 +41,8 @@ import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run,
 import { starterDir, templatesDir } from "../blocks/templates.js";
 import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
-import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayPlan, type UpstreamSource } from "./overlays.js";
+import { applyOverlayPlans, gitUpstream, overlayChecklist, planOverlays, type OverlayLockEdit, type OverlayPlan, type UpstreamSource } from "./overlays.js";
+import { BUN_LOCK, readBunLock, removeBunLockEntries, staleNestedEntries, type StaleNestedEntry } from "../blocks/bun-lock.js";
 
 export interface ReleaseLookup {
   /** The umbrella's version and versions.json for a version or dist-tag. */
@@ -94,6 +98,25 @@ export interface UpgradeReport {
   pr?: string;
   /** Each overlay rebased onto the release (overlays.ts), with its checklist. */
   overlays: OverlayPlan[];
+  /** What the upgrade dropped from bun.lock (with a dry run, would drop): nested Genesis copies the root's version satisfies, and deleted overlays' workspaces. */
+  bunLock?: { file: string; pruned: StaleNestedEntry[]; workspaces: string[]; reinstalled: boolean };
+}
+
+/** Drops bun.lock's stale nested Genesis copies (blocks/bun-lock.ts); what it dropped (with `dryRun`, would drop), or null. */
+function pruneBunLock(root: string, want: (name: string) => string | null | undefined, dryRun: boolean): { file: string; pruned: StaleNestedEntry[] } | null {
+  const found = findLockfile(root);
+  if (found?.pm !== "bun") return null;
+  const text = readBunLock(found.dir);
+  if (text === null) return null;
+  let pruned: StaleNestedEntry[];
+  try {
+    pruned = staleNestedEntries(text, want);
+  } catch {
+    return null; // a bun.lock this can't read: bun install reports it
+  }
+  if (!pruned.length) return null;
+  if (!dryRun) writeFileSync(path.join(found.dir, BUN_LOCK), removeBunLockEntries(text, { packages: pruned.map((p) => p.key) }));
+  return { file: path.relative(root, path.join(found.dir, BUN_LOCK)).split(path.sep).join("/"), pruned };
 }
 
 const EXACT_OR_TAG = /^[0-9A-Za-z][0-9A-Za-z.+-]*$/;
@@ -332,13 +355,14 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   }
 
   const files = new Set<string>();
+  const lockEdits: OverlayLockEdit[] = [];
   const codemodRuns: UpgradeReport["codemods"] = [];
   if (!options.dryRun) {
     for (const [file, text] of bumped) {
       replaceApp(root, file, text);
       files.add(file);
     }
-    for (const file of applyOverlayPlans(root, overlays)) files.add(file);
+    for (const file of applyOverlayPlans(root, overlays, lockEdits)) files.add(file);
   }
   for (const mod of mods) {
     log(`codemod ${mod.id}: ${mod.description}`);
@@ -347,11 +371,28 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     for (const f of changed) files.add(f);
   }
 
+  // Bun keeps a nested copy of a Genesis package across installs even once the root's version
+  // satisfies its parent, so drop those first (against the versions the release moves the root to).
+  let bunLock: UpgradeReport["bunLock"];
+  const prune = (want: (name: string) => string | null | undefined): number => {
+    const result = pruneBunLock(root, want, Boolean(options.dryRun));
+    if (!result) return 0;
+    bunLock ??= { file: result.file, pruned: [], workspaces: [], reinstalled: false };
+    for (const p of result.pruned) if (!bunLock.pruned.some((q) => q.key === p.key)) bunLock.pruned.push(p);
+    if (!options.dryRun && !result.file.startsWith("..")) files.add(result.file);
+    return result.pruned.length;
+  };
+  prune((name) => pinned[name] ?? null);
+  for (const edit of lockEdits) {
+    bunLock ??= { file: edit.file, pruned: [], workspaces: [], reinstalled: false };
+    bunLock.workspaces.push(...edit.workspaces);
+  }
+
   // 2. Install, keep pnpm's release-age excludes readable by a frozen install, and dedupe.
   const pm = detectPackageManager(root);
   let tidiedExcludes: string | null = null;
   const excludeWarnings: string[] = [];
-  if (!options.dryRun && options.install !== false && bumped.size) {
+  if (!options.dryRun && options.install !== false && (bumped.size || bunLock)) {
     const workspaceFile = pm === "pnpm" ? pnpmWorkspaceFileFor(root) : null;
     const relWorkspace = workspaceFile ? path.relative(realpathSync(root), workspaceFile) : null;
     const workspaceBefore = workspaceFile ? readText(workspaceFile) : null;
@@ -360,17 +401,26 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       tidiedExcludes = relWorkspace;
       log(`${tidiedExcludes}: minimumReleaseAgeExclude lists each Genesis package's pinned versions in one entry, exact versions the lockfile holds`);
     };
-    if (typeof options.install === "function") {
-      try {
-        options.install(root);
-      } catch (err) {
-        const e = err as { message?: unknown; stdout?: unknown; stderr?: unknown };
-        throw releaseAgeError([e.message, e.stdout, e.stderr].map((x) => (x == null ? "" : String(x))).join("\n")) ?? err;
+    const install = async () => {
+      if (typeof options.install === "function") {
+        try {
+          options.install(root);
+        } catch (err) {
+          const e = err as { message?: unknown; stdout?: unknown; stderr?: unknown };
+          throw releaseAgeError([e.message, e.stdout, e.stderr].map((x) => (x == null ? "" : String(x))).join("\n")) ?? err;
+        }
+      } else {
+        log(`install: ${shellLine(installCommand(pm))}`);
+        await runInstall(root, installCommand(pm));
       }
-    } else {
-      log(`install: ${shellLine(installCommand(pm))}`);
-      await runInstall(root, installCommand(pm));
+    };
+    await install();
+    // The install itself can leave one behind (a package the release doesn't pin): drop it and install once more.
+    if (prune(() => null)) {
+      log(`${bunLock!.file}: dropped nested Genesis copies the root's version satisfies; installing again`);
+      await install();
     }
+    if (bunLock) bunLock.reinstalled = true;
     tidy();
     const dedupe = options.dedupe ?? (typeof options.install === "function" ? false : true);
     const dedupeArgv = dedupeCommand(pm);
@@ -518,12 +568,18 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     if (elsewhereEntries.length) lines.push("", `genesis.lock.json still lists ${elsewhereEntries.length} file${elsewhereEntries.length === 1 ? "" : "s"} under supabase/; they're left alone and can be deleted from the lock (and the folder).`);
   }
   if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`). Each Genesis package now has one entry listing its exact versions in the lockfile (\`'name@1.0.0 || 1.1.0'\`), which \`pnpm install --frozen-lockfile\` honours; versions the lockfile no longer holds were dropped. Never a pattern, so a future Genesis release still waits out \`minimumReleaseAge\`. Other entries are as they were.`);
+  if (bunLock) {
+    lines.push("", `${bunLock.file}:`, "");
+    for (const p of bunLock.pruned) lines.push(`- ${options.dryRun ? "would drop" : "dropped"} the nested copy of ${p.name}@${p.version} under ${p.parent} (\`${p.key}\`): the root's ${p.root} satisfies its ${p.range}, and two copies are two module instances`);
+    for (const w of bunLock.workspaces) lines.push(`- dropped the workspace ${w}: the overlay there was deleted, and \`bun install\` stops on a workspace that isn't there`);
+    lines.push(bunLock.reinstalled ? "- reinstalled (`bun install`), so the lockfile and node_modules match" : "- reinstall now: `bun install` (then `genesis doctor`), so node_modules holds one copy of each");
+  }
   lines.push(...overlayChecklist(overlays));
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");
 
-  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, doctor, files: [...files].sort(), summary, overlays };
+  const report: UpgradeReport = { version: release.version, changes, skipped, codemods: codemodRuns, breaks, refreshed, added, switchedOff, newMigrations, doctor, files: [...files].sort(), summary, overlays, ...(bunLock ? { bunLock } : {}) };
   if (options.pr && !options.dryRun && files.size) report.pr = openPullRequest(root, release.version, report, prBase!);
   return report;
 }
