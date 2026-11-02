@@ -1,0 +1,69 @@
+.changeset/chat-search-sheet-safe-area.md
+  s_6a4659246591cd::t_99d8119beeb1fc 1-5
+.changeset/ui-mobile-overlays.md
+  s_6a4659246591cd::t_b84514c61b8f01 1-21
+apps/genesis-rn-starter/supabase/tests/database/genesis_notifications.test.sql
+  s_6a4659246591cd::t_07dbdf7dc0e26a 206-207,209-211
+apps/sample/app/data/primitives.json
+  s_6a4659246591cd::t_b9e1224dd607a3 2,12548-12554
+apps/sample/app/routes/design-system.tsx
+  s_6a4659246591cd::t_dfe3a0eaf58b38 382-383,398
+apps/sample/stories/Dialog.stories.tsx
+  s_6a4659246591cd::t_e7640c0a447f31 61-83
+docs/component-reference.md
+  s_6a4659246591cd::t_f69954c14b73ac 7,4647,4659,9995,10007,10927-10940
+packages/chat/src/web/thread.tsx
+  s_6a4659246591cd::t_dddeb040a79433 721
+packages/connect/CHANGELOG.md
+  s_6a4659246591cd::t_9ebb9032a1a1d0 3-12
+packages/connect/README.md
+  s_6a4659246591cd::t_a0c7e8d42e1f4f 115-125,131-135,175-181,226-234,299-300
+packages/connect/package.json
+  s_6a4659246591cd::t_c23410797f6d49 3
+packages/connect/src/__tests__/oauth.test.ts
+  s_6a4659246591cd::t_eae2ccbb860941 1080-1091,1104-1105,1110-1125,1128-1159,1161-1163,1188-1190,1213,1215,1226-1229,1231-1390,1403,1406-1413
+packages/connect/src/oauth.ts
+  s_6a4659246591cd::t_5cc47e75113450 194-196,222,224-225,233-236,264,268-282,372-384,542-561,625-626,750-753,839-859,1204-1261,1307-1311,1425-1426,1428,1444-1457,1459-1461,1463,1492-1493,1531
+packages/notifications/CHANGELOG.md
+  s_6a4659246591cd::t_43b6f72f925f45 3-11
+packages/notifications/migrations/tests/0001_genesis_notifications.test.sql
+  s_6a4659246591cd::t_c396cd59f2d916 206-207,209-211
+packages/notifications/package.json
+  s_6a4659246591cd::t_3039333ce7d1b5 3
+packages/ui/SKILL.md
+  s_6a4659246591cd::t_b9b91c0dcfb556 275-279
+packages/ui/src/components/data/DetailPanel.tsx
+  s_6a4659246591cd::t_eb5515c80c7a89 268-270,295-296
+packages/ui/src/components/data/ResourceForm.tsx
+  s_6a4659246591cd::t_4f56447f8de373 23,133,146-151,182,191-198,274,276-282,304,306-312,463-468,474
+packages/ui/src/components/data/__tests__/resource-form-phone.test.tsx
+  s_6a4659246591cd::t_47249652d10117 1-88
+packages/ui/src/components/ui/__tests__/mobile-overlays.test.tsx
+  s_6a4659246591cd::t_837d8acbf92bbf 1-186
+packages/ui/src/components/ui/alert-dialog.tsx
+  s_6a4659246591cd::t_54a241902f6b94 17,42-44
+packages/ui/src/components/ui/dialog.tsx
+  s_6a4659246591cd::t_b352a32d220812 20,28-63,74-78,80,85,87-90,97-104
+packages/ui/src/components/ui/drawer.tsx
+  s_6a4659246591cd::t_b185f36d3953da 45-46
+packages/ui/src/components/ui/sheet.tsx
+  s_6a4659246591cd::t_f1f9da42329dae 20,30-32,36,38-39,41,75-82
+packages/ui/src/index.ts
+  s_6a4659246591cd::t_f24592a5ee0639 11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b850ed24171772795e2bed68fcda668d651fd4b7",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
