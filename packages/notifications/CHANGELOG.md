@@ -1,5 +1,23 @@
 # @marktiderman/genesis-notifications
 
+## 0.4.2
+
+### Patch Changes
+
+- 1d1c2b4: A phone app beside a web app shares its database. `genesis init --template native --beside <web-app>` writes no `supabase/` files (or the database CI workflow) when the web app has a `supabase/` folder, sets `"supabase": { "app": "../app" }` in genesis.config.json, drops the doctor's supabase pack, records the blocks that are on, and prints the line to run in the web app for the blocks whose database files it lacks (requirements first, notifications before push): `genesis add <block> --database-only`. The check compares each block's migrations with the web app's copies and lock `migrations` entries, so a newer migration of a block it already has counts, and an Edge Function with no folder there counts too. With that setting, or `"supabase": false`, `genesis add`, `migrate` and `upgrade` never write or plan Supabase files (migrations, pgTAP tests, Edge Functions, config.toml sections) in the app and say where to run them; `upgrade` still lists new package migrations, to apply in the web app, and leaves lock entries under `supabase/` alone. When the web app's lock can't be read, `migrate` lists every block and warns, as init and add do. `supabase.app` is resolved through symlinks and can't be the app itself. The doctor skips the supabase pack there, `lock-files` reports such entries as info, and a new `database-elsewhere` rule warns when the named app has no `supabase/` or a second copy is left in the app.
+
+  `genesis add --database-only`: only a block's migrations, pgTAP tests, Edge Functions and config.toml sections, and the packages they're read from. No other installs, routes, skills, AGENTS.md fragment, feature entry or block steps, and the block isn't recorded in the lock's `blocks` (its copies are tracked by header and lock entry).
+
+  A block migration can declare the package migrations whose objects it provides or adopts (`provides` on its `genesis.blocks` entry), and the Edge Functions of the provided migration's package that it supersedes (`functions`). Once the providing migration is in the app (its copy by header, or by name for a copy made before headers; or the file the lock says it went to, while that file exists), or is copied in the same run, the other is `provided`, never `new`, and its superseded functions are neither copied nor deployed. genesis-notifications' 0001 declares it provides genesis-supabase's 0005 (it adopts the push tables) and supersedes `functions/genesis-push-send` (0001 doesn't create the sender's RPCs), so `migrate` and `add push` no longer copy 0005 into an app that has notifications, where it failed with "relation already exists", and `add push` there no longer plans genesis-push-send, its deploy or its secrets: the steps point at the notifications runner.
+
+  `genesis upgrade` no longer adds an Edge Function the lock never had (one init or add didn't write, or a superseded one): it lists it, for `genesis add`, which writes its config.toml section. New files in a function the app has are still added.
+
+  Reading starter.config.ts's `features` finds the block's own closing brace (past nested objects, strings and comments), and a genesis.config.json `"starter": {}` carries no blocks instead of failing. init's `doctor.supabase.since` uses the migration timestamp helper.
+
+  `genesis upgrade` accepts the `REPLACE_WITH_APP_FOLDER` substitution `init --template native` records, so it no longer refuses every app init made.
+
+  Behaviour changes to note: `genesis add`, `migrate` and `upgrade` now read and validate genesis.config.json, so an invalid `supabase` setting (not `false` or `{ "app": "<relative folder>" }`), or an invalid `links` or `privacy` block, stops them with an error naming the file, as the doctor does. Top-level keys they don't know are still ignored. In an app made from an older starter, a block whose starter.config.ts switch is off no longer gets its migrations and functions from `migrate` and `upgrade`.
+
 ## 0.4.1
 
 ### Patch Changes

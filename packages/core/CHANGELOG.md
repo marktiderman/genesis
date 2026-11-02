@@ -1,5 +1,52 @@
 # @marktiderman/genesis-core
 
+## 2.8.0
+
+### Minor Changes
+
+- 8946a6f: `NativeRecordView` settings send only the fields the person edited, as the web `RecordView` does. The other fields follow the live row, so a stale draft can't overwrite someone else's change, and an edit back to the stored value isn't a change. Both compare through genesis-core's new `sameFormValue` (2 and "2", and null, undefined and "", are the same).
+- eb9cbc4: Forms: custom words, an empty-state create button, and keyboard focus that lands somewhere useful.
+
+  New, and changing nothing unless used:
+
+  - `ResourceForm` takes `submitLabel` (the submit button's words, over "Create" / "Save") and `description` (read out with the title, over the catalogue's `form.createDescription` / `form.editDescription`).
+  - `ResourcePage` `formTitles` also takes `createSubmit`, `editSubmit`, `createDescription` and `editDescription`, and a view's `copy.form` takes the same four (genesis-core `ViewCopy`); `ResourceView` merges the screen's over the view's, per entry, as it does the titles.
+  - `ResourcePage` `emptyCreate` (opt-in): an empty list that nothing filters shows its create button in the empty state instead of the header, and leaves out the search and sort row. Any search, status or filter, or `emptyFiltered` (the screen narrows the list itself, say with a tab), keeps the button in the header and the filter row. An `emptyState` action still wins.
+  - `ResourcePage` `createdToast` (opt-in): after the built-in form creates a row, a "Created {name}" toast with an Open action that opens it as a row click would, with focus moved to Open; Tab, Escape or the toast closing returns focus to New. Needs a mounted `<Toaster />`. New catalogue words: `form.created`, `form.createdUnnamed`.
+
+  Fixes, on by default:
+
+  - Closing a `ResourceForm` dialog or sheet (Cancel, Escape or a save) hands focus back to what had it when the form opened, usually the host's New or Edit button. It fell to the page body before, because the form opens from the host's own button rather than a Radix trigger, so a keyboard user started again from the top of the page.
+  - A `ResourceForm` dialog or sheet resets to its defaults before its fields mount (a page form is drawn with its fields at once, on the server too). The form stays mounted while closed and, with `shouldUnregister`, its values start empty, so with some react-hook-form versions a field registering corrected the dirty state during render and React logged "Cannot update a component while rendering a different component". The reset runs in a layout effect, before paint, and nothing typed is lost (no field is registered yet).
+
+- ebf31da: Record and display additions, all opt-in except the fixes marked below.
+
+  - `RecordView` takes `sectionIcons` (an icon per section id for the shell's tab row and the phone's bottom bar) and `settingsLocked(sectionId, row)` (a screen's own reason to make a settings section read-only; it only narrows the view's update guard).
+  - `ResourceHeader` takes `chips` (more chips after the status) and `subtitle` (a muted line under the title).
+  - Relative times have one wording, `relativeTime` (exported from `@marktiderman/genesis-ui/utils` and `/data`): "just now", "3 min ago", "2 hours ago", "yesterday", "in 5 min", then the date past a week, with days counted on the viewer's calendar, and a `style: "compact"` for dense lists ("now", "5m", the clock time, "Yesterday", the weekday, "12 Mar"). Its words are the catalogue's `time` group, and hours, days and dates are formatted in `time.locale`, so a translation gets its own language. Opt in with `relativeDatetimeRenderer` (and the `RelativeTime` component, which reads the messages in effect and shares one clock across the page) under `DisplayRenderersProvider` (`renderers={{ datetime: relativeDatetimeRenderer }}`), `formatRelativeTime(date, { style: "short", words })` or `DateCell({ relative: "short", words })`. The defaults keep date-fns' wording; switching the default is planned for 3.0. New messages: `time.locale`, `time.justNow`, `time.minutesAgo`, `time.inMinutes`, `time.now`, `time.minutesShort`, `time.yesterday`.
+  - `UserAvatar` takes `distinct`: a stable chart-colour wash per name behind foreground text (14:1 or better in light and dark), and two letters for a one-word name ("Pr", "Po") so names that share an initial differ. The letters come from genesis-core's `initialsOf`, which takes `{ distinct: true }` for the same.
+
+  Fixes, which change what existing screens show:
+
+  - `RecordView` now passes every summary chip after the first, and the summary's `subtitle`, to its header. It used to drop them.
+  - `RecordView` settings send only the fields the person edited. The other fields follow the live row, so a stale draft can't overwrite someone else's change, and an edit back to the stored value (2 and "2", null and "") isn't a change.
+  - A settings field with options that can be empty, and that the view doesn't require, gets a "None" choice that sets it back to empty (the catalogue's `link.none`, the same words and value as the link picker's). Before, a value once chosen couldn't be cleared.
+  - `Textarea` wraps a long unbroken run (`overflow-wrap: anywhere`). Before, a long URL or a pasted token set the textarea's minimum width, which pushed a dialog wider than the screen.
+
+### Patch Changes
+
+- a25a997: ResourceView's calendar mode now honours the list's options. `resourceOptions.enabled` holds the requests while a screen waits on its scope. `resourceOptions.select` is sent with both requests, so joined columns show. `live` subscribes and refetches as a list does. The list and the calendar build their filters and peek from one place, so they can't drift. In development, a `select` that leaves out the calendar's own fields warns. "+N more" no longer disappears once opened: it becomes "Show fewer". Focus stays put when it opens (it moves to the first revealed event, or stays on the toggle) and when PageDown leaves a lane the next week doesn't have (it goes to the same day in the first lane). A bad `timeZone` throws a `ResourceView(resource): …` error. The lanes layout buckets events once, so moving focus is fast with thousands of events. Lanes from a link (`laneBy` on a field with `references`) show the linked row's words, never the raw id. Studio's calendar is busy while a new month loads. Focus also stays in the grid when new data removes the focused lane. The last day of an overnight event says when it ends ("until 2:00 AM") instead of "All day". A change of scope or filter no longer shows the previous scope's rows while it loads; only a move of the window keeps them up. The open peek follows the row's current data, after a save or a refetch.
+- 7cf7951: `genesis-core/dates` fixes from the 2.5.0 review:
+  - **Recurrence:** a series that began more than 400 years before the window is found, and a sparse rule whose INTERVAL doesn't divide 400 years (`FREQ=YEARLY;INTERVAL=300` on 29 February) keeps going: the no-match guard now counts empty periods over the calendar's full cycle. A weekly series in late 9999 stops at the year's end instead of throwing.
+  - **Rules:** a UTC UNTIL with an out-of-range time is refused. A BYMONTH and BYMONTHDAY that never meet (`BYMONTH=2;BYMONTHDAY=30`) are refused when parsed, and sparse daily rules run fast. Rule objects whose BYDAY, BYMONTHDAY or BYMONTH isn't a list, or is empty, are refused. So are an invalid EXDATE and an invalid `start.at`. Instant EXDATEs match to the second.
+  - **Years 1 to 99** are real days everywhere: `Date.UTC` had read them as 1900 to 1999.
+  - **`readEventTime`:** throws for an unknown `timeZone`, gives a `Date`'s day with `dateOnly`, reads `z` and offsets with seconds, and truncates fractions the same way in every branch.
+  - **`defineView`:** checks the calendar block at run time (an object, with `field`, and only calendar keys). Its doc comment and `RecurrenceStart`'s are restored.
+
+  Also notes exports earlier changesets left out: `isDevelopment` (genesis-core/errors, added in a patch), and `calendarProblems`, `ViewCalendar` and `ViewCalendarLayout` (genesis-core/resource-view, with the calendar mode).
+
+- 708dd1e: Fix an optimistic or undoable write throwing "undefined is not a function" on React Native. The page-unload listeners a waiting write adds were guarded only by `typeof window !== "undefined"`, but React Native's global `window` has no `addEventListener` on Hermes, so a `NativeResourceView` delete (swipe or row sheet) failed before the provider's `deleteOne` was called. Core now adds those listeners only where `window` can take them (`pageWindow()`), and the same guard covers `useDraft` and `useUnsavedChangesGuard`. The web keeps its `beforeunload` / `pagehide` handling unchanged.
+
 ## 2.7.0
 
 ### Minor Changes

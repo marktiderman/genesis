@@ -1,5 +1,68 @@
 # @marktiderman/genesis-ui
 
+## 2.29.0
+
+### Minor Changes
+
+- 0cdd586: Print a calendar per person: `PrintableAgenda` prints one sheet per lane for a week (each lane's own events by day, every day listed, the app's `sections` under each week, a page break per sheet), and `PrintButton` opens the browser's print dialog and hides itself on the page. `lanes` is required and titles each sheet (a lane's key is an id, never a title); `headingLevel` sets the sheet's heading. Each event shows its start and end ("9:00 – 10:30 AM", in the locale's range form), "until 2:00 AM" on the last day of an overnight one, and the zone when the clock shows a time twice. No blank page after the last sheet. `PrintButtonProps` is exported. A calendar view prints these sheets from its own rows with `calendar={{ print: { sections } }}`, and AppShell leaves its navigation off printed pages and stops clipping the content to the screen. Messages `calendar.print` and `calendar.weekOf`.
+
+  Features: resource-view-calendar
+
+- eb9cbc4: Forms: custom words, an empty-state create button, and keyboard focus that lands somewhere useful.
+
+  New, and changing nothing unless used:
+
+  - `ResourceForm` takes `submitLabel` (the submit button's words, over "Create" / "Save") and `description` (read out with the title, over the catalogue's `form.createDescription` / `form.editDescription`).
+  - `ResourcePage` `formTitles` also takes `createSubmit`, `editSubmit`, `createDescription` and `editDescription`, and a view's `copy.form` takes the same four (genesis-core `ViewCopy`); `ResourceView` merges the screen's over the view's, per entry, as it does the titles.
+  - `ResourcePage` `emptyCreate` (opt-in): an empty list that nothing filters shows its create button in the empty state instead of the header, and leaves out the search and sort row. Any search, status or filter, or `emptyFiltered` (the screen narrows the list itself, say with a tab), keeps the button in the header and the filter row. An `emptyState` action still wins.
+  - `ResourcePage` `createdToast` (opt-in): after the built-in form creates a row, a "Created {name}" toast with an Open action that opens it as a row click would, with focus moved to Open; Tab, Escape or the toast closing returns focus to New. Needs a mounted `<Toaster />`. New catalogue words: `form.created`, `form.createdUnnamed`.
+
+  Fixes, on by default:
+
+  - Closing a `ResourceForm` dialog or sheet (Cancel, Escape or a save) hands focus back to what had it when the form opened, usually the host's New or Edit button. It fell to the page body before, because the form opens from the host's own button rather than a Radix trigger, so a keyboard user started again from the top of the page.
+  - A `ResourceForm` dialog or sheet resets to its defaults before its fields mount (a page form is drawn with its fields at once, on the server too). The form stays mounted while closed and, with `shouldUnregister`, its values start empty, so with some react-hook-form versions a field registering corrected the dirty state during render and React logged "Cannot update a component while rendering a different component". The reset runs in a layout effect, before paint, and nothing typed is lost (no field is registered yet).
+
+- 5ae3b1a: List options, opt-in except the fix below.
+
+  - `ResourceViewDefaultsProvider sizeColumns`: each table column gets a width for what it shows (a badge 130px, a number 96px, a date 120px, other text 140px), the record's name column takes the spare width, and the table keeps room for every column, scrolling sideways below that. Unset, columns share the width as before.
+  - `DataTable minWidth`: the narrowest the table may be before it scrolls sideways. `"auto"` is each column's pixel width plus 200px for each column without one; a number is that many pixels.
+  - `ResourcePage compactWhenShort` (and `ResourceView`): an embedded list with ten rows or fewer and nothing filtering it drops its search and sort row, Columns bar and pager. Past ten rows, or while anything filters it, they come back.
+  - `pagerJumps` on `ResourcePage`, `DataTable` and `ResourceViewDefaultsProvider`: first and last page buttons, "Page n of m" in the table's own pager, and "Previous page" / "Next page" as the arrows' names; on a phone the page pager shows only the arrows. New messages: `page.first`, `page.last`, `page.previousPage`, `page.nextPage`.
+
+  Fix, on by default:
+
+  - A `DataTable` cell keeps what it draws inside its column (`overflow-hidden`; inline editors excepted). Under the table's fixed layout, a long value in a custom-rendered column (an email of 226px in a 122px column) was drawn over the next column's text. The ellipsis on one line stays `clipCells`.
+
+- ebf31da: Record and display additions, all opt-in except the fixes marked below.
+
+  - `RecordView` takes `sectionIcons` (an icon per section id for the shell's tab row and the phone's bottom bar) and `settingsLocked(sectionId, row)` (a screen's own reason to make a settings section read-only; it only narrows the view's update guard).
+  - `ResourceHeader` takes `chips` (more chips after the status) and `subtitle` (a muted line under the title).
+  - Relative times have one wording, `relativeTime` (exported from `@marktiderman/genesis-ui/utils` and `/data`): "just now", "3 min ago", "2 hours ago", "yesterday", "in 5 min", then the date past a week, with days counted on the viewer's calendar, and a `style: "compact"` for dense lists ("now", "5m", the clock time, "Yesterday", the weekday, "12 Mar"). Its words are the catalogue's `time` group, and hours, days and dates are formatted in `time.locale`, so a translation gets its own language. Opt in with `relativeDatetimeRenderer` (and the `RelativeTime` component, which reads the messages in effect and shares one clock across the page) under `DisplayRenderersProvider` (`renderers={{ datetime: relativeDatetimeRenderer }}`), `formatRelativeTime(date, { style: "short", words })` or `DateCell({ relative: "short", words })`. The defaults keep date-fns' wording; switching the default is planned for 3.0. New messages: `time.locale`, `time.justNow`, `time.minutesAgo`, `time.inMinutes`, `time.now`, `time.minutesShort`, `time.yesterday`.
+  - `UserAvatar` takes `distinct`: a stable chart-colour wash per name behind foreground text (14:1 or better in light and dark), and two letters for a one-word name ("Pr", "Po") so names that share an initial differ. The letters come from genesis-core's `initialsOf`, which takes `{ distinct: true }` for the same.
+
+  Fixes, which change what existing screens show:
+
+  - `RecordView` now passes every summary chip after the first, and the summary's `subtitle`, to its header. It used to drop them.
+  - `RecordView` settings send only the fields the person edited. The other fields follow the live row, so a stale draft can't overwrite someone else's change, and an edit back to the stored value (2 and "2", null and "") isn't a change.
+  - A settings field with options that can be empty, and that the view doesn't require, gets a "None" choice that sets it back to empty (the catalogue's `link.none`, the same words and value as the link picker's). Before, a value once chosen couldn't be cleared.
+  - `Textarea` wraps a long unbroken run (`overflow-wrap: anywhere`). Before, a long URL or a pasted token set the textarea's minimum width, which pushed a dialog wider than the screen.
+
+- 224375f: Web sign-in: `AuthForm` in genesis-ui and its Supabase client in genesis-supabase.
+
+  - **genesis-ui**: `AuthForm` (root and `/patterns`), the form inside `AuthPage`. Modes `sign-in` (password, magic link or emailed code), `sign-up`, `forgot-password` and `new-password`, controlled or not. The code step is `InputOTP` (`one-time-code`), verifies on the last digit and resends after a cooldown. Provider buttons from a list or from `client.providers()`. Every call goes through the `AuthFormClient` it is given; failures show the catalogue's copy for the error code (the new `auth` part of the UI messages), else the generic line, never the server's text (that goes to `reportError`, as does a throw), announced and tied to the field the code is about. Without sign-up, an email with no account is answered as sent, in neutral copy. "Check your email" takes focus; the code field stays focusable while it verifies. Every field is labelled with the autocomplete password managers need.
+  - **genesis-supabase**: `createAuthFormClient(supabase, { url, publishableKey, redirectTo, resetRedirectTo })`, that client on the app's Supabase client (`signInWithPassword`, `signInWithOtp`, `verifyOtp`, `signUp`, `resetPasswordForEmail`, `updateUser`, `signInWithOAuth`), never throwing, also with `throwOnError: true`; a missing session is `session_not_found`, and without sign-up an unknown email is answered as sent. `fetchAuthSettings` reads `/auth/v1/settings` for the OAuth providers turned on (only those in `SUPABASE_OAUTH_PROVIDERS`) and whether sign-up is closed, with a 5-second timeout and an optional `signal`, and refuses a secret key.
+
+### Patch Changes
+
+- a25a997: ResourceView's calendar mode now honours the list's options. `resourceOptions.enabled` holds the requests while a screen waits on its scope. `resourceOptions.select` is sent with both requests, so joined columns show. `live` subscribes and refetches as a list does. The list and the calendar build their filters and peek from one place, so they can't drift. In development, a `select` that leaves out the calendar's own fields warns. "+N more" no longer disappears once opened: it becomes "Show fewer". Focus stays put when it opens (it moves to the first revealed event, or stays on the toggle) and when PageDown leaves a lane the next week doesn't have (it goes to the same day in the first lane). A bad `timeZone` throws a `ResourceView(resource): …` error. The lanes layout buckets events once, so moving focus is fast with thousands of events. Lanes from a link (`laneBy` on a field with `references`) show the linked row's words, never the raw id. Studio's calendar is busy while a new month loads. Focus also stays in the grid when new data removes the focused lane. The last day of an overnight event says when it ends ("until 2:00 AM") instead of "All day". A change of scope or filter no longer shows the previous scope's rows while it loads; only a move of the window keeps them up. The open peek follows the row's current data, after a save or a refetch.
+- Updated dependencies [a25a997]
+- Updated dependencies [7cf7951]
+- Updated dependencies [708dd1e]
+- Updated dependencies [8946a6f]
+- Updated dependencies [eb9cbc4]
+- Updated dependencies [ebf31da]
+  - @marktiderman/genesis-core@2.8.0
+
 ## 2.28.0
 
 ### Minor Changes

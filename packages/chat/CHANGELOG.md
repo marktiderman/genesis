@@ -1,5 +1,11 @@
 # @marktiderman/genesis-chat
 
+## 0.7.0
+
+### Minor Changes
+
+- 9ed6179: The inbox's `relativeTime` is now Genesis UI's `relativeTime` in its compact style, so there is one relative-time wording in Genesis. What it shows is unchanged ("now", "5m", the clock time today, "Yesterday", the weekday, "12 Mar"). The `@marktiderman/genesis-ui` peer range starts at 2.29.0, the release that has it.
+
 ## 0.6.1
 
 ### Patch Changes
