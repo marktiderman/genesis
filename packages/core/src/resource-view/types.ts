@@ -58,8 +58,10 @@ export interface ViewField<Row extends DataRow = DataRow> {
    */
   missingLabel?: string;
   /**
-   * For a link: how the form's picker lists the rows it can point at. Every link gets a picker;
-   * this narrows it to the linked view's rules (its scope and default filter) and more.
+   * For a link: edit it in the view's forms with a picker, and how the picker lists the rows it
+   * can point at. Setting it (`{}` is enough) opts the link in; without it (or the view's
+   * `editLinks`) a link stays read-only. `view` narrows it to the linked view's rules (its scope
+   * and default filter); `filter` adds more.
    */
   link?: ViewLink;
   /** Longest text a form accepts. Feeds the derived validation. */
@@ -297,6 +299,11 @@ export interface ViewDefinition<C extends ResourceContract, Row extends DataRow 
   presets?: Readonly<Record<string, ViewPreset<FieldNameOf<C>>>>;
   /** The record form. Default: every writable field, in contract order. */
   form?: readonly ViewFormItem<FieldNameOf<C>>[];
+  /**
+   * Edit every link in this view's forms with a picker. Default false: a link is read-only (and
+   * never sent) unless its `fields.<link>.link` is set (`{}` is enough). The default flips in 3.0.
+   */
+  editLinks?: boolean;
   can?: ViewGuards<Row>;
   /** Named operations on one row, in the order a menu shows them. Names are unique. */
   actions?: readonly ViewAction<Row>[];
@@ -347,7 +354,7 @@ export interface ResolvedFormField {
   missingLabel?: string;
   /** An enum field's choices, in the contract's order, with the view's words. */
   options?: readonly { value: string; label: string }[];
-  /** For a link: how its picker lists the linked rows. Set for every field with `references`. */
+  /** For a link the view opted in (`fields.<link>.link`, `editLinks`): how its picker lists the linked rows. */
   link?: ResolvedLink;
   /** The heading it sits under, or null for none. */
   section: string | null;

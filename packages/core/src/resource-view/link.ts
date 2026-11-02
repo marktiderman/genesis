@@ -5,6 +5,7 @@
 import type { FilterParam } from "../provider/types";
 import type { FieldReference } from "../schema/types";
 import type { ResourceScope } from "../hooks/viewer-scope";
+import { isDevelopment, reportError } from "../errors";
 import { ViewDefinitionError } from "./errors";
 import { scopeFilter } from "./scope";
 import type { LinkFilter, LinkedView, ResolvedLink, ViewLink } from "./types";
@@ -76,10 +77,20 @@ export function resolveLink(
     linked = typeof link?.view === "function" ? link.view() : link?.view;
     if (linked && typeof link?.view === "function") {
       const problems = linkedViewProblems(`fields.${name}.link`, linked, reference, link.preset);
-      if (problems.length) throw new ViewDefinitionError(owner, problems);
+      if (problems.length) {
+        const error = new ViewDefinitionError(owner, problems);
+        // Read while a form renders: in development the mistake fails loudly; in production the
+        // form still opens, its picker listing the linked resource under row-level security only.
+        if (isDevelopment()) throw error;
+        reportError(error, { source: "core:resource-view-link", tags: { resource: owner } });
+        linked = undefined;
+      }
     }
     return linked;
   };
+  // No `link.view`: Genesis keeps no registry of views or tenant columns by resource, so nothing
+  // here can add the linked resource's scope. The data provider's row-level security narrows the
+  // list, and the server must refuse a cross-tenant link (docs/RESOURCE-VIEW.md, "Links in forms").
   return Object.freeze({
     resource: reference.resource,
     field: reference.field,

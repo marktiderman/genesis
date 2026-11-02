@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useDataProvider } from "../provider/context";
-import type { BaseRecord, FilterParam } from "../provider/types";
+import type { BaseRecord, FilterParam, SortParam } from "../provider/types";
 import { useInfiniteResource } from "./use-infinite-resource";
 import { relationNamingField } from "./use-relation-label";
 
@@ -34,6 +34,11 @@ export interface UseLinkOptionsOptions {
   perPage?: number | undefined;
   /** Default true. A picker passes false until it opens, so a closed form asks for nothing. */
   enabled?: boolean | undefined;
+  /**
+   * The words for a row whose naming field is empty: a picker passes its catalogue's
+   * (`common.untitled`). Default "Untitled". Never the row's raw key.
+   */
+  untitled?: string | undefined;
 }
 
 /** One row a picker offers: the key it stores and the words it shows. */
@@ -68,11 +73,12 @@ function words(value: unknown): string | null {
 /**
  * The rows a link can point at, for a picker: listed through the data provider with `filters`,
  * searched on the server with `search` across `searchFields` (else the naming field), sorted by
- * the naming field, `perPage` at a time (`loadMore` for the next). A large table is never loaded
- * whole. Each option is the row's key and its words; a row with no words shows its key.
+ * the naming field then the key, `perPage` at a time (`loadMore` for the next). A large table is
+ * never loaded whole. Each option is the row's key and its words; a row with no words shows
+ * `untitled`, never its key.
  */
 export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOptions = {}): UseLinkOptionsReturn {
-  const { filters, search = "", perPage = 25, enabled = true } = options;
+  const { filters, search = "", perPage = 25, enabled = true, untitled = "Untitled" } = options;
   const provider = useDataProvider();
   const field = target.field ?? "id";
 
@@ -96,24 +102,30 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
 
   // The naming field the list is sorted by: known at once when the target names it, else set
   // below once `describe` answers, before the first request goes.
+  // Then by the key: rows that share a name keep one order across pages, so offset paging never
+  // skips or repeats one (a provider without `multiSort` sorts by the name only).
+  const sortsFor = (by: string): SortParam[] =>
+    by === field || !IDENTIFIER.test(field) ? [{ field: by, order: "asc" }] : [{ field: by, order: "asc" }, { field, order: "asc" }];
   const [sortedBy, setSortedBy] = useState<string | undefined>(naming);
   const list = useInfiniteResource<BaseRecord>(target.resource, {
     ...(filters ? { defaultFilters: filters } : {}),
     perPage,
     ...(naming && IDENTIFIER.test(field) ? { select: `${field},${naming}` } : {}),
-    ...(naming ? { defaultSort: { field: naming, order: "asc" as const } } : {}),
+    ...(naming ? { defaultSorts: sortsFor(naming) } : {}),
     searchFields,
     // Not before the naming field is known, so the first request is already sorted and narrowed.
     enabled: enabled && settled && (!naming || sortedBy === naming),
   });
 
   // The sort and the search follow the naming field and what the person typed.
-  const { setSort, setSearch } = list;
+  const { setSorts, setSearch } = list;
   useEffect(() => {
     if (!naming) return;
-    setSort({ field: naming, order: "asc" });
+    setSorts(sortsFor(naming));
     setSortedBy(naming);
-  }, [naming, setSort]);
+    // sortsFor reads only `field`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [naming, field, setSorts]);
   useEffect(() => {
     setSearch(searchFields.length ? search.trim() : "");
   }, [search, searchFields.length, setSearch]);
@@ -128,10 +140,11 @@ export function useLinkOptions(target: LinkTarget, options: UseLinkOptionsOption
       if (seen.has(String(key))) continue;
       seen.add(String(key));
       const name = naming ? row[naming] : row[Object.keys(row).find((k) => NAMING.test(k)) ?? ""];
-      out.push({ value: key, label: words(name) ?? String(key) });
+      // A row with no words shows `untitled`, never its raw key.
+      out.push({ value: key, label: words(name) ?? untitled });
     }
     return out;
-  }, [rows, field, naming]);
+  }, [rows, field, naming, untitled]);
 
   return {
     options: linkOptions,

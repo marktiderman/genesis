@@ -252,6 +252,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     else if (!byName.get(name)?.references) problems.push(`fields.${name}.missingLabel is set, but "${name}" isn't a link`);
   }
   for (const [name, v] of Object.entries(viewFields)) problems.push(...linkProblems(name, v?.link, byName.get(name)?.references));
+  if (definition.editLinks !== undefined && typeof definition.editLinks !== "boolean") problems.push("editLinks isn't true or false");
   for (const [name, v] of Object.entries(viewFields)) {
     if (v?.labelField === undefined) continue;
     if (typeof v.labelField !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.labelField)) {
@@ -335,22 +336,29 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const valueLabel = (name: string, value: unknown): string => valueText(own(viewFields, name)?.labels, value);
   // A field the provider says this user can't read is left out everywhere, even when listed.
   const readable = (name: string) => byName.get(name)?.permissions?.read !== false;
+  // A link is edited in a form (a picker over the linked rows, never a typed id) only when the view
+  // opts in: `fields.<link>.link` (`{}` is enough) or `editLinks: true`. Otherwise it stays
+  // read-only, as before 2.x links had pickers; a screen fills a required one (its `filter`,
+  // `defaults`). The default flips in 3.0.
+  const editLinks = definition.editLinks === true;
+  const linkEditable = (f: FieldFacts) => Boolean(f.references) && (editLinks || own(viewFields, f.name)?.link !== undefined);
   // Read-only: what the server fills (generated, `@genesis readonly`), what this user can't change,
-  // and what the view says. A link is not: forms edit it with a picker that lists the linked rows
-  // (`link`), never a typed id. Scope (tenant) links stay out of forms altogether (below).
+  // what the view says, and a link the view hasn't opted in. Scope (tenant) links stay out of
+  // forms altogether (below).
   const readOnly = (field: FieldFacts) =>
     Boolean(
       field.generated ||
         field.readOnly ||
+        (field.references && !linkEditable(field)) ||
         field.permissions?.update === false ||
         own(viewFields, field.name)?.readOnly,
     );
   // Left out of defaults (a view still lists them on purpose): the key, scope (tenant) columns,
   // sensitive values, and links, whose words cost a lookup.
   const quiet = (f: FieldFacts) => keys.has(f.name) || scope.has(f.name) || Boolean(f.sensitive) || Boolean(f.references);
-  // A link a new row can't do without (no default, never empty) is in a derived form anyway:
-  // without it, the form could never save. Other links are in a form when the view lists them.
-  const neededLink = (f: FieldFacts) => Boolean(f.references) && !f.nullable && !f.optional && !f.hasDefault && !scope.has(f.name);
+  // An opted-in link a new row can't do without (no default, never empty) is in a derived form
+  // anyway: without it, the form could never save. Other links are in a form when the view lists them.
+  const neededLink = (f: FieldFacts) => linkEditable(f) && !f.nullable && !f.optional && !f.hasDefault && !scope.has(f.name);
 
   // ── Columns ──────────────────────────────────────────────────────────
   const defaultColumns: readonly (string | ComputedColumn<Row>)[] =
@@ -391,7 +399,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   // One picker per link, made once: what it lists, what names a row, the filters it sends.
   const links = new Map(
     fields
-      .filter((f) => f.references)
+      .filter((f) => linkEditable(f))
       .map((f) => [f.name, resolveLink(contract.name, f.name, f.references!, own(viewFields, f.name)?.link, own(viewFields, f.name)?.labelField)]),
   );
   type Placed = { name: string; section: string | null; sectionTitle: string | null };
@@ -438,7 +446,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           ...(field.enumValues?.length
             ? { options: Object.freeze(field.enumValues.map((value) => Object.freeze({ value, label: valueLabel(name, value) }))) }
             : {}),
-          ...(field.references ? { link: links.get(name)! } : {}),
+          ...(links.has(name) ? { link: links.get(name)! } : {}),
           ...(v?.visible ? { visible: v.visible } : {}),
         });
       }));

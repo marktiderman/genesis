@@ -176,8 +176,8 @@ export const brandsView = defineView(contracts["public.brands"], {
   shows the field's `missingLabel` ("Someone you can't see"), else the catalogue's
   `common.hiddenLink`. Labels are cached for a minute and refresh when the linked resource is
   written. Native's read-only link in the form sheet shows the same words.
-- **Links are picked, never typed.** A link in a form is a picker over the linked rows
-  ([Links in forms](#links-in-forms)). Filtering a list by a linked row from its header is
+- **Links are picked, never typed.** A link is read-only in a form unless the view opts it in;
+  then it's a picker over the linked rows ([Links in forms](#links-in-forms)). Filtering a list by a linked row from its header is
   **Planned** ([`resource-view-links`](../features.ts)).
 - **Validation is derived** from the contract (nullability, enums, `max`): the form's fields get
   `required`, `maxLength` and their choices. A view has no hook of its own for further rules; a
@@ -256,21 +256,28 @@ always did. The phone's NativeResourceView follows the same rule.
 
 ### Links in forms
 
-<!-- api: ViewLink, ResolvedLink -->
+<!-- api: ViewLink, ResolvedLink, ViewDefinition<any>, ResourceFormFieldDef -->
 
-A link (a field with `references`) is editable in a form like any other field, with a picker
-that lists the rows it can point at. It shows the linked row's words and stores its key.
+A link (a field with `references`) the view opts in is editable in a form, with a picker that
+lists the rows it can point at. It shows the linked row's words and stores its key.
 
 ```ts
 export const tasksView = defineView(contracts["public.tasks"], {
-  form: ["title", "owner_id", "reviewer_id", "milestone_id"],
+  form: ["title", "owner_id", "reviewer_id", "milestone_id", "client_id"],
   fields: {
     owner_id: { link: { view: peopleView } },              // the people list's own rules
     reviewer_id: { link: { view: () => peopleView, preset: "everyone" } },
     milestone_id: { link: { filter: (values) => ({ project_id: values.project_id as string }) } },
+    client_id: { link: {} },                               // a picker, under row-level security only
   },
 });
 ```
+
+- **Opt in.** A link is editable only when the view says so: `fields.<link>.link` (`{}` is
+  enough) for one link, or `editLinks: true` for every link in the view. Without it a link
+  behaves as it always has in 2.x: read-only, never sent, and filled hidden from the screen's
+  `filter` or `defaults` when a new row needs it. The default flips in 3.0, when every link not
+  marked `readOnly` gets a picker.
 
 - **What it lists.** The linked resource, through the same data provider as every list, so
   row-level security decides what the viewer can pick. `link.view` (the linked resource's view,
@@ -278,9 +285,19 @@ export const tasksView = defineView(contracts["public.tasks"], {
   keys from the viewer's scope (as its own lists apply them), its `default` preset's filter (or
   `link.preset`'s) and its `labelField`. `link.filter` adds more, fixed or from the form's values,
   for a picker that follows another field. A view of another resource, or a preset it doesn't
-  have, fails `defineView`.
+  have, fails `defineView`. A view given as a function is checked when the picker first asks:
+  in development a wrong one throws; in production it is reported (`reportError`) and the picker
+  lists under row-level security and the link's own `filter` only, so the form still opens.
+- **Tenancy is the server's.** Without `link.view`, nothing adds the linked resource's scope:
+  Genesis keeps no registry of views or tenant columns by resource, so the picker lists whatever
+  row-level security lets the viewer read. Give `link.view` for a scoped resource. Either way the
+  client can't stop a cross-tenant link (a request can name any key): the server must, with an
+  INSERT and UPDATE policy `WITH CHECK` that the linked row is in the same tenant, or a
+  composite foreign key (`(org_id, owner_id) references people (org_id, id)`).
 - **Large tables.** It asks for nothing until it opens, then 25 rows at a time sorted by the
-  naming field, with Show more for the next page. Search goes to the server (`search` across
+  naming field then the key (so rows that share a name never fall between pages; a provider
+  without `multiSort` sorts by the name only), with Show more for the next page. A row whose
+  name is empty shows `common.untitled`, never its key. Search goes to the server (`search` across
   `link.searchFields`, default the naming field) once typing settles. A table is never loaded
   whole. The chosen row's words come from the loaded rows, else the batched relation lookup.
 - **Empty.** A link whose column takes null, or has a default, isn't required. Its picker has a
@@ -291,12 +308,16 @@ export const tasksView = defineView(contracts["public.tasks"], {
   `readOnly`. **Scope (tenant) links** never appear in a form at all, even when listed: the scope
   fills them. **A link the screen's `filter` pins** (a client's sessions, a RecordView list
   section) is filled hidden on create and never sent on edit: a picker there would move the row
-  out of the list it was made in. A `defaults` value only starts the picker.
-- **Derived forms** (a view with no `form`) include a link a new row can't do without (no default,
-  never empty); other links are in a form when the view lists them.
-- **Web:** `RelationField` (a Popover with a cmdk Command list, labelled by the field, with the
-  listbox's keyboard model). **Native:** `NativeLinkPicker` in the form sheet: the field's row opens
-  the list in place, with a search bar, None and Show more. Both use core's
+  out of the list it was made in. **A link the filter holds to a list** (`{ owner_id: ["a", "b"] }`,
+  sent as `in`) keeps its picker, offering only those rows. A `defaults` value only starts the picker.
+- **Derived forms** (a view with no `form`) include an opted-in link a new row can't do without
+  (no default, never empty); other links are in a form when the view lists them.
+- **Web:** `RelationField` (a button with `aria-haspopup="listbox"` opening a Popover with a cmdk
+  Command list, labelled by the field, with the listbox's keyboard model; the search input is the
+  only combobox, and the chosen row reads "selected"). A hand-written `type: "relation"` field
+  keeps text keys (`""` for none) unless `relation.keys` is `"row"`, which a view's links use. **Native:** `NativeLinkPicker` in the form sheet: the field's row opens
+  the list in place, with a search bar, None and Show more; each choice is a radio with its
+  checked state, and an error is read in the field's label and announced as an alert. Both use core's
   `useLinkOptions(target, { filters, search })`, which a screen can call for its own picker.
 - RecordView `settings` rows still don't edit a link in place; use the form.
 
@@ -497,7 +518,9 @@ What's needed from the app's database:
   scoped resource needs:
   - INSERT and UPDATE policies `WITH CHECK` membership;
   - the tenant column immutable after insert;
-  - tenant and owner columns left out of forms and the sheet by default.
+  - tenant columns left out of forms and the sheet always, and owner columns (links) read-only
+    unless the view opts them in ([Links in forms](#links-in-forms)), with a `WITH CHECK` or a
+    composite foreign key that keeps a link inside the tenant.
 
   `introspect` generates a `genesis-core/testing` stub per scoped resource, asserting that a
   cross-scope insert and update are refused.

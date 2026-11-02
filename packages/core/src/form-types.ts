@@ -80,6 +80,12 @@ export interface ResourceFormFieldDef {
     filters?: FilterParam[] | ((values: Readonly<Record<string, unknown>>) => FilterParam[]);
     /** The words for a picked row the viewer can't see, or that's gone. Never its raw id. */
     missingLabel?: string;
+    /**
+     * How the key reaches the form. `"text"` (default, as before): the key as a string, `""` for
+     * none. `"row"`: as the row holds it (a number stays a number), `null` for None; a view's
+     * link uses it.
+     */
+    keys?: "text" | "row";
   };
   /** Accepted file types, e.g. "image/*", ".pdf,.doc". */
   accept?: string;

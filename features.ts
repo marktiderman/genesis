@@ -289,7 +289,7 @@ export const features = defineFeatures({
   "resource-view-links": {
     name: "Link pickers and link filters",
     aliases: ["resource-view-link-picker"],
-    summary: "A view's link fields are editable in ResourceView and NativeResourceView forms through a picker that lists the linked resource through the data provider, under the linked view's scope and default filter (`fields.<link>.link`), searched and paged on the server, with None for an optional link; core's useLinkOptions drives both. Scope links and links a screen's filter pins stay out. Filtering a list by a linked row from its header is still to come.",
+    summary: "A view's link fields, once opted in (`fields.<link>.link` or `editLinks`; the default flips in 3.0), are editable in ResourceView and NativeResourceView forms through a picker that lists the linked resource through the data provider, under the linked view's scope and default filter (`fields.<link>.link`), searched and paged on the server, with None for an optional link; core's useLinkOptions drives both. Scope links and links a screen's filter pins stay out. Filtering a list by a linked row from its header is still to come.",
     category: "Data",
     status: "building",
     claimedBy: "claude",

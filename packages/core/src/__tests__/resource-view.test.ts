@@ -5,6 +5,7 @@
 import { describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { csvField, exportCsv } from "../csv";
+import { setErrorReporter } from "../errors";
 import { calendarProblems, defineView, deriveDisplay, initialsOf, rowPicture, scopeValues, valueText, ViewDefinitionError, type ViewField } from "../resource-view";
 import { defineResource, type ResourceContract } from "../schema/types";
 import { isSafeUrl } from "../urls";
@@ -335,7 +336,7 @@ describe("defineView review fixes", () => {
     expect(v.writable("edit")).toEqual(["body"]);
   });
 
-  it("keeps optional links, scope and JSON out of defaults, keeps a typed key and a needed link, and never sends a server-filled key", () => {
+  it("keeps links, scope and JSON out of defaults, keeps a typed key, and never sends a server-filled key", () => {
     const c = {
       name: "codes",
       key: "code",
@@ -348,12 +349,29 @@ describe("defineView review fixes", () => {
     } as const satisfies ResourceContract;
     const v = defineView(c);
     expect(v.columns().map((x) => x.key)).toEqual(["meta", "note"]);
-    // owner_id can't be empty and has no default: without it the form could never save.
-    expect(v.writable("create")).toEqual(["code", "owner_id", "note"]);
-    expect(v.writable("edit")).toEqual(["owner_id", "note"]);
+    expect(v.writable("create")).toEqual(["code", "note"]);
+    expect(v.writable("edit")).toEqual(["note"]);
     expect(v.form("create").find((f) => f.field.name === "note")!.required).toBe(false);
     const listed = defineView<typeof brands, BrandRow>(brands, { form: ["id", "name"] });
     expect(listed.writable("create")).toEqual(["name"]);
+  });
+
+  it("keeps a link named in the form read-only unless the view opts it in", () => {
+    const c = {
+      name: "notes",
+      key: "id",
+      fields: [
+        { name: "id", type: "string", hasDefault: true },
+        { name: "body", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
+      ],
+    } as const satisfies ResourceContract;
+    const v = defineView(c, { form: ["body", "owner_id"], columns: { default: ["body", "owner_id"] } });
+    const owner = v.form("create").find((f) => f.field.name === "owner_id")!;
+    expect(owner.readOnly).toBe(true);
+    expect(owner.link).toBeUndefined();
+    expect(v.writable("create")).toEqual(["body"]);
+    expect(v.writable("edit")).toEqual(["body"]);
   });
 
   it("guesses common singulars", () => {
@@ -714,8 +732,32 @@ describe("links in forms", () => {
     presets: { default: { filter: { active: true } }, everyone: { filter: {} } },
   });
 
+  it("opts a link in with fields.<link>.link ({} is enough) or editLinks, and gates a needed link the same way", () => {
+    const codes = {
+      name: "codes",
+      key: "code",
+      fields: [
+        { name: "code", type: "string" },
+        { name: "owner_id", type: "string", references: { resource: "users", field: "id" } },
+        { name: "note", type: "string", optional: true },
+      ],
+    } as const satisfies ResourceContract;
+    // Without opt-in, as before: read-only, never sent, not in a derived form.
+    expect(defineView(codes).writable("create")).toEqual(["code", "note"]);
+    // owner_id can't be empty and has no default: once opted in, a derived form needs it.
+    const one = defineView(codes, { fields: { owner_id: { link: {} } } });
+    expect(one.writable("create")).toEqual(["code", "owner_id", "note"]);
+    expect(one.writable("edit")).toEqual(["owner_id", "note"]);
+    expect(one.form("create").find((f) => f.field.name === "owner_id")!.link).toMatchObject({ resource: "users", field: "id" });
+    const all = defineView(codes, { editLinks: true });
+    expect(all.writable("edit")).toEqual(["owner_id", "note"]);
+    // A view-wide opt-in still leaves a declared read-only link alone.
+    expect(defineView(codes, { editLinks: true, fields: { owner_id: { readOnly: true } } }).writable("edit")).toEqual(["note"]);
+    expect(() => defineView(codes, { editLinks: "yes" as never })).toThrow(/editLinks isn't true or false/);
+  });
+
   it("edits a link the form lists, with a picker, and needs it only when it can't be empty", () => {
-    const v = defineView(notes, { scope: ["org_id"], form: ["body", "owner_id", "reviewer_id", "author_id"] });
+    const v = defineView(notes, { scope: ["org_id"], editLinks: true, form: ["body", "owner_id", "reviewer_id", "author_id"] });
     const form = v.form("create");
     const owner = form.find((f) => f.field.name === "owner_id")!;
     expect(owner.readOnly).toBe(false);
@@ -731,6 +773,7 @@ describe("links in forms", () => {
 
   it("keeps server-owned, locked and declared read-only links read-only", () => {
     const v = defineView(notes, {
+      editLinks: true,
       form: ["owner_id", "made_by", "locked_id", "reviewer_id"],
       fields: { reviewer_id: { readOnly: true } },
     });
@@ -740,14 +783,14 @@ describe("links in forms", () => {
   });
 
   it("never puts a scope (tenant) link in a form, even when listed", () => {
-    const v = defineView(notes, { scope: ["org_id"], form: ["org_id", "body"] });
+    const v = defineView(notes, { scope: ["org_id"], editLinks: true, form: ["org_id", "body"] });
     expect(v.form("create").map((f) => f.field.name)).toEqual(["body"]);
     expect(v.writable("create")).toEqual(["body"]);
   });
 
-  it("derives a form with the links a new row needs, and leaves optional ones to the view", () => {
-    const v = defineView(notes, { scope: ["org_id"] });
-    expect(v.writable("create")).toEqual(["body", "owner_id"]);
+  it("derives a form with the opted-in links a new row needs, and leaves optional ones to the view", () => {
+    expect(defineView(notes, { scope: ["org_id"], editLinks: true }).writable("create")).toEqual(["body", "owner_id"]);
+    expect(defineView(notes, { scope: ["org_id"] }).writable("create")).toEqual(["body"]);
   });
 
   it("lists the linked rows under the linked view's scope and default filter, then the link's own", () => {
@@ -778,7 +821,7 @@ describe("links in forms", () => {
     const named = defineView(users, { fields: { full_name: { label: "Name" } } });
     const v = defineView(notes, { form: ["owner_id"], fields: { owner_id: { link: { view: named } } } });
     expect(v.form("create")[0]!.link!.labelField).toBe("full_name");
-    expect(defineView(notes, { form: ["owner_id"] }).form("create")[0]!.link!.labelField).toBeUndefined();
+    expect(defineView(notes, { form: ["owner_id"], editLinks: true }).form("create")[0]!.link!.labelField).toBeUndefined();
   });
 
   it("refuses a link the field can't have", () => {
@@ -787,8 +830,27 @@ describe("links in forms", () => {
     expect(() => defineView(notes, { fields: { owner_id: { link: { view: brandsOnly as never } } } })).toThrow(/is a view of "public.brands", but the link points at "users"/);
     expect(() => defineView(notes, { fields: { owner_id: { link: { view: usersView, preset: "nobody" } } } })).toThrow(/preset "nobody" isn't one of users's presets/);
     expect(() => defineView(notes, { fields: { owner_id: { link: { preset: "default" } } } })).toThrow(/preset needs a view/);
-    // A view given as a function is checked when the picker first asks.
+    // A view given as a function is checked when the picker first asks: in development it throws.
     const lazy = defineView(notes, { form: ["owner_id"], fields: { owner_id: { link: { view: () => brandsOnly as never } } } });
     expect(() => lazy.form("create")[0]!.link!.filters()).toThrow(ViewDefinitionError);
+  });
+
+  it("in production, reports a wrong lazy view and lists under row-level security only, instead of throwing in render", () => {
+    const brandsOnly = defineView(brands);
+    const reporter = vi.fn();
+    const restore = setErrorReporter(reporter);
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      const lazy = defineView(notes, { form: ["owner_id"], fields: { owner_id: { link: { view: () => brandsOnly as never, filter: { active: true } } } } });
+      const link = lazy.form("create")[0]!.link!;
+      expect(link.filters({ org_id: "o1" })).toEqual([{ field: "active", operator: "eq", value: true }]);
+      expect(link.labelField).toBeUndefined();
+      expect(reporter).toHaveBeenCalledTimes(1);
+      expect(reporter.mock.calls[0]![0]).toBeInstanceOf(ViewDefinitionError);
+      expect(reporter.mock.calls[0]![1]).toMatchObject({ source: "core:resource-view-link" });
+    } finally {
+      vi.unstubAllEnvs();
+      restore();
+    }
   });
 });
