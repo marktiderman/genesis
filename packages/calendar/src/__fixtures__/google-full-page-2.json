@@ -1,0 +1,22 @@
+{
+  "kind": "calendar#events",
+  "etag": "\"p3a8fixture0002\"",
+  "summary": "sample@example.com",
+  "updated": "2026-11-01T15:02:11.512Z",
+  "timeZone": "America/New_York",
+  "accessRole": "reader",
+  "nextSyncToken": "CPDAlvWDx70CEPDAlvWDx70CGAUggICAgICAgA==",
+  "items": [
+    {
+      "kind": "calendar#event",
+      "etag": "\"3480000000000002\"",
+      "id": "9zfixtureallday",
+      "status": "tentative",
+      "summary": "Long weekend away",
+      "start": { "date": "2026-11-27" },
+      "end": { "date": "2026-11-30" },
+      "iCalUID": "9zfixtureallday@google.com",
+      "sequence": 0
+    }
+  ]
+}

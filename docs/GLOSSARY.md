@@ -49,6 +49,9 @@ new names against this page.
 | **adapter** | an implementation of a Genesis interface for an outside system: a switchboard backend, a storage backend or an AI vendor. | driver, connector (for this), and provider (for AI vendors). |
 | **vendor** | an AI model company (Anthropic, OpenAI). It is already used in `genesis-ai` prose. |  |
 | **connector** | an outside account linked through `genesis-connect` (OAuth plus secrets). | integration (as a type name). |
+| **occurrence** | one dated instance of an event; a repeating series has many (`EventOccurrence`, `expandRecurrence` in core/dates). | instance (in APIs), recurrence (for one of them). |
+| **calendar source** | one calendar an event comes from: a provider's calendar, an iCal feed, or an app's own rows through a `CalendarSourceAdapter` (`genesis-calendar`, ADR 0014). A **feed** is only the iCal kind. | feed (for every kind), subscription. |
+| **mark** | a note people put on an occurrence or a series they review together: star, hide, hide the series (`genesis-calendar`). | tag, flag (for this). |
 | **`*Provider` (component)** | a React context component. The suffix is exempt because it is React's convention. |  |
 
 ## Tenancy, people, access
