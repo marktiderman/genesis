@@ -53,6 +53,18 @@ export const uiMessages = {
     notFoundBody: "This record doesn't exist, or you don't have access to it.",
     deleteFailed: "The delete failed.",
   },
+  /** A link's picker in a form (RelationField). */
+  link: {
+    /** The closed picker with nothing chosen. */
+    placeholder: "Choose…",
+    search: "Search…",
+    /** The choice that empties an optional link. */
+    none: "None",
+    noResults: "No matches",
+    loadMore: "Show more",
+    loadFailed: "Couldn't load the choices.",
+    createNew: "Create new…",
+  },
   form: {
     /** `{noun}`: the record's name, e.g. "goal". */
     createTitle: "New {noun}",

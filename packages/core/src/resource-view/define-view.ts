@@ -7,6 +7,8 @@ import { keyFields } from "../schema/keys";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
 import { titleCase } from "../utils";
 import { isTimeZone } from "../dates";
+import { ViewDefinitionError } from "./errors";
+import { linkProblems, resolveLink } from "./link";
 import type {
   Allowed,
   ComputedColumn,
@@ -32,15 +34,8 @@ type ContractFacts = ResourceContract & {
   readonly nounPlural?: string;
 };
 
-/** A view that names a field, preset or section its contract doesn't have. */
-export class ViewDefinitionError extends Error {
-  readonly problems: readonly string[];
-  constructor(resource: string, problems: readonly string[]) {
-    super(`defineView(${resource}): ${problems.join("; ")}`);
-    this.name = "ViewDefinitionError";
-    this.problems = problems;
-  }
-}
+// In a file of its own so scope.ts and link.ts can throw it without importing this one.
+export { ViewDefinitionError } from "./errors";
 
 /** The display a field gets when the view doesn't name one. */
 export function deriveDisplay(field: FieldSchema): DisplayHint {
@@ -256,6 +251,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     if (typeof v.missingLabel !== "string" || !v.missingLabel.trim()) problems.push(`fields.${name}.missingLabel isn't text`);
     else if (!byName.get(name)?.references) problems.push(`fields.${name}.missingLabel is set, but "${name}" isn't a link`);
   }
+  for (const [name, v] of Object.entries(viewFields)) problems.push(...linkProblems(name, v?.link, byName.get(name)?.references));
   for (const [name, v] of Object.entries(viewFields)) {
     if (v?.labelField === undefined) continue;
     if (typeof v.labelField !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.labelField)) {
@@ -339,19 +335,22 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   const valueLabel = (name: string, value: unknown): string => valueText(own(viewFields, name)?.labels, value);
   // A field the provider says this user can't read is left out everywhere, even when listed.
   const readable = (name: string) => byName.get(name)?.permissions?.read !== false;
-  // A link stays read-only until there's a picker, so no one sends a hand-typed id. A screen
-  // fills a required one on create (its `filter`).
+  // Read-only: what the server fills (generated, `@genesis readonly`), what this user can't change,
+  // and what the view says. A link is not: forms edit it with a picker that lists the linked rows
+  // (`link`), never a typed id. Scope (tenant) links stay out of forms altogether (below).
   const readOnly = (field: FieldFacts) =>
     Boolean(
       field.generated ||
         field.readOnly ||
-        field.references ||
         field.permissions?.update === false ||
         own(viewFields, field.name)?.readOnly,
     );
   // Left out of defaults (a view still lists them on purpose): the key, scope (tenant) columns,
-  // sensitive values, and links, which need a picker rather than a raw id.
+  // sensitive values, and links, whose words cost a lookup.
   const quiet = (f: FieldFacts) => keys.has(f.name) || scope.has(f.name) || Boolean(f.sensitive) || Boolean(f.references);
+  // A link a new row can't do without (no default, never empty) is in a derived form anyway:
+  // without it, the form could never save. Other links are in a form when the view lists them.
+  const neededLink = (f: FieldFacts) => Boolean(f.references) && !f.nullable && !f.optional && !f.hasDefault && !scope.has(f.name);
 
   // ── Columns ──────────────────────────────────────────────────────────
   const defaultColumns: readonly (string | ComputedColumn<Row>)[] =
@@ -389,6 +388,12 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
   };
 
   // ── Form ─────────────────────────────────────────────────────────────
+  // One picker per link, made once: what it lists, what names a row, the filters it sends.
+  const links = new Map(
+    fields
+      .filter((f) => f.references)
+      .map((f) => [f.name, resolveLink(contract.name, f.name, f.references!, own(viewFields, f.name)?.link, own(viewFields, f.name)?.labelField)]),
+  );
   type Placed = { name: string; section: string | null; sectionTitle: string | null };
   const placed: readonly Placed[] = definition.form
     ? formItems.flatMap((item): Placed[] =>
@@ -399,7 +404,13 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
     : fields
         // JSON needs an editor of its own, so it is never in a derived form.
         // A key the person types (a code, a slug) stays; one the server fills doesn't.
-        .filter((f) => !readOnly(f) && (!quiet(f) || (keys.has(f.name) && !f.hasDefault && !f.sensitive)) && f.type !== "json" && !f.array)
+        .filter(
+          (f) =>
+            !readOnly(f) &&
+            (!quiet(f) || (keys.has(f.name) && !f.hasDefault && !f.sensitive) || (neededLink(f) && !f.sensitive)) &&
+            f.type !== "json" &&
+            !f.array,
+        )
         .map((f): Placed => ({ name: f.name, section: null, sectionTitle: null }));
   // A key the server fills (a default) is never sent on create; no key is sent on edit.
   const serverKey = (f: FieldFacts, mode: "create" | "edit") => keys.has(f.name) && (mode === "edit" || Boolean(f.hasDefault));
@@ -427,6 +438,7 @@ export function defineView<C extends ResourceContract, Row extends DataRow = Row
           ...(field.enumValues?.length
             ? { options: Object.freeze(field.enumValues.map((value) => Object.freeze({ value, label: valueLabel(name, value) }))) }
             : {}),
+          ...(field.references ? { link: links.get(name)! } : {}),
           ...(v?.visible ? { visible: v.visible } : {}),
         });
       }));

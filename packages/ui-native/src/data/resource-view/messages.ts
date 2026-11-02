@@ -65,6 +65,20 @@ export interface NativeResourceViewMessages {
     clear: string;
     loading: string;
   };
+  /**
+   * A link's picker in the form sheet. Optional, so a catalogue written before it still fits; the
+   * English is used for what's missing.
+   */
+  link?: {
+    /** The picker with nothing chosen. */
+    placeholder?: string;
+    search?: string;
+    /** The choice that empties an optional link. */
+    none?: string;
+    noResults?: string;
+    loadMore?: string;
+    loadFailed?: string;
+  };
   refusal: {
     /** `{noun}`. A delete failed with no message of its own. */
     deleteFailed: string;
@@ -114,6 +128,14 @@ export const defaultNativeResourceViewMessages: NativeResourceViewMessages = {
     pickDateTime: "Add a date and time",
     clear: "Clear {label}",
     loading: "Loading",
+  },
+  link: {
+    placeholder: "Choose…",
+    search: "Search",
+    none: "None",
+    noResults: "No matches",
+    loadMore: "Show more",
+    loadFailed: "Couldn't load the choices.",
   },
   refusal: {
     deleteFailed: "This {noun} couldn't be deleted. Try again.",

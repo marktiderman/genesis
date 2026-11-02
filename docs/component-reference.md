@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4081 other exports · 3246 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4088 other exports · 3262 standalone types across 189 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1150,7 +1150,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (69)
+### Other exports (71)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1198,6 +1198,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
@@ -1211,6 +1212,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field, `perPage` at a time (`loadMore` ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1226,7 +1228,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (112)
+### Types (116)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1278,6 +1280,8 @@ export type { InfinitePageParam };
 export type { InvalidationKey };
 export type { KeyFilter };
 export type { KeyScope };
+export type { LinkOption };
+export type { LinkTarget };
 export type { ListParams };
 export type { ListResult };
 export type { LiveOptions };
@@ -1324,6 +1328,8 @@ export type { UpdateResult };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
+export type { UseLinkOptionsOptions };
+export type { UseLinkOptionsReturn };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -1451,7 +1457,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (34)
+### Other exports (36)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1473,12 +1479,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`loadRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The words for one linked id, batched with every other id asked for in the same tick: one `getList(resource, { filters: [{ field, operator: "in" }] })` per linked resource and naming field. Resolves null when the row has no words or isn't... |
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
+| [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`scopeClock`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | The scope's clock: `scopeTimeZone` when the runtime knows it, else the viewer's. A zone it doesn't know is never a quiet fallback: it throws in development, and in production it is reported (`reportError`, once per zone) before the viewe... |
 | [`stableJson`](../packages/core/src/hooks/draft-controller.ts) | function | — | JSON with object keys sorted, so values compare equal whatever order a store keeps keys in. |
 | [`useCapabilities`](../packages/core/src/hooks/use-capabilities.ts) | function | — | What the data provider can do for `resource` (`provider.capabilities`), cached per provider and resource. `data` stays undefined for a provider that doesn't report capabilities, so a UI keeps its defaults. |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field, `perPage` at a time (`loadMore` ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1492,7 +1500,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useWrite`](../packages/core/src/hooks/use-write.ts) | function | — | A one-off write that isn't a resource page's create, update or remove: a database function, `createOrAdopt`, several writes in a row. It invalidates what it made stale and reports failures in plain words. |
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 
-### Types (31)
+### Types (35)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1505,6 +1513,8 @@ export type { DraftStatus };
 export type { DraftValue };
 export type { GenesisViewerRoles };
 export type { InfinitePageParam };
+export type { LinkOption };
+export type { LinkTarget };
 export type { LiveOptions };
 export type { MutationMode };
 export type { MutationModeOptions };
@@ -1513,6 +1523,8 @@ export type { UndoableWrite };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
+export type { UseLinkOptionsOptions };
+export type { UseLinkOptionsReturn };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -1824,7 +1836,7 @@ export type { SaveState };
 
 **Barrel:** [`packages/core/src/resource-view/index.ts`](../packages/core/src/resource-view/index.ts)
 
-### Other exports (20)
+### Other exports (21)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1836,6 +1848,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
+| [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
 | [`initialExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open ids a tree starts with: `true` opens every parent, a number opens parents shallower than that depth (`1` opens the roots), `false` or nothing opens none. |
 | [`initialsOf`](../packages/core/src/resource-view/picture.ts) | function | — | First and last initial of a name, from letters only: "Ada Lovelace" → "AL", "Ana-María López" → "AL", "李 小龙" → "李小", "Cher" → "C". Empty when the name has no letters (" ", "🎉🎉"). |
 | [`isRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | Whether a value is a record view (`defineRecordView`'s result). |
@@ -1849,9 +1862,9 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`singular`](../packages/core/src/resource-view/define-view.ts) | function | — | A table name's singular, for the default noun. A wrong guess is fixed with `@genesis {"noun"}`. |
 | [`treeRows`](../packages/core/src/resource-view/tree.ts) | function | — | Build the tree from flat rows. Siblings are sorted by `compare`, else keep the rows' order, so either way the sort applies within each set of siblings. A row whose parent isn't among `rows` is a root, and so is a row whose parent would c... |
 | [`valueText`](../packages/core/src/resource-view/define-view.ts) | function | — | A value in words: its entry in `labels`, else the value in title case (`draft` → "Draft"). |
-| [`ViewDefinitionError`](../packages/core/src/resource-view/define-view.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
+| [`ViewDefinitionError`](../packages/core/src/resource-view/errors.ts) | class | — | A view that names a field, preset or section its contract doesn't have. |
 
-### Types (48)
+### Types (52)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -1861,6 +1874,8 @@ export type { ComputedColumn };
 export type { DisplayHint };
 export type { FieldNameOf };
 export type { GenesisViewerRoles };
+export type { LinkFilter };
+export type { LinkedView };
 export type { RecordView };
 export type { RecordViewDefinition };
 export type { RecordViewFilter };
@@ -1874,6 +1889,7 @@ export type { RecordViewSettingsSection };
 export type { RecordViewSlotSection };
 export type { ResolvedColumn };
 export type { ResolvedFormField };
+export type { ResolvedLink };
 export type { ResolvedReadinessItem };
 export type { ResolvedRecordViewSection };
 export type { ResolvedViewAction };
@@ -1897,6 +1913,7 @@ export type { ViewDefinition };
 export type { ViewField };
 export type { ViewFormItem };
 export type { ViewGuards };
+export type { ViewLink };
 export type { ViewPreset };
 export type { ViewTimeZone };
 export type { ViewTone };
@@ -4124,7 +4141,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (69)
+### Other exports (71)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4172,6 +4189,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`pendingWriteCount`](../packages/core/src/hooks/mutation-mode.ts) | function | — | Optimistic or undoable writes on `resource` not yet settled. |
 | [`readFailureMessage`](../packages/core/src/schema/read-outcome.ts) | function | — | The plain sentence for a failed read of `noun` records (one, or a list). |
 | [`readOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a store error code to the read outcome it means: the write mapping, with `22***` and PostgREST request errors (`PGRST1**` other than PGRST116, `42703` unknown column, `42P01` unknown table) read as `invalid`. |
+| [`relationNamingField`](../packages/core/src/hooks/use-relation-label.ts) | function | — | The linked resource's naming field, as a link's words find it: its `labelField` from `describe`, else a `name`/`title`-like field. Undefined when it can't say. Asked once per resource and provider; a picker uses it to search and sort the... |
 | [`rememberedWorkspaceId`](../packages/core/src/hooks/workspace-scope.tsx) | function | Beta | The workspace this viewer was last in on this device, for the app's front door (`defaultWorkspace(workspaces, rememberedWorkspaceId(viewer))`). Null when unknown. |
 | [`reportError`](../packages/core/src/errors.ts) | function | — | Report an error a package caught and handled. Never throws: a failing reporter must not take the caller (an event handler, a render) down. `context` may be just the source. |
 | [`resourceKeys`](../packages/core/src/query-keys.ts) | function | — | The keys Genesis's own hooks cache a resource under, for writing into or invalidating them by hand: `[resource]` covers them all. |
@@ -4185,6 +4203,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDataProvider`](../packages/core/src/provider/context.tsx) | function | — | _(no summary)_ |
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
+| [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field, `perPage` at a time (`loadMore` ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -4200,7 +4219,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WRITE_FAILED`](../packages/core/src/hooks/use-write.ts) | const | — | _(no summary)_ |
 | [`writeOutcomeFromCode`](../packages/core/src/provider/postgrest-errors.ts) | function | — | Maps a Postgres SQLSTATE or PostgREST error code to the write outcome it means. Anything not listed is `error`: a code is only read as a refusal or a bad value when it says so. |
 
-### Types (112)
+### Types (116)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4252,6 +4271,8 @@ export type { InfinitePageParam };
 export type { InvalidationKey };
 export type { KeyFilter };
 export type { KeyScope };
+export type { LinkOption };
+export type { LinkTarget };
 export type { ListParams };
 export type { ListResult };
 export type { LiveOptions };
@@ -4298,6 +4319,8 @@ export type { UpdateResult };
 export type { UseDraftReturn };
 export type { UseInfiniteResourceOptions };
 export type { UseInfiniteResourceReturn };
+export type { UseLinkOptionsOptions };
+export type { UseLinkOptionsReturn };
 export type { UseOneOptions };
 export type { UseRelationLabelOptions };
 export type { UseResourceFormOptions };
@@ -11574,7 +11597,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DisplayTimeZonesProvider`](../packages/ui-native/src/data/resource-view/display.tsx) | const | — | The clocks timestamps are read on below. NativeResourceView sets it from ViewerScope. |
 | [`formatDay`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A day. A calendar day (`YYYY-MM-DD`) from its parts; a timestamp as the day it is on `zone`'s clock (core's `wallClock`), so an 8pm edit in New York isn't tomorrow's (its UTC day). |
 | [`formatInstant`](../packages/ui-native/src/data/resource-view/display.tsx) | function | — | A timestamp as the clock on the wall in `zone` shows it (core's `wallClock`), not the device's. |
-| [`formFieldsFor`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, links, scope, sensitive and unreadable fields and server-filled keys), each marked read-only unless `view.writable(mode)` lists it. Copied, never mutated: ... |
+| [`formFieldsFor`](../packages/ui-native/src/data/resource-view/mapping.ts) | function | — | The form sheet's fields: `view.form(mode)` (which already leaves out JSON, lists, scope, sensitive and unreadable fields and server-filled keys), each marked read-only unless `view.writable(mode)` lists it. A link the person can change i... |
 | [`getNativeRecordViewStackOptions`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | `<Stack.Screen options>` for a record view: the record's title in the navigation bar and the actions in the header menu. |
 | [`getNativeResourceWorkspaceStackOptions`](../packages/ui-native/src/data/resource-view/NativeRecordView.tsx) | function | — | _(no summary)_ |
 | [`nativeDisplayRenderers`](../packages/ui-native/src/data/resource-view/display.tsx) | const | — | Genesis's native renderers. Every one shows text it can't draw, never a broken row. |

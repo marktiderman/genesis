@@ -552,6 +552,56 @@
       "flags": []
     },
     {
+      "id": "resource-view-link-picker",
+      "name": "Link pickers in view forms",
+      "summary": "A defineView link (a field with `references`) is editable in ResourceView and NativeResourceView forms with a searchable picker over the linked rows, listed through the data provider under the linked view's scope and default filter (`fields.<link>.link`), searched and paged on the server, with None for an optional link; core's useLinkOptions drives both. Scope links and links a screen's filter pins stay out.",
+      "status": "building",
+      "claimedBy": "claude",
+      "kind": "pattern",
+      "keywords": [
+        "relation",
+        "foreign key",
+        "link",
+        "picker",
+        "combobox",
+        "select a record",
+        "lookup",
+        "reference field"
+      ],
+      "platforms": {
+        "web": "building",
+        "native": "building"
+      },
+      "entry": {
+        "web": "@marktiderman/genesis-ui/data",
+        "native": "@marktiderman/genesis-ui-native/data"
+      },
+      "extends": "resource-page",
+      "owner": "mark",
+      "apps": [
+        "web",
+        "native"
+      ],
+      "audience": [
+        "developer"
+      ],
+      "reviewedAt": "2026-11-01",
+      "links": {
+        "code": [
+          "packages/core/src/resource-view/link.ts",
+          "packages/core/src/hooks/use-link-options.ts",
+          "packages/ui/src/components/data/RelationField.tsx",
+          "packages/ui-native/src/data/resource-view/NativeLinkPicker.tsx"
+        ],
+        "docs": [
+          "docs/RESOURCE-VIEW.md"
+        ]
+      },
+      "visibility": "customer",
+      "access": "all",
+      "flags": []
+    },
+    {
       "id": "resource-tree",
       "name": "Tree mode for lists",
       "summary": "ResourceView and ResourcePage's `tree` option nests rows under their parent from a flat list: depth and an expand arrow in the first cell, sort within siblings, filters that keep a match's ancestors, controlled or uncontrolled open state and opt-in cascade selection, with the logic in genesis-core/resource-view.",

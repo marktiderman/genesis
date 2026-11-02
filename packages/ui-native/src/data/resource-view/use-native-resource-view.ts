@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BaseRecord, DataRow, FilterParam } from "@marktiderman/genesis-core";
 import { useCapabilities, useInfiniteResource, useResource, useViewer } from "@marktiderman/genesis-core/hooks";
-import type { Allowed } from "@marktiderman/genesis-core/resource-view";
+import { filterParams as toFilters, type Allowed } from "@marktiderman/genesis-core/resource-view";
 import { useNativeResourceViewMessages } from "./display";
 import {
   allowed,
@@ -108,13 +108,7 @@ export interface UseNativeResourceViewReturn<T extends Row = Row> {
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
-  return Object.entries(filter ?? {}).map(([field, value]): FilterParam =>
-    value === null
-      ? { field, operator: "is_null" }
-      : Array.isArray(value)
-        ? { field, operator: "in", value: [...(value as readonly (string | number)[])] }
-        : { field, operator: "eq", value: value as string | number | boolean },
-  );
+  return toFilters(filter);
 }
 
 /** The values a create takes from the screen: every non-null equality filter, the screen's over the tab's. */
@@ -219,7 +213,9 @@ export function useNativeResourceView<T extends Row = Row>(
   // saved, so an input for it would be overridden without a word (the web hides them too).
   const formFields = useCallback(
     (mode: "create" | "edit") =>
-      mode === "create" ? formFieldsFor(view, "create").filter((f) => !(f.key in createDefaults)) : formFieldsFor(view, "edit"),
+      mode === "create"
+        ? formFieldsFor(view, "create").filter((f) => !(f.key in createDefaults))
+        : formFieldsFor(view, "edit", { pinned: Object.keys(createDefaults) }),
     [view, createDefaults],
   );
   const editable = useMemo(() => formFieldsFor(view, "edit").some((f) => !f.readOnly), [view]);

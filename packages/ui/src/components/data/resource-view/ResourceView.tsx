@@ -5,7 +5,8 @@
 
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
-import { plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import type { ResourceScope } from "@marktiderman/genesis-core/hooks";
+import { filterParams as toFilters, plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -83,12 +84,27 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
   email: "email",
 };
 
-function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDef {
+function formField(f: ResolvedFormField, editable: boolean, scope: ResourceScope | null | undefined): ResourceFormFieldDef {
   const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
+  const link = f.link;
   return {
     key: f.field.name,
     label: f.label,
-    type: options ? "select" : (FORM_TYPE[f.display] ?? "text"),
+    type: options ? "select" : link ? "relation" : (FORM_TYPE[f.display] ?? "text"),
+    // A link is a picker over the linked rows (through the provider, under the linked view's
+    // scope and default filter), never a typed id.
+    ...(link && !options
+      ? {
+          relation: {
+            resource: link.resource,
+            valueField: link.field,
+            ...(link.labelField ? { labelField: link.labelField } : {}),
+            ...(link.searchFields ? { searchFields: [...link.searchFields] } : {}),
+            filters: (values: Readonly<Record<string, unknown>>) => link.filters(scope, values),
+            ...(f.missingLabel ? { missingLabel: f.missingLabel } : {}),
+          },
+        }
+      : {}),
     required: f.required,
     // What an input left empty sends: nothing on a create (the column's default applies), null on an edit.
     ...(f.field.nullable !== undefined ? { nullable: f.field.nullable } : {}),
@@ -102,13 +118,7 @@ function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDe
 }
 
 function filterParams(filter: Filter | undefined): FilterParam[] {
-  return Object.entries(filter ?? {}).map(([field, value]): FilterParam =>
-    value === null
-      ? { field, operator: "is_null" }
-      : Array.isArray(value)
-        ? { field, operator: "in", value: [...(value as readonly (string | number)[])] }
-        : { field, operator: "eq", value: value as string | number | boolean },
-  );
+  return toFilters(filter);
 }
 
 /** The single values of a filter: what a new row made from the list starts with. */
@@ -184,18 +194,24 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
 
   // The form lists only fields a writer may send. A field that can't change after create is
   // shown read-only when editing.
+  const scopeKey = JSON.stringify(viewer.scope ?? null);
   const formFields = useMemo(() => {
     const editable = new Set(view.writable("edit"));
     const writable = new Set(view.writable("create"));
     // What a new row starts with: the defaults, then the filter over them, so a new row stays in
     // the list it was made from.
-    const starts: Defaults = { ...(JSON.parse(defaultsKey) as Defaults), ...singleValues(JSON.parse(filterKey) as Filter) };
+    const pinned = singleValues(JSON.parse(filterKey) as Filter);
+    const starts: Defaults = { ...(JSON.parse(defaultsKey) as Defaults), ...pinned };
+    const scope = JSON.parse(scopeKey) as ResourceScope | null;
     const shown = view
       .form("create")
       // JSON and lists need editors of their own; the plain form would send them back as text.
       .filter((f) => writable.has(f.field.name) && f.display !== "json" && !f.field.array)
+      // A link the list's filter pins (a client's sessions, a record's list section) is the list's
+      // own: filled hidden below, never a picker that would move the row out of this list.
+      .filter((f) => !(f.link && Object.hasOwn(pinned, f.field.name)))
       .map((f) => {
-        const def = formField(f, editable.has(f.field.name));
+        const def = formField(f, editable.has(f.field.name), scope);
         return Object.hasOwn(starts, def.key) ? { ...def, defaultValue: starts[def.key] } : def;
       });
     // They fill the fields the form doesn't show too (the client a session belongs to): hidden,
@@ -205,7 +221,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       .filter(([key]) => !keys.has(key) && view.field(key))
       .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: value }));
     return [...shown, ...filled];
-  }, [view, filterKey, defaultsKey]);
+  }, [view, filterKey, defaultsKey, scopeKey]);
 
   const defaultFilters = useMemo(
     // By value too: an inline `filter={{ status: ["open", "done"] }}` is one list, not a new one per render.

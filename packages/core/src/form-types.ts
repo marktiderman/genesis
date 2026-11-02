@@ -2,6 +2,8 @@
 // Form field types — platform-agnostic definitions used by useResourceForm
 // ---------------------------------------------------------------------------
 
+import type { FilterParam } from "./provider/types";
+
 export type FieldType =
   | "text"
   | "number"
@@ -57,13 +59,27 @@ export interface ResourceFormFieldDef {
    * `maxLength` so the user cannot type past it.
    */
   maxLength?: number;
-  /** Relation field configuration. */
+  /**
+   * A link's picker: lists `resource` through the data provider (its row-level security), searched
+   * and paged on the server, and stores the picked row's `valueField`.
+   */
   relation?: {
     resource: string;
-    labelField: string;
+    /** The linked field that names a row. Unset: the provider's `describe`, else a name-like field. */
+    labelField?: string;
     valueField?: string; // default "id"
+    /** Show the search box. Default: once there are more than ten rows, or more pages. */
     searchable?: boolean;
     allowCreate?: boolean;
+    /** The linked fields a search matches. Default: `labelField`. */
+    searchFields?: string[];
+    /**
+     * Filters every list request carries (the linked view's scope and default filter), fixed or
+     * from the form's values, for a picker that follows another field.
+     */
+    filters?: FilterParam[] | ((values: Readonly<Record<string, unknown>>) => FilterParam[]);
+    /** The words for a picked row the viewer can't see, or that's gone. Never its raw id. */
+    missingLabel?: string;
   };
   /** Accepted file types, e.g. "image/*", ".pdf,.doc". */
   accept?: string;

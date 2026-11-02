@@ -176,9 +176,10 @@ export function ResourceFormFieldRenderer({
               </FormLabel>
               <RelationField
                 field={field}
-                value={f.value != null ? String(f.value) : ""}
+                value={f.value}
                 onChange={f.onChange}
                 disabled={isDisabled}
+                values={watchedValues}
                 {...ariaProps}
               />
               {field.description && <FormDescription id={descId}>{field.description}</FormDescription>}
