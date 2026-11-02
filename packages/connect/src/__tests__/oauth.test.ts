@@ -1233,7 +1233,7 @@ describe("the connected account's identity", () => {
 
   it("revokes the grant it turns down for no identity", async () => {
     const strict = setup(
-      { requireIdentity: true, scopes: OPENID_SCOPES },
+      { requireIdentity: true, scopes: OPENID_SCOPES, revokeFailedGrants: true },
       (call) =>
         call.url === googleProvider.revokeUrl
           ? new Response(null, { status: 200 })
@@ -1251,7 +1251,7 @@ describe("the connected account's identity", () => {
   });
 
   it("revokes the grant it turns down for a missing scope, best effort", async () => {
-    const t = setup({}, (call) =>
+    const t = setup({ revokeFailedGrants: true }, (call) =>
       call.url === googleProvider.revokeUrl
         ? Promise.reject(new TypeError("offline"))
         : tokenOk({ scope: "openid" }),
@@ -1262,7 +1262,7 @@ describe("the connected account's identity", () => {
       expect(t.logs).toContainEqual({ step: "revoke", result: "unavailable" }),
     );
     // Without a refresh token, the access token is revoked instead.
-    const noRefresh = setup({ requireRefreshToken: false }, (call) =>
+    const noRefresh = setup({ requireRefreshToken: false, revokeFailedGrants: true }, (call) =>
       call.url === googleProvider.revokeUrl
         ? new Response(null, { status: 200 })
         : tokenOk({ scope: "openid", refresh_token: undefined }),
@@ -1276,7 +1276,7 @@ describe("the connected account's identity", () => {
   it("redirects without waiting on the revoke, and bounds it", async () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
     let signal: AbortSignal | undefined;
-    const t = setup({}, (call) => {
+    const t = setup({ revokeFailedGrants: true }, (call) => {
       if (call.url !== googleProvider.revokeUrl)
         return tokenOk({ scope: "openid" });
       signal = call.init.signal ?? undefined;
@@ -1299,6 +1299,7 @@ describe("the connected account's identity", () => {
     try {
       const t = setup(
         {
+          revokeFailedGrants: true,
           log: (event) => {
             if (event.step === "revoke") throw new Error("log broke");
           },
@@ -1323,6 +1324,12 @@ describe("the connected account's identity", () => {
     );
     expect((await roundTrip(t)).result).toBe("scope");
     expect(revokes(t)).toHaveLength(0);
+  it("leaves a turned-down grant alone by default, so a person's existing connection survives", async () => {
+    for (const config of [{}, { revokeFailedGrants: false }]) {
+      const t = setup(config, () => tokenOk({ scope: "openid" }));
+      expect((await roundTrip(t)).result).toBe("scope");
+      expect(revokes(t)).toHaveLength(0);
+    }
   });
 
   it("checks requireIdentity's needs at boot", () => {
@@ -1333,6 +1340,15 @@ describe("the connected account's identity", () => {
         provider: { ...googleProvider, issuer: undefined },
       }),
     ).toThrow(/issuer/);
+    for (const issuer of ["", "  ", [""], []] as const) {
+      expect(() =>
+        setup({
+          requireIdentity: true,
+          scopes: OPENID_SCOPES,
+          provider: { ...googleProvider, issuer: issuer as never },
+        }),
+      ).toThrow(/issuer/);
+    }
     expect(() => setup({ requireIdentity: true })).toThrow(/openid/);
     try {
       setup({ requireIdentity: true });

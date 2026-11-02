@@ -377,9 +377,9 @@ export interface ConnectorConfig<
   /**
    * Revoke the new grant (best effort, through the provider's `revokeUrl`) when the callback
    * turns it down after the code was traded: a missing scope or, with `requireIdentity`, no
-   * identity. Default true. Google ends every token of the person's grant to this client, so
-   * set it false when one Google client backs several connections and a failed attempt must
-   * not end the others.
+   * identity. Default false: Google ends every token of the person's grant across the project
+   * on a revoke, so a returning person who unticks a scope would also lose the connection they
+   * already have. Set it true only when each grant is isolated (one connection per client).
    */
   revokeFailedGrants?: boolean | undefined;
   /**
@@ -838,10 +838,12 @@ export function createConnector<D extends StateData = StateData>(
   const normalScope = (scope: string) => aliases[scope] ?? scope;
   const asksOpenid = (scopes: readonly string[]) =>
     scopes.some((scope) => normalScope(scope) === "openid");
-  const issuers: readonly string[] =
+  // Only non-empty issuers count: `""` would pass a length check and then match no token.
+  const issuers: readonly string[] = (
     typeof provider.issuer === "string"
       ? [provider.issuer]
-      : (provider.issuer ?? []);
+      : (provider.issuer ?? [])
+  ).filter((issuer) => typeof issuer === "string" && issuer.trim() !== "");
   if (config.requireIdentity) {
     if (issuers.length === 0)
       throw new ConnectError(
@@ -1247,7 +1249,7 @@ export function createConnector<D extends StateData = StateData>(
    * and every failure (a `log` that throws included) is swallowed, never an unhandled rejection.
    */
   function abandonGrant(refreshToken: unknown, accessToken: string): void {
-    if (config.revokeFailedGrants === false) return;
+    if (config.revokeFailedGrants !== true) return;
     const [token, hint] =
       typeof refreshToken === "string" && refreshToken
         ? ([refreshToken, "refresh_token"] as const)
