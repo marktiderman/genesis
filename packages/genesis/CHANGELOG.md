@@ -1,5 +1,18 @@
 # @marktiderman/genesis
 
+## 0.10.9
+
+### Patch Changes
+
+- Updated dependencies [bc1bd20]
+- Updated dependencies [bc1bd20]
+- Updated dependencies [bc1bd20]
+- Updated dependencies [bc1bd20]
+- Updated dependencies [bc1bd20]
+  - @marktiderman/genesis-ui@2.27.0
+  - @marktiderman/genesis-core@2.5.0
+  - @marktiderman/genesis-forms@0.11.0
+
 ## 0.10.8
 
 ### Patch Changes
