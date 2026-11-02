@@ -67,16 +67,16 @@ const SEVERITIES: readonly FindingSeverity[] = ["low", "medium", "high", "critic
 
 /** Client to server: open a report. Screenshots go to storage, not in this body. */
 export interface SubmitFeedbackInput {
-  type?: FeedbackReportType;
-  title?: string;
+  type?: FeedbackReportType | undefined;
+  title?: string | undefined;
   body: string;
-  route?: string;
-  appVersion?: string;
-  envType?: string;
-  severity?: FindingSeverity;
-  tags?: string[];
+  route?: string | undefined;
+  appVersion?: string | undefined;
+  envType?: string | undefined;
+  severity?: FindingSeverity | undefined;
+  tags?: string[] | undefined;
   /** Small, free-form context (breadcrumbs, a pin on the page). At most 16 KB as JSON. */
-  context?: Record<string, unknown>;
+  context?: Record<string, unknown> | undefined;
 }
 
 /** Server to client: the report created. `findingId` is the report's id (one finding per report here). */
@@ -163,31 +163,31 @@ export function validateSubmitInput(raw: unknown): SubmitValidation {
   const known = new Set(["type", "title", "body", "route", "appVersion", "envType", "severity", "tags", "context"]);
   for (const key of Object.keys(input)) if (!known.has(key)) return { ok: false, error: "invalid_args", field: key };
   const optionalString = (key: string, max: number): boolean => input[key] == null || (typeof input[key] === "string" && (input[key] as string).length <= max);
-  if (typeof input.body !== "string" || !input.body.trim()) return { ok: false, error: "invalid_args", field: "body" };
-  if (input.body.length > LIMITS.body) return { ok: false, error: "payload_too_large", field: "body" };
-  if (input.type != null && !FEEDBACK_REPORT_TYPES.includes(input.type as FeedbackReportType)) return { ok: false, error: "invalid_args", field: "type" };
-  if (input.severity != null && !SEVERITIES.includes(input.severity as FindingSeverity)) return { ok: false, error: "invalid_args", field: "severity" };
+  if (typeof input["body"] !== "string" || !input["body"].trim()) return { ok: false, error: "invalid_args", field: "body" };
+  if (input["body"].length > LIMITS.body) return { ok: false, error: "payload_too_large", field: "body" };
+  if (input["type"] != null && !FEEDBACK_REPORT_TYPES.includes(input["type"] as FeedbackReportType)) return { ok: false, error: "invalid_args", field: "type" };
+  if (input["severity"] != null && !SEVERITIES.includes(input["severity"] as FindingSeverity)) return { ok: false, error: "invalid_args", field: "severity" };
   if (!optionalString("title", LIMITS.title)) return { ok: false, error: "invalid_args", field: "title" };
   if (!optionalString("route", LIMITS.route)) return { ok: false, error: "invalid_args", field: "route" };
   if (!optionalString("appVersion", LIMITS.appVersion)) return { ok: false, error: "invalid_args", field: "appVersion" };
   if (!optionalString("envType", 60)) return { ok: false, error: "invalid_args", field: "envType" };
-  if (input.tags != null) {
-    if (!Array.isArray(input.tags) || input.tags.length > LIMITS.tags) return { ok: false, error: "invalid_args", field: "tags" };
-    if (!input.tags.every((t) => typeof t === "string" && t.length <= LIMITS.tag)) return { ok: false, error: "invalid_args", field: "tags" };
+  if (input["tags"] != null) {
+    if (!Array.isArray(input["tags"]) || input["tags"].length > LIMITS.tags) return { ok: false, error: "invalid_args", field: "tags" };
+    if (!input["tags"].every((t) => typeof t === "string" && t.length <= LIMITS.tag)) return { ok: false, error: "invalid_args", field: "tags" };
   }
-  if (input.context != null) {
-    if (typeof input.context !== "object" || Array.isArray(input.context)) return { ok: false, error: "invalid_args", field: "context" };
-    if (byteLength(JSON.stringify(input.context)) > LIMITS.contextBytes) return { ok: false, error: "payload_too_large", field: "context" };
+  if (input["context"] != null) {
+    if (typeof input["context"] !== "object" || Array.isArray(input["context"])) return { ok: false, error: "invalid_args", field: "context" };
+    if (byteLength(JSON.stringify(input["context"])) > LIMITS.contextBytes) return { ok: false, error: "payload_too_large", field: "context" };
   }
-  const value: SubmitFeedbackInput = { body: input.body };
-  if (input.type != null) value.type = input.type as FeedbackReportType;
-  if (input.title != null) value.title = input.title as string;
-  const route = cleanRoute(input.route as string | undefined);
+  const value: SubmitFeedbackInput = { body: input["body"] };
+  if (input["type"] != null) value.type = input["type"] as FeedbackReportType;
+  if (input["title"] != null) value.title = input["title"] as string;
+  const route = cleanRoute(input["route"] as string | undefined);
   if (route) value.route = route;
-  if (input.appVersion != null) value.appVersion = input.appVersion as string;
-  if (input.envType != null) value.envType = input.envType as string;
-  if (input.severity != null) value.severity = input.severity as FindingSeverity;
-  if (input.tags != null) value.tags = input.tags as string[];
-  if (input.context != null) value.context = input.context as Record<string, unknown>;
+  if (input["appVersion"] != null) value.appVersion = input["appVersion"] as string;
+  if (input["envType"] != null) value.envType = input["envType"] as string;
+  if (input["severity"] != null) value.severity = input["severity"] as FindingSeverity;
+  if (input["tags"] != null) value.tags = input["tags"] as string[];
+  if (input["context"] != null) value.context = input["context"] as Record<string, unknown>;
   return { ok: true, value };
 }

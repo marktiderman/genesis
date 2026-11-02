@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4099 other exports · 3282 standalone types across 190 entry points in 29 packages.
+**Totals:** 595 components · 4095 other exports · 3275 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -458,7 +458,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`pickVoiceMimeType`](../packages/chat/src/web/use-voice-recorder.ts) | function | — | The type to record in: Opus in WebM where the browser has it, else MP4 (Safari). |
 | [`plainText`](../packages/chat/src/web/bubble.tsx) | function | — | Plain text for the clipboard: mentions as @Name. |
 | [`QUICK_REACTIONS`](../packages/chat/src/web/thread-context.ts) | const | — | The six quick reactions. |
-| [`relativeTime`](../packages/chat/src/web/format.ts) | function | — | The inbox's time: "now", "5m", "10:42" today, "Yesterday", "Mon", or "12 Mar". Genesis UI's `relativeTime` in its compact style, in the reader's locale (`locale`, default the runtime's). |
+| [`relativeTime`](../packages/chat/src/web/format.ts) | function | — | The inbox's time: "now", "5m", "10:42" today, "Yesterday", "Mon", or "12 Mar". |
 | [`SearchSnippet`](../packages/chat/src/web/search.tsx) | function | — | A snippet with its « » marks as <mark>. |
 | [`toAttachmentView`](../packages/chat/src/web/attachments.tsx) | function | — | _(no summary)_ |
 | [`toLocalInput`](../packages/chat/src/web/schedule.tsx) | function | — | `YYYY-MM-DDTHH:mm` in local time, for a datetime-local input. |
@@ -1150,7 +1150,7 @@ Platform-agnostic providers, hooks, and data layer. Use anywhere — web, native
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1213,6 +1213,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1457,7 +1458,7 @@ export type { WriteOutcome };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (36)
+### Other exports (37)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1487,6 +1488,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -1777,14 +1779,13 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`weekdayOf`](../packages/core/src/dates.ts) | function | Beta | The weekday of a day, 0 for Sunday. @stability Beta |
 | [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks (1 or more) from the week `day` is in: what a 1-to-4-week calendar shows. |
 
-### Types (12)
+### Types (11)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Day };
 export type { DayRange };
-export type { EventOccurrence };
 export type { Occurrence };
 export type { PersonClock };
 export type { RRule };
@@ -1837,7 +1838,7 @@ export type { SaveState };
 
 **Barrel:** [`packages/core/src/resource-view/index.ts`](../packages/core/src/resource-view/index.ts)
 
-### Other exports (22)
+### Other exports (21)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -1846,7 +1847,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`calendarProblems`](../packages/core/src/resource-view/define-view.ts) | function | Beta | What's wrong with a calendar block for these fields, one sentence each (empty when it's fine). `defineView` checks the view's own block with it; a renderer checks a screen's overrides merged over that block with it too, so neither can na... |
 | [`cascadeSelection`](../packages/core/src/resource-view/tree.ts) | function | — | The selection after toggling `id` with cascade: the node and every descendant take the node's new state. Without cascade, use a plain toggle; selection never cascades by default. |
 | [`defineRecordView`](../packages/core/src/resource-view/record-view.ts) | function | — | One record's screen from its view: |
-| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | _(no summary)_ |
+| [`defineView`](../packages/core/src/resource-view/define-view.ts) | function | — | Describe what a resource means to people. The result is frozen and platform-neutral: |
 | [`defineWorkspace`](../packages/core/src/resource-view/record-view.ts) | const | — | _(no summary)_ |
 | [`deriveDisplay`](../packages/core/src/resource-view/define-view.ts) | function | — | The display a field gets when the view doesn't name one. |
 | [`filterParams`](../packages/core/src/resource-view/link.ts) | function | — | A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is `is_null` and a list is `in`. |
@@ -1857,7 +1858,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`NO_VIEWER`](../packages/core/src/viewer.ts) | const | — | The viewer outside any ViewerScope: no one, nowhere, no roles. |
 | [`plural`](../packages/core/src/resource-view/define-view.ts) | function | — | A noun's plural, the inverse of `singular`: entry → entries, box → boxes, person → people. |
 | [`rowPicture`](../packages/core/src/resource-view/picture.ts) | function | — | What to draw for a summary's picture: |
-| [`sameFormValue`](../packages/core/src/resource-view/record-view.ts) | function | — | Whether two values are the same as a settings form holds them: 2 and "2", and null, undefined and "", are the same. A settings section compares an edit with the row through it, so an edit back to the stored value isn't a change (web and ... |
 | [`scopeFilter`](../packages/core/src/resource-view/scope.ts) | function | — | The view's scope keys as a list filter, the way `ResourceView` applies them itself: like {@link scopeValues}, but a list (`{ orgId: ["o1", "o2"] }`, a roll-up across organizations) filters to any of its values, and a key the scope doesn'... |
 | [`scopeValues`](../packages/core/src/resource-view/scope.ts) | function | — | The view's declared scope keys with their values from the viewer's scope, ready to pass as a screen's `filter`: `scope: ["league_id"]` reads `scope.league_id`, then `scope.leagueId`. |
 | [`setExpanded`](../packages/core/src/resource-view/tree.ts) | function | — | The open set with `id` opened or closed: a new set, or the same one when nothing changes. |
@@ -4149,7 +4149,7 @@ export type { UploadHost };
 | [`ViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | `ViewerScopeProps` | — | Keeps one viewer's cached data from ever showing to the next. Children render only once the viewer is known, under a key of that viewer, so a sign-out or a new person signing in unmounts every screen and its queries before the cache is e... |
 | [`WorkspaceScope`](../packages/core/src/hooks/workspace-scope.tsx) | `WorkspaceScopeProps` | Beta | `ViewerScope` for an app with workspaces: use it in place of `ViewerScope`. It reads the current workspace from the URL and scopes everything under it to that workspace (its `scope`, `roles` and `timeZone`), so every view with `scope: ["... |
 
-### Other exports (71)
+### Other exports (72)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4212,6 +4212,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDraft`](../packages/core/src/hooks/use-draft.ts) | function | — | Autosave one draft row: saved a moment after each change, one write at a time, added on the first save that has something in it, merged into a row another tab started (`adopt`), and started again when the server's copy wins (`revision`).... |
 | [`useInfiniteResource`](../packages/core/src/hooks/use-infinite-resource.ts) | function | — | _(no summary)_ |
 | [`useLinkOptions`](../packages/core/src/hooks/use-link-options.ts) | function | — | The rows a link can point at, for a picker: listed through the data provider with `filters`, searched on the server with `search` across `searchFields` (else the naming field), sorted by the naming field then the key, `perPage` at a time... |
+| [`useLiveInvalidation`](../packages/core/src/hooks/use-live.ts) | function | — | Subscribes while mounted and `enabled`, and invalidates `queryKey` (a prefix) once per burst of events that `accept` lets through. While the page is hidden the queries are only marked stale; they refetch when it is shown again (TanStack ... |
 | [`useOne`](../packages/core/src/hooks/use-one.ts) | function | — | Fetch a single record by id, powered by TanStack Query. |
 | [`useOptionalViewerScope`](../packages/core/src/hooks/viewer-scope.tsx) | function | — | Like useViewerScope, or null outside a ViewerScope. |
 | [`useRelationLabel`](../packages/core/src/hooks/use-relation-label.ts) | function | — | A linked row's words for a `relation` cell: `undefined` while they load, `null` when there are none (the row is hidden from this viewer, gone, unnamed, or the read failed), so a screen shows its own words then, never the raw id. Cached p... |
@@ -4724,7 +4725,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/genesis/src/ui-utils.ts`](../packages/genesis/src/ui-utils.ts)
 
-### Other exports (4)
+### Other exports (3)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -4732,18 +4733,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"), in `words` (a screen's `useUiMessages().time`, so a transl... |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-
-### Types (3)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { RelativeTimeOptions };
-export type { RelativeTimeStyle };
-export type { RelativeTimeWords };
-```
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 
 ---
 
@@ -10087,7 +10077,7 @@ export type { UiMessagesOverrides };
 
 **Barrel:** [`packages/ui/src/components/data/index.ts`](../packages/ui/src/components/data/index.ts)
 
-### Components (17)
+### Components (19)
 
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
@@ -10099,6 +10089,8 @@ export type { UiMessagesOverrides };
 | [`DetailPanel`](../packages/ui/src/components/data/DetailPanel.tsx) | `DetailPanelProps` | — | _(no summary)_ |
 | [`EventCalendar`](../packages/ui/src/components/data/calendar/EventCalendar.tsx) | `EventCalendarProps` | Beta | A calendar of events in one of four layouts: |
 | [`KanbanBoard`](../packages/ui/src/components/data/KanbanBoard.tsx) | `KanbanBoardProps` | — | Columns of cards, optionally movable between columns. |
+| [`PrintableAgenda`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintableAgendaProps` | Beta | One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the sheets stack, so a page can show them before printing. Events that name no lane are left out: a sheet is someone's. |
+| [`PrintButton`](../packages/ui/src/components/data/calendar/PrintableAgenda.tsx) | `PrintButtonProps` | Beta | Prints the page (the browser's print dialog). Hidden on the printed page itself. @stability Beta |
 | [`RecordView`](../packages/ui/src/components/data/resource-view/RecordView.tsx) | `RecordViewProps` | — | One record's screen, from its record view (defineRecordView): |
 | [`ResourceCalendar`](../packages/ui/src/components/data/resource-view/ResourceCalendar.tsx) | `ResourceCalendarProps` | Beta | A view's rows on a calendar, as its `calendar` block describes them. Prefer `<ResourceView view={v} mode="calendar" />`, which passes the scope and the screen's filters. |
 | [`ResourceDetailPage`](../packages/ui/src/components/data/ResourceDetailPage.tsx) | `ResourceDetailPageProps` | Beta | ResourceDetailPage — `DetailPage` with a record bound to it: fetches one record by id through the mounted `DataProvider` and hands it to the title, the actions, the sidebar and the content. |
@@ -10109,7 +10101,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (50)
+### Other exports (47)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10124,7 +10116,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`DataBulkBar`](../packages/ui/src/components/data/DataBulkBar.tsx) | function | — | _(no summary)_ |
 | [`DataFilters`](../packages/ui/src/components/data/DataFilters.tsx) | function | — | _(no summary)_ |
 | [`DataGrid`](../packages/ui/src/components/data/DataGrid.tsx) | function | — | _(no summary)_ |
-| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. `relative: "short"` words it as `relativeTime` does ("2 hours ago", "yesterday", "Oct 21") instead of date-fns' distance ("about 2 hours ago"), in `words` (a screen's ... |
+| [`DateCell`](../packages/ui/src/components/data/cell-formatters.tsx) | function | — | DateCell -- shows relative date by default, formatted date otherwise. Compatible with DataTableColumn<T>'s `render` prop. |
 | [`DefaultLink`](../packages/ui/src/navigation.tsx) | const | Beta | Default link — a plain `<a>`. No router required. |
 | [`defaultNavigate`](../packages/ui/src/navigation.tsx) | const | Beta | Default navigate — a full-page navigation. No router required. |
 | [`DisplayRenderersProvider`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Replace some of the renderers for everything below (nested providers build on each other). Pass a stable object (a module constant or a `useMemo`): a new one each render redraws every column. |
@@ -10141,9 +10133,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`placeEvents`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | Each day of `range` with the events on it: an event that spans days is on each one, all-day events (and the middle days of a long timed one) come first, then timed ones by start, then by title. @stability Beta |
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
-| [`relativeDatetimeRenderer`](../packages/ui/src/components/data/resource-view/display.tsx) | const | — | The `datetime` renderer as a relative time with the exact time on hover. Opt in under a `DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`. |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-| [`RelativeTime`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in `timeZone`) on hover. The server and the first paint show the exact time, so hydration matches; after mount it turns relative and keeps itself c... |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
 | [`ResourceViewDefaultsProvider`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | Beta | Set list defaults for the whole app, once, near the root: |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
@@ -10196,7 +10185,7 @@ export type { LinkComponent };
 export type { NavigateFn };
 export type { NavigationNode };
 export type { PlacedEvent };
-export type { RelativeTimeWords };
+export type { PrintableSection };
 export type { ResolvedNavigation };
 export type { ResourceAction };
 export type { ResourceActions };
@@ -10541,7 +10530,7 @@ export type { WizardStep };
 
 **Barrel:** [`packages/ui/src/utils.ts`](../packages/ui/src/utils.ts)
 
-### Other exports (4)
+### Other exports (3)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10549,18 +10538,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | --- | --- | --- | --- |
 | [`cn`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 | [`formatDate`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
-| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | A time relative to now. The default, `style: "distance"`, is date-fns' wording ("about 2 hours ago"); `style: "short"` is `relativeTime`'s ("2 hours ago", "yesterday", "Oct 21"), in `words` (a screen's `useUiMessages().time`, so a transl... |
-| [`relativeTime`](../packages/ui/src/utils.ts) | function | — | When something happens, as people say it: "just now", "3 min ago", "2 hours ago", "yesterday", "4 days ago", or ahead "in 5 min", "in 2 hours", "tomorrow"; past a week, the date ("Oct 21", with the year when it isn't this one). Days are ... |
-
-### Types (3)
-
-Type-only exports not consumed as a component's `Props`.
-
-```ts
-export type { RelativeTimeOptions };
-export type { RelativeTimeStyle };
-export type { RelativeTimeWords };
-```
+| [`formatRelativeTime`](../packages/ui/src/utils.ts) | function | — | _(no summary)_ |
 
 ---
 
@@ -11209,14 +11187,6 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`UserAvatar`](../packages/ui/src/components/patterns/user-avatar.tsx) | `UserAvatarProps` | Beta | UserAvatar — canonical user-identity avatar. Shows the person's photo when `src` is set and loads successfully; otherwise (including a failed image load — Radix's Avatar swaps to the fallback automatically) it falls back to initials comp... |
-
-### Other exports (1)
-
-Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
-
-| Name | Kind | Stability | Summary |
-| --- | --- | --- | --- |
-| [`DISTINCT_AVATAR_TINTS`](../packages/ui/src/components/patterns/user-avatar.tsx) | const | — | Tints for `distinct` avatars: a light wash of a chart colour behind the foreground text. The chart colours themselves fail contrast as text (1.5 to 2.8 to 1 in the light theme), so the text stays `text-foreground`, which measures 14:1 or... |
 
 ---
 

@@ -1,5 +1,12 @@
 # @marktiderman/genesis
 
+## 0.10.11
+
+### Patch Changes
+
+- Updated dependencies [7e0d4bb]
+  - @marktiderman/genesis-core@2.7.0
+
 ## 0.10.10
 
 ### Patch Changes

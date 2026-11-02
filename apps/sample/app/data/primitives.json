@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 141
+      "count": 142
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -8914,12 +8914,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/cell-formatters.tsx",
       "stability": "stable",
-      "summary": "DateCell -- shows relative date by default, formatted date otherwise.\n`relative: \"short\"` words it as `relativeTime` does (\"2 hours ago\", \"yesterday\", \"Oct 21\")\ninstead of date-fns' distance (\"about 2 hours ago\"), in `words` (a screen's\n`useUiMessages().time`, so a translation applies) or the English catalogue.\nCompatible with DataTableColumn<T>'s `render` prop.",
+      "summary": "DateCell -- shows relative date by default, formatted date otherwise.\nCompatible with DataTableColumn<T>'s `render` prop.",
       "primaryComponent": "DateCell",
       "components": [
         {
           "name": "DateCell",
-          "summary": "DateCell -- shows relative date by default, formatted date otherwise.\n`relative: \"short\"` words it as `relativeTime` does (\"2 hours ago\", \"yesterday\", \"Oct 21\")\ninstead of date-fns' distance (\"about 2 hours ago\"), in `words` (a screen's\n`useUiMessages().time`, so a translation applies) or the English catalogue.\nCompatible with DataTableColumn<T>'s `render` prop.",
+          "summary": "DateCell -- shows relative date by default, formatted date otherwise.\nCompatible with DataTableColumn<T>'s `render` prop.",
           "props": [
             {
               "name": "format",
@@ -8930,14 +8930,7 @@
             },
             {
               "name": "relative",
-              "type": "boolean | \"short\"",
-              "required": false,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "words",
-              "type": "{ locale: string; justNow: string; minutesAgo: string; inMinutes: string; now: string; minutesShort: string; yesterday: string; }",
+              "type": "boolean",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -12156,13 +12149,6 @@
               "description": "Keyboard use of rows when `onRowClick` is set. Each row's open column\n(see `openColumn`) is a button named by its content, and the table is\none tab stop: Tab reaches the current row's button, Enter or Space\nopens it, ↑/↓ (or j/k) and Home/End move between rows, and x toggles\nthe row's selection when `selectable`. Default true."
             },
             {
-              "name": "minWidth",
-              "type": "number | \"auto\"",
-              "required": false,
-              "defaultValue": null,
-              "description": "The narrowest the table may be before it scrolls sideways. `\"auto\"`: each column's pixel\nwidth (or its resized width), and 200px for each column without one, so fixed widths never\nsqueeze a flexible column to nothing. A number is that many pixels. Default: none."
-            },
-            {
               "name": "onRowClick",
               "type": "((item: T) => void)",
               "required": false,
@@ -12196,13 +12182,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The column whose cell opens the row (as a button), by key. Default: the\nfirst visible column that isn't `editable`. A plain-text cell is wrapped\nby the button; an `editable` or `render` cell keeps its own content (a\nlink or input stays usable) with the open button beside it, shown when\nfocused. `null` makes no cell a button (mouse only)."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": "false",
-              "description": "The pager with first and last page buttons, \"Page n of m\" (the catalogue's `page.pageOf`), and\n\"Previous page\" / \"Next page\" as the arrows' names. Default false: arrows and \"n / m\"."
             },
             {
               "name": "pageSize",
@@ -12413,12 +12392,12 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/defaults.tsx",
       "stability": "beta",
-      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells sizeColumns pagerJumps>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`false` for the others turns the outer one off below it.",
+      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
       "primaryComponent": "ResourceViewDefaultsProvider",
       "components": [
         {
           "name": "ResourceViewDefaultsProvider",
-          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells sizeColumns pagerJumps>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`false` for the others turns the outer one off below it.",
+          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
           "props": [
             {
               "name": "clipCells",
@@ -12428,25 +12407,11 @@
               "description": "Clip each table cell's content at its column's edge (one line, with an ellipsis for text),\nso a long link or email doesn't run over the next column on a narrow table. Inline editors\nare never clipped. Unset, cells draw as before; `false` turns an outer provider's off."
             },
             {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Pagers with first and last page buttons, \"Page n of m\" in the table's own pager, and \"Previous\npage\" / \"Next page\" as the arrows' names (ResourcePage and DataTable `pagerJumps`). Unset,\npagers draw as before; `false` turns an outer provider's off."
-            },
-            {
               "name": "phoneMode",
               "type": "\"grid\" | \"list\" | null",
               "required": false,
               "defaultValue": null,
               "description": "How full-page lists (`layout=\"page\"`) open on a phone (below 768px) when the screen doesn't\nsay: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists\nare left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer\nprovider's phone default off for this subtree."
-            },
-            {
-              "name": "sizeColumns",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Size each table column by what it shows: the record's name column takes the spare width, the\nothers a width for their display (a badge, a number, a date), and the table keeps room for\nevery column, scrolling sideways below that (DataTable `minWidth=\"auto\"`). Unset, columns\nshare the width equally, as before; `false` turns an outer provider's off."
             }
           ]
         },
@@ -12757,36 +12722,9 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/resource-view/display.tsx",
       "stability": "stable",
-      "summary": "A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in\n`timeZone`) on hover. The server and the first paint show the exact time, so hydration matches;\nafter mount it turns relative and keeps itself current each minute, on one clock shared by\nevery RelativeTime on the page.",
-      "primaryComponent": "RelativeTime",
+      "summary": "Replace some of the renderers for everything below (nested providers build on each other).\nPass a stable object (a module constant or a `useMemo`): a new one each render redraws every\ncolumn.",
+      "primaryComponent": "DisplayRenderersProvider",
       "components": [
-        {
-          "name": "RelativeTime",
-          "summary": "A time as `relativeTime` says it, in the messages' words and locale, with the exact time (in\n`timeZone`) on hover. The server and the first paint show the exact time, so hydration matches;\nafter mount it turns relative and keeps itself current each minute, on one clock shared by\nevery RelativeTime on the page.",
-          "props": [
-            {
-              "name": "value",
-              "type": "unknown",
-              "required": true,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "className",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": ""
-            },
-            {
-              "name": "timeZone",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": ""
-            }
-          ]
-        },
         {
           "name": "DisplayRenderersProvider",
           "summary": "Replace some of the renderers for everything below (nested providers build on each other).\nPass a stable object (a module constant or a `useMemo`): a new one each render redraws every\ncolumn.",
@@ -12803,11 +12741,6 @@
         {
           "name": "useDisplayCell",
           "summary": "Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer.",
-          "props": []
-        },
-        {
-          "name": "relativeDatetimeRenderer",
-          "summary": "The `datetime` renderer as a relative time with the exact time on hover. Opt in under a\n`DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`.",
           "props": []
         },
         {
@@ -14027,9 +13960,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/calendar/guard.ts",
       "stability": "stable",
-      "summary": "`value` when it's a layout; else `month`, saying so in development.",
-      "primaryComponent": "layoutOr",
+      "summary": "",
+      "primaryComponent": "warnOnce",
       "components": [
+        {
+          "name": "warnOnce",
+          "summary": "",
+          "props": []
+        },
         {
           "name": "layoutOr",
           "summary": "`value` when it's a layout; else `month`, saying so in development.",
@@ -14634,7 +14572,7 @@
             },
             {
               "name": "calendar",
-              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; eventsOne: string; eventsOther: string; more: string; unassigned: string; ... 4 more ...; layouts: { ...; }; }>",
+              "type": "DeepPartial<{ previousMonth: string; nextMonth: string; previousWeeks: string; nextWeeks: string; today: string; nothing: string; allDay: string; until: string; eventsOne: string; eventsOther: string; ... 9 more ...; weekOf: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14669,7 +14607,7 @@
             },
             {
               "name": "form",
-              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; created: string; createdUnnamed: string; }>",
+              "type": "DeepPartial<{ createTitle: string; editTitle: string; createDescription: string; editDescription: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14690,7 +14628,7 @@
             },
             {
               "name": "page",
-              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 13 more ...; deleteFailed: string; }>",
+              "type": "DeepPartial<{ errorTitle: string; errorBody: string; retry: string; create: string; countOne: string; countOther: string; countFiltered: string; loadMore: string; allLoaded: string; loadedMore: string; ... 9 more ...; deleteFailed: string; }>",
               "required": false,
               "defaultValue": null,
               "description": ""
@@ -14715,13 +14653,6 @@
               "required": false,
               "defaultValue": null,
               "description": ""
-            },
-            {
-              "name": "time",
-              "type": "DeepPartial<{ locale: string; justNow: string; minutesAgo: string; inMinutes: string; now: string; minutesShort: string; yesterday: string; }>",
-              "required": false,
-              "defaultValue": null,
-              "description": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own."
             },
             {
               "name": "view",
@@ -14750,7 +14681,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 14 more ...; shell: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; untitled: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 13 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -14765,11 +14696,6 @@
         {
           "name": "__object",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
-          "props": []
-        },
-        {
-          "name": "time",
-          "summary": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own.",
           "props": []
         },
         {
@@ -14797,11 +14723,6 @@
         {
           "name": "uiMessages",
           "summary": "Every word Genesis UI's data components show or announce, in English.\n`{name}` marks a value filled in at run time; keep it in a translation.\nOverride any part through `UiMessagesProvider` (see `messages.tsx`).",
-          "props": []
-        },
-        {
-          "name": "time",
-          "summary": "Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in\n`locale`; a translation sets its own.",
           "props": []
         },
         {
@@ -14976,23 +14897,6 @@
               "description": ""
             }
           ]
-        }
-      ]
-    },
-    {
-      "slug": "none-choice",
-      "aliases": [],
-      "surface": "web",
-      "subpath": "@marktiderman/genesis-ui/data",
-      "filePath": "packages/ui/src/components/data/none-choice.ts",
-      "stability": "stable",
-      "summary": "The value of a picker's \"None\" choice (the words are `messages.link.none`), which sets a field\nthat can be empty back to empty. Radix's Select and cmdk can't hold \"\" as an item value, so every\npicker in this package uses this one sentinel and turns it into `null` before it leaves the picker.",
-      "primaryComponent": "NONE_CHOICE",
-      "components": [
-        {
-          "name": "NONE_CHOICE",
-          "summary": "The value of a picker's \"None\" choice (the words are `messages.link.none`), which sets a field\nthat can be empty back to empty. Radix's Select and cmdk can't hold \"\" as an item value, so every\npicker in this package uses this one sentinel and turns it into `null` before it leaves the picker.",
-          "props": []
         }
       ]
     },
@@ -15527,6 +15431,128 @@
       ]
     },
     {
+      "slug": "printable-agenda",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/calendar/PrintableAgenda.tsx",
+      "stability": "beta",
+      "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+      "primaryComponent": "PrintableAgenda",
+      "components": [
+        {
+          "name": "PrintableAgenda",
+          "summary": "One sheet per lane for the week holding `anchor`, each on its own printed page. On screen the\nsheets stack, so a page can show them before printing. Events that name no lane are left out:\na sheet is someone's.",
+          "props": [
+            {
+              "name": "events",
+              "type": "readonly CalendarEvent<T>[]",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "lanes",
+              "type": "readonly CalendarLane[]",
+              "required": true,
+              "defaultValue": null,
+              "description": "The sheets, in order: exactly these lanes, each titled by its `label`. Required: a lane's key\nis an id, never a title for a printed page."
+            },
+            {
+              "name": "anchor",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "A day in the week printed (default today)."
+            },
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "headingLevel",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "3",
+              "description": "The level of each sheet's heading (the lane's name); its days are one below. Default 3."
+            },
+            {
+              "name": "locale",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "BCP 47 locale for dates and times. Default the runtime's."
+            },
+            {
+              "name": "sections",
+              "type": "readonly PrintableSection[]",
+              "required": false,
+              "defaultValue": "[]",
+              "description": "Under each lane's week."
+            },
+            {
+              "name": "showEmptyDays",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "true",
+              "description": "The sheets show days with nothing on them too. Default true: a printed week has every day."
+            },
+            {
+              "name": "testID",
+              "type": "string",
+              "required": false,
+              "defaultValue": "printable-agenda",
+              "description": ""
+            },
+            {
+              "name": "timeZone",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The clock days are counted on. Default the device's."
+            },
+            {
+              "name": "title",
+              "type": "ReactNode",
+              "required": false,
+              "defaultValue": null,
+              "description": "Over each sheet, before the lane's name."
+            },
+            {
+              "name": "weekStartsOn",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "1",
+              "description": "0 Sunday or 1 Monday (default)."
+            }
+          ]
+        },
+        {
+          "name": "PrintButton",
+          "summary": "Prints the page (the browser's print dialog). Hidden on the printed page itself.",
+          "props": [
+            {
+              "name": "className",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "label",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "The button's words. Default the catalogue's `calendar.print`."
+            }
+          ]
+        }
+      ]
+    },
+    {
       "slug": "progress",
       "aliases": [],
       "surface": "web",
@@ -15840,20 +15866,6 @@
               "description": "The readiness chip's words."
             },
             {
-              "name": "sectionIcons",
-              "type": "Partial<Record<string, LucideIcon>>",
-              "required": false,
-              "defaultValue": null,
-              "description": "Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which\notherwise shows the label's first letter)."
-            },
-            {
-              "name": "settingsLocked",
-              "type": "((sectionId: string, row: T) => string | null)",
-              "required": false,
-              "defaultValue": null,
-              "description": "Why a settings section is read-only for this viewer, when the screen knows more than the\nview's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the\nview's update guard locks stays locked."
-            },
-            {
               "name": "slots",
               "type": "Partial<Record<string, ReactNode>>",
               "required": false,
@@ -15949,20 +15961,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The readiness chip's words."
-            },
-            {
-              "name": "sectionIcons",
-              "type": "Partial<Record<string, LucideIcon>>",
-              "required": false,
-              "defaultValue": null,
-              "description": "Each section's icon, by section id, for the shell's tabs and the phone's bottom bar (which\notherwise shows the label's first letter)."
-            },
-            {
-              "name": "settingsLocked",
-              "type": "((sectionId: string, row: T) => string | null)",
-              "required": false,
-              "defaultValue": null,
-              "description": "Why a settings section is read-only for this viewer, when the screen knows more than the\nview's guards (a role the viewer lacks): the reason, or null. It only narrows: a section the\nview's update guard locks stays locked."
             },
             {
               "name": "slots",
@@ -16367,6 +16365,13 @@
               "description": "A row's dot colours, when not its lanes'."
             },
             {
+              "name": "enabled",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "False while the screen waits (on its scope, say): nothing is fetched. Default true."
+            },
+            {
               "name": "endField",
               "type": "string",
               "required": false,
@@ -16430,6 +16435,13 @@
               "description": "Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar\nmakes two (rows starting in the window, and rows that started before it and run into it),\neach capped."
             },
             {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": "Refetch when the provider reports a change, as a list's `live` does."
+            },
+            {
               "name": "onAnchorChange",
               "type": "((anchor: string) => void)",
               "required": false,
@@ -16449,6 +16461,20 @@
               "required": false,
               "defaultValue": null,
               "description": "A row was chosen. Default: the view's peek."
+            },
+            {
+              "name": "print",
+              "type": "{ sections?: readonly PrintableSection[]; title?: ReactNode; headingLevel?: 2 | 3 | 4 | 5; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": "Print one sheet per lane (PrintableAgenda) for the week the calendar shows, instead of the\ncalendar itself: the same rows, scope and filters, with no screen code reading data. Lanes\ncome from `lanes`, else the linked rows' words (`laneBy` on a link), else the lane values."
+            },
+            {
+              "name": "select",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": "Supabase select syntax for joined columns (`resourceOptions.select`), sent with each request."
             },
             {
               "name": "showEmptyDays",
@@ -16653,13 +16679,6 @@
               "description": "Number of columns for the form layout. Default 1."
             },
             {
-              "name": "description",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "The form's description, read out with its title (`aria-describedby`), over the UI catalogue's\n\"Fill in the details to create a new {noun}.\" / \"Update the {noun}.\"."
-            },
-            {
               "name": "fields",
               "type": "ResourceFormFieldDef[]",
               "required": false,
@@ -16756,13 +16775,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Wizard step definitions. Required when mode is \"wizard\"."
-            },
-            {
-              "name": "submitLabel",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "The submit button's words (\"Post\", \"Send\"), over \"Create\" / \"Save\"."
             },
             {
               "name": "title",
@@ -16890,13 +16902,6 @@
               "description": ""
             },
             {
-              "name": "chips",
-              "type": "readonly { label: string; tone: ChipTone; }[]",
-              "required": false,
-              "defaultValue": null,
-              "description": "More chips after the status (a record's kind, its triage)."
-            },
-            {
               "name": "className",
               "type": "string",
               "required": false,
@@ -16965,13 +16970,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The status chip, e.g. \"Live · version 3\" or \"Draft\" (forms-studio's formStatusChip makes a form's)."
-            },
-            {
-              "name": "subtitle",
-              "type": "string",
-              "required": false,
-              "defaultValue": null,
-              "description": "A muted line under the title: an id, a parent, a feature (\"T-8 · Team work\")."
             },
             {
               "name": "untitled",
@@ -17111,13 +17109,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -17130,13 +17121,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -17181,25 +17165,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -17273,10 +17243,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -17487,13 +17457,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -17923,13 +17886,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -17942,13 +17898,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -18000,25 +17949,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -18099,10 +18034,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -18327,13 +18262,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -18678,13 +18606,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -18697,13 +18618,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -18755,25 +18669,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -18854,10 +18754,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -19082,13 +18982,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -19433,13 +19326,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -19452,13 +19338,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -19510,25 +19389,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -19609,10 +19474,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -19837,13 +19702,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -22989,13 +22847,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -23008,13 +22859,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -23059,25 +22903,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -23151,10 +22981,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -23365,13 +23195,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -23695,13 +23518,6 @@
               "description": "Persist key for the user's column-visibility picks."
             },
             {
-              "name": "compactWhenShort",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. An embedded list (`variant=\"embedded\"`) with ten rows or fewer and nothing typed or\nchosen in its filters drops its search and sort row, Columns bar and pager: they'd be most of\nits height (a record's child list). Past ten rows, or while anything filters it, they come\nback. Default false."
-            },
-            {
               "name": "confirmDelete",
               "type": "boolean | ResourceDeleteConfirmCopy<T>",
               "required": false,
@@ -23714,13 +23530,6 @@
               "required": false,
               "defaultValue": null,
               "description": "The count's words; see PageHeader `countFormat`."
-            },
-            {
-              "name": "createdToast",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. After the built-in form creates a row, show a \"Created {name}\" toast whose Open\naction opens the new row as a row click would (the peek, or the route), and move focus to\nOpen, so a keyboard user can reach it before it goes (the toaster sits last in the Tab order).\nTab or Escape leaves the toast, and focus goes back to the New button. Needs a mounted\n`<Toaster />`. Only a pessimistic save (the default) has the new row's key, so an optimistic\nor undoable create, or `detail=\"none\"`, gets the toast without Open, and focus stays on New.\nDefault false: no toast."
             },
             {
               "name": "createLabel",
@@ -23765,25 +23574,11 @@
               "description": ""
             },
             {
-              "name": "emptyCreate",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. With no rows and nothing filtering them, the list's own create button moves from the\nheader into the empty state (so there's one, where the eye already is), unless `emptyState`\ngives an action of its own, and the search and sort row, with nothing to act on, is left out.\nWhile anything filters the list (a search, a status, a filter combobox, or `emptyFiltered`)\nthe header keeps the button and the filter row stays. Default false: the button stays in the\nheader and the filter row shows, as before."
-            },
-            {
               "name": "emptyDescription",
               "type": "string",
               "required": false,
               "defaultValue": null,
               "description": "A sentence under the empty-state title — forwarded to `DataPageShell`."
-            },
-            {
-              "name": "emptyFiltered",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "The screen narrows this list itself (a tab like \"Open\" over its own filter), so an empty list\nisn't empty of records: with `emptyCreate`, the create button stays in the header and the\nfilter row stays. No effect without `emptyCreate`."
             },
             {
               "name": "emptyIcon",
@@ -23857,10 +23652,10 @@
             },
             {
               "name": "formTitles",
-              "type": "{ create?: string; edit?: string; createSubmit?: string | undefined; editSubmit?: string | undefined; createDescription?: string | undefined; editDescription?: string | undefined; } | undefined",
+              "type": "{ create?: string; edit?: string; } | undefined",
               "required": false,
               "defaultValue": null,
-              "description": "The built-in form's words. `create` / `edit`: its titles, over \"New {noun}\" / \"Edit {noun}\".\n`createSubmit` / `editSubmit`: its submit button, over \"Create\" / \"Save\". `createDescription` /\n`editDescription`: its description (read out with the title), over the UI catalogue's\n`form.createDescription` / `form.editDescription`. A `slotProps.form` value still wins."
+              "description": "The form's titles, over \"New {noun}\" / \"Edit {noun}\". A `slotProps.form.title` still wins."
             },
             {
               "name": "getKey",
@@ -24071,13 +23866,6 @@
               "required": false,
               "defaultValue": null,
               "description": "Current page, 1-based. Server-controlled mode only."
-            },
-            {
-              "name": "pagerJumps",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Opt-in. The pagers (this page's and the table's own) get first and last page buttons, the\ntable's says \"Page n of m\", and the arrows are named \"Previous page\" / \"Next page\"; on a phone\nthis page's pager shows only the arrows. Default false: the pagers draw as before."
             },
             {
               "name": "pageSizeOptions",
@@ -24315,13 +24103,6 @@
               "description": ""
             },
             {
-              "name": "distinct",
-              "type": "boolean",
-              "required": false,
-              "defaultValue": null,
-              "description": "Tell people apart in a list of them (a feed): the initials fallback gets a stable tint per\nname, and a one-word name shows two letters (\"Pr\", \"Po\") instead of one."
-            },
-            {
               "name": "size",
               "type": "\"sm\" | \"default\" | \"lg\" | null",
               "required": false,
@@ -24343,11 +24124,6 @@
               "description": "Stable test/automation selector (emitted as `data-testid`)."
             }
           ]
-        },
-        {
-          "name": "DISTINCT_AVATAR_TINTS",
-          "summary": "Tints for `distinct` avatars: a light wash of a chart colour behind the foreground text. The\nchart colours themselves fail contrast as text (1.5 to 2.8 to 1 in the light theme), so the\ntext stays `text-foreground`, which measures 14:1 or more on every wash in both themes.",
-          "props": []
         }
       ]
     },
@@ -24384,6 +24160,76 @@
         {
           "name": "windowBounds",
           "summary": "A window as filter values for a column: days for a date column, ISO instants of `zone`'s\nmidnights for a timestamp, and wall-clock midnights (no zone) for a timestamp without one.\n`[from, to)`; `lead` widens the start by days.",
+          "props": []
+        }
+      ]
+    },
+    {
+      "slug": "view-list",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/view-list.tsx",
+      "stability": "stable",
+      "summary": "",
+      "primaryComponent": "filterParams",
+      "components": [
+        {
+          "name": "filterParams",
+          "summary": "",
+          "props": []
+        },
+        {
+          "name": "useViewListParams",
+          "summary": "The filters, select, enabled and live a screen's options make for a view's list. The list path\n(`useResourceViewProps`) and the calendar path both use it.",
+          "props": [
+            {
+              "name": "view",
+              "type": "ResourceView<ResourceContract<any>, any>",
+              "required": true,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "filter",
+              "type": "Readonly<Record<string, Scalar | readonly (string | number)[]>>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "live",
+              "type": "boolean | LiveOptions",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "preset",
+              "type": "string",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "resourceOptions",
+              "type": "{ defaultFilters?: FilterParam[]; select?: string; enabled?: boolean | undefined; live?: boolean | LiveOptions | undefined; } | undefined",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
+              "name": "scoped",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "useViewDetailFields",
+          "summary": "The peek's fields: the view's full column list, drawn like the cells (so `when` hides there\ntoo, and the screen's `cells` apply), never every key of the row. Shared by the list and the calendar.",
           "props": []
         }
       ]

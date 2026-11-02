@@ -27,7 +27,9 @@
  * Tracked as a follow-up; this script is intentionally minimal.
  *
  * Output:
- *   docs/component-reference.md (committed in source control)
+ *   docs/component-reference.md (committed in source control, but only by the
+ *   version PR: `pnpm version:packages` runs this script. A feature PR doesn't
+ *   regenerate or commit it; see AGENTS.md.)
  *
  * Usage:
  *   pnpm gen:component-reference

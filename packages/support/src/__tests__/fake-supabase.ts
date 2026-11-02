@@ -32,7 +32,7 @@ export function fakeSupabase({ userId = "00000000-0000-4000-8000-0000000000a1", 
         return builder;
       };
     }
-    builder.then = (resolve: (a: Answer) => unknown, reject: (e: unknown) => unknown) => {
+    builder["then"] = (resolve: (a: Answer) => unknown, reject: (e: unknown) => unknown) => {
       try {
         return Promise.resolve(resolve(respond?.(call) ?? { data: [], error: null }));
       } catch (e) {

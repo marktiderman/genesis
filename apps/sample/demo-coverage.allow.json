@@ -50,6 +50,7 @@
   "web/use-followed-state": "An internal hook of EventCalendar and ResourceCalendar, not exported.",
   "web/use-resource-table": "ResourcePage's logic without its markup; /items-custom shows the composed version.",
   "web/values": "Filter-value helpers for a calendar's window: no UI of their own.",
+  "web/view-list": "Hooks the list and the calendar share (filters, select, enabled, live, the peek's fields): shown by every ResourceView page and the EventCalendar stories.",
   "web/view-settings": "The view settings menu inside the list screens.",
   "web/visually-hidden": "No story or demo page yet: add a story under apps/sample/stories/.",
   "web/wizard-form": "No story or demo page yet: add a story under apps/sample/stories/."

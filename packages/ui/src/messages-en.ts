@@ -219,11 +219,15 @@ export const uiMessages = {
     /** A day with nothing on it (agenda and lanes). */
     nothing: "Nothing scheduled",
     allDay: "All day",
+    /** The last day of a timed event that began on an earlier day. `{time}`: when it ends. */
+    until: "until {time}",
     /** A day cell's count, read after its date: "Tuesday, November 3, 2 events". */
     eventsOne: "1 event",
     eventsOther: "{count} events",
     /** A day cell's button for the events it doesn't show yet. */
     more: "+{count} more",
+    /** The same button once a day's events are all shown. */
+    fewer: "Show fewer",
     /** The lanes layout's row for events that name no lane. */
     unassigned: "Unassigned",
     /** Before an event's lanes, for screen readers. `{names}`: "Ana, Ben". */
@@ -236,6 +240,10 @@ export const uiMessages = {
     capped: "+{more} more not shown. Narrow the calendar or filter it to see them.",
     /** The layout switch's buttons. */
     layouts: { month: "Month", weeks: "Weeks", agenda: "Agenda", lanes: "Lanes" },
+    /** PrintButton's label. */
+    print: "Print",
+    /** A printed sheet's week. `{date}`: "November 2 – November 8". */
+    weekOf: "Week of {date}",
   },
   workspace: {
     /** Settings section footer. */

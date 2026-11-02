@@ -11,6 +11,7 @@
  * @stability Beta
  */
 export * from "./contract";
+export * from "./routes";
 export * from "./record";
 export * from "./client";
 export * from "./chat";

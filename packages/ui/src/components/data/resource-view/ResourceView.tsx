@@ -6,7 +6,7 @@
 import { useMemo, type ReactNode } from "react";
 import { useViewer, type DataRow, type FilterParam, type ResourceContract } from "@marktiderman/genesis-core";
 import type { ResourceScope } from "@marktiderman/genesis-core/hooks";
-import { filterParams as toFilters, plural, rowPicture, scopeFilter, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
+import { plural, rowPicture, type DisplayHint, type ResourceView as View, type ResolvedFormField } from "@marktiderman/genesis-core/resource-view";
 import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../ResourcePage";
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
@@ -15,10 +15,10 @@ import { useResourceViewDefaults } from "./defaults";
 import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { RowAvatar } from "./RowAvatar";
+import { useViewDetailFields, useViewListParams, type Filter } from "./view-list";
 
 type Row = Record<string, unknown>;
 type Scalar = string | number | boolean | null;
-type Filter = Readonly<Record<string, Scalar | readonly (string | number)[]>>;
 type Defaults = Readonly<Record<string, Scalar>>;
 
 /** What a screen sets. Anything else ResourcePage takes passes straight through. */
@@ -142,10 +142,6 @@ function formField(
   };
 }
 
-function filterParams(filter: Filter | undefined): FilterParam[] {
-  return toFilters(filter);
-}
-
 /** The single values of a filter: what a new row made from the list starts with. */
 function singleValues(filter: Filter): Defaults {
   return Object.fromEntries(Object.entries(filter).filter(([, value]) => !Array.isArray(value))) as Defaults;
@@ -185,7 +181,8 @@ function columnWidth(c: { key: string; display: string }, index: number, all: re
  */
 export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>): ResourcePageProps<T> {
   const {
-    view, layout = "page", columns: columnPreset, preset, filter: screenFilter, scoped = true, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
+    // preset, filter and scoped are read by useViewListParams; taken out here so they aren't passed on.
+    view, layout = "page", columns: columnPreset, preset: _preset, filter: _filter, scoped: _scoped, defaults, mode, title, subtitle, can, resourceOptions, cells, tree: screenTree,
     calendar: _calendar,
     noun: screenNoun, nounPlural: screenNounPlural, formTitles: screenFormTitles, countFormat: screenCountFormat,
     ...rest
@@ -193,12 +190,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   const cell = useDisplayCell();
   const viewer = useViewer();
   const listDefaults = useResourceViewDefaults();
-  // The viewer's scope first (the workspace they're in), then the screen's own filter over it.
-  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
-  const tab = preset ? view.definition.presets?.[preset] : undefined;
-  if (preset && !tab) {
-    throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
-  }
+  const { filter, filters: defaultFilters, tab } = useViewListParams(props);
   const presetName = columnPreset ?? tab?.columns ?? "default";
 
   const columns = useMemo(
@@ -232,17 +224,8 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     [view, presetName, cell, cells, listDefaults.sizeColumns],
   );
 
-  // The peek shows the view's full column list, drawn like the cells (so `when` hides there too),
-  // never every key of the row: sensitive values and columns the view leaves out stay out.
-  const detailFields = useMemo(
-    () =>
-      view.columns().map((c) => ({
-        key: c.key,
-        label: c.label,
-        render: (_value: unknown, row: T) => (cells?.[c.key] ? cells[c.key]!(row) : cell(c as never, row)),
-      })),
-    [view, cell, cells],
-  );
+  // The peek: sensitive values and columns the view leaves out stay out.
+  const detailFields = useViewDetailFields(view, cells);
 
   // By value, so an inline `filter={{ client_id }}` doesn't rebuild the form every render.
   const filterKey = JSON.stringify(filter ?? {});
@@ -284,12 +267,6 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
       .map(([key, value]): ResourceFormFieldDef => ({ key, type: "hidden", hidden: true, readOnlyOnEdit: true, defaultValue: value }));
     return [...shown, ...filled];
   }, [view, filterKey, defaultsKey, scopeKey]);
-
-  const defaultFilters = useMemo(
-    // By value too: an inline `filter={{ status: ["open", "done"] }}` is one list, not a new one per render.
-    () => [...filterParams(tab?.filter as Filter | undefined), ...filterParams(JSON.parse(filterKey) as Filter), ...(resourceOptions?.defaultFilters ?? [])],
-    [tab, filterKey, resourceOptions?.defaultFilters],
-  );
 
   // Guards only narrow: the view's rule AND the screen's own `can`. They read the viewer, so a
   // new viewer or new roles asks them again.
@@ -417,21 +394,16 @@ function ResourceViewPage<T extends Row>(props: ResourceViewProps<T>) {
 
 /** `mode="calendar"`: the same view, scope and filters, placed by a date field. */
 function ResourceViewCalendar<T extends Row>(props: ResourceViewProps<T>) {
-  const { view, calendar, filter: screenFilter, scoped = true, preset, title, resourceOptions, className, cells } = props;
-  const viewer = useViewer();
-  const tab = preset ? view.definition.presets?.[preset] : undefined;
-  if (preset && !tab) throw new Error(`ResourceView(${view.resource}): no preset "${preset}"`);
-  const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
-  const filters = [
-    ...filterParams(tab?.filter as Filter | undefined),
-    ...filterParams(filter),
-    ...(resourceOptions?.defaultFilters ?? []),
-  ];
+  const { view, calendar, title, className, cells } = props;
+  const { filters, select, enabled, live } = useViewListParams(props);
   return (
     <ResourceCalendar<T>
       {...(calendar ?? {})}
       view={view}
       filters={filters}
+      {...(select !== undefined ? { select } : {})}
+      enabled={enabled}
+      {...(live !== undefined ? { live } : {})}
       {...(cells ? { cells } : {})}
       title={title ?? view.title}
       {...(className ? { className } : {})}
