@@ -1,0 +1,67 @@
+name: Code Connect
+
+# Keeps Figma's Code Connect in step with the repo (docs/DESIGN-LIBRARY.md). On a pull request
+# the templates are parsed, so a broken one fails before it reaches main; on main they are
+# published to the Genesis · Design System library, so a Figma instance shows the code that
+# is actually on main. Publishing needs FIGMA_ACCESS_TOKEN (a Figma personal access token
+# with file_content:read and file_code_connect:write) as a repository secret; without it the
+# publish job is skipped, not failed, so a fork or a checkout without the secret stays green.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "figma.config.json"
+      - "packages/ui-native/figma/**"
+      - ".github/workflows/code-connect.yml"
+  pull_request:
+    branches: [main, "staging/**", "prestage/**"]
+    paths:
+      - "figma.config.json"
+      - "packages/ui-native/figma/**"
+      - ".github/workflows/code-connect.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: code-connect-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  parse:
+    name: Parse templates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Every visual component is mapped or listed
+        run: node scripts/check-code-connect.mjs
+      - name: Templates parse
+        run: npx --yes @figma/code-connect@2 connect parse --label React
+
+  publish:
+    name: Publish to Figma
+    needs: parse
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Publish
+        if: env.FIGMA_ACCESS_TOKEN != ''
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        run: npx --yes @figma/code-connect@2 connect publish --label React
+      - name: No token
+        if: env.FIGMA_ACCESS_TOKEN == ''
+        env:
+          FIGMA_ACCESS_TOKEN: ${{ secrets.FIGMA_ACCESS_TOKEN }}
+        run: echo "FIGMA_ACCESS_TOKEN is not set as a repository secret; publish skipped."
