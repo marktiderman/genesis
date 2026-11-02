@@ -220,7 +220,7 @@ takes the processor function); [packages/ai/README.md](../packages/ai/README.md)
 ```ts
 // ai.config.ts — imported by server code only (a doctor rule enforces it)
 import { defineAi } from "@marktiderman/genesis-ai";
-import { wrap } from "@marktiderman/genesis-ai/server";
+import { otelSink, wrap } from "@marktiderman/genesis-ai/server";
 import { anthropic } from "@ai-sdk/anthropic";
 import { openAiModerator, deepgramTranscriber } from "@marktiderman/genesis-chat/server";
 
@@ -248,7 +248,7 @@ export const ai = defineAi({
   },
   vendors: { anthropic: { region: "us" }, openai: {}, deepgram: {} },   // the processor list, for consent and the privacy page
   budgets: { tenant: { monthlyUsd: 50 }, person: { dailyCalls: 200 }, concurrencyPerTenant: 4 },
-  telemetry: { captureContent: "off" },                                  // traces carry metadata only by default
+  telemetry: otelSink(trace.getTracer("ai")),                           // spans carry metadata only: no prompt, no answer
 });
 ```
 
