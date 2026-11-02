@@ -12,7 +12,7 @@ import { fireEvent, render, renderHook, screen, waitFor, within } from "@testing
 import { QueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { defineResource, GenesisProvider, ViewerScope, type DataProvider, type FilterParam } from "@marktiderman/genesis-core";
+import { defineResource, GenesisProvider, useResource, ViewerScope, type DataProvider, type FilterParam } from "@marktiderman/genesis-core";
 import { defineView } from "@marktiderman/genesis-core/resource-view";
 import {
   calendarLanes,
@@ -734,5 +734,52 @@ describe("calendar follow-up: URL values and the window's first midnight", () =>
       wrapper: wrap(filtering([moment]).p),
     });
     expect((await screen.findByText("Midnight")).closest("[data-day]")!.getAttribute("data-day")).toBe("2026-11-01");
+  });
+});
+
+describe("calendar follow-up: optimistic writes reach the calendar", () => {
+  it("shows an optimistic update before the server answers, like any list", async () => {
+    const { p } = filtering(ROWS);
+    // The server never answers, so only the optimistic patch can change the title.
+    (p as unknown as { update: unknown }).update = vi.fn(() => new Promise(() => {}));
+    let update: ((id: string, data: Partial<Event>) => Promise<unknown>) | undefined;
+    function Writer() {
+      const r = useResource<Event>("events", { mutationMode: "optimistic" });
+      update = r.update;
+      return null;
+    }
+    render(
+      <>
+        <ResourceView view={eventsView} mode="calendar" scoped={false} calendar={{ anchor: "2026-11-04", onAnchorChange: () => {}, timeZone: Z }} />
+        <Writer />
+      </>,
+      { wrapper: wrap(p) },
+    );
+    await screen.findByText("Swim meet");
+    void update!("e1", { title: "Swim gala" });
+    expect(await screen.findByText("Swim gala")).toBeTruthy();
+    expect(screen.queryByText("Swim meet")).toBeNull();
+  });
+});
+
+describe("calendar follow-up: the URL warning", () => {
+  it("warns once per bad value, not on every render", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { rerender } = render(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-04" timeZone={Z} />);
+    rerender(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-05" timeZone={Z} />);
+    rerender(<EventCalendar events={[]} layout={"decade" as never} anchor="2026-11-06" timeZone={Z} />);
+    expect(warn.mock.calls.filter((c) => String(c[0]).includes('layout "decade"'))).toHaveLength(1);
+  });
+
+  it("says nothing in a production build", () => {
+    const g = globalThis as unknown as { __DEV__?: boolean };
+    g.__DEV__ = false;
+    try {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      render(<EventCalendar events={[]} layout={"century" as never} anchor="2026-11-04" timeZone={Z} />);
+      expect(warn.mock.calls.filter((c) => String(c[0]).includes("century"))).toHaveLength(0);
+    } finally {
+      delete g.__DEV__;
+    }
   });
 });

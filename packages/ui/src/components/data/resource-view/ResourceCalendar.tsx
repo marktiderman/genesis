@@ -118,7 +118,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   if (!fieldName) throw new Error(`ResourceView(${view.resource}): mode="calendar" needs a calendar field: the view's calendar.field, or calendar={{ field }}`);
   // The screen's overrides get the checks the view's own block got in defineView. Layout and
   // anchor are left out: they often come from the URL, so a bad one falls back instead of throwing.
-  const problems = calendarProblems(view.contract.fields, { ...settings, layout: undefined });
+  const { layout: _urlLayout, ...configured } = settings;
+  const problems = calendarProblems(view.contract.fields, configured);
   if (problems.length) throw new Error(`ResourceView(${view.resource}): ${problems.join("; ")}`);
   const field = view.field(fieldName)!;
   const zone = timeZone ?? displayZone(view.definition.fields?.[fieldName as never]?.timeZone, viewerScope?.timeZone, viewerScope?.scopeTimeZone);
@@ -150,14 +151,15 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
     filters: [...filters, { field: fieldName, operator: "lt", value: from }, { field: endField!, operator: endStorage === "date" ? "gte" : "gt", value: end.from }],
   };
   // One query for both, so they load, refresh and show placeholder data together: two windows'
-  // rows never mix. Under core's list keys, so a save to the resource refreshes it like any list.
+  // rows never mix. Under core's list keys, and shaped like a provider's list (`{ data, total }`),
+  // so a save refreshes it and optimistic or undoable writes patch it like any list.
   const query = useQuery({
     queryKey: [...resourceKeys(view.resource).lists, { calendar: running ? [starting, running] : [starting] }],
     placeholderData: keepPreviousData,
     queryFn: async () => {
       const lists = await Promise.all([starting, ...(running ? [running] : [])].map((params) => provider.getList<BaseRecord>(view.resource, params)));
       return {
-        rows: lists.flatMap((l) => l.data) as unknown as T[],
+        data: lists.flatMap((l) => l.data),
         total: lists.reduce((n, l) => n + (l.total ?? l.data.length), 0),
       };
     },
@@ -166,7 +168,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   // The two filters can't both match a row; keyed anyway, so a row is never drawn twice.
   const rows = useMemo(() => {
     const seen = new Set<string>();
-    return (query.data?.rows ?? []).filter((row) => {
+    return ((query.data?.data ?? []) as unknown as T[]).filter((row) => {
       const key = String(encodeRecordKey(view.contract, row as DataRow));
       if (seen.has(key)) return false;
       seen.add(key);
