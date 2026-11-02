@@ -223,11 +223,12 @@ const token = await connector.accessToken(row.refresh_token, aad, {
   (`redirect: "error"`) and time out after 10 seconds. `log` gets safe lines only: a step, a
   result and a reason such as `token endpoint answered 400 (invalid_grant)`.
 - **`returnTo` is a path**, never a full URL, so the way back can't be pointed elsewhere.
-- **A turned-down grant is revoked.** When the callback refuses a grant after trading the code
-  (a scope unticked, or no identity with `requireIdentity`), it revokes it through `revokeUrl`
-  (best effort) rather than leave it standing. Google ends every token of the person's grant to
-  your client, so when one client backs several connections, set `revokeFailedGrants: false`
-  to keep a failed attempt from ending the others.
+- **A turned-down grant can be revoked.** When the callback refuses a grant after trading the
+  code (a scope unticked, or no identity with `requireIdentity`), `revokeFailedGrants: true`
+  revokes it through `revokeUrl` (best effort) rather than leave it standing. It's off by
+  default: Google ends every token of the person's grant across the project on a revoke, so a
+  returning person who unticks a scope would also lose the connection they already have. Turn
+  it on only when each grant is isolated (one connection per client).
 
 ### One callback origin for many addresses
 
@@ -293,6 +294,6 @@ const acme: OAuthProvider = {
 | `requireRefreshToken`                          | true                            | Fail when the provider sends none.                                                          |
 | `requireIdentity`                              | false                           | Fail when no checked `identity` can be read from the ID token (the reason is logged).       |
 | `trustedAudiences`                             | none                            | Other audiences an ID token's `aud` may name besides `clientId`.                            |
-| `revokeFailedGrants`                           | true                            | Revoke a grant the callback turns down (a missing scope, no identity). See below.           |
+| `revokeFailedGrants`                           | false                           | Revoke a grant the callback turns down (a missing scope, no identity). See below.           |
 | `isPublicSuffix(domain)`                       |                                 | A Public Suffix List lookup for the `sharedDomain` check.                                   |
 | `fetch`, `timeoutMs`, `now`, `randomId`, `log` |                                 | For tests and logging.                                                                      |
