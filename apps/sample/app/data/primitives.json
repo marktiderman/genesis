@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01",
+  "generatedAt": "2026-11-02",
   "surfaces": {
     "web": {
       "package": "@marktiderman/genesis-ui",
@@ -12544,6 +12544,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "mobileLayout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "sheet",
+              "description": "How the dialog sits on a phone. Default `sheet`. See {@link DialogMobileLayout}."
             },
             {
               "name": "overlayClassName",
