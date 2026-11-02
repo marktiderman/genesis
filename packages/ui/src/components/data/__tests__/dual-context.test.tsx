@@ -44,7 +44,7 @@ describe("dual-context regression (C1): exported components share the provider c
 
     // Proves the component actually mounted (the trigger rendered), so the
     // no-throw above reflects the hooks running, not a short-circuit.
-    expect(screen.getByRole("combobox")).toBeTruthy();
+    expect(screen.getByRole("button")).toBeTruthy();
   });
 
   it("ResourceForm (useResourceForm) renders under exported GenesisProvider without throwing", () => {

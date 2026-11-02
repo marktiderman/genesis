@@ -7,7 +7,7 @@ import { encodeRecordKey } from "../schema/keys";
 import type { Identifier } from "../provider/types";
 import { readinessOf, type Readiness } from "../resource";
 import type { DataRow, FieldSchema, ResourceContract } from "../schema/types";
-import { ViewDefinitionError } from "./define-view";
+import { ViewDefinitionError } from "./errors";
 import type { Viewer } from "../viewer";
 import type { Allowed, FieldNameOf, ResolvedFormField, ResourceView, RowOf, ViewTone } from "./types";
 
