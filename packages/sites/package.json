@@ -141,7 +141,7 @@
     "@puckeditor/core": "^0.23.0",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/cli": "4.3.3",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "axe-core": "^4.14.0",
