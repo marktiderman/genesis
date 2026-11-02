@@ -3,11 +3,11 @@
  * Genesis UI Sheet, and `mountSupportWidget`, the loader that puts it on any
  * page with one call (for a page that isn't a React app of its own).
  */
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Button, Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@marktiderman/genesis-ui";
 import { resolveSupportCopy } from "../copy";
-import { FeedbackPanel, type FeedbackPanelProps } from "./feedback-panel";
+import { FeedbackPanel, useFeedbackDraft, type FeedbackPanelProps } from "./feedback-panel";
 
 export type LauncherPosition = "bottom-right" | "bottom-left";
 
@@ -27,18 +27,35 @@ export function FeedbackLauncher({ position = "bottom-right", label, ...panel }:
   const [open, setOpen] = useState(false);
   // While the person picks a pin or the browser asks to capture, the sheet steps aside.
   const [hidden, setHidden] = useState(false);
+  // Each return from stepping aside is a fresh Sheet: closing and reopening it quickly otherwise
+  // leaves its overlay drawn over it (the draft is held here, so nothing is lost).
+  const [round, setRound] = useState(0);
+  const onHide = useCallback((hide: boolean) => {
+    setHidden(hide);
+    if (!hide) setRound((n) => n + 1);
+  }, []);
+  // Held here, outside the Sheet: stepping aside unmounts the panel, and its draft must survive.
+  const draft = useFeedbackDraft(panel.defaultType);
   return (
     <>
-      <Button className={POSITIONS[position]} onClick={() => setOpen(true)} data-testid="genesis-support-launcher" aria-haspopup="dialog">
+      <Button
+        className={POSITIONS[position]}
+        onClick={() => {
+          draft.reset();
+          setOpen(true);
+        }}
+        data-testid="genesis-support-launcher"
+        aria-haspopup="dialog"
+      >
         {label ?? copy.settings.sendFeedback}
       </Button>
-      <Sheet open={open && !hidden} onOpenChange={setOpen}>
+      <Sheet key={round} open={open && !hidden} onOpenChange={setOpen}>
         <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-md">
           <SheetHeader>
             <SheetTitle>{copy.feedback.title}</SheetTitle>
             <SheetDescription>{copy.feedback.messagePlaceholder}</SheetDescription>
           </SheetHeader>
-          <FeedbackPanel {...panel} onHide={setHidden} />
+          <FeedbackPanel {...panel} draft={draft} onHide={onHide} />
         </SheetContent>
       </Sheet>
     </>

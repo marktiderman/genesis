@@ -132,6 +132,8 @@ export async function handle(req: Request, deps: IntakeDeps): Promise<Response> 
         message: a.body,
         route: a.route ?? null,
         app_version: a.appVersion ?? null,
+        // Its own column (support-findings migration), and still in context for older readers.
+        ...(a.severity ? { severity: a.severity } : {}),
         context,
       });
       if ("error" in created) return refusal(created.error, cors, deps);

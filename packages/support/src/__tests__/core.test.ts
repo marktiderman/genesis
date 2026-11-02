@@ -211,7 +211,7 @@ describe("the block", () => {
     expect(block.requires).toEqual(["account"]);
   });
 
-  it("contributes Send feedback and Help to Settings, its routes and migration 0006", () => {
+  it("contributes Send feedback and Help to Settings, its routes and migrations 0006 and 0003", () => {
     const resolved = resolveBlocks([defineSupportBlock({ basePath: "/settings/support" })], [SUPPORT_BLOCK_ID, "account"]);
     expect(resolved.settings.map((r) => [r.id, r.section, r.title, r.href])).toEqual([
       ["support-send-feedback", "support", "Send feedback", "/settings/support/new"],
@@ -220,6 +220,12 @@ describe("the block", () => {
     expect(resolved.routes.map((r) => r.path)).toEqual(["/settings/support", "/settings/support/new", "/settings/support/[id]", "/settings/support/ideas", "/settings/support/shipped"]);
     expect(resolved.migrations).toEqual([
       { package: "@marktiderman/genesis-supabase", file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql", feature: SUPPORT_BLOCK_ID },
+      {
+        package: "@marktiderman/genesis-support",
+        file: "migrations/0003_genesis_support_findings.sql",
+        test: "migrations/tests/0003_genesis_support_findings.test.sql",
+        feature: SUPPORT_BLOCK_ID,
+      },
     ]);
     expect(resolved.privacy[0]!.collects?.every((c) => c.tracking === false)).toBe(true);
   });
@@ -233,9 +239,13 @@ describe("the block", () => {
     expect(manifest.routes.map((r: { path: string }) => r.path)).toEqual(c.routes!.map((r) => r.path));
   });
 
-  it("names a migration and a test that the supabase package ships", () => {
-    const root = join(__dirname, "../../../supabase");
+  it("names migrations and tests that their packages ship", () => {
+    const roots: Record<string, string> = {
+      "@marktiderman/genesis-supabase": join(__dirname, "../../../supabase"),
+      "@marktiderman/genesis-support": join(__dirname, "../.."),
+    };
     for (const m of defineSupportBlock().contributes!.migrations!) {
+      const root = roots[m.package ?? "@marktiderman/genesis-support"]!;
       expect(() => readFileSync(join(root, m.file))).not.toThrow();
       expect(() => readFileSync(join(root, m.test!))).not.toThrow();
     }

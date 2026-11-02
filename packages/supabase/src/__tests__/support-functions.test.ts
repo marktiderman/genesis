@@ -38,7 +38,7 @@ describe("genesis-support-intake", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ reportId: "r1", findingId: "r1", status: "open" });
     expect(clientFor).toHaveBeenCalledWith("tok");
-    expect(c.inserted[0]).toMatchObject({ type: "bug", message: "Broken", route: "/a", context: { severity: "high" } });
+    expect(c.inserted[0]).toMatchObject({ type: "bug", message: "Broken", route: "/a", severity: "high", context: { severity: "high" } });
     expect(c.inserted[0]).not.toHaveProperty("user_id");
   });
 
