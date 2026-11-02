@@ -1,0 +1,21 @@
+.changeset/chat-inbox-time-from-ui.md
+  s_6a4659246591cd::t_bca3b52567c5ce 5
+packages/chat/package.json
+  s_6a4659246591cd::t_72264ec8a8519c 101
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "18dbcd0240b0cc84c20a06faeec986c5cda2a28e",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
