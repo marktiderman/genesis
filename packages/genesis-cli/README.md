@@ -353,16 +353,34 @@ doesn't fit, is a warning.
    | --- | --- | --- |
    | `genesis-core-2-scope-names` | genesis-core crosses 2.0.0 | Genesis API usage only, never an app's own names that match (a view field means one inside `defineView(…)` or an object typed `ViewDefinition`/`ViewField`; the prop means an attribute of `<NativeResourceView>` or a key of an object typed `NativeResourceViewProps`; each with the name imported from Genesis): a view field's `timeZone: "practice"` → `"scope"`, NativeResourceView's `practiceTimeZone` (attribute or object key) → `scopeTimeZone`, `resolveZone("practice", …)` → `"scope"`, and DisplayTimeZones' `practice` (a `{ viewer, practice }` object's key, `.practice` on a value from `useDisplayTimeZones()` or typed `DisplayTimeZones`) → `scope`. `scope={{ practiceId }}` needs nothing (it is the app's own key in ResourceScope's open slot); when a file reads `scope.practiceId` and nothing declares it, the codemod prints the one-line `ResourceScope` augmentation that types it. The doctor's `removed-scope-name` rule finds what it would rewrite. |
 3. Reinstalls. With pnpm, a release younger than the app's `minimumReleaseAge` is installed in
-   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads (the nearest one at or above the app, else beside the lockfile)
-   (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen install honours only the first pinned
-   version of a package, so a second pin (this upgrade's next to an earlier one's, or two versions
-   of one package) fails `pnpm install --frozen-lockfile` in CI with
-   `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade replaces every Genesis entry with one
-   pattern, `'@marktiderman/genesis-*'` (and the umbrella by its bare name), which both a resolving
-   and a frozen install honour on pnpm 11; every other entry, comment and line is left as it is,
-   since the list is the app's supply-chain guard. Then it runs `pnpm dedupe` (`npm dedupe` with
-   npm; bun and yarn are skipped), so a Genesis package isn't left installed at two versions
+   loose mode and pnpm pins it in `minimumReleaseAgeExclude`, in the pnpm-workspace.yaml pnpm reads
+   (the nearest one at or above the app, but never above the repository's top level, else beside
+   the lockfile), one entry per version (`'@marktiderman/genesis-ui@2.26.0'`). pnpm 11.1.3's frozen
+   install honours only the first entry for a package, so a second one (this upgrade's next to an
+   earlier one's) fails `pnpm install --frozen-lockfile` in CI with
+   `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION`. The upgrade merges them into one entry per Genesis
+   package that lists its exact versions (`'@marktiderman/genesis-features@0.8.0 || 0.8.1'`), which
+   both a resolving and a frozen install honour on pnpm 11, and drops versions the lockfile beside
+   it no longer holds, so the list doesn't grow (with `sharedWorkspaceLockfile: false`, or
+   `shared-workspace-lockfile=false` in the `.npmrc`, it drops nothing). It never writes a pattern
+   such as `'@marktiderman/genesis-*'`: that would let every future Genesis release, a compromised
+   one included, skip the wait. The two that genesis-cli 1.17.3 wrote, `'@marktiderman/genesis-*'`
+   and the bare `'@marktiderman/genesis'`, are replaced with the lockfile's exact versions. Any
+   other pattern or bare name, and every other entry, comment and line, is left as it is, since the
+   list is the app's supply-chain guard. A range the app wrote for a Genesis package
+   (`'…genesis-ui@~2.25.0'`) takes the new pins into its entry with `||`, with a warning: pnpm 11
+   rejects ranges there (`ERR_PNPM_INVALID_MINIMUM_RELEASE_AGE_EXCLUDE`). Exact versions and `||`
+   need **pnpm 10.19 or later**; an older pnpm reads them as matching nothing, and the upgrade
+   warns. Then it runs `pnpm dedupe` (`npm dedupe` with npm; bun
+   and yarn are skipped), so a Genesis package isn't left installed at two versions
    (`duplicate-genesis-package`), and commits pnpm-workspace.yaml with `--pr`.
+
+   With `minimumReleaseAge` set in the app, pnpm runs in strict mode instead: the install fails
+   with `ERR_PNPM_NO_MATURE_MATCHING_VERSION` before any tidy, and the upgrade stops and names the
+   versions pnpm refused. It never loosens that setting for you: add those versions to
+   `minimumReleaseAgeExclude` (exact versions, one entry per package), or wait until they are old
+   enough, and run `genesis upgrade` again.
+
    Then it refreshes every file in `genesis.lock.json` from the newly installed package:
    unchanged in the app, it takes the new version; changed by both, it is merged with `git
    merge-file` against the old version (the base); a conflict goes to `<file>.genesis-next` and

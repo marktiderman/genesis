@@ -222,7 +222,8 @@ takes the processor function); [packages/ai/README.md](../packages/ai/README.md)
 import { defineAi } from "@marktiderman/genesis-ai";
 import { otelSink, wrap } from "@marktiderman/genesis-ai/server";
 import { anthropic } from "@ai-sdk/anthropic";
-import { openAiModerator, deepgramTranscriber } from "@marktiderman/genesis-chat/server";
+import { openAiModerator } from "@marktiderman/genesis-chat/server";
+import { trace } from "@opentelemetry/api";
 
 export const ai = defineAi({
   models: {
@@ -237,27 +238,29 @@ export const ai = defineAi({
     },
     smart: { model: anthropic("claude-opus-5-5"), effort: "medium", fallbacks: { refusal: "provider" } },
   },
-  // Non-generative processors go through the same pipeline: gated, consented, metered.
-  processors: {
-    moderation: wrap(openAiModerator({ apiKey: env.OPENAI_API_KEY }), {
-      vendor: "openai", feature: "chat", unit: "call", budget: "exempt",
-    }),
-    transcription: wrap(deepgramTranscriber({ apiKey: env.DEEPGRAM_API_KEY }), {
-      vendor: "deepgram", feature: "chat", unit: "audio-minute",
-    }),
-  },
   vendors: { anthropic: { region: "us" }, openai: {}, deepgram: {} },   // the processor list, for consent and the privacy page
   budgets: { tenant: { monthlyUsd: 50 }, person: { dailyCalls: 200 }, concurrencyPerTenant: 4 },
   telemetry: otelSink(trace.getTracer("ai")),                           // spans carry metadata only: no prompt, no answer
 });
+
+// Non-generative processors go through the same pipeline: gated, consented, metered.
+const inner = openAiModerator({ apiKey: env.OPENAI_API_KEY });
+export const moderator = {
+  name: inner.name,
+  moderate: wrap(ai, inner.moderate.bind(inner), {
+    id: "chat.moderate", vendor: "openai", feature: "chat", operation: "moderation",
+    consent: "terms", budget: "exempt", context: (input) => contextFor(input),
+  }),
+};
+// deepgramTranscriber is wrapped the same way, with vendor "deepgram" and its audio minutes as quantity.
 ```
 
 Every vendor that sees a person's data is a processor, including embeddings, speech-to-text and
 text-to-speech, which are often a different vendor from chat. Each is wrapped, consented and
 metered like a model call.
 
-`wrap` returns the same `Moderator` or `Transcriber` chat already expects (G2). Chat's runner takes
-it unchanged, and every moderation and transcription call is now gated, consented, metered and
+`wrap` returns a function with the processor's own signature, so the `Moderator` or `Transcriber`
+chat already expects keeps its shape (G2). Chat's runner takes it unchanged, and every moderation and transcription call is now gated, consented, metered and
 traced. Moderation is exempt from budgets: a safety check never stops because a tenant ran out.
 
 ### Tasks: a loader, a prompt, a schema

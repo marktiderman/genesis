@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   ArrowLeft,
+  Ellipsis,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "../ui/button";
@@ -34,6 +35,7 @@ import {
   PopoverTrigger,
 } from "../ui/popover";
 import { Collapsible, CollapsibleContent } from "../ui/collapsible";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "../ui/sheet";
 import { Tooltip } from "../ui/tooltip";
 import {
   itemIsActive,
@@ -46,6 +48,7 @@ import {
 } from "./sub-nav";
 import { cn } from "../../utils";
 import { useIsMobile } from "../../hooks/use-mobile";
+import { useUiMessages } from "../../messages";
 import { readStoredOptions, writeStoredOptions } from "../../option-storage";
 import {
   DefaultLink,
@@ -282,6 +285,8 @@ function dialogOpen(): boolean {
 
 /** md breakpoint: the desktop sidebar only exists at this width and up. */
 const DESKTOP_QUERY = "(min-width: 768px)";
+/** Most slots the phone bottom bar shows before the rest go under "More". */
+const MOBILE_BOTTOM_SLOTS = 5;
 
 /**
  * @stability Beta
@@ -1145,6 +1150,8 @@ export function AppShell({
   isActive = isPathActive,
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const m = useUiMessages().shell;
 
   // Hierarchical nav: resolve the tree against the current location once.
   const derived = useMemo(() => {
@@ -1205,7 +1212,30 @@ export function AppShell({
   // Close the drawer on any path change (product switcher, deep links, …).
   useEffect(() => {
     setMobileOpen(false);
+    setMoreOpen(false);
   }, [activePath]);
+
+  // Both phone sheets (the drawer and More) are hidden from the md breakpoint up, so widening
+  // past it closes them. Left open, Radix would keep the page modal (body pointer-events off,
+  // a scrim) behind a sheet nobody can see.
+  const mobileOpenButtonRef = useRef<HTMLButtonElement>(null);
+  // The desktop sidebar's collapse toggle: where focus goes when the drawer closed because the
+  // screen widened, since the menu button sits in the phone header, which is hidden then.
+  const desktopToggleRef = useRef<HTMLButtonElement>(null);
+  const phoneSheetOpen = mobileOpen || moreOpen;
+  useEffect(() => {
+    if (!phoneSheetOpen || typeof window.matchMedia !== "function") return;
+    const wide = window.matchMedia(DESKTOP_QUERY);
+    const close = () => {
+      setMobileOpen(false);
+      setMoreOpen(false);
+    };
+    const onChange = (event: MediaQueryListEvent) => {
+      if (event.matches) close();
+    };
+    wide.addEventListener?.("change", onChange);
+    return () => wide.removeEventListener?.("change", onChange);
+  }, [phoneSheetOpen]);
 
   const hasSecondary = Boolean(secondaryNavItems && secondaryNavItems.length);
   const hasUser = userSlot != null;
@@ -1442,6 +1472,16 @@ export function AppShell({
   const bottomCurrent = subBottom
     ? mostSpecificActive(bottomItems, activePath, isActive)
     : undefined;
+  // A phone bar holds five slots at most (the back item counts as one), so each keeps a
+  // readable label and a wide target. Past that, the last slot is "More", which opens the
+  // rest in a bottom sheet.
+  const bottomSlots = MOBILE_BOTTOM_SLOTS - (backTarget ? 1 : 0);
+  const bottomOverflows = bottomItems.length > bottomSlots;
+  const bottomShown = bottomOverflows ? bottomItems.slice(0, bottomSlots - 1) : bottomItems;
+  const bottomMore = bottomOverflows ? bottomItems.slice(bottomSlots - 1) : [];
+  const bottomItemActive = (item: (typeof bottomItems)[number]) =>
+    bottomCurrent ? item === bottomCurrent : itemIsActive(item, activePath, isActive);
+  const moreActive = bottomMore.some(bottomItemActive);
 
   const toggles: ToggleDef[] = (
     [
@@ -1554,7 +1594,7 @@ export function AppShell({
       </Popover>
     ) : null;
 
-  const collapseLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
+  const collapseLabel = collapsed ? m.expandSidebar : m.collapseSidebar;
   // Same markup as before this feature (title + aria-pressed); only its
   // place changes on the collapsed rail (the foot instead of the header).
   const collapseToggle = showCollapseCtrl ? (
@@ -1562,6 +1602,7 @@ export function AppShell({
       variant="ghost"
       size="icon"
       className="h-8 w-8"
+      ref={desktopToggleRef}
       onClick={() => toggleCollapsed(true)}
       title={collapseShortcut ? `${collapseLabel} (${collapseShortcut})` : collapseLabel}
       aria-label={collapseLabel}
@@ -1601,7 +1642,7 @@ export function AppShell({
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
+            aria-label={m.closeNavigation}
             data-testid="app-shell-mobile-close"
             testID="app-shell-mobile-close"
           >
@@ -1723,27 +1764,50 @@ export function AppShell({
         {sidebarChrome({})}
       </aside>
 
-      {/* Mobile overlay */}
-      {mobileOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setMobileOpen(false)}
-          aria-hidden
-        />
-      ) : null}
-
-      {/* Mobile sidebar — inert when closed so off-screen links leave tab order */}
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-60 flex-col border-r border-sidebar-border bg-sidebar transition-transform md:hidden",
-          mobileOpen ? "translate-x-0" : "-translate-x-full pointer-events-none",
-        )}
-        id="app-shell-mobile-nav"
-        aria-hidden={!mobileOpen}
-        inert={!mobileOpen || undefined}
-      >
-        {sidebarChrome({ mobile: true })}
-      </aside>
+      {/* Phone drawer: genesis-ui's left Sheet, so Radix owns the modal (focus trap, Escape that
+          closes only the topmost layer, scroll lock, the page behind hidden from assistive tech).
+          Every row and button in it is at least 44px tall for a thumb. */}
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          showCloseButton={false}
+          id="app-shell-mobile-nav"
+          data-testid="app-shell-mobile-nav"
+          aria-describedby={undefined}
+          overlayClassName="md:hidden"
+          className={cn(
+            "flex w-72 max-w-[85vw] flex-col gap-0 overflow-y-auto overscroll-contain border-sidebar-border bg-sidebar p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] shadow-none sm:max-w-[85vw] md:hidden",
+            "motion-reduce:data-[state=closed]:animate-none motion-reduce:data-[state=open]:animate-none",
+            "[&_a]:min-h-11 [&_[role=link]]:min-h-11 [&_button]:min-h-11 [&_button]:min-w-11",
+          )}
+          onOpenAutoFocus={(event) => {
+            // Start on the close button rather than the first link, so opening doesn't
+            // look like a row was picked.
+            const close = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLElement>(
+              '[data-testid="app-shell-mobile-close"]',
+            );
+            if (close) {
+              event.preventDefault();
+              close.focus();
+            }
+          }}
+          onCloseAutoFocus={(event) => {
+            // Radix hands focus back to whatever had it when the drawer opened, which is the
+            // body in browsers where a tap doesn't focus a button (Safari). The menu button is
+            // always the right place, including after a drawer link navigated: the link closed
+            // the drawer, so its focus would otherwise be lost with it.
+            // Except when the screen widened past md, which closed the drawer: the menu button
+            // is in the hidden phone header then, and focusing it would drop focus on the body,
+            // so the desktop sidebar's collapse toggle takes it when there is one.
+            event.preventDefault();
+            const wide = typeof window.matchMedia === "function" && window.matchMedia(DESKTOP_QUERY).matches;
+            (wide && desktopToggleRef.current ? desktopToggleRef.current : mobileOpenButtonRef.current)?.focus();
+          }}
+        >
+          <SheetTitle className="sr-only">{m.navigation}</SheetTitle>
+          {sidebarChrome({ mobile: true })}
+        </SheetContent>
+      </Sheet>
 
       {/* Main content */}
       <div
@@ -1754,15 +1818,17 @@ export function AppShell({
       >
         <header
           className={cn(
-            "flex h-14 items-center gap-3 border-b px-4 md:hidden",
+            // Clears the notch and the side insets when the app runs edge to edge.
+            "flex h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b pt-[env(safe-area-inset-top)] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] md:hidden",
             scrollWindow && "sticky top-0 z-20 bg-background",
           )}
         >
           <Button
+            ref={mobileOpenButtonRef}
             variant="ghost"
             size="icon"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open navigation"
+            aria-label={m.openNavigation}
             aria-expanded={mobileOpen}
             aria-controls="app-shell-mobile-nav"
             data-testid="app-shell-mobile-open"
@@ -1784,7 +1850,7 @@ export function AppShell({
           className={cn(
             "flex-1",
             !scrollWindow && "overflow-y-auto",
-            showMobileBottom ? "pb-16 md:pb-0" : "pb-0",
+            showMobileBottom ? "pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0" : "pb-0",
           )}
         >
           {parentNavigation ? (
@@ -1869,8 +1935,10 @@ export function AppShell({
 
         {showMobileBottom ? (
           <nav
-            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background md:hidden"
-            aria-label="Primary"
+            // Padded above the home indicator and inside the side insets in landscape.
+            className="fixed bottom-0 left-0 right-0 z-30 flex border-t bg-background pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] md:hidden"
+            aria-label={m.primaryNavigation}
+            data-testid="app-shell-mobile-bottom-nav"
           >
             {backTarget ? (
               <LinkComp
@@ -1883,10 +1951,8 @@ export function AppShell({
                 <span className="max-w-full truncate px-0.5">{backTarget.label}</span>
               </LinkComp>
             ) : null}
-            {bottomItems.map((item) => {
-              const active = bottomCurrent
-                ? item === bottomCurrent
-                : itemIsActive(item, activePath, isActive);
+            {bottomShown.map((item) => {
+              const active = bottomItemActive(item);
               return (
                 <LinkComp
                   key={item.to + item.label}
@@ -1924,7 +1990,66 @@ export function AppShell({
                 </LinkComp>
               );
             })}
+            {bottomOverflows ? (
+              <button
+                type="button"
+                onClick={() => setMoreOpen(true)}
+                aria-haspopup="dialog"
+                aria-expanded={moreOpen}
+                // The visible "More" can't show which page is current, so the name says so.
+                aria-label={moreActive && !bottomNotCurrent ? m.moreCurrent : undefined}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 py-2 text-xs font-medium transition-colors",
+                  moreActive ? "text-primary" : "text-muted-foreground",
+                )}
+                data-testid="app-shell-mobile-more"
+              >
+                <Ellipsis className="h-5 w-5" aria-hidden />
+                <span className="max-w-full truncate px-0.5">{m.more}</span>
+              </button>
+            ) : null}
           </nav>
+        ) : null}
+        {bottomOverflows ? (
+          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+            <SheetContent
+              side="bottom"
+              className="pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:hidden"
+              overlayClassName="md:hidden"
+              data-testid="app-shell-mobile-more-sheet"
+            >
+              <SheetTitle>{m.more}</SheetTitle>
+              <SheetDescription className="sr-only">{m.moreDescription}</SheetDescription>
+              <ul className="-mx-2 space-y-0.5">
+                {bottomMore.map((item) => {
+                  const active = bottomItemActive(item);
+                  return (
+                    <li key={item.to + item.label}>
+                      <LinkComp
+                        href={item.to}
+                        onClick={() => setMoreOpen(false)}
+                        aria-current={active && !bottomNotCurrent ? "page" : undefined}
+                        className={cn(
+                          "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors",
+                          active
+                            ? "bg-accent text-primary"
+                            : "text-foreground hover:bg-accent hover:text-accent-foreground",
+                        )}
+                      >
+                        <NavIcon item={item} className="h-5 w-5 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {item.badge != null ? (
+                          <Badge variant="secondary" className="shrink-0">
+                            {item.badge}
+                          </Badge>
+                        ) : null}
+                      </LinkComp>
+                    </li>
+                  );
+                })}
+              </ul>
+            </SheetContent>
+          </Sheet>
         ) : null}
       </div>
     </div>

@@ -205,7 +205,7 @@ export const intake = defineForm({
       label: "Team size",
       options: [{ value: "1-10" }, { value: "11-200" }, { value: "200+" }],
     }),
-    f.pageBreak(),
+    f.pageBreak("details"),
     f.longText("enterprise_needs", { label: "What do you need at scale?" }),
     f.nps("likelihood", { label: "How likely are you to recommend us?" }),
   ],

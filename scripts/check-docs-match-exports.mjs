@@ -65,6 +65,8 @@ const UNKNOWN_PROPERTY = new Set([2339, 2551]);
 // Assignability only when it is a "doesn't exist" claim: a prop the component doesn't have, or a
 // literal value (`mode="cards"`) outside the accepted set. Other type mismatches are left to review.
 const NOT_ASSIGNABLE = new Set([2322]);
+// The wrong number of arguments, when the callee is a Genesis declaration (`f.pageBreak()` without its id).
+const ARG_COUNT = new Set([2554, 2555]);
 
 // ---------------------------------------------------------------------------
 // Markdown
@@ -429,8 +431,32 @@ function nodeAt(sf, pos) {
   return found;
 }
 
+/**
+ * An interface left empty for module augmentation (`GenesisViewerRoles`): an
+ * app declares its keys, so a doc naming one isn't wrong.
+ */
+function isAugmentable(checker, type) {
+  const t = type && checker.getNonNullableType(type);
+  const decls = t?.symbol?.declarations;
+  return !!decls?.length && decls.every((d) => ts.isInterfaceDeclaration(d) && isGenesisFile(d.getSourceFile().fileName)) && checker.getPropertiesOfType(t).length === 0;
+}
+
+const declaredInGenesis = (decl) => !!decl && isGenesisFile(decl.getSourceFile().fileName);
+
 /** Whether a diagnostic at `node` is about a Genesis API. */
 function aboutGenesis(checker, node, code) {
+  if (ARG_COUNT.has(code)) {
+    let n = node;
+    while (n && !ts.isCallExpression(n) && !ts.isNewExpression(n) && !ts.isStatement(n)) n = n.parent;
+    if (!n || ts.isStatement(n)) return false;
+    const sym = checker.getSymbolAtLocation(ts.isPropertyAccessExpression(n.expression) ? n.expression.name : n.expression);
+    // A name the check imported for the block (line 0) isn't the doc's claim: it may mean another function.
+    const imported = sym?.declarations?.[0];
+    if (sym && sym.flags & ts.SymbolFlags.Alias && imported && imported.getSourceFile().getLineAndCharacterOfPosition(imported.getStart()).line === 0) return false;
+    const target = sym && sym.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(sym) : sym;
+    if (target?.declarations?.some(declaredInGenesis)) return true;
+    return declaredInGenesis(checker.getResolvedSignature(n)?.declaration);
+  }
   if (MISSING_EXPORT.has(code)) {
     let n = node;
     while (n && !ts.isImportDeclaration(n)) n = n.parent;
@@ -443,8 +469,14 @@ function aboutGenesis(checker, node, code) {
       const target = sym && sym.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(sym) : sym;
       return !!target?.declarations?.some((d) => isGenesisFile(d.getSourceFile().fileName));
     }
-    if (ts.isObjectLiteralExpression(n)) return isGenesisType(checker.getContextualType(n));
-    if (ts.isPropertyAccessExpression(n) && UNKNOWN_PROPERTY.has(code)) return isGenesisType(checker.getTypeAtLocation(n.expression));
+    if (ts.isObjectLiteralExpression(n)) {
+      const type = checker.getContextualType(n);
+      return isGenesisType(type) && !isAugmentable(checker, type);
+    }
+    if (ts.isPropertyAccessExpression(n) && UNKNOWN_PROPERTY.has(code)) {
+      const type = checker.getTypeAtLocation(n.expression);
+      return isGenesisType(type) && !isAugmentable(checker, type);
+    }
     if (ts.isIndexedAccessTypeNode(n) && UNKNOWN_PROPERTY.has(code)) return isGenesisType(checker.getTypeFromTypeNode(n.objectType));
     if (ts.isCallExpression(n) || ts.isStatement(n)) break;
   }
@@ -570,7 +602,7 @@ export function checkDocs({ root, docs, features = featureStatuses(root) }) {
       if (m.kind === "block") {
         for (const d of diags) {
           if (d.start === undefined) continue;
-          if (![...MISSING_EXPORT, ...UNKNOWN_KEY, ...UNKNOWN_PROPERTY, ...NOT_ASSIGNABLE].includes(d.code)) continue;
+          if (![...MISSING_EXPORT, ...UNKNOWN_KEY, ...UNKNOWN_PROPERTY, ...NOT_ASSIGNABLE, ...ARG_COUNT].includes(d.code)) continue;
           const node = nodeAt(sf, d.start);
           if (NOT_ASSIGNABLE.has(d.code) && !/does not exist/.test(message(d)) && !isLiteral(node)) continue;
           if (!aboutGenesis(checker, node, d.code)) continue;
@@ -629,13 +661,24 @@ export function docFiles(root) {
       else if (name.endsWith(".md") && name !== "component-reference.md") out.push(relative(root, full));
     }
   };
+  if (existsSync(join(root, "README.md"))) out.push("README.md");
   if (existsSync(join(root, "docs"))) walk(join(root, "docs"));
-  for (const group of ["packages", "apps"]) {
-    const base = join(root, group);
-    if (!existsSync(base)) continue;
-    for (const name of readdirSync(base).sort()) {
+  // Every package's Markdown, except changelogs (history) and what's built or installed.
+  const walkPackage = (dir) => {
+    for (const name of readdirSync(dir).sort()) {
+      if (name === "node_modules" || name === "dist" || name.startsWith(".")) continue;
+      const full = join(dir, name);
+      if (statSync(full).isDirectory()) walkPackage(full);
+      else if (name.endsWith(".md") && name !== "CHANGELOG.md") out.push(relative(root, full));
+    }
+  };
+  const packages = join(root, "packages");
+  if (existsSync(packages)) for (const name of readdirSync(packages).sort()) if (statSync(join(packages, name)).isDirectory()) walkPackage(join(packages, name));
+  const apps = join(root, "apps");
+  if (existsSync(apps)) {
+    for (const name of readdirSync(apps).sort()) {
       for (const doc of ["README.md", "SKILL.md", "EXTENDING.md"]) {
-        if (existsSync(join(base, name, doc))) out.push(join(group, name, doc));
+        if (existsSync(join(apps, name, doc))) out.push(join("apps", name, doc));
       }
     }
   }
@@ -658,6 +701,9 @@ function main(argv) {
   const findings = checkDocs({ root, docs });
   for (const f of findings) console.log(`${f.file}:${f.line}: ${f.message}`);
   if (verbose) for (const u of findings.unparsed) console.log(`${u.file}:${u.line}: (not checked: the block doesn't parse)`);
+  // Blocks that don't parse aren't checked: say how many, every run, so the gap stays visible.
+  const skipped = findings.unparsed.length;
+  console.log(`check-docs-match-exports: ${skipped} fenced block${skipped === 1 ? "" : "s"} couldn't be parsed and weren't checked${skipped && !verbose ? " (--verbose lists them)" : ""}.`);
   if (verbose || findings.length) console.log(`\n${docs.length} docs checked, ${findings.length} finding${findings.length === 1 ? "" : "s"}.`);
   if (findings.length) {
     console.log("A doc names API the packages don't have. Fix the doc, or mark it **Planned** with its features.ts id (scripts/check-docs-match-exports.mjs).");

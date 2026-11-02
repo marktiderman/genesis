@@ -26,6 +26,10 @@ export interface DemoDefinition {
   summary?: (row: unknown) => { title: string };
 }
 export declare function defineDemo(contract: unknown, definition: DemoDefinition): { resource: string };
+export declare function demoBreak(id: string, title?: string): unknown;
+/** Empty for module augmentation: an app declares its roles. */
+export interface DemoRoles {}
+export declare function demoViewer(): { roles?: DemoRoles };
 `;
 
 const JSX_RUNTIME = `
@@ -141,6 +145,21 @@ describe("checkDocs", () => {
     expect(found[3]).toMatch(/^6: example: Type '"sheet"' is not assignable/);
   }, 60_000);
 
+  it("reports a Genesis call with the wrong number of arguments", () => {
+    const md = ["```ts", 'import { demoBreak } from "@marktiderman/genesis-demo";', "demoBreak();", 'demoBreak("a", "b", "c");', "```"].join("\n");
+    const found = check(root, md);
+    expect(found).toHaveLength(2);
+    expect(found[0]).toMatch(/^3: example: Expected 1-2 arguments, but got 0/);
+    expect(found[1]).toMatch(/^4: example: Expected 1-2 arguments, but got 3/);
+    // A name the block doesn't import may be the app's own function: not checked.
+    expect(check(root, "```ts\ndemoBreak();\n```")).toEqual([]);
+  }, 60_000);
+
+  it("skips keys of an interface left empty for module augmentation", () => {
+    const md = ["```ts", 'import { demoViewer } from "@marktiderman/genesis-demo";', 'const owner = demoViewer().roles?.orgRole === "owner";', "```"].join("\n");
+    expect(check(root, md)).toEqual([]);
+  }, 60_000);
+
   it("reports a missing entry point", () => {
     expect(check(root, '```ts\nimport { x } from "@marktiderman/genesis-demo/nope";\n```')).toEqual([
       expect.stringMatching(/^2: example: Cannot find module '@marktiderman\/genesis-demo\/nope'/),
@@ -216,12 +235,12 @@ describe("checkDocs", () => {
 });
 
 describe("docFiles", () => {
-  it("scans docs and package READMEs, never the generated reference or changelogs", () => {
+  it("scans the root README, docs and every package doc, never the generated reference, changelogs or builds", () => {
     const root = fixture();
-    for (const f of ["docs/A.md", "docs/adr/0001.md", "docs/component-reference.md", "packages/demo/README.md", "packages/demo/CHANGELOG.md"]) {
+    for (const f of ["README.md", "docs/A.md", "docs/adr/0001.md", "docs/component-reference.md", "packages/demo/README.md", "packages/demo/CHANGELOG.md", "packages/demo/docs/GUIDE.md", "packages/demo/dist/X.md", "packages/demo/node_modules/y/README.md"]) {
       fs.mkdirSync(path.dirname(path.join(root, f)), { recursive: true });
       fs.writeFileSync(path.join(root, f), "# x\n");
     }
-    expect(docFiles(root)).toEqual(["docs/A.md", path.join("docs", "adr", "0001.md"), path.join("packages", "demo", "README.md")]);
+    expect(docFiles(root)).toEqual(["README.md", "docs/A.md", path.join("docs", "adr", "0001.md"), path.join("packages", "demo", "README.md"), path.join("packages", "demo", "docs", "GUIDE.md")]);
   });
 });
