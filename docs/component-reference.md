@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4083 other exports · 3257 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4083 other exports · 3259 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -6319,7 +6319,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `validateConsumerName` | value | — | _(no summary)_ |
 | `validateLinks` | value | — | _(no summary)_ |
 
-### Types (24)
+### Types (25)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6334,6 +6334,7 @@ export type { FileSystem };
 export type { Finding };
 export type { GenesisConfigFile };
 export type { GenesisLinks };
+export type { GenesisSupabase };
 export type { InitOptions };
 export type { InitPlan };
 export type { IntrospectedColumn };
@@ -6439,7 +6440,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | `webRoutes` | value | — | _(no summary)_ |
 | `writeAgentGuide` | value | — | _(no summary)_ |
 
-### Types (12)
+### Types (13)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -6448,6 +6449,7 @@ export type { DeclaringPackage };
 export type { GenesisConfigFile };
 export type { GenesisInstall };
 export type { GenesisLinks };
+export type { GenesisSupabase };
 export type { PackageDeclaration };
 export type { PreferRule };
 export type { PrimitiveEntry };
