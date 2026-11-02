@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 598 components · 4116 other exports · 3318 standalone types across 190 entry points in 29 packages.
+**Totals:** 598 components · 4142 other exports · 3348 standalone types across 192 entry points in 30 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -205,6 +205,104 @@ Type-only exports not consumed as a component's `Props`.
 export type { AiStreamState };
 export type { AiTaskState };
 export type { UseAiTaskOptions };
+```
+
+---
+
+## @marktiderman/genesis-calendar
+
+The calendar read layer: what is on these people's calendars, merged. Google Calendar's incremental sync, an iCal feed reader (RRULE through genesis-core/dates, EXDATE, RDATE, RECURRENCE-ID, Windows zone names) and writer, one event across people's copies with per-viewer privacy, marks, and the mapping to genesis-ui's EventCalendar. Pure TypeScript, no storage, no OAuth, no React; fetching a feed safely is the optional /fetch entry. Part of the Genesis framework.
+
+**Barrel:** [`packages/calendar/src/index.ts`](../packages/calendar/src/index.ts)
+
+### Other exports (23)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`applyMarks`](../packages/calendar/src/marks.ts) | function | Beta | Applies marks to merged events. Hidden events stay in the list, flagged, for the caller to drop or dim; `starredFor` and `hiddenFor` say who for, so a caller showing one person checks them. |
+| [`fromGoogleEvent`](../packages/calendar/src/google.ts) | function | Beta | One Google event as a CalendarEvent, or null when it is cancelled or unreadable. @stability Beta |
+| [`GoogleCalendarError`](../packages/calendar/src/google.ts) | class | Beta | A Google Calendar read that failed, with why. Its message never holds the token. @stability Beta |
+| [`isGoogleCalendarError`](../packages/calendar/src/google.ts) | const | Beta | _(no summary)_ |
+| [`isInWindow`](../packages/calendar/src/types.ts) | function | Beta | Whether the event touches the window. @stability Beta |
+| [`MARK_KINDS`](../packages/calendar/src/marks.ts) | const | Beta | _(no summary)_ |
+| [`markKey`](../packages/calendar/src/marks.ts) | function | Beta | The key a mark of this kind stores for the event. @stability Beta |
+| [`mergeEvents`](../packages/calendar/src/merge.ts) | function | Beta | Merges people's copies, in start order. Each merged event shows the details of a copy the viewer may see; when every copy is one they may not (someone else's private event), it is busy, `event` is null and its keys are `toBusyKey`s, so a... |
+| [`occurrenceKey`](../packages/calendar/src/merge.ts) | function | Beta | The key of one occurrence, the same for every person's copy: `<icalUid or sourceId:externalRef>|<start>`, the start normalised (`toTimeKey`): a timed start as its UTC instant, so copies written in different zones merge, and an all-day st... |
+| [`parseDuration`](../packages/calendar/src/ics.ts) | function | Beta | An iCalendar DURATION (P1D, PT1H30M, -PT15M, P2W) in ms, or null. @stability Beta |
+| [`parseIcs`](../packages/calendar/src/ics.ts) | function | Beta | Splits a feed into its components (VCALENDAR, VEVENT, ...), lines unfolded and parameters read. Lenient: a line that isn't a property is skipped, an END with no BEGIN is ignored, and a component left open is closed at the end. |
+| [`readIcs`](../packages/calendar/src/ics.ts) | function | Beta | Every occurrence of every event in the feed that touches the window. Throws a RangeError for a feed over `maxBytes`; everything else malformed is skipped, never thrown. |
+| [`resolveZone`](../packages/calendar/src/zones.ts) | function | Beta | An IANA zone for a TZID as feeds write it: IANA (`Europe/London`), a Windows name (`Pacific Standard Time`), or a vendor-prefixed path (`/mozilla.org/20050126_1/America/New_York`). Null when it names no zone the runtime knows. |
+| [`seriesKey`](../packages/calendar/src/merge.ts) | function | Beta | The key of the whole series an occurrence belongs to (its UID; a one-off event is its own series). @stability Beta |
+| [`SYNC_DAYS_AHEAD`](../packages/calendar/src/window.ts) | const | Beta | _(no summary)_ |
+| [`SYNC_DAYS_BACK`](../packages/calendar/src/window.ts) | const | Beta | _(no summary)_ |
+| [`syncGoogleCalendar`](../packages/calendar/src/google.ts) | function | Beta | Reads what changed since the last token, or the whole window the first time (or when the token expired). A read longer than `maxPages` returns what it read with `complete: false` and a `resume` to pass back. Throws `GoogleCalendarError`. |
+| [`syncWindow`](../packages/calendar/src/window.ts) | function | Beta | The sync window around `now`, its edges on UTC midnights so repeated syncs agree. @stability Beta |
+| [`toBusyKey`](../packages/calendar/src/merge.ts) | function | Beta | The key a busy block carries in place of an occurrence or series key, so a viewer who may not see an event never receives its UID (or its source's ids) through `key` or `seriesKey`. `busy:` and 16 hex characters: a stable, non-cryptograp... |
+| [`toCalendarEvent`](../packages/calendar/src/display.ts) | function | Beta | A merged event for EventCalendar: people as lanes, a busy block's title replaced. @stability Beta |
+| [`toTimeKey`](../packages/calendar/src/types.ts) | function | Beta | One string per moment, whatever zone wrote it: an instant as UTC ISO (`2026-11-05T23:00:00.000Z`), a day as `YYYY-MM-DD`. A timed copy written `18:00-05:00` and one written `23:00Z` get the same key. |
+| [`toTimeValue`](../packages/calendar/src/types.ts) | function | Beta | Where an event time falls on the timeline (a day reads as UTC midnight), in ms. @stability Beta |
+| [`writeIcs`](../packages/calendar/src/write.ts) | function | Beta | An iCalendar feed of the events: one VEVENT each, with UID (`icalUid`, else `<sourceId>-<externalRef>`), DTSTART and DTEND (UTC instants, or VALUE=DATE days with the exclusive end), SUMMARY, LOCATION, STATUS (TENTATIVE or CONFIRMED), CLA... |
+
+### Types (28)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { CalendarDisplayEvent };
+export type { CalendarEvent };
+export type { CalendarSourceAdapter };
+export type { EventKeyFields };
+export type { EventMark };
+export type { EventOccurrence };
+export type { EventTime };
+export type { EventVisibility };
+export type { GoogleCalendarErrorCode };
+export type { GoogleEvent };
+export type { GoogleEventOptions };
+export type { GoogleSyncOptions };
+export type { GoogleSyncResult };
+export type { GoogleSyncResume };
+export type { GoogleTime };
+export type { IcsComponent };
+export type { IcsProperty };
+export type { MarkKind };
+export type { MarkedEvent };
+export type { MergeOptions };
+export type { MergedEvent };
+export type { ParseIcsOptions };
+export type { PersonEvent };
+export type { ReadIcsOptions };
+export type { ReadIcsResult };
+export type { TimeWindow };
+export type { ToCalendarEventOptions };
+export type { WriteIcsOptions };
+```
+
+---
+
+## @marktiderman/genesis-calendar/fetch
+
+**Barrel:** [`packages/calendar/src/fetch.ts`](../packages/calendar/src/fetch.ts)
+
+### Other exports (3)
+
+Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
+
+| Name | Kind | Stability | Summary |
+| --- | --- | --- | --- |
+| [`CalendarFeedError`](../packages/calendar/src/fetch.ts) | class | Beta | A feed that wasn't fetched. The message is safe to show and never holds the URL. @stability Beta |
+| [`fetchFeed`](../packages/calendar/src/fetch.ts) | function | Beta | GETs an iCal feed and returns its text, for `readIcs`. https only (a `webcal://` link is read as https), no credentials in the URL, and genesis-media's guard: only public addresses, checked when the socket connects, redirects checked and... |
+| [`toFeedUrl`](../packages/calendar/src/fetch.ts) | function | Beta | The URL to fetch for a feed link: `webcal://` read as `https://`, and anything that isn't https, or carries a user name or password, refused. |
+
+### Types (2)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { CalendarFeedErrorCode };
+export type { FetchFeedOptions };
 ```
 
 ---
