@@ -124,4 +124,22 @@ describe("brandRoleVariables", () => {
     expect(themeFromBrand(overridden).variables.light["--primary"]).toBe(roles.light["--primary"]);
     expect(brandRoleVariables(overridden, { platform: "web" }).light["--primary"]).toBe("224.3 76.3% 48%"); // #1d4ed8
   });
+
+  it("sets --radius from radius.lg, else radius.DEFAULT, in both modes", () => {
+    // rounded-lg is --radius itself, so lg wins over a bare DEFAULT.
+    expect(brandRoleVariables({ ...espresso, radius: { DEFAULT: "0.25rem", lg: "0.5rem" } }).light["--radius"]).toBe("0.5rem");
+    expect(brandRoleVariables({ ...espresso, radius: { DEFAULT: "0" } }).light["--radius"]).toBe("0px");
+    const lg = brandRoleVariables({ ...espresso, radius: { sm: "0.25rem", lg: "0.75rem" } });
+    expect(lg.light["--radius"]).toBe("0.75rem");
+    expect(lg.dark["--radius"]).toBe("0.75rem");
+    // No base radius: the Genesis one.
+    expect(brandRoleVariables({ ...espresso, radius: { md: "1rem" } }).light["--radius"]).toBe(themeVariables(GENESIS_THEME_BRAND).light["--radius"]);
+  });
+
+  it("takes a fluid radius's minimum on native, the platform's override first", () => {
+    const fluid = { ...espresso, radius: { DEFAULT: "clamp(0.5rem, 0.4rem + 0.5vw, 1rem)" }, platformOverrides: { web: { radius: { DEFAULT: "0" } } } };
+    expect(brandRoleVariables(fluid).light["--radius"]).toBe("0.5rem");
+    expect(brandRoleVariables(fluid, { platform: "web" }).light["--radius"]).toBe("0px");
+    expect(themeFromBrand({ ...espresso, radius: { DEFAULT: "0" } }).variables.light["--radius"]).toBe("0px");
+  });
 });

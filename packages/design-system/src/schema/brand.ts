@@ -103,6 +103,12 @@ export interface ColorScale {
   light?: string;
   dark?: string;
   /**
+   * The color drawn on this scale's colors (text on a category chip).
+   * `validateBrand`'s contrast check reads it; it is a class like any stop
+   * (`text-rank-foreground`).
+   */
+  foreground?: string;
+  /**
    * Additional emphasis stops are allowed but discouraged — prefer creating
    * a new extension key over piling stops onto an existing one.
    */
@@ -442,6 +448,30 @@ const ALLOWED_STATUS_KEYS = new Set([
 export interface BrandValidationResult {
   ok: boolean;
   errors: string[];
+  /**
+   * Advisory findings that don't fail validation: today the contrast pairs
+   * under their WCAG minimum (`brandContrastProblems`). Set when a contrast
+   * check ran (the package's `validateBrand` runs one; this module's runs
+   * it only when given `contrast`), and empty when the brand's shape is
+   * invalid, since its colors can't be read then.
+   */
+  warnings?: string[];
+}
+
+/** One contrast finding, as {@link BrandValidationOptions.contrast} returns it. */
+export interface BrandContrastFinding {
+  level: "warning" | "error";
+  message: string;
+}
+
+/** @stability Beta */
+export interface BrandValidationOptions {
+  /**
+   * A contrast check to run once the shape holds (`brandContrastProblems`).
+   * Passed in rather than imported, so this module stays free of the theme
+   * code the check needs.
+   */
+  contrast?: (brand: CanonicalBrand) => readonly BrandContrastFinding[];
 }
 
 // ---------------------------------------------------------------------------
@@ -768,15 +798,22 @@ function validatePlatformOverrides(value: unknown, path: string): string[] {
  *   2. Genesis `doctor` introspection — surface a brand's full extension
  *      surface area to the agent reviewing a PRD.
  *
+ * With `options.contrast` (the package entry's `validateBrand` passes
+ * `brandContrastProblems`), contrast pairs under their WCAG minimum come back
+ * as `warnings`; `ok` stays true for them. Only body text under 1.5:1 on the
+ * page, which nobody can read, is an error. Without it this is the shape
+ * check alone, and `warnings` is unset.
+ *
  * Universal-category violations are errors; missing `extensions` is fine
  * (it's optional). When `extensions` IS present, every value must be a
  * valid `ColorScale` and every key must be a non-empty string matching
  * the camelCase convention.
  */
-export function validateBrand(input: unknown): BrandValidationResult {
+export function validateBrand(input: unknown, options: BrandValidationOptions = {}): BrandValidationResult {
   const errors: string[] = [];
+  const check = options.contrast;
   if (!input || typeof input !== "object") {
-    return { ok: false, errors: ["brand: expected object"] };
+    return check ? { ok: false, errors: ["brand: expected object"], warnings: [] } : { ok: false, errors: ["brand: expected object"] };
   }
   const b = input as Record<string, unknown>;
 
@@ -899,5 +936,15 @@ export function validateBrand(input: unknown): BrandValidationResult {
     errors.push(...validateDesignSystemChoice(b.designSystem, "brand.designSystem"));
   }
 
-  return { ok: errors.length === 0, errors };
+  // Contrast, once the shape holds: a warning per pair under its minimum,
+  // an error only for body text that can't be told from the page.
+  if (!check) return { ok: errors.length === 0, errors };
+  const warnings: string[] = [];
+  if (errors.length === 0) {
+    for (const problem of check(input as CanonicalBrand)) {
+      (problem.level === "error" ? errors : warnings).push(`brand contrast: ${problem.message}`);
+    }
+  }
+
+  return { ok: errors.length === 0, errors, warnings };
 }

@@ -26,6 +26,34 @@ import { FieldArrayRenderer } from "./FieldArrayRenderer";
 
 export type { FieldType, SelectOption, ResourceFormFieldDef } from "@marktiderman/genesis-core";
 
+// The keyboard each type asks for when the field doesn't say. Autofill is never a type default:
+// on a form about someone else (an admin editing a member) it would fill in the person at the
+// keyboard, so a field opts in with its own `autoComplete`.
+const TYPE_INPUT_MODE: Partial<Record<string, ResourceFormFieldDef["inputMode"]>> = {
+  email: "email",
+  tel: "tel",
+  url: "url",
+};
+
+/**
+ * The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A
+ * number gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no
+ * minus key on an iPhone, so any other number keeps the browser's own keyboard.
+ */
+export function inputHints(
+  field: Pick<ResourceFormFieldDef, "min" | "inputMode" | "autoComplete" | "enterKeyHint">,
+  fieldType: string,
+) {
+  const typeMode =
+    fieldType === "number" ? (field.min !== undefined && field.min >= 0 ? "decimal" : undefined) : TYPE_INPUT_MODE[fieldType];
+  const inputMode = field.inputMode ?? typeMode;
+  return {
+    ...(inputMode ? { inputMode } : {}),
+    ...(field.autoComplete ? { autoComplete: field.autoComplete } : {}),
+    ...(field.enterKeyHint ? { enterKeyHint: field.enterKeyHint } : {}),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Renderer
 // ---------------------------------------------------------------------------
@@ -243,6 +271,7 @@ export function ResourceFormFieldRenderer({
                 placeholder={field.placeholder}
                 min={field.min}
                 max={field.max}
+                {...inputHints(field, fieldType)}
                 value={f.value != null ? String(f.value) : ""}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -258,7 +287,7 @@ export function ResourceFormFieldRenderer({
           );
         }
 
-        // Text, email, url, date
+        // Text, email, tel, url, date
         return (
           <FormField>
             <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
@@ -268,6 +297,7 @@ export function ResourceFormFieldRenderer({
               type={fieldType}
               placeholder={field.placeholder}
               maxLength={field.maxLength}
+              {...inputHints(field, fieldType)}
               value={f.value != null ? String(f.value) : ""}
               onChange={(e) => f.onChange(e.target.value)}
               disabled={isDisabled}

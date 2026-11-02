@@ -7,7 +7,7 @@
         "@marktiderman/genesis-ui",
         "@marktiderman/genesis-ui/data"
       ],
-      "count": 141
+      "count": 142
     },
     "native": {
       "package": "@marktiderman/genesis-ui-native",
@@ -12035,6 +12035,13 @@
               "description": ""
             },
             {
+              "name": "clipCells",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": "false",
+              "description": "Clip each cell's content at its column's edge, on one line with an ellipsis for text, so a\nlong link or email doesn't run over the next column on a narrow table. Cells with an inline\neditor keep their overflow, so the editor's popover and focus ring aren't cut. Default false."
+            },
+            {
               "name": "columnOrderKey",
               "type": "string",
               "required": false,
@@ -12314,6 +12321,43 @@
       ]
     },
     {
+      "slug": "defaults",
+      "aliases": [],
+      "surface": "web",
+      "subpath": "@marktiderman/genesis-ui/data",
+      "filePath": "packages/ui/src/components/data/resource-view/defaults.tsx",
+      "stability": "beta",
+      "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
+      "primaryComponent": "ResourceViewDefaultsProvider",
+      "components": [
+        {
+          "name": "ResourceViewDefaultsProvider",
+          "summary": "Set list defaults for the whole app, once, near the root:\n\n```tsx\n<ResourceViewDefaultsProvider phoneMode=\"grid\" clipCells>\n  <App />\n</ResourceViewDefaultsProvider>\n```\n\nNested providers build on each other: an unset key inherits, and `phoneMode={null}` or\n`clipCells={false}` turns the outer one off below it.",
+          "props": [
+            {
+              "name": "clipCells",
+              "type": "boolean",
+              "required": false,
+              "defaultValue": null,
+              "description": "Clip each table cell's content at its column's edge (one line, with an ellipsis for text),\nso a long link or email doesn't run over the next column on a narrow table. Inline editors\nare never clipped. Unset, cells draw as before; `false` turns an outer provider's off."
+            },
+            {
+              "name": "phoneMode",
+              "type": "\"grid\" | \"list\" | null",
+              "required": false,
+              "defaultValue": null,
+              "description": "How full-page lists (`layout=\"page\"`) open on a phone (below 768px) when the screen doesn't\nsay: `grid` (cards) or `list` (rows). Desktops keep the table. Embedded and compact lists\nare left alone. Unset, lists open as a table everywhere, as before; `null` turns an outer\nprovider's phone default off for this subtree."
+            }
+          ]
+        },
+        {
+          "name": "useResourceViewDefaults",
+          "summary": "The list defaults in effect (empty without a provider).",
+          "props": []
+        }
+      ]
+    },
+    {
       "slug": "detail-page",
       "aliases": [],
       "surface": "web",
@@ -12544,6 +12588,13 @@
               "required": false,
               "defaultValue": null,
               "description": ""
+            },
+            {
+              "name": "mobileLayout",
+              "type": "enum",
+              "required": false,
+              "defaultValue": "center",
+              "description": "How the dialog sits on a phone. Default `center`, the centred box; `sheet` and `fullscreen`\nare opt-in. See {@link DialogMobileLayout}."
             },
             {
               "name": "overlayClassName",
@@ -14511,6 +14562,13 @@
               "description": ""
             },
             {
+              "name": "shell",
+              "type": "DeepPartial<{ navigation: string; openNavigation: string; closeNavigation: string; expandSidebar: string; collapseSidebar: string; primaryNavigation: string; more: string; moreDescription: string; moreCurrent: string; }>",
+              "required": false,
+              "defaultValue": null,
+              "description": ""
+            },
+            {
               "name": "sortable",
               "type": "DeepPartial<{ item: string; reorder: string; move: string; moveUp: string; moveDown: string; moveToTop: string; moveToBottom: string; moved: string; moveFailed: string; pickedUp: string; dropped: string; cancelled: string; instructions: string; }>",
               "required": false,
@@ -14551,7 +14609,7 @@
           "props": [
             {
               "name": "messages",
-              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 11 more ...; workspace: { ...; }; }>",
+              "type": "DeepPartial<{ common: { empty: string; hiddenLink: string; yes: string; no: string; cancel: string; save: string; close: string; edit: string; delete: string; clear: string; open: string; openItem: string; loading: string; saving: string; }; ... 12 more ...; shell: { ...; }; }>",
               "required": true,
               "defaultValue": null,
               "description": ""
@@ -16640,9 +16698,14 @@
       "subpath": "@marktiderman/genesis-ui/data",
       "filePath": "packages/ui/src/components/data/ResourceFormField.tsx",
       "stability": "stable",
-      "summary": "",
-      "primaryComponent": "ResourceFormFieldRenderer",
+      "summary": "The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A\nnumber gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no\nminus key on an iPhone, so any other number keeps the browser's own keyboard.",
+      "primaryComponent": "inputHints",
       "components": [
+        {
+          "name": "inputHints",
+          "summary": "The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. A\nnumber gets the decimal keypad only when it can't be negative (`min >= 0`): that keypad has no\nminus key on an iPhone, so any other number keeps the browser's own keyboard.",
+          "props": []
+        },
         {
           "name": "ResourceFormFieldRenderer",
           "summary": "",
@@ -17945,10 +18008,10 @@
             },
             {
               "name": "mode",
-              "type": "enum",
+              "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",
@@ -18665,10 +18728,10 @@
             },
             {
               "name": "mode",
-              "type": "enum",
+              "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",
@@ -19385,10 +19448,10 @@
             },
             {
               "name": "mode",
-              "type": "enum",
+              "type": "ViewModeDefault | \"calendar\"",
               "required": false,
               "defaultValue": null,
-              "description": "How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's\n`calendar` block instead: one request per visible window, a click opens the peek. Calendar is\nnever stored as the user's pick, so other lists of the resource don't open in it."
+              "description": "How rows show first. The user's own pick is remembered. `{ mobile: \"grid\", desktop: \"table\" }`\npicks per screen size (cards on a phone); without a mode, an app-wide\n`ResourceViewDefaultsProvider phoneMode` does the same for every `layout=\"page\"` list. `calendar` places the\nrows by the view's `calendar` block instead: one request per visible window, a click opens the\npeek. Calendar is never stored as the user's pick, so other lists of the resource don't open\nin it, and no phone default turns into it."
             },
             {
               "name": "mutationMode",

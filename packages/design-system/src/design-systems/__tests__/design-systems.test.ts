@@ -43,7 +43,7 @@ describe("fluid sizes", () => {
     const size = fluid(DEFAULT_RAMP.display);
     expect(clampBounds(size)).toEqual({ min: 3, max: 7 });
     const brand = { ...genesisBrand, typography: { fontSize: { display: size } }, spacing: { section: fluid({ min: 4, max: 7.5 }) } };
-    expect(validateBrand(brand)).toEqual({ ok: true, errors: [] });
+    expect(validateBrand(brand)).toMatchObject({ ok: true, errors: [] });
     const native = themeFromBrand(brand);
     expect(native.theme.fontSize.display).toBe(48);
     expect(native.theme.spacing.section).toBe(64);
@@ -198,6 +198,11 @@ describe("themeFromBrand with a design system", () => {
     expect(t.designSystem?.choices).toEqual({ density: "compact", corners: "square", motion: "none" });
     expect(t.variables.light["--ds-section-y-md"]).toBe(fluid({ min: 3, max: 5 }));
     expect(t.variables.light["--ds-radius-button"]).toBe("0px");
+    // Square corners are square in genesis-ui too: --radius is 0, not a negative calc.
+    expect(t.variables.light["--radius"]).toBe("0px");
+    // Soft: cards (rounded-xl, 1.4 × --radius) get the set's md, 12px.
+    const soft = themeFromBrand({ ...genesisBrand, designSystem: { id: "soft@1", corners: "soft" } });
+    expect(parseFloat(soft.variables.light["--radius"]!) * 1.4).toBeCloseTo(12, 3);
     expect(t.variables.light["--ds-reveal"]).toBe("none");
   });
 

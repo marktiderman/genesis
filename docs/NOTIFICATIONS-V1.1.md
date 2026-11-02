@@ -1,6 +1,8 @@
 # genesis-notifications v1.1: design for review
 
 Status: **v0.2.1, proposed**, for review before anyone builds. No code or migrations yet.
+**Planned** ([`notifications`](../features.ts)): the API below is the proposal, not what
+`@marktiderman/genesis-notifications` exports today; its README has that.
 
 v1 decides channels from preferences, holds pushes in quiet hours, delays email until it is read,
 and sends once. That's enough for a coaching app. It isn't enough for an app whose people are

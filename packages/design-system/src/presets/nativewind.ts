@@ -21,8 +21,14 @@
  * An app with its own brand uses `createGenesisNativewindPreset({ brand })`,
  * which declares the brand's role variables instead.
  *
- * The radius scale stays `calc(var(--radius) - 2px)` and friends: NativeWind
- * resolves `calc()` and `var()` at runtime (with its 14px rem).
+ * The radius scale is multiples of `--radius` (`calc(var(--radius) * 0.8)`
+ * and friends, see `RADIUS_SCALE`), which NativeWind resolves at runtime
+ * (with its 14px rem). A brand's `radius.lg` (else `radius.DEFAULT`) is its
+ * `--radius`, so `"0"` makes every corner square, as on web.
+ *
+ * With a brand, its `extensions` colors are classes too, under the same
+ * kebab-case names `tailwindFromBrand` gives them on web
+ * (`extensions.gameMode` → `bg-game-mode`, `bg-game-mode-solo`).
  *
  * NativeWind v5 / Tailwind v4 apps import the CSS instead (see
  * `presets/tailwind`).
@@ -35,7 +41,8 @@ import path from "node:path";
 import { genesisPreset } from "./tailwind";
 import { GENESIS_THEME_BRAND, tailwindColorVariables, themeVariables } from "../tokens/theme-css";
 import { brandRoleVariables } from "../factories/brand-roles";
-import type { CanonicalBrand } from "../schema/brand";
+import { isColorScale, type CanonicalBrand } from "../schema/brand";
+import { kebab } from "../factories/from-brand";
 
 type ColorValue = string | Readonly<Record<string, string>>;
 
@@ -78,11 +85,12 @@ export interface GenesisNativewindPresetOptions {
  */
 export function createGenesisNativewindPreset(options: GenesisNativewindPresetOptions = {}) {
   const variables = options.brand ? brandRoleVariables(options.brand) : themeVariables(GENESIS_THEME_BRAND);
+  const extensions = options.brand ? extensionColors(options.brand) : {};
   return {
     theme: {
       extend: {
         ...genesisPreset.theme.extend,
-        colors,
+        colors: Object.keys(extensions).length > 0 ? { ...extensions, ...colors } : colors,
       },
     },
     plugins: [
@@ -94,6 +102,23 @@ export function createGenesisNativewindPreset(options: GenesisNativewindPresetOp
       },
     ],
   };
+}
+
+/**
+ * The brand's `extensions` color scales, keyed as on web: `tailwindFromBrand`
+ * emits `extensions.gameMode` as `--color-game-mode` / `--color-game-mode-solo`,
+ * so here it is `"game-mode": { DEFAULT, solo }`. A Genesis color of the
+ * same name wins. Nested groups are left out, as on web.
+ */
+function extensionColors(brand: CanonicalBrand): Record<string, Readonly<Record<string, string>>> {
+  const out: Record<string, Record<string, string>> = {};
+  for (const [key, scale] of Object.entries(brand.extensions ?? {})) {
+    if (!isColorScale(scale)) continue;
+    const stops: Record<string, string> = {};
+    for (const [stop, value] of Object.entries(scale)) if (typeof value === "string" && value) stops[stop] = value;
+    out[kebab(key)] = stops;
+  }
+  return out;
 }
 
 /** The preset with the Genesis brand. An app with its own brand uses {@link createGenesisNativewindPreset}. */

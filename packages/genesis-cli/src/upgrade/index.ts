@@ -8,15 +8,15 @@
  *    bump itself is the workflow's own code (bump-core.mjs).
  * 2. Codemods, only for a package that moves across a version a codemod is
  *    declared for (codemods.ts).
- * 3. Install (then, for pnpm, Genesis's release-age excludes become one pattern a frozen install
- *    reads, and a dedupe), then refresh owned files (templates, Edge Functions, skills,
+ * 3. Install (then, for pnpm, Genesis's release-age excludes become one entry of exact versions per
+ *    package, which a frozen install reads, and a dedupe), then refresh owned files (templates, Edge Functions, skills,
  *    pgTAP tests) by a three-way decision (blocks/owned.ts), replace AGENTS.md
  *    fragments, copy skills a block gained, and report new package migrations
  *    (`genesis migrate` copies them).
  * 4. The doctor, then a summary, or with `--pr` a branch, a commit and a pull request.
  */
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as path from "node:path";
 import { agentsFragment, ownedWrites, pinGenesisImports, sourceMigrations } from "../blocks/add.js";
@@ -30,7 +30,7 @@ import { copyOwned, ownedKeyProblem, refreshOwned, type RefreshOutcome } from ".
 import { localPackageNames } from "../blocks/local.js";
 import { dedupeCommand, detectPackageManager, findLockfile, installCommand, run, shellLine } from "../blocks/pm.js";
 import { starterDir, templatesDir } from "../blocks/templates.js";
-import { bumpPackageJson, bumpSummary, GENESIS_PATTERN, normaliseReleaseAgeExcludes, pnpmWorkspaceFile, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
+import { bumpPackageJson, bumpSummary, normaliseReleaseAgeExcludes, pnpmReadsExactExcludes, pnpmWorkspaceFile, releaseAgeExcludeProblems, tidyLocked, UMBRELLA, type BumpChange, type BumpSkip } from "./bump-core.mjs";
 import { codemodsFor, uncoveredBreaks, CODEMODS, type Codemod } from "./codemods.js";
 
 export interface ReleaseLookup {
@@ -61,6 +61,8 @@ export interface UpgradeOptions {
   pr?: boolean;
   lookup?: ReleaseLookup;
   codemods?: readonly Codemod[];
+  /** The pnpm version the install ran (default: `pnpm --version` in the app); null when unknown. */
+  pnpmVersion?: () => string | null;
   log?: (msg: string) => void;
 }
 
@@ -127,14 +129,97 @@ function readText(file: string): string | null {
   }
 }
 
-/** Rewrites pnpm-workspace.yaml's Genesis release-age excludes as one pattern; true when it changed. */
+/**
+ * Rewrites pnpm-workspace.yaml's Genesis release-age excludes as one entry of exact versions per
+ * package, without the versions the lockfile beside it no longer holds; true when it changed.
+ */
 function tidyReleaseAgeExcludes(file: string): boolean {
   const before = readText(file);
   if (before === null) return false;
-  const after = normaliseReleaseAgeExcludes(before);
+  const dir = path.dirname(file);
+  const after = normaliseReleaseAgeExcludes(before, tidyLocked(before, readText(path.join(dir, "pnpm-lock.yaml")), readText(path.join(dir, ".npmrc"))));
   if (after === before) return false;
   writeFileSync(file, after);
   return true;
+}
+
+/** The repository's top level (its real path), or null outside git. */
+function gitTopLevel(root: string): string | null {
+  try {
+    const top = execFileSync("git", ["rev-parse", "--show-toplevel"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return top ? realpathSync(top) : null;
+  } catch {
+    return null;
+  }
+}
+
+const inside = (dir: string, file: string) => {
+  const rel = path.relative(dir, file);
+  return rel === "" || (rel.split(path.sep)[0] !== ".." && !path.isAbsolute(rel));
+};
+
+/**
+ * Where pnpm writes its excludes for an install in `root`: the nearest pnpm-workspace.yaml at or
+ * above the app, as pnpm finds it, but never above the repository's top level (a file outside the
+ * repository is neither rewritten nor committed by --pr); else beside the lockfile (a standalone
+ * app, where pnpm creates it), or in the app when the lockfile is outside the repository.
+ */
+export function pnpmWorkspaceFileFor(root: string): string {
+  const real = realpathSync(root);
+  const top = gitTopLevel(real);
+  const lockDir = findLockfile(real)?.dir;
+  const fallback = lockDir && (!top || inside(top, lockDir)) ? lockDir : real;
+  return pnpmWorkspaceFile(real, fallback, { exists: existsSync, join: path.join, dirname: path.dirname }, top ?? undefined);
+}
+
+/** `pnpm --version` in the app (its packageManager pin applies), or null. */
+function pnpmVersionIn(root: string): string | null {
+  try {
+    return execFileSync("pnpm", ["--version"], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** pnpm's strict-mode refusal: a version younger than minimumReleaseAge, which the app set itself. */
+const NOT_MATURE = "ERR_PNPM_NO_MATURE_MATCHING_VERSION";
+
+/** The install failed because pnpm's strict mode refused young Genesis versions: a clear way on. */
+export function releaseAgeError(output: string): Error | null {
+  if (!output.includes(NOT_MATURE)) return null;
+  const young = [...new Set([...output.matchAll(/(@marktiderman\/genesis(?:-[a-z0-9-]+)?@\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?) was published/g)].map((m) => m[1]!))];
+  return new Error(
+    [
+      `pnpm refused the new Genesis versions (${NOT_MATURE}): they are younger than this app's \`minimumReleaseAge\`, and with \`minimumReleaseAge\` set, pnpm installs nothing younger (strict mode).`,
+      ...(young.length ? ["", ...young.map((v) => `  ${v}`)] : []),
+      "",
+      "genesis upgrade doesn't loosen that for you. Either:",
+      "- wait until those versions are old enough, then run genesis upgrade again; or",
+      `- add them to \`minimumReleaseAgeExclude\` in pnpm-workspace.yaml, exact versions, one entry per package ('@marktiderman/genesis-ui@2.26.0 || 2.27.0'), and run genesis upgrade again.`,
+      "",
+      "The package.json files are already bumped; `git checkout` them to start over.",
+    ].join("\n"),
+  );
+}
+
+/** Runs the install with its output shown as it comes, keeping it to read pnpm's error. */
+function runInstall(root: string, argv: string[]): Promise<void> {
+  const [cmd, ...args] = argv;
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd!, args, { cwd: root, stdio: ["inherit", "pipe", "pipe"] });
+    let output = "";
+    const keep = (to: NodeJS.WriteStream) => (chunk: Buffer) => {
+      to.write(chunk);
+      if (output.length < 1_000_000) output += chunk.toString("utf8");
+    };
+    child.stdout.on("data", keep(process.stdout));
+    child.stderr.on("data", keep(process.stderr));
+    child.on("error", reject);
+    child.on("close", (code, signal) => {
+      if (code === 0) return resolve();
+      reject(releaseAgeError(output) ?? new Error(`${shellLine(argv)} failed (${signal ?? `exit code ${code}`})`));
+    });
+  });
 }
 
 /** Every tracked package.json at or below the app (git), or just its own outside git. */
@@ -226,20 +311,26 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   // 2. Install, keep pnpm's release-age excludes readable by a frozen install, and dedupe.
   const pm = detectPackageManager(root);
   let tidiedExcludes: string | null = null;
+  const excludeWarnings: string[] = [];
   if (!options.dryRun && options.install !== false && bumped.size) {
-    // Where pnpm writes its excludes: the nearest pnpm-workspace.yaml up from the app, as pnpm finds
-    // it, else beside the lockfile (a standalone app, where pnpm creates it).
-    const workspaceFile = pm === "pnpm" ? pnpmWorkspaceFile(path.resolve(root), findLockfile(root)?.dir ?? root, { exists: existsSync, join: path.join, dirname: path.dirname }) : null;
+    const workspaceFile = pm === "pnpm" ? pnpmWorkspaceFileFor(root) : null;
+    const relWorkspace = workspaceFile ? path.relative(realpathSync(root), workspaceFile) : null;
     const workspaceBefore = workspaceFile ? readText(workspaceFile) : null;
     const tidy = () => {
       if (!workspaceFile || !tidyReleaseAgeExcludes(workspaceFile)) return;
-      tidiedExcludes = path.relative(root, workspaceFile);
-      log(`${tidiedExcludes}: minimumReleaseAgeExclude names Genesis packages by '${GENESIS_PATTERN}', not one entry per version`);
+      tidiedExcludes = relWorkspace;
+      log(`${tidiedExcludes}: minimumReleaseAgeExclude lists each Genesis package's pinned versions in one entry, exact versions the lockfile holds`);
     };
-    if (typeof options.install === "function") options.install(root);
-    else {
+    if (typeof options.install === "function") {
+      try {
+        options.install(root);
+      } catch (err) {
+        const e = err as { message?: unknown; stdout?: unknown; stderr?: unknown };
+        throw releaseAgeError([e.message, e.stdout, e.stderr].map((x) => (x == null ? "" : String(x))).join("\n")) ?? err;
+      }
+    } else {
       log(`install: ${shellLine(installCommand(pm))}`);
-      run(root, installCommand(pm));
+      await runInstall(root, installCommand(pm));
     }
     tidy();
     const dedupe = options.dedupe ?? (typeof options.install === "function" ? false : true);
@@ -251,14 +342,22 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
     }
     if (dedupe) tidy();
     // pnpm writes its excludes here; the pull request must carry them, or CI's frozen install fails.
-    if (workspaceFile && readText(workspaceFile) !== workspaceBefore) files.add(path.relative(root, workspaceFile));
+    if (relWorkspace && readText(workspaceFile!) !== workspaceBefore) files.add(relWorkspace);
+    const after = workspaceFile ? readText(workspaceFile) : null;
+    if (after !== null && /^minimumReleaseAgeExclude:/m.test(after)) {
+      for (const p of releaseAgeExcludeProblems(after)) excludeWarnings.push(`${relWorkspace}: ${p}`);
+      const version = (options.pnpmVersion ?? (() => pnpmVersionIn(root)))();
+      if (!pnpmReadsExactExcludes(version)) {
+        excludeWarnings.push(`pnpm ${version} reads minimumReleaseAgeExclude's exact versions ('name@1.0.0 || 1.1.0') as matching nothing; use pnpm 10.19 or later (packageManager in package.json), or the Genesis versions wait out minimumReleaseAge`);
+      }
+    }
   }
 
   // 3. The blocks: new migrations first (a pgTAP test isn't refreshed ahead of its migration),
   // then owned files, skills a block gained, and fragments.
   const added: string[] = [];
   const newMigrations: string[] = [];
-  const warnings: string[] = [];
+  const warnings: string[] = [...excludeWarnings];
   const manifests = [];
   for (const [id, entry] of Object.entries(lock.blocks)) {
     try {
@@ -336,7 +435,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
   if (next.size) lines.push("", "Review and delete these before merging (not committed by --pr):", "", ...[...next].map((n) => `- ${n}`));
   if (lock.substitutions && Object.keys(lock.substitutions).length) lines.push("", `Templates renamed with genesis.lock.json's substitutions: ${Object.entries(lock.substitutions).map(([a, b]) => `${a} → ${b}`).join(", ")}.`);
   if (newMigrations.length) lines.push("", "New package migrations (run `genesis migrate` to copy them):", "", ...newMigrations.map((m) => `- ${m}`));
-  if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`); those entries are now \`'${GENESIS_PATTERN}'\`, which \`pnpm install --frozen-lockfile\` honours. Other entries are as they were.`);
+  if (tidiedExcludes) lines.push("", `pnpm pinned the new Genesis versions in \`${tidiedExcludes}\`'s \`minimumReleaseAgeExclude\` (they are younger than \`minimumReleaseAge\`). Each Genesis package now has one entry listing its exact versions in the lockfile (\`'name@1.0.0 || 1.1.0'\`), which \`pnpm install --frozen-lockfile\` honours; versions the lockfile no longer holds were dropped. Never a pattern, so a future Genesis release still waits out \`minimumReleaseAge\`. Other entries are as they were.`);
   if (warnings.length) lines.push("", "Warnings:", "", ...warnings.map((w) => `- ${w}`));
   lines.push("", `\`genesis doctor\` ${doctor === "not run" ? "was not run" : doctor} after the upgrade.`);
   const summary = lines.join("\n");

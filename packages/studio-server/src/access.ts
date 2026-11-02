@@ -505,7 +505,7 @@ export async function resolveResource(
 
 /** Widgets a contract may choose, by the storage type each can edit faithfully. */
 const WIDGETS_FOR: Partial<Record<StorageType, readonly WidgetHint[]>> = {
-  string: ["text", "textarea", "email", "url"],
+  string: ["text", "textarea", "email", "tel", "url"],
   number: ["number"],
   boolean: ["checkbox", "switch"],
   json: ["textarea"],
