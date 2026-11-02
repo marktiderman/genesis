@@ -651,6 +651,8 @@ export const features = defineFeatures({
   // Sites
   "genesis-sites": {
     name: "Sites and landing pages",
+    // The sites block's id: the feature `genesis add sites` registers in an app, and the tag its shipped tests carry.
+    aliases: ["sites"],
     summary: "@marktiderman/genesis-sites: multi-page sites and one-click landing pages from the brand. Zod 4 documents (SiteDoc, PageDoc, SectionNode, SEO, menus, redirects) in Puck's shape, a section registry with JSON Schema per section for the editor and AI, props migrations, SEO (meta, Open Graph and Twitter, canonical, sitemap.xml, robots.txt, JSON-LD), publish-time accessibility checks, the theme from the brand, templates, and a SiteStore with drafts, publish and rollback. The visual editor is sites-editor.",
     tagline: "A landing page from your brand in one click, and a whole site when you need it.",
     category: "Sites",
@@ -2856,6 +2858,8 @@ export const features = defineFeatures({
   },
   "product-events": {
     name: "Product events",
+    // The events block's id: the feature `genesis add events` registers in an app, and the tag its shipped tests carry.
+    aliases: ["events"],
     summary: "The app's own product events in Postgres (ADR 0010): genesis_track_events for a signed-in person in their own tenants, server tracking, feature usage per tenant and retention, with createEventTracker on web and server and createEventsSink on native.",
     category: "Data",
     status: "building",

@@ -116,12 +116,24 @@ export interface GenesisPrivacy {
   tracking?: boolean;
 }
 
+/**
+ * The top-level `supabase` setting: where this app's database files (migrations, pgTAP tests,
+ * Edge Functions, config.toml) live. Left out (or `true`), they are this app's own `supabase/`.
+ * `false`: this app has none. `{ app }`: another Genesis app's folder, relative to this one
+ * (`"../app"`), whose `supabase/` holds them; a phone app beside a web app shares its database.
+ * Either way `genesis add`, `migrate`, `upgrade` and `init` never write or plan Supabase files
+ * here, and the doctor's supabase pack doesn't run.
+ */
+export type GenesisSupabase = false | { app: string };
+
 /** genesis.config.json, parsed, with its shared blocks validated. */
 export interface GenesisConfigFile {
   /** The whole parsed file, for blocks other readers own (`doctor`, `features`). */
   raw: Record<string, unknown>;
   links?: GenesisLinks;
   privacy?: GenesisPrivacy;
+  /** Set only when the database files live elsewhere (see {@link GenesisSupabase}). */
+  supabase?: GenesisSupabase;
 }
 
 export interface LoadedConfig {
@@ -248,9 +260,29 @@ export function readGenesisConfig(root: string): GenesisConfigFile | null {
   const out: GenesisConfigFile = { raw };
   if (raw.links !== undefined) out.links = validateLinks(raw.links, file);
   if (raw.privacy !== undefined) out.privacy = validatePrivacy(raw.privacy, file);
+  if (raw.supabase !== undefined) {
+    const supabase = validateSupabase(raw.supabase, file);
+    if (supabase !== true) out.supabase = supabase;
+  }
   // localPackages is read and validated by blocks/local.ts where it's used (doctor, add, migrate);
   // the Expo config plugin loads this file too and must not pull the CLI's block code in.
   return out;
+}
+
+/** Check the top-level `supabase` setting: `true`, `false` or `{ "app": "<relative folder>" }`. */
+export function validateSupabase(raw: unknown, source = "config"): GenesisSupabase | true {
+  const fail = (msg: string): never => {
+    throw new GenesisConfigError(`${source}: ${msg}`);
+  };
+  if (typeof raw === "boolean") return raw ? true : false;
+  if (!isObject(raw)) return fail(`"supabase" must be false or { "app": "<the folder of the app that holds supabase/>" }`);
+  for (const key of Object.keys(raw)) if (key !== "app" && key !== "$comment") fail(`supabase: unknown setting "${key}" (known: app)`);
+  const app = raw.app;
+  if (typeof app !== "string" || !app.trim()) return fail(`supabase.app must be the folder of the app that holds supabase/, relative to this one (e.g. "../app")`);
+  if (path.isAbsolute(app) || /^[A-Za-z]:[\\/]/.test(app) || app.includes("\\")) fail(`supabase.app must be relative to this app, with forward slashes ("${app}")`);
+  const norm = path.posix.normalize(app).replace(/\/+$/, "");
+  if (norm === "." || norm === "") fail(`supabase.app names this app itself; leave "supabase" out instead`);
+  return { app: norm };
 }
 
 const PRIVACY_KEYS = new Set(["blocks", "collects", "tracking"]);

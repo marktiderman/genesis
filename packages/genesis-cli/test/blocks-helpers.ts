@@ -53,12 +53,16 @@ export function linkWorkspacePackage(root: string, name: string, folder: string)
 
 export const read = (root: string, rel: string) => readFileSync(path.join(root, rel), "utf8");
 
-/** Every file under the app (not node_modules), with its text, for before/after comparisons. */
+/**
+ * Every file under the app (not node_modules or .git), with its text, for before/after
+ * comparisons. .git is left out: git's background maintenance can add and remove lock
+ * files there while the walk runs.
+ */
 export function snapshot(root: string): Record<string, string> {
   const out: Record<string, string> = {};
   const walk = (rel: string) => {
     for (const name of readdirSync(path.join(root, rel))) {
-      if (name === "node_modules") continue;
+      if (name === "node_modules" || name === ".git") continue;
       const child = rel ? `${rel}/${name}` : name;
       if (statSync(path.join(root, child)).isDirectory()) walk(child);
       else out[child] = readFileSync(path.join(root, child), "utf8");

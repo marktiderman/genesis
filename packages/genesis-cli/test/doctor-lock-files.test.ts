@@ -1,5 +1,5 @@
 // @feat:cli-doctor @feat:cli-upgrade
-import { rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { BUILTIN_RULES, runDoctor, type Finding } from "../src/doctor/index.js";
@@ -49,6 +49,16 @@ describe("lock-files", () => {
     expect(findings[0]!.message).toContain('add "deleted": true to its entry in genesis.lock.json');
     const strict = await runDoctor({ root, config: {}, strict: true });
     expect(strict.ok).toBe(false);
+  });
+
+  it("warns on a locked file that can't be read (a folder now), with the read error", async () => {
+    const root = app();
+    rmSync(path.join(root, ".eas/workflows/e2e.yml"));
+    mkdirSync(path.join(root, ".eas/workflows/e2e.yml"));
+    const findings = await lockFindings(root);
+    expect(brief(findings)).toEqual(["warn .eas/workflows/e2e.yml"]);
+    expect(findings[0]!.message).toContain("can't be read (");
+    expect(findings[0]!.message).toContain("genesis upgrade can't refresh it");
   });
 
   it("is quiet about a file marked deleted, and says so if it comes back", async () => {

@@ -15,6 +15,29 @@ builds, store submissions and staged over-the-air updates, and Maestro smoke flo
 | `.eas/scripts/rollout-health.mjs` | The check `rollout.yml` runs before promoting. |
 | `.maestro/` | Smoke flows: launch, the sign-in screen, Settings' version row (after signing in). |
 
+## A phone app beside a web app
+
+A phone app often uses the web app's Supabase project rather than one of its own: the same
+logins, the same tables, one migrations folder (the web app's `supabase/`). Make it with
+`genesis init <app> --template native --beside <web-app>` (see the
+[genesis-cli README](../packages/genesis-cli/README.md#a-phone-app-beside-a-web-app)):
+
+- The phone app has no `supabase/` folder and no database workflow
+  (`.github/workflows/database.yml`); its `genesis.config.json` says
+  `"supabase": { "app": "../app" }`.
+- Its `.env` holds the web app's project URL and publishable key; EAS environments hold the same
+  values for each profile.
+- Database changes ship from the web app: its migrations, pgTAP tests and Edge Functions, its
+  `supabase db push`, its database CI. The phone app's blocks (push, notifications, support,
+  chat, app updates) need their database side there: init prints the `genesis add` line to run,
+  and `genesis migrate` in the phone app prints it again for any block the web app's lock
+  doesn't list.
+- `genesis add`, `migrate` and `upgrade` in the phone app never write Supabase files. Run them in
+  the web app for the database, and in the phone app for its own files (templates, skills, route
+  stubs).
+- A release of the phone app that needs a new migration waits for the web app's release that
+  applies it: an over-the-air update must not reach phones before the tables it reads exist.
+
 ## One-time setup
 
 Nothing in the templates names a real account. Before the first run:
@@ -44,10 +67,15 @@ Nothing in the templates names a real account. Before the first run:
    (`src`, or `apps/<name>` in a monorepo; an app with code in other top-level folders, such as
    `app/` and `components/`, lists each). `genesis doctor` warns about any `REPLACE_WITH_…` left in
    `eas.json` or `.eas/workflows/` (rule `eas-placeholder`).
-5. **Store credentials.** Replace every `REPLACE_WITH_…` in `eas.json` `submit.production`
-   (App Store Connect app id, Apple team id, the path of the Google service account key) and set up
-   signing (`eas credentials`). A placeholder left in fails the submit job; it can't submit
-   somewhere else.
+5. **Store credentials.** Replace the App Store Connect app id and Apple team id in `eas.json`
+   `submit.production.ios`, and set up signing (`eas credentials`). For Google Play, the submit
+   runs on EAS, where a local key file isn't there: create a Google Cloud service account and its
+   JSON key, invite it in Play Console → Users and permissions, upload the key with `eas
+   credentials` (Android → Google Service Account), and remove only the `serviceAccountKeyPath`
+   line ([Expo's guide](https://docs.expo.dev/submit/android/)). Until you ship to Google Play,
+   remove the `submit_android` job from `deploy-production.yml` instead and leave
+   `submit.production.android` as it is. A placeholder left in fails the submit job; it can't
+   submit somewhere else.
 6. **Release policy.** Apply `supabase/migrations` (the `app_release_policy` table the updates
    block reads; see the [updates block](../packages/native/README.md#updates-force-upgrade-maintenance-update-banner-whats-new)).
 
