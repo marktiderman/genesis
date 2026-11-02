@@ -1,0 +1,23 @@
+.changeset/calendar-sync-signal.md
+  s_1feb538f59bf88::t_92792e0c1ded9a 1-5
+packages/calendar/src/google.test.ts
+  s_1feb538f59bf88::t_77e94cc087b251 114-130
+packages/calendar/src/google.ts
+  s_1feb538f59bf88::t_f5af68c8082b54 31-32,85-90,197-202,204,215-219,221,225,227,229,231-233,253
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "859efaa1c873e9e33d9aa71dd079c4fc7d2f156b",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
