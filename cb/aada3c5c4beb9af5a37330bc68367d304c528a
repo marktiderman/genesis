@@ -1,0 +1,25 @@
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_6a4659246591cd::t_6c4deaa553caf7 444-454
+packages/ui/src/components/data/none-choice.ts
+  s_6a4659246591cd::t_bf7dfed102731b 1-6
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_6a4659246591cd::t_2f8f1475479c53 39,386-387,392,400,402
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_21a90451f07753 26-29,31-32,36-39,71-84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cbaada3c5c4beb9af5a37330bc68367d304c528a",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
