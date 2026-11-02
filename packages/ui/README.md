@@ -80,6 +80,22 @@ function SignInPage({ client }: { client: AuthFormClient }) {
   (`"password"`, `"magic-link"`, `"email-code"`).
 - **The code step** is `InputOTP` (`autocomplete="one-time-code"`): it verifies on the last digit,
   and resends after `resendCooldown` seconds (60).
+- **`codeLength` must match the project's `otp_length`** (Supabase Auth settings, "Email OTP
+  length"; default 6). The code field takes exactly `codeLength` digits, so with a mismatch no
+  code can be entered whole and code sign-in fails with nothing on screen to say why. Supabase's
+  public `/auth/v1/settings` doesn't report `otp_length`, so the form can't check it; in
+  development a refused code logs a hint to compare the two.
+- **`offerCodeOnConfirm`** (opt-in): the "check your email" screens after a magic link and after
+  sign-up offer "Enter the code instead", which opens the code step for the same email. For people
+  in an embedded browser (an in-app web view), where the link opens in another browser. It needs
+  `"email-code"` in `methods`, and `{{ .Token }}` in the Magic Link and Confirm signup templates.
+- **`notice`**: a notice above the form's first step, as an `Alert`: `{ kind: "reset-link-expired" }`,
+  `"provider-cancelled"` or `"account-deleted"` with the catalogue's copy (`auth.notices`), a
+  `message` of your own, or a plain string. An expired link is an error (`role="alert"`), the
+  others are announced politely (`role="status"`); `tone` overrides it.
+- **Before hydration** a server-rendered form's submit is disabled (drawn as enabled) and the form
+  is `method="post"`, so an early click or Enter neither drops what was typed nor puts the email
+  in the URL.
 - **Providers**: `providers={["google"]}` or objects with a label and icon; left out, it asks
   `client.providers()`; `false` for none.
 - **Words** are the `auth` part of the catalogue (`UiMessagesProvider`). A failed call shows the

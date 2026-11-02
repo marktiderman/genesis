@@ -117,7 +117,10 @@ async function call(run: () => Promise<SupabaseAuthResult>): Promise<AuthCallRes
  *
  * One email template serves the link and the code: Supabase sends the Magic
  * Link template for both, so a form offering `"email-code"` needs
- * `{{ .Token }}` in it (the default template has only the link).
+ * `{{ .Token }}` in it (the default template has only the link). The form's
+ * `codeLength` must match the project's `otp_length`, which
+ * `/auth/v1/settings` doesn't report: with a mismatch no code can be entered
+ * whole, and code sign-in fails.
  *
  * ```ts
  * const client = createAuthFormClient(supabase, {

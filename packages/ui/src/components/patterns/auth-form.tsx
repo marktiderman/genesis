@@ -17,6 +17,7 @@
  */
 import * as React from "react";
 import { isDevelopment, reportError } from "@marktiderman/genesis-core/errors";
+import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "../ui/input-otp";
@@ -88,6 +89,22 @@ export interface AuthFormProvider {
   icon?: React.ReactNode;
 }
 
+/**
+ * Why the form is showing a notice: a reset link that expired, a provider sign-in the person
+ * cancelled, an account just deleted. Each has default copy in `auth.notices`.
+ */
+export type AuthFormNoticeKind = "reset-link-expired" | "provider-cancelled" | "account-deleted";
+
+/**
+ * A notice above the form. A `kind` alone uses the catalogue's copy (`auth.notices[kind]`); a
+ * `message` replaces it, or stands alone. `tone` defaults to `"error"` for an expired reset link
+ * and `"info"` otherwise: an error is announced at once (`role="alert"`), info politely
+ * (`role="status"`).
+ */
+export type AuthFormNotice =
+  | { kind: AuthFormNoticeKind; message?: string; tone?: "info" | "error" }
+  | { kind?: undefined; message: string; tone?: "info" | "error" };
+
 /** What finished, for `onSuccess`. */
 export interface AuthFormSuccess {
   mode: AuthFormMode;
@@ -123,14 +140,33 @@ export interface AuthFormProps {
   onSuccess?: (result: AuthFormSuccess) => void;
   /** Initial email ("sign in as …" links). */
   initialEmail?: string;
-  /** Digits in an emailed code. Default 6 (Supabase's default). */
+  /**
+   * Digits in an emailed code. Default 6 (Supabase's default). It must match the project's
+   * `otp_length` (Auth settings, "Email OTP length"): the code field takes exactly this many
+   * digits, so with a mismatch no code can ever be entered whole and code sign-in fails with
+   * nothing to say why. `/auth/v1/settings` doesn't report `otp_length`, so the form can't check it.
+   */
   codeLength?: number;
   /** Seconds before a code can be sent again. Default 60 (Supabase's default rate limit). */
   resendCooldown?: number;
   /** For a new password. Default 8. Supabase Auth still applies its own rules. */
   minPasswordLength?: number;
+  /**
+   * A notice above the form, on its first step: why the person is here again ("your reset link
+   * has expired", "sign-in was cancelled", "your account is deleted"). A string is a message on
+   * its own. Read it from the URL the callback sent them to, say.
+   */
+  notice?: AuthFormNotice | string | null;
+  /**
+   * Opt-in: on the "check your email" screens after a magic link and after sign-up, offer "Enter
+   * the code instead", which opens the code step for the same email. For someone signing in from
+   * an embedded browser (an in-app web view), where the link opens in another browser and they
+   * would be stuck. Needs `"email-code"` in `methods` and `{{ .Token }}` in the project's Magic
+   * Link and Confirm signup email templates. Default false.
+   */
+  offerCodeOnConfirm?: boolean;
   className?: string;
-  /** Default `"auth-form"`; parts use `${testID}-email`, `-password`, `-submit`, `-error`, `-status`, `-code`, `-resend`, `-provider-<id>`. */
+  /** Default `"auth-form"`; parts use `${testID}-email`, `-password`, `-submit`, `-error`, `-status`, `-notice`, `-code`, `-resend`, `-enter-code`, `-provider-<id>`. */
   testID?: string;
 }
 
@@ -221,6 +257,8 @@ export function AuthForm({
   codeLength = 6,
   resendCooldown = 60,
   minPasswordLength = 8,
+  notice,
+  offerCodeOnConfirm = false,
   className,
   testID = "auth-form",
 }: AuthFormProps) {
@@ -242,6 +280,8 @@ export function AuthForm({
   const sentHeading = React.useRef<HTMLHeadingElement>(null);
   const providers = useProviders(client, givenProviders);
   const cooldown = useCooldown();
+  const hydrated = useHydrated();
+  const codeOnConfirm = offerCodeOnConfirm && methods.includes("email-code");
 
   // A controlled mode change from outside (a route) starts that mode fresh.
   const shownMode = React.useRef(mode);
@@ -372,6 +412,7 @@ export function AuthForm({
       const result = await run(() => client.signUp({ email: address, password }));
       if (!result) return;
       if (result.confirmEmail) {
+        if (codeOnConfirm) cooldown.start(resendCooldown);
         setSent("confirm");
         setStep("sent");
       } else onSuccess?.({ mode, email: address });
@@ -386,6 +427,8 @@ export function AuthForm({
     }
     if (method === "magic-link") {
       if (await run(() => sentEvenIfUnknown(client.sendMagicLink({ email: address, createUser: allowSignUp })))) {
+        // The same email carries the code, so "Enter the code instead" waits out the cooldown before a resend.
+        if (codeOnConfirm) cooldown.start(resendCooldown);
         setSent("magic-link");
         setStep("sent");
       }
@@ -399,9 +442,32 @@ export function AuthForm({
 
   const verify = async (value: string) => {
     if (value.length !== codeLength) return fail("code", fillMessage(m.errors.codeRequired, { length: codeLength }));
-    if (await run(() => client.verifyEmailCode({ email: email.trim(), code: value }))) {
+    let rejected = false;
+    const result = await run(async () => {
+      const r = await client.verifyEmailCode({ email: email.trim(), code: value });
+      rejected = r.error?.code === "otp_expired";
+      return r;
+    });
+    if (result) {
       onSuccess?.({ mode, method: "email-code", email: email.trim() });
-    } else setCode("");
+      return;
+    }
+    setCode("");
+    if (rejected && isDevelopment()) {
+      // A code of the wrong length is answered like a wrong one. Say so to the developer; never to the person.
+      // genesis-allow-console: a development-only hint for the developer, never shown to the person.
+      console.warn(
+        `AuthForm: Auth refused a ${codeLength}-digit code (otp_expired). If every code fails, check that codeLength matches the project's otp_length (Auth settings, Email OTP length).`,
+      );
+    }
+  };
+
+  /** From "check your email": the same email's code, in the code step. */
+  const enterCode = () => {
+    setCode("");
+    setError(null);
+    setStatus(null);
+    setStep("code");
   };
 
   const resend = async () => {
@@ -424,9 +490,20 @@ export function AuthForm({
     return { ...(invalid ? { "aria-invalid": true as const } : {}), ...(describedBy ? { "aria-describedby": describedBy } : {}) };
   };
   const showProviders = step === "form" && (mode === "sign-in" || mode === "sign-up") && providers.length > 0;
+  const shownNotice = step === "form" ? noticeOf(notice, m) : null;
 
   return (
     <div data-slot="auth-form" data-testid={testID} data-mode={mode} className={cn("flex min-w-0 flex-col gap-6", className)}>
+      {shownNotice ? (
+        <Alert
+          role={shownNotice.tone === "error" ? "alert" : "status"}
+          variant={shownNotice.tone === "error" ? "destructive" : "default"}
+          data-testid={`${testID}-notice`}
+          {...(shownNotice.kind ? { "data-kind": shownNotice.kind } : {})}
+        >
+          <AlertDescription>{shownNotice.message}</AlertDescription>
+        </Alert>
+      ) : null}
       {showProviders ? (
         <div className="flex flex-col gap-4">
           <div role="group" aria-label={m.providers} className="flex flex-col gap-2">
@@ -472,6 +549,11 @@ export function AuthForm({
               )}
             </p>
           </div>
+          {codeOnConfirm && sent !== "reset" ? (
+            <Button type="button" variant="outline" testID={`${testID}-enter-code`} onClick={enterCode}>
+              {m.enterCodeInstead}
+            </Button>
+          ) : null}
           {sent === "magic-link" ? (
             <Button type="button" variant="link" testID={`${testID}-start-over`} onClick={startOver}>
               {m.useDifferentEmail}
@@ -486,7 +568,9 @@ export function AuthForm({
           )}
         </div>
       ) : (
-        <form noValidate aria-label={m.titles[mode]} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
+        // method="post": should a submit ever slip through before hydration, the email goes in the
+        // body, never the URL. The submit stays disabled until then (below).
+        <form noValidate method="post" aria-label={m.titles[mode]} onSubmit={(e) => void submit(e)} className="flex flex-col gap-4">
           {step === "code" ? (
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${id}-code`}>{m.code}</Label>
@@ -607,7 +691,18 @@ export function AuthForm({
             </p>
           ) : null}
 
-          <Button type="submit" className="w-full" loading={busy} testID={`${testID}-submit`}>
+          {/*
+            Until React hydrates a server-rendered page, the browser's own submit would send a GET
+            and drop what was typed. A disabled default button stops both the click and Enter's
+            implicit submit; it is drawn as enabled, so nothing changes on screen.
+          */}
+          <Button
+            type="submit"
+            className={cn("w-full", !hydrated && "disabled:opacity-100")}
+            loading={busy}
+            disabled={!hydrated}
+            testID={`${testID}-submit`}
+          >
             {submitLabel(mode, step, method, m)}
           </Button>
 
@@ -648,6 +743,33 @@ export function AuthForm({
 }
 
 const DEFAULT_METHODS: readonly AuthSignInMethod[] = ["password"];
+
+const noopSubscribe = () => () => {};
+
+/**
+ * False on the server and while React hydrates a server-rendered page, true from then on, and
+ * true at once on a client-only render (no extra render, nothing that flips after mount).
+ */
+function useHydrated(): boolean {
+  return React.useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
+}
+
+/** The notice to show: its own message, else the catalogue's for its kind, with its tone. */
+function noticeOf(
+  notice: AuthFormNotice | string | null | undefined,
+  m: AuthMessages,
+): { kind?: AuthFormNoticeKind; message: string; tone: "info" | "error" } | null {
+  if (!notice) return null;
+  if (typeof notice === "string") return { message: notice, tone: "info" };
+  const message = notice.message || (notice.kind ? m.notices[notice.kind] : "");
+  if (!message) return null;
+  const tone = notice.tone ?? (notice.kind === "reset-link-expired" ? "error" : "info");
+  return { ...(notice.kind ? { kind: notice.kind } : {}), message, tone };
+}
 
 function submitLabel(mode: AuthFormMode, step: Step, method: AuthSignInMethod, m: AuthMessages): string {
   if (step === "code") return m.verifyCode;

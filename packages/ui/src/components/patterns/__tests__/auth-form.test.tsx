@@ -14,6 +14,8 @@
  */
 import { setErrorReporter } from "@marktiderman/genesis-core/errors";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { UiMessagesProvider } from "../../../messages";
@@ -226,7 +228,7 @@ describe("AuthForm: sign-in", () => {
     type("auth-form-email", "nobody@acme.test");
     await submit();
     expect(screen.queryByRole("alert")).toBeNull();
-    expect(screen.getByText("If nobody@acme.test has an account, we sent it a 6-digit code.")).toBeTruthy();
+    expect(screen.getByText("If nobody@acme.test has an account, we sent it a code. It has 6 digits.")).toBeTruthy();
     expect(screen.getByLabelText("Code")).toBeTruthy();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("otp_disabled, shown as sent"));
     warn.mockRestore();
@@ -266,7 +268,7 @@ describe("AuthForm: the email code step", () => {
     expect(input.getAttribute("autocomplete")).toBe("one-time-code");
     expect(input.getAttribute("inputmode")).toBe("numeric");
     expect(input.getAttribute("maxlength")).toBe("6");
-    expect(screen.getByText("We sent a 6-digit code to sam@acme.test.")).toBeTruthy();
+    expect(screen.getByText("We sent a code to sam@acme.test. It has 6 digits.")).toBeTruthy();
     await act(async () => {
       fireEvent.change(input, { target: { value: "123456" } });
     });
@@ -485,5 +487,175 @@ describe("AuthForm: accessibility", () => {
     await waitFor(() => expect(byId("auth-form-submit").getAttribute("aria-busy")).toBe("true"));
     expect(client.signInWithPassword).toHaveBeenCalledTimes(1);
     await act(async () => resolve({}));
+  });
+});
+
+describe("AuthForm: before hydration", () => {
+  it("renders a server page whose native submit can't send a GET or drop what was typed", () => {
+    const html = renderToString(<AuthForm client={mockClient()} providers={false} />);
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    // The email would go in the body, never the URL, should a submit slip through.
+    expect(doc.querySelector("form")!.getAttribute("method")).toBe("post");
+    // The default button is disabled until hydration: no click submit, no implicit Enter submit.
+    const button = doc.querySelector('[data-testid="auth-form-submit"]')!;
+    expect(button.hasAttribute("disabled")).toBe(true);
+    // Drawn as enabled, so the page doesn't flash a dimmed button.
+    expect(button.className).toContain("disabled:opacity-100");
+  });
+
+  it("is ready at once on the client, with nothing that changes after mount", () => {
+    setup();
+    const button = byId("auth-form-submit") as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    expect(button.className).not.toContain("disabled:opacity-100");
+  });
+
+  it("becomes submittable once a server-rendered form hydrates", async () => {
+    const client = mockClient();
+    const container = document.createElement("div");
+    container.innerHTML = renderToString(<AuthForm client={client} providers={false} />);
+    document.body.appendChild(container);
+    const button = () => container.querySelector('[data-testid="auth-form-submit"]') as HTMLButtonElement;
+    expect(button().disabled).toBe(true);
+    let root: ReturnType<typeof hydrateRoot> | undefined;
+    await act(async () => {
+      root = hydrateRoot(container, <AuthForm client={client} providers={false} />);
+    });
+    expect(button().disabled).toBe(false);
+    act(() => root?.unmount());
+    container.remove();
+  });
+});
+
+describe("AuthForm: notices", () => {
+  it("shows a kind's default copy above the form, an expired reset link as an alert", () => {
+    setup({ notice: { kind: "reset-link-expired" }, defaultMode: "forgot-password" });
+    const notice = byId("auth-form-notice");
+    expect(notice.textContent).toBe("That reset link has expired or was already used. Ask for a new one.");
+    expect(notice.getAttribute("role")).toBe("alert");
+    expect(notice.getAttribute("data-kind")).toBe("reset-link-expired");
+    expect(notice.compareDocumentPosition(screen.getByRole("form")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("announces a cancelled provider or a deleted account politely", () => {
+    const { rerender, client } = setup({ notice: { kind: "provider-cancelled" } });
+    expect(byId("auth-form-notice").getAttribute("role")).toBe("status");
+    expect(byId("auth-form-notice").textContent).toBe("Sign-in was cancelled. Try again, or use another way to sign in.");
+    rerender(<AuthForm client={client} providers={false} notice={{ kind: "account-deleted" }} />);
+    expect(byId("auth-form-notice").textContent).toBe("Your account is deleted.");
+  });
+
+  it("takes a message of its own, a plain string, a tone, and the catalogue's rewording", () => {
+    const { rerender, client } = setup({ notice: { kind: "account-deleted", message: "Your data is gone." } });
+    expect(byId("auth-form-notice").textContent).toBe("Your data is gone.");
+    rerender(<AuthForm client={client} providers={false} notice="Welcome back." />);
+    expect(byId("auth-form-notice").textContent).toBe("Welcome back.");
+    expect(byId("auth-form-notice").getAttribute("role")).toBe("status");
+    rerender(<AuthForm client={client} providers={false} notice={{ message: "Something broke.", tone: "error" }} />);
+    expect(byId("auth-form-notice").getAttribute("role")).toBe("alert");
+    rerender(
+      <UiMessagesProvider messages={{ auth: { notices: { "provider-cancelled": "You backed out." } } }}>
+        <AuthForm client={client} providers={false} notice={{ kind: "provider-cancelled" }} />
+      </UiMessagesProvider>,
+    );
+    expect(byId("auth-form-notice").textContent).toBe("You backed out.");
+    rerender(<AuthForm client={client} providers={false} notice={null} />);
+    expect(screen.queryByTestId("auth-form-notice")).toBeNull();
+  });
+
+  it("leaves the notice behind once the person moves on to check their email", async () => {
+    setup({ notice: { kind: "provider-cancelled" }, methods: ["magic-link"] });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(screen.queryByTestId("auth-form-notice")).toBeNull();
+  });
+});
+
+describe("AuthForm: the code on the confirm screens", () => {
+  it("is off by default", async () => {
+    setup({ methods: ["magic-link", "email-code"] });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(byId("auth-form-status")).toBeTruthy();
+    expect(screen.queryByTestId("auth-form-enter-code")).toBeNull();
+  });
+
+  it("needs code sign-in among the methods", async () => {
+    setup({ methods: ["magic-link"], offerCodeOnConfirm: true });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(screen.queryByTestId("auth-form-enter-code")).toBeNull();
+  });
+
+  it("after a magic link, enters the same email's code and signs in", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const { client, onSuccess } = setup({ methods: ["magic-link", "email-code"], offerCodeOnConfirm: true, resendCooldown: 30 });
+      type("auth-form-email", "sam@acme.test");
+      await submit();
+      expect(client.sendMagicLink).toHaveBeenCalledTimes(1);
+      fireEvent.click(byId("auth-form-enter-code"));
+      // The code step, without sending another email; the resend waits out the cooldown.
+      expect(client.sendEmailCode).not.toHaveBeenCalled();
+      expect(screen.getByText("We sent a code to sam@acme.test. It has 6 digits.")).toBeTruthy();
+      expect((byId("auth-form-resend") as HTMLButtonElement).disabled).toBe(true);
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText("Code"), { target: { value: "123456" } });
+      });
+      await waitFor(() => expect(client.verifyEmailCode).toHaveBeenCalledWith({ email: "sam@acme.test", code: "123456" }));
+      expect(onSuccess).toHaveBeenCalledWith({ mode: "sign-in", method: "email-code", email: "sam@acme.test" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("after sign-up, confirms the account with the code", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const client = mockClient({ signUp: vi.fn().mockResolvedValue({ confirmEmail: true }) });
+      const { onSuccess } = setup({ client, defaultMode: "sign-up", methods: ["password", "email-code"], offerCodeOnConfirm: true });
+      type("auth-form-email", "new@acme.test");
+      type("auth-form-password", "long-enough");
+      await submit();
+      expect(byId("auth-form-status").textContent).toContain("confirm your account");
+      fireEvent.click(byId("auth-form-enter-code"));
+      await act(async () => {
+        fireEvent.change(screen.getByLabelText("Code"), { target: { value: "654321" } });
+      });
+      await waitFor(() => expect(client.verifyEmailCode).toHaveBeenCalledWith({ email: "new@acme.test", code: "654321" }));
+      expect(onSuccess).toHaveBeenCalledWith({ mode: "sign-up", method: "email-code", email: "new@acme.test" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("isn't offered after a reset email", async () => {
+    setup({ defaultMode: "forgot-password", methods: ["password", "email-code"], offerCodeOnConfirm: true });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(screen.queryByTestId("auth-form-enter-code")).toBeNull();
+  });
+});
+
+describe("AuthForm: code length", () => {
+  it.each([8, 11, 18])("words a %i-digit code without a wrong article", async (length) => {
+    setup({ methods: ["email-code"], codeLength: length });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    expect(screen.getByText(`We sent a code to sam@acme.test. It has ${length} digits.`)).toBeTruthy();
+    expect(screen.getByLabelText("Code").getAttribute("maxlength")).toBe(String(length));
+  });
+
+  it("in development, a refused code hints that codeLength may not match the project's otp_length", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const client = mockClient({ verifyEmailCode: vi.fn().mockResolvedValue({ error: { code: "otp_expired" } }) });
+    setup({ client, methods: ["email-code"] });
+    type("auth-form-email", "sam@acme.test");
+    await submit();
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Code"), { target: { value: "123456" } });
+    });
+    await waitFor(() => expect(warn).toHaveBeenCalledWith(expect.stringContaining("codeLength matches the project's otp_length")));
+    expect(byId("auth-form-error").textContent).toBe("That code has expired or is wrong. Ask for a new one.");
   });
 });
