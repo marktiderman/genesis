@@ -2,7 +2,7 @@
 // genesis-ui (this package has no React). The shapes differ in one place: EventCalendar's all-day
 // end is the last day (inclusive), core/dates' EventOccurrence's the day after (exclusive). Until
 // EventCalendar takes EventOccurrence itself, this is the mapping.
-import { addDays, type Day } from "@marktiderman/genesis-core/dates";
+import { addDays, isDay, type Day } from "@marktiderman/genesis-core/dates";
 import type { MergedEvent, PersonEvent } from "./merge";
 
 /** An event as EventCalendar draws it (its `CalendarEvent`, structurally). @stability Beta */
@@ -29,7 +29,7 @@ export interface ToCalendarEventOptions {
 export function toCalendarEvent<E extends PersonEvent>(merged: MergedEvent<E>, options: ToCalendarEventOptions = {}): CalendarDisplayEvent<E> {
   const { start, end, allDay } = merged;
   let last = end;
-  if (allDay && typeof start === "string" && typeof end === "string") {
+  if (allDay && typeof start === "string" && typeof end === "string" && isDay(start) && isDay(end)) {
     const before = addDays(end, -1);
     last = before < start ? start : before;
   }

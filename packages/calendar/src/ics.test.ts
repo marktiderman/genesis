@@ -182,6 +182,12 @@ describe("readIcs", () => {
     expect(garbage.unexpanded).toEqual(["g@x"]);
   });
 
+  it("caps the work counted rules share, reporting the rest as unexpanded", () => {
+    const counted = (i: number) => ["BEGIN:VEVENT", `UID:c${i}@x`, "DTSTART:20000101T090000Z", "RRULE:FREQ=DAILY;COUNT=100000", "END:VEVENT"];
+    const result = readIcs(feed(...Array.from({ length: 11 }, (_, i) => counted(i)).flat()), { sourceId: "s", window });
+    expect(result.unexpanded).toEqual(["c10@x"]);
+  });
+
   it("skips malformed times rather than throwing", () => {
     const out = read(feed("BEGIN:VEVENT", "UID:m@x", "DTSTART:20261399T250000", "END:VEVENT", "BEGIN:VEVENT", "UID:n@x", "DTSTART:00000101T000000Z", "END:VEVENT"));
     expect(out).toEqual([]);

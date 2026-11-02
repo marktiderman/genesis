@@ -71,4 +71,21 @@ describe("fetchFeed", () => {
     expect(error?.code).toBe("unavailable");
     expect(error!.message).not.toContain("private-9f8e7d6c");
   });
+
+  it("never names a refused host, where a feed's secret can live", async () => {
+    const error = await failure(fetchFeed("https://127.0.0.1/a.ics", { transport: fake([]).transport }));
+    expect(error?.code).toBe("refused");
+    expect(error!.message).not.toContain("127.0.0.1");
+  });
+
+  it("keeps its deadline when a transport ignores the abort signal", async () => {
+    const hangs: Transport = () => new Promise(() => {});
+    const error = await failure(fetchFeed(SECRET, { transport: hangs, timeoutMs: 20 }));
+    expect(error?.code).toBe("unavailable");
+  });
+
+  it("refuses a size cap or timeout that isn't a positive number", async () => {
+    await expect(fetchFeed(SECRET, { transport: fake([]).transport, maxBytes: Number.NaN })).rejects.toThrow(RangeError);
+    await expect(fetchFeed(SECRET, { transport: fake([]).transport, timeoutMs: 0 })).rejects.toThrow(RangeError);
+  });
 });

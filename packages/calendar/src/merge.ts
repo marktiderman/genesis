@@ -1,7 +1,7 @@
 // One event per (iCalendar UID, start) across everyone's calendars: an event three people are on
 // shows once, listing all three. Events without a UID stay one per copy. What a viewer sees of it
 // is decided per viewer, from only the copies that viewer may see.
-import type { EventOccurrence } from "@marktiderman/genesis-core/dates";
+import { isDay, type EventOccurrence } from "@marktiderman/genesis-core/dates";
 import { toTimeKey, toTimeValue, type CalendarEvent } from "./types";
 
 /** The fields that name an occurrence. @stability Beta */
@@ -104,7 +104,7 @@ export function mergeEvents<E extends PersonEvent>(rows: readonly E[], options: 
         seriesKey: seriesKey(row),
         start: row.start,
         end: row.end,
-        allDay: row.allDay ?? typeof row.start === "string",
+        allDay: row.allDay ?? (typeof row.start === "string" && isDay(row.start)),
         event: visible ? row : null,
         busy: !visible,
         people: [row.personId],

@@ -87,17 +87,29 @@ export async function fetchFeed(link: string, options: FetchFeedOptions = {}): P
     media = null;
     throw new CalendarFeedError("missing_peer", "fetchFeed needs @marktiderman/genesis-media installed.");
   }
+  const maxBytes = options.maxBytes ?? 5 * 1024 * 1024;
+  const timeoutMs = options.timeoutMs ?? 15_000;
+  if (!Number.isFinite(maxBytes) || maxBytes <= 0) throw new RangeError(`fetchFeed: maxBytes ${maxBytes} is not a positive number`);
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new RangeError(`fetchFeed: timeoutMs ${timeoutMs} is not a positive number`);
   const guarded: GuardedFetchOptions = {
-    maxBytes: options.maxBytes ?? 5 * 1024 * 1024,
-    timeoutMs: options.timeoutMs ?? 15_000,
+    maxBytes,
+    timeoutMs,
     transport: options.transport ?? server.createGuardedTransport({ accept: "text/calendar, text/plain;q=0.5, */*;q=0.1", userAgent: "genesis-calendar/1" }),
   };
+  // The deadline holds even for a custom transport that ignores its AbortSignal.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new CalendarFeedError("unavailable", "The calendar couldn't be reached.")), timeoutMs);
+  });
   try {
-    const { bytes } = await server.fetchGuarded(url.href, guarded);
+    const { bytes } = await Promise.race([server.fetchGuarded(url.href, guarded), deadline]);
     return new TextDecoder("utf-8").decode(bytes).replace(/^﻿/, "");
   } catch (error) {
-    // Media's reasons name a host at most, never the path or query where a feed's secret lives.
-    if (error instanceof server.FetchRefusedError) throw new CalendarFeedError("refused", `The calendar wasn't fetched: ${error.message}`);
+    // Media's reasons can name the host, and a feed's secret can live in the host name: never pass them on.
+    if (error instanceof CalendarFeedError) throw error;
+    if (error instanceof server.FetchRefusedError) throw new CalendarFeedError("refused", "The calendar wasn't fetched: the link was refused (a private address, a redirect, too big, or not found).");
     throw new CalendarFeedError("unavailable", "The calendar couldn't be reached.");
+  } finally {
+    clearTimeout(timer);
   }
 }

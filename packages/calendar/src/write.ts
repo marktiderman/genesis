@@ -67,7 +67,13 @@ function originalStart(e: CalendarEvent, uid: string): string | Date {
   return e.start;
 }
 
-const dateValue = (t: string | Date, name: string) => (typeof t === "string" ? `${name};VALUE=DATE:${t.replace(/-/g, "")}` : `${name}:${utc(t)}`);
+// A day is written as a DATE; any other string is read as an instant, and one that isn't throws.
+const dateValue = (t: string | Date, name: string) => {
+  if (typeof t === "string" && isDay(t)) return `${name};VALUE=DATE:${t.replace(/-/g, "")}`;
+  const d = typeof t === "string" ? new Date(t) : t;
+  if (Number.isNaN(d.getTime())) throw new RangeError(`writeIcs: ${name} isn't a day or a valid time`);
+  return `${name}:${utc(d)}`;
+};
 
 /**
  * An iCalendar feed of the events: one VEVENT each, with UID (`icalUid`, else

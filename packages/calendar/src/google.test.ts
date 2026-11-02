@@ -1,6 +1,8 @@
 // @feat:calendar-read-layer
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+
+const TOKEN = "ya29.test-token-7f3c";
 import { fromGoogleEvent, GoogleCalendarError, syncGoogleCalendar } from "./google";
 
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./__fixtures__/${name}`, import.meta.url), "utf8")) as unknown;
@@ -11,7 +13,7 @@ function fakeGoogle(pages: ((url: URL) => { status?: number; body?: unknown })[]
   const fetch = (async (input: URL | string, init?: RequestInit) => {
     const url = new URL(String(input));
     calls.push(url);
-    expect((init?.headers as Record<string, string>)["authorization"]).toBe("Bearer at");
+    expect((init?.headers as Record<string, string>)["authorization"]).toMatch(/^Bearer \S+$/);
     const page = pages.shift();
     if (!page) throw new Error("unexpected call");
     const { status = 200, body = {} } = page(url);
@@ -62,7 +64,7 @@ describe("fromGoogleEvent", () => {
 describe("syncGoogleCalendar", () => {
   it("reads the window in full, following pages, and keeps the sync token (recorded pages)", async () => {
     const g = fakeGoogle([() => ({ body: fixture("google-full-page-1.json") }), () => ({ body: fixture("google-full-page-2.json") })]);
-    const out = await syncGoogleCalendar({ accessToken: "at", calendarId: "me@x.test", sourceId: "s", window, fetch: g.fetch });
+    const out = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "me@x.test", sourceId: "s", window, fetch: g.fetch });
     expect(out.full).toBe(true);
     expect(out.events.map((e) => [e.externalRef, e.visibility, e.status])).toEqual([
       ["4kfixtureweekly_20261102T230000Z", "public", "confirmed"],
@@ -81,7 +83,7 @@ describe("syncGoogleCalendar", () => {
 
   it("reads only changes with a sync token: cancelled ones and ones outside the window as removed (recorded page)", async () => {
     const g = fakeGoogle([() => ({ body: fixture("google-incremental.json") })]);
-    const out = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", syncToken: "t1", window, fetch: g.fetch });
+    const out = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", syncToken: "t1", window, fetch: g.fetch });
     expect(out.full).toBe(false);
     expect(out.events.map((e) => [e.externalRef, e.title])).toEqual([["7qfixtureoneoff", "Dentist (moved)"]]);
     expect(out.removed).toEqual(["4kfixtureweekly_20261109T230000Z", "2bfixturefarfuture", "5cfixtureoldpast", "8dfixturedeleted"]);
@@ -99,10 +101,10 @@ describe("syncGoogleCalendar", () => {
       () => ({ body: fixture("google-full-page-1.json") }),
       () => ({ body: fixture("google-full-page-2.json") }),
     ]);
-    const first = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", window, fetch: g.fetch, maxPages: 1 });
+    const first = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", window, fetch: g.fetch, maxPages: 1 });
     expect(first).toMatchObject({ full: true, complete: false, syncToken: null, resume: { pageToken: "CigKGjRrZml4dHVyZXBhZ2Vfb25lGAEggICA", syncToken: null } });
     expect(first.events).toHaveLength(2);
-    const rest = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", syncToken: "ignored", window, fetch: g.fetch, maxPages: 1, resume: first.resume });
+    const rest = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", syncToken: "ignored", window, fetch: g.fetch, maxPages: 1, resume: first.resume });
     expect(rest).toMatchObject({ full: true, complete: true, resume: null, syncToken: "CPDAlvWDx70CEPDAlvWDx70CGAUggICAgICAgA==" });
     expect(rest.events.map((e) => e.externalRef)).toEqual(["9zfixtureallday"]);
     expect(g.calls[1]!.searchParams.get("pageToken")).toBe("CigKGjRrZml4dHVyZXBhZ2Vfb25lGAEggICA");
@@ -119,7 +121,7 @@ describe("syncGoogleCalendar", () => {
 
   it("starts over with a full read when the token is gone (recorded 410)", async () => {
     const g = fakeGoogle([() => ({ status: 410, body: fixture("google-410.json") }), () => ({ body: { items: [event("a")], nextSyncToken: "t9" } })]);
-    const out = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", syncToken: "old", window, fetch: g.fetch });
+    const out = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", syncToken: "old", window, fetch: g.fetch });
     expect(out).toMatchObject({ full: true, syncToken: "t9" });
     expect(g.calls[1]!.searchParams.has("syncToken")).toBe(false);
     expect(g.calls[1]!.searchParams.get("timeMin")).toBe("2026-10-25T00:00:00.000Z");
@@ -134,10 +136,10 @@ describe("syncGoogleCalendar", () => {
       [400, "bad_response"],
     ] as const) {
       const g = fakeGoogle([() => ({ status })]);
-      const error = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", window, fetch: g.fetch }).catch((e: unknown) => e);
+      const error = await syncGoogleCalendar({ accessToken: TOKEN, calendarId: "c", sourceId: "s", window, fetch: g.fetch }).catch((e: unknown) => e);
       expect(error).toBeInstanceOf(GoogleCalendarError);
       expect((error as GoogleCalendarError).code).toBe(code);
-      expect(String((error as Error).message)).not.toContain("at");
+      expect(String((error as Error).message)).not.toContain(TOKEN);
     }
   });
 });

@@ -358,6 +358,9 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
   const unexpanded: string[] = [];
   let truncated = false;
   let readCount = 0;
+  // COUNT rules are walked from their first occurrence, however far before the window: a feed's
+  // counted rules share this budget, and a rule past it is reported as unexpanded.
+  let countBudget = 1_000_000;
   /** Adds an occurrence in the window; false once the total cap is reached. */
   const push = (ev: CalendarEvent): boolean => {
     if (!isInWindow(ev, window) || refs.has(ev.externalRef)) return true;
@@ -414,7 +417,10 @@ export function readIcs(text: string, options: ReadIcsOptions): ReadIcsResult {
         continue;
       }
       let starts: IcsTime[] = [e.start];
-      if (e.rrule) {
+      const count = e.rrule ? Number(/(?:^|;)COUNT=(\d+)/i.exec(e.rrule)?.[1] ?? 0) : 0;
+      if (e.rrule && count > countBudget) unexpanded.push(e.uid);
+      else if (e.rrule) {
+        countBudget -= count;
         const expanded = seriesStartsOrFirst(e, e.rrule, window, perSeries);
         starts = expanded.starts;
         if (expanded.truncated) truncated = true;
