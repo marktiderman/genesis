@@ -1,0 +1,41 @@
+packages/support/migrations/tests/0003_genesis_support_findings.test.sql
+  s_6a4659246591cd::t_f3ad29f5e91f92 5-7
+  s_6a4659246591cd::t_3a3a2197f5cd12 59-62
+  s_6a4659246591cd::t_c2289393279276 13,115-116,122-140,148,182-217
+features.ts
+  s_6a4659246591cd::t_9fbb543fdc2eba 1630
+packages/support/migrations/0003_genesis_support_findings.sql
+  s_6a4659246591cd::t_25bc33678b4b2a 189,198-201
+  s_6a4659246591cd::t_81163a57324914 15-26,30-32
+  s_6a4659246591cd::t_4d22eb8df2a0c0 137-138
+  s_6a4659246591cd::t_e054abe48ae443 49
+  s_6a4659246591cd::t_47b16578efa7cc 180
+  s_6a4659246591cd::t_17c5d3e86e2cea 235,243,246
+  s_6a4659246591cd::t_cb10e32a7ec04c 260-265,273-277,283-288,290-296
+  s_6a4659246591cd::t_5ab5edd147ebab 58-64
+  s_6a4659246591cd::t_c8192691158c9a 278-282
+packages/support/README.md
+  s_6a4659246591cd::t_b2b9cd2a88041a 257-271,275-276
+apps/genesis-rn-starter/supabase/migrations/20261101000000_genesis_support_findings.sql
+  s_6a4659246591cd::t_1c358b04818967 15-26,30-32,49,58-64,137-138,180,189,198-201,235,243,246,260-265,273-288,290-296
+apps/genesis-rn-starter/supabase/tests/database/genesis_support_findings.test.sql
+  s_6a4659246591cd::t_caf88897d9d39f 5-7,13,59-62,115-116,122-140,148,182-217
+features.json
+  s_6a4659246591cd::t_b18af208d38e1a 3710
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0a992bb5f2102b4b7bf309eff30a700f5b4b4059",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
