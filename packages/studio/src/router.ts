@@ -72,7 +72,7 @@ export function locationFromSearchParams(params: URLSearchParams): StudioLocatio
     ...(params.get(PARAM.record) ? { record: params.get(PARAM.record)! } : {}),
     ...(VIEWS.includes(params.get(PARAM.view) ?? "") ? { view: params.get(PARAM.view) as StudioView } : {}),
     ...(params.get(PARAM.by) ? { by: params.get(PARAM.by)! } : {}),
-    ...(/^\d{4}-\d{2}$/.test(params.get(PARAM.month) ?? "") ? { month: params.get(PARAM.month)! } : {}),
+    ...(/^\d{4}-(0[1-9]|1[0-2])$/.test(params.get(PARAM.month) ?? "") ? { month: params.get(PARAM.month)! } : {}),
   };
 }
 
