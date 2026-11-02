@@ -65,6 +65,8 @@ export interface UpgradeOptions {
   codemods?: readonly Codemod[];
   /** Where overlays' upstream source is read (default: the Genesis repository's release tags). */
   upstream?: UpstreamSource;
+  /** The Genesis repository whose tags hold overlays' upstream source (default: the public one). */
+  genesisRepo?: string;
   /** The pnpm version the install ran (default: `pnpm --version` in the app); null when unknown. */
   pnpmVersion?: () => string | null;
   log?: (msg: string) => void;
@@ -292,10 +294,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
 
   // Overlays: cleaned out and rebased onto the release, planned before anything is written, so a
   // conflict stops the upgrade with nothing changed.
-  const upstream = options.upstream ?? gitUpstream();
+  const upstream = options.upstream ?? gitUpstream(options.genesisRepo);
   let overlays: OverlayPlan[];
   try {
-    overlays = planOverlays(root, wanted, upstream);
+    overlays = planOverlays(root, wanted, upstream, packageJsons(root));
   } finally {
     upstream.close?.();
   }
@@ -330,7 +332,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<UpgradeReport
       replaceApp(root, file, text);
       files.add(file);
     }
-    for (const file of applyOverlayPlans(root, overlays, packageJsons(root))) files.add(file);
+    for (const file of applyOverlayPlans(root, overlays)) files.add(file);
   }
   for (const mod of mods) {
     log(`codemod ${mod.id}: ${mod.description}`);

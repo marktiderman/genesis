@@ -284,11 +284,16 @@ the release it moves to, before it writes anything:
    upstream comes in, one gone upstream goes (unless the app changed it), and one the overlay never
    carried stays out. The marker's `upstream` becomes `<package>@<new version>` and the version
    `<new version>+local.N`.
-3. An overlay with nothing of the app's own left is deleted, and the app's `workspace:`/`file:`
-   dependency on it pins the release (its override is dropped).
+3. An overlay with nothing of the app's own left, in its source or its package.json (past its
+   version, `private` and marker), is deleted, and each `workspace:`/`file:`/`link:` dependency on
+   it (resolved from that package.json's own folder) pins the release, its override dropped. If
+   pnpm-workspace.yaml, a tsconfig or a vite, vitest, metro or babel config still names its folder
+   (or pnpm-workspace.yaml overrides the package to a local copy), it stays, on the checklist.
 4. When a merge conflicts, it writes nothing at all: it stops and lists the files to rebase by hand
-   (`--dry-run` lists them without stopping). An overlay whose tags can't be read is left as it is,
-   and the checklist says so.
+   (`--dry-run` lists them without stopping). A file that isn't text is never merged: it takes the
+   new version's copy when the app's is the old one's, and is a conflict otherwise. An overlay whose
+   tags can't be read (the fetch never prompts and gives up after two minutes) is left as it is, and
+   the checklist says why. `--genesis-repo <url>` reads the tags from another clone or mirror.
 
 The checklist goes into the summary and the pull request: **an upgrade PR isn't done until that
 checklist is.**

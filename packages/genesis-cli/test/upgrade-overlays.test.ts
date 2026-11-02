@@ -2,7 +2,7 @@
 // `genesis upgrade` cleans out each overlay and rebases it onto the release, against a local
 // stand-in for the Genesis repository and its `<name>@<version>` tags.
 import { execFileSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { clearLocalPackagesCache } from "../src/blocks/local.js";
@@ -21,20 +21,24 @@ const manifest = (version: string, extra: Record<string, unknown> = {}) =>
   JSON.stringify({ name: NAME, version, dependencies: { "@marktiderman/genesis-core": "workspace:^" }, ...extra }, null, 2) + "\n";
 
 /** A Genesis repository with the package at 1.0.0 and 1.2.0, each tagged. */
-function genesisRepo(v2 = V2): string {
+function genesisRepo(v2 = V2, extra: { v1?: Record<string, string | Buffer>; v2?: Record<string, string | Buffer> } = {}): string {
   const repo = tempDir("genesis-repo-");
-  const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...args], { cwd: repo, stdio: "ignore" });
+  const git = (...args: string[]) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", ...args], { cwd: repo, stdio: "ignore" });
   git("init", "-q");
-  const release = (version: string, files: Record<string, string>) => {
-    writeTree(repo, { "packages/fixture/package.json": manifest(version), ...Object.fromEntries(Object.entries(files).map(([f, t]) => [`packages/fixture/${f}`, t])) });
+  const release = (version: string, files: Record<string, string | Buffer>) => {
+    writeTree(repo, { "packages/fixture/package.json": manifest(version) });
+    for (const [f, t] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(repo, "packages/fixture", f)), { recursive: true });
+      writeFileSync(path.join(repo, "packages/fixture", f), t);
+    }
     writeTree(repo, { "packages/other/package.json": JSON.stringify({ name: "@marktiderman/genesis-other", version: "1.0.0" }) });
     git("add", "-A");
     git("commit", "-qm", version);
     git("tag", `${NAME}@${version}`);
   };
-  release("1.0.0", { "src/index.ts": V1, "src/gone.ts": "export const gone = 1;\n", "README.md": "# fixture\n" });
+  release("1.0.0", { "src/index.ts": V1, "src/gone.ts": "export const gone = 1;\n", "README.md": "# fixture\n", ...extra.v1 });
   execFileSync("git", ["rm", "-q", "packages/fixture/src/gone.ts"], { cwd: repo });
-  release("1.2.0", { "src/index.ts": v2, "src/added.ts": "export const added = 1;\n", "README.md": "# fixture\n" });
+  release("1.2.0", { "src/index.ts": v2, "src/added.ts": "export const added = 1;\n", "README.md": "# fixture\n", ...extra.v2 });
   return repo;
 }
 
@@ -125,15 +129,81 @@ describe("genesis upgrade rebases overlays", () => {
   it("leaves an overlay alone, and says so, when its upstream tag can't be read", async () => {
     const root = app(V1);
     const report = await upgrade(root, path.join(tempDir(), "no-such-repo"));
-    expect(report.overlays[0]!.skipped).toMatch(/no source for .*@1\.0\.0/);
+    expect(report.overlays[0]!.skipped).toMatch(/couldn't fetch the tag @marktiderman\/genesis-fixture@1\.0\.0 from .*no-such-repo: .+; the overlay is left as it is/);
+    expect(report.summary).toContain("- [ ] couldn't fetch the tag");
     expect(read(root, "packages/fixture/src/index.ts")).toBe(V1);
     expect(JSON.parse(read(root, "packages/fixture/package.json")).genesis.overlay.upstream).toBe(`${NAME}@1.0.0`);
   });
 
+  it("never calls a line that merely appears elsewhere in the new version shipped", async () => {
+    const repo = genesisRepo();
+    // The app adds `export const a = 1;` after d: the new version has that line (at the top), not this change.
+    const lines = V1.split("\n");
+    lines.splice(4, 0, "export const a = 1;");
+    const root = app(lines.join("\n"));
+    const report = await upgrade(root, repo, { dryRun: true });
+    expect(report.overlays[0]!.hunks.map((h) => `${h.file} ${h.at} ${h.verdict}`)).toEqual(["src/index.ts after 4 kept"]);
+  });
+
+  it("keeps an overlay whose only change is in package.json", async () => {
+    const repo = genesisRepo();
+    const root = app(V1);
+    const json = JSON.parse(read(root, "packages/fixture/package.json"));
+    json.sideEffects = false;
+    writeFileSync(path.join(root, "packages/fixture/package.json"), JSON.stringify(json, null, 2) + "\n");
+    const report = await upgrade(root, repo);
+    expect(report.overlays[0]).toMatchObject({ remove: false, conflicts: [] });
+    expect(report.overlays[0]!.hunks.map((h) => `${h.file} ${h.at} ${h.verdict}`)).toEqual(["package.json fields sideEffects kept"]);
+    const after = JSON.parse(read(root, "packages/fixture/package.json"));
+    expect(after.sideEffects).toBe(false);
+    expect(after.genesis.overlay.upstream).toBe(`${NAME}@1.2.0`);
+    expect(read(root, "packages/fixture/src/index.ts")).toBe(V2);
+  });
+
+  it("never merges a file that isn't text: upstream's copy when the app's is the base's, else a conflict", async () => {
+    const png = (n: number) => Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, n, 0xff, 0xfe]);
+    const repo = genesisRepo(V2, { v1: { "assets/icon.png": png(1) }, v2: { "assets/icon.png": png(2) } });
+    const index = V1.replace("export const d = 1;", "export const d = 9;");
+    // Unchanged in the app: the new version's bytes, exactly.
+    const same = app(index);
+    mkdirSync(path.join(same, "packages/fixture/assets"), { recursive: true });
+    writeFileSync(path.join(same, "packages/fixture/assets/icon.png"), png(1));
+    await upgrade(same, repo);
+    expect(readFileSync(path.join(same, "packages/fixture/assets/icon.png")).equals(png(2))).toBe(true);
+    // Changed in the app and upstream: a conflict, nothing written.
+    const changed = app(index);
+    mkdirSync(path.join(changed, "packages/fixture/assets"), { recursive: true });
+    writeFileSync(path.join(changed, "packages/fixture/assets/icon.png"), png(3));
+    const before = snapshot(changed);
+    await expect(upgrade(changed, repo)).rejects.toThrow(/packages\/fixture\/assets\/icon\.png/);
+    expect(snapshot(changed)).toEqual(before);
+    expect(readFileSync(path.join(changed, "packages/fixture/assets/icon.png")).equals(png(3))).toBe(true);
+  });
+
+  it("keeps an emptied overlay that something still names, and pins a file: dependency from its own folder", async () => {
+    const repo = genesisRepo();
+    const shippedOnly = V1.replace("export const b = 1;", "export const b = 2;");
+    const aliased = app(shippedOnly, { "tsconfig.json": JSON.stringify({ compilerOptions: { paths: { [NAME]: ["./packages/fixture/src/index.ts"] } } }) });
+    const kept = await upgrade(aliased, repo);
+    expect(kept.overlays[0]).toMatchObject({ remove: false });
+    expect(kept.overlays[0]!.stays).toMatch(/tsconfig\.json still name packages\/fixture/);
+    expect(existsSync(path.join(aliased, "packages/fixture/package.json"))).toBe(true);
+    expect(kept.summary).toContain("- [ ] nothing of the app's own is left, but tsconfig.json");
+
+    // A nested app whose file: spec is relative to its own package.json.
+    const nested = app(shippedOnly, { "apps/web/package.json": JSON.stringify({ name: "web", dependencies: { [NAME]: "file:../../packages/fixture" } }, null, 2) + "\n" });
+    execFileSync("git", ["init", "-q"], { cwd: nested });
+    execFileSync("git", ["add", "-A"], { cwd: nested });
+    const removed = await upgrade(nested, repo);
+    expect(removed.overlays[0]).toMatchObject({ remove: true });
+    expect(JSON.parse(read(nested, "apps/web/package.json")).dependencies[NAME]).toBe("1.2.0");
+    expect(JSON.parse(read(nested, "package.json")).dependencies[NAME]).toBe("1.2.0");
+  });
+
   it("diffs hunks without context", () => {
     expect(diffHunks("a\nb\nc\n", "a\nB\nc\nd\n")).toEqual([
-      { at: "2", removed: ["b"], added: ["B"] },
-      { at: "after 3", removed: [], added: ["d"] },
+      { at: "2", start: 2, count: 1, removed: ["b"], added: ["B"] },
+      { at: "after 3", start: 3, count: 0, removed: [], added: ["d"] },
     ]);
     expect(diffHunks("x\n", "x\n")).toEqual([]);
   });
