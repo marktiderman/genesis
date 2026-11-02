@@ -1,0 +1,73 @@
+.changeset/core-field-input-hints.md
+  s_6a4659246591cd::t_84cf3f3351a53f 9
+.changeset/ui-phone-lists-and-inputs.md
+  s_6a4659246591cd::t_13f54c01cf6086 3,6,10-15,18
+apps/sample/app/data/primitives.json
+  s_1ad08d0c80c7fb::t_b5e522a68c3b97 16546-16547,16549-16553
+docs/RESOURCE-VIEW.md
+  s_6a4659246591cd::t_14a727e72c4843 328-329,364-368,372,374-376,378-393
+packages/core/src/__tests__/resource-view.test.ts
+  s_1feb538f59bf88::t_9570b61365996b 112-117
+packages/core/src/form-types.ts
+  s_1feb538f59bf88::t_8ff7d6e3fcb2c2 55-58
+packages/core/src/resource-view/define-view.ts
+  s_1feb538f59bf88::t_0bec23c879f86a 426-427
+packages/core/src/resource-view/types.ts
+  s_1feb538f59bf88::t_9737ab8fc15ffb 62-65,68-71,302-305
+packages/ui-native/src/data/NativeResourceFormField.tsx
+  s_1feb538f59bf88::t_f6632b2d22f989 4,34,37,45,251-253,262-266
+packages/ui-native/src/data/resource-view/NativeResourceFormSheet.tsx
+  s_1feb538f59bf88::t_662f2e57ad3c8b 49,234-236
+packages/ui-native/src/data/resource-view/__tests__/native-tel-field.test.tsx
+  s_1feb538f59bf88::t_ef28f8d9159c7d 1-79
+packages/ui-native/src/data/resource-view/mapping.ts
+  s_1feb538f59bf88::t_39ff361594224f 7,183,206-211,226,228-230,273,280-282
+packages/ui-native/test-utils/rn-mock.tsx
+  s_1feb538f59bf88::t_bf6715fe9f7f3c 202-204,219-221
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_1feb538f59bf88::t_0f3c65f6c6f1e2 43-46
+packages/ui/src/components/data/ResourcePage.tsx
+  s_1feb538f59bf88::t_0efa2344f7cda8 1017-1034,1037-1040,1043,1045-1047,1059-1060,1062,1066-1073,1080-1083,1085-1086,1088-1102,1106,1109-1115,1118
+packages/ui/src/components/data/__tests__/record-view.test.tsx
+  s_1feb538f59bf88::t_c0093f324ba6b3 327-367
+packages/ui/src/components/data/__tests__/resource-page-default-rows.test.tsx
+  s_1feb538f59bf88::t_5ab432f74c5540 1-98
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_1feb538f59bf88::t_58d1205a0ac90d 2-3,7
+packages/ui/src/components/data/resource-view/RecordView.tsx
+  s_1feb538f59bf88::t_1617fb4722354e 38-39,373-386,396
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_1feb538f59bf88::t_cf7f1f52e9c634 92-94,113-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "9556c23a90ee37b1c7bf4d953a11c30f43320314",
+  "prompts": {},
+  "sessions": {
+    "s_1ad08d0c80c7fb": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8317e46-f1f8-419e-a319-ae3730260685",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
