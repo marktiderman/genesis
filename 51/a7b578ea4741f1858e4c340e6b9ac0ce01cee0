@@ -1,0 +1,42 @@
+packages/ui/src/components/data/__tests__/resource-view-phone.test.tsx
+  s_a2ef18bf405328::t_d92efb55ed189b 1-151
+  s_a2ef18bf405328::t_a328a03a2ae7c9 152-158
+.changeset/core-field-input-hints.md
+  s_a2ef18bf405328::t_d9c3394d690d71 1-5
+.changeset/ui-phone-lists-and-inputs.md
+  s_a2ef18bf405328::t_85950f1fa71983 1-9
+apps/sample/app/root.tsx
+  s_a2ef18bf405328::t_b93b0140d5074b 10,65-68
+packages/core/src/form-types.ts
+  s_a2ef18bf405328::t_14dfa4b34a16d8 9-10,53-64
+packages/ui/src/components/data/DataFilters.tsx
+  s_a2ef18bf405328::t_2f7bf8c8dfa87e 204-206,210-213,216,223
+packages/ui/src/components/data/DataTable.tsx
+  s_a2ef18bf405328::t_18d4c14e951313 1045-1050
+packages/ui/src/components/data/ResourceFormField.tsx
+  s_a2ef18bf405328::t_e30a3ada5b9e17 29-49,267,283,293
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_a2ef18bf405328::t_1b90ced4fb7518 13-14,49-54,56,91-100,106,147,264-272
+packages/ui/src/components/data/resource-view/defaults.tsx
+  s_a2ef18bf405328::t_88ee9cadc9865c 1-48
+packages/ui/src/components/data/resource-view/index.ts
+  s_a2ef18bf405328::t_5c70a62ef3a75c 18
+docs/component-reference.md
+  s_a2ef18bf405328::t_95bd6704d1132f 7,10064,10097,10108,10118,10160
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "51a7b578ea4741f1858e4c340e6b9ac0ce01cee0",
+  "prompts": {},
+  "sessions": {
+    "s_a2ef18bf405328": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a6c327c-2f48-4a9b-a43e-10ccdc6fdf3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
