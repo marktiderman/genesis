@@ -10,6 +10,7 @@
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
+import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GenesisProvider, createMockProvider } from "../../../provider";
@@ -67,6 +68,16 @@ describe("ResourceForm — opening", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
     expect(onSuccess.mock.calls[0]![0]).toMatchObject({ name: "First", subject_id: "s1" });
+  });
+
+  it("server-renders a page form with its fields, not a spinner", () => {
+    const html = renderToString(
+      <GenesisProvider provider={createMockProvider({ things: [] })}>
+        <ResourceForm resource="things" action="create" open onOpenChange={() => {}} fields={fields} layout="page" />
+      </GenesisProvider>,
+    );
+    expect(html).toContain("Name");
+    expect(html).toContain('type="submit"');
   });
 });
 

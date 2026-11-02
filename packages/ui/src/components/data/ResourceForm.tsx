@@ -139,6 +139,7 @@ function FormBody({
   columns = 1,
   fill = false,
   submitLabel,
+  seed = false,
 }: {
   form: UseFormReturn<Record<string, unknown>>;
   resolvedFields: ResourceFormFieldDef[];
@@ -158,6 +159,8 @@ function FormBody({
    */
   fill?: boolean | undefined;
   submitLabel?: string | undefined;
+  /** Reset to the defaults before the fields mount (a dialog or sheet form; see below). */
+  seed?: boolean | undefined;
 }) {
   // ResourceForm stays mounted while its dialog or sheet is closed, and with `shouldUnregister`
   // the form's values start empty, so react-hook-form can count it dirty against its defaults. A
@@ -165,8 +168,11 @@ function FormBody({
   // update a component while rendering a different component". Resetting to the defaults before
   // the fields mount (nothing is registered yet, so nothing typed is lost) keeps registration
   // quiet; a layout effect runs before paint, so the spinner below is never seen.
-  const [seeded, setSeeded] = useState(false);
+  // Only in a dialog or sheet (`seed`), the forms that stay mounted while closed: a page form is
+  // drawn with its fields at once, on the server too.
+  const [seeded, setSeeded] = useState(!seed);
   useLayoutEffect(() => {
+    if (!seed) return;
     form.reset(form.formState.defaultValues as Record<string, unknown>, { keepDefaultValues: true });
     setSeeded(true);
     // Once, as the body mounts; later defaults are useResourceForm's job.
@@ -500,7 +506,7 @@ export function ResourceForm(props: ResourceFormProps) {
               {formDescription}
             </DialogDescription>
           </DialogHeader>
-          <FormBody {...bodyProps} />
+          <FormBody {...bodyProps} seed />
         </DialogContent>
       </Dialog>
     );
@@ -521,7 +527,7 @@ export function ResourceForm(props: ResourceFormProps) {
               {formDescription}
             </SheetDescription>
           </SheetHeader>
-          <FormBody {...bodyProps} fill />
+          <FormBody {...bodyProps} fill seed />
         </SheetContent>
       </Sheet>
     );
