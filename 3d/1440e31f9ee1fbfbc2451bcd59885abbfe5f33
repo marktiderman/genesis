@@ -1,0 +1,25 @@
+.changeset/connect-identity-checks.md
+  s_1feb538f59bf88::t_13c644fb63fa70 2,5
+packages/connect/README.md
+  s_1feb538f59bf88::t_67d7cfbcbb4435 226-231,297
+packages/connect/src/__tests__/oauth.test.ts
+  s_1feb538f59bf88::t_bdb8205bb489ce 1222,1238,1247,1258-1263,1274-1282
+packages/connect/src/oauth.ts
+  s_1feb538f59bf88::t_6c96099956c5e8 380-382,839-840,843-844,1251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3d1440e31f9ee1fbfbc2451bcd59885abbfe5f33",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
