@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4088 other exports · 3262 standalone types across 189 entry points in 29 packages.
+**Totals:** 593 components · 4088 other exports · 3265 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -4667,7 +4667,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (35)
+### Types (36)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -4679,6 +4679,7 @@ export type { ChartConfig };
 export type { ChartPayloadItem };
 export type { ChipTone };
 export type { CommandPaletteItem };
+export type { DialogMobileLayout };
 export type { FollowUpEntry };
 export type { GenesisLinkProps };
 export type { HeadlineNumber };
@@ -10014,7 +10015,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`userAvatarVariants`](../packages/ui/src/components/patterns/user-avatar.tsx) | value | — | _(no summary)_ |
 | [`useUiMessages`](../packages/ui/src/messages.tsx) | function | — | The catalogue in effect: English unless a `UiMessagesProvider` says otherwise. |
 
-### Types (35)
+### Types (36)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10026,6 +10027,7 @@ export type { ChartConfig };
 export type { ChartPayloadItem };
 export type { ChipTone };
 export type { CommandPaletteItem };
+export type { DialogMobileLayout };
 export type { FollowUpEntry };
 export type { GenesisLinkProps };
 export type { HeadlineNumber };
@@ -10942,6 +10944,20 @@ export type { CommandPaletteItem };
 | Name | Props | Stability | Summary |
 | --- | --- | --- | --- |
 | [`DetailPage`](../packages/ui/src/components/layout/detail-page.tsx) | `DetailPageProps` | Beta | DetailPage — one record's full view: a title row with actions, a primary content region, and a metadata sidebar that drops below the content on small screens. |
+
+---
+
+## @marktiderman/genesis-ui/dialog
+
+**Barrel:** [`packages/ui/src/components/ui/dialog.tsx`](../packages/ui/src/components/ui/dialog.tsx)
+
+### Types (1)
+
+Type-only exports not consumed as a component's `Props`.
+
+```ts
+export type { DialogMobileLayout };
+```
 
 ---
 
