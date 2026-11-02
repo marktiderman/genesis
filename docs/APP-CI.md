@@ -120,11 +120,20 @@ The schedule is the caller's (the template runs Mondays at 06:00 UTC, and on dem
    the run fails and says so, and never loosens the setting: add the new versions to
    `minimumReleaseAgeExclude` (exact versions), or run again once they are old enough;
 4. commits the package.json files, the lockfile and, when pnpm or the tidy changed it,
-   pnpm-workspace.yaml to `branch` (default
-   `genesis-upgrade/<base branch>`), rebuilt from the branch the workflow ran on, and opens or
-   updates one pull request into that branch. When nothing changed since the last run the branch
+   pnpm-workspace.yaml to `branch` (default `genesis-upgrade/<base-branch>`), rebuilt from
+   `base-branch`, and opens or updates one pull request into `base-branch`. When nothing changed since the last run the branch
    is left as it is. Once anyone else pushes to the branch (say, a fix for a doctor finding), runs
    leave it alone and say so, until its pull request is merged or closed and the branch deleted.
+
+`base-branch` (default: the repository's default branch) is where each run starts and what its
+pull request targets, whichever branch the schedule or dispatch ran on; a repository that batches
+changes through a staging branch sets it to that branch. Both jobs build on the one commit of it
+the run resolved first.
+
+To upgrade two folders (say `app/` and `mobile/`), call the workflow once per folder in the same
+caller. The doctor's output is handed between jobs as one artifact per folder
+(`genesis-upgrade-doctor-<working-directory>`, `/` as `-`, `.` as `root`), so the calls don't
+collide. Give each call its own `branch`, or both push the same default branch.
 
 The bump is the same code `genesis upgrade` runs (`packages/genesis-cli/src/upgrade/bump-core.mjs`,
 embedded in the workflow by `scripts/sync-genesis-bump.mjs`). The workflow doesn't call `genesis

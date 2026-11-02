@@ -16,6 +16,7 @@ jobs:
     uses: marktiderman/genesis/.github/workflows/genesis-upgrade.yml@GENESIS_SHA # @marktiderman/genesis@X.Y.Z
     with:
       package-manager: pnpm # or bun, npm
+      # base-branch: staging # the branch the pull request targets; default: the default branch
     # So CI runs on the pull request (the default token can't start workflows):
     # secrets:
     #   token: ${{ secrets.GENESIS_UPGRADE_TOKEN }}
