@@ -58,9 +58,12 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   const lock = readLock(root);
   const warnings: string[] = [];
   const home = databaseElsewhere(root);
+  // A locked block whose starter.config.ts switch is off is left out (one asked for with --block isn't).
+  const catalog = catalogBlocks();
+  const off = appBlocksSwitchedOff(root, catalog, Object.keys(lock.blocks));
+  const switchedOff = Object.keys(lock.blocks).filter((id) => off.has(id) && !options.blocks?.includes(id));
   if (home) {
-    const ids = [...new Set([...Object.keys(lock.blocks), ...(options.blocks ?? [])])];
-    const catalog = catalogBlocks();
+    const ids = [...new Set([...Object.keys(lock.blocks).filter((id) => !switchedOff.includes(id)), ...(options.blocks ?? [])])];
     const there = blocksMissingThere(home, ids, catalog);
     // Unreadable there: every block may be missing, as init and add say.
     if (home.app && !there) warnings.push(`Can't read ${home.app}'s genesis.lock.json or migrations, so every block is listed.`);
@@ -68,11 +71,8 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
     if (home.app && !home.hasSupabase) warnings.push(`${home.app} has no supabase folder: genesis.config.json supabase.app should name the app that holds it.`);
     const line = addThereLine(home, missing);
     const note = [elsewhereNote(home), ...(line ? [line] : [])].join(" ");
-    return { plan: { rows: [], creates: [] }, written: [], warnings, switchedOff: [], attention: false, elsewhere: { app: home.app, note, missing } };
+    return { plan: { rows: [], creates: [] }, written: [], warnings, switchedOff: switchedOff.map((id) => switchedOffNote(id, off.get(id)!)), attention: false, elsewhere: { app: home.app, note, missing } };
   }
-  // A locked block whose starter.config.ts switch is off is left out (one asked for with --block isn't).
-  const off = appBlocksSwitchedOff(root, catalogBlocks(), Object.keys(lock.blocks));
-  const switchedOff = Object.keys(lock.blocks).filter((id) => off.has(id) && !options.blocks?.includes(id));
   const ids = [...new Set([...Object.keys(lock.blocks).filter((id) => !switchedOff.includes(id)), ...(options.blocks ?? [])])];
   const sources: SourceMigration[] = [];
   const local = localPackageNames(root);
@@ -106,7 +106,7 @@ export async function runMigrate(options: MigrateOptions): Promise<MigrateReport
   }
   if (!ids.length && !sources.length) warnings.push("No blocks in genesis.lock.json and no copied package migrations: nothing to compare. Add a block (genesis add <block>), or pass --block.");
 
-  const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}), ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations([...manifests, ...catalogBlocks()]) });
+  const plan = planMigrations(root, sources, { now: options.now ?? new Date(), ...(options.forward ? { forward: true } : {}), ...(lock.migrations ? { copied: lock.migrations } : {}), providers: providingMigrations([...manifests, ...catalog]) });
   // An edited or changed copy that a forward migration already carries is handled.
   const attention = plan.rows.some(needsAttention);
   // The notifications block: mirror the registry's types in a migration of their own, after this run's.

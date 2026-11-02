@@ -233,9 +233,10 @@ export function planMigrations(
     // another package's migration is that one's, whatever its name.
     const copy = app.find((m) => !m.forward && (m.tracked ? m.tracked.package === p.package && m.tracked.file === p.file : stem !== null && m.name.replace(/^\d+_/, "") === `${stem}.sql`));
     if (copy) return copy.path;
-    // Where the lock says it went, only while that file is still there.
+    // Where the lock says it went, only while that file is still there. A recorded copy the app
+    // deleted isn't copied again this run (it's "deleted"), so it provides nothing.
     const copied = options.copied?.[migrationKey(p.package, p.file)];
-    if (copied && app.some((m) => m.path === copied)) return copied;
+    if (copied) return app.some((m) => m.path === copied) ? copied : null;
     return sources.some((s) => s.package === p.package && s.file === p.file && s.source !== null) ? "this run" : null;
   };
   const pending: { row: MigrationRow; src: SourceMigration; kind: "migration" | "forward"; copySha?: string }[] = [];

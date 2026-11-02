@@ -67,10 +67,15 @@ Nothing in the templates names a real account. Before the first run:
    (`src`, or `apps/<name>` in a monorepo; an app with code in other top-level folders, such as
    `app/` and `components/`, lists each). `genesis doctor` warns about any `REPLACE_WITH_…` left in
    `eas.json` or `.eas/workflows/` (rule `eas-placeholder`).
-5. **Store credentials.** Replace every `REPLACE_WITH_…` in `eas.json` `submit.production`
-   (App Store Connect app id, Apple team id, the path of the Google service account key) and set up
-   signing (`eas credentials`). A placeholder left in fails the submit job; it can't submit
-   somewhere else.
+5. **Store credentials.** Replace the App Store Connect app id and Apple team id in `eas.json`
+   `submit.production.ios`, and set up signing (`eas credentials`). For Google Play, the submit
+   runs on EAS, where a local key file isn't there: create a Google Cloud service account and its
+   JSON key, invite it in Play Console → Users and permissions, upload the key with `eas
+   credentials` (Android → Google Service Account), and remove only the `serviceAccountKeyPath`
+   line ([Expo's guide](https://docs.expo.dev/submit/android/)). Until you ship to Google Play,
+   remove the `submit_android` job from `deploy-production.yml` instead and leave
+   `submit.production.android` as it is. A placeholder left in fails the submit job; it can't
+   submit somewhere else.
 6. **Release policy.** Apply `supabase/migrations` (the `app_release_policy` table the updates
    block reads; see the [updates block](../packages/native/README.md#updates-force-upgrade-maintenance-update-banner-whats-new)).
 

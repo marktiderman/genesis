@@ -14,11 +14,11 @@
  *   `supabase`), files under supabase/ the lock still lists: upgrade leaves
  *   them alone, so they aren't checked and the entries can go.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import * as path from "node:path";
 import { catalogBlocks, findBlock } from "../blocks/discover.js";
 import type { BlockManifest } from "../blocks/manifest.js";
-import { readApp, sha256 } from "../blocks/files.js";
+import { appPath, sha256 } from "../blocks/files.js";
 import { LOCK_FILE, readLock, type GenesisLock } from "../blocks/lock.js";
 import { localPackageNames } from "../blocks/local.js";
 import { ownedKeyProblem } from "../blocks/owned.js";
@@ -77,11 +77,25 @@ export async function checkLockFiles(ctx: DoctorContext): Promise<void> {
     if (ownedKeyProblem(rel, entry.source, local)) continue;
     // A switched-off block's files: reported once, above, for the block.
     if (offManifests.length && blockOfSource(entry.source, offManifests)) continue;
-    let text: string | null;
+    let file: string;
     try {
-      text = readApp(ctx.root, rel);
+      file = appPath(ctx.root, rel);
     } catch {
       // A path that leaves the app (a symlink out): upgrade refuses it too.
+      continue;
+    }
+    let text: string | null;
+    try {
+      text = existsSync(file) ? readFileSync(file, "utf8") : null;
+    } catch (err) {
+      // There but unreadable (a folder now, say): upgrade fails on it, so say so here.
+      ctx.report({
+        rule: "lock-files",
+        level: "warn",
+        file: rel,
+        subject: rel,
+        message: `is in ${LOCK_FILE} (from ${entry.source}) but can't be read (${err instanceof Error ? err.message : String(err)}), so genesis upgrade can't refresh it. Make it a file again, or remove its entry from ${LOCK_FILE}`,
+      });
       continue;
     }
     if (text === null) {

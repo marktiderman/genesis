@@ -237,7 +237,9 @@ export async function runAdd(options: AddOptions): Promise<AddReport> {
   const registry = registryFile(root);
   const ids = registry ? await registryIds(root, registry) : null;
   const blockIds = new Set((await allBlocks(root)).map((b) => b.manifest.id));
-  for (const req of found.manifest.requires) {
+  // --database-only never records a block in the lock, so a requirement added that way can't be
+  // seen here, and a plain `genesis add <req>` would install its app parts: no warning.
+  for (const req of databaseOnly ? [] : found.manifest.requires) {
     if (lock.blocks[req] || ids?.has(req)) continue;
     warnings.push(blockIds.has(req) ? `${options.block} requires the ${req} block: add it too (genesis add ${req}), unless the app already has it.` : `${options.block} requires the ${req} feature; make sure the app has it.`);
   }

@@ -102,6 +102,12 @@ describe("deep links", () => {
     expect(linkHosts({ links: null })).toEqual([]);
     expect(linkHosts({ links: {} })).toEqual([]);
   });
+
+  it("accepts a genesis.config.json with other keys and no links block (it typechecks)", () => {
+    // What a JSON import infers once `links` is removed: no key in common with `links`.
+    const noLinks = { doctor: { packs: ["native"] }, starter: { blocks: { push: ["push"] } } };
+    expect(linkHosts(noLinks)).toEqual([]);
+  });
 });
 
 describe("EAS config", () => {

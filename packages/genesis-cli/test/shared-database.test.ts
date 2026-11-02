@@ -5,7 +5,7 @@
  * only migrations folder. And overlapping migrations: notifications 0001 adopts the push tables
  * of supabase 0005, so 0005 is never planned once 0001 is in.
  */
-import { existsSync, readFileSync, symlinkSync } from "node:fs";
+import { existsSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { runAdd } from "../src/blocks/add.js";
@@ -239,6 +239,17 @@ describe("overlapping migrations (provides)", () => {
     expect(unreadable.elsewhere?.missing).toEqual(expect.arrayContaining(["push", "chat", "notifications"]));
   });
 
+  it("leaves a locked block whose switch is off out of the line for the web app, unless --block asks for it", async () => {
+    const { mobile } = await twoApps();
+    expect(readLock(mobile).blocks["chat"]).toBeDefined();
+    const config = path.join(mobile, "starter.config.ts");
+    writeFileSync(config, readFileSync(config, "utf8").replace(/\bchat: true\b/, "chat: false"));
+    const off = await runMigrate({ root: mobile, now: NOW });
+    expect(off.elsewhere?.missing).not.toContain("chat");
+    expect(off.switchedOff.some((s) => s.startsWith("chat:"))).toBe(true);
+    expect((await runMigrate({ root: mobile, now: NOW, blocks: ["chat"] })).elsewhere?.missing).toContain("chat");
+  });
+
   it("orders the blocks to add there: required ones first, and notifications before push", () => {
     const blocks = catalogBlocks();
     expect(orderForAdding(["push", "chat", "notifications", "support-feedback", "account"], blocks)).toEqual(["notifications", "push", "chat", "account", "support-feedback"]);
@@ -256,6 +267,8 @@ describe("overlapping migrations (provides)", () => {
     // Where the lock says it went counts only while that file is there.
     const copied = { [`${NOTIFICATIONS}:${notif.file}`]: "supabase/migrations/1_x.sql" };
     expect(planMigrations(root, [push], { now: NOW, copied, providers }).rows[0]!.state).toBe("new");
+    // Its source in the same run doesn't count either: a deleted copy isn't copied again.
+    expect(planMigrations(root, [push, notif], { now: NOW, copied }).rows.map((r) => r.state)).toEqual(["new", "deleted"]);
     writeTree(root, { "supabase/migrations/1_x.sql": "-- adopts\n" });
     expect(planMigrations(root, [push], { now: NOW, copied, providers }).rows[0]).toMatchObject({ state: "provided", providedBy: { package: NOTIFICATIONS, file: notif.file } });
     // A copy of the same name whose header names another package's migration isn't it.
