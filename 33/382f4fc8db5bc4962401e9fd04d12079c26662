@@ -1,0 +1,169 @@
+.changeset/calendar-patch-list-options.md
+  s_6a4659246591cd::t_8ef85fc32b94ab 1-7
+.changeset/calendar-printable-agenda.md
+  s_6a4659246591cd::t_65437d3b257e6d 1-7
+.changeset/dates-review-2-5-0.md
+  s_6a4659246591cd::t_62a63968c24241 1-12
+.changeset/support-findings-and-web-panel.md
+  s_6a4659246591cd::t_804ffe1aea26e1 1-24
+.github/workflows/genesis-lint.yml
+  s_6a4659246591cd::t_f06d4acbc7229d 43,436-441,443-445,448-455
+.github/workflows/release.yml
+  s_6a4659246591cd::t_09a492fb8fe4ce 320-323
+AGENTS.md
+  s_6a4659246591cd::t_7d3b634dde056a 10-13
+apps/genesis-rn-starter/__tests__/starter.test.ts
+  s_6a4659246591cd::t_78d2294352c1c0 293-303
+apps/genesis-rn-starter/supabase/migrations/20261024000700_genesis_support_findings.sql
+  s_6a4659246591cd::t_d28e48c55df7c4 1-339
+apps/genesis-rn-starter/supabase/tests/database/genesis_support_findings.test.sql
+  s_6a4659246591cd::t_bdeeb726d3bbc9 1-219
+apps/sample/README.md
+  s_6a4659246591cd::t_f4fc82860c3267 36-38
+apps/sample/app/data/primitives.json
+  s_1feb538f59bf88::t_3cb8aac9150b35 10,8917,8922,8933,12395,12400,12725-12726,13963-13964,13966-13970,14575,14610,14631,14684,15433-15554,16367-16373,16437-16443,16465-16478,17246,17249,18037,18040,18757,18760,19477,19480,22984,22987,23655,23658,24167-24236
+apps/sample/app/data/story-ids.json
+  s_6a4659246591cd::t_263bad063720ba 33
+apps/sample/demo-coverage.allow.json
+  s_6a4659246591cd::t_aab59f9580bf09 53
+apps/sample/scripts/generate-primitive-docs.ts
+  s_6a4659246591cd::t_6a7fae22e7d35a 36-40,442,460
+apps/sample/stories/PrintableAgenda.stories.tsx
+  s_6a4659246591cd::t_7f639d3c0b2a5c 1-32
+docs/RESOURCE-VIEW.md
+  s_6a4659246591cd::t_3b966d964befa6 518-521,554-565
+docs/component-reference.md
+  s_1feb538f59bf88::t_26d941a899a2e7 7,461,1153,1216,1461,1491,1782,1841,1850,4152,4215,4728,4736,10080,10092-10093,10104,10119,10188,10533,10541
+features.json
+  s_6a4659246591cd::t_e434f9f1244516 3830-3831,3838
+features.ts
+  s_6a4659246591cd::t_a0a0d14cd78f80 1689,1693
+package.json
+  s_6a4659246591cd::t_8896a6b67e0a13 40
+packages/core/CHANGELOG.md
+  s_6a4659246591cd::t_4ede6216555609 3-8
+packages/core/package.json
+  s_6a4659246591cd::t_f67b27cbba311a 3
+packages/core/src/__tests__/dates-recurrence.test.ts
+  s_6a4659246591cd::t_99ad054e85d534 4,7,12,22,290-291,662-760
+packages/core/src/__tests__/resource-view.test.ts
+  s_6a4659246591cd::t_4da98d5f745e70 710-715
+packages/core/src/dates.ts
+  s_6a4659246591cd::t_bfb8be18dbf057 23-30,36,162,170,176,194,200,223,242,332,346,412-413,415-416,495-500,502,511-517,542-543,591,622-632,634-635,692-694,746,748-749,784,805-813,819-820,861,868-869,874-882,888-898,900-901
+packages/core/src/hooks/index.ts
+  s_6a4659246591cd::t_7ab64f8438c6b3 77
+packages/core/src/hooks/use-live.ts
+  s_6a4659246591cd::t_df5e41ef91e96c 60-61
+packages/core/src/resource-view/define-view.ts
+  s_6a4659246591cd::t_6c2bf641fab76d 155-172,285-298
+packages/genesis/CHANGELOG.md
+  s_6a4659246591cd::t_60dc3fcb9ef731 3-9
+packages/genesis/package.json
+  s_6a4659246591cd::t_7eda63d74808bf 3
+packages/studio/src/__tests__/data-studio-p3.test.tsx
+  s_6a4659246591cd::t_2c2a224684f3e7 186-206
+packages/studio/src/views/CalendarView.tsx
+  s_6a4659246591cd::t_7710d440f829e7 111
+packages/supabase/README.md
+  s_6a4659246591cd::t_9872f329e1adba 517-520
+packages/supabase/functions/genesis-support-intake/contract.ts
+  s_6a4659246591cd::t_3290fa797b52b4 70-71,73-77,79,166-169,174-176,178-180,182-185,187-191
+packages/supabase/functions/genesis-support-intake/handler.ts
+  s_6a4659246591cd::t_6f1622ecf7f983 135-136
+packages/supabase/src/__tests__/support-functions.test.ts
+  s_6a4659246591cd::t_7d1398e478806c 42-43,47-52
+packages/support/README.md
+  s_6a4659246591cd::t_658461c6474baf 95-115,128-130,132-137,142-144,183-187,248-277
+packages/support/migrations/0003_genesis_support_findings.sql
+  s_6a4659246591cd::t_63f69153cc35c1 1-339
+packages/support/migrations/tests/0003_genesis_support_findings.test.sql
+  s_6a4659246591cd::t_25fe965a8acfb7 1-219
+packages/support/package.json
+  s_6a4659246591cd::t_955f0f31ad9f3e 196-199,302
+packages/support/src/__tests__/chat.test.tsx
+  s_6a4659246591cd::t_6335bf7b168e83 306-332
+packages/support/src/__tests__/core.test.ts
+  s_6a4659246591cd::t_32f2f2cc60c8bb 23,25,113-132,235,244-249,263-267,269
+packages/support/src/__tests__/fake-supabase.ts
+  s_6a4659246591cd::t_b609edcf79c8ec 35
+packages/support/src/__tests__/web.test.tsx
+  s_6a4659246591cd::t_d19f288d7c66ba 4,6-8,25,27-56,65-67,124-156,182-326
+packages/support/src/block.ts
+  s_6a4659246591cd::t_5e34cbe3f47873 3,61,78-82,93
+packages/support/src/client.ts
+  s_6a4659246591cd::t_38b0a05c8dca95 56-64,147-156,183-188,192,203-235,238-255,262-271,366-369,374,430-435,457,496-501,522,527-532,542,550,567
+packages/support/src/contract.ts
+  s_6a4659246591cd::t_dcbe13de8d3841 70-71,73-77,79,166-169,174-176,178-180,182-185,187-191
+packages/support/src/copy.ts
+  s_6a4659246591cd::t_84c293952fd1b2 15,20-23,30-32,39-40,83-85
+packages/support/src/index.ts
+  s_6a4659246591cd::t_a84adb198925a9 14
+packages/support/src/intake.ts
+  s_6a4659246591cd::t_8a82a3c5462bee 83,86,106
+packages/support/src/record.ts
+  s_6a4659246591cd::t_115c03e7b07b00 7,17,19,21,23,28,30,56-57
+packages/support/src/routes.ts
+  s_6a4659246591cd::t_5c3f84969af281 1-18
+packages/support/src/web-chat/report-thread.tsx
+  s_6a4659246591cd::t_f5f3fe3af5f599 10,15,17,38-55,66-67,77-85,100,116-158,177-179
+packages/support/src/web-chat/staff-thread.tsx
+  s_6a4659246591cd::t_8d52ee1a6c4c95 21,32,35
+packages/support/src/web/feedback-panel.tsx
+  s_6a4659246591cd::t_9e64d3909d4e12 10,14,28,59-152,157,160-171,174,176,179-180,186-211,213,216,227,232-233,240,247,251-262,266,272-282,285-299,301-324,326-336,338-398
+packages/support/src/web/index.ts
+  s_6a4659246591cd::t_1d208d7b8a193b 8-17,21
+packages/support/src/web/launcher.tsx
+  s_6a4659246591cd::t_64d0d5f5dc5f23 6,10,30-38,41-49,52,58
+packages/support/src/web/shortcut.ts
+  s_6a4659246591cd::t_b6dc14e17fe20c 1-45
+packages/ui/src/components/data/__tests__/event-calendar.test.tsx
+  s_6a4659246591cd::t_61026bbd589c80 550,786-1041
+packages/ui/src/components/data/__tests__/printable-agenda.test.tsx
+  s_6a4659246591cd::t_278f84fe87c603 1-113
+packages/ui/src/components/data/calendar/EventCalendar.tsx
+  s_6a4659246591cd::t_3922a22506addb 166-172,180,264,305-306,354-355,361-364,366-376,378-380,421,428,431-434,440-445,447-454,456-457,460,463,467-471,474,496,502,545,587-617,649,654,659
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_6a4659246591cd::t_5d6c3a497fc705 1-216
+packages/ui/src/components/data/calendar/guard.ts
+  s_6a4659246591cd::t_03a325dc3bf002 11
+packages/ui/src/components/data/calendar/index.ts
+  s_6a4659246591cd::t_9429f2162e7d1c 2
+packages/ui/src/components/data/resource-view/ResourceCalendar.tsx
+  s_6a4659246591cd::t_7cc5116118b0ef 8,12,15,19-20,23-24,71-76,84-89,104-122,140,145,157-159,179-186,199-204,214-215,262-300,302-314,339-353,355,363,381,388
+packages/ui/src/components/data/resource-view/ResourceView.tsx
+  s_6a4659246591cd::t_b9ae96acbd7c38 9,18,184-185,193,227-228,397-398,404-406
+packages/ui/src/components/data/resource-view/view-list.tsx
+  s_6a4659246591cd::t_17c69cac77a15b 1-101
+packages/ui/src/components/layout/AppShell.tsx
+  s_6a4659246591cd::t_b97c9fd60d495c 1751-1752,1755,1758,1819,1825,1857,1862,1943
+packages/ui/src/components/layout/__tests__/app-shell-print.test.tsx
+  s_6a4659246591cd::t_cc285326e04d77 1-29
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_07176f1aa7cb6a 222-223,229-230,243-246
+scripts/gen-component-reference.mjs
+  s_6a4659246591cd::t_74567a6b156418 30-32
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "33382f4fc8db5bc4962401e9fd04d12079c26662",
+  "prompts": {},
+  "sessions": {
+    "s_1feb538f59bf88": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "085c8272-39d0-49ed-bf58-5b684f397cda",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    },
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
