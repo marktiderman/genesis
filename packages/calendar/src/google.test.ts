@@ -85,11 +85,36 @@ describe("syncGoogleCalendar", () => {
     expect(out.full).toBe(false);
     expect(out.events.map((e) => [e.externalRef, e.title])).toEqual([["7qfixtureoneoff", "Dentist (moved)"]]);
     expect(out.removed).toEqual(["4kfixtureweekly_20261109T230000Z", "2bfixturefarfuture", "5cfixtureoldpast", "8dfixturedeleted"]);
+    // A cancelled instance names its series; a cancelled item with none may be a whole series.
+    expect(out.removedSeries).toEqual(["8dfixturedeleted"]);
     expect(out.syncToken).toBe("CKCbr5iEx70CEKCbr5iEx70CGAUggICAgICAgA==");
     // A sync token can't go with timeMin/timeMax (Google answers 400): the window is applied here.
     expect(g.calls[0]!.searchParams.get("syncToken")).toBe("t1");
     expect(g.calls[0]!.searchParams.has("timeMin")).toBe(false);
     expect(g.calls[0]!.searchParams.has("timeMax")).toBe(false);
+  });
+
+  it("keeps what it read when it stops at maxPages, and resumes from there", async () => {
+    const g = fakeGoogle([
+      () => ({ body: fixture("google-full-page-1.json") }),
+      () => ({ body: fixture("google-full-page-2.json") }),
+    ]);
+    const first = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", window, fetch: g.fetch, maxPages: 1 });
+    expect(first).toMatchObject({ full: true, complete: false, syncToken: null, resume: { pageToken: "CigKGjRrZml4dHVyZXBhZ2Vfb25lGAEggICA", syncToken: null } });
+    expect(first.events).toHaveLength(2);
+    const rest = await syncGoogleCalendar({ accessToken: "at", calendarId: "c", sourceId: "s", syncToken: "ignored", window, fetch: g.fetch, maxPages: 1, resume: first.resume });
+    expect(rest).toMatchObject({ full: true, complete: true, resume: null, syncToken: "CPDAlvWDx70CEPDAlvWDx70CGAUggICAgICAgA==" });
+    expect(rest.events.map((e) => e.externalRef)).toEqual(["9zfixtureallday"]);
+    expect(g.calls[1]!.searchParams.get("pageToken")).toBe("CigKGjRrZml4dHVyZXBhZ2Vfb25lGAEggICA");
+    expect(g.calls[1]!.searchParams.has("syncToken")).toBe(false);
+  });
+
+  it("reads an event left at the calendar's default visibility as the caller says", () => {
+    const e = event("v", { visibility: "default" });
+    expect(fromGoogleEvent("s", e)!.visibility).toBe("public");
+    expect(fromGoogleEvent("s", e, { defaultVisibility: "private" })!.visibility).toBe("private");
+    expect(fromGoogleEvent("s", event("w"), { defaultVisibility: "private" })!.visibility).toBe("private");
+    expect(fromGoogleEvent("s", event("p", { visibility: "public" }), { defaultVisibility: "private" })!.visibility).toBe("public");
   });
 
   it("starts over with a full read when the token is gone (recorded 410)", async () => {

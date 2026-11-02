@@ -25,8 +25,10 @@ export {
   syncGoogleCalendar,
   type GoogleCalendarErrorCode,
   type GoogleEvent,
+  type GoogleEventOptions,
   type GoogleSyncOptions,
   type GoogleSyncResult,
+  type GoogleSyncResume,
   type GoogleTime,
 } from "./google";
 export { parseDuration, parseIcs, readIcs, type IcsComponent, type IcsProperty, type ParseIcsOptions, type ReadIcsOptions, type ReadIcsResult } from "./ics";
