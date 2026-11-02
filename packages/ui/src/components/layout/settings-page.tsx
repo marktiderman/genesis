@@ -114,6 +114,26 @@ export interface SettingsPageProps
  *
  * @stability Beta
  */
+// The rail from `navAt` up, written out per breakpoint so Tailwind sees every class.
+const NAV_RAIL: Record<SplitBreakpoint, string> = {
+  sm: "sm:sticky sm:top-6 sm:mx-0 sm:px-0",
+  md: "md:sticky md:top-6 md:mx-0 md:px-0",
+  lg: "lg:sticky lg:top-6 lg:mx-0 lg:px-0",
+  xl: "xl:sticky xl:top-6 xl:mx-0 xl:px-0",
+};
+const LIST_RAIL: Record<SplitBreakpoint, string> = {
+  sm: "sm:flex-col sm:overflow-visible",
+  md: "md:flex-col md:overflow-visible",
+  lg: "lg:flex-col lg:overflow-visible",
+  xl: "xl:flex-col xl:overflow-visible",
+};
+const SECTION_SCROLL_MARGIN: Record<SplitBreakpoint, string> = {
+  sm: "sm:scroll-mt-6",
+  md: "md:scroll-mt-6",
+  lg: "lg:scroll-mt-6",
+  xl: "xl:scroll-mt-6",
+};
+
 export const SettingsPage = React.forwardRef<HTMLDivElement, SettingsPageProps>(
   (
     {
@@ -138,8 +158,9 @@ export const SettingsPage = React.forwardRef<HTMLDivElement, SettingsPageProps>(
             description={section.description}
             // Leaves room above the heading when the rail jumps to it, so
             // the anchor doesn't land with the title flush against the
-            // viewport edge.
-            className="scroll-mt-6"
+            // viewport edge. On a phone it also clears the app's sticky
+            // phone header.
+            className={cn("scroll-mt-20", SECTION_SCROLL_MARGIN[navAt])}
           >
             {section.content}
           </Section>
@@ -191,17 +212,23 @@ export const SettingsPage = React.forwardRef<HTMLDivElement, SettingsPageProps>(
             ratio="1/3"
             gap="xl"
             start={
+              // On a phone (below `navAt`) the section links are one compact
+              // row that scrolls sideways, instead of a full list that fills
+              // the first screen. From `navAt` up, the sticky rail.
               <nav
                 data-slot="settings-page-nav"
                 aria-label="Settings sections"
-                className="sticky top-6"
+                className={cn(
+                  "-mx-4 px-4 sm:-mx-6 sm:px-6",
+                  NAV_RAIL[navAt],
+                )}
               >
-                <ul className="flex flex-col gap-1">
+                <ul className={cn("flex snap-x gap-1 overflow-x-auto [scrollbar-width:none]", LIST_RAIL[navAt])}>
                   {sections.map((section) => (
-                    <li key={section.id}>
+                    <li key={section.id} className="shrink-0 snap-start">
                       <a
                         href={`#${section.id}`}
-                        className="block truncate rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex min-h-11 items-center truncate whitespace-nowrap rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {section.title}
                       </a>
