@@ -7,12 +7,15 @@ export {
 } from "./ResourceView";
 export {
   DisplayRenderersProvider,
+  RelativeTime,
+  relativeDatetimeRenderer,
   useDisplayCell,
   webDisplayRenderers,
   type DisplayContext,
   type DisplayRenderer,
   type DisplayRenderers,
 } from "./display";
+export { relativeTime, type RelativeTimeWords } from "../../../utils";
 export { RecordView, ResourceWorkspace, type RecordViewProps, type ResourceWorkspaceProps } from "./RecordView";
 export { RowAvatar } from "./RowAvatar";
 export { CALENDAR_LIMIT, ResourceCalendar, type ResourceCalendarOptions, type ResourceCalendarProps } from "./ResourceCalendar";

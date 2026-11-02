@@ -49,12 +49,33 @@ function firstGrapheme(word: string): string {
 }
 
 /** First + last initial from a display name ("Ada Lovelace" -> "AL", "Cher" -> "C"). */
-function getInitials(name: string): string {
+function getInitials(name: string, distinct = false): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return "?";
   const first = firstGrapheme(words[0]!);
   const last = firstGrapheme(words[words.length - 1]!);
+  if (words.length === 1 && distinct) {
+    // "Probe" -> "Pr", "Polish" -> "Po": one-word names that share an initial still differ.
+    const second = firstGrapheme(words[0]!.slice(first.length));
+    return first.toUpperCase() + second.toLowerCase();
+  }
   return (words.length === 1 ? first : first + last).toUpperCase();
+}
+
+/** Tints for `distinct` avatars, from the design system's chart colours. */
+const TINTS = [
+  "bg-chart-1/15 text-chart-1",
+  "bg-chart-2/15 text-chart-2",
+  "bg-chart-3/15 text-chart-3",
+  "bg-chart-4/15 text-chart-4",
+  "bg-chart-5/15 text-chart-5",
+];
+
+/** The same tint for the same name, every time. */
+function tintFor(name: string): string {
+  let hash = 0;
+  for (const ch of name.trim().toLowerCase()) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  return TINTS[hash % TINTS.length]!;
 }
 
 export interface UserAvatarProps extends VariantProps<typeof userAvatarVariants> {
@@ -65,6 +86,11 @@ export interface UserAvatarProps extends VariantProps<typeof userAvatarVariants>
   className?: string;
   /** Stable test/automation selector (emitted as `data-testid`). */
   testID?: string | undefined;
+  /**
+   * Tell people apart in a list of them (a feed): the initials fallback gets a stable tint per
+   * name, and a one-word name shows two letters ("Pr", "Po") instead of one.
+   */
+  distinct?: boolean | undefined;
 }
 
 /**
@@ -82,7 +108,7 @@ export interface UserAvatarProps extends VariantProps<typeof userAvatarVariants>
  *
  * @stability Beta
  */
-export function UserAvatar({ name, src, size, className, testID }: UserAvatarProps) {
+export function UserAvatar({ name, src, size, className, testID, distinct }: UserAvatarProps) {
   return (
     <Avatar
       role="img"
@@ -96,7 +122,7 @@ export function UserAvatar({ name, src, size, className, testID }: UserAvatarPro
         once the image loads.
       */}
       {src ? <AvatarImage src={src} alt="" /> : null}
-      <AvatarFallback>{getInitials(name)}</AvatarFallback>
+      <AvatarFallback className={distinct ? tintFor(name) : undefined}>{getInitials(name, distinct)}</AvatarFallback>
     </Avatar>
   );
 }

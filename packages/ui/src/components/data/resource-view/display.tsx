@@ -2,12 +2,13 @@
 // `status: { display: "badge" }` and never imports a component, so native and the extension can
 // draw the same view their own way. An app replaces any of them with DisplayRenderersProvider.
 
-import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { isSafeUrl, useRelationLabel, useViewer } from "@marktiderman/genesis-core";
 import { isTimeZone } from "@marktiderman/genesis-core/dates";
 import { useOptionalViewerScope } from "@marktiderman/genesis-core/hooks";
 import { valueText, type DisplayHint, type ResolvedColumn } from "@marktiderman/genesis-core/resource-view";
 import { useUiMessages, type UiMessages } from "../../../messages";
+import { relativeTime } from "../../../utils";
 import { Chip } from "../../resource/chip";
 
 /** What a renderer gets besides the value. */
@@ -89,6 +90,40 @@ function formatInstant(value: unknown, timeZone: string | undefined): string {
   if (Number.isNaN(at.getTime())) return String(value);
   return instantFormat(timeZone).format(at);
 }
+
+const MINUTE = 60_000;
+
+/**
+ * A time as `relativeTime` says it, with the exact time (in `timeZone`) on hover. The server and
+ * the first paint show the exact time, so hydration matches; after mount it turns relative and
+ * keeps itself current each minute.
+ */
+export function RelativeTime({ value, timeZone, className }: { value: unknown; timeZone?: string | undefined; className?: string | undefined }) {
+  const m = useUiMessages();
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    const tick = setInterval(() => setNow(new Date()), MINUTE);
+    return () => clearInterval(tick);
+  }, []);
+  const at = value instanceof Date ? value : new Date(String(value));
+  const exact = formatInstant(value, timeZone);
+  return (
+    // Without a zone the server's clock and the browser's can differ for the exact time; the
+    // first paint is replaced after mount, so React is told not to compare it.
+    <time dateTime={Number.isNaN(at.getTime()) ? String(value) : at.toISOString()} title={exact} className={className} suppressHydrationWarning>
+      {now ? relativeTime(value, now, { timeZone, words: m.time }) : exact}
+    </time>
+  );
+}
+
+/**
+ * The `datetime` renderer as a relative time with the exact time on hover. Opt in under a
+ * `DisplayRenderersProvider`: `renderers={{ datetime: relativeDatetimeRenderer }}`.
+ */
+export const relativeDatetimeRenderer: DisplayRenderer = (value, { timeZone }) => (
+  <RelativeTime value={value} timeZone={timeZone} />
+);
 
 /**
  * A link as the linked row's words (batched per page). A plain relation field with no `references`
