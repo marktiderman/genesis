@@ -3,6 +3,7 @@
  * Small formatting helpers for the web renderers: times, sizes, and the
  * one-line description of a message a screen reader hears.
  */
+import { relativeTime as uiRelativeTime } from "@marktiderman/genesis-ui/utils";
 import { previewText } from "../core/thread";
 import type { ChatMessage } from "../core/types";
 
@@ -19,23 +20,13 @@ export function clockTime(iso: string, locale?: string): string {
   return new Date(iso).toLocaleTimeString(locale, { hour: "numeric", minute: "2-digit" });
 }
 
-/** The inbox's time: "now", "5m", "10:42" today, "Yesterday", "Mon", or "12 Mar". */
+/**
+ * The inbox's time: "now", "5m", "10:42" today, "Yesterday", "Mon", or "12 Mar". Genesis UI's
+ * `relativeTime` in its compact style, in the reader's locale (`locale`, default the runtime's).
+ */
 export function relativeTime(iso: string | null | undefined, now = new Date(), locale?: string): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  const diff = now.getTime() - d.getTime();
-  if (diff < 60_000) return "now";
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
-  const startOf = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((startOf(now) - startOf(d)) / 86_400_000);
-  if (days === 0) return clockTime(iso, locale);
-  if (days === 1) return "Yesterday";
-  if (days > 1 && days < 7) return d.toLocaleDateString(locale, { weekday: "short" });
-  return d.toLocaleDateString(locale, {
-    day: "numeric",
-    month: "short",
-    year: d.getFullYear() === now.getFullYear() ? undefined : "numeric",
-  });
+  return uiRelativeTime(iso, now, { style: "compact", locale: locale ?? new Intl.DateTimeFormat().resolvedOptions().locale });
 }
 
 /** 12 KB, 3.4 MB. */

@@ -25,6 +25,21 @@ export const uiMessages = {
     loading: "Loading…",
     saving: "Saving",
   },
+  /**
+   * Relative times (`relativeTime`): `{n}` is a count. Hours, days and dates are Intl's words in
+   * `locale`; a translation sets its own.
+   */
+  time: {
+    /** The language Intl formats hours, days and dates in. */
+    locale: "en",
+    justNow: "just now",
+    minutesAgo: "{n} min ago",
+    inMinutes: "in {n} min",
+    /** The compact style (an inbox). */
+    now: "now",
+    minutesShort: "{n}m",
+    yesterday: "Yesterday",
+  },
   page: {
     errorTitle: "Something went wrong",
     /** `{entity}`: the page's record name, e.g. "task". */
@@ -49,6 +64,11 @@ export const uiMessages = {
     range: "Showing {from}-{to} of {total}",
     previous: "Previous",
     next: "Next",
+    /** A pager's buttons as their accessible names (`pagerJumps`). */
+    first: "First page",
+    last: "Last page",
+    previousPage: "Previous page",
+    nextPage: "Next page",
     /** `{page}` of `{pages}`. */
     pageOf: "Page {page} of {pages}",
     notFoundTitle: "Record not found",
@@ -75,6 +95,10 @@ export const uiMessages = {
     editTitle: "Edit {noun}",
     createDescription: "Fill in the details to create a new {noun}.",
     editDescription: "Update the {noun}.",
+    /** ResourcePage `createdToast`. `{name}`: the new record's title. */
+    created: "Created {name}",
+    /** `createdToast` for a record with no title. `{noun}`: the record's name. */
+    createdUnnamed: "Created the {noun}",
   },
   table: {
     noRecords: "No records found",
