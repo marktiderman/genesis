@@ -10,6 +10,9 @@ import { ViewDefinitionError } from "./errors";
 import { scopeFilter } from "./scope";
 import type { LinkFilter, LinkedView, ResolvedLink, ViewLink } from "./types";
 
+// A field name only goes into a request's `sort`, so nothing else rides along in it.
+const IDENTIFIER = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
 /**
  * A screen's or a picker's filter as provider filters: a single value is `eq`, `null` is
  * `is_null` and a list is `in`.
@@ -40,9 +43,19 @@ export function linkProblems(name: string, link: unknown, reference: FieldRefere
   }
   if (
     l.searchFields !== undefined &&
-    (!Array.isArray(l.searchFields) || l.searchFields.some((f) => typeof f !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(f)))
+    (!Array.isArray(l.searchFields) || l.searchFields.some((f) => typeof f !== "string" || !IDENTIFIER.test(f)))
   ) {
     problems.push(`${where}.searchFields isn't a list of field names`);
+  }
+  if (l.orderBy === "view") {
+    if (l.view === undefined) problems.push(`${where}.orderBy "view" needs a view`);
+  } else if (l.orderBy !== undefined) {
+    const o = l.orderBy as { field?: unknown; direction?: unknown } | null;
+    if (!o || typeof o !== "object" || typeof o.field !== "string" || !IDENTIFIER.test(o.field)) {
+      problems.push(`${where}.orderBy isn't "view" or { field, direction }`);
+    } else if (o.direction !== undefined && o.direction !== "asc" && o.direction !== "desc") {
+      problems.push(`${where}.orderBy.direction is "asc" or "desc", not ${String(o.direction)}`);
+    }
   }
   return problems;
 }
@@ -99,6 +112,12 @@ export function resolveLink(
       return labelField ?? linkedView()?.labelField;
     },
     ...(link?.searchFields ? { searchFields: Object.freeze([...link.searchFields]) } : {}),
+    // Read when asked, like the naming field: `"view"` reads a view given as a function.
+    get orderBy() {
+      const order = link?.orderBy === "view" ? linkedView()?.definition.orderBy : link?.orderBy;
+      if (!order || typeof order.field !== "string" || !IDENTIFIER.test(order.field)) return undefined;
+      return Object.freeze({ field: order.field, direction: order.direction === "desc" ? ("desc" as const) : ("asc" as const) });
+    },
     filters(scope?: ResourceScope | null, values: Readonly<Record<string, unknown>> = {}): FilterParam[] {
       const view = linkedView();
       const preset = view ? view.definition.presets?.[link?.preset ?? "default"]?.filter : undefined;

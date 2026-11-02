@@ -51,6 +51,44 @@ function setup(rows: Person[]) {
   return { getList, wrapper };
 }
 
+describe("useLinkOptions: a caller's order", () => {
+  it("sorts by `orderBy` then the key, not the name, and asks once", async () => {
+    const rows = [
+      { id: "s3", full_name: "Archived", position: 3 },
+      { id: "s1", full_name: "Lead", position: 1 },
+      { id: "s2", full_name: "Call", position: 2 },
+    ] as unknown as Person[];
+    const { getList, wrapper } = setup(rows);
+    const { result } = renderHook(
+      () => useLinkOptions({ resource: "stages", labelField: "full_name", orderBy: { field: "position" } }),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.options).toHaveLength(3));
+    expect(getList.mock.calls[0]![1].sorts).toEqual([
+      { field: "position", order: "asc" },
+      { field: "id", order: "asc" },
+    ]);
+    expect(result.current.options.map((o) => o.label)).toEqual(["Lead", "Call", "Archived"]);
+    expect(getList).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a descending order, and never sends a field name that isn't one", async () => {
+    const { getList, wrapper } = setup([{ id: "a", full_name: "A" }]);
+    const { result } = renderHook(() => useLinkOptions({ resource: "stages", labelField: "full_name", orderBy: { field: "position", direction: "desc" } }), {
+      wrapper,
+    });
+    await waitFor(() => expect(result.current.options).toHaveLength(1));
+    expect(getList.mock.calls[0]![1].sorts![0]).toEqual({ field: "position", order: "desc" });
+
+    const bad = setup([{ id: "a", full_name: "A" }]);
+    const second = renderHook(() => useLinkOptions({ resource: "stages", labelField: "full_name", orderBy: { field: "position; drop" } }), {
+      wrapper: bad.wrapper,
+    });
+    await waitFor(() => expect(second.result.current.options).toHaveLength(1));
+    expect(bad.getList.mock.calls[0]![1].sorts![0]).toEqual({ field: "full_name", order: "asc" });
+  });
+});
+
 describe("useLinkOptions", () => {
   it("sorts by the naming field then the key, so rows sharing a name across a page boundary are all offered once", async () => {
     // Six people named Sam straddle the boundary between page 1 and page 2 (4 per page).

@@ -8,9 +8,9 @@ import { useMemo, useState, type ReactNode } from "react";
 import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { resourceKeys, useDataProvider, type BaseRecord, type DataRow, type FilterParam, type ListParams, type ResourceContract } from "@marktiderman/genesis-core";
 import { encodeRecordKey } from "@marktiderman/genesis-core/schema";
-import { dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
+import { addDays, dayIn, deviceTimeZone, isTimeZone, readEventTime, type Day } from "@marktiderman/genesis-core/dates";
 import { loadRelationLabel, useLiveInvalidation, useOptionalViewerScope, type LiveOptions } from "@marktiderman/genesis-core/hooks";
-import { calendarProblems, type ResourceView as View, type ViewCalendar } from "@marktiderman/genesis-core/resource-view";
+import { calendarProblems, type ResourceView as View, type ViewCalendar, type ViewCalendarDurationUnit } from "@marktiderman/genesis-core/resource-view";
 import { Button } from "../../ui/button";
 import { cn } from "../../../utils";
 import { fillMessage, useUiMessages } from "../../../messages";
@@ -22,6 +22,7 @@ import { timeStorage, windowBounds } from "../calendar/values";
 import { useFollowedState } from "../calendar/use-followed-state";
 import { anchorOr, layoutOr, warnOnce } from "../calendar/guard";
 import { useViewDetailFields } from "./view-list";
+import { useIsMobile } from "../../../hooks/use-mobile";
 
 type Row = Record<string, unknown>;
 
@@ -59,6 +60,14 @@ export interface ResourceCalendarOptions<T extends Row = Row> extends Partial<Vi
   /** A row's dot colours, when not its lanes'. */
   colorsOf?: (row: T) => readonly string[];
   /**
+   * Classes for a row's event (`(row) => row.status === "cancelled" ? "line-through opacity-60" : undefined`):
+   * a cancelled event struck through rather than dropped. Give `statusOf` too, so the look isn't
+   * the only cue.
+   */
+  classNameOf?: (row: T) => string | undefined;
+  /** Words read out after a row's title ("Cancelled"), for what `classNameOf` shows. */
+  statusOf?: (row: T) => string | undefined;
+  /**
    * Most rows one request loads. Default {@link CALENDAR_LIMIT}. With an `endField` the calendar
    * makes two (rows starting in the window, and rows that started before it and run into it),
    * each capped.
@@ -90,8 +99,40 @@ export interface ResourceCalendarProps<T extends Row = Row> extends ResourceCale
   /** Server filters (the view's scope and the screen's), already as params. */
   filters?: readonly FilterParam[];
   title?: string;
+  /** A line under the title (ResourceView's `subtitle`, else the view's `copy.subtitle`). */
+  subtitle?: string;
   className?: string;
   testID?: string;
+}
+
+const UNIT_MS: Readonly<Record<ViewCalendarDurationUnit, number>> = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 };
+
+/** A duration field's value as a count of its unit, or null when it isn't a positive number. */
+function durationOf(value: unknown): number | null {
+  const n = typeof value === "string" && value.trim() ? Number(value) : value;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** The latest instant a Date holds (ECMAScript's limit, about the year 275760). */
+const MAX_TIME = 8.64e15;
+
+/**
+ * A row's end from its start and a duration in ms: the last day (inclusive) for a date or an
+ * all-day row, the end instant for a timed one; null when it can't be represented.
+ */
+function durationEnd(start: Day | Date, startDay: Day, allDay: boolean, ms: number): Day | Date | null {
+  if (!Number.isFinite(ms)) return null;
+  if (typeof start === "string" || allDay) {
+    const days = Math.max(1, Math.ceil(ms / UNIT_MS.days));
+    if (!Number.isSafeInteger(days) || days * UNIT_MS.days > MAX_TIME) return null;
+    try {
+      return addDays(startDay, days - 1);
+    } catch {
+      return null;
+    }
+  }
+  const end = start.getTime() + ms;
+  return Number.isFinite(end) && Math.abs(end) <= MAX_TIME ? new Date(end) : null;
 }
 
 /** The clock a field's cells use (display.tsx): its own zone, the scope's, the viewer's, the device's. */
@@ -137,12 +178,13 @@ function laneKeys(value: unknown): string[] {
  * @stability Beta
  */
 export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarProps<T>) {
-  const { view, filters = [], title, className, cells, select, enabled = true, live, testID = "resource-calendar" } = props;
+  const { view, filters = [], title, subtitle, className, cells, select, enabled = true, live, testID = "resource-calendar" } = props;
   // The view's block, then the screen's settings over it.
   const settings = { ...view.definition.calendar, ...withoutUndefined(props) } as ResourceCalendarOptions<T>;
   const {
-    field: fieldName, endField, allDayField, layout: layoutProp, layouts, onLayoutChange, weeks = 2, weekStartsOn = 1, timeZone,
-    anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
+    field: fieldName, endField, durationField, durationUnit = "minutes", allDayField, layout: layoutProp, phoneLayout, layouts, onLayoutChange,
+    weeks = 2, weekStartsOn = 1, timeZone, anchor: anchorProp, onAnchorChange, laneBy, lanesOf, lanes, colorsOf, classNameOf, statusOf,
+    limit = CALENDAR_LIMIT, showEmptyDays, onSelect, print,
   } = settings;
   const m = useUiMessages();
   const provider = useDataProvider();
@@ -163,7 +205,11 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   const where = `ResourceView(${view.resource})`;
 
   const [ownLayout, setOwnLayout] = useFollowedState<CalendarLayout>(layoutProp, () => "month");
-  const layout = layoutOr(onLayoutChange ? layoutProp : ownLayout, where);
+  // `phoneLayout`: below 768px, that layout until the person picks one from the switch. Unset,
+  // a phone shows the same layout as a desktop, as before.
+  const phone = useIsMobile();
+  const [picked, setPicked] = useState(false);
+  const layout = layoutOr(phoneLayout && phone && !picked ? phoneLayout : onLayoutChange ? layoutProp : ownLayout, where);
   const [ownAnchor, setOwnAnchor] = useFollowedState<Day>(anchorProp, () => dayIn(zone));
   const anchor = anchorOr(onAnchorChange ? anchorProp : ownAnchor, dayIn(zone), where);
   const range = calendarWindow(layout, anchor, { weeks, weekStartsOn });
@@ -178,7 +224,7 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
   //   exactly at the window's first midnight is out (`gt`); a date end is the last day (`gte`).
   // A select that leaves out the calendar's own fields makes every event vanish, silently: say so.
   if (select) {
-    const missing = selectMissing(select, [fieldName, endField, allDayField, lanesOf ? undefined : laneBy]);
+    const missing = selectMissing(select, [fieldName, endField, durationField, allDayField, lanesOf ? undefined : laneBy]);
     if (missing.length) warnOnce(`ResourceView(${view.resource}): calendar select "${select}" leaves out ${missing.join(", ")}; events need them`);
   }
   // Everything the rows depend on except the window: what decides whether the last rows may stand in.
@@ -232,9 +278,16 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
       rows.flatMap((row): CalendarEvent<T>[] => {
         const start = readEventTime(row[fieldName], { dateOnly: storage === "date", timeZone: zone });
         if (start === null) return [];
-        const rowEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
+        const ownEnd = endField ? readEventTime(row[endField], { dateOnly: endStorage === "date", timeZone: zone }) : null;
         const allDay = allDayField ? Boolean(row[allDayField]) : typeof start === "string";
         const startDay = typeof start === "string" ? start : dayIn(zone, start);
+        // No end of its own: the start plus its duration. A timed row ends that long after it
+        // starts (exclusive, like a stored end); a date or an all-day row runs that many days
+        // from its start day, so its last day is the one before (two days from the 3rd end on
+        // the 4th), and never before its first. An end that can't be represented (a typo of
+        // 1e308 days) leaves the row on its start alone, never breaking the calendar.
+        const length = ownEnd === null && durationField ? durationOf(row[durationField]) : null;
+        const rowEnd = length === null ? ownEnd : durationEnd(start, startDay, allDay, length * UNIT_MS[durationUnit]);
         // An all-day row stored as instants runs to an exclusive end: its last day is the one
         // before the end instant, and never before its first.
         const lastDay = (v: Day | Date) => {
@@ -243,6 +296,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
         };
         const rowLanes = lanesOf ? lanesOf(row) : laneBy ? laneKeys(row[laneBy]) : undefined;
         const colors = colorsOf?.(row);
+        const look = classNameOf?.(row);
+        const status = statusOf?.(row);
         return [
           {
             key: String(encodeRecordKey(view.contract, row as DataRow)),
@@ -252,11 +307,13 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             allDay,
             ...(rowLanes ? { lanes: rowLanes } : {}),
             ...(colors ? { colors } : {}),
+            ...(look ? { className: look } : {}),
+            ...(status ? { status } : {}),
             row,
           },
         ];
       }),
-    [rows, fieldName, endField, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, view],
+    [rows, fieldName, endField, durationField, durationUnit, allDayField, storage, endStorage, zone, lanesOf, laneBy, colorsOf, classNameOf, statusOf, view],
   );
 
   // The peek holds the record's key and reads the row from the current data, so it shows the row
@@ -325,7 +382,12 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
             variant={l === layout ? "default" : "ghost"}
             className="h-8 rounded-none"
             aria-pressed={l === layout}
-            onClick={() => (onLayoutChange ? onLayoutChange(l) : setOwnLayout(l))}
+            onClick={() => {
+              // A pick is the person's, on a phone too: `phoneLayout` stops applying.
+              setPicked(true);
+              if (onLayoutChange) onLayoutChange(l);
+              else setOwnLayout(l);
+            }}
             testID={`${testID}-layout-${l}`}
           >
             {m.calendar.layouts[l]}
@@ -336,7 +398,8 @@ export function ResourceCalendar<T extends Row = Row>(props: ResourceCalendarPro
 
   return (
     <div className={className}>
-      {title && <h2 className={cn("mb-2 text-lg font-semibold", print && "print:hidden")}>{title}</h2>}
+      {title && <h2 className={cn(subtitle ? "text-lg font-semibold" : "mb-2 text-lg font-semibold", print && "print:hidden")}>{title}</h2>}
+      {subtitle && <p className={cn("mb-2 text-sm text-muted-foreground", print && "print:hidden")}>{subtitle}</p>}
       {print && (
         <PrintableAgenda<T>
           events={events}
