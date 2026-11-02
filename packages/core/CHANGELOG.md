@@ -1,5 +1,11 @@
 # @marktiderman/genesis-core
 
+## 2.7.0
+
+### Minor Changes
+
+- 7e0d4bb: `EventOccurrence` in `@marktiderman/genesis-core/dates`: the one shape a dated event occurrence has across calendar readers, writers and screens (title, location, `allDay`, `start` and `end` as a day or an instant with an exclusive end, `timeZone`, `recurring`, `visibility`, `status`). Type only, additive.
+
 ## 2.6.0
 
 ### Minor Changes

@@ -18,7 +18,7 @@ export interface SupportStaffThreadProps extends Omit<SupportReportThreadProps, 
   /** Who a report can be given to (support staff). Without it there is no assignee picker. */
   staff?: readonly { id: string; name: string }[];
   /** Every refused change (not staff, a network failure), for reporting. */
-  onError?: (error: unknown) => void;
+  onError?: ((error: unknown) => void) | undefined;
 }
 
 const NOBODY = "__nobody__";
@@ -29,10 +29,10 @@ interface ControlsProps {
   status: FeedbackStatus;
   reporter: string | null;
   conversationId: string;
-  staff?: SupportStaffThreadProps["staff"];
+  staff?: SupportStaffThreadProps["staff"] | undefined;
   resolveUser: ResolveUser;
   copy: SupportCopy;
-  onError?: (error: unknown) => void;
+  onError?: ((error: unknown) => void) | undefined;
 }
 
 function StaffControls({ client, reportId, status, reporter, conversationId, staff, resolveUser, copy, onError }: ControlsProps) {

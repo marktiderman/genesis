@@ -1688,10 +1688,11 @@ export const features = defineFeatures({
       "A report's status, owner, feature id and read receipts are the server's: column privileges refuse them from a person, and a route never keeps its query string.",
       "Shaking the phone captures the screen and opens the feedback screen with it; the screenshot is sent only if the person keeps it, after they can hide parts of it.",
       "20 reports and 60 replies per person per hour; a failed screenshot upload keeps the report and says so.",
+      "Whom the app's report-handler hook names reads a report and its screenshots, replies as support and sets its status, but never observes its support-chat thread; the person confirms a fix or reopens the report, and only when the app's hook turns the prompt on does marking it addressed ask them to (migration 0003).",
     ],
     reviewedAt: "2026-10-24",
     links: {
-      code: ["packages/support", "packages/supabase/migrations/0006_genesis_support.sql", "packages/supabase/functions/genesis-support-intake", "apps/genesis-rn-starter/src/lib/support.ts"],
+      code: ["packages/support", "packages/supabase/migrations/0006_genesis_support.sql", "packages/support/migrations/0003_genesis_support_findings.sql", "packages/supabase/functions/genesis-support-intake", "apps/genesis-rn-starter/src/lib/support.ts"],
       docs: ["packages/support/README.md"],
     },
   },

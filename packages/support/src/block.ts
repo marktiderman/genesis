@@ -1,6 +1,6 @@
 /**
  * The support block as a `defineBlock` declaration: what it adds to an app
- * (two Settings rows, its routes, migration 0006) and what it means for the
+ * (two Settings rows, its routes, migrations 0006 and 0003) and what it means for the
  * stores' privacy forms. Platform-neutral; `createSupport` (native) builds
  * on it, and a web app can resolve it with `resolveBlocks` too.
  */
@@ -58,7 +58,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
   const settings: BlockSettingsRow[] = section
     ? [
         { id: "support-send-feedback", section, title: copy.settings.sendFeedback, href: paths.feedback, order: 10, testID: "genesis-support-send-feedback" },
-        { id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", useSubtitle: options.useHelpSubtitle },
+        { id: "support-help", section, title: copy.settings.help, href: paths.inbox, order: 20, testID: "genesis-support-help", ...(options.useHelpSubtitle ? { useSubtitle: options.useHelpSubtitle } : {}) },
       ]
     : [];
   const routes = [
@@ -75,7 +75,11 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
   return {
     settings,
     routes,
-    migrations: [{ package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" }],
+    migrations: [
+      { package: PACKAGE, file: "migrations/0006_genesis_support.sql", test: "migrations/tests/0006_genesis_support.test.sql" },
+      // Severity, the verify loop and report handlers, after 0006.
+      { package: "@marktiderman/genesis-support", file: "migrations/0003_genesis_support_findings.sql", test: "migrations/tests/0003_genesis_support_findings.test.sql" },
+    ],
     privacy: {
       collects: [
         { type: "user ID", purposes: ["app functionality"], linked: true, tracking: false },
@@ -86,7 +90,7 @@ export function supportContributions(options: SupportBlockOptions = {}): BlockCo
       ],
       notes: [
         "Feedback is sent only when the person taps Send, and a screenshot only when they include it, after they can hide parts of it.",
-        "Reports, screenshots and replies are visible to the person and the app's support staff only, and go when the person deletes them or their account.",
+        "Reports, screenshots and replies are visible only to the person, the app's support staff and anyone the app names to handle the report, and go when the person deletes them or their account.",
         "Feedback includes the app version, the screen's path (never its query string; private-looking segments are replaced), the platform and basic device facts.",
       ],
     },

@@ -299,6 +299,17 @@ describe.runIf(database)("supabase/migrations", () => {
     const order = filesUnder("supabase/migrations").sort();
     expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_push.sql")));
   });
+
+  it.runIf(support)("carries genesis-support's findings migration and its pgTAP test unchanged, after the support one", () => {
+    const supportPackage = dirname(createRequire(join(root, "package.json")).resolve("@marktiderman/genesis-support/package.json"));
+    const shipped = (rel: string) => readFileSync(join(supportPackage, "migrations", rel), "utf8");
+    const copies = filesUnder("supabase/migrations").filter((f) => f.endsWith("_genesis_support_findings.sql"));
+    expect(copies).toHaveLength(1);
+    expect(read(copies[0]!)).toBe(shipped("0003_genesis_support_findings.sql"));
+    expect(read("supabase/tests/database/genesis_support_findings.test.sql")).toBe(shipped("tests/0003_genesis_support_findings.test.sql"));
+    const order = filesUnder("supabase/migrations").sort();
+    expect(order.indexOf(copies[0]!)).toBeGreaterThan(order.findIndex((f) => f.endsWith("_genesis_support.sql")));
+  });
 });
 
 describe.runIf(database)("supabase/functions", () => {

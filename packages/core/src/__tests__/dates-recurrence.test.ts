@@ -1,12 +1,15 @@
 // @feat:person-day
 import { describe, expect, it } from "vitest";
 import {
+  addDays,
   addMonths,
   addWeeks,
+  daysBetween,
   daysInMonth,
   eachDay,
   expandRecurrence,
   instantIn,
+  isDay,
   monthGridRange,
   monthRange,
   parseRRule,
@@ -16,6 +19,7 @@ import {
   startOfMonth,
   startOfQuarter,
   wallTimeIn,
+  weekdayOf,
   weeksRange,
   type Occurrence,
 } from "../dates";
@@ -283,7 +287,8 @@ describe("expandRecurrence: all-day series", () => {
   });
 
   it("ends a rule that names no real day", () => {
-    expect(days(expand({ rule: "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30", start: "2026-01-01", window: { start: "2026-01-01", end: "2900-01-01" } }))).toEqual([
+    // 29 February is never a month's first Monday (days 1 to 7): parses, never matches, and ends.
+    expect(days(expand({ rule: "FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=29;BYDAY=1MO", start: "2026-01-01", window: { start: "2026-01-01", end: "2900-01-01" } }))).toEqual([
       "2026-01-01",
     ]);
   });
@@ -652,5 +657,104 @@ describe("expandRecurrence: review findings", () => {
     expect(run("FREQ=MONTHLY;INTERVAL=18;COUNT=10;BYMONTHDAY=10,11,12,13,14,15", "1997-09-10")).toEqual([
       "1997-09-10", "1997-09-11", "1997-09-12", "1997-09-13", "1997-09-14", "1997-09-15", "1999-03-10", "1999-03-11", "1999-03-12", "1999-03-13",
     ]);
+  });
+});
+
+describe("expandRecurrence: 2.5.0 review", () => {
+  it("finds a series that began more than 400 years before the window", () => {
+    expect(days(expand({ rule: "FREQ=YEARLY", start: "1600-07-04", window: { start: "2026-01-01", end: "2027-01-01" } }))).toEqual(["2026-07-04"]);
+    expect(days(expand({ rule: "FREQ=DAILY", start: "1500-01-01", window: { start: "2026-11-01", end: "2026-11-03" } }))).toEqual(["2026-11-01", "2026-11-02"]);
+  });
+
+  it("keeps looking as long as an interval that doesn't divide 400 years can still land", () => {
+    expect(days(expand({ rule: "FREQ=YEARLY;INTERVAL=300;BYMONTH=2;BYMONTHDAY=29;COUNT=3", start: "2000-02-29", window: { start: "2000-01-01", end: "9999-12-31" } }))).toEqual([
+      "2000-02-29",
+      "3200-02-29",
+      "4400-02-29",
+    ]);
+  });
+
+  it("stops a weekly series at the end of year 9999 instead of throwing", () => {
+    const got = days(expand({ rule: "FREQ=WEEKLY;COUNT=20", start: "9999-12-20", window: { start: "9999-01-01", end: "9999-12-31" } }));
+    expect(got).toEqual(["9999-12-20", "9999-12-27"]);
+  });
+
+  it("refuses a UTC UNTIL whose time is out of range", () => {
+    expect(() => parseRRule("FREQ=DAILY;UNTIL=20261231T990000Z")).toThrow(/UNTIL=20261231T990000Z/);
+    expect(() => parseRRule("FREQ=DAILY;UNTIL=20261231T235960Z")).toThrow(/UNTIL/);
+  });
+
+  it("refuses a month and month days that never meet, quickly", () => {
+    expect(() => parseRRule("FREQ=DAILY;BYMONTH=2;BYMONTHDAY=30;COUNT=5")).toThrow(/name no date/);
+    expect(() => parseRRule("FREQ=YEARLY;BYMONTH=4,6;BYMONTHDAY=31")).toThrow(/name no date/);
+    // 29 February is real, in leap years.
+    expect(() => parseRRule("FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=29")).not.toThrow();
+  });
+
+  it("runs a sparse daily rule fast", () => {
+    const t = Date.now();
+    expect(days(expand({ rule: "FREQ=DAILY;BYMONTH=2;BYMONTHDAY=29;COUNT=5", start: "2024-02-29", window: { start: "2024-01-01", end: "2045-01-01" } }))).toHaveLength(5);
+    expect(Date.now() - t).toBeLessThan(1500);
+  });
+
+  it("refuses broken rule objects with a reason", () => {
+    const window = { start: "2026-01-01", end: "2026-02-01" };
+    const rule = (extra: object) => ({ freq: "MONTHLY" as const, interval: 1, weekStart: 1, ...extra }) as never;
+    expect(() => expand({ rule: rule({ byMonthDay: 5 }), start: "2026-01-05", window })).toThrow(/BYMONTHDAY isn't a list/);
+    expect(() => expand({ rule: rule({ byDay: [] }), start: "2026-01-05", window })).toThrow(/BYDAY is empty/);
+    expect(() => expand({ rule: rule({ byMonth: [] }), start: "2026-01-05", window })).toThrow(/BYMONTH is empty/);
+  });
+
+  it("refuses an invalid EXDATE or start instant", () => {
+    const window = { start: "2026-01-01", end: "2026-02-01" };
+    expect(() => expand({ rule: "FREQ=DAILY", start: { day: "2026-01-01", time: "09:00", timeZone: "UTC" }, exdates: [new Date("nope")], window })).toThrow(/EXDATE isn't a valid date/);
+    expect(() => expand({ rule: "FREQ=DAILY", start: { at: new Date(NaN), timeZone: "UTC" }, window })).toThrow(/start\.at isn't a valid date/);
+  });
+
+  it("matches an instant EXDATE to the second", () => {
+    const got = expand({
+      rule: "FREQ=DAILY;COUNT=3",
+      start: { at: new Date("2026-11-01T16:00:00.250Z"), timeZone: "America/Denver" },
+      exdates: [new Date("2026-11-02T16:00:00Z")],
+      window: { start: "2026-11-01", end: "2026-12-01" },
+    });
+    expect(days(got)).toEqual(["2026-11-01", "2026-11-03"]);
+  });
+});
+
+describe("readEventTime: 2.5.0 review", () => {
+  it("throws for an unknown zone", () => {
+    expect(() => readEventTime("2026-11-02 09:00:00", { timeZone: "Mars/Base" })).toThrow(/unknown time zone/);
+  });
+
+  it("gives a Date's day with dateOnly", () => {
+    expect(readEventTime(new Date("2026-11-03T03:00:00Z"), { dateOnly: true, timeZone: "America/Denver" })).toBe("2026-11-02");
+  });
+
+  it("reads a lowercase z and an offset with seconds", () => {
+    expect((readEventTime("2026-11-02t09:30:00z") as Date).toISOString()).toBe("2026-11-02T09:30:00.000Z");
+    expect((readEventTime("1880-01-01 12:00:00+04:56:02") as Date).toISOString()).toBe("1880-01-01T07:03:58.000Z");
+  });
+
+  it("truncates fractions the same way with a zone and without", () => {
+    expect((readEventTime("2026-11-02 09:30:00.1239+00") as Date).toISOString()).toBe("2026-11-02T09:30:00.123Z");
+    expect((readEventTime("2026-11-02 09:30:00.1239", { timeZone: "UTC" }) as Date).toISOString()).toBe("2026-11-02T09:30:00.123Z");
+  });
+});
+
+describe("years 1 to 99", () => {
+  it("are real days, with arithmetic across them", () => {
+    expect(isDay("0001-01-01")).toBe(true);
+    expect(isDay("0004-02-29")).toBe(true);
+    expect(isDay("0100-02-29")).toBe(false);
+    expect(addDays("0099-12-31", 1)).toBe("0100-01-01");
+    expect(addDays("0001-01-01", -0)).toBe("0001-01-01");
+    expect(daysBetween("0001-01-01", "0002-01-01")).toBe(365);
+    expect(weekdayOf("0001-01-01")).toBe(1);
+  });
+
+  it("can start a series, which still lands in the window", () => {
+    expect(days(expand({ rule: "FREQ=DAILY", start: "0001-01-01", window: { start: "9999-12-29", end: "9999-12-31" } }))).toEqual(["9999-12-29", "9999-12-30"]);
+    expect(days(expand({ rule: "FREQ=YEARLY;COUNT=3", start: "0050-07-04", window: { start: "0001-01-01", end: "0100-01-01" } }))).toEqual(["0050-07-04", "0051-07-04", "0052-07-04"]);
   });
 });

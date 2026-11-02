@@ -92,6 +92,27 @@ placeholder). Routes are sent as paths only: query strings and fragments are dro
 in the contract's validation and by a database check, and path segments that look private (an
 email, an id, a long token) become `:email`, `:id` or `:token`.
 
+What the panel takes besides the client:
+
+- `about={{ label, context }}`: what the app thinks the feedback is about (the screen's feature,
+  say), shown as "About: …" with a way to drop it; kept, its `context` and the label join the
+  report's context, and the report's thread (with `reportHeading`) shows "Sent from <label> (<route>)".
+- `severity`: a bug gets a severity choice (Minor, Annoying, Blocks me, Broken), sent as
+  `severity`. Default off.
+- `draft` (from `useFeedbackDraft()`): what the person has written, captured and pinned, held by the
+  host, so a host that unmounts the panel while the browser captures or the person pins (closing a
+  Sheet on `onHide`) loses nothing. `FeedbackLauncher` holds one already.
+- `captureOnOpen` takes a screenshot as the panel opens; `captureRequest` (a counter) takes one each
+  time it goes up, once per value across remounts, keeping what the person wrote.
+- `thanksReplacesForm`: after Send the thanks takes the form's place, with Send another (and
+  `onOpenHelp`'s button, which opens your Help). Default off: the thanks shows under the form.
+- Always on: a screenshot the browser didn't allow says so, and a placed pin shows as a row with
+  Remove.
+
+`useFeedbackShortcut(open, shortcut?)` opens feedback from anywhere with a key press (default
+⌘⇧. on a Mac, Ctrl+Shift+. elsewhere; `false` turns it off); a held key and rich-text editors are
+ignored. The press counts as the person's gesture, so the panel may ask to capture right away.
+
 ## Core
 
 ```ts
@@ -104,14 +125,23 @@ await client.submit({ type: "bug", message, context: await collector.collect(), 
 
 - `createSupportClient(supabase)`: `submit` (the Supabase sink), `myReports`, `report`,
   `replies`, `reply`, `markRead`, `deleteReport`, `attachments` (signed URLs), `ideas`,
-  `suggestIdea`, `vote`, `unvote`, `shippedForMe`, and for staff `isStaff`, `setStatus` and
-  (support-chat block) `assign`; `thread`, `conversationId` and `subscribe` for a thread on
+  `suggestIdea`, `vote`, `unvote`, `shippedForMe`, `verify` (the person confirms a fix or reopens
+  the report), `handles` (does the signed-in person handle this report), and for staff `isStaff`,
+  `setStatus` and (support-chat block) `assign`; `thread`, `conversationId` and `subscribe` for a thread on
   genesis-chat (see below). Errors are `SupportError` with the database's code (`rateLimited` for
-  `GS429`).
+  `GS429`). `verify` and `handles` need migration 0003 and are optional on the `SupportClient`
+  type (a client of your own may leave them out), so check for them before calling.
+- A report's severity always goes into its context (`context.severity`). With migration 0003
+  applied, pass `severityColumn: true` to `createSupportClient` (or `createSupabaseSink`) and it
+  is written to the `severity` column as well; for the intake function, set
+  `GENESIS_SUPPORT_SEVERITY_COLUMN=true`.
 - `createIntakeClient` + `createIntakeSink`: the wire contract over HTTP, for code without
   supabase-js (it takes no screenshots, and says so in `attachmentsDropped`).
 - `contract.ts` is the wire contract (`CONTRACT_VERSION`, headers, `SubmitFeedbackInput`,
   `validateSubmitInput`), byte-identical to the intake function's copy (a test checks).
+- `isSitePath(route)`: whether a report's route is a path on this site, safe to link (one leading
+  `/`, no other host or scheme, no `:id` placeholder). `cleanLabel`, `pageOf` and `reportHeading`
+  are how the web thread shows a report's about label, page and heading.
 - `resolveSupportCopy(overrides)`: every string, in English, overridable key by key.
 
 A GitHub issue per report, or a signed webhook, is a server-side sink: the
@@ -150,7 +180,11 @@ person never sees. The report stays the record (type, status, message, screensho
    QueryClientProvider): `<SupportReportThread client={client} reportId={id} />` is the person's
    view, the report above genesis-chat's `ChatThread`. `<SupportStaffThread client reportId
    resolveUser staff />` adds the status and assignee pickers; the composer's note toggle writes
-   internal notes.
+   internal notes. Both take, each default off: `reportHeading` (head the report with its own
+   words in an `h2`, show its message only when that adds something, and say which page it was
+   sent from, a link only when it's a path on this site), `focusHeading` (focus that heading once
+   it shows, for a sheet or dialog; it turns `reportHeading` on) and `plainChatTitle` (title the
+   conversation "Report" rather than the report's title).
 
 Kept in step by the migration: the report's status and the conversation's (open and submitted
 are open, in_progress pending, addressed solved, wont_fix closed; a status set in chat moves the
@@ -210,6 +244,36 @@ own screenshots. Every signed-in person reads the idea board (not who suggested 
 Supabase anonymous sign-in can neither vote nor suggest. Staff are whoever your
 `private.genesis_support_staff(person uuid)` hook says (none until you add it). Status, owner,
 feature id, vote counts and read receipts are the server's. See the migration's header.
+
+`migrations/0003_genesis_support_findings.sql` (this package, applied after 0006) adds:
+
+- `severity` (low, medium, high, critical) as a column the person sends with the report. The
+  client and the intake function write it only when told the column is there (`severityColumn:
+  true`, `GENESIS_SUPPORT_SEVERITY_COLUMN=true`); both always keep severity in `context` too.
+- Report handlers: your optional `private.genesis_support_report_handler(report uuid, person uuid)`
+  hook names who else handles a report besides staff (a team that owns the screen, say). They read
+  it and its screenshots, reply as support and set its status; they don't observe its
+  support-chat thread, so internal notes stay staff-only.
+- The verify loop: `support_verify_report` lets the person confirm a fix (`verified_at`) or reopen
+  the report (`in_progress`, `reopened_at`). Addressed and wont_fix stamp `resolved_at`.
+- The verify prompt, off by default. Turn it on with your hook:
+
+  ```sql
+  create function private.genesis_support_verify_prompt_enabled() returns boolean
+  language sql stable set search_path = '' as $$ select true $$;
+  revoke execute on function private.genesis_support_verify_prompt_enabled() from public, anon, authenticated;
+  ```
+
+  Then when someone else marks a report addressed, its person is asked in the thread to check the
+  fix (once an hour at most; the reply has `prompt = 'verify'` and isn't counted against anyone's
+  limit). It is a staff reply: it marks the report unread for its person, ends their editing, and
+  with support-chat is pushed as the marker's message. If it can't be posted, the status change
+  still goes through without it.
+
+It also replaces the reply trigger that `0002_genesis_support_email.sql` (support-email) replaces;
+its version keeps the email rules when that block is already installed. Adding support-email after
+it, handlers can't reply (their status changes still work, without the prompt) until 0003's
+`genesis_support_new_reply` is applied again.
 
 ## Not yet
 

@@ -317,6 +317,10 @@ jobs:
         uses: changesets/action@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
         with:
           publish-script: pnpm changeset publish
+          # version:packages also regenerates docs/component-reference.md and the sample's
+          # primitives.json, so the version PR carries them and feature PRs never commit them
+          # (AGENTS.md). The primitive docs read the packages built above. One command, no
+          # shell: the action runs this with @actions/exec, so `&&` lives in package.json.
           version-script: pnpm run version:packages
           commit-message: "chore: version packages"
           pr-title: "chore: version packages"
