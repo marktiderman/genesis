@@ -1,0 +1,23 @@
+packages/calendar/src/google.ts
+  s_6a4659246591cd::t_3e93f8283a354b 4-5,13-15,17,48-64,66,77-80,88-90,93-98,102-104,106-107,139-145,147,167,182,184,187-189,214,217-220,226,228-229,234-235,240,242,244
+packages/calendar/src/google.test.ts
+  s_6a4659246591cd::t_d9a2168b37d737 88-89,97-119
+packages/calendar/src/index.ts
+  s_6a4659246591cd::t_41bbc6343f9b29 28,31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d171b0920bef9d63436f8d88fe51e07656a71a6b",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
