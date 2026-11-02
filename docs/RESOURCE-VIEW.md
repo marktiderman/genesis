@@ -411,6 +411,75 @@ On phones:
   - A user toggle for it sits behind the feature gate and an admin permission. Otherwise every
     list grows a spreadsheet button.
 
+## Phones
+
+The list layouts below are switched on by the app or the screen. A few small defaults apply
+everywhere without asking, listed under "Small default changes".
+
+- **A screen's mode per screen size.** `mode={{ mobile: "grid", desktop: "table" }}` opens cards
+  below 768px and a table above. Only the default is responsive: once a person picks a view with
+  the switch, it is theirs on every screen size.
+- **An app-wide phone default.** Set it once, near the root:
+
+  ```tsx
+  <ResourceViewDefaultsProvider phoneMode="grid" clipCells>
+    <App />
+  </ResourceViewDefaultsProvider>
+  ```
+
+  - `phoneMode` (`"grid"` or `"list"`) is the phone default of every `layout="page"` list whose
+    screen sets no `mode`. Desktops keep the table.
+  - Embedded and compact lists never get it. An embedded list hides the view switch, so cards there
+    would leave no way back to the table; a compact list is rows already. An embedded screen that
+    wants cards says so with its own `mode`.
+  - A nested provider inherits what it doesn't set. `phoneMode={null}` turns the outer default off
+    below it, and `clipCells={false}` does the same for clipping.
+  - It is never a calendar: `mode="calendar"` stays a screen's choice.
+- **The first frame.** The server has no viewport, so it renders the desktop default; a phone
+  switches to its phone default right after hydration. A server-rendered page on a phone shows the
+  table for one frame, then the cards. Rendering both and hiding one with CSS would double every
+  row's markup and break the table's keyboard focus, so Genesis takes the frame. A client-only
+  render has no flash.
+- **Older saved picks.** Earlier versions stored the default under `genesis-view-<key>` on mount,
+  so a value there may be a real pick or a stale default. A plain default still reads it (they
+  agree, so nothing changes); a responsive default ignores it, or the first device to open a list
+  would pin every other device to its view. Real picks are now stored under
+  `genesis-view-choice-<key>`.
+- **Clipped cells.** `clipCells` (on the provider, or `DataTable clipCells`) clips each cell at its
+  column's edge on one line with an ellipsis, so a long link or email doesn't run over the next
+  column on a narrow table. Inline editors keep their overflow. A screen's
+  `slotProps={{ table: { clipCells: false } }}` wins.
+- **Autofill is the field's call.** No input gets an `autocomplete` token from its type. Unset,
+  the attribute is left off, which leaves the browser to its own heuristics: it can still offer to
+  fill a field it recognises. A view field sets a token where the form is about the viewer, and
+  `off` where it's about someone else (an admin editing a member), so the browser is asked not to
+  fill in the person at the keyboard:
+
+  ```ts
+  defineView(people, { fields: { email: { autoComplete: "email" }, phone: { autoComplete: "tel" } } });
+  defineView(members, { fields: { email: { autoComplete: "off" } } });
+  ```
+
+  A view field's `inputMode` (the keyboard) and `enterKeyHint` (the Return key's label) pass
+  through the same way, to `ResourceView`'s form, `RecordView`'s settings and the native form sheet.
+- **Phone numbers.** A field is a phone number when the contract says so, `widget: "tel"`. The
+  web form and `RecordView`'s settings render `type="tel"`; the native form sheet shows the phone
+  keypad. A column's name (`phone`, `mobile`) is never read as a type.
+
+### Small default changes
+
+These apply to existing screens without a switch:
+
+- **Keyboards.** Email, url and `tel` inputs ask for their keyboard (`inputMode`). A number asks
+  for the decimal keypad only when its `min` is 0 or more: that keypad has no minus key on an
+  iPhone. A field's own `inputMode` wins.
+- **List search.** The search box is named for screen readers, shows a search keyboard with a
+  Search key, offers no autofill (`autocomplete="off"`), and its clear button is a bigger target.
+- **Default rows and cards.** A list row (and a card) is titled by the page's title (`getTitle`,
+  else `titleField`) rather than the first column's raw value, and the title's column isn't
+  repeated as a cell. Cells read a column's `accessor` and `render`, as the table does. A row is
+  two lines: the title (up to two lines), then up to three other columns, wrapping.
+
 ## Calendar
 
 <!-- api: ResourceViewProps, ViewCalendar, ResourceCalendarOptions<any> -->

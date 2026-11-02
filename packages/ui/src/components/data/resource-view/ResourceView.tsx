@@ -11,6 +11,8 @@ import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../Re
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
+import { useResourceViewDefaults } from "./defaults";
+import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { RowAvatar } from "./RowAvatar";
 
@@ -45,11 +47,14 @@ export interface ResourceViewOptions {
    */
   defaults?: Defaults;
   /**
-   * How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's
-   * `calendar` block instead: one request per visible window, a click opens the peek. Calendar is
-   * never stored as the user's pick, so other lists of the resource don't open in it.
+   * How rows show first. The user's own pick is remembered. `{ mobile: "grid", desktop: "table" }`
+   * picks per screen size (cards on a phone); without a mode, an app-wide
+   * `ResourceViewDefaultsProvider phoneMode` does the same for every `layout="page"` list. `calendar` places the
+   * rows by the view's `calendar` block instead: one request per visible window, a click opens the
+   * peek. Calendar is never stored as the user's pick, so other lists of the resource don't open
+   * in it, and no phone default turns into it.
    */
-  mode?: "table" | "grid" | "list" | "calendar" | undefined;
+  mode?: ViewModeDefault | "calendar" | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
 }
@@ -84,6 +89,15 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
   email: "email",
 };
 
+// A phone number has no display hint of its own (it shows as text), so the form reads the
+// contract's declared `widget: "tel"`. Never guessed from the column's name. RecordView's inline
+// fields use it too.
+export function formType(f: ResolvedFormField, hasOptions: boolean): FieldType {
+  if (hasOptions) return "select";
+  if (f.field.widget === "tel" && f.display === "text") return "tel";
+  return FORM_TYPE[f.display] ?? "text";
+}
+
 function formField(
   f: ResolvedFormField,
   editable: boolean,
@@ -97,7 +111,7 @@ function formField(
   return {
     key: f.field.name,
     label: f.label,
-    type: options ? "select" : link ? "relation" : (FORM_TYPE[f.display] ?? "text"),
+    type: link && !options ? "relation" : formType(f, Boolean(options)),
     // A link is a picker over the linked rows (through the provider, under the linked view's
     // scope and default filter), never a typed id.
     ...(link && !options
@@ -119,6 +133,9 @@ function formField(
     ...(f.field.hasDefault || f.field.generated ? { hasDefault: true } : {}),
     ...(options ? { options } : {}),
     ...(f.max !== undefined ? { maxLength: f.max } : {}),
+    ...(f.autoComplete ? { autoComplete: f.autoComplete } : {}),
+    ...(f.inputMode ? { inputMode: f.inputMode } : {}),
+    ...(f.enterKeyHint ? { enterKeyHint: f.enterKeyHint } : {}),
     ...(f.sectionTitle ? { group: f.sectionTitle } : {}),
     ...(f.visible ? { visible: f.visible } : {}),
     ...(editable ? {} : { readOnlyOnEdit: true }),
@@ -147,6 +164,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   } = props;
   const cell = useDisplayCell();
   const viewer = useViewer();
+  const listDefaults = useResourceViewDefaults();
   // The viewer's scope first (the workspace they're in), then the screen's own filter over it.
   const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
   const tab = preset ? view.definition.presets?.[preset] : undefined;
@@ -275,7 +293,17 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...((subtitle ?? copy?.subtitle) ? { subtitle: subtitle ?? copy?.subtitle } : {}),
     columns,
     variant: layout === "page" ? "page" : "embedded",
-    ...(mode && mode !== "calendar" ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
+    // The screen's mode first, then a compact list's rows, then the app's phone default. A
+    // screen's own `defaultView` (in `rest`) still overrides all three. The phone default is a
+    // full page's only: an embedded list hides the view switch, so cards there would have no
+    // way back to the table.
+    ...(mode && mode !== "calendar"
+      ? { defaultView: mode }
+      : layout === "compact"
+        ? { defaultView: "list" as const }
+        : layout === "page" && listDefaults.phoneMode
+          ? { defaultView: { mobile: listDefaults.phoneMode, desktop: "table" as const } }
+          : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
     getTitle: (row: T) => view.summary(row as T & DataRow).title,
     // Never ResourcePage's default (the second column's raw value, which skips `when`).
@@ -303,6 +331,10 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...(copy?.empty?.body ? { emptyDescription: copy.empty.body } : {}),
     ...(searchFields ? { searchFields } : {}),
     ...rest,
+    // The app's `clipCells` under the screen's own table props, which win.
+    ...(listDefaults.clipCells
+      ? { slotProps: { ...rest.slotProps, table: { clipCells: true, ...rest.slotProps?.table } } }
+      : {}),
     resourceOptions: {
       ...resourceOptions,
       ...(defaultFilters.length ? { defaultFilters } : {}),

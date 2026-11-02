@@ -351,7 +351,7 @@ export function buildArrayItemDefaults(
 }
 
 // Input types whose empty value ("") can be a real value of the column.
-const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "url", "hidden"]);
+const TEXT_TYPES: ReadonlySet<string> = new Set(["text", "textarea", "email", "tel", "url", "hidden"]);
 
 /**
  * What a save sends for an input left empty: `""`, or `undefined` (a cleared number input). Only a field whose column the form knows

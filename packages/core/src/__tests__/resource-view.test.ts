@@ -104,6 +104,18 @@ describe("defineView defaults", () => {
     expect(view.columns().find((c) => c.key === "name")!.value(row)).toBe("Northwind");
   });
 
+  it("asks a form field for autofill only when the view says", () => {
+    const own = defineView<typeof brands, BrandRow>(brands, { fields: { website: { autoComplete: "url" } } });
+    expect(own.form("create").find((f) => f.field.name === "website")!.autoComplete).toBe("url");
+    expect(view.form("create").every((f) => f.autoComplete === undefined)).toBe(true);
+  });
+
+  it("carries a view field's keyboard and Return key to the form", () => {
+    const own = defineView<typeof brands, BrandRow>(brands, { fields: { website: { inputMode: "url", enterKeyHint: "go" } } });
+    expect(own.form("create").find((f) => f.field.name === "website")).toMatchObject({ inputMode: "url", enterKeyHint: "go" });
+    expect(view.form("create").every((f) => f.inputMode === undefined && f.enterKeyHint === undefined)).toBe(true);
+  });
+
   it("builds a form of writable fields only", () => {
     const create = view.form("create").map((f) => f.field.name);
     expect(create).not.toContain("id");

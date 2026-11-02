@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4090 other exports · 3273 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4092 other exports · 3274 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -8628,10 +8628,10 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 
 | Name | Kind | Stability | Summary |
 | --- | --- | --- | --- |
-| `ASSET_SIZES` | value | — | _(no summary)_ |
+| [`ASSET_SIZES`](../packages/sites/src/web/assets.generated.ts) | const | — | _(no summary)_ |
 | [`ASSETS_PREFIX`](../packages/sites/src/web/handler.ts) | const | — | Where this package serves its own files, under the site's base path. Reserved for pages. |
 | [`collectFormSlugs`](../packages/sites/src/web/document.tsx) | function | — | The form slugs a page uses, to resolve before rendering: well-formed slugs of visible form embeds in the page body. |
-| `FONT_FILES` | value | — | _(no summary)_ |
+| [`FONT_FILES`](../packages/sites/src/web/assets.generated.ts) | const | — | Each self-hosted font file's name under the assets prefix, by its key (`inter-700`). |
 | [`fontFaces`](../packages/sites/src/web/document.tsx) | function | Beta | The `@font-face` rules for a theme's fonts, from files this package serves (`font-display: swap`, the latin subset), and the heading font's file to preload. A face with one weight is declared for every weight, so a bold heading draws it ... |
 | [`handleSiteRequest`](../packages/sites/src/web/handler.ts) | function | Beta | Serve a site request, or return null when the request isn't the site's. |
 | [`pageStyleText`](../packages/sites/src/web/document.tsx) | function | — | The page's one inline `<style>`: its font faces, then the theme's variables. The Content-Security-Policy pins its hash. |
@@ -10096,7 +10096,7 @@ export type { UiMessagesOverrides };
 | [`StatCard`](../packages/ui/src/components/data/StatCard.tsx) | `StatCardProps` | — | _(no summary)_ |
 | [`TreeIndent`](../packages/ui/src/components/data/TreeIndent.tsx) | `TreeIndentProps` | — | The indent for a row's depth, its expand arrow (or a spacer for a leaf), then the row's content. |
 
-### Other exports (45)
+### Other exports (47)
 
 Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props` type).
 
@@ -10129,6 +10129,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`readEventTime`](../packages/core/src/dates.ts) | function | Beta | A stored date or timestamp as a calendar value: a day for a `date` column (`dateOnly`) or a value with no time; an instant for a timestamp. A timestamp written without a zone (Postgres `timestamp without time zone`, `2026-11-02 09:30:00`... |
 | [`RelationField`](../packages/ui/src/components/data/RelationField.tsx) | function | — | _(no summary)_ |
 | [`resolveNavigation`](../packages/core/src/navigation.ts) | function | Beta | Resolve where `pathname` sits in a logical navigation tree. Pure: it never reads browser history or `window`. |
+| [`ResourceViewDefaultsProvider`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | Beta | Set list defaults for the whole app, once, near the root: |
 | [`RowAvatar`](../packages/ui/src/components/data/resource-view/RowAvatar.tsx) | function | — | A row's picture from `rowPicture(view.summary(row))`: the image, or initials when there is no safe image or it fails to load. Decorative unless the view gave `alt`: the row's title beside it already names the row. |
 | [`shiftAnchor`](../packages/ui/src/components/data/calendar/placement.ts) | function | Beta | The anchor one step back (−1) or on (1): a month for `month`, else the window's weeks. @stability Beta |
 | [`showUndoToast`](../packages/ui/src/components/data/undo-toast.ts) | function | — | The undo toast for an `undoable` write (core's `onUndoable`): a sonner toast with an Undo button, shown for as long as the undo is offered. Needs a mounted `<Toaster />`. |
@@ -10139,6 +10140,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`useDisplayCell`](../packages/ui/src/components/data/resource-view/display.tsx) | function | — | Draw one cell: the empty mark for no value or a cell the row (or viewer) hides (`when`), else its hint's renderer. |
 | [`useResourceTable`](../packages/ui/src/components/data/use-resource-table.ts) | function | Beta | The list behind {@link ResourcePage}, without any markup: where the rows come from (a `resource` through the data provider, or `data` you pass), search, sort, status filter and paging, selection, the open record (and its URL state), the ... |
 | [`useResourceView`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The headless form: the same state as `useResourceTable`, from a view. |
+| [`useResourceViewDefaults`](../packages/ui/src/components/data/resource-view/defaults.tsx) | function | — | The list defaults in effect (empty without a provider). |
 | [`useResourceViewProps`](../packages/ui/src/components/data/resource-view/ResourceView.tsx) | function | — | The ResourcePage props a view and a screen's options make. `useResourceView` and `<ResourceView>` both use it; call it yourself to hand the props to your own layout. |
 | [`useSavedViews`](../packages/ui/src/hooks/use-saved-views.ts) | function | — | Persist `DataFilters` saved-view shape in localStorage. |
 | [`ViewSettings`](../packages/ui/src/components/patterns/view-settings.tsx) | function | — | _(no summary)_ |
@@ -10148,7 +10150,7 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`WizardForm`](../packages/ui/src/components/data/WizardForm.tsx) | function | — | _(no summary)_ |
 | `X` | value | — | _(no summary)_ |
 
-### Types (51)
+### Types (52)
 
 Type-only exports not consumed as a component's `Props`.
 
@@ -10190,6 +10192,7 @@ export type { ResourcePageSlotMap };
 export type { ResourcePageSlotProps };
 export type { ResourcePageSlots };
 export type { ResourceTableState };
+export type { ResourceViewDefaults };
 export type { ResourceViewOptions };
 export type { ResponsiveViewMode };
 export type { SavedViewItem };
