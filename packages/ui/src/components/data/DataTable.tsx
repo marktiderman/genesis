@@ -1042,6 +1042,12 @@ export function DataTable<T>({
                           col as DataTableColumn<unknown>,
                         ),
                         cellDensity,
+                        // The layout is fixed, so a cell's width is its column's: clip what
+                        // a custom cell draws (a long link, an email) at the edge instead of
+                        // letting it run over the next column, which on a narrow phone
+                        // table stacks two values on top of each other. An inline editor
+                        // keeps overflow so its own popover and focus ring aren't cut.
+                        !col.editable && "overflow-hidden text-ellipsis",
                         pin?.className,
                       )}
                       style={pin?.style}

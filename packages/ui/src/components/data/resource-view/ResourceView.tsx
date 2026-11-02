@@ -10,6 +10,8 @@ import { ResourcePage, type ResourceAction, type ResourcePageProps } from "../Re
 import type { ResourceFormFieldDef, FieldType } from "../ResourceFormField";
 import { useResourceTable, type ResourceTableState } from "../use-resource-table";
 import { useDisplayCell } from "./display";
+import { useResourceViewDefaults } from "./defaults";
+import type { ViewModeDefault } from "../../../hooks/use-view-preference";
 import { ResourceCalendar, type ResourceCalendarOptions } from "./ResourceCalendar";
 import { RowAvatar } from "./RowAvatar";
 
@@ -44,11 +46,14 @@ export interface ResourceViewOptions {
    */
   defaults?: Defaults;
   /**
-   * How rows show first. The user's own pick is remembered. `calendar` places the rows by the view's
-   * `calendar` block instead: one request per visible window, a click opens the peek. Calendar is
-   * never stored as the user's pick, so other lists of the resource don't open in it.
+   * How rows show first. The user's own pick is remembered. `{ mobile: "grid", desktop: "table" }`
+   * picks per screen size (cards on a phone); without a mode, an app-wide
+   * `ResourceViewDefaultsProvider phoneMode` does the same for every list. `calendar` places the
+   * rows by the view's `calendar` block instead: one request per visible window, a click opens the
+   * peek. Calendar is never stored as the user's pick, so other lists of the resource don't open
+   * in it, and no phone default turns into it.
    */
-  mode?: "table" | "grid" | "list" | "calendar" | undefined;
+  mode?: ViewModeDefault | "calendar" | undefined;
   title?: string | undefined;
   subtitle?: string | undefined;
 }
@@ -83,12 +88,22 @@ const FORM_TYPE: Partial<Record<DisplayHint, FieldType>> = {
   email: "email",
 };
 
+// A phone number has no display hint of its own, so a plain text field named like one
+// (`phone`, `mobile_phone`, `work_tel`) gets the phone keypad and `tel` autofill.
+const PHONE_NAME = /(^|_)(phone|mobile|tel|telephone|cell)(_|$)/i;
+
+function formType(f: ResolvedFormField, hasOptions: boolean): FieldType {
+  if (hasOptions) return "select";
+  const type = FORM_TYPE[f.display] ?? "text";
+  return type === "text" && PHONE_NAME.test(f.field.name) ? "tel" : type;
+}
+
 function formField(f: ResolvedFormField, editable: boolean): ResourceFormFieldDef {
   const options = f.options?.map((o) => ({ value: o.value, label: o.label }));
   return {
     key: f.field.name,
     label: f.label,
-    type: options ? "select" : (FORM_TYPE[f.display] ?? "text"),
+    type: formType(f, Boolean(options)),
     required: f.required,
     // What an input left empty sends: nothing on a create (the column's default applies), null on an edit.
     ...(f.field.nullable !== undefined ? { nullable: f.field.nullable } : {}),
@@ -129,6 +144,7 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
   } = props;
   const cell = useDisplayCell();
   const viewer = useViewer();
+  const listDefaults = useResourceViewDefaults();
   // The viewer's scope first (the workspace they're in), then the screen's own filter over it.
   const filter: Filter | undefined = scoped ? { ...scopeFilter(view, viewer.scope), ...screenFilter } : screenFilter;
   const tab = preset ? view.definition.presets?.[preset] : undefined;
@@ -245,7 +261,15 @@ export function useResourceViewProps<T extends Row>(props: ResourceViewProps<T>)
     ...((subtitle ?? copy?.subtitle) ? { subtitle: subtitle ?? copy?.subtitle } : {}),
     columns,
     variant: layout === "page" ? "page" : "embedded",
-    ...(mode && mode !== "calendar" ? { defaultView: mode } : layout === "compact" ? { defaultView: "list" as const } : {}),
+    // The screen's mode first, then a compact list's rows, then the app's phone default. A
+    // screen's own `defaultView` (in `rest`) still overrides all three.
+    ...(mode && mode !== "calendar"
+      ? { defaultView: mode }
+      : layout === "compact"
+        ? { defaultView: "list" as const }
+        : listDefaults.phoneMode
+          ? { defaultView: { mobile: listDefaults.phoneMode, desktop: "table" as const } }
+          : {}),
     ...(view.labelField ? { titleField: view.labelField } : {}),
     getTitle: (row: T) => view.summary(row as T & DataRow).title,
     // Never ResourcePage's default (the second column's raw value, which skips `when`).

@@ -26,6 +26,27 @@ import { FieldArrayRenderer } from "./FieldArrayRenderer";
 
 export type { FieldType, SelectOption, ResourceFormFieldDef } from "@marktiderman/genesis-core";
 
+// The keyboard and autofill each type asks for when the field doesn't say, so a phone shows the
+// right keypad and the browser can offer the person's own email or number.
+const TYPE_INPUT_MODE: Partial<Record<string, ResourceFormFieldDef["inputMode"]>> = {
+  email: "email",
+  tel: "tel",
+  url: "url",
+  number: "decimal",
+};
+const TYPE_AUTOCOMPLETE: Partial<Record<string, string>> = { email: "email", tel: "tel" };
+
+/** The `inputMode`, `autoComplete` and `enterKeyHint` an input gets, its own over its type's. */
+function inputHints(field: ResourceFormFieldDef, fieldType: string) {
+  const inputMode = field.inputMode ?? TYPE_INPUT_MODE[fieldType];
+  const autoComplete = field.autoComplete ?? TYPE_AUTOCOMPLETE[fieldType];
+  return {
+    ...(inputMode ? { inputMode } : {}),
+    ...(autoComplete ? { autoComplete } : {}),
+    ...(field.enterKeyHint ? { enterKeyHint: field.enterKeyHint } : {}),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Renderer
 // ---------------------------------------------------------------------------
@@ -243,6 +264,7 @@ export function ResourceFormFieldRenderer({
                 placeholder={field.placeholder}
                 min={field.min}
                 max={field.max}
+                {...inputHints(field, fieldType)}
                 value={f.value != null ? String(f.value) : ""}
                 onChange={(e) => {
                   const val = e.target.value;
@@ -258,7 +280,7 @@ export function ResourceFormFieldRenderer({
           );
         }
 
-        // Text, email, url, date
+        // Text, email, tel, url, date
         return (
           <FormField>
             <FormLabel htmlFor={inputId} error={!!errorMessage} required={field.required}>
@@ -268,6 +290,7 @@ export function ResourceFormFieldRenderer({
               type={fieldType}
               placeholder={field.placeholder}
               maxLength={field.maxLength}
+              {...inputHints(field, fieldType)}
               value={f.value != null ? String(f.value) : ""}
               onChange={(e) => f.onChange(e.target.value)}
               disabled={isDisabled}
