@@ -4,7 +4,7 @@
 
 > **Source:** [`scripts/gen-component-reference.mjs`](../scripts/gen-component-reference.mjs). Reads every entry point in each published package's `exports`, follows it to its source barrel, and reads the adjacent JSDoc and `<Name>Props` types with a lightweight regex parser.
 
-**Totals:** 593 components · 4099 other exports · 3281 standalone types across 190 entry points in 29 packages.
+**Totals:** 593 components · 4099 other exports · 3282 standalone types across 190 entry points in 29 packages.
 
 **Cross-link:** [`docs/README.md`](./README.md) — canonical Genesis docs entry point.
 
@@ -1777,13 +1777,14 @@ Hooks, utilities, factories, and component sub-parts (no top-level `<Name>Props`
 | [`weekdayOf`](../packages/core/src/dates.ts) | function | Beta | The weekday of a day, 0 for Sunday. @stability Beta |
 | [`weeksRange`](../packages/core/src/dates.ts) | function | Beta | `weeks` whole weeks (1 or more) from the week `day` is in: what a 1-to-4-week calendar shows. |
 
-### Types (11)
+### Types (12)
 
 Type-only exports not consumed as a component's `Props`.
 
 ```ts
 export type { Day };
 export type { DayRange };
+export type { EventOccurrence };
 export type { Occurrence };
 export type { PersonClock };
 export type { RRule };
