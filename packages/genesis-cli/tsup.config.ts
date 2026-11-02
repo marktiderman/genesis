@@ -28,7 +28,7 @@ function bundleAssets() {
   console.log("  assets ✔ catalog, templates, starter");
 }
 
-// Two passes: library code (no shebang) + the CLI entry (with shebang).
+// Three passes: library code (no shebang), the lint pieces (ESM and CommonJS), the CLI entry (with shebang).
 export default defineConfig([
   {
     entry: {
@@ -42,12 +42,27 @@ export default defineConfig([
     dts: true,
     splitting: false,
     sourcemap: true,
-    clean: true,
+    // Not tsup's clean: it runs per pass, and its declaration step would delete the other passes' .d.ts files. `build` empties dist first.
+    clean: false,
     treeshake: true,
     minify: false,
     target: "es2022",
     outExtension: () => ({ js: ".js" }),
     external: ["commander", "postgres", "jiti", /^@marktiderman\//, /^@expo\//, "vite"],
+  },
+  {
+    // The lint pieces apps load from eslint.config.js, which is often CommonJS: built for require and import.
+    entry: { eslint: "src/eslint.ts" },
+    format: ["esm", "cjs"],
+    dts: true,
+    shims: true,
+    splitting: false,
+    sourcemap: true,
+    clean: false,
+    treeshake: true,
+    minify: false,
+    target: "es2022",
+    outExtension: ({ format }) => ({ js: format === "cjs" ? ".cjs" : ".js" }),
   },
   {
     entry: {

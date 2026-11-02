@@ -41,11 +41,12 @@ import { checkAgentGuide, primitivesSummary } from "./primitives.js";
 import { checkOverlays } from "./overlays.js";
 import { checkLockFiles } from "./lock-files.js";
 import { checkDatabaseHome } from "./database.js";
+import { checkEslintConfig } from "./eslint-config.js";
 import { existsSync } from "node:fs";
 import type { DoctorConfig, DoctorContext, DoctorPack, DoctorPlugin, DoctorResult, Finding, FindingInput, GenesisFacts } from "./types.js";
 
-/** Built-in rules ratcheted under --base without config (a deprecation lands on existing code). */
-const RATCHETED_BY_DEFAULT = ["deprecated-import"] as const;
+/** Built-in rules ratcheted under --base without config (a deprecation, or a config Genesis now wants changed, lands on existing code). */
+const RATCHETED_BY_DEFAULT = ["deprecated-import", "genesis-eslint-config"] as const;
 
 export type * from "./types.js";
 export {
@@ -245,6 +246,7 @@ export function builtinChecks(config: DoctorConfig, options: { contracts?: boole
     { name: "overlays", check: (ctx: DoctorContext) => checkOverlays(ctx) },
     { name: "lock-files", check: checkLockFiles },
     { name: "database-elsewhere", check: checkDatabaseHome },
+    { name: "eslint-config", check: checkEslintConfig },
     ...(config.packs ?? []).map((p) => packs[p]),
     ...(config.packs?.includes("supabase") && config.contracts && options.contracts !== false ? [{ name: "contracts", check: (ctx: DoctorContext) => checkContracts(ctx) }] : []),
   ];
