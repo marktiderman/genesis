@@ -1,0 +1,31 @@
+packages/ui/src/components/data/calendar/PrintableAgenda.tsx
+  s_6a4659246591cd::t_b968c4836a3fd9 1-154
+  s_6a4659246591cd::t_0866bc4608ac9e 155-158
+packages/ui/src/components/data/__tests__/printable-agenda.test.tsx
+  s_6a4659246591cd::t_830b4943431947 1-78
+  s_6a4659246591cd::t_de236cce4ff702 79-80
+.changeset/calendar-printable-agenda.md
+  s_6a4659246591cd::t_026aad55a3ff44 1-7
+docs/component-reference.md
+  s_6a4659246591cd::t_6922347af37884 7,10042,10054,10065,10095,10118,10148
+packages/ui/src/components/data/calendar/index.ts
+  s_6a4659246591cd::t_0204e723c06bc5 2
+packages/ui/src/messages-en.ts
+  s_6a4659246591cd::t_97f1b2a1bc806c 199-202
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "0cdd586b752b6f3ce07aeeed10fbe4684d3cdeef",
+  "prompts": {},
+  "sessions": {
+    "s_6a4659246591cd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8f2cfd72-9f29-4d1b-96c4-4fcfa1540e3f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Mark Tiderman <marktiderman@users.noreply.github.com>"
+    }
+  }
+}
